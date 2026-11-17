@@ -190,14 +190,22 @@ async function render(): Promise<void> {
       : chip("Unlisted destination", "warn");
   const chips = el("div", { class: "chips" }, status);
   const w = a.world;
-  if (w?.comfort.intensity) chips.append(chip(`Intensity: ${w.comfort.intensity}`));
+  // What kind of place this is, and whether this device can run it (spec §6.7).
+  const vr = navigator.xr ? await navigator.xr.isSessionSupported("immersive-vr").catch(() => false) : false;
+  if (w) {
+    const kinds = [w.modes.includes("immersive-vr") && "VR", w.modes.includes("immersive-ar") && "AR", w.modes.includes("inline-3d") && "3D in your browser"].filter(Boolean);
+    const kind = kinds.length > 0 ? kinds.join(", ") : w.modes.includes("2d") ? "An ordinary web page" : "";
+    if (kind) chips.append(chip(kind));
+    const immersiveOnly = w.modes.length > 0 && w.modes.every((m) => m === "immersive-vr" || m === "immersive-ar");
+    if (immersiveOnly && !vr) chips.append(chip("Needs a VR headset", "warn"));
+  }
+  if (w?.comfort.intensity) chips.append(chip(`Intensity: ${w.comfort.intensity}`, w.comfort.intensity === "high" ? "warn" : "plain"));
   if (w?.comfort.locomotion) chips.append(chip(`Movement: ${w.comfort.locomotion}`));
   if (w?.comfort.seated) chips.append(chip(`Seated: ${w.comfort.seated}`));
   if (w?.perf) chips.append(chip(`Runs on: ${w.perf} and up`));
   if (w?.status && w.status !== "live") chips.append(chip(`Status: ${w.status}`, w.status === "retired" ? "bad" : "plain"));
   if (w?.contentWarning !== undefined) chips.append(chip(`Content warning${w.contentWarning ? `: ${w.contentWarning}` : ""}`, "bad"));
 
-  const vr = navigator.xr ? await navigator.xr.isSessionSupported("immersive-vr").catch(() => false) : false;
   const device = el("p", { class: "muted" }, vr ? "This device can enter VR. You'll press Enter VR again on arrival." : "This device can't enter VR; the world opens in your browser.");
 
   const card = el(
