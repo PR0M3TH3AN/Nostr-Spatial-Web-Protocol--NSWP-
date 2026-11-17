@@ -2,8 +2,22 @@
   "note": "Vercel project IDs for the reference sites (not secrets). Deploy with `npm run build && npm run deploy:sites`.",
   "orgId": "team_qGxY9CogxTxoSQFaQ31VEDKp",
   "sites": {
-    "world-a": { "projectId": "prj_m3rqpPmbqrRg3PKSALzjLAQ966cj", "url": "https://nswp-world-a.vercel.app/" },
-    "world-b": { "projectId": "prj_1mUrZZe4HUvsBhi8p5L068AtaNzW", "url": "https://nswp-world-b.vercel.app/" },
-    "airlock": { "projectId": "prj_KvVA9pSRNViNUNAKTveuIRmQ6Hqp", "url": "https://nswp-airlock.vercel.app/" }
+    "world-a": {
+      "projectId": "prj_m3rqpPmbqrRg3PKSALzjLAQ966cj",
+      "url": "https://nswp-world-a.vercel.app/"
+    },
+    "world-b": {
+      "projectId": "prj_1mUrZZe4HUvsBhi8p5L068AtaNzW",
+      "url": "https://nswp-world-b.vercel.app/"
+    },
+    "airlock": {
+      "projectId": "prj_KvVA9pSRNViNUNAKTveuIRmQ6Hqp",
+      "url": "https://nswp-airlock.vercel.app/"
+    }
+  },
+  "templateDemo": {
+    "projectId": "prj_Fsyrl3Hn5aVwlls0Zuy6B8SKyazK",
+    "url": "https://nswp-world-template.vercel.app/",
+    "note": "Deployed from a copy of the nswp-world-template repo; see sites/template-demo/README.md."
   }
 }

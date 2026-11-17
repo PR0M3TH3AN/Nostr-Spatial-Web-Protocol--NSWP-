@@ -1,0 +1,67 @@
+{
+  "world": {
+    "d": "nswp-world-template-demo",
+    "title": "NSWP world template: the starting home",
+    "url": "https://nswp-world-template.vercel.app/",
+    "summary": "What the NSWP world template looks like before anyone changes it.",
+    "description": "A demonstration of the NSWP world template, deployed unchanged. Source: github.com/PR0M3TH3AN/nswp-world-template",
+    "modes": [
+      "immersive-vr",
+      "inline-3d"
+    ],
+    "capabilities": [
+      "webxr",
+      "spatial-portals",
+      "rooms"
+    ],
+    "comfort": {
+      "locomotion": "stationary",
+      "intensity": "low",
+      "seated": "supported"
+    },
+    "inputs": [
+      "controllers",
+      "hands",
+      "gaze",
+      "keyboard-mouse",
+      "touch"
+    ],
+    "perf": "mobile",
+    "topics": [
+      "nswp",
+      "template",
+      "home"
+    ],
+    "languages": [
+      "en"
+    ],
+    "status": "beta",
+    "previews": [
+      {
+        "url": "https://nswp-world-template.vercel.app/previews/4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61.webp",
+        "type": "pano",
+        "sha256": "4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61",
+        "width": 2048,
+        "height": 1024
+      }
+    ]
+  },
+  "airlock": "https://nswp-airlock.vercel.app/",
+  "relays": [
+    "wss://nos.lol",
+    "wss://relay.primal.net",
+    "wss://relay.snort.social",
+    "wss://nostr.mom"
+  ],
+  "entryPoints": {
+    "main-entrance": {
+      "position": [
+        0,
+        0,
+        4
+      ],
+      "yaw": 0
+    }
+  },
+  "sky": "#0a0b0d"
+}
