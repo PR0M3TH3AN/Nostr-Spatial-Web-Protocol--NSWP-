@@ -12,7 +12,7 @@
 ## 0. What changed in 0.5.2
 
 - **Phase 2 is started** (§20): BitPortal has a sign-in page using a pinned BitLogin build, and a page for announcing a world. Neither has been tried with a real account yet.
-- **BitLogin's build is now pinned by hash** (§21.1). Rebuilding it from source is byte-identical and matches the live site, which settles which of the builds in circulation is the real one.
+- **BitLogin's build is now pinned by hash** (§21.1). Rebuilding it from source is byte-identical and matches the live site, which settles which of the builds in circulation is the real one. BitLogin's own release-manifest script is merged, and BitPortal's pin points at BitLogin's `main`.
 
 ## 0. What changed in 0.5.1
 
@@ -1334,7 +1334,7 @@ These items affect BitPortal directly. BitPortal therefore becomes a **forcing f
 | Block | Current state | Impact on BitPortal | Needed before |
 |---|---|---|---|
 | BitFeed | Hosted `bitfeed.js` has no version in its URL; engine and package versions disagree (0.3.0 vs 0.1.0); BitViewer widening pending; recipe publishing over Nostr not shipped | Vendor a pinned copy and record its hash; JSON recipe export | Phase 1 |
-| BitLogin | The build is reproducible, and the copy built from `main` (`bitlogin.js`, 144,005 bytes) matches the live site; other copies in circulation were built from other source. A script that emits a release folder with an integrity manifest is in an open pull request, held because the repository's dependency audit is failing on development tools. No tagged release yet; colon events, `pubkey` field and `getSigner()` / `capabilities()` not shipped; password-first with no configurable method order; NIP-46 sessions memory-only; multi-account switching and code pairing not shipped | BitPortal vendors the pinned build and checks it against the manifest; an adapter covers the naming; headset sign-in limited to what the test matrix finds (§13.1) | Phase 2 |
+| BitLogin | The build is reproducible, and the copy built from `main` (`bitlogin.js`, 144,005 bytes) matches the live site; other copies in circulation were built from other source. `npm run release:artifacts` now emits a release folder with an integrity manifest. Its CI blocks on advisories in shipped dependencies and reports tooling ones without blocking (its `SECURITY.md` records why). No tagged release yet; colon events, `pubkey` field and `getSigner()` / `capabilities()` not shipped; password-first with no configurable method order; NIP-46 sessions memory-only; multi-account switching and code pairing not shipped | BitPortal vendors the build from BitLogin's `main` and checks it against the manifest; an adapter covers the naming; headset sign-in limited to what the test matrix finds (§13.1) | Phase 2 |
 | BitGate | GPL-3.0-or-later until the accepted MIT relicense actually ships; standalone bundle not hosted; no origin targets | **Don't vendor BitGate into MIT BitPortal until relicensed**; only Phase 3b waits on it | Phase 3b |
 | BitUnlock | SDK unpublished, with no license file; limited mainnet beta; public entitlement-status route to be confirmed | Phase 5 waits on the SDK being published under MIT | Phase 5 |
 
