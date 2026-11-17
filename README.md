@@ -5,7 +5,7 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.5. **Phase 0** (formats,
+Read [`spec.md`](spec.md) first. Status: concept spec v0.6. **Phase 0** (formats,
 reference library, test worlds) and **Phase 1** (the BitPortal lobby, in the
 separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) are built,
 along with a first cut of shared rooms. Nothing here is an adopted
