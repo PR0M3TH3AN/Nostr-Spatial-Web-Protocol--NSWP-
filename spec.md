@@ -1,24 +1,45 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.2 (concept specification)
+**Version:** 0.3 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
-**Previous version:** 0.1, November 11, 2026 (`docs/history/spec-v0.1.md`)
+**Previous versions:** 0.2 (git history, merge `acc2253`); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
 
-## 0. What changed in 0.2
+## 0. What changed in 0.3
 
-- **Split into two parts.** Part I is **NSWP**, the client-neutral protocol. Part II is **BitPortal** (working name), the reference app built on the BitBlocks stack. The protocol must never require BitBlocks (§1.3).
-- **BitBlocks integration.** BitPortal uses BitLogin for identity, BitFeed for discovery, BitGate for trust and safety, and BitUnlock for paid access. Tessera, BitRoad and BitVid are optional, later integrations (§13–§18).
-- **World announcements are now tag-first.** Relays index only single-letter tags, so the fields people search on are tags and `content` is just the description (§5).
-- **Origin verification.** `/.well-known/nswp.json` binds a web origin to the pubkeys allowed to announce it. This closes the "anyone can announce anyone's URL" hole (§7).
-- **The Airlock.** A portal crossing now goes through a defined trusted interstitial that is static, self-hostable and doesn't log, since a web app can't draw trusted UI inside someone else's immersive session (§6).
-- **Identity handoff.** An origin-bound, short-lived entry assertion lets a world learn *which* identity the user chose without ever touching the signer (§4.4).
-- **Existing NIPs are now mapped** to bookmarks, reviews, invitations, presence, events and moderation, so the project doesn't invent new kinds for them (Appendix B).
-- **Added:** comfort and accessibility metadata, asset rules (VRM, Blossom, size budgets), privacy rules for referrers and entry points, the threat of password phishing *inside* worlds, a dependency/blocker register for the BitBlocks stack, and exit criteria for every MVP phase.
+0.3 is a review pass over 0.2. It corrects claims that were wrong or couldn't work, checks the BitBlocks sections against the block repositories (as of 2026-11-17), and fills gaps.
+
+**Corrections**
+
+| 0.2 said | Problem | 0.3 |
+|---|---|---|
+| Headsets sign in by passkey or by scanning a NIP-46 QR with a phone | A phone can't scan a QR shown inside a standalone headset. Passkey PRF support is uneven. BitLogin is password-first today and its NIP-46 sessions don't survive a reload | §13.1: set up on another device, then pair; pairing without a QR is an open design (Q12) |
+| The source world "learns nothing about where they went" | The source world triggers the navigation, so it knows which portal was activated | §6.2 states exactly what each party learns |
+| Users can choose their own Airlock | A world has no way to know which Airlock a user chose | §6.3: the arrival context carries a return Airlock address |
+| Ordinary websites appear as floating windows | A web app can't render other sites inside an immersive session | §2: websites are cards that open in the 2D browser |
+| The signed-out lobby uses a seed recipe, and there are no default moderators | Together these leave new users with an unfiltered feed of anyone who owns a domain | §15: a disclosed, replaceable starter set |
+| BitFeed recipes can be shared as events | Publishing recipes over Nostr is planned in BitFeed's spec, not shipped | §14: JSON export and import until it ships |
+| BitGate may not support origin targets | Confirmed: BitGate targets are user, event and address only | §15 and Q6 |
+| World servers "check BitUnlock's signed entitlement" (no detail) | The real format is known | §16 describes the service-signed receipt and how to verify it |
+| `["l", "en", "ISO-639-1"]` | NIP-32 requires the matching `L` namespace tag | §5.2 |
+| One click crosses a portal | A crossing needs two gestures: one at the Airlock and one to start the next immersive session | §6.5, with a fast path for destinations the user already approved |
+
+**Additions**
+
+- Manifest serving rules (CORS, no redirects), tighter verification, publisher-change warnings and a listing opt-out (§7).
+- Lobby network privacy: no contact with world origins until the user shows interest (§5.7).
+- Relay strategy (§5.6).
+- Airlock hardening: HTTPS-only destinations, registrable-domain display, the fake-Airlock threat (§6.2, §12).
+- Entry assertion: fragment scrubbing, the non-repudiation caveat, behaviour for static worlds (§4.4).
+- Device performance tier tag and world retirement (§5.3, §5.5).
+- An adoption ladder for world creators, starting with zero integration (§19).
+- Phase 3 is split so social discovery doesn't wait on BitGate's relicense (§20).
+- Operator policy for a hosted instance (§15).
+- Prior art to review (Appendix C).
 
 ---
 
@@ -40,7 +61,7 @@ Users move between ordinary 2D websites and immersive 3D worlds in compatible br
 |---|---|---|
 | **NSWP** (Part I) | Event formats, manifest format, portal and handoff conventions, conformance levels | CC0 |
 | **BitPortal** (Part II) | The reference spatial directory and lobby, built on BitBlocks and hosted at `portal.bitblocks.network` (proposed) | MIT |
-| **NSWP Portal SDK** | A small world-side library for portals, manifests and entry points | MIT |
+| **NSWP Portal SDK** | A small world-side library for portals, manifests and arrival handling, shipped as a tagged release artifact with an integrity manifest | MIT |
 | **Reference worlds** | At least three independently hosted demo worlds, at least one built by someone outside the project | Per world |
 
 ### 1.2 Foundational technologies
@@ -65,25 +86,25 @@ NSWP is the protocol and BitPortal is one client of it. To keep the protocol ven
 1. Nothing in Part I may reference a BitBlocks package, endpoint, domain or event kind as a requirement.
 2. Every NSWP event must be readable and publishable with nothing but a generic Nostr library and a NIP-07 or NIP-46 signer.
 3. BitPortal must ship a **"no BitBlocks" mode** that passes Conformance Level 2 (§11). In it, discovery is a plain reverse-chronological list, safety is origin display plus the user's own mutes, and only free worlds are offered. This copies BitFeed's own §83 test, which proves that none of its integrations is required.
-4. Before a NIP is proposed, a second client that is not BitBlocks must interoperate (§21).
+4. Before a NIP is proposed, a second client that is not BitBlocks must interoperate (§22).
 
 ---
 
 ## 2. Vision
 
-A user puts on a headset and opens BitPortal.
+A user puts on a headset and opens BitPortal. They set up their account earlier on their phone and paired the headset once, so they're already signed in.
 
-They sign in with a passkey or by approving on their phone (no typing a password in VR) and land in a lobby:
+They land in a lobby:
 
 - Worlds recommended by people they follow, each with a plain reason ("3 people you follow zapped this").
 - Live events happening now and scheduled ones they bookmarked.
 - Their bookmarked destinations.
 - Friends who chose to share that they're available.
-- Ordinary websites as floating windows.
+- Ordinary websites as cards that open in the headset's 2D browser.
 
-They pick a virtual museum. A portal opens onto the **Airlock**, which shows the real destination origin, whether the publisher is verified for that origin, any warnings from the moderators they trust, and the identity they'll enter as. They confirm, and the museum loads.
+They pick a virtual museum. A portal opens onto the **Airlock**, which shows the real destination origin, whether the publisher is verified for that origin, any warnings from the moderators they trust, and the identity they'll enter as. They confirm, the museum loads, and they press "Enter VR".
 
-Inside the museum is a portal to another creator's world. Walking through it goes back through the Airlock; the source world learns nothing about where they went.
+Inside the museum is a portal to another creator's world. Walking through it goes back through the Airlock. The museum knows they stepped into that portal, but not whether they went through, or who they chose to be on the other side.
 
 No central company runs the destinations. The user's identity, social graph, discovery algorithm and moderation choices travel with them.
 
@@ -93,13 +114,13 @@ No central company runs the destinations. The user's identity, social graph, dis
 2. **Decentralized identity.** Users control their Nostr identities.
 3. **Independent hosting.** World operators choose their own infrastructure.
 4. **Interoperability.** Compatible clients understand common world and portal metadata.
-5. **Progressive enhancement.** Ordinary websites keep working as ordinary websites.
+5. **Progressive enhancement.** Ordinary websites keep working as ordinary websites, and a world needs no integration at all to be listed (§19).
 6. **Permission-based immersion.** Users decide when immersive sessions start.
 7. **Privacy by default.** Identity, presence, location and navigation history are not shared unless the user chooses.
 8. **Graceful degradation.** Unsupported worlds stay reachable through ordinary navigation where possible.
-9. **Portable state, replaceable services.** Servers are allowed (multiplayer, payment verification), but no server becomes the source of truth for who a user is, what they own or what they can find. This wording comes from the BitBlocks claim-precision review.
-10. **Comfort and accessibility.** Motion-comfort, seated play and input requirements are declared before entry, not discovered afterwards.
-11. **Honest claims.** Relay retention is best effort, a signature proves authorship but not safety, and an entitlement doesn't make anything DRM. The spec says so wherever it applies.
+9. **Portable state, replaceable services.** Servers are allowed (multiplayer, payment verification), but no server becomes the source of truth for who a user is, what they own or what they can find.
+10. **Comfort and accessibility.** Motion-comfort, seated play, input and device requirements are declared before entry, not discovered afterwards.
+11. **Honest claims.** Relay retention and event expiry are best effort, a signature proves authorship but not safety, "verified" means domain control and nothing more, and an entitlement doesn't make anything DRM. The spec says so wherever it applies.
 
 ---
 
@@ -109,9 +130,8 @@ NSWP defines four layers. Part II shows how BitPortal fills each one.
 
 ### Layer 1: The spatial client
 
-The client displays both ordinary websites and immersive environments. It:
+The client displays immersive environments and links out to ordinary websites. It:
 
-- Renders ordinary HTML websites.
 - Supports WebXR.
 - Manages ordinary navigation and immersive transitions (the Airlock, §6).
 - Discovers and validates world metadata.
@@ -120,7 +140,7 @@ The client displays both ordinary websites and immersive environments. It:
 - Presents directories, bookmarks and recommendations.
 - Enforces security and permission boundaries.
 
-The first implementation is a WebXR web app running in existing headset and desktop browsers. A dedicated browser comes later, if ever.
+The first implementation is a WebXR web app running in existing headset and desktop browsers. A web app has hard limits: it can't draw trusted UI inside another site's immersive session, can't render other websites in 3D, and can't carry an immersive session across a navigation. A dedicated browser could lift all three, and comes later, if ever.
 
 ### Layer 2: Nostr identity and discovery
 
@@ -130,7 +150,7 @@ Nostr does not store or render 3D environments.
 
 ### Layer 3: Independently hosted worlds
 
-Each world is hosted by its creator: a Three.js or A-Frame app, a custom WebXR experience, a multiplayer browser game, a gallery, or a spatial front end for an ordinary website. A world can work with no Nostr support at all and still advertise NSWP metadata.
+Each world is hosted by its creator: a Three.js or A-Frame app, a custom WebXR experience, a multiplayer browser game, a gallery, or a spatial front end for an ordinary website. A world can work with no Nostr support at all and still be listed.
 
 ### Layer 4: Real-time services
 
@@ -186,9 +206,9 @@ A user may publish avatar preferences. A proposed addressable event carries them
 }
 ```
 
-- **Format.** VRM 1.0 (built on glTF) is the recommended avatar format, with plain GLB as a fallback. This answers the 0.1 question "which avatar format".
+- **Format.** VRM 1.0 (built on glTF) is the recommended avatar format, with plain GLB as a fallback.
 - **Integrity.** Model URLs should be content-addressed (Blossom) and carry the SHA-256, so a world can check the bytes it fetched.
-- **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* gets it is decided at the Airlock (§4.4). A user who wants private avatars doesn't publish this event and instead gives the URL in the entry assertion.
+- **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* is pointed at it is decided at the Airlock (§4.4). A user who wants a private avatar doesn't publish this event and gives the URL in the arrival context instead.
 - **Worlds decide.** Worlds keep control of rendering and rules. Avatar portability doesn't oblige any world to accept every model.
 
 ### 4.3 Privacy-preserving identity
@@ -202,11 +222,30 @@ Users must be able to:
 
 A stable public key is never disclosed automatically to a website.
 
-### 4.4 Identity handoff: the entry assertion (proposed)
+### 4.4 Identity handoff: the arrival context and entry assertion (proposed)
 
 The problem: a world is on a different origin from the client, so it can't see the client's signer and shouldn't. Some worlds still want to know who you are, for multiplayer names, entitlements or friends lists.
 
-The proposal: when the user chooses to reveal an identity at the Airlock, the client signs a short-lived **entry assertion** and passes it in the URL **fragment** (`#nswp=…`). Fragments are never sent to servers or written to access logs, and the destination page reads it in JavaScript.
+**Arrival context.** When the client sends the user to a world, it appends a fragment: `#nswp=<base64url JSON>`. Fragments are never sent to servers or written to access logs; the destination page reads the value in JavaScript.
+
+```json
+{
+  "v": "nswp/arrival/0.3",
+  "entry": "main-entrance",
+  "airlock": "https://portal.bitblocks.network/go",
+  "assertion": "<signed event object, optional>",
+  "avatar": "naddr1…",
+  "receipts": ["<entitlement receipt event, optional (§16)>"]
+}
+```
+
+- `entry` is the requested entry point.
+- `airlock` is the return address for outbound portals (§6.3).
+- Everything else is present only if the user ticked it at the Airlock.
+
+**The destination must scrub the fragment at once**: read it, then call `history.replaceState` to remove it, before loading any third-party script. Otherwise it stays in the browser history and is readable by every script on the page. The SDK does this.
+
+**Entry assertion.** If the user chose to reveal an identity, the client signs a short-lived event:
 
 ```json
 {
@@ -217,7 +256,6 @@ The proposal: when the user chooses to reveal an identity at the Airlock, the cl
     ["method", "GET"],
     ["nswp:origin", "https://museum.example"],
     ["nswp:nonce", "b64url-random-128-bit"],
-    ["nswp:entry", "main-entrance"],
     ["expiration", "1794430860"]
   ],
   "content": ""
@@ -226,13 +264,15 @@ The proposal: when the user chooses to reveal an identity at the Airlock, the cl
 
 Rules:
 
-- The assertion uses the NIP-98 event shape (kind 27235) so that existing NIP-98 verifiers can check it. It is bound to the destination **origin** and a random nonce, and expires within 60 seconds (NIP-40 `expiration`).
-- The world server must reject reuse of a nonce or event ID, and any assertion whose origin doesn't match its own.
-- An anonymous entry carries no assertion, just the entry point.
-- Optional extras are only included when the user ticks them at the Airlock: `["nswp:avatar", "<naddr>"]` and `["nswp:mutes", "shared"]` (a pointer to the user's NIP-51 mute list, so the world can hide avatars of people the user has muted).
-- This gives a world **proof that a key chose to enter**, nothing more. It is not a session token for anything else.
+- The assertion uses the NIP-98 event shape (kind 27235) so existing NIP-98 verifiers can check it. It is bound to the destination **origin** and a random nonce, and expires within 60 seconds (NIP-40).
+- A world **server** must reject a reused event ID and any assertion whose origin doesn't match its own, then issue its own session. After that, the world never needs the user's signer.
+- A **static world** with no server can check the signature in the page and show the name, but it can't stop a replay within the 60 seconds. It should treat the identity as cosmetic and not gate anything on it.
+- An anonymous entry carries no assertion.
+- `["nswp:mutes", "shared"]` may be added to ask the world to apply the user's public NIP-51 mute list, so muted people's avatars are hidden. Public mute lists are readable by anyone anyway, so this is a request, not a disclosure. Private mutes can't be shared this way.
 
-Using kind 27235 for something other than an HTTP request is a deliberate reuse that needs community review before any NIP (§21). Open question Q1 covers per-world derived identities.
+**What an assertion reveals, permanently.** A signature can't be taken back. An entry assertion is a transferable proof that this key chose to enter this world at this time, and a world can keep or publish it. Users who mind should enter anonymously or under an alternate identity, and the Airlock says so in plain words the first time a main identity is used. A deniable alternative is open question Q3.
+
+Using kind 27235 for something other than an HTTP request is a deliberate reuse that needs community review before any NIP (§22).
 
 ---
 
@@ -242,12 +282,12 @@ The central primitive is the **Spatial World Announcement**: a signed, addressab
 
 ### 5.1 Event classification
 
-- Use an experimental addressable kind in the `30000–39999` range, written as `WORLD_KIND` until assigned. Before choosing one, check it against the NIPs repository, known clients and **the kinds the BitBlocks stack already uses**. BitRoad and BitUnlock products use `30078` (NIP-78), so that kind is ruled out.
+- Use an experimental addressable kind in the `30000–39999` range, written as `WORLD_KIND` until assigned. Before choosing one, check it against the NIPs repository, known clients and **the kinds the BitBlocks stack already uses**. BitRoad products and BitUnlock products and receipts use `30078` (NIP-78), so that kind is ruled out.
 - A `d` tag holds the stable world identifier.
 - The world is referenced elsewhere by its coordinate `WORLD_KIND:<pubkey>:<d>` (an `a` tag, or an `naddr`).
-- A dedicated kind is proposed later through the NIP process (§21).
+- A dedicated kind is proposed later through the NIP process (§22).
 
-### 5.2 World announcement event (revised, tag-first)
+### 5.2 World announcement event (tag-first)
 
 Relays index **single-letter** tags, so the fields people filter on are single-letter tags. Other display fields are named tags. `content` is a plain-text or Markdown description, and clients don't parse JSON out of it.
 
@@ -260,7 +300,7 @@ Relays index **single-letter** tags, so the fields people filter on are single-l
     ["title", "Example Virtual Museum"],
     ["summary", "An immersive art gallery with three wings."],
     ["r", "https://museum.example/world"],
-    ["image", "https://museum.example/preview.webp", "1920x1080"],
+    ["image", "https://blossom.example/<sha256>.webp", "1920x1080"],
     ["mode", "immersive-vr"],
     ["mode", "inline-3d"],
     ["capability", "webxr"],
@@ -272,11 +312,12 @@ Relays index **single-letter** tags, so the fields people filter on are single-l
     ["comfort", "seated", "supported"],
     ["input", "controllers"],
     ["input", "hands"],
+    ["perf", "standalone"],
     ["t", "museum"],
     ["t", "art"],
+    ["L", "ISO-639-1"],
     ["l", "en", "ISO-639-1"],
     ["status", "live"],
-    ["manifest", "https://museum.example/.well-known/nswp.json"],
     ["p", "<co-creator hex pubkey>", "", "co-creator"],
     ["a", "30078:<seller pubkey>:<product-d>", "", "access"],
     ["alt", "Spatial world listing: Example Virtual Museum"]
@@ -293,30 +334,35 @@ This shows the unsigned body; signing adds `id`, `pubkey` and `sig`. `WORLD_KIND
 |---|---|---|---|
 | `d` | ✓ | ✓ | Stable world ID within this publisher |
 | `title` | ✓ | | Display name |
-| `r` | ✓ | ✓ | Entry URL (HTTPS). Lets clients find every announcement of one URL |
+| `r` | ✓ | ✓ | Entry URL (HTTPS only). Lets clients find every announcement of one URL |
 | `summary` | | | One-line description |
-| `image` | | | Preview image, optional dimensions |
+| `image` | | | Preview image, optional dimensions; a content-addressed host is preferred (§5.7) |
 | `mode` | | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`; repeatable, in order of preference |
 | `capability` | | | `webxr`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments` |
 | `comfort` | | | `locomotion` (`stationary`, `teleport`, `smooth`, `vehicle`), `intensity` (`low`, `medium`, `high`), `seated` (`supported`, `required`, `unsupported`) |
 | `input` | | | `controllers`, `hands`, `gaze`, `keyboard-mouse`, `touch`, `gamepad` |
+| `perf` | | | Lowest device class the world targets: `mobile`, `standalone` (self-contained headset), `desktop` (PC-driven) |
 | `t` | | ✓ | Topics |
-| `l` / `L` | | ✓ | Language and other NIP-32 self-labels |
+| `L` / `l` | | ✓ | Language and other NIP-32 self-labels (`l` always with its `L` namespace) |
 | `content-warning` | | | NIP-36 content warning, with a reason |
 | `status` | | | `live`, `beta`, `maintenance`, `retired` |
-| `manifest` | | | Manifest URL (defaults to `<origin>/.well-known/nswp.json`) |
+| `manifest` | | | Only if the manifest isn't at the well-known path (§7.1); such a manifest can't verify the publisher |
 | `p` | | ✓ | Co-creators |
 | `a` | | ✓ | Linked objects, such as an access product (§16) |
 | `alt` | ✓ | | NIP-31 fallback text for clients that don't understand the kind |
 
-Capability and comfort declarations are **informational**. They never override browser permission requirements, and they are claims until verified by experience and reports.
+Capability, comfort and performance declarations are **informational**. They never override browser permission requirements, and they are claims until borne out by visits and reports.
 
 ### 5.4 Operator announcements vs. curation
 
 There are two kinds of "listing", and clients must tell them apart:
 
-- **Operator announcement.** A world event whose `pubkey` is listed as a publisher in the origin's manifest (§7.2). Clients show it as **verified for this origin**.
-- **Curation.** Anyone can recommend or list a world without claiming to run it, using a NIP-51 set (`kind 30003` bookmark set or similar) of `a` / `r` references, or a recommendation (§8.2). An unverified world event, where the pubkey isn't in the manifest, is treated as curation: shown, but labelled "listed by", never "by".
+- **Operator announcement.** A world event that passes origin verification (§7.3). Clients show it as **verified for this origin**.
+- **Curation.** Anyone can recommend or list a world without claiming to run it. Curators use a NIP-51 set of `a` / `r` references, or a recommendation (§8.2). An unverified world event is treated as curation: shown, but labelled "listed by", never "by".
+
+NIP-51 has no set kind made for worlds. Bookmark sets (kind 30003) work for experiments; a dedicated curation-set kind may be part of the eventual NIP.
+
+Curation is what lets the directory start with worlds that have never heard of NSWP (§19). An origin that doesn't want to be listed can say so (§7.2), and compliant clients honour it.
 
 ### 5.5 Discovery behavior
 
@@ -328,9 +374,26 @@ A client should support:
 4. Curated directories (NIP-51 sets).
 5. Bookmarks (§8.3).
 6. Signed updates from publishers (a newer `created_at` replaces older addressable events).
-7. Availability checks: fetch the manifest, record last-seen, and mark unreachable worlds rather than hiding them silently.
+7. Retirement: a publisher sets `status` to `retired`, and may follow with a NIP-09 deletion request. Deletion is best effort; clients treat a retired world as closed and keep bookmarks pointing at it readable.
+8. Availability: when the user shows interest in a world (§5.7), record whether it responded, and mark unreachable worlds rather than hiding them silently.
 
 Relays provide discoverability. They don't guarantee that a referenced site is up or safe.
+
+### 5.6 Relay strategy
+
+- **Publishing.** A world event goes to the publisher's NIP-65 write relays. `naddr` references carry relay hints.
+- **Follow-graph discovery** uses the outbox model: read each followed author's events from that author's write relays.
+- **Global discovery** needs relays that hold many world events. Clients keep a visible, editable list of discovery relays. Anyone can run an index relay that accepts only `WORLD_KIND`; a client's default list is a convenience, not an authority.
+- **Verification is local.** Clients check every signature themselves and never trust a relay's word for an event.
+- The manifest's `relays` field (§7.2) hints where a world's events live.
+
+### 5.7 Network privacy in the lobby
+
+A lobby that eagerly fetches from every listed world tells all of those worlds the user's IP address before the user has chosen anything. So:
+
+- A client must not contact a world's origin (manifest, entry page, availability probe) merely because the world is listed. It does so when the user focuses the world (opens its card) or reaches the Airlock, and caches the result.
+- Preview images are the exception that can't be fully avoided, since loading one tells its host that someone is looking. Publishers should host previews on content-addressed storage rather than the world's own origin. Clients should offer "load previews on focus" and may offer a proxy.
+- Verification done by a third party and published as labels could remove the remaining fetches. That is open question Q13; a client would still re-verify at the Airlock.
 
 ---
 
@@ -340,11 +403,11 @@ A **spatial portal** is an object or interface in one environment that links to 
 
 ### 6.1 Portal destination
 
-A portal can point at an HTTPS URL, a world coordinate (`naddr`), a named entry point, and an optional spawn pose.
+A portal can point at a world coordinate (`naddr`), an HTTPS URL, a named entry point, and an optional spawn pose.
 
 ```json
 {
-  "schema": "nswp/portal/0.2",
+  "schema": "nswp/portal/0.3",
   "label": "Enter the Art Gallery",
   "destination": {
     "naddr": "naddr1…",
@@ -355,80 +418,110 @@ A portal can point at an HTTPS URL, a world coordinate (`naddr`), a named entry 
 }
 ```
 
-When both are present, the `naddr` wins. The client resolves it, checks that the event's `r` matches `url`, and treats a mismatch as a warning.
+When both are present, the `naddr` wins. The client resolves it, checks that the event's `r` matches `url`, and treats a mismatch as a warning. A bare URL with no `naddr` is always shown as an unlisted destination.
 
 ### 6.2 The Airlock: a trusted handoff
 
-0.1 asked for "trusted, non-spoofable destination information", but a web app can't draw trusted UI inside someone else's immersive session. Whoever owns the XR session owns every pixel. So the trusted moment has to happen **between** sessions, on a page the client controls. That page is the **Airlock**.
+A web app can't draw trusted UI inside someone else's immersive session: whoever owns the XR session owns every pixel. So the trusted moment has to happen **between** sessions, on a page the client controls. That page is the **Airlock**.
 
 The Airlock:
 
-1. Shows the **real destination origin** in large type, with publisher verification status (§7.2).
-2. Shows the policy verdict (BitPortal: BitGate, §15): warnings, required confirmations, or a block.
-3. Shows comfort and input requirements, and whether the user's device meets them.
-4. Lets the user choose an identity: anonymous, main or alternate (§4.4).
-5. Shows the price, if any, and whether the user already holds an entitlement (§16).
-6. Needs a **user gesture** to continue, which WebXR needs anyway to start the next immersive session.
+1. Shows the **real destination origin** in large type, with the registrable domain emphasised and mixed-script or punycode names shown in their raw form, so lookalike domains stand out.
+2. Shows publisher verification status, and warns if the publisher for this origin has changed since the user last visited (§7.3).
+3. Shows the policy verdict (BitPortal: BitGate, §15): warnings, required confirmations, or a block.
+4. Shows comfort, input and performance requirements, and whether the user's device meets them.
+5. Lets the user choose an identity: anonymous, main or alternate (§4.4).
+6. Shows the price, if any, and whether the user already holds an entitlement (§16).
+7. Needs a **user gesture** to continue.
 
-Privacy rules for the Airlock:
+**Hard rules**
 
-- The destination is passed in the **fragment** (`/go#to=<naddr-or-url>`), never in a query string, so no server logs where anyone went.
-- The Airlock is a **static page** with no analytics and no server-side component. Any client, world or user can self-host one, and users can choose their own Airlock in settings.
-- Portal navigation uses `rel="noreferrer"` and `Referrer-Policy: no-referrer`, so the destination doesn't learn the source world, and the source world doesn't learn which portal was taken once the user is past the Airlock.
+- Destinations must be `https:`. The Airlock rejects every other scheme (`javascript:`, `data:`, `file:` and the rest) before doing anything with the value.
+- The destination arrives in the **fragment** (`/go#to=<naddr-or-url>`), never in a query string, so no server logs where anyone went.
+- The Airlock is a **static page** with no analytics and no server-side component, and anyone can host one.
+- The Airlock never forwards automatically to a destination the user hasn't approved before (see the fast path, §6.5). Otherwise it would be an open redirect carrying the client's good name.
 
-### 6.3 Navigation sequence
+**What each party learns**
+
+| Party | Learns | Doesn't learn |
+|---|---|---|
+| Source world | Which of its portals the user activated | Whether the user went through, or which identity they used there |
+| Destination world | That a visitor arrived, their IP address, and whatever the user chose to reveal | Which world they came from (the Airlock sits in between, and navigates with `no-referrer`) |
+| Airlock host | Nothing server-side (static page, fragment) | — |
+| Relays | That the client asked for this world's events, if not cached | The rest |
+
+**What the Airlock can't do.** A hostile world is a website, and a website can navigate anywhere it likes without asking. The Airlock doesn't stop that. It guarantees that crossings made through compliant portals are checked against the user's own policy, and that the user has one known place to judge a destination.
+
+### 6.3 Which Airlock
+
+A world can't know which client a user prefers, so the client tells it:
+
+1. **Return address.** The arrival context (§4.4) carries `airlock`. The SDK remembers it for the browser tab's session and sends outbound portals back there. The user returns to their own client, where they're already signed in.
+2. **World default.** With no return address (the user typed the URL or followed an ordinary link), the SDK uses the Airlock the world's developer configured (an SDK option, also declared as `airlock` in the manifest, §7.2).
+3. **Built-in fallback.** With neither, the SDK shows its own minimal interstitial: destination origin, a confirm button, nothing else. It never asks for credentials or identity.
+
+The return address tells the world which client the user came from. That is a small disclosure, and the SDK doesn't keep it past the tab session.
+
+**Fake Airlocks.** A hostile world can ignore the return address and send the user to a lookalike page that asks them to "sign in again". Defences: the user is already signed in at their real Airlock, so a sign-in prompt in the middle of a crossing is itself the warning sign; passkeys are bound to the real origin and can't be used on a fake; and the address bar is visible, because the Airlock is always a 2D page. Clients teach this rule alongside §12.3.
+
+### 6.4 Navigation sequence
 
 1. The user approaches a portal. The source world may show a preview using announcement metadata.
-2. The user activates it. The source world ends its XR session and navigates to the Airlock with the destination in the fragment. The SDK does this (§6.5).
+2. The user activates it. The source world ends its XR session and navigates to the Airlock with the destination in the fragment.
 3. The Airlock resolves and validates the destination (§6.2).
 4. The user confirms with a gesture.
-5. The client navigates to the destination with `#nswp=…`, carrying the entry point and an optional entry assertion.
-6. The destination loads and asks for its own WebXR session on the next gesture.
-7. The user arrives at the requested or default entry point.
+5. The client navigates to the destination with the arrival context (§4.4).
+6. The destination reads and scrubs the fragment, loads, and shows its own "Enter VR" control.
+7. The user presses it, and arrives at the requested or default entry point.
 
-### 6.4 Limitations, stated honestly
+### 6.5 Limitations, stated honestly
 
-- WebXR requires user activation and permission for each immersive session. NSWP doesn't bypass this.
-- Crossing a portal today means a brief exit from immersion. The Immersive Web group's navigation proposal (the `sessiongranted` event, experimental in some headset browsers; check current status) could remove the gap later. Clients should feature-detect it and fall back to the Airlock-plus-gesture flow.
+- **Two gestures per crossing.** One confirms at the Airlock. The second starts the destination's immersive session, because WebXR requires user activation on the page that asks for the session, and activation doesn't carry across a navigation.
+- **Fast path.** The Airlock may skip its confirmation, showing the destination for a moment with a cancel control, only when all of these hold: the destination is a verified world the user has approved before; the publisher hasn't changed; the policy verdict is a clean allow; the remembered identity choice applies; and nothing is being paid. That brings a familiar crossing down to one gesture.
+- **Brief exit from immersion.** The Immersive Web group's navigation proposal (the `sessiongranted` event, experimental in some headset browsers; check current status) could remove the gap later. Clients feature-detect it and fall back to the flow above.
 - A *dedicated* browser could render a trusted Airlock inside an ongoing session. A web app can't.
 
-### 6.5 Portal API
+### 6.6 Portal API
 
 The world-side SDK exposes a navigation call that works in any browser:
 
 ```javascript
-import { portal } from "nswp-sdk";
+import { portal, arrival } from "nswp-sdk";
 
 portal.go({
   naddr: "naddr1…",          // or url
-  entryPoint: "main-entrance",
-  airlock: "auto"             // user's chosen Airlock, else the default
-});
+  entryPoint: "main-entrance"
+});                           // picks the Airlock per §6.3
+
+const ctx = arrival.read();   // reads, validates and scrubs the fragment
+// { entry, airlock, assertion?, avatar?, receipts? }
+// Verify `assertion` and `receipts` server-side before trusting them.
 ```
 
-A future dedicated browser may also expose `window.nswp.navigate()` natively, and the SDK uses it when it exists. Both are **proposed APIs**, not standards. The SDK's job is to keep world code identical either way.
+A future dedicated browser may expose `window.nswp.navigate()` natively, and the SDK uses it when it exists. Both are **proposed APIs**, not standards. The SDK's job is to keep world code identical either way.
 
-The destination side reads its arrival context:
-
-```javascript
-const arrival = nswp.readArrival();
-// { entryPoint: "main-entrance", assertion?: SignedEvent, avatar?: naddr }
-// Always verify `assertion` server-side before trusting it.
-```
+Where a world's scene is glTF-based, portals and entry points should line up with existing glTF link and spawn-point extensions rather than a new scene format (Appendix C).
 
 ---
 
 ## 7. World Manifest
 
-### 7.1 Location
+### 7.1 Location and serving
 
-The manifest lives at **`https://<origin>/.well-known/nswp.json`**, the same pattern as NIP-05's `nostr.json`. An announcement can point elsewhere with its `manifest` tag, but the well-known path is the one used for verification.
+The manifest lives at **`https://<origin>/.well-known/nswp.json`**, the same pattern as NIP-05's `nostr.json`, with the same serving rules:
+
+- It must be served with `Access-Control-Allow-Origin: *`, or browser-based clients can't read it.
+- Clients must not follow redirects when fetching it.
+- HTTPS only, at most 64 KB, `application/json`.
+
+Only the well-known path counts for verification.
 
 ### 7.2 Example
 
 ```json
 {
-  "schema": "nswp/manifest/0.2",
+  "schema": "nswp/manifest/0.3",
+  "listing": "allow",
   "publishers": {
     "<hex pubkey>": { "worlds": ["example-museum"] }
   },
@@ -439,19 +532,36 @@ The manifest lives at **`https://<origin>/.well-known/nswp.json`**, the same pat
       "capabilities": ["webxr", "spatial-portals", "avatars", "multiplayer", "entry-assertion"],
       "avatar": { "formats": ["vrm", "glb"], "max_file_size_mb": 10, "max_triangles": 70000 },
       "multiplayer": { "endpoint": "wss://museum.example/session", "auth": "entry-assertion" },
-      "budgets": { "initial_download_mb": 40 }
+      "budgets": { "initial_download_mb": 40 },
+      "airlock": "https://portal.bitblocks.network/go"
     }
   },
   "relays": ["wss://relay.example"]
 }
 ```
 
+`listing` is `allow` (default) or `deny`. With `deny`, compliant clients don't show third-party curation of this origin on their shelves; a direct link still works.
+
 ### 7.3 Verification and conflict rules
 
-- **Publisher verification.** An announcement is *verified for its origin* only when its `pubkey` appears under `publishers` in the manifest served from the origin of its `r` URL, and (if `worlds` is listed) its `d` is one of them.
-- **Who wins on conflict.** The manifest wins on **technical** fields (entry URL, entry points, budgets, multiplayer endpoint), because the origin controls what actually runs. The signed announcement wins on **descriptive** fields (title, summary, topics, images). Where they disagree on a technical field, clients show the manifest's value and flag the mismatch.
-- **Validation.** Clients check the schema, require HTTPS, limit the manifest to 64 KB, ignore unknown fields, and never treat manifest claims as permissions.
-- A manifest is optional. A world without one can still be announced, but it is never shown as verified.
+An announcement is **verified for its origin** only when all of these hold:
+
+1. The manifest was fetched from the origin of the event's `r` URL, under the rules in §7.1.
+2. The event's `pubkey` appears under `publishers`.
+3. The event's `d` is listed for that publisher.
+4. The event's `r` equals that world's `entry.url`.
+
+Further rules:
+
+- **Who wins on conflict.** The manifest wins on **technical** fields (entry URL, entry points, budgets, multiplayer endpoint), because the origin controls what actually runs. The signed announcement wins on **descriptive** fields (title, summary, topics, images).
+- **Publisher pinning.** A client remembers the verified publisher key for each origin the user has visited or bookmarked. If it later changes, the Airlock says so before entry. A lapsed domain bought by someone else looks exactly like this.
+- **Shared hosts.** Verification covers a whole origin. A site hosted on a path of a shared domain can't serve its own well-known file and so can't be verified; it needs its own subdomain or domain (Q14).
+- **Validation.** Clients check the schema, ignore unknown fields, and never treat manifest claims as permissions.
+- A manifest is optional. A world without one can still be listed, but never shown as verified.
+
+### 7.4 What "verified" means
+
+Verified means: *whoever controls this origin today vouches for this key.* It doesn't mean the world is safe, honest or well made, and domains are cheap. Safety judgments come from the user's trust graph (§15), not from verification.
 
 ---
 
@@ -486,8 +596,9 @@ Presence is optional and particularly privacy-sensitive.
 
 - The default is **off**.
 - Coarse public status ("in VR", "available to hang out") uses NIP-38 user status (kind 30315) with a NIP-40 `expiration` no more than 15 minutes ahead, refreshed while active.
-- Status that names a world goes **only** to a chosen audience, gift-wrapped (NIP-59) to a close-friends list, and it expires.
-- **Exact position, movement history and attendance records are never published.** Ephemeral or encrypted mechanisms are preferred to permanent public records.
+- Status that names a world goes **only** to a chosen audience, gift-wrapped (NIP-59) to each member of a close-friends list.
+- **Exact position, movement history and attendance records are never published.**
+- Expiry is a request to relays, not a guarantee, and any recipient can keep what they were sent. The client says this where presence is switched on.
 
 ### 8.6 Events and gatherings
 
@@ -508,13 +619,13 @@ Nostr identity → entry assertion (§4.4) → world auth endpoint → session s
 
 The protocol doesn't standardize physics, combat, animation or interaction systems. It defines only:
 
-- How worlds advertise multiplayer (`capability`, `multiplayer` in the manifest).
+- How worlds advertise multiplayer (`capability`, and `multiplayer` in the manifest).
 - One optional auth method, `entry-assertion`: the world server verifies the signature, origin, nonce and expiry, then issues its *own* session.
 - That world sessions never require a user's signer after entry. Later in-world signing (for example, posting a note from inside a world) goes back through the client with its own consent prompt, or isn't offered.
 
 ### 9.2 Cross-world sessions
 
-Continuous sessions that span providers are out of initial scope. They may later need separate standards for session transfer, party handoff ("bring my group through the portal") and cross-world communication. Party handoff is the likeliest first extension: one invitation per member, all pointing at the same destination and entry point.
+Continuous sessions that span providers are out of initial scope. Party handoff ("bring my group through the portal") is the likeliest first extension: one invitation per member, all pointing at the same destination and entry point.
 
 ---
 
@@ -524,7 +635,7 @@ Continuous sessions that span providers are out of initial scope. They may later
 
 - **Formats.** glTF/GLB and VRM, with KTX2/Basis textures and Meshopt or Draco compression. Clients and worlds should refuse other executable or scriptable formats.
 - **Integrity.** Assets referenced from Nostr carry a SHA-256 and should be served from Blossom or another content-addressed store, so any mirror can serve them.
-- **Budgets.** Worlds publish budgets (§7.2), and clients enforce their own hard limits whatever a world claims. Defaults: avatar ≤ 10 MB and ≤ 70k triangles; initial world download warned above 50 MB.
+- **Budgets.** Worlds publish budgets (§7.2), and clients enforce their own hard limits whatever a world claims. Defaults: avatar ≤ 10 MB and ≤ 70k triangles; initial world download warned above 50 MB. Per-device budgets are Q7.
 
 ### 10.2 Possessions and entitlements
 
@@ -548,8 +659,8 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | **2 — Immersion** | WebXR; capability detection; user-approved entry; manifests; Airlock portal navigation | Airlock + SDK |
 | **3 — Identity portability** | External signing; per-world identity choice; entry assertions; avatar preferences; bookmarks | BitLogin |
 | **4 — Social interoperability** | Recommendations; invitations; optional presence; events; multiplayer auth | BitFeed recipes, NIP-17/38/52/53 |
-| **5 — Advanced spatial networking** | Seamless transitions; party handoff; portable entitlements; cross-world conventions | BitUnlock entitlements; `sessiongranted` |
-| **Safety (applies to every level)** | Show the destination origin before navigation; user blocks and mutes; report flow; asset limits | BitGate + shell limits |
+| **5 — Advanced spatial networking** | Seamless transitions; party handoff; portable entitlements; cross-world conventions | BitUnlock receipts; `sessiongranted` |
+| **Safety (applies to every level)** | Show the destination origin before navigation; HTTPS-only destinations; user blocks and mutes; report flow; asset limits; lobby network privacy | BitGate + shell limits |
 
 ---
 
@@ -559,35 +670,42 @@ These levels are a proposed roadmap, not a certification program. The column on 
 
 | Threat | Notes |
 |---|---|
-| Malicious or impersonating world announcements | Countered by origin verification (§7.3) and labels (§15) |
-| Spatial phishing: a fake portal or fake destination | Countered by the Airlock (§6.2) |
-| **Credential phishing inside a world** | A world draws a pixel-perfect fake "BitLogin" or signer prompt in VR and harvests a password. See §12.3 |
-| Tracking through persistent identities | Countered by per-world identity choice, no-referrer, fragments |
-| Navigation-history leakage | The Airlock is static and doesn't log; destinations are passed in fragments |
-| Replay of entry assertions | Origin binding, nonce, 60-second expiry, single-use event ID |
+| Malicious or impersonating world announcements | Origin verification (§7.3), publisher pinning, labels (§15) |
+| Spatial phishing: a fake portal or fake destination | The Airlock (§6.2) |
+| **Credential phishing inside a world** | A world draws a fake sign-in prompt in VR. See §12.3 |
+| **Fake Airlock** | A hostile world sends the user to a lookalike Airlock that asks them to sign in. See §6.3 |
+| Script injection through the Airlock | Destinations are HTTPS-only and never auto-forwarded on first visit (§6.2) |
+| Lapsed or hijacked domain | Publisher pinning warns when an origin's publisher changes (§7.3) |
+| Lookalike domains | Registrable-domain emphasis and raw punycode display (§6.2) |
+| Tracking through persistent identities | Per-world identity choice; the non-repudiation warning (§4.4) |
+| Navigation-history leakage | Static Airlock, fragments, fragment scrubbing, `no-referrer` |
+| IP exposure to worlds merely listed | Lobby network privacy (§5.7) |
+| Replay of entry assertions | Origin binding, nonce, 60-second expiry, single-use event ID; static worlds treat identity as cosmetic |
 | Hostile or oversized avatar and world assets | Format allow-list, hash checks, hard budgets |
-| Unauthorized signer requests | The signer lives only in the client shell; worlds never get `window.nostr` from the client |
-| Spam and Sybil announcements | Social-distance ranking (BitFeed) plus trusted labels (BitGate) |
+| Unauthorized signer requests | The signer lives only in the client shell; worlds never get it |
+| Spam and Sybil announcements | Starter set for new users; social-distance ranking; trusted labels (§14, §15) |
 | Harassment inside worlds | The world's responsibility, helped by optional mute-list sharing (§4.4) |
 | Comfort-related harm (motion sickness, photosensitivity) | Comfort metadata, content warnings, reports for mislabelled comfort |
-| Excessive resource use | Client-side budgets and a visible exit control |
+| Excessive resource use | Client-side budgets, the `perf` tier, a visible exit control |
+| Supply chain: a compromised SDK or vendored block | Tagged releases with integrity manifests; vendored hashes checked in CI |
 
 ### 12.2 Client protections
 
 Clients should: show verified destination origins; require consent before releasing any identity information; keep signing out of world content; validate manifests; restrict media and model formats; enforce navigation and permission boundaries; provide clear exit and safety controls; and offer blocking, reporting and relay filtering.
 
-### 12.3 Never enter credentials inside a world
+### 12.3 Never enter credentials inside a world, or in the middle of a crossing
 
-Immersive content can imitate any UI. The client therefore teaches and enforces one rule: **you never type your password or recovery phrase inside a world.**
+Immersive content can imitate any UI. The client therefore teaches and enforces one rule: **you never type your password or recovery phrase inside a world, and you are never asked to sign in halfway through a portal.**
 
-- Sign-in happens only in the client's own 2D surface, before entering immersion.
-- In headsets, the preferred sign-in methods need nothing typed: a **passkey** (WebAuthn PRF) or **approval on a phone** (NIP-46 `nostrconnect`). Both happen outside the world's pixels and resist phishing by design.
-- Worlds that need their own login send the user back through the Airlock rather than drawing a login form in VR.
+- Sign-in happens only in the client's own 2D surface, reached by opening the client directly.
+- Worlds that need their own login send the user out to a 2D page rather than drawing a login form in VR.
 - The SDK doesn't include, and the spec discourages, any in-world credential entry component.
 
 ---
 
 # Part II — BitPortal: the BitBlocks reference app
+
+Statements in this part about what each block does today were checked against the block repositories on 2026-11-17. "Not shipped" means the feature is designed or planned in that block's own documents and not yet implemented.
 
 ## 13. Identity: BitLogin ("who are you")
 
@@ -596,20 +714,36 @@ Immersive content can imitate any UI. The client therefore teaches and enforces 
 **Integration**
 
 - BitPortal embeds `<bitlogin-auth>` in its 2D shell, vendored same-origin from a **tagged BitLogin release with its integrity manifest** (D7), never hotlinked. The widget runs same-origin with the host, so it is part of BitPortal's trusted computing base.
-- BitPortal consumes the session through BitLogin's NIP-07-shaped signer, passed **explicitly** to anything that needs it (D8). It listens for `bitlogin:login` / `bitlogin:logout` (D2) and reads `pubkey` (D1). Until those aliases ship, a thin adapter reads the current hyphen events and `publicKey`, the same way BitFeed's adapter does today.
-- **Headset-first method order.** On a headset, the widget leads with passkey and phone approval (NIP-46 QR), then extension (NIP-07), with password last. On desktop, BitLogin's default order applies.
-- **Session continuity.** Signing in on desktop and continuing in a headset works through NIP-46 or a passkey synced by the platform. BitPortal never moves keys between devices itself.
-- **Signing inside immersion.** DOM elements aren't visible in immersive VR, so the BitLogin widget can't appear there. Actions that need a signature mid-session either queue until the user exits to the 2D shell, or are approved on the phone through NIP-46.
+- BitPortal consumes the session through BitLogin's NIP-07-shaped signer, passed **explicitly** to anything that needs it (D8). It listens for `bitlogin:login` / `bitlogin:logout` (D2) and reads `pubkey` (D1). Until those aliases ship, a thin adapter reads the current hyphen events and `publicKey`, as BitFeed's adapter does today.
+- The Airlock is served from BitPortal's own origin, so it shares the BitLogin session. This is why a user must come back to their *own* client's Airlock (§6.3): no other origin can sign for them.
+- **Signing inside immersion.** DOM elements aren't visible in immersive VR, so the widget can't appear there. Actions that need a signature mid-session queue until the user is back in the 2D shell.
 
 **Identities per world**
 
 - **Anonymous:** no assertion.
 - **Main:** the BitLogin account.
-- **Alternate:** a second BitLogin account the user created on purpose, or any NIP-07/NIP-46 signer.
+- **Alternate:** a second account the user signs into on purpose, or any NIP-07/NIP-46 signer. BitLogin's multi-account switching is not shipped, so today this means signing out and in again.
 
-Deriving a fresh key per world automatically would touch BitLogin's derivation chain, which is a frozen compatibility contract, so it is out of scope here (open question Q1).
+Deriving a fresh key per world automatically would touch BitLogin's derivation chain, which is a frozen compatibility contract, so it is out of scope here (Q1).
 
-**Purchases.** BitUnlock purchases may use a separate device key rather than the BitLogin identity (the Satisfied pattern, D8). BitPortal offers this as "buy privately", so the payment service never learns which identity is behind a ticket.
+### 13.1 Signing in on a headset
+
+This is the hardest onboarding problem in the project, and 0.2 got it wrong. The facts:
+
+- **QR codes don't work.** BitLogin's NIP-46 flow shows a `nostrconnect` QR for a phone to scan. A phone can't see a screen inside a standalone headset.
+- **Pasting doesn't work well.** The alternative is pasting a `bunker://` URI, which is impractical with VR controllers.
+- **NIP-46 sessions don't persist.** BitLogin currently holds them in memory only, so a reload ends the session.
+- **Passkeys are uncertain.** BitLogin's passkey login needs the WebAuthn PRF extension, whose support BitLogin's own documentation calls uneven. Headset browsers are untested.
+- **BitLogin is password-first**, and its method order isn't configurable. Typing a password on a virtual keyboard works but is slow.
+
+So the plan is:
+
+1. **Set up elsewhere, pair once.** Account creation and recovery-phrase handling happen on a phone or desktop, never in a headset.
+2. **Signed-out works fully.** Browsing, the Airlock and entering free worlds need no account. The MVP's headset experience doesn't depend on headset sign-in.
+3. **Test matrix in Phase 2:** password on the virtual keyboard, and passkey PRF, on each target headset browser. Whatever works is the documented path.
+4. **Pairing without a QR** is the real fix: the headset shows a short code, and the user approves it on a device where they're already signed in. A short code alone is guessable, so this needs a proper key-exchange design. It belongs in BitLogin, not in BitPortal (Q12).
+
+**Requests for BitLogin** (each needs the owner's approval in that repository): a headset profile that reorders methods; persistent NIP-46 sessions; code-based pairing; multi-account switching.
 
 ## 14. Discovery: BitFeed ("what do you see")
 
@@ -617,9 +751,10 @@ Deriving a fresh key per world automatically would touch BitLogin's derivation c
 
 **Integration**
 
-- BitPortal vendors the single-file `bitfeed.js` at a **pinned version** with SRI (D7). It doesn't import the unversioned hosted URL. BitFeed core is DOM-free, so it runs in a Web Worker beside the render loop and never blocks a frame.
-- `@bitfeed/nostr` providers supply signals such as `nostr.following`, `nostr.zaps`, `nostr.reactions`, `nostr.hashtags` and `nostr.interests`. `@bitfeed/bitlogin` turns the session into the viewer. `@bitfeed/bitgate` and `@bitfeed/bitunlock` plug in policy and entitlement (§15, §16).
-- BitPortal builds one **BitViewer v1** object (D10: `pubkey?`, `relays`, `follows`, `mutes`, `interests`, `session`) and passes the same object to BitFeed and BitGate. A field that is missing means "unknown", and `[]` means "known empty". The viewer object stays inside BitPortal and never goes to worlds.
+- BitPortal vendors the single-file `bitfeed.js` at a **pinned version** with SRI (D7). It doesn't import the unversioned hosted URL. BitFeed core is DOM-free, so it runs in a Web Worker beside the render loop.
+- `@bitfeed/nostr` providers supply signals such as `nostr.following`, `nostr.zaps`, `nostr.reactions`, `nostr.hashtags`, `nostr.interests` and `nostr.socialDistance`. `@bitfeed/bitlogin` turns the session into the viewer. `@bitfeed/bitgate` and `@bitfeed/bitunlock` plug in policy and entitlement (§15, §16).
+- World-specific signals (comfort match, device tier match, verified status, live events) are **BitPortal's own providers**, registered with BitFeed like any other. BitFeed has no opinion about worlds.
+- BitPortal builds one **BitViewer v1** object (D10: `pubkey?`, `relays`, `follows`, `mutes`, `interests`, `session`) and passes the same object to BitFeed and BitGate. A missing field means "unknown", and `[]` means "known empty". The viewer object stays inside BitPortal and never goes to worlds.
 
 **Default lobby recipes**
 
@@ -628,42 +763,52 @@ Deriving a fresh key per world automatically would touch BitLogin's derivation c
 | From people you follow | Announcements and recommendations authored within social distance 1, newest first |
 | Loved by your network | Zaps and reactions from follows, decayed by age |
 | Happening now | NIP-53 live activities that reference worlds, plus upcoming NIP-52 events |
-| New worlds | Recent verified operator announcements, with seeded exploration so new creators surface |
+| New worlds | Recent verified announcements within the user's wider social distance, with seeded exploration so new creators surface |
 | Your bookmarks | The NIP-51 bookmark list in the user's order |
 | Matches your interests | NIP-51 interests ∩ world `t` tags |
-| Comfortable for you | Filters on the user's comfort settings (seated only, low intensity) |
+| Works on this device | Filters on the `perf` tier, inputs and the user's comfort settings |
 
-**User-owned algorithm.** Every shelf carries BitFeed's **explanation** ("ranked because 3 follows zapped it"), shown on the world card and in the Airlock. Users can adjust or replace recipes and share them as events, so a community can publish its own lobby. A signed-out lobby uses a small seed recipe; following nobody doesn't silently fall back to an operator's choices without saying so.
+**Signed-out and brand-new users.** With no follows there's no social signal, and "recent verified worlds" would be a feed of anyone who bought a domain. So the lobby for these users is built from a **starter set**: a NIP-51 curated set signed by a named curator key, shown with the curator's name and a "change" control. It stops being used once the user's own graph produces results (§15).
 
-**Ads.** The `@bitfeed/adzap` adapter is **off by default** and not part of the MVP. If it is ever enabled, it stays an explicit opt-in with BitFeed's privacy boundary between preferences and ad matching.
+**User-owned algorithm.** Every shelf carries BitFeed's **explanation** ("ranked because 3 follows zapped it"), shown on the world card and in the Airlock. Users can adjust or replace recipes. Sharing recipes as Nostr events is planned in BitFeed's spec and not shipped; until then BitPortal exports and imports recipes as JSON.
+
+**Ads.** The `@bitfeed/adzap` adapter is **off by default** and not part of the MVP.
 
 ## 15. Trust and safety: BitGate ("what may you do")
 
-**Role.** BitGate answers 0.1's open question about telling safe worlds from malicious ones without a central gatekeeper: **each user picks whose labels they trust**, and BitGate turns those labels into a decision with four dimensions.
+**Role.** BitGate answers the question of how to tell safe worlds from malicious ones without a central gatekeeper: **each user picks whose labels they trust**, and BitGate turns those labels into a decision with four dimensions.
 
 **Mapping BitGate's four dimensions to BitPortal**
 
 | Dimension | Where it acts in BitPortal |
 |---|---|
-| `visibility` (`allow` → `warn` → `restrict` → `hide` → `deny`) | Lobby and search: `warn` shows a content warning on the card; `hide` and `deny` remove the world from shelves (direct links still work, through the Airlock) |
-| `interaction` (`allow` → `require-explicit-action` → `deny`) | The Airlock: `require-explicit-action` adds a second, explained confirmation; `deny` disables the portal button and shows the reason |
+| `visibility` (`allow` → `warn` → `restrict` → `hide` → `deny`) | Lobby and search: `warn` shows a content warning on the card; `hide` and `deny` remove the world from shelves (direct links still reach the Airlock, which shows the verdict) |
+| `interaction` (`allow` → `require-explicit-action` → `deny`) | The Airlock: `require-explicit-action` adds a second, explained confirmation and disables the fast path; `deny` disables the continue button and shows the reason |
 | `transaction` (`allow` → `require-review` → `deny`) | Paid entry (§16): blocks or warns before any BitUnlock quote is requested |
 | `ranking` (`normal` → `downrank`) | Passed into BitFeed as a scorer |
 
 **Signals**
 
-- NIP-32 labels (kind 1985) in a `bitportal:moderation` namespace, targeting a world coordinate (`a`), a publisher (`p`) or an origin (`r`).
+- NIP-32 labels (kind 1985) in a `bitportal:moderation` namespace, targeting a world coordinate (`a`) or a publisher (`p`).
 - NIP-56 reports (kind 1984) from the user's trust graph, including **comfort mislabelling** (a world that says "low intensity" and isn't).
 - The viewer's own NIP-51 mutes and blocks, which always apply.
 
-**Policy and defaults**
+**Confirmed gap: origin targets.** BitGate's targets today are user, event and address. A label can't target a web origin, so a bad actor who rotates keys and world IDs on one domain escapes coordinate and pubkey labels. BitPortal raises this as a BitGate feature request rather than working around it (Q6).
 
-- BitPortal starts from BitGate's `social` preset with a spatial-specific policy layered on top. BitGate's engine carries no thresholds of its own, so BitPortal's policy is just data and users can replace it.
-- **Fails open for discovery, never for the Airlock's origin display.** As in BitRoad, if the engine can't load or relays are quiet, worlds still appear. The Airlock *always* shows the real origin and verification status whatever BitGate says.
-- **Default moderators.** None by default; trust comes from the user's own follows. A user or community can add moderator keys. Any default seed list stays a fallback, per BitGate's rule that seeds stop counting once a viewer has real contacts (open question Q5).
+**Three separate layers, each disclosed**
+
+| Layer | Who decides | Default |
+|---|---|---|
+| **Starter set** (what a new user sees) | A named curator key, using BitGate's `allowlist` preset | On until the user's own graph produces results, then dropped. This follows BitGate's rule that seeds are a fallback and stop counting once a viewer has real contacts |
+| **User trust** (labels and reports from people the user follows or names as moderators) | The user | BitGate's `social` preset plus BitPortal's spatial policy; no moderators are named for the user |
+| **Instance policy** (what one hosted copy of BitPortal refuses to show) | Whoever operates that instance | An operator may apply a deny list to meet legal obligations, as BitRoad does with its moderation root key. It is disclosed, and affected worlds read "hidden by this instance's operator" with the reason |
+
+The protocol has no authority over destinations. An instance operator does have responsibilities for what their site shows, and anyone who disagrees can self-host or use another client.
+
+**Behaviour**
+
+- **Fails open for discovery, never for the Airlock's origin display.** If the engine can't load or relays are quiet, worlds still appear. The Airlock *always* shows the real origin and verification status whatever BitGate says.
 - **Reasons.** Every block or warning shows BitGate's explanation, using BitGate's kebab reason IDs mapped to BitPortal's own wording (D4b).
-
-**Gap to confirm.** Labels that target an **origin or URL** rather than a coordinate or pubkey may not be supported by BitGate today. If not, BitPortal raises it as a BitGate feature request rather than working around it.
 
 ## 16. Payments and entitlements: BitUnlock ("did you pay for it")
 
@@ -672,23 +817,43 @@ Deriving a fresh key per world automatically would touch BitLogin's derivation c
 **Model**
 
 - A paid world's announcement references a BitUnlock product with `["a", "30078:<seller>:<d>", "", "access"]`. The seller registers the product with BitUnlock as usual.
-- The Airlock shows the price. On purchase, BitPortal requests a quote, the user pays (Lightning or NWC), and BitPortal unlocks a **buyer-bound NIP-44 envelope**. That envelope holds whatever the world defined: a private entry URL, an access token, or an asset decryption key.
-- **The world server must verify access itself.** It checks BitUnlock's signed entitlement for the entering key (from the entry assertion) and the product coordinate. BitUnlock's renewable term access covers subscriptions and season passes, and seller revocation covers refunds and bans.
+- The Airlock shows the price. On purchase, BitPortal requests a quote, the user pays, and BitPortal unlocks a **buyer-bound NIP-44 envelope** holding whatever the world defined: a private entry URL, an access token, or an asset decryption key.
+- At first fulfillment BitUnlock signs an **entitlement receipt**: a kind 30078 event signed by the BitUnlock service key, with `d` = `bitunlock:entitlement:v1:<fulfillmentId>` and payment-hash evidence. The buyer can recover all their receipts on any device with `GET /v1/access-entitlements` (NIP-98), so a ticket bought on a phone is available in the headset.
+
+**How a world verifies entry**
+
+1. The client includes the receipt in the arrival context (§4.4), next to the entry assertion.
+2. The world server pins the BitUnlock service pubkey and checks the receipt's signature.
+3. It checks that the buyer in the receipt is the key that signed the entry assertion, and that the product coordinate is its own.
+4. It checks term expiry, which the receipt carries.
+5. It checks revocation online, since a receipt alone can't show a later refund or ban. BitUnlock documents a public entitlement-status check; the exact route is to be confirmed when Phase 5 starts.
+
+This is the same binding BitRoad applies on the store side (pinned service key; order, buyer, coordinate and payment hash all matching; fail closed). **Without steps 2–5 on the world's server, an entitlement is a soft gate, not DRM.**
+
+**Client rules**
+
 - All BitUnlock HTTP calls use **BitUnlock's exported NIP-98 helper** (D9), with `u`, `method`, `payload` and `bitunlock:nonce`, and a fresh event for every attempt. BitPortal doesn't hand-roll NIP-98, which is where Tessera's integration went wrong.
 - BitPortal uses the SDK's `normalizeOrder()` (D5) and its retryability table (D4). `idempotency_in_progress` is retryable; treating it as permanent once stranded a real paid order in Satisfied.
 
-**Privacy option.** "Buy privately" pays with a per-device purchase key (D8), so the ticket is bound to a key that is not the user's main identity. Entering with that key is a deliberate choice of alternate identity at the Airlock.
+**Paying in a headset.** A Lightning invoice QR has the same problem as a sign-in QR: nothing can scan it. Two paths work: a wallet connection (NWC) set up beforehand on another device, which makes payment a single confirmation; or buying on a phone or desktop first, then entering in the headset with the recovered receipt.
 
-**Honest limits.** BitUnlock is currently a hosted, limited mainnet beta. The protocol is open to self-hosted implementations, and no NSWP field depends on BitUnlock specifically. Without enforcement by the world server, an entitlement is a soft gate, not DRM.
+**Privacy option.** "Buy privately" pays with a separate purchase key (the Satisfied pattern, D8), so BitUnlock never learns the user's main identity. At the world, the user then chooses:
 
-**Tips are not BitUnlock.** Tips and donations are plain NIP-57 zaps to the world publisher's Lightning address and need no BitUnlock involvement.
+- enter as the purchase key, so the world sees only that; or
+- present the main identity *and* a second assertion from the purchase key, so the world can link the two but BitUnlock still can't.
+
+The cost: a purchase key lives on one device unless the user backs it up, so the ticket doesn't follow them to another device the way a main-identity purchase does.
+
+**Honest limits.** BitUnlock is currently a hosted, limited mainnet beta. The protocol is open to self-hosted implementations, and no NSWP field depends on BitUnlock specifically.
+
+**Tips are not BitUnlock.** Tips and donations are plain NIP-57 zaps to the world publisher's Lightning address.
 
 ## 17. Other BitBlocks-family integrations (optional, after the MVP)
 
 | Project | Possible role | Priority |
 |---|---|---|
 | **Tessera** ("what can you do") | Publish the NSWP Portal SDK and a "world publisher" agent plugin, so agents can validate manifests and announce worlds through Tessera's registry | Low; a good dogfooding opportunity |
-| **BitRoad** | In-world shop kiosks that link to BitRoad storefronts for virtual goods; shared soft-gate and BitUnlock tier model | Later |
+| **BitRoad** | In-world shop kiosks that link to BitRoad storefronts for virtual goods | Later |
 | **BitVid** | NIP-71 video events rendered as in-world screens and theatres; watch parties through NIP-53 | Later |
 | **BitDrive** | An encrypted vault where creators keep private world and avatar sources, publishing selected assets to Blossom | Later, and not a stack primitive |
 | **AdZap** | Sponsored lobby placement, opt-in only (§14) | Not planned |
@@ -706,62 +871,89 @@ BitPortal is a new consumer, so it starts compliant with every accepted conventi
 | D2 events | Listens for `<lib>:<verb>` colon events; any BitPortal custom elements emit `bitportal:<verb>` with `bubbles` and `composed` |
 | D3 CSS | Any BitPortal elements use `--bitportal-*` custom properties |
 | D4 errors | One `BitPortalError {code, message, retryable, details?}` with snake_case codes |
-| D6 versions | Exposes `window.bitportal.version` and `export const VERSION`; NSWP schema versions (`nswp/manifest/0.2`) are kept separate |
-| D7 distribution | Vendors every block from a tagged release with its integrity manifest; a CI check compares the vendored hashes with the release manifests |
+| D6 versions | Exposes `window.bitportal.version` and `export const VERSION`; NSWP schema versions (`nswp/manifest/0.3`) are kept separate |
+| D7 distribution | Vendors every block from a tagged release with its integrity manifest; a CI check compares the vendored hashes with the release manifests. The Portal SDK ships the same way |
 | D8 signer | One NIP-07-shaped signer, passed explicitly; purchase signer can be separate |
-| D9 NIP-98 | Uses BitUnlock's exported helper for every BitUnlock call |
+| D9 NIP-98 | Uses BitUnlock's exported helper for every BitUnlock call; NSWP's own tags are namespaced `nswp:<name>` |
 | D10 viewer | Builds one BitViewer v1 and shares it between BitFeed and BitGate; never sends it to worlds |
 | D11 license | MIT for BitPortal and the SDK; CC0 for the NSWP spec |
 
 ---
 
-## 19. Minimum Viable Product
+# Part III — Building it
+
+## 19. Adoption ladder for world creators
+
+A directory with no worlds attracts no users, and creators won't integrate with a directory that has no users. The way out is that **step 0 asks nothing of the creator.** Each later step is small and optional.
+
+| Step | What the creator does | What they get |
+|---|---|---|
+| **0** | Nothing. A curator lists the URL | The world appears as "listed by <curator>" |
+| **1** | Publishes a world announcement with their own key | A listing they control; reviews, zaps and bookmarks attach to it |
+| **2** | Hosts one static JSON file (§7) | "Verified for this origin"; eligible for the New worlds shelf |
+| **3** | Adds the SDK and a portal (a few lines) | Outbound portals through the visitor's own Airlock; visitors return to their lobby |
+| **4** | Reads the arrival context | Named entry points; guests with a chosen identity and avatar |
+| **5** | Verifies entry assertions on a server | Trustworthy multiplayer identity |
+| **6** | Registers a BitUnlock product | Paid entry, tickets, passes |
+
+**Bootstrapping.** The first directory is curated from WebXR experiences that already exist, by hand, into the starter set. Curators link, they don't embed or copy, and they honour `listing: deny` (§7.2).
+
+## 20. Minimum Viable Product
 
 **Goal:** show decentralized discovery and safe navigation between independently hosted immersive worlds, using the BitBlocks stack, without making the protocol depend on it.
 
 Each phase has an exit criterion that has to be met before the next starts.
 
 ### Phase 0: Protocol fixtures
-- JSON Schemas for the world event, manifest, portal and entry assertion.
-- Test vectors: signed example events, valid and invalid manifests, assertion replay cases.
+- JSON Schemas for the world event, manifest, portal, arrival context and entry assertion.
+- Test vectors: signed example events, valid and invalid manifests, assertion replay cases, hostile Airlock destinations (non-HTTPS schemes, lookalike domains).
 - An event-kind collision check covering `WORLD_KIND` and `AVATAR_KIND`.
-- Two reference worlds with `.well-known/nswp.json`.
+- Two reference worlds with `.well-known/nswp.json`, served with the right CORS header.
 
 **Exit:** a third party can validate an announcement and a manifest using only the schemas and vectors.
 
 ### Phase 1: Read-only lobby
 - BitPortal static shell on desktop and at least one standalone headset browser.
-- Reads announcements from relays and shows verified vs. listed worlds.
-- BitFeed with the signed-out seed recipe, and the no-BitBlocks fallback list.
+- A hand-curated starter set of existing WebXR worlds (adoption step 0), plus the reference worlds.
+- BitFeed over the starter set, and the no-BitBlocks fallback list.
 - The Airlock, with a self-hostable static build.
+- Lobby network privacy (§5.7) from day one.
 
 **Exit:** a signed-out user in a headset browses, passes the Airlock and enters three independently hosted worlds, and the no-BitBlocks mode does the same.
 
 ### Phase 2: Publishing with BitLogin
-- BitLogin sign-in (passkey and NIP-46 first on headsets).
-- A publish form: enter a URL, fetch and validate the manifest, check publisher verification, sign, and publish to the user's NIP-65 write relays.
-- Generates a `.well-known/nswp.json` snippet for the creator to host.
+- BitLogin sign-in on desktop and phone.
+- A publish form: enter a URL, fetch and validate the manifest, check verification, sign, and publish to the user's NIP-65 write relays.
+- Generates a `.well-known/nswp.json` snippet, with serving instructions, for the creator to host.
+- The headset sign-in test matrix (§13.1).
 
-**Exit:** a developer outside the project announces a verified world without asking anyone.
+**Exit:** a developer outside the project announces a verified world without asking anyone; the working headset sign-in paths are documented.
 
-### Phase 3: Social discovery and safety
+### Phase 3a: Social discovery
 - BitFeed shelves (§14) with explanations; NIP-51 bookmarks; NIP-22 reviews; zaps.
-- BitGate labels, reports and mutes across all four dimensions; reason display in the Airlock.
+- The user's own mutes and blocks, applied directly.
+- No dependency on BitGate, so this phase isn't blocked by its relicense.
 
-**Exit:** a user's lobby differs meaningfully, with explanations, depending on who they follow, and a trusted moderator's label visibly changes the outcome for users who trust that moderator and not for users who don't.
+**Exit:** a user's lobby differs meaningfully, with explanations, depending on who they follow.
+
+### Phase 3b: Trust labels with BitGate
+- Labels and reports across all four dimensions; reason display in the Airlock; the three policy layers (§15).
+- Starts when BitGate is MIT-licensed (§21.1).
+
+**Exit:** a trusted moderator's label visibly changes the outcome for users who trust that moderator and not for users who don't.
 
 ### Phase 4: Portal SDK and identity handoff
-- `nswp-sdk`: `portal.go()`, `readArrival()`, manifest helper, and a server-side assertion verifier.
-- Per-world identity choice and entry assertions.
+- `nswp-sdk`: `portal.go()`, `arrival.read()`, the built-in fallback interstitial, a manifest helper, and a server-side assertion verifier.
+- Per-world identity choice, entry assertions, return-Airlock handling, the fast path.
 - One multiplayer reference world that authenticates with an entry assertion.
 
-**Exit:** two worlds by different authors link to each other through portals, and the multiplayer world shows the chosen identity, or "guest" for anonymous entry.
+**Exit:** two worlds by different authors link to each other through portals, a user returns to their own Airlock from each, and the multiplayer world shows the chosen identity, or "guest" for anonymous entry.
 
 ### Phase 5: Paid access with BitUnlock
-- A paid reference world and a ticketed event, using BitUnlock entitlements that the world server verifies.
-- The "buy privately" purchase key.
+- A paid reference world and a ticketed event, with the world server verifying receipts (§16).
+- Buy on phone, enter in headset. The "buy privately" purchase key.
 
-**Exit:** a real Lightning payment grants entry, and a refund or revocation removes it.
+**Exit:** a real Lightning payment grants entry on a second device, and a refund or revocation removes it.
 
 ### Phase 6: Presence, invitations and events
 - NIP-17 invitations, opt-in NIP-38 presence with expiry, NIP-52 and NIP-53 events in the lobby.
@@ -770,7 +962,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 ---
 
-## 20. Reference Implementation
+## 21. Reference Implementation
 
 | Component | Candidate |
 |---|---|
@@ -780,7 +972,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 | Nostr | nostr-tools (or NDK) |
 | Identity | BitLogin (vendored release); any NIP-07/NIP-46 signer in no-BitBlocks mode |
 | Discovery | BitFeed `bitfeed.js` (pinned, with SRI) in a Web Worker |
-| Policy | BitGate standalone bundle (vendored, once MIT-licensed; see §21.1) |
+| Policy | BitGate standalone bundle (vendored, once MIT-licensed; §21.1) |
 | Payments | `@bitunlock/sdk` (once published under MIT); NIP-57 for tips |
 | Assets | Blossom servers; glTF/VRM loaders with KTX2 and Meshopt |
 | World hosting | Static HTTPS hosting |
@@ -790,32 +982,32 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 Prioritize desktop and one standalone headset browser first. Consider a dedicated browser fork only after the discovery, Airlock and handoff model is validated.
 
-### 20.1 Dependencies and blockers in the BitBlocks stack
+### 21.1 Dependencies and blockers in the BitBlocks stack
 
-These items, recorded in the BitBlocks API conventions (October 2026), affect BitPortal directly. BitPortal therefore becomes a **forcing function for the BitBlocks Phase 1 cleanup** rather than a reason to work around it. Each item that changes another repository, release, license or live API still needs the owner's approval in that repository.
+These items affect BitPortal directly. BitPortal therefore becomes a **forcing function for the BitBlocks Phase 1 cleanup** rather than a reason to work around it. Each item that changes another repository, release, license or live API still needs the owner's approval in that repository.
 
 | Block | Current state | Impact on BitPortal | Needed before |
 |---|---|---|---|
-| BitLogin | Three different builds in circulation; no official tagged release with an integrity manifest; colon events, `pubkey` field and `getSigner()` / `capabilities()` not yet shipped | Pin one build; use an adapter until D1/D2/D8 land | Phase 2 |
-| BitFeed | Hosted `bitfeed.js` has no version in its URL; engine and package versions disagree (0.3.0 vs 0.1.0); BitViewer widening pending | Vendor a pinned copy and record its hash | Phase 1 |
-| BitGate | GPL-3.0-or-later until the accepted MIT relicense actually ships; standalone bundle not hosted; origin/URL label targets unconfirmed | **Don't vendor BitGate into MIT BitPortal until relicensed**; Phase 3 waits on it | Phase 3 |
-| BitUnlock | SDK unpublished, with no license file; limited mainnet beta | Phase 5 waits on the SDK being published under MIT | Phase 5 |
+| BitFeed | Hosted `bitfeed.js` has no version in its URL; engine and package versions disagree (0.3.0 vs 0.1.0); BitViewer widening pending; recipe publishing over Nostr not shipped | Vendor a pinned copy and record its hash; JSON recipe export | Phase 1 |
+| BitLogin | Three different builds in circulation; no official tagged release with an integrity manifest; colon events, `pubkey` field and `getSigner()` / `capabilities()` not shipped; password-first with no configurable method order; NIP-46 sessions memory-only; multi-account switching and code pairing not shipped | Pin one build; use an adapter; headset sign-in limited to what the test matrix finds (§13.1) | Phase 2 |
+| BitGate | GPL-3.0-or-later until the accepted MIT relicense actually ships; standalone bundle not hosted; no origin targets | **Don't vendor BitGate into MIT BitPortal until relicensed**; only Phase 3b waits on it | Phase 3b |
+| BitUnlock | SDK unpublished, with no license file; limited mainnet beta; public entitlement-status route to be confirmed | Phase 5 waits on the SDK being published under MIT | Phase 5 |
 
 ---
 
-## 21. Standards Strategy
+## 22. Standards Strategy
 
 The project could eventually propose:
 
-**NIP-XX: Spatial World Announcements**: the world kind, tags, the `.well-known/nswp.json` verification rule, and the operator-vs-curation distinction.
+**NIP-XX: Spatial World Announcements**: the world kind, tags, the `.well-known/nswp.json` verification rule, the operator-vs-curation distinction, and possibly a curation-set kind for worlds.
 
 Possibly a companion: **NIP-XX: Portable Avatar Preferences**.
 
-Portal navigation, the Airlock and the entry assertion go into a **separate, non-NIP specification**, because they concern browsers and web origins more than the Nostr protocol.
+Portal navigation, the Airlock, the arrival context and the entry assertion go into a **separate, non-NIP specification**, because they concern browsers and web origins more than the Nostr protocol.
 
 Before proposing a NIP:
 
-- Review related NIPs and existing implementations (Appendix B).
+- Review related NIPs (Appendix B) and prior art in portal-linked 3D webs (Appendix C).
 - Prototype under a clearly experimental namespace and kind.
 - Get feedback from Nostr client and relay developers, and from the Immersive Web community on the Airlock and handoff.
 - **Demonstrate interoperability between BitPortal and at least one client that is not BitBlocks.**
@@ -823,7 +1015,7 @@ Before proposing a NIP:
 
 NIP-78 (kind 30078) is app-specific storage. It isn't a long-term substitute for an interoperable world-discovery standard, and BitRoad and BitUnlock already use it.
 
-### 21.1 Licensing and governance
+### 22.1 Licensing and governance
 
 - The NSWP spec is CC0 and lives in its own repository, separate from BitPortal's code.
 - BitPortal and the SDK are MIT. BitGate must be relicensed to MIT (accepted as the target, not yet done) before BitPortal bundles it.
@@ -831,51 +1023,58 @@ NIP-78 (kind 30078) is app-specific storage. It isn't a long-term substitute for
 
 ---
 
-## 22. Non-Goals
+## 23. Non-Goals
 
 The first version will **not**:
 
-- Replace existing web browsers.
+- Replace existing web browsers, or render other websites inside an immersive session.
 - Render arbitrary Three.js sites in VR automatically.
-- Define a universal physics engine or interaction system.
+- Define a universal physics engine, interaction system or scene format.
 - Guarantee continuous, loading-free transitions.
 - Standardize every avatar and animation system (VRM is recommended, not required).
 - Replace multiplayer game servers.
 - Require Bitcoin, Lightning or any BitBlocks component.
 - Guarantee that possessions work across every world.
-- Establish a central authority over destinations, including a mandatory default moderator.
+- Establish a central authority over destinations. (An instance operator's policy for their own site, §15, is not that.)
 - Add a fifth BitBlocks primitive. BitPortal is an app on the four, and any gap it finds goes back to the block that owns it.
-- Provide in-world credential entry.
+- Provide in-world credential entry, or account creation inside a headset.
+- Protect users from a hostile world's own navigation (§6.2).
 
 ---
 
-## 23. Open Questions
+## 24. Open Questions
 
-**Q1 Identity:** should per-world identities be derived keys (which would need BitLogin spec work, since its derivation chain is frozen), separate accounts made on purpose (today's answer), or something else, such as a NIP-26-like delegation successor?
+**Q1 Identity:** should per-world identities be derived keys (which would need BitLogin spec work, since its derivation chain is frozen), separate accounts made on purpose (today's answer), or something else?
 
 **Q2 Navigation:** which parts of the Airlock and handoff can be standardized now, and which wait for `sessiongranted` or a dedicated browser?
 
-**Q3 Entry assertion kind:** is reusing kind 27235 (NIP-98) acceptable to the community, or does the assertion need its own ephemeral kind?
+**Q3 Entry assertion design:** is reusing kind 27235 acceptable, or does the assertion need its own kind? And should there be a **deniable** variant, for example a token authenticated under a NIP-44 conversation key between the user and the world's publisher key, which proves identity to the world without giving it a transferable proof of the visit?
 
-**Q4 Airlock centrality:** if nearly everyone uses BitPortal's hosted Airlock, it becomes a soft point of centralization even though it is static and doesn't log. Should worlds be able to embed the SDK's own Airlock, and should clients prefer a local one?
+**Q4 Airlock centrality:** the return-address model (§6.3) sends users back to their own client, which helps. But if nearly every world's *default* Airlock is BitPortal's, it is still a soft point of centralization. Should the SDK's built-in fallback be the default instead?
 
-**Q5 Trust defaults:** should BitPortal ship any default moderator keys for new users with no follows, and if so, who holds them and how is that disclosed?
+**Q5 Starter set governance:** who holds the curator key for BitPortal's starter set, what are the inclusion criteria, and how are both published?
 
-**Q6 BitGate targets:** does BitGate need first-class origin/URL targets, or can origin-level labels be expressed through world coordinates alone?
+**Q6 BitGate origin targets:** add first-class origin targets to BitGate (the confirmed gap in §15), or accept that origin-level action needs labelling every coordinate and key?
 
-**Q7 Avatars:** VRM 1.0 as the recommendation, but what are the default triangle, texture and bone budgets per device class?
+**Q7 Avatars and budgets:** what are the default triangle, texture and bone budgets per `perf` tier?
 
 **Q8 Presence:** can "friends nearby in world X" work through gift-wrapped status alone, or does it need a presence relay with stronger privacy guarantees?
 
-**Q9 Portability:** how should worlds recognize BitUnlock entitlements issued for *another* world's product (cross-world passes, creator bundles)?
+**Q9 Portability:** how should worlds recognize BitUnlock receipts issued for *another* world's product (cross-world passes, creator bundles)?
 
-**Q10 Governance:** how does the standard stay vendor-neutral when the first and best-funded client is BitBlocks-branded?
+**Q10 Governance:** how does the standard stay vendor-neutral when the first and best-resourced client is BitBlocks-branded?
 
 **Q11 Naming:** "BitPortal" is a working name. It needs a trademark and collision check before public use. Alternatives include BitRealm, BitWorlds and "Portal" under the BitBlocks brand.
 
+**Q12 Headset pairing:** what is the pairing protocol that needs no QR and no long paste (§13.1)? A short code needs a password-authenticated key exchange or an equivalent so it can't be guessed or intercepted. Does this become a BitLogin feature, a NIP-46 extension, or both?
+
+**Q13 Verification attestations:** should third parties be able to publish "verified origin" labels so lobbies needn't contact world origins at all (§5.7)? Who would be trusted to, and does that reintroduce a gatekeeper?
+
+**Q14 Shared-host verification:** is there a safe way to verify worlds hosted on a path of a shared domain, or is "get your own subdomain" the permanent answer?
+
 ---
 
-## 24. Long-Term Vision
+## 25. Long-Term Vision
 
 The aim isn't one enormous virtual world. It's a network of independently created worlds, connected through open protocols.
 
@@ -897,8 +1096,9 @@ Just as the web links documents and applications through URLs, the spatial web c
 
 - [NIP-01: Basic Protocol](https://github.com/nostr-protocol/nips/blob/master/01.md)
 - [NIP-02: Follow List](https://github.com/nostr-protocol/nips/blob/master/02.md)
-- [NIP-05: DNS-based identifiers](https://github.com/nostr-protocol/nips/blob/master/05.md) (pattern for `.well-known`)
+- [NIP-05: DNS-based identifiers](https://github.com/nostr-protocol/nips/blob/master/05.md) (pattern for `.well-known`, CORS and no-redirect rules)
 - [NIP-07: Browser Signer Interface](https://github.com/nostr-protocol/nips/blob/master/07.md)
+- [NIP-09: Event Deletion Request](https://github.com/nostr-protocol/nips/blob/master/09.md)
 - [NIP-17: Private Direct Messages](https://github.com/nostr-protocol/nips/blob/master/17.md)
 - [NIP-19: Bech32-Encoded Entities](https://github.com/nostr-protocol/nips/blob/master/19.md)
 - [NIP-22: Comments](https://github.com/nostr-protocol/nips/blob/master/22.md)
@@ -936,8 +1136,9 @@ Just as the web links documents and applications through URLs, the spatial web c
 | World announcement | `WORLD_KIND` (addressable, experimental) | **Yes** |
 | Avatar preference | `AVATAR_KIND` (addressable, experimental) | **Yes** |
 | Origin verification | `/.well-known/nswp.json` (HTTP, not an event) | No |
+| Arrival context | URL fragment (not an event) | No |
 | Entry assertion | Kind 27235 (NIP-98 shape) + NIP-40 expiration | No (Q3) |
-| Curation and directories | NIP-51 sets (30003) | No |
+| Curation and directories | NIP-51 sets (30003 for now) | Possibly later |
 | Bookmarks (public and private) | NIP-51 (10003 / 30003, NIP-44 private items) | No |
 | Reviews and comments | NIP-22 (1111) | No |
 | Reactions | NIP-25 (7) | No |
@@ -946,11 +1147,25 @@ Just as the web links documents and applications through URLs, the spatial web c
 | Presence | NIP-38 (30315) + NIP-40; gift-wrapped when it names a world | No |
 | Scheduled and live events | NIP-52 (31922/31923), NIP-53 (30311) | No |
 | Moderation | NIP-32 labels (1985), NIP-56 reports (1984), NIP-51 mutes | No |
-| Paid access | BitUnlock product (30078) referenced by `a` tag; signed entitlements | No (BitBlocks-specific, optional) |
+| Retirement | `status` tag, then NIP-09 (5) | No |
+| Paid access | BitUnlock product and receipt (30078), product referenced by `a` tag | No (BitBlocks-specific, optional) |
 | Handler discovery | NIP-89 (31989/31990) | No |
+
+## Appendix C: Prior art to review
+
+Linking 3D places like web pages has been tried before. Before Phase 0 freezes any format, the project should study what these efforts learned, and reuse their formats where they fit. The descriptions below are from general knowledge and each needs checking against the project's current state.
+
+| Project or group | Why it matters here |
+|---|---|
+| JanusVR / JanusWeb | An earlier "the web as rooms joined by portals" browser; the closest precedent for spatial hyperlinks, and a source of lessons on why it stayed niche |
+| Open Metaverse Interoperability (OMI) group | glTF extensions for links between worlds and for spawn points, which could express portals and entry points inside a scene file instead of a new format (§6.6) |
+| Mozilla Hubs (now community-maintained) | Browser-based multiplayer rooms reached by plain URLs; practical lessons on WebXR performance budgets, avatars and moderation |
+| Hyperfy, Webaverse and similar web-native world platforms | Self-hostable browser worlds; potential first worlds to list, and potential second-client partners |
+| Metaverse Standards Forum | The venue where interoperability work across vendors is coordinated |
+| VRM Consortium | Owner of the avatar format recommended in §4.2 |
 
 *This is a conceptual technical proposal. As of this draft, NSWP is not an adopted Nostr Improvement Proposal, a W3C standard or an implemented interoperability protocol, and BitPortal is not yet built.*
 
 ---
 
-**End of specification, version 0.2**
+**End of specification, version 0.3**
