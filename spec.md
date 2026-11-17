@@ -1,13 +1,19 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.4.1 (concept specification)
+**Version:** 0.5 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.5
+
+- **Phase 1 is built** (§20): BitPortal's read-only lobby and its own Airlock, in a separate `bitportal` repository, deployed for testing at `bitportal.vercel.app`.
+- **Rooms that outlive their host** (§9.10): a heartbeat so a dead room stops reading as live, succession so a room survives its host leaving, and a salted fingerprint of the guest list for private rooms. All three are taken from COMBATRIG, where they were worked out in play.
+- **Found while building the lobby:** a shelf can't require "verified" without contacting every listed world (§14); a site that hasn't adopted NSWP gets a plain visit with no arrival context (§4.4); the Airlock knows the starter set's worlds without asking a relay (§6.2).
 
 ## 0. What changed in 0.4.1
 
@@ -273,6 +279,7 @@ The problem: a world is on a different origin from the client, so it can't see t
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
 - `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
+- **Only a site that publishes a manifest gets an arrival context.** A site that hasn't adopted NSWP, such as one a curator listed, gets a plain visit with nothing added to its address.
 - Everything else is present only if the user ticked it at the Airlock.
 
 **The destination must scrub the fragment at once**: read it, then call `history.replaceState` to remove it, before loading any third-party script. Otherwise it stays in the browser history and is readable by every script on the page. The SDK does this.
@@ -464,8 +471,9 @@ The Airlock:
 4. Shows comfort, input and performance requirements, and whether the user's device meets them.
 5. Lets the user choose an identity: anonymous, main or alternate (§4.4).
 6. Shows the price, if any, and whether the user already holds an entitlement (§16).
-7. When the user is joining a room (§9): shows who hosts it, how they qualify to enter, and whether it is direct between participants or hosted, by whom, and what that exposes.
-8. Needs a **user gesture** to continue.
+7. Shows who is describing the world. When the listing was written by a curator and not by the site, it says "Listed by" and names the curator. A client that ships a signed starter set knows those worlds without asking a relay.
+8. When the user is joining a room (§9): shows who hosts it, how they qualify to enter, and whether it is direct between participants or hosted, by whom, and what that exposes.
+9. Needs a **user gesture** to continue.
 
 **Hard rules**
 
@@ -699,7 +707,7 @@ A room is described by a NIP-53 interactive room event (kind 30312), with a few 
 - `status` follows NIP-53: `open`, `private` or `closed`. Anything other than open access is `private`.
 - `nswp:transport` is `mesh`, or `hosted` followed by the room server's `wss://` address. A hosted room adds `e2ee` when voice is end-to-end encrypted.
 - `nswp:access` is one of the rules in §9.3.
-- The room belongs to the key that signed the event. Roles come from its `p` tags: `Host`, `Moderator`, `Speaker`.
+- The room's first record is signed by its host. Roles come from its `p` tags: `Host`, `Moderator`, `Speaker`. A room can outlive that host (§9.10).
 - **A room doesn't have to be published.** An invite-only room's event can travel only inside its invitations (§8.4), so nobody else learns that it exists. A published room can be found by anyone.
 
 Reusing kind 30312 means existing clients that understand NIP-53 rooms can list NSWP rooms and link to them. Whether the fit holds is open question Q15.
@@ -769,7 +777,7 @@ Positions are sent from a timer, not from the drawing loop. Browsers pause drawi
 
 **Shared objects** (a whiteboard, a moved chair) are kept in step with a conflict-free replicated data type, so no device is in charge. That suits social spaces. It can't prevent cheating, so it doesn't suit competitive games.
 
-**There is no hub.** The host is a role, not a relay. If the host leaves, the room carries on under its rules until it is empty, and moderators can still act.
+**There is no hub.** The host is a role, not a relay. If the host leaves, the people in the room stay connected, and the room's record passes to the next member (§9.10).
 
 **Members can differ on who they accept.** If one member has blocked a newcomer and another hasn't, the blocked pair simply aren't connected. Clients show when there are people in the room you aren't connected to.
 
@@ -850,6 +858,40 @@ A group can go through a portal as a group. One member proposes a destination: a
 ### 9.9 What the protocol leaves to worlds
 
 The protocol doesn't standardize physics, combat, animation or game logic. A world with its own multiplayer system can keep it: it advertises `multiplayer` in its manifest and authenticates visitors with the entry assertion (§4.4), then issues its own session. A world's session never needs the user's signer after entry.
+
+### 9.10 Rooms that outlive their host
+
+A room's record is a Nostr event, and nothing in an event proves its author is still there. A host who closes the tab never says goodbye. COMBATRIG, a multiplayer game by this project's author, met each of these problems in play and solved them; NSWP adopts its answers. The numbers below are COMBATRIG's.
+
+**Heartbeat.** While a room is up, its host republishes the room record once a minute.
+
+- A record with no beat for **150 seconds** has no live host, whatever its status says. Clients say so, and leave such rooms off "happening now" shelves.
+- The 150 seconds is deliberate. A browser runs a hidden tab's timers as rarely as once a minute, so anything shorter would declare a host dead for switching tabs. The same floor applies to any "has this person gone?" timeout that depends on a timer.
+- The record's own expiry is separate and much longer (a week). A room with no live host is **dormant**, not deleted: still findable, and able to be revived.
+
+**A room is a place.** Its identity is its `d` tag, not its first host.
+
+- Each host signs **their own** record for the room: the same kind and the same `d`, under their own key. Records from successive hosts sit side by side, and none overwrites another.
+- Each record carries an **epoch** (0 for the first host, one more for each handover), the **address of the record it succeeds** (that host's key and epoch), and the time it claimed the room.
+- The predecessor is named by address, not by event ID, because every heartbeat is a new event with a new ID.
+- **A claim is valid only if the predecessor was dormant when it was made**: no beat for 150 seconds. Nobody can take a room from a host who is still there.
+- **Old invitations keep working.** A link names the first host's record. A reader starts there and follows valid claims forward. It never jumps to an unrelated record that merely uses the same `d`, so a stranger can't capture the link.
+
+**Who takes over.** Admission order: the host lists members as it admits them, so every member holds the same list. There is no vote.
+
+- The first member in line claims the room 150 seconds after the host's last beat. Each later member waits 10 seconds longer than the one before, so two claims rarely collide. If they do, a fixed tie-break gives every reader the same winner.
+- Any member may take the room at once, when the host is gone, without waiting their turn.
+- An open room can be revived by anyone who arrives. An invite-only room can be taken only by someone who belonged to it.
+- NSWP adds one rule COMBATRIG doesn't need: where a room names moderators, they come first, in the order listed. This is untested.
+
+**Private guest lists.** The public record of an invite-only room carries a **fingerprint of its member list**: a hash over a random salt and the sorted member keys.
+
+- The salt, and the outstanding invitations, travel only in the private data each admitted member receives.
+- A member can therefore check that a would-be successor really belongs, and a successor already holds every invitation, so a link sent before the handover still admits its recipient.
+- The salt matters. Without it, a hash of a few public keys could be guessed against known keys and would reveal who is in the room.
+- Outsiders can't check the fingerprint. To them a private room's listing is only a claim.
+
+**What still needs designing for NSWP.** In COMBATRIG the app holds the player's signer. In NSWP a world never does (§9.2), so a member inside a world has only a session key when the moment comes to claim a room. Whether a claim signed by a session key with its room pass is enough is Q21.
 
 ---
 
@@ -994,11 +1036,13 @@ So the plan is:
 |---|---|
 | From people you follow | Announcements and recommendations authored within social distance 1, newest first |
 | Loved by your network | Zaps and reactions from follows, decayed by age |
-| Happening now | NIP-53 live activities that reference worlds, plus upcoming NIP-52 events |
-| New worlds | Recent verified announcements within the user's wider social distance, with seeded exploration so new creators surface |
+| Happening now | Open rooms with a live host (a heartbeat in the last 150 seconds, §9.10), NIP-53 live activities that reference worlds, and upcoming NIP-52 events |
+| New worlds | Recent announcements within the user's wider social distance, with seeded exploration so new creators surface. See the note on "verified" below |
 | Your bookmarks | The NIP-51 bookmark list in the user's order |
 | Matches your interests | NIP-51 interests ∩ world `t` tags |
 | Works on this device | Filters on the `perf` tier, inputs and the user's comfort settings |
+
+**A shelf can't require "verified" for free.** Verifying a world means fetching a file from its site, and the lobby must not contact a world just because it is listed (§5.7). So a client knows a world is verified only after the visitor has opened it, and remembers that for a day. A shelf can prefer worlds it already knows are verified; it can't filter on verification for worlds nobody has opened. Third-party verification (Q13) is the only way round this.
 
 **Signed-out and brand-new users.** With no follows there's no social signal, and "recent verified worlds" would be a feed of anyone who bought a domain. So the lobby for these users is built from a **starter set**: a NIP-51 curated set signed by a named curator key, shown with the curator's name and a "change" control. It stops being used once the user's own graph produces results (§15).
 
@@ -1172,6 +1216,13 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** a signed-out user in a headset browses, passes the Airlock and enters three independently hosted worlds, and the no-BitBlocks mode does the same.
 
+**Status (2026-11-17): built, and tested on a desktop only.** BitPortal lives in its own `bitportal` repository and is deployed for testing at `bitportal.vercel.app`.
+
+- *Built:* the lobby, with three BitFeed shelves that each say why a world is there; doors whose art is generated from the world's address; verification when a door is opened; BitPortal's own Airlock at `/go/`; the plain no-BitBlocks mode; and a signed starter set of six worlds (the two reference worlds and four existing WebXR sites).
+- *Tested:* from the lobby, through the Airlock, into three separately hosted sites; a world's portal returning to BitPortal's Airlock; plain mode loading no ranking code; a `javascript:` destination being blocked.
+- *Not tested:* a real headset, which the exit criterion asks for.
+- *Not done:* the starter set is bundled with the app and not yet published to relays.
+
 ### Phase 2: Publishing with BitLogin
 - BitLogin sign-in on desktop and phone.
 - A publish form: enter a URL, fetch and validate the manifest, check verification, sign, and publish to the user's NIP-65 write relays.
@@ -1254,7 +1305,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 | Rooms, peer-to-peer | WebRTC data channels and audio; handshake over Nostr relays; a conflict-free replicated data type library for shared objects |
 | Rooms, hosted | An open-source media forwarding server behind the room server interface (candidates in Appendix C) |
 | Getting through home networks | Public STUN; an optional community-run TURN server |
-| Build | Vite → static `dist/`; TypeScript |
+| Build | esbuild → static `dist/`; TypeScript. Dependencies are vendored from sibling checkouts, with source commits and file hashes recorded (`vendor/integrity.json`) |
 | Hosting | `portal.bitblocks.network` on the same static-hosting pattern as the other block sites (proposed) |
 
 Prioritize desktop and one standalone headset browser first. Consider a dedicated browser fork only after the discovery, Airlock and handoff model is validated.
@@ -1374,7 +1425,7 @@ The first version will **not**:
 
 **Q14 Shared-host verification:** is there a safe way to verify worlds hosted on a path of a shared domain, or is "get your own subdomain" the permanent answer?
 
-**Q15 Room event:** is reusing NIP-53's room event (kind 30312) right, or will NSWP's extra tags and unpublished rooms strain it enough to need a separate kind?
+**Q15 Room event:** is reusing NIP-53's room event (kind 30312) right, or will NSWP's extra tags and unpublished rooms strain it enough to need a separate kind? COMBATRIG faced the same choice and took its own kind (30317), shaped like NIP-53 but not claiming to be it, on the grounds that a game lobby isn't a stream. NSWP's rooms are meeting spaces, which is what 30312 describes, so the reuse stands for now. The succession fields in §9.10 add to the strain.
 
 **Q16 Public chat:** posting a room's chat to relays under a member's own identity needs their signer, which a world never holds. Should the client mirror it, or should readers accept session-key authorship backed by room passes?
 
@@ -1384,7 +1435,9 @@ The first version will **not**:
 
 **Q19 Room server interface:** adopt an existing open-source media server's protocol, or define a thin neutral interface with adapters?
 
-**Q20 Private guest lists:** other members can't check a list whose entries are hidden. Is an invite secret enough for rooms that need a private membership?
+**Q20 Private guest lists:** other members can't check a list whose entries are hidden. §9.10's salted fingerprint lets *members* check each other. Is that, plus an invite secret, enough, given that outsiders still can't check anything?
+
+**Q21 Succession without a signer:** a member inside a world holds only a session key (§9.2). Can a room be claimed with a record signed by that session key and backed by its room pass, or must the successor return to their client to sign with their identity?
 
 ---
 
@@ -1485,6 +1538,7 @@ Linking 3D places like web pages has been tried before, and so has serverless mu
 | Metaverse Standards Forum | The venue where interoperability work across vendors is coordinated |
 | VRM Consortium | Owner of the avatar format recommended in §4.2 |
 | Trystero and similar serverless WebRTC libraries | Browsers finding each other through public networks, Nostr relays among them, with no server of their own; the closest precedent for §9.4 |
+| COMBATRIG | The author's own multiplayer game. Its lobby is a replaceable Nostr event with a heartbeat, host succession and private invitations, all proven in play; §9.10 comes from it. Its handshake, voice and NIP-17 invitation code are candidates for reuse in Phase 4b |
 | Nostr Nests and other NIP-53 room clients | Audio rooms described by Nostr events and carried by a media server; the precedent for §9.1 and §9.5 |
 | LiveKit, mediasoup and other open-source media forwarding servers | Candidates for the reference room server and its interface (Q19) |
 | Yjs, Automerge and other conflict-free replicated data type libraries | Shared objects with no device in charge (§9.4) |
