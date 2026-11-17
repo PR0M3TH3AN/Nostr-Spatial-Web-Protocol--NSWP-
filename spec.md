@@ -1,13 +1,23 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7 (concept specification)
+**Version:** 0.7.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.1
+
+Design only. None of it is built.
+
+- **Where a visitor starts** (§14.1): BitPortal starts everyone in one room, drawn by BitPortal itself. The visitor's own doors are on the wall they face, and suggestions are on the wall behind them. On a desktop or phone the start is the flat list, in the same order.
+- **Going home** (§6.3, §6.6): an Airlock opened with no destination takes the visitor to their client's start place, and the SDK gets `portal.home()`.
+- **Saved places stay private** (§4.5, §14.1): guests in a home see only the doors its owner placed in the public layout. Saved places are drawn by the owner's client, for the owner alone.
+- **Invitations arrive as portals** (§8.4), at one fixed spot, and only from people the visitor follows.
+- Saved doors and a jump list move forward into Phase 3a, because they need only sign-in and bookmarks.
 
 ## 0. What changed in 0.7
 
@@ -256,7 +266,7 @@ The test for what belongs in the protocol: **NSWP standardizes only what crosses
 | The user | Identity, follows and mutes, bookmarks, avatar and what they carry (§4.2, §10.5), home layout (§4.5), and which identity each world sees | The user's key |
 | An item's maker | What the item is, and who it has been granted to (§10.4, §10.5) | The maker's key |
 | A world's owner | The world's code and content, its announcement and preview (§5.8), its comfort and device claims, its rules, which avatars and items it draws, what any item does there, its prices | The publisher's key, vouched for by the site (§7.3) |
-| A client (BitPortal or another) | How things are displayed, the Airlock, ranking, and defaults such as a starter set | Nothing; a client is replaceable |
+| A client (BitPortal or another) | How things are displayed, where a visitor starts (§14.1), the Airlock, ranking, and defaults such as a starter set | Nothing; a client is replaceable |
 | Curators and moderators | Their lists and labels, which are opinions | Their own keys |
 | Relays, file hosts, room servers | Nothing. They carry what others own, and can be swapped | — |
 
@@ -426,7 +436,8 @@ A user can have a place of their own: a **home**. It is described by a signed ev
 - **A renderer** is any static site that reads a layout event and draws it. A home's address is `https://<renderer>/#<naddr of the layout>`. Switching renderers doesn't lose the home, because the layout isn't stored there.
 - **A home is a world like any other.** It is announced with a world event, reached through the Airlock, and can hold rooms (§9) with its owner as host.
 - **Two parties stand behind it,** and the Airlock names both: who runs the renderer and who laid out the place (§7.5).
-- **A home doubles as a lobby.** Its portals are its owner's picks. A client may use a signed-in user's home as their lobby, with their bookmarks as doors.
+- **A home doubles as a lobby.** Its portals are its owner's picks. A client may draw a signed-in user's home as the place they start, and BitPortal does (§14.1).
+- **Guests see the layout and nothing more.** A person's saved places say what they are interested in. A client that draws them as doors does so for the owner alone, from the owner's bookmarks. They are never written into the public layout, and a guest's copy of the home doesn't show them.
 - **Pictures and notes are the owner's content.** Content warnings and labels apply to the layout as they do to a world, and a renderer may have a policy of its own (§15).
 - **A home you host yourself.** Someone who runs their own site can be their own renderer: the world template (§19.1) starts as one. Its manifest admits only its owner's key, so both parties in §7.5 are the same person and the Airlock says only "verified".
 
@@ -653,6 +664,8 @@ A world can't know which client a user prefers, so the client tells it:
 
 The return address tells the world which client the user came from. That is a small disclosure, and the SDK doesn't keep it past the tab session.
 
+**Going home.** An Airlock opened with no destination takes the visitor to that client's start place, with no confirmation, because nothing is being crossed into. A world offers this with `portal.home()` (§6.6), which follows the same three steps: the return address, then the world's default, then nothing. It is the one exit a world can offer that leads somewhere the visitor already trusts. A world that doesn't use the SDK offers no such exit, and the visitor has only the browser's own controls.
+
 **Fake Airlocks.** A hostile world can ignore the return address and send the user to a lookalike page that asks them to "sign in again". Defences: the user is already signed in at their real Airlock, so a sign-in prompt in the middle of a crossing is itself the warning sign; passkeys are bound to the real origin and can't be used on a fake; and the address bar is visible, because the Airlock is always a 2D page. Clients teach this rule alongside §12.3.
 
 ### 6.4 Navigation sequence
@@ -683,6 +696,8 @@ portal.go({
   naddr: "naddr1…",          // or url
   entryPoint: "main-entrance"
 });                           // picks the Airlock per §6.3
+
+portal.home();                // back to the visitor's own start place (§6.3)
 
 const ctx = arrival.read();   // reads, validates and scrubs the fragment
 // { entry, airlock, assertion?, avatar?, receipts? }
@@ -824,6 +839,8 @@ The client uses NIP-02 follows (kind 3), NIP-65 relay lists (kind 10002) and NIP
 Invitations are private by default: a NIP-17 direct message (NIP-59 gift-wrapped) containing the world `naddr`, an entry point and optionally a time. Public invitations are just notes.
 
 An invitation to a room (§9) also carries the room event and, for an invite-only room, the room secret. The same content can be shared as a link whose fragment holds it, for people who aren't reachable by direct message.
+
+**How a client shows one.** A client may show an invitation as a portal that appears in the visitor's start place, at one fixed spot, naming who sent it (§14.1). It does this only for invitations from people the visitor follows. An invitation from anyone else waits in a list and brings no picture with it, because a portal that arrives with a preview is content the visitor didn't ask for (§5.8).
 
 ### 8.5 Presence
 
@@ -1263,6 +1280,8 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | A preview fetch revealing interest in a world | Fetched by hash from storage or a mirror, not from the world's site (§5.8) |
 | Abusive pictures, notes or items in a home | The built-in catalogue by default, and published items only where the renderer allows them; hash-checked files under ceilings; labels on the layout; renderer policy (§4.5) |
 | A renderer misrepresenting someone's layout | The Airlock names both parties; a layout can be opened through another renderer (§7.5) |
+| Saved places revealed to guests in a home | Saved places are drawn by the owner's client from their bookmarks, never written into the public layout (§4.5) |
+| Unwanted portals pushed into a visitor's start place | Only invitations from people the visitor follows appear as portals; others wait in a list without a picture (§8.4) |
 | An item that carries code | Items are data. Scripts are never run and addresses inside an item file are never followed (§10.4) |
 | An item used to harass, obstruct or overload | Worlds opt in and choose what to draw; hash-checked files under ceilings; simple hit boxes; at most 4 carried items; mutes and labels apply (§10.5) |
 | A false claim to hold an item | A grant signed by the maker names the holder's key, and the holder's identity is proven by assertion or room pass (§10.5) |
@@ -1359,6 +1378,42 @@ So the plan is:
 **User-owned algorithm.** Every shelf carries BitFeed's **explanation** ("ranked because 3 follows zapped it"), shown on the world card and in the Airlock. Users can adjust or replace recipes. Sharing recipes as Nostr events is planned in BitFeed's spec and not shipped; until then BitPortal exports and imports recipes as JSON.
 
 **Ads.** The `@bitfeed/adzap` adapter is **off by default** and not part of the MVP.
+
+### 14.1 Where a visitor starts
+
+**One room, the same for everyone.** BitPortal starts a visitor in a single room that it draws itself, on its own address. It has two walls of doors.
+
+| Wall | What is on it | Does it change? |
+|---|---|---|
+| **Yours**, ahead | The visitor's saved places (§8.3), in their order, and the doors they placed in their home layout (§4.5) | Only when the visitor changes it |
+| **Suggested**, behind | A few doors from the shelves in §14, each saying why it is there | Yes, every visit |
+
+A suggestion never appears on the visitor's own wall. Saving a suggested door moves it there.
+
+**Why one room, not a home and a separate lobby**
+
+- A new visitor has saved nothing, so a home of their own would be empty: the worst possible first screen. In one room they arrive facing the suggestions, and their own wall shows empty frames that say a saved place will appear there. Once they have saved doors, they arrive facing those.
+- The start never moves. A visitor who started in a lobby and was later moved to a home would lose the thing a fixed start is for.
+- Keeping a visitor's doors stable needs a separate wall, not a separate place. A second place would be a trip with nothing at the end of it but more doors.
+
+**Rules for the start room**
+
+- **BitPortal draws it.** The start is never a third-party renderer or the visitor's own site. Those need a crossing before the visitor has chosen anything, their code can observe the visitor, and when they are down there is nowhere to start. The visitor's layout is data, so BitPortal draws it. If their own site is a world of its own (§19.1), it is a door on their wall.
+- **Private.** Arriving joins no room and publishes no presence. Nobody else is there unless invited.
+- **Fast.** Doors are drawn first and work at once. Decorations and published items (§10.4) load afterwards, and not at all on a device that can't spare them. This matters more than it looks: every crossing already costs a visitor in a headset an exit from immersion (§6.5), and the start room is on the way to all of them.
+- **A dozen doors, not a hundred.** A door in a room is found by remembering where it is, which works for about twelve. Each wall shows that many at most. "More" opens the full shelves as a list.
+- **The flat list is the start on a desktop or phone.** Choosing from a list is quicker than walking to a door. The list has the same order: the visitor's doors first, then the shelves. The room is offered, not imposed.
+- **Signed-out visitors** get the same room. Their own wall is empty and the suggestions come from the starter set.
+
+**Getting around**
+
+- **A jump list.** The visitor's saved places as a short list, reachable from anywhere in BitPortal. Choosing one goes straight to the Airlock. For a verified world the visitor has approved before, that is the fast path (§6.5); otherwise it is the full Airlock.
+- **No portal for the visitor's own choice.** A portal that appeared when the visitor picked a place would add a step and tell them nothing new.
+- **Invitations do appear as portals,** at one fixed spot in the room, from people the visitor follows (§8.4). They fade when dismissed, and saving one puts it on the visitor's wall.
+- **Coming back.** A visitor returning from a world arrives facing the door they left through.
+- **From inside another world, a saved place is two hops away:** home, then the destination. BitPortal isn't running inside someone else's world, and a world can't show a visitor's saved places without its own code reading them.
+
+This is BitPortal's choice, not the protocol's. Another client may start its visitors anywhere (§3.2). How many doors a wall should hold, and whether one room holds up, is Q31.
 
 ## 15. Trust and safety: BitGate ("what may you do")
 
@@ -1584,6 +1639,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 ### Phase 3a: Social discovery
 - BitFeed shelves (§14) with explanations; NIP-51 bookmarks; NIP-22 reviews; zaps.
+- **Your doors** (§14.1): saved places first on the list and on the visitor's wall of the walk-in room, and a jump list. This needs sign-in and bookmarks, and no home layout.
 - The user's own mutes and blocks, applied directly.
 - No dependency on BitGate, so this phase isn't blocked by its relicense.
 
@@ -1633,6 +1689,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 ### Phase 6: Presence, invitations and events
 - NIP-17 invitations, opt-in NIP-38 presence with expiry, NIP-52 and NIP-53 events in the lobby.
+- Invitations from people the visitor follows appear as portals at a fixed spot in the start room (§8.4).
 
 **Exit:** a group of friends arranges a meetup and arrives at the same entry point without anyone publishing a permanent location record.
 
@@ -1647,7 +1704,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 ### Phase 8: Chosen avatars and homes
 - Simple avatars: an editor in BitPortal, drawn by the SDK's presence code. Needs room passes, so Phase 4b must be complete.
 - Home layouts: fixtures for kind 37302, the catalogue, a reference renderer, an editor, and two-party verification (§7.5).
-- A signed-in user's home as their lobby.
+- The start room (§14.1) drawn from a signed-in user's home layout, with their saved places added for them alone. `portal.home()` and the Airlock's no-destination case (§6.3).
 
 **Exit:** two signed-in people, each with an avatar they chose, meet in one's home. The home was laid out without writing code, and it opens unchanged through a second renderer.
 
@@ -1839,6 +1896,8 @@ The first version will **not**:
 **Q29 Items and alternate identities:** an item is granted to one key. Can a person show it while entering under a different identity, without revealing that the two are the same person?
 
 **Q30 Item budgets:** are 2 MB and 20,000 triangles right, and what is the total for a room where twenty people each carry four items on a standalone headset?
+
+**Q31 The start room:** does one room with two walls hold up once a visitor has many saved places, and is a dozen doors per wall the right limit? Should a returning visitor on a headset be able to skip the room and land on their jump list?
 
 ---
 
