@@ -55,7 +55,7 @@ fallback for networks that block direct connections (spec §9, §20).
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
-| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars and spatial voice for Three.js worlds | MIT |
+| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars, spatial voice and previews for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal | MIT |
 | `sites/` | Two reference worlds and the reference Airlock | MIT |
 
 CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is
