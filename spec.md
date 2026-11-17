@@ -1419,7 +1419,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 - *Tested:* in a desktop browser, both lobbies and both reference worlds show the previews, and each page contacts no host but its own. Every preview is checked against the hash in its signed announcement before it is drawn.
 - *Stricter than required:* BitPortal fetches a preview only from its own mirror while a world is listed. One it doesn't mirror, wherever it is stored, waits until the visitor opens that door.
 - *Not seen in a browser:* a held-back preview. No world in the starter set carries a content warning, so the "show preview" path is covered only by unit tests. The same goes for `flat` previews: the code is there, and no listed world has one.
-- *Not republished:* the reference announcements carry their `preview` tags in this repository and in BitPortal's bundled starter set. The copies on public relays are still the older ones without previews.
+- *Published:* the reference announcements with their `preview` tags are on six public relays, as well as in this repository and in BitPortal's bundled starter set. Each relay was asked afterwards and returned the new versions.
 - *The §6.7 check:* the list, the hall and both Airlocks show the address, the name, verified or listed, the kind of place, stated intensity, any content warning, and a warning when the device can't run it. Two gaps remain. A portal drawn inside a world by the SDK shows only the name and the address, and relies on the Airlock for the rest. Nothing shows a price, because paid entry isn't built (Phase 5).
 - *Not tested:* a real headset.
 
