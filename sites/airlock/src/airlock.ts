@@ -225,7 +225,12 @@ async function render(): Promise<void> {
   const remember = el(
     "div",
     { class: "remember" },
-    el("input", { type: "checkbox", id: "remember", ...(verified ? {} : { disabled: "" }) }),
+    el("input", {
+      type: "checkbox",
+      id: "remember",
+      ...(verified ? {} : { disabled: "" }),
+      ...(approvalKey && approved[approvalKey] ? { checked: "" } : {}),
+    }),
     el("label", { for: "remember" }, " Skip this screen next time for this world"),
   );
   if (!verified) remember.append(el("span", { class: "muted" }, " (only for verified worlds)"));
@@ -246,7 +251,13 @@ async function render(): Promise<void> {
 
   const go = el("button", { class: "primary", id: "continue" }, `Continue to ${a.domain}`) as HTMLButtonElement;
   const leave = () => {
-    if (verified && approvalKey && ($("remember") as HTMLInputElement).checked) writeJson(APPROVED, { ...approved, [approvalKey]: true });
+    if (verified && approvalKey) {
+      // Ticked remembers this world; unticking an earlier approval forgets it.
+      const next = { ...readJson<Record<string, boolean>>(APPROVED, {}) };
+      if (($("remember") as HTMLInputElement).checked) next[approvalKey] = true;
+      else delete next[approvalKey];
+      writeJson(APPROVED, next);
+    }
     if (verified && w?.pubkey) writeJson(PINS, { ...readJson<Record<string, string>>(PINS, {}), [a.origin]: w.pubkey });
     let target = a.url;
     if (isReferenceWorld && ($("emulate") as HTMLInputElement).checked) {

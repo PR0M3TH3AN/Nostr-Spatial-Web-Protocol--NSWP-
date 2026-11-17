@@ -920,7 +920,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** a third party can validate an announcement and a manifest using only the schemas and vectors.
 
-**Status (2026-11-17): built.** Everything above exists in this repository. The reference worlds and the Airlock are deployed at `nswp-world-a.vercel.app`, `nswp-world-b.vercel.app` and `nswp-airlock.vercel.app`. A crossing from World A through the Airlock to World B, and back, was tested in an emulated Meta Quest 3 (IWER), including a controller trigger on the portal. Still open: the reference announcements are signed but not yet published to relays, so the worlds show as unlisted rather than verified.
+**Status (2026-11-17): built.** Everything above exists in this repository. The reference worlds and the Airlock are deployed at `nswp-world-a.vercel.app`, `nswp-world-b.vercel.app` and `nswp-airlock.vercel.app`. A crossing from World A through the Airlock to World B, and back, was tested in an emulated Meta Quest 3 (IWER), including a controller trigger on the portal. The reference announcements are published to six public relays, and `nswp check` reports both worlds as verified for their origins. The Airlock's verified view and its fast path (§6.5) were tested live: an approved world gets a three-second countdown with a cancel control, and unticking the approval makes the Airlock ask again.
 
 ### Phase 1: Read-only lobby
 - BitPortal static shell on desktop and at least one standalone headset browser.

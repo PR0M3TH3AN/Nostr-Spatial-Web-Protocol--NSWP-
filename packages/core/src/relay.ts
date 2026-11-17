@@ -15,7 +15,9 @@ export interface Filter {
   [tag: `#${string}`]: string[] | undefined;
 }
 
-export const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+// Checked 2026-11-17: these accepted WebSocket connections and the reference
+// announcements. relay.damus.io refused WebSocket upgrades from our test network.
+export const DEFAULT_RELAYS = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"];
 
 export interface QueryResult {
   events: NostrEvent[];
