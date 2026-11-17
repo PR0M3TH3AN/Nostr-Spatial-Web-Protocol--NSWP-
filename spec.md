@@ -1,13 +1,24 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.5.2 (concept specification)
+**Version:** 0.6 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.6
+
+Four additions, each with a stated limit. None is built yet.
+
+- **Who owns what** (§3.2): the rule for what belongs in the protocol, and a table of what each party owns.
+- **Previews** (§5.8): a world can publish a 360° still of its entry point, so a portal looks into the place it leads to. Previews are fetched by hash, never from the world's own server, and are shown automatically only for worlds the visitor's own choices brought in.
+- **What every portal shows** (§6.7): the minimum a door, a portal or the Airlock must display, and how ordinary web pages are handled.
+- **Avatars in three tiers** (§4.2): generated, simple and model. The protocol does not define an avatar customization system.
+- **Homes** (§4.5, §7.5): a user-owned place described by a signed layout event and drawn by any renderer. Layouts place items from a fixed catalogue; they are not a scene format.
+- New phases **1b** (previews) and **8** (chosen avatars and homes). Existing phase numbers are unchanged.
 
 ## 0. What changed in 0.5.2
 
@@ -135,6 +146,7 @@ A user puts on a headset and opens BitPortal. They set up their account earlier 
 They land in a lobby:
 
 - Worlds recommended by people they follow, each with a plain reason ("3 people you follow zapped this").
+- Doors that look into the worlds behind them.
 - Live events happening now and scheduled ones they bookmarked.
 - Their bookmarked destinations.
 - Friends who chose to share that they're available.
@@ -218,6 +230,24 @@ Real-time features (position sync, voice, shared objects, game state) don't run 
 
 In BitBlocks terms, BitPortal is **an app built with the four primitives** (like Tessera), not a fifth primitive. Its question is **"where can you go."**
 
+### 3.2 Who owns what
+
+The test for what belongs in the protocol: **NSWP standardizes only what crosses between two parties who have no reason to trust each other**: a world and a client, a user and a world, one user and another. Everything inside one party's own space is theirs to decide.
+
+| Party | What they own | Signed by |
+|---|---|---|
+| The user | Identity, follows and mutes, bookmarks, avatar (§4.2), home layout (§4.5), and which identity each world sees | The user's key |
+| A world's owner | The world's code and content, its announcement and preview (§5.8), its comfort and device claims, its rules, which avatars it draws, its prices | The publisher's key, vouched for by the site (§7.3) |
+| A client (BitPortal or another) | How things are displayed, the Airlock, ranking, and defaults such as a starter set | Nothing; a client is replaceable |
+| Curators and moderators | Their lists and labels, which are opinions | Their own keys |
+| Relays, file hosts, room servers | Nothing. They carry what others own, and can be swapped | — |
+
+**The same everywhere,** because the protocol fixes it: the event and manifest formats, the verification rule, what every portal must show (§6.7), the arrival context, room passes, and the hash check and size ceilings on files.
+
+**Different from place to place,** because the world decides: how it looks, its rules and physics, which avatars it draws beyond the simple one, and what it charges.
+
+**Different from user to user,** because the user decides: what their lobby shows and in what order, whose labels they trust, which identity each world sees, and their comfort settings.
+
 ---
 
 ## 4. Identity
@@ -226,9 +256,17 @@ In BitBlocks terms, BitPortal is **an app built with the four primitives** (like
 
 A user is a Nostr public key, held as lowercase 64-character hex and shown as an `npub` (NIP-19). The private key stays under the user's control. Clients use external or remote signing (NIP-07, NIP-46) and never hand a key or a signer to the worlds they visit.
 
-### 4.2 Portable avatar profile
+### 4.2 Avatars
 
-A user may publish avatar preferences. A proposed addressable event carries them (experimental kind **37301**, not allocated by the NIPs process; `d` = avatar slot such as `default`):
+An avatar comes in three tiers. Each asks more of the world that draws it.
+
+| Tier | What it is | What a world needs to draw it |
+|---|---|---|
+| **Generated** | A colour and a name derived from the key. Nothing is published | Nothing. This is what the rooms spike draws |
+| **Simple** | A few choices the user publishes: two colours, a head shape, an accessory, a height | A few lines of drawing code. No file is loaded |
+| **Model** | A 3D file the user points at | To fetch and draw a stranger's file, within its own budgets |
+
+A world draws the highest tier it accepts and falls back down the list. One addressable event carries the published tiers (experimental kind **37301**, not allocated by the NIPs process; `d` = avatar slot such as `default`):
 
 ```json
 {
@@ -236,20 +274,26 @@ A user may publish avatar preferences. A proposed addressable event carries them
   "tags": [
     ["d", "default"],
     ["title", "Example Avatar"],
+    ["simple", "color", "#3fc584"],
+    ["simple", "accent", "#f2f3f6"],
+    ["simple", "head", "round"],
+    ["simple", "accessory", "visor"],
+    ["height", "1.72"],
     ["model", "https://blossom.example/<sha256>.vrm", "vrm", "<sha256>"],
     ["thumb", "https://blossom.example/<sha256>.webp"],
     ["size", "8421376"],
-    ["height", "1.72"],
     ["alt", "Avatar preference for Example Avatar"]
   ],
   "content": ""
 }
 ```
 
-- **Format.** VRM 1.0 (built on glTF) is the recommended avatar format, with plain GLB as a fallback.
-- **Integrity.** Model URLs should be content-addressed (Blossom) and carry the SHA-256, so a world can check the bytes it fetched.
+- **Simple avatars** use short closed lists: `color` and `accent` are hex colours; `head` is `round`, `square` or `tall`; `accessory` is `none`, `visor`, `antenna`, `halo` or `hat`. An unknown value falls back to the default. Because a simple avatar is a handful of shapes, it can't carry an image or overload a device, so any world with rooms should draw it. The exact lists are Q25.
+- **Models.** VRM 1.0 (built on glTF) is the recommended format, with plain GLB as a fallback. Model URLs should be content-addressed (Blossom) and carry the SHA-256, so a world can check the bytes it fetched.
 - **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* is pointed at it is decided at the Airlock (§4.4). A user who wants a private avatar doesn't publish this event and gives the URL in the arrival context instead.
 - **Worlds decide.** Worlds keep control of rendering and rules. Avatar portability doesn't oblige any world to accept every model.
+- **Not in the protocol:** an avatar customization system with body parts, wearables or sliders. An avatar editor is a client feature; it writes this event.
+- Until room passes exist (§9.2), everyone in a room is a guest with a generated avatar.
 
 ### 4.3 Privacy-preserving identity
 
@@ -322,6 +366,49 @@ Rules:
 
 Using kind 27235 for something other than an HTTP request is a deliberate reuse that needs community review before any NIP (§22).
 
+### 4.5 A home of your own (proposed)
+
+A user can have a place of their own: a **home**. It is described by a signed event and drawn by a renderer, so the user owns the description and anyone can run the code that draws it.
+
+**The layout event** is addressable (experimental kind **37302**, not allocated by the NIPs process; `d` names the place, such as `home`):
+
+```json
+{
+  "kind": 37302,
+  "tags": [
+    ["d", "home"],
+    ["title", "Ada's place"],
+    ["room", "hall", "#101217", "#3fc584"],
+    ["item", "frame", "0 1.6 -3", "0", "https://blossom.example/<sha256>.webp", "<sha256>"],
+    ["item", "portal", "2.5 0 -2.5", "-40", "37300:<pubkey>:example-museum"],
+    ["item", "plant", "-2 0 -1", "0"],
+    ["item", "note", "-3 1.5 0", "90", "Welcome. Shoes off."],
+    ["access", "follows"],
+    ["alt", "Home layout: Ada's place"]
+  ],
+  "content": ""
+}
+```
+
+- `room` names a room template and two colours.
+- Each `item` gives a type, a position in metres (`x y z`), a rotation about the vertical in degrees, and then what that type needs: a `frame` takes an image address and its hash, a `portal` takes a world coordinate or an address, a `note` takes a short text.
+- `access` is the default rule for rooms held there (§9.3).
+
+**Limits that keep this small**
+
+- **A fixed catalogue.** Room templates, furniture, frames, portals and notes come from a standard list every renderer ships. Version one has **no custom 3D models**. That keeps a home light and safe to open, and it means a layout is a list of placements, not a scene format (§23). Growing the catalogue is Q23.
+- At most 64 items. Pictures are fetched by hash, under the ceilings in §10.1.
+
+**How it fits the rest**
+
+- **A renderer** is any static site that reads a layout event and draws it. A home's address is `https://<renderer>/#<naddr of the layout>`. Switching renderers doesn't lose the home, because the layout isn't stored there.
+- **A home is a world like any other.** It is announced with a world event, reached through the Airlock, and can hold rooms (§9) with its owner as host.
+- **Two parties stand behind it,** and the Airlock names both: who runs the renderer and who laid out the place (§7.5).
+- **A home doubles as a lobby.** Its portals are its owner's picks. A client may use a signed-in user's home as their lobby, with their bookmarks as doors.
+- **Pictures and notes are the owner's content.** Content warnings and labels apply to the layout as they do to a world, and a renderer may have a policy of its own (§15).
+
+Homes need a working identity: sign-in to publish a layout, and room passes for the owner to be recognised as host.
+
 ---
 
 ## 5. Spatial World Discovery
@@ -330,7 +417,7 @@ The central primitive is the **Spatial World Announcement**: a signed, addressab
 
 ### 5.1 Event classification
 
-- World announcements use the experimental addressable kind **37300** (avatars use **37301**). Neither is allocated by the NIPs process; both were checked on 2026-11-17 against the NIPs registry, open NIPs pull requests (no earlier spatial or metaverse proposal exists) and every kind the BitBlocks repositories use. BitRoad and BitUnlock use `30078` and Tessera uses `33600`–`33604`. Code refers to these as `WORLD_KIND` and `AVATAR_KIND` so they can change if the NIP process assigns others.
+- World announcements use the experimental addressable kind **37300** (avatars use **37301**, home layouts **37302**). Neither is allocated by the NIPs process; both were checked on 2026-11-17 against the NIPs registry, open NIPs pull requests (no earlier spatial or metaverse proposal exists) and every kind the BitBlocks repositories use. BitRoad and BitUnlock use `30078` and Tessera uses `33600`–`33604`. Code refers to these as `WORLD_KIND` and `AVATAR_KIND` so they can change if the NIP process assigns others.
 - A `d` tag holds the stable world identifier.
 - The world is referenced elsewhere by its coordinate `37300:<pubkey>:<d>` (an `a` tag, or an `naddr`).
 - A dedicated kind is proposed later through the NIP process (§22).
@@ -349,6 +436,7 @@ Relays index **single-letter** tags, so the fields people filter on are single-l
     ["summary", "An immersive art gallery with three wings."],
     ["r", "https://museum.example/world"],
     ["image", "https://blossom.example/<sha256>.webp", "1920x1080"],
+    ["preview", "https://blossom.example/<sha256>.webp", "pano", "<sha256>", "4096x2048"],
     ["mode", "immersive-vr"],
     ["mode", "inline-3d"],
     ["capability", "webxr"],
@@ -384,7 +472,8 @@ This shows the unsigned body; signing adds `id`, `pubkey` and `sig`.
 | `title` | ✓ | | Display name |
 | `r` | ✓ | ✓ | Entry URL (HTTPS only). Lets clients find every announcement of one URL |
 | `summary` | | | One-line description |
-| `image` | | | Preview image, optional dimensions; a content-addressed host is preferred (§5.7) |
+| `image` | | | A small card image for ordinary Nostr clients, optional dimensions; a content-addressed host is preferred (§5.7) |
+| `preview` | | | The view through a portal: address, type (`pano` or `flat`), SHA-256, dimensions (§5.8) |
 | `mode` | | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`; repeatable, in order of preference |
 | `capability` | | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments` |
 | `comfort` | | | `locomotion` (`stationary`, `teleport`, `smooth`, `vehicle`), `intensity` (`low`, `medium`, `high`), `seated` (`supported`, `required`, `unsupported`) |
@@ -442,6 +531,34 @@ A lobby that eagerly fetches from every listed world tells all of those worlds t
 - A client must not contact a world's origin (manifest, entry page, availability probe) merely because the world is listed. It does so when the user focuses the world (opens its card) or reaches the Airlock, and caches the result.
 - Preview images are the exception that can't be fully avoided, since loading one tells its host that someone is looking. Publishers should host previews on content-addressed storage rather than the world's own origin. Clients should offer "load previews on focus" and may offer a proxy.
 - Verification done by a third party and published as labels could remove the remaining fetches. That is open question Q13; a client would still re-verify at the Airlock.
+
+### 5.8 Previews: the view through a portal
+
+A world can publish a **preview**: what a visitor would see standing at its entry point. Clients draw it as the view through a door or portal, so a portal looks into the place it leads to.
+
+```text
+["preview", "<address>", "<type>", "<sha256>", "<width>x<height>"]
+```
+
+| Type | What it is | For |
+|---|---|---|
+| `pano` | A 360° still image (equirectangular, twice as wide as tall), taken from the default entry point at eye height | Worlds that can be viewed in 3D |
+| `flat` | An ordinary screenshot | Ordinary web pages (`2d`), and as a fallback |
+
+A world may give one of each.
+
+**Rules**
+
+- **The hash is required.** It is in the signed announcement, and a client checks the bytes it received against it. Any mirror can then serve the file.
+- **Not from the world's own server.** While a world is merely listed, a client fetches its preview from content-addressed storage or a mirror, never from the world's origin (§5.7). A preview that exists only on the world's own site is fetched when the visitor opens that world's door, not before.
+- **Ceilings.** A `pano` is at most 4096×2048 and 2 MB. A `flat` is at most 1920×1080 and 500 kB. WebP, JPEG, PNG or KTX2. Clients refuse anything larger.
+- **Consent.** A preview is content shown before the visitor has chosen to go anywhere. A client shows one automatically only for a world that reached the visitor through something they chose: their starter set, the people they follow, their bookmarks, or a portal in a world they are standing in. For any other world, and for any world with a `content-warning`, the client shows a placeholder until the visitor asks. Where exactly this line falls is Q26.
+- **A preview is a claim.** It is the publisher's own picture of their world. Being verified doesn't make a preview honest. A misleading one can be reported and labelled like anything else (§15), and the Airlock still shows the real address.
+- **Still, not live.** A web app can't draw another site's running scene. A "live" preview is one its publisher replaces more often, which an addressable event allows.
+- **Capturing one.** The SDK can produce a `pano` from a running world in one call, so a creator needs no other tool. This is a proposed API.
+- **Without one,** a client draws a placeholder generated from the world's address.
+
+Richer forms, such as stereo panoramas or a small 3D model that shifts as the viewer moves, are Q22.
 
 ---
 
@@ -552,6 +669,25 @@ A future dedicated browser may expose `window.nswp.navigate()` natively, and the
 
 Where a world's scene is glTF-based, portals and entry points should line up with existing glTF link and spawn-point extensions rather than a new scene format (Appendix C).
 
+### 6.7 What every portal shows
+
+Wherever a destination is offered (a door in a lobby, a portal in a world, the Airlock), the visitor is shown these before they commit:
+
+1. **The real address,** as its registrable domain. Never a name alone.
+2. **Verified for that address, or only listed,** and by whom.
+3. **The world's name.**
+4. **What kind of place it is,** from `mode`: VR, 3D in a browser, AR, or an ordinary web page.
+5. **Intensity,** when the world states it, and always when it is high.
+6. **Any content warning.**
+7. **The price,** if entry is paid.
+8. **Whether this device can run it.**
+
+A preview (§5.8), who is there now (open rooms only, §9.10) and why the world is listed are optional extras.
+
+**Whose word it is.** A lobby and the Airlock are the client's own pages, so what they show is the client's judgment. A portal inside a world is drawn by that world. It should show the same things, and the SDK's portals do, but it is the world's word. The Airlock repeats them before the visitor leaves, which is why it is never skipped for a destination the visitor hasn't approved (§6.5).
+
+**Ordinary web pages.** A web app can't put a page on a screen inside VR (§3). For a `2d` destination a client shows the `flat` preview on the door, and choosing it leaves immersion and opens the page in the device's own browser. On a headset that browser is already a floating window in the visitor's space.
+
 ---
 
 ## 7. World Manifest
@@ -620,6 +756,21 @@ Further rules:
 ### 7.4 What "verified" means
 
 Verified means: *whoever controls this origin today vouches for this key.* It doesn't mean the world is safe, honest or well made, and domains are cheap. Safety judgments come from the user's trust graph (§15), not from verification.
+
+### 7.5 Places drawn by a renderer
+
+A home (§4.5) has two parties behind it, and verification names both.
+
+- **Who runs the code:** the renderer's site. Its manifest says that it draws layouts, and for whom: `"spaces": { "layouts": "any" }`, or a list of the keys it hosts.
+- **Who made the place:** the key that signed the layout event.
+
+A home's announcement is verified when all of these hold:
+
+1. Its entry address is on the renderer's origin and names the layout in its fragment.
+2. That origin's manifest declares `spaces` and admits the layout's key.
+3. The announcement and the layout are signed by the same key.
+
+The Airlock then says both things: "Hosted on renderer.example. Laid out by" the key. Verified here means the renderer agrees to draw this key's layouts. It doesn't mean the renderer's owner made the place or looked at it. As with any venue, the renderer's code can observe whatever happens there (§9.8). Whether this wording is clear enough to visitors is Q24.
 
 ---
 
@@ -911,6 +1062,7 @@ A room's record is a Nostr event, and nothing in an event proves its author is s
 - **Formats.** glTF/GLB and VRM, with KTX2/Basis textures and Meshopt or Draco compression. Clients and worlds should refuse other executable or scriptable formats.
 - **Integrity.** Assets referenced from Nostr carry a SHA-256 and should be served from Blossom or another content-addressed store, so any mirror can serve them.
 - **Budgets.** Worlds publish budgets (§7.2), and clients enforce their own hard limits whatever a world claims. Defaults: avatar ≤ 10 MB and ≤ 70k triangles; initial world download warned above 50 MB. Per-device budgets are Q7.
+- **Pictures.** A picture placed in a home (§4.5) is at most 2048 pixels on its longer side and 1 MB, fetched by hash. Preview ceilings are in §5.8.
 
 ### 10.2 Possessions and entitlements
 
@@ -930,10 +1082,10 @@ These levels are a proposed roadmap, not a certification program. The column on 
 
 | Level | Requirements | BitPortal |
 |---|---|---|
-| **1 — Discovery** | Relay connectivity; read world announcements; directory; ordinary navigation; origin verification display | BitFeed lobby, or a plain list in no-BitBlocks mode |
-| **2 — Immersion** | WebXR; capability detection; user-approved entry; manifests; Airlock portal navigation | Airlock + SDK |
-| **3 — Identity portability** | External signing; per-world identity choice; entry assertions; avatar preferences; bookmarks | BitLogin |
-| **4 — Social interoperability** | Recommendations; invitations; optional presence; events; peer-to-peer rooms with room passes | BitFeed recipes, NIP-17/38/52/53, SDK rooms |
+| **1 — Discovery** | Relay connectivity; read world announcements; directory; ordinary navigation; origin verification display; what every portal shows (§6.7) | BitFeed lobby, or a plain list in no-BitBlocks mode |
+| **2 — Immersion** | WebXR; capability detection; user-approved entry; manifests; Airlock portal navigation; previews with their consent rule (§5.8) | Airlock + SDK |
+| **3 — Identity portability** | External signing; per-world identity choice; entry assertions; generated and simple avatars (§4.2); bookmarks | BitLogin |
+| **4 — Social interoperability** | Recommendations; invitations; optional presence; events; peer-to-peer rooms with room passes; homes (§4.5) | BitFeed recipes, NIP-17/38/52/53, SDK rooms |
 | **5 — Advanced spatial networking** | Seamless transitions; hosted rooms and promotion; moving together; portable entitlements | Reference room server; BitUnlock receipts; `sessiongranted` |
 | **Safety (applies to every level)** | Show the destination origin before navigation; HTTPS-only destinations; user blocks and mutes; report flow; asset limits; lobby network privacy | BitGate + shell limits |
 
@@ -970,6 +1122,11 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | Comfort-related harm (motion sickness, photosensitivity) | Comfort metadata, content warnings, reports for mislabelled comfort |
 | Excessive resource use | Client-side budgets, the `perf` tier, a visible exit control |
 | Supply chain: a compromised SDK or vendored block | Tagged releases with integrity manifests; vendored hashes checked in CI |
+| A preview that misrepresents a world | Previews are signed claims; reports and labels apply; the Airlock still shows the real address (§5.8) |
+| Unwanted imagery arriving as a preview | Shown automatically only for worlds the visitor's own choices brought in, and never past a content warning (§5.8) |
+| A preview fetch revealing interest in a world | Fetched by hash from storage or a mirror, not from the world's site (§5.8) |
+| Abusive pictures or notes in a home | Catalogue-only layouts; hash-checked pictures under a size ceiling; labels on the layout; renderer policy (§4.5) |
+| A renderer misrepresenting someone's layout | The Airlock names both parties; a layout can be opened through another renderer (§7.5) |
 
 ### 12.2 Client protections
 
@@ -1000,6 +1157,8 @@ Statements in this part about what each block does today were checked against th
 - The Airlock is served from BitPortal's own origin, so it shares the BitLogin session. This is why a user must come back to their *own* client's Airlock (§6.3): no other origin can sign for them.
 - **Room passes** (§9.2) are signed by the BitLogin signer at the Airlock, like entry assertions. The world receives only the room's session key.
 - **Signing inside immersion.** DOM elements aren't visible in immersive VR, so the widget can't appear there. Actions that need a signature mid-session queue until the user is back in the 2D shell.
+
+**Avatar and home.** BitPortal's identity page gets an avatar editor, which writes the avatar event (§4.2), simple tier first, and a home editor, which writes the layout event (§4.5). For a signed-in user the walk-in lobby becomes their home, with their bookmarks as its doors. A signed-out visitor keeps the default hall and the starter set.
 
 **Identities per world**
 
@@ -1053,6 +1212,8 @@ So the plan is:
 
 **A shelf can't require "verified" for free.** Verifying a world means fetching a file from its site, and the lobby must not contact a world just because it is listed (§5.7). So a client knows a world is verified only after the visitor has opened it, and remembers that for a day. A shelf can prefer worlds it already knows are verified; it can't filter on verification for worlds nobody has opened. Third-party verification (Q13) is the only way round this.
 
+**Doors and previews.** A door shows the world's preview (§5.8) when the consent rule allows it: the world came from the visitor's starter set, follows or bookmarks. Otherwise it shows art generated from the world's address, as every door does today. Either way, nothing is fetched from the world's own site to draw the door.
+
 **Signed-out and brand-new users.** With no follows there's no social signal, and "recent verified worlds" would be a feed of anyone who bought a domain. So the lobby for these users is built from a **starter set**: a NIP-51 curated set signed by a named curator key, shown with the curator's name and a "change" control. It stops being used once the user's own graph produces results (§15).
 
 **User-owned algorithm.** Every shelf carries BitFeed's **explanation** ("ranked because 3 follows zapped it"), shown on the world card and in the Airlock. Users can adjust or replace recipes. Sharing recipes as Nostr events is planned in BitFeed's spec and not shipped; until then BitPortal exports and imports recipes as JSON.
@@ -1071,6 +1232,8 @@ So the plan is:
 | `interaction` (`allow` → `require-explicit-action` → `deny`) | The Airlock: `require-explicit-action` adds a second, explained confirmation and disables the fast path; `deny` disables the continue button and shows the reason |
 | `transaction` (`allow` → `require-review` → `deny`) | Paid entry (§16): blocks or warns before any BitUnlock quote is requested |
 | `ranking` (`normal` → `downrank`) | Passed into BitFeed as a scorer |
+
+**Previews and homes.** BitGate also decides whether a preview is shown. A `visibility` decision of `warn` or worse on a world or its publisher replaces the preview with a placeholder. "Misleading preview" is a report reason alongside comfort mislabelling. A home's layout is an addressable event, so the same labels and decisions apply to it as to a world.
 
 **In rooms (§9)**
 
@@ -1190,6 +1353,7 @@ A directory with no worlds attracts no users, and creators won't integrate with 
 |---|---|---|
 | **0** | Nothing. A curator lists the URL | The world appears as "listed by <curator>" |
 | **1** | Publishes a world announcement with their own key | A listing they control; reviews, zaps and bookmarks attach to it |
+| **1b** | Adds a preview to the announcement; the SDK can capture one (§5.8) | Doors and portals that look into the world |
 | **2** | Hosts one static JSON file (§7) | "Verified for this origin"; eligible for the New worlds shelf |
 | **3** | Adds the SDK and a portal (a few lines) | Outbound portals through the visitor's own Airlock; visitors return to their lobby |
 | **4** | Reads the arrival context | Named entry points; guests with a chosen identity and avatar |
@@ -1232,6 +1396,14 @@ Each phase has an exit criterion that has to be met before the next starts.
 - *Walk-in lobby:* the same catalogue as a hall of doors at `/walk/`. A door is chosen by mouse, controller ray or pinch, or by walking through it, and always leads to the flat Airlock page. A Join button adds the Phase 4b room: avatars and spatial voice. Tested with an emulated Quest 3 (a controller trigger on a door reached the Airlock) and with two tabs sharing a room.
 - *Not tested:* a real headset, which the exit criterion asks for.
 - *Published:* the starter set and the curator's four listings are on six public relays as well as bundled with the app. A client with no bundled copy, the reference Airlock, resolves a listing from relays alone and shows it as listed, not verified.
+
+### Phase 1b: Previews
+- The `preview` tag in the library, schema and test vectors, with the hash check and ceilings.
+- A capture call in the SDK, and previews for both reference worlds, stored by hash.
+- BitPortal draws previews through its doors, in the list and in the hall, under the consent rule. `flat` previews for ordinary web pages.
+- A check that the lobby, the hall, the Airlock and the SDK's portals all show what §6.7 requires.
+
+**Exit:** a visitor sees into both reference worlds through their doors without either world's server being contacted, and a world with a content warning shows a placeholder until asked. Needs no sign-in.
 
 ### Phase 2: Publishing with BitLogin
 - BitLogin sign-in on desktop and phone.
@@ -1302,6 +1474,13 @@ Each phase has an exit criterion that has to be met before the next starts.
 - Moving together through a portal (§9.7).
 
 **Exit:** a room of eight is promoted to a hosted server mid-session and keeps everyone's identity and roles. Twenty-five people share one hosted room. A test shows the server can't add a participant or speak as one.
+
+### Phase 8: Chosen avatars and homes
+- Simple avatars: an editor in BitPortal, drawn by the SDK's presence code. Needs room passes, so Phase 4b must be complete.
+- Home layouts: fixtures for kind 37302, the catalogue, a reference renderer, an editor, and two-party verification (§7.5).
+- A signed-in user's home as their lobby.
+
+**Exit:** two signed-in people, each with an avatar they chose, meet in one's home. The home was laid out without writing code, and it opens unchanged through a second renderer.
 
 ---
 
@@ -1398,9 +1577,10 @@ The first version will **not**:
 
 - Replace existing web browsers, or render other websites inside an immersive session.
 - Render arbitrary Three.js sites in VR automatically.
-- Define a universal physics engine, interaction system or scene format.
+- Define a universal physics engine, interaction system or scene format. A home layout (§4.5) is a list of placements from a fixed catalogue, not a scene format.
 - Guarantee continuous, loading-free transitions.
-- Standardize every avatar and animation system (VRM is recommended, not required).
+- Standardize every avatar and animation system, or define an avatar customization system. The protocol carries a simple avatar and a pointer to a model (§4.2); editors belong to clients.
+- Show a live view of another world through a portal (§5.8).
 - Replace multiplayer game servers, or provide anti-cheat or authoritative game logic in peer-to-peer rooms.
 - Hide a room from the world it is held in (§9.8).
 - Require Bitcoin, Lightning or any BitBlocks component.
@@ -1455,6 +1635,16 @@ The first version will **not**:
 **Q20 Private guest lists:** other members can't check a list whose entries are hidden. §9.10's salted fingerprint lets *members* check each other. Is that, plus an invite secret, enough, given that outsiders still can't check anything?
 
 **Q21 Succession without a signer:** a member inside a world holds only a session key (§9.2). Can a room be claimed with a record signed by that session key and backed by its room pass, or must the successor return to their client to sign with their identity?
+
+**Q22 Preview formats:** is one 360° still enough, or should stereo panoramas, or a small 3D model that shifts as the viewer moves, be standardized too?
+
+**Q23 Home catalogue:** who defines the catalogue of room templates and items, how does it grow without every renderer having to ship every item, and when, if ever, are custom 3D models allowed?
+
+**Q24 Renderer verification:** is "hosted on / laid out by" (§7.5) clear enough to a visitor? And may a renderer refuse a layout after it has been announced?
+
+**Q25 Simple avatar fields:** what is the smallest set of choices that still lets people look different from each other?
+
+**Q26 Preview consent:** is "it reached you through something you chose" the right line for showing a preview automatically, and how does it apply to search results?
 
 ---
 
@@ -1520,7 +1710,9 @@ Just as the web links documents and applications through URLs, the spatial web c
 | Need | Mechanism | New kind? |
 |---|---|---|
 | World announcement | 37300 (addressable, experimental) | **Yes** |
-| Avatar preference | 37301 (addressable, experimental) | **Yes** |
+| Avatar (simple choices and an optional model) | 37301 (addressable, experimental) | **Yes** |
+| Home layout | 37302 (addressable, experimental) | **Yes** |
+| Preview | `preview` tag on the world event; the file is fetched by hash | No |
 | Origin verification | `/.well-known/nswp.json` (HTTP, not an event) | No |
 | Arrival context | URL fragment (not an event) | No |
 | Entry assertion | Kind 27235 (NIP-98 shape) + NIP-40 expiration | No (Q3) |
