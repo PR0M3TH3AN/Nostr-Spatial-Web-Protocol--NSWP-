@@ -1,13 +1,20 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.6 (concept specification)
+**Version:** 0.6.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
-**Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
+**Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.6.1
+
+- **Previews are built** (§5.8, §20 Phase 1b). The library reads and checks them, the SDK captures one and draws one through a portal, both reference worlds have one, and BitPortal shows them in its list and its hall.
+- **A portal's view is widened from a distance** (§5.8, "Drawing one"). A true window seen from across a room shows a sliver too narrow to recognise.
+- **BitPortal mirrors previews itself** and fetches nothing else while a world is only listed, which is stricter than §5.8 requires.
+- **Both Airlocks now say what kind of place a destination is** (§6.7).
 
 ## 0. What changed in 0.6
 
@@ -555,7 +562,8 @@ A world may give one of each.
 - **Consent.** A preview is content shown before the visitor has chosen to go anywhere. A client shows one automatically only for a world that reached the visitor through something they chose: their starter set, the people they follow, their bookmarks, or a portal in a world they are standing in. For any other world, and for any world with a `content-warning`, the client shows a placeholder until the visitor asks. Where exactly this line falls is Q26.
 - **A preview is a claim.** It is the publisher's own picture of their world. Being verified doesn't make a preview honest. A misleading one can be reported and labelled like anything else (§15), and the Airlock still shows the real address.
 - **Still, not live.** A web app can't draw another site's running scene. A "live" preview is one its publisher replaces more often, which an addressable event allows.
-- **Capturing one.** The SDK can produce a `pano` from a running world in one call, so a creator needs no other tool. This is a proposed API.
+- **Capturing one.** The SDK produces a `pano` from a running world in one call (`capturePanorama()` in `nswp-sdk/three`), so a creator needs no other tool. A capture leaves out anything about one visitor, and leaves out the views through the world's own portals: a preview that contained another world's preview would change whenever either was retaken.
+- **Drawing one.** Drawn as a true window, a portal seen from across a room shows only a few degrees of the destination, usually nothing recognisable. A client should work out the view as if the visitor stood no more than about 1.5 m from the portal. From a distance they then see a wide view, and close up it behaves like a real window. The SDK's `createPortalWindow()` does this.
 - **Without one,** a client draws a placeholder generated from the world's address.
 
 Richer forms, such as stereo panoramas or a small 3D model that shifts as the viewer moves, are Q22.
@@ -1404,6 +1412,16 @@ Each phase has an exit criterion that has to be met before the next starts.
 - A check that the lobby, the hall, the Airlock and the SDK's portals all show what §6.7 requires.
 
 **Exit:** a visitor sees into both reference worlds through their doors without either world's server being contacted, and a world with a content warning shows a placeholder until asked. Needs no sign-in.
+
+**Status (2026-11-17): built, and tested on a desktop only.**
+
+- *Built:* `preview` tags in `@nswp/core`, with the hash check, the ceilings and four test vectors. `capturePanorama()` and `createPortalWindow()` in the SDK. A preview for each reference world, captured by `npm run previews` and stored under its hash. Each reference world serves the other's preview from its own address, so its portal shows where it leads. BitPortal mirrors the starter set's previews on its own site and draws them on the list's doors, in a world's details (a view you can drag to look around) and through the doors of the hall.
+- *Tested:* in a desktop browser, both lobbies and both reference worlds show the previews, and each page contacts no host but its own. Every preview is checked against the hash in its signed announcement before it is drawn.
+- *Stricter than required:* BitPortal fetches a preview only from its own mirror while a world is listed. One it doesn't mirror, wherever it is stored, waits until the visitor opens that door.
+- *Not seen in a browser:* a held-back preview. No world in the starter set carries a content warning, so the "show preview" path is covered only by unit tests. The same goes for `flat` previews: the code is there, and no listed world has one.
+- *Not republished:* the reference announcements carry their `preview` tags in this repository and in BitPortal's bundled starter set. The copies on public relays are still the older ones without previews.
+- *The §6.7 check:* the list, the hall and both Airlocks show the address, the name, verified or listed, the kind of place, stated intensity, any content warning, and a warning when the device can't run it. Two gaps remain. A portal drawn inside a world by the SDK shows only the name and the address, and relies on the Airlock for the rest. Nothing shows a price, because paid entry isn't built (Phase 5).
+- *Not tested:* a real headset.
 
 ### Phase 2: Publishing with BitLogin
 - BitLogin sign-in on desktop and phone.
