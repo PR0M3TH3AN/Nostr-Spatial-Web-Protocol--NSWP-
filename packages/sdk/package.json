@@ -5,6 +5,6 @@
   "license": "MIT",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@nswp/core": "0.1.0" },
+  "dependencies": { "@nswp/core": "0.1.0", "@noble/curves": "^2.4.0" },
   "devDependencies": { "@types/webxr": "^0.5.24" }
 }

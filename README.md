@@ -24,6 +24,20 @@ No headset needed:
 With a headset, open the same pages in its browser without `?xr=emulate`
 (see spec §21.2 for which browsers support WebXR).
 
+### Share a room (experimental)
+
+Both worlds have a peer-to-peer room: other visitors appear as avatars, and
+you can talk.
+
+1. Open [World A](https://nswp-world-a.vercel.app/) and press **Join the room**.
+   Joining shows your IP address to the others in the room.
+2. Press **Make a private room**. It copies an invite link; send it to someone,
+   or open it in a second window to see yourself.
+3. Press **Turn microphone on** to talk. Do this before **Enter VR**.
+
+This is the Phase 4b spike: guests only, no accounts, no moderation, and no
+fallback for networks that block direct connections (spec §9, §20).
+
 ## What's here
 
 | Path | What it is | License |
@@ -33,7 +47,7 @@ With a headset, open the same pages in its browser without `?xr=emulate`
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
-| `packages/sdk` | `nswp-sdk`: portals and arrival handling for world developers | MIT |
+| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers | MIT |
 | `sites/` | Two reference worlds and the reference Airlock | MIT |
 
 CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is

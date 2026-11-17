@@ -6,7 +6,8 @@
     "nswp-reference-world-a": {
       "entry": { "url": "https://nswp-world-a.vercel.app/", "modes": ["immersive-vr", "inline-3d"] },
       "entry_points": ["main-entrance","balcony"],
-      "capabilities": ["webxr", "spatial-portals"],
+      "capabilities": ["webxr", "spatial-portals", "rooms"],
+      "rooms": { "transports": ["mesh"], "max_mesh": 8 },
       "budgets": { "initial_download_mb": 2 },
       "airlock": "https://nswp-airlock.vercel.app/"
     }
