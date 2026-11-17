@@ -1,13 +1,17 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.4 (concept specification)
+**Version:** 0.4.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.4.1
+
+- **The rooms spike is built** (§20, Phase 4b): a guests-only, peer-to-peer room with avatars and voice in both reference worlds. Its findings are recorded in §9.4 and §9.8.
 
 ## 0. What changed in 0.4
 
@@ -759,7 +763,9 @@ Browsers connect directly using WebRTC. Nostr relays carry only the short handsh
 
 - Head and hand positions, 10–20 times a second, on a channel that may drop packets.
 - Control messages and shared-object changes, on a reliable channel.
-- Voice as Opus audio, placed in space by the listener's device.
+- Voice as Opus audio, placed in space by the listener's device. The audio line is set up in the first handshake even if nobody is talking, so switching a microphone on or off later is a track swap and needs no second handshake.
+
+Positions are sent from a timer, not from the drawing loop. Browsers pause drawing in a hidden tab, and a member who stopped sending would look like they had left.
 
 **Shared objects** (a whiteboard, a moved chair) are kept in step with a conflict-free replicated data type, so no device is in charge. That suits social spaces. It can't prevent cheating, so it doesn't suit competitive games.
 
@@ -837,6 +843,7 @@ A group can go through a portal as a group. One member proposes a destination: a
 - **Stage rooms.** When a room uses the `Speaker` role, only speakers transmit voice.
 - **Reports** are NIP-56 events naming the person and the room.
 - **Safety basics** in every client: a personal-space boundary other avatars can't enter, and one gesture that mutes everyone and offers the exit.
+- **Personal space, as built in the spike.** An avatar fades out as it comes within 0.9 m of your head and is invisible inside 0.45 m. When someone first appears within 1 m of you, one of the pair is moved to 1.4 m away; a person wearing a headset is never moved.
 
 **The venue sees everything.** A room runs inside the world's page, so the world's code handles every position, voice stream and message in it, whichever transport is used. An invite-only room keeps strangers out; it doesn't keep the venue out. Hold private gatherings in worlds you trust.
 
@@ -1199,6 +1206,13 @@ Each phase has an exit criterion that has to be met before the next starts.
 - Schemas and test vectors for the room event, the room pass and handshake messages.
 - Measurements on a desktop and a standalone headset, replacing the size estimates in §9.4.
 - **An early spike is allowed.** A two-person, guest-only room in the reference worlds depends on nothing in Phases 1–4. It can be built first, to learn how shared presence feels before the rest is designed around it.
+
+**Status (2026-11-17): the spike is built; the phase is not.** Both reference worlds have a "Join the room" button.
+
+- *Built:* throwaway guest keys, the encrypted handshake over relays (kind 27301), direct connections, head and hand positions, spatial voice, an open room per world, and private rooms by unguessable link.
+- *Tested:* two browser tabs on one computer saw each other move, including an emulated headset's hands, and a test tone sent as voice arrived at the expected level. Leaving was noticed at once. Six public relays carried the handshake; two refused it, so clients need several.
+- *Not tested:* two different networks, real microphones, a real headset, or more than two people.
+- *Differs from §9:* a room is named by a string, not a room event. There are no room passes, access rules, moderation or TURN servers, and voice must be switched on before entering VR.
 
 **Exit:** four people on different networks, at least one in a headset, share a reference world, hear each other and see each other move. A person without the invitation can't join an invite-only room, and a blocked person can't connect to the member who blocked them.
 

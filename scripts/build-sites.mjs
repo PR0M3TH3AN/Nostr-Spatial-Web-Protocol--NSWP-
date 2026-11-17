@@ -39,13 +39,13 @@ for (const s of sites) {
     mkdirSync(join(out, ".well-known"), { recursive: true });
     cpSync(join(dir, "nswp.json"), join(out, ".well-known", "nswp.json"));
   }
-  // Worlds fetch nothing cross-origin; the Airlock fetches manifests (https) and relays (wss).
   const csp = [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
-    s.world ? "connect-src 'self'" : "connect-src 'self' https: wss:",
+    // Worlds reach Nostr relays (wss) for the room handshake; the Airlock also fetches manifests (https).
+    s.world ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
     "base-uri 'none'",
     "form-action 'none'",
     s.world ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
@@ -56,7 +56,7 @@ for (const s of sites) {
       headers: [
         ...common,
         { key: "Content-Security-Policy", value: csp },
-        { key: "Permissions-Policy", value: s.world ? "xr-spatial-tracking=(self)" : "xr-spatial-tracking=(self), camera=(), microphone=()" },
+        { key: "Permissions-Policy", value: s.world ? "xr-spatial-tracking=(self), microphone=(self)" : "xr-spatial-tracking=(self), camera=(), microphone=()" },
       ],
     },
   ];

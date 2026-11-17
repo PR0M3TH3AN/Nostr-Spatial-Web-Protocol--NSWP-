@@ -12,6 +12,8 @@
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination } from "@nswp/core";
+import { setupPresence } from "./presence.js";
+import { textSprite } from "./text.js";
 
 export interface WorldConfig {
   name: string;
@@ -26,6 +28,9 @@ export interface WorldConfig {
 type TestHooks = {
   state: Record<string, unknown>;
   goThroughPortal(): Promise<void>;
+  roomInfo?: () => unknown;
+  /** Test aid: put the visitor at a floor position. */
+  teleport?: (x: number, z: number) => void;
   device?: unknown;
 };
 
@@ -197,6 +202,31 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     controllers.push(c);
   }
 
+  const presence = setupPresence({ scene, camera, rig, renderer, controllers, textColor: cfg.palette.text, state: hooks.state });
+  hooks.roomInfo = () => presence.info();
+  hooks.teleport = (x, z) => {
+    rig.position.x = x - camera.position.x;
+    rig.position.z = z - camera.position.z;
+  };
+
+  // Desktop: WASD or arrow keys to walk.
+  const keys = new Set<string>();
+  addEventListener("keydown", (e) => {
+    if (!(e.target instanceof HTMLButtonElement)) keys.add(e.code);
+  });
+  addEventListener("keyup", (e) => keys.delete(e.code));
+  addEventListener("blur", () => keys.clear());
+  const step = new THREE.Vector3();
+  const walk = (dt: number) => {
+    const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+    const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
+    if (!forward && !strafe) return;
+    step.set(strafe, 0, -forward).normalize().multiplyScalar(2 * dt).applyAxisAngle(THREE.Object3D.DEFAULT_UP, rig.rotation.y);
+    rig.position.add(step);
+    rig.position.x = THREE.MathUtils.clamp(rig.position.x, -12, 12);
+    rig.position.z = THREE.MathUtils.clamp(rig.position.z, -12, 12);
+  };
+
   // XR: physically walking into the disc also works.
   const camWorld = new THREE.Vector3();
   const local = new THREE.Vector3();
@@ -242,9 +272,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  const clock = new THREE.Clock();
+  const startedAt = performance.now();
+  let lastT = 0;
   renderer.setAnimationLoop(() => {
-    const t = clock.getElapsedTime();
+    const t = (performance.now() - startedAt) / 1000;
+    const dt = Math.min(t - lastT, 0.1);
+    lastT = t;
+    presence.update(dt);
     discMat.uniforms.uTime!.value = t;
     ring.rotation.z = t * 0.2;
     tick(t);
@@ -253,6 +287,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       for (const c of controllers) if (rayHits(c)) hover = 1;
       checkWalkThrough();
     } else {
+      walk(dt);
       raycaster.setFromCamera(ndc, camera);
       hover = raycaster.intersectObject(disc).length ? 1 : 0;
       renderer.domElement.style.cursor = hover ? "pointer" : "grab";
@@ -267,27 +302,4 @@ function destinationHost(url: string | undefined): string {
   if (!url) return "";
   const chk = checkDestination(url);
   return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid destination";
-}
-
-function textSprite(text: string, color: string, width: number): THREE.Sprite {
-  const lines = text.split("\n");
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 64 + lines.length * 72;
-  const g = canvas.getContext("2d")!;
-  g.fillStyle = "rgba(10,12,18,0.72)";
-  g.beginPath();
-  g.roundRect(0, 0, canvas.width, canvas.height, 32);
-  g.fill();
-  g.fillStyle = color;
-  g.textBaseline = "top";
-  lines.forEach((line, i) => {
-    g.font = i === 0 ? "bold 56px system-ui, sans-serif" : "44px system-ui, sans-serif";
-    g.fillText(line, 40, 32 + i * 72, canvas.width - 80);
-  });
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
-  sprite.scale.set(width, (width * canvas.height) / canvas.width, 1);
-  return sprite;
 }
