@@ -5,14 +5,18 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.4, with **Phase 0
-built** (formats, reference library, test worlds). Shared rooms (spec §9) are
-designed and not built yet. Nothing here is an adopted
+Read [`spec.md`](spec.md) first. Status: concept spec v0.5. **Phase 0** (formats,
+reference library, test worlds) and **Phase 1** (the BitPortal lobby, in the
+separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) are built,
+along with a first cut of shared rooms. Nothing here is an adopted
 NIP or standard.
 
 ## Try it
 
-No headset needed:
+Start in the lobby: <https://bitportal.vercel.app/>. Pick a door, and the
+Airlock shows where it leads before you go.
+
+Or go straight to a test world. No headset needed:
 
 1. Open [World A](https://nswp-world-a.vercel.app/?xr=emulate). `?xr=emulate`
    loads the [IWER](https://github.com/meta-quest/immersive-web-emulation-runtime)
