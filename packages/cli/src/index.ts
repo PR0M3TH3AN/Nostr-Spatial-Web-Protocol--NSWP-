@@ -110,8 +110,15 @@ async function check(url: string): Promise<number> {
       failed = true;
     }
     if (m.manifest.listing === "deny") out(`  ${WARN} listing: deny — this origin opts out of third-party listings.`);
-  } else failed = true;
-  printIssues(m.issues, m.warnings);
+  }
+  // No manifest is normal for a site that hasn't adopted NSWP: it can be
+  // listed, just never verified. Anything else wrong with a manifest is a fault.
+  const noManifest = !m.manifest && m.issues.length > 0 && m.issues.every((i) => i.code === "manifest_not_found");
+  if (noManifest) out(`  ${WARN} No manifest at the well-known path, so nothing here can be verified.`);
+  else {
+    if (!m.manifest) failed = true;
+    printIssues(m.issues, m.warnings);
+  }
 
   out();
   out(bold("Announcements"));
@@ -147,7 +154,7 @@ async function check(url: string): Promise<number> {
   report.verified = anyVerified;
   out();
   if (json) console.log(JSON.stringify(report, null, 2));
-  else out(failed ? red("Problems found.") : anyVerified ? green("Verified world.") : yellow("Reachable, but no verified announcement yet."));
+  else out(failed ? red("Problems found.") : anyVerified ? green("Verified world.") : yellow("Reachable, but not verified."));
   return failed ? 1 : 0;
 }
 
