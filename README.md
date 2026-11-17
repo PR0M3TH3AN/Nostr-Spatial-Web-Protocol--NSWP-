@@ -16,6 +16,9 @@ NIP or standard.
 Start in the lobby: <https://bitportal.vercel.app/>. Pick a door, and the
 Airlock shows where it leads before you go.
 
+Or stand in it: <https://bitportal.vercel.app/walk/> is the same lobby as a
+hall of doors. Add `?xr=emulate` to try the headset view without a headset.
+
 Or go straight to a test world. No headset needed:
 
 1. Open [World A](https://nswp-world-a.vercel.app/?xr=emulate). `?xr=emulate`
@@ -51,7 +54,7 @@ fallback for networks that block direct connections (spec §9, §20).
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
-| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers | MIT |
+| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars and spatial voice for Three.js worlds | MIT |
 | `sites/` | Two reference worlds and the reference Airlock | MIT |
 
 CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is
