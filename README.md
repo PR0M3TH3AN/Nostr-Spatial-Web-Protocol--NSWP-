@@ -86,4 +86,6 @@ npm run build && npm run deploy:sites
 
 The reference worlds' publisher key lives outside the repo, at
 `~/.config/nswp/reference-publisher.key`. Signed announcements are in
-`sites/announcements/`.
+`sites/announcements/` and are published to public relays; after changing a
+`world.json`, re-sign it with `nswp sign-world` and publish it with
+`nswp publish`.
