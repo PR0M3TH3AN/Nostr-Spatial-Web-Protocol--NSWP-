@@ -12,6 +12,7 @@
     "vectors": "tsx scripts/generate-vectors.ts",
     "vectors:check": "tsx scripts/generate-vectors.ts --check",
     "nswp": "tsx packages/cli/src/index.ts",
+    "previews": "node scripts/capture-previews.mjs",
     "deploy:sites": "node scripts/deploy-sites.mjs"
   },
   "devDependencies": {
@@ -22,6 +23,7 @@
     "esbuild": "^0.28.2",
     "iwer": "^2.8.0",
     "nostr-tools": "^2.26.1",
+    "playwright-core": "^1.65.1",
     "three": "^0.187.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

@@ -11,7 +11,8 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination } from "@nswp/core";
+import { checkDestination, checkPreviewBytes } from "@nswp/core";
+import { capturePanorama, createPortalWindow, panoramaTexture } from "nswp-sdk/three";
 import { setupPresence } from "./presence.js";
 import { textSprite } from "./text.js";
 
@@ -21,7 +22,8 @@ export interface WorldConfig {
   palette: { sky: number; ground: number; accent: number; fog: number; text: string };
   airlock: string;
   entryPoints: Record<string, { position: [number, number, number]; yaw: number }>;
-  portal: PortalDestination & { label: string; position: [number, number, number] };
+  /** `preview` is the destination's panorama, mirrored on this site at /previews/<sha256>.webp. */
+  portal: PortalDestination & { label: string; position: [number, number, number]; preview?: { sha256: string } };
   decorate(scene: THREE.Scene, accent: THREE.Color): (t: number) => void;
 }
 
@@ -29,6 +31,8 @@ type TestHooks = {
   state: Record<string, unknown>;
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
+  /** Capture this world's preview panorama (spec §5.8), as a base64 WebP. */
+  capturePreview?: (width?: number) => Promise<{ base64: string; width: number; height: number; bytes: number }>;
   /** Test aid: put the visitor at a floor position. */
   teleport?: (x: number, z: number) => void;
   device?: unknown;
@@ -116,6 +120,35 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const portalLabel = textSprite(`${cfg.portal.label}\n${destinationHost(cfg.portal.url)}`, cfg.palette.text, 2.2);
   portalLabel.position.set(0, 1.5, 0);
   portalGroup.add(portalLabel);
+
+  // The view through the portal: the destination's preview, if this site
+  // mirrors one. It is fetched from this site, never from the destination, and
+  // checked against its hash before it is shown (spec §5.8).
+  const previewHash = cfg.portal.preview?.sha256;
+  let portalWindow: THREE.Mesh | null = null;
+  if (previewHash) {
+    void (async () => {
+      try {
+        const res = await fetch(`/previews/${previewHash}.webp`);
+        if (!res.ok) return;
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        const check = checkPreviewBytes({ url: res.url, type: "pano", sha256: previewHash }, bytes);
+        if (!check.ok) {
+          hooks.state.preview = check.code;
+          return;
+        }
+        const image = new Image();
+        image.src = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
+        await image.decode();
+        portalWindow = createPortalWindow(new THREE.CircleGeometry(0.95, 64), panoramaTexture(image));
+        portalWindow.position.z = 0.01; // just in front of the swirl, which stays as the fallback and hit target
+        portalGroup.add(portalWindow);
+        hooks.state.preview = "shown";
+      } catch {
+        hooks.state.preview = "failed";
+      }
+    })();
+  }
   portalGroup.position.y = 1.2;
   scene.add(portalGroup);
 
@@ -137,6 +170,19 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     .set(...spawn.position)
     .add(new THREE.Vector3(-1.45, 1.75, -3).applyAxisAngle(yawAxis, spawn.yaw));
   scene.add(panel);
+
+  hooks.capturePreview = async (width = 2048) => {
+    const main = cfg.entryPoints["main-entrance"]!;
+    // The arrival panel is about one visitor, so it stays out of the picture.
+    // So does the view through the portal: a preview that contained the other
+    // world's preview would change every time either one was retaken.
+    const hide: THREE.Object3D[] = portalWindow ? [panel, portalWindow] : [panel];
+    const blob = await capturePanorama(renderer, scene, new THREE.Vector3(main.position[0], 1.6, main.position[2]), { width, hide });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return { base64: btoa(binary), width, height: width / 2, bytes: bytes.length };
+  };
 
   // --- going through ---------------------------------------------------------
   let leaving = false;

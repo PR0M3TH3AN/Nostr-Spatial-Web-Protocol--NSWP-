@@ -137,6 +137,30 @@ const worldVectors: WorldVector[] = [
     expect: { valid: false, signatureValid: null, errors: ["duplicate_tag"], warnings: [] },
   },
   {
+    name: "preview_valid",
+    description: "A pano preview with its hash and dimensions (spec §5.8).",
+    event: withTags((t) => [...t, ["preview", "https://blossom.example/pano.webp", "pano", "ab".repeat(32), "4096x2048"]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: [] },
+  },
+  {
+    name: "preview_without_hash",
+    description: "A preview with no hash can't be checked, so it is ignored. The world stays valid.",
+    event: withTags((t) => [...t, ["preview", "https://blossom.example/pano.webp", "pano"]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: ["preview_hash_missing"] },
+  },
+  {
+    name: "preview_over_ceiling",
+    description: "A pano larger than 4096x2048 is ignored.",
+    event: withTags((t) => [...t, ["preview", "https://blossom.example/pano.webp", "pano", "ab".repeat(32), "8192x4096"]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: ["preview_too_large"] },
+  },
+  {
+    name: "preview_unknown_type",
+    description: "A preview type this version doesn't know is ignored, so newer types don't break older clients.",
+    event: withTags((t) => [...t, ["preview", "https://blossom.example/scene.glb", "diorama", "ab".repeat(32)]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_value"] },
+  },
+  {
     name: "manifest_not_well_known",
     description: "A manifest elsewhere is allowed but can never verify the publisher.",
     event: withTags((t) => [...t, ["manifest", "https://museum.example/nswp.json"]]),

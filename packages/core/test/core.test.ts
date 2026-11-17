@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   arrivalParam,
@@ -6,6 +7,8 @@ import {
   buildEntryAssertion,
   buildWorldEvent,
   checkDestination,
+  checkPreviewBytes,
+  previewOnWorldOrigin,
   decodeArrival,
   decodeNaddr,
   encodeNaddr,
@@ -327,5 +330,74 @@ describe("entry assertions", () => {
     const e = make();
     const r = verifyEntryAssertion({ ...e, tags: [...e.tags, ["nswp:mutes", "shared"]] }, { origin, now: T0 + 1 });
     expect(!r.ok && r.errors[0]?.code).toBe("bad_signature");
+  });
+});
+
+describe("previews (spec §5.8)", () => {
+  const hash = "ab".repeat(32);
+  const withPreview = (...preview: string[][]) => {
+    const t = museum();
+    t.tags.push(...preview);
+    return parseWorldEvent(t);
+  };
+
+  it("reads a pano and a flat preview and round-trips through buildWorldEvent", () => {
+    const built = buildWorldEvent({
+      d: "x",
+      title: "X",
+      url: "https://x.example/",
+      previews: [
+        { url: "https://blossom.example/a.webp", type: "pano", sha256: hash, width: 4096, height: 2048 },
+        { url: "https://blossom.example/b.webp", type: "flat", sha256: hash },
+      ],
+      createdAt: T0,
+    });
+    const r = parseWorldEvent(built);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.warnings).toEqual([]);
+    expect(r.value.previews).toEqual([
+      { url: "https://blossom.example/a.webp", type: "pano", sha256: hash, width: 4096, height: 2048 },
+      { url: "https://blossom.example/b.webp", type: "flat", sha256: hash },
+    ]);
+  });
+
+  it("drops a bad preview with a warning and keeps the world valid", () => {
+    const cases: [string[], string][] = [
+      [["preview", "https://b.example/a.webp", "pano"], "preview_hash_missing"],
+      [["preview", "https://b.example/a.webp", "pano", "NOTHEX"], "preview_hash_missing"],
+      [["preview", "http://b.example/a.webp", "pano", hash], "url_not_https"],
+      [["preview", "https://b.example/a.webp", "hologram", hash], "unknown_value"],
+      [["preview", "https://b.example/a.webp", "pano", hash, "8192x4096"], "preview_too_large"],
+      [["preview", "https://b.example/a.webp", "pano", hash, "2048x2048"], "preview_not_panorama"],
+      [["preview", "https://b.example/a.webp", "flat", hash, "wide"], "preview_dimensions_invalid"],
+    ];
+    for (const [tag, code] of cases) {
+      const r = withPreview(tag);
+      expect(r.ok, code).toBe(true);
+      if (r.ok) expect(r.value.previews, code).toEqual([]);
+      expect(r.warnings.map((w) => w.code), code).toEqual([code]);
+    }
+  });
+
+  it("keeps only the first preview of each type", () => {
+    const r = withPreview(["preview", "https://b.example/1.webp", "pano", hash], ["preview", "https://b.example/2.webp", "pano", hash]);
+    expect(r.ok && r.value.previews.map((p) => p.url)).toEqual(["https://b.example/1.webp"]);
+    expect(r.warnings.map((w) => w.code)).toEqual(["duplicate_tag"]);
+  });
+
+  it("checks fetched bytes against the hash and the size ceiling", () => {
+    const bytes = new TextEncoder().encode("not really an image");
+    const real = "5bd6045b14f5cc06a8ab08f0f9ea76d0a8eb53a30a1d5cb5e2ed5a0a1b1dbe0a";
+    const sha = createHash("sha256").update(bytes).digest("hex");
+    expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: sha }, bytes)).toEqual({ ok: true });
+    expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: real }, bytes)).toMatchObject({ ok: false, code: "preview_hash_mismatch" });
+    expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: sha }, new Uint8Array(600 * 1024))).toMatchObject({ ok: false, code: "preview_too_large" });
+  });
+
+  it("knows when a preview lives on the world's own site", () => {
+    const world = { url: "https://museum.example/world" };
+    expect(previewOnWorldOrigin(world, { url: "https://museum.example/p.webp", type: "pano", sha256: hash })).toBe(true);
+    expect(previewOnWorldOrigin(world, { url: "https://blossom.example/p.webp", type: "pano", sha256: hash })).toBe(false);
   });
 });

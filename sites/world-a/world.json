@@ -33,5 +33,14 @@
   "languages": [
     "en"
   ],
-  "status": "beta"
+  "status": "beta",
+  "previews": [
+    {
+      "url": "https://nswp-world-a.vercel.app/previews/69f4dcae091f730a9a5f5c65fef3c2a2eec7c2d6a8af57f02ae9a3ce1267256b.webp",
+      "type": "pano",
+      "sha256": "69f4dcae091f730a9a5f5c65fef3c2a2eec7c2d6a8af57f02ae9a3ce1267256b",
+      "width": 2048,
+      "height": 1024
+    }
+  ]
 }

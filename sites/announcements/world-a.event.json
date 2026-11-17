@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794941699,
+  "created_at": 1794949526,
   "tags": [
     [
       "d",
@@ -17,6 +17,13 @@
     [
       "r",
       "https://nswp-world-a.vercel.app/"
+    ],
+    [
+      "preview",
+      "https://nswp-world-a.vercel.app/previews/69f4dcae091f730a9a5f5c65fef3c2a2eec7c2d6a8af57f02ae9a3ce1267256b.webp",
+      "pano",
+      "69f4dcae091f730a9a5f5c65fef3c2a2eec7c2d6a8af57f02ae9a3ce1267256b",
+      "2048x1024"
     ],
     [
       "mode",
@@ -105,6 +112,6 @@
   ],
   "content": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "0ff117d89b518379182de9c89129494e93ba6cbe298d15a6627343237ba3dd7b",
-  "sig": "9163c2852c1784e313f3d5141299489bb4e2a1f963334eb63fcc14d4341e89868b33240b893c5dac05414dca96a10df729a81aec0b9a9105f2b4e933139909ea"
+  "id": "c2051bdd7987052e876a67d5f523c5027591e3e217f829bba7fab20b765afaee",
+  "sig": "82cff2138b87c9472a63f9157cf46db312c9b2f59b9d7720ee2702a5b00a0b779bca1c6e22e8d8cba732387a36dedad6a7f6b2e2359cf034b052162f59cd4201"
 }
