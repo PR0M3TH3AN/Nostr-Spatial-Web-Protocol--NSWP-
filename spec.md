@@ -1221,7 +1221,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 - *Built:* the lobby, with three BitFeed shelves that each say why a world is there; doors whose art is generated from the world's address; verification when a door is opened; BitPortal's own Airlock at `/go/`; the plain no-BitBlocks mode; and a signed starter set of six worlds (the two reference worlds and four existing WebXR sites).
 - *Tested:* from the lobby, through the Airlock, into three separately hosted sites; a world's portal returning to BitPortal's Airlock; plain mode loading no ranking code; a `javascript:` destination being blocked.
 - *Not tested:* a real headset, which the exit criterion asks for.
-- *Not done:* the starter set is bundled with the app and not yet published to relays.
+- *Published:* the starter set and the curator's four listings are on six public relays as well as bundled with the app. A client with no bundled copy, the reference Airlock, resolves a listing from relays alone and shows it as listed, not verified.
 
 ### Phase 2: Publishing with BitLogin
 - BitLogin sign-in on desktop and phone.
