@@ -1,13 +1,19 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.1 (concept specification)
+**Version:** 0.7.2 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.2
+
+- **The world template is built** (§19.1, §20 Phase 4c), in its own `nswp-world-template` repository, with a demo deployed from an unchanged copy.
+- **Home layouts are in the library** (§4.5): building and reading kind 37302, with a first built-in catalogue of eight items and two room templates. The SDK draws one.
+- **Going home works** (§6.3): `portal.home()` is in the SDK, and BitPortal's Airlock takes a visitor to the lobby when opened with no destination.
 
 ## 0. What changed in 0.7.1
 
@@ -1681,6 +1687,14 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** someone outside the project copies the template, changes the scene with an AI assistant, deploys it, and `nswp check` reports a verified world with a working portal.
 
+**Status (2026-11-17): built, and tried only by its author.** The template is the private `nswp-world-template` repository.
+
+- *Built:* a starting scene that draws `home.json` through the SDK's home renderer, and a small example game, chosen by one line. Plumbing for arrival, portals, VR by the `select` event, the way home, and the shared room. Commands to run it locally, build, sign, announce (a dry run unless told otherwise), and take a preview. Instructions for AI assistants, and a checker that fails on a navigation outside a portal, a credential prompt, a script from another site, or a changed vendored library.
+- *Tested:* a fresh copy was given a name and address, signed, checked and deployed to `nswp-world-template.vercel.app` with no code changes. `nswp check` finds a valid manifest there. In a desktop browser, a visitor went from BitPortal's Airlock into the demo, saw its portals named from relay announcements, used "Back to your lobby" to return to BitPortal, and crossed a portal through their own Airlock.
+- *Not done:* the demo's announcement is signed but not published, so `nswp check` reports it as reachable, not verified. The offline check confirms the manifest and the announcement agree.
+- *Not tested:* the exit criterion itself. Nobody outside the project has used the template, and no AI assistant has been set loose on it. The repository is private, so nobody outside can yet. No real headset.
+- *Narrower than §19.1 says:* the starting scene draws the layout bundled with the site. It doesn't yet look on relays for a newer one.
+
 ### Phase 5: Paid access with BitUnlock
 - A paid reference world and a ticketed event, with the world server verifying receipts (§16).
 - Buy on phone, enter in headset. The "buy privately" purchase key.
@@ -1703,7 +1717,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 ### Phase 8: Chosen avatars and homes
 - Simple avatars: an editor in BitPortal, drawn by the SDK's presence code. Needs room passes, so Phase 4b must be complete.
-- Home layouts: fixtures for kind 37302, the catalogue, a reference renderer, an editor, and two-party verification (§7.5).
+- Home layouts: fixtures for kind 37302, the catalogue, a reference renderer, an editor, and two-party verification (§7.5). *Started in 0.7.2:* the library builds and reads layouts, and the SDK draws them from a first catalogue of eight items. There are no test vectors, no editor and no two-party verification yet.
 - The start room (§14.1) drawn from a signed-in user's home layout, with their saved places added for them alone. `portal.home()` and the Airlock's no-destination case (§6.3).
 
 **Exit:** two signed-in people, each with an avatar they chose, meet in one's home. The home was laid out without writing code, and it opens unchanged through a second renderer.

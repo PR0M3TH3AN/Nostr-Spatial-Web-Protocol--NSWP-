@@ -1,0 +1,95 @@
+{
+  "kind": 37302,
+  "created_at": 1794953735,
+  "tags": [
+    [
+      "d",
+      "home"
+    ],
+    [
+      "title",
+      "My place"
+    ],
+    [
+      "room",
+      "hall",
+      "#101217",
+      "#3fc584"
+    ],
+    [
+      "item",
+      "note",
+      "0 2.6 -6",
+      "0",
+      "Welcome. This room is drawn from home.json."
+    ],
+    [
+      "item",
+      "portal",
+      "-3.4 0 -5",
+      "20",
+      "37300:546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c:nswp-reference-world-a"
+    ],
+    [
+      "item",
+      "portal",
+      "3.4 0 -5",
+      "-20",
+      "37300:546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c:nswp-reference-world-b"
+    ],
+    [
+      "item",
+      "plinth",
+      "0 0 -5.5",
+      "0"
+    ],
+    [
+      "item",
+      "plant",
+      "-6.2 0 -7.2",
+      "0"
+    ],
+    [
+      "item",
+      "plant",
+      "6.2 0 -7.2",
+      "0"
+    ],
+    [
+      "item",
+      "lamp",
+      "-6.6 0 -2.5",
+      "0"
+    ],
+    [
+      "item",
+      "lamp",
+      "6.6 0 -2.5",
+      "0"
+    ],
+    [
+      "item",
+      "bench",
+      "0 0 -1.5",
+      "0"
+    ],
+    [
+      "item",
+      "table",
+      "5.6 0 1.2",
+      "90"
+    ],
+    [
+      "access",
+      "follows"
+    ],
+    [
+      "alt",
+      "Home layout: My place"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "7405b3b12fe2f095cf6bd51adcd29bb8dbc1ef161fb886e8c57e657d3e3010da",
+  "sig": "183bf46d91b5c19595b8baf4b8262b3dfea80a3c1b118b4b2b1f807660c9c1e21e5deca19f79106925afe900c42362851d76d7c2b08837e1ab4173443de87112"
+}

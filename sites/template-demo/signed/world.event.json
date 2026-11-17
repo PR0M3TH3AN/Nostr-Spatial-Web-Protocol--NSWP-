@@ -1,0 +1,121 @@
+{
+  "kind": 37300,
+  "created_at": 1794953735,
+  "tags": [
+    [
+      "d",
+      "nswp-world-template-demo"
+    ],
+    [
+      "title",
+      "NSWP world template: the starting home"
+    ],
+    [
+      "summary",
+      "What the NSWP world template looks like before anyone changes it."
+    ],
+    [
+      "r",
+      "https://nswp-world-template.vercel.app/"
+    ],
+    [
+      "preview",
+      "https://nswp-world-template.vercel.app/previews/4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61.webp",
+      "pano",
+      "4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61",
+      "2048x1024"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "capability",
+      "rooms"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "stationary"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "nswp"
+    ],
+    [
+      "t",
+      "template"
+    ],
+    [
+      "t",
+      "home"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: NSWP world template: the starting home"
+    ]
+  ],
+  "content": "A demonstration of the NSWP world template, deployed unchanged. Source: github.com/PR0M3TH3AN/nswp-world-template",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "792a98fc666bd794ad929337956ac3e27a73c68fcce4ea49e4258cd4ada8c638",
+  "sig": "89937654d42df60cbe15a1d25e703f47b1696724a486e0d99cb57ce2a8f384ebbd15061ed9dfdd981f582fd543d03b2a59e9563d3c0df077dcde21ebaf4f3002"
+}

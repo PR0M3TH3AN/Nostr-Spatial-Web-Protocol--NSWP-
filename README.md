@@ -5,12 +5,14 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.7.1. **Phase 0** (formats,
+Read [`spec.md`](spec.md) first. Status: concept spec v0.7.2. **Phase 0** (formats,
 reference library, test worlds), **Phase 1** (the BitPortal lobby, in the
 separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) and
 **Phase 1b** (previews) are built, along with a first cut of shared rooms.
-Items, carried items, the world template and the start room (v0.7 and v0.7.1)
-are design only. Nothing here is an adopted NIP or standard.
+The world template is in its own
+[`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template)
+repo. Items, carried items and the start room are design only. Nothing here is
+an adopted NIP or standard.
 
 ## Try it
 
