@@ -1,13 +1,18 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.5.1 (concept specification)
+**Version:** 0.5.2 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.5.2
+
+- **Phase 2 is started** (§20): BitPortal has a sign-in page using a pinned BitLogin build, and a page for announcing a world. Neither has been tried with a real account yet.
+- **BitLogin's build is now pinned by hash** (§21.1). Rebuilding it from source is byte-identical and matches the live site, which settles which of the builds in circulation is the real one.
 
 ## 0. What changed in 0.5.1
 
@@ -1236,6 +1241,13 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** a developer outside the project announces a verified world without asking anyone; the working headset sign-in paths are documented.
 
+**Status (2026-11-17): started; no real sign-in has been tried.**
+
+- *Built:* an identity page (`/account/`) embedding BitLogin's widget; session handling that takes BitLogin's signer explicitly and checks every signature it returns; and an announce page (`/publish/`) that checks a site, builds the announcement, writes the manifest file the site must host, and publishes to the person's own NIP-65 write relays.
+- *Tested:* BitLogin's widget loads and shows its sign-in screen under BitPortal's content security policy. With a throwaway test key that never publishes, the announce page read a real site's manifest and produced a valid signed announcement, correctly reported as listed, not verified.
+- *Not tested:* signing in with a real account, publishing under a signed-in identity, and the headset sign-in matrix. An automated test would have to create an identity on public relays, so this is left to a person.
+- *Embedding notes for other clients:* BitLogin needs `'wasm-unsafe-eval'` in `script-src` for its password hashing, and its element must stay in one fixed place in the page for its whole life.
+
 ### Phase 3a: Social discovery
 - BitFeed shelves (§14) with explanations; NIP-51 bookmarks; NIP-22 reviews; zaps.
 - The user's own mutes and blocks, applied directly.
@@ -1322,7 +1334,7 @@ These items affect BitPortal directly. BitPortal therefore becomes a **forcing f
 | Block | Current state | Impact on BitPortal | Needed before |
 |---|---|---|---|
 | BitFeed | Hosted `bitfeed.js` has no version in its URL; engine and package versions disagree (0.3.0 vs 0.1.0); BitViewer widening pending; recipe publishing over Nostr not shipped | Vendor a pinned copy and record its hash; JSON recipe export | Phase 1 |
-| BitLogin | Three different builds in circulation; no official tagged release with an integrity manifest; colon events, `pubkey` field and `getSigner()` / `capabilities()` not shipped; password-first with no configurable method order; NIP-46 sessions memory-only; multi-account switching and code pairing not shipped | Pin one build; use an adapter; headset sign-in limited to what the test matrix finds (§13.1) | Phase 2 |
+| BitLogin | The build is reproducible, and the copy built from `main` (`bitlogin.js`, 144,005 bytes) matches the live site; other copies in circulation were built from other source. A script that emits a release folder with an integrity manifest is in an open pull request, held because the repository's dependency audit is failing on development tools. No tagged release yet; colon events, `pubkey` field and `getSigner()` / `capabilities()` not shipped; password-first with no configurable method order; NIP-46 sessions memory-only; multi-account switching and code pairing not shipped | BitPortal vendors the pinned build and checks it against the manifest; an adapter covers the naming; headset sign-in limited to what the test matrix finds (§13.1) | Phase 2 |
 | BitGate | GPL-3.0-or-later until the accepted MIT relicense actually ships; standalone bundle not hosted; no origin targets | **Don't vendor BitGate into MIT BitPortal until relicensed**; only Phase 3b waits on it | Phase 3b |
 | BitUnlock | SDK unpublished, with no license file; limited mainnet beta; public entitlement-status route to be confirmed | Phase 5 waits on the SDK being published under MIT | Phase 5 |
 
