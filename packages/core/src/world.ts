@@ -5,11 +5,16 @@ import {
   INPUTS,
   LIMITS,
   MODES,
+  PREVIEW_LIMITS,
+  PREVIEW_TYPES,
   PERF_TIERS,
   STATUSES,
   WELL_KNOWN_PATH,
   WORLD_KIND,
 } from "./constants.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import type { PreviewType } from "./constants.js";
 import { isHttpsUrl, normalizeUrl } from "./destination.js";
 import { getTags, hasEventShape, isHex64, nowSeconds, type EventTemplate } from "./event.js";
 import { coordinate, parseCoordinate } from "./nip19.js";
@@ -21,6 +26,16 @@ export interface WorldComfort {
   seated?: string;
 }
 
+/** The view through a portal: a still image of the world, fetched by hash (spec §5.8). */
+export interface Preview {
+  url: string;
+  type: PreviewType;
+  /** SHA-256 of the file, lowercase hex. Clients check the bytes against it. */
+  sha256: string;
+  width?: number;
+  height?: number;
+}
+
 export interface WorldInput {
   d: string;
   title: string;
@@ -28,6 +43,7 @@ export interface WorldInput {
   summary?: string;
   description?: string;
   image?: { url: string; dimensions?: string };
+  previews?: Preview[];
   modes?: string[];
   capabilities?: string[];
   comfort?: WorldComfort;
@@ -57,6 +73,8 @@ export interface World {
   summary?: string;
   description: string;
   image?: { url: string; dimensions?: string };
+  /** At most one per type; anything invalid or over the ceilings is left out. */
+  previews: Preview[];
   modes: string[];
   capabilities: string[];
   comfort: WorldComfort;
@@ -81,6 +99,9 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
   if (w.summary) tags.push(["summary", w.summary]);
   tags.push(["r", w.url]);
   if (w.image) tags.push(w.image.dimensions ? ["image", w.image.url, w.image.dimensions] : ["image", w.image.url]);
+  for (const p of w.previews ?? []) {
+    tags.push(p.width && p.height ? ["preview", p.url, p.type, p.sha256, `${p.width}x${p.height}`] : ["preview", p.url, p.type, p.sha256]);
+  }
   for (const m of w.modes ?? []) tags.push(["mode", m]);
   for (const c of w.capabilities ?? []) tags.push(["capability", c]);
   for (const key of ["locomotion", "intensity", "seated"] as const) {
@@ -171,6 +192,49 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
     else c.warn("url_not_https", "tags.image", "The preview image must be an https URL; ignored.");
   }
 
+  const previews: Preview[] = [];
+  for (const t of getTags({ tags }, "preview")) {
+    const [, pUrl, pType, pHash, pDims] = t;
+    const drop = (code: string, message: string) => c.warn(code, "tags.preview", `${message} The preview is ignored.`);
+    if (!pUrl || !isHttpsUrl(pUrl)) {
+      drop("url_not_https", "A preview needs an https address.");
+      continue;
+    }
+    if (!pType || !(PREVIEW_TYPES as readonly string[]).includes(pType)) {
+      drop("unknown_value", `Unknown preview type "${pType ?? ""}".`);
+      continue;
+    }
+    if (!isHex64(pHash)) {
+      drop("preview_hash_missing", "A preview needs the SHA-256 of its file.");
+      continue;
+    }
+    const type = pType as PreviewType;
+    if (previews.some((p) => p.type === type)) {
+      drop("duplicate_tag", `Only the first ${type} preview is used.`);
+      continue;
+    }
+    const preview: Preview = { url: pUrl, type, sha256: pHash };
+    const dims = pDims ? /^(\d{1,5})x(\d{1,5})$/.exec(pDims) : null;
+    if (pDims && !dims) {
+      drop("preview_dimensions_invalid", "Preview dimensions must look like 4096x2048.");
+      continue;
+    }
+    if (dims) {
+      preview.width = Number(dims[1]);
+      preview.height = Number(dims[2]);
+      const max = PREVIEW_LIMITS[type];
+      if (preview.width > max.width || preview.height > max.height || preview.width === 0 || preview.height === 0) {
+        drop("preview_too_large", `A ${type} preview may be at most ${max.width}x${max.height}.`);
+        continue;
+      }
+      if (type === "pano" && preview.width !== preview.height * 2) {
+        drop("preview_not_panorama", "A pano preview must be twice as wide as it is tall.");
+        continue;
+      }
+    }
+    previews.push(preview);
+  }
+
   const modes = enumValues(c, tags, "mode", MODES);
   const capabilities = enumValues(c, tags, "capability", CAPABILITIES);
   const inputs = enumValues(c, tags, "input", INPUTS);
@@ -241,6 +305,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
     title: title ?? "",
     url: url ? (normalizeUrl(url) ?? url) : "",
     description: typeof e.content === "string" ? e.content : "",
+    previews,
     modes,
     capabilities,
     comfort,
@@ -262,4 +327,29 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (manifest) world.manifest = manifest;
   if (access) world.access = access;
   return c.result(world);
+}
+
+export type PreviewCheck = { ok: true } | { ok: false; code: "preview_too_large" | "preview_hash_mismatch"; message: string };
+
+/**
+ * Check a fetched preview file before showing it: it must be within the size
+ * ceiling and must hash to what the signed announcement promised (spec §5.8).
+ */
+export function checkPreviewBytes(preview: Preview, bytes: Uint8Array): PreviewCheck {
+  const max = PREVIEW_LIMITS[preview.type].bytes;
+  if (bytes.length > max) return { ok: false, code: "preview_too_large", message: `The preview file is larger than ${max} bytes.` };
+  if (bytesToHex(sha256(bytes)) !== preview.sha256) return { ok: false, code: "preview_hash_mismatch", message: "The preview file doesn't match the hash in the announcement." };
+  return { ok: true };
+}
+
+/**
+ * True when a preview is served from the world's own site. Such a preview must
+ * not be fetched while the world is merely listed (spec §5.7, §5.8).
+ */
+export function previewOnWorldOrigin(world: { url: string }, preview: Preview): boolean {
+  try {
+    return new URL(preview.url).origin === new URL(world.url).origin;
+  } catch {
+    return true; // if in doubt, treat it as the world's own
+  }
 }

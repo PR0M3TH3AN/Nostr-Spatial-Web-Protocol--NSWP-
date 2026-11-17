@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { encodeNaddr, WORLD_KIND } from "@nswp/core";
+import previews from "../../previews/index.json";
 import sites from "../../sites.json";
 import { startWorld } from "../../shared/world.js";
 
@@ -20,6 +21,7 @@ void startWorld({
     url: b.url,
     entryPoint: "main-entrance",
     position: [0, 0, -3],
+    preview: (previews as Record<string, { sha256: string } | undefined>)["world-b"],
   },
   decorate(scene, accent) {
     // Plinths with slowly turning sculptures.

@@ -1,6 +1,6 @@
 // Builds the reference sites into sites/<name>/dist as plain static files.
 import { build } from "esbuild";
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +36,11 @@ for (const s of sites) {
   });
   cpSync(join(dir, "index.html"), join(out, "index.html"));
   if (s.world) {
+    // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
+    mkdirSync(join(out, "previews"), { recursive: true });
+    for (const f of readdirSync(join(root, "sites", "previews"))) {
+      if (/^[0-9a-f]{64}\.webp$/.test(f)) cpSync(join(root, "sites", "previews", f), join(out, "previews", f));
+    }
     mkdirSync(join(out, ".well-known"), { recursive: true });
     cpSync(join(dir, "nswp.json"), join(out, ".well-known", "nswp.json"));
   }
@@ -61,6 +66,13 @@ for (const s of sites) {
     },
   ];
   if (s.world) {
+    headers.push({
+      source: "/previews/(.*)",
+      headers: [
+        { key: "Access-Control-Allow-Origin", value: "*" },
+        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+      ],
+    });
     headers.push({
       source: "/.well-known/nswp.json",
       headers: [

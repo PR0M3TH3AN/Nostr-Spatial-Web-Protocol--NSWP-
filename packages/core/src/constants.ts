@@ -34,6 +34,15 @@ export const INPUTS = ["controllers", "hands", "gaze", "keyboard-mouse", "touch"
 export const PERF_TIERS = ["mobile", "standalone", "desktop"] as const;
 export const STATUSES = ["live", "beta", "maintenance", "retired"] as const;
 
+/** Kinds of preview a world can publish (spec §5.8). */
+export const PREVIEW_TYPES = ["pano", "flat"] as const;
+export type PreviewType = (typeof PREVIEW_TYPES)[number];
+/** Ceilings a client enforces whatever a world claims (spec §5.8). */
+export const PREVIEW_LIMITS = {
+  pano: { width: 4096, height: 2048, bytes: 2 * 1024 * 1024 },
+  flat: { width: 1920, height: 1080, bytes: 500 * 1024 },
+} as const;
+
 export const LIMITS = {
   manifestBytes: 64 * 1024,
   arrivalChars: 16 * 1024,

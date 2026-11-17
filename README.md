@@ -111,3 +111,23 @@ The reference worlds' publisher key lives outside the repo, at
 `sites/announcements/` and are published to public relays; after changing a
 `world.json`, re-sign it with `nswp sign-world` and publish it with
 `nswp publish`.
+
+### Previews
+
+Each reference world has a preview: a 360° picture taken from where a visitor
+arrives, which a portal or a lobby can show before anyone goes there (spec
+§5.8). To retake them:
+
+```bash
+npm run build && npm run previews && npm run build
+```
+
+`npm run previews` opens each built world in headless Chrome (it needs Google
+Chrome installed), asks the world to photograph itself, and saves the file
+under its SHA-256 in `sites/previews/`. It records the hash in each
+`world.json`, so re-sign the announcements afterwards. Each world also serves
+the *other* world's preview from its own address, so its portal can show where
+it leads without contacting the destination.
+
+In your own world, `capturePanorama()` from `nswp-sdk/three` takes the picture
+and `createPortalWindow()` shows one inside a portal.
