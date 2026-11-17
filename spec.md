@@ -1,13 +1,23 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.6.1 (concept specification)
+**Version:** 0.7 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7
+
+Three additions and one correction. None is built yet.
+
+- **Items** (§10.4): a thing is described once by a signed event from its maker, with a 3D file, a size, simple collision shapes and named animations. A home layout places items by reference, in metres from the home's origin. Items carry data and never code.
+- **Items you hold and carry** (§10.5): a maker can grant an item to a person, and that person can carry it into worlds that agree to draw it. Anyone can check who made it and who it was given to. The protocol does not make items scarce or resellable.
+- **A world template** (§19.1): a repository to copy, with the protocol's plumbing already done, whose starting scene is a home you host yourself.
+- **Correction:** 0.6 said version one of homes has no custom 3D models. Custom models are now allowed as items, under ceilings, when the renderer chooses to draw them (§4.5).
+- New phases **4c** (world template), **8b** (items) and **8c** (granted and carried items). Existing phase numbers are unchanged.
 
 ## 0. What changed in 0.6.1
 
@@ -243,15 +253,16 @@ The test for what belongs in the protocol: **NSWP standardizes only what crosses
 
 | Party | What they own | Signed by |
 |---|---|---|
-| The user | Identity, follows and mutes, bookmarks, avatar (§4.2), home layout (§4.5), and which identity each world sees | The user's key |
-| A world's owner | The world's code and content, its announcement and preview (§5.8), its comfort and device claims, its rules, which avatars it draws, its prices | The publisher's key, vouched for by the site (§7.3) |
+| The user | Identity, follows and mutes, bookmarks, avatar and what they carry (§4.2, §10.5), home layout (§4.5), and which identity each world sees | The user's key |
+| An item's maker | What the item is, and who it has been granted to (§10.4, §10.5) | The maker's key |
+| A world's owner | The world's code and content, its announcement and preview (§5.8), its comfort and device claims, its rules, which avatars and items it draws, what any item does there, its prices | The publisher's key, vouched for by the site (§7.3) |
 | A client (BitPortal or another) | How things are displayed, the Airlock, ranking, and defaults such as a starter set | Nothing; a client is replaceable |
 | Curators and moderators | Their lists and labels, which are opinions | Their own keys |
 | Relays, file hosts, room servers | Nothing. They carry what others own, and can be swapped | — |
 
-**The same everywhere,** because the protocol fixes it: the event and manifest formats, the verification rule, what every portal must show (§6.7), the arrival context, room passes, and the hash check and size ceilings on files.
+**The same everywhere,** because the protocol fixes it: the event and manifest formats, the verification rule, what every portal must show (§6.7), the arrival context, room passes, what an item is and who holds it, and the hash check and size ceilings on files.
 
-**Different from place to place,** because the world decides: how it looks, its rules and physics, which avatars it draws beyond the simple one, and what it charges.
+**Different from place to place,** because the world decides: how it looks, its rules and physics, which avatars it draws beyond the simple one, whether it draws visitors' items and what they do there, and what it charges.
 
 **Different from user to user,** because the user decides: what their lobby shows and in what order, whose labels they trust, which identity each world sees, and their comfort settings.
 
@@ -299,7 +310,8 @@ A world draws the highest tier it accepts and falls back down the list. One addr
 - **Models.** VRM 1.0 (built on glTF) is the recommended format, with plain GLB as a fallback. Model URLs should be content-addressed (Blossom) and carry the SHA-256, so a world can check the bytes it fetched.
 - **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* is pointed at it is decided at the Airlock (§4.4). A user who wants a private avatar doesn't publish this event and gives the URL in the arrival context instead.
 - **Worlds decide.** Worlds keep control of rendering and rules. Avatar portability doesn't oblige any world to accept every model.
-- **Not in the protocol:** an avatar customization system with body parts, wearables or sliders. An avatar editor is a client feature; it writes this event.
+- **Things you carry** are items (§10.5), attached at a few fixed points. They are listed in this event with `carry` tags.
+- **Not in the protocol:** an avatar customization system with body parts or sliders. An avatar editor is a client feature; it writes this event.
 - Until room passes exist (§9.2), everyone in a room is a guest with a generated avatar.
 
 ### 4.3 Privacy-preserving identity
@@ -339,6 +351,7 @@ The problem: a world is on a different origin from the client, so it can't see t
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
 - `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
+- `"carry": false` asks the world not to draw the items the user carries (§10.5). It is a 0.7 addition, also not yet in the schemas or library.
 - **Only a site that publishes a manifest gets an arrival context.** A site that hasn't adopted NSWP, such as one a curator listed, gets a plain visit with nothing added to its address.
 - Everything else is present only if the user ticked it at the Airlock.
 
@@ -398,13 +411,15 @@ A user can have a place of their own: a **home**. It is described by a signed ev
 ```
 
 - `room` names a room template and two colours.
-- Each `item` gives a type, a position in metres (`x y z`), a rotation about the vertical in degrees, and then what that type needs: a `frame` takes an image address and its hash, a `portal` takes a world coordinate or an address, a `note` takes a short text.
+- Each `item` gives a type, a position in metres (`x y z`) measured from the home's origin, a rotation about the vertical in degrees, and then what that type needs: a `frame` takes an image address and its hash, a `portal` takes a world coordinate or an address, a `note` takes a short text.
+- In place of a built-in type, an `item` may name a **published item** by its coordinate (§10.4): `["item", "37303:<maker>:brass-lantern", "1 0.9 -2", "30"]`. If the item must be granted, the grant's event ID follows the rotation.
 - `access` is the default rule for rooms held there (§9.3).
 
 **Limits that keep this small**
 
-- **A fixed catalogue.** Room templates, furniture, frames, portals and notes come from a standard list every renderer ships. Version one has **no custom 3D models**. That keeps a home light and safe to open, and it means a layout is a list of placements, not a scene format (§23). Growing the catalogue is Q23.
-- At most 64 items. Pictures are fetched by hash, under the ceilings in §10.1.
+- **A built-in catalogue.** Room templates, furniture, frames, portals and notes come from a standard list every renderer ships. A home made only of these is light and safe to open anywhere.
+- **Published items are the renderer's choice.** A renderer says in its manifest which published items it draws: none, those on lists it names, or any (§7.5). An item it won't draw is shown as a plain marker of the same size. A layout stays a list of placements, not a scene format (§23).
+- At most 64 placements, of which at most 16 different published items. Pictures and item files are fetched by hash, under the ceilings in §10.1.
 
 **How it fits the rest**
 
@@ -413,6 +428,7 @@ A user can have a place of their own: a **home**. It is described by a signed ev
 - **Two parties stand behind it,** and the Airlock names both: who runs the renderer and who laid out the place (§7.5).
 - **A home doubles as a lobby.** Its portals are its owner's picks. A client may use a signed-in user's home as their lobby, with their bookmarks as doors.
 - **Pictures and notes are the owner's content.** Content warnings and labels apply to the layout as they do to a world, and a renderer may have a policy of its own (§15).
+- **A home you host yourself.** Someone who runs their own site can be their own renderer: the world template (§19.1) starts as one. Its manifest admits only its owner's key, so both parties in §7.5 are the same person and the Airlock says only "verified".
 
 Homes need a working identity: sign-in to publish a layout, and room passes for the owner to be recognised as host.
 
@@ -482,7 +498,7 @@ This shows the unsigned body; signing adds `id`, `pubkey` and `sig`.
 | `image` | | | A small card image for ordinary Nostr clients, optional dimensions; a content-addressed host is preferred (§5.7) |
 | `preview` | | | The view through a portal: address, type (`pano` or `flat`), SHA-256, dimensions (§5.8) |
 | `mode` | | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`; repeatable, in order of preference |
-| `capability` | | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments` |
+| `capability` | | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `items` (draws what visitors carry, §10.5), `entry-assertion`, `payments` |
 | `comfort` | | | `locomotion` (`stationary`, `teleport`, `smooth`, `vehicle`), `intensity` (`low`, `medium`, `high`), `seated` (`supported`, `required`, `unsupported`) |
 | `input` | | | `controllers`, `hands`, `gaze`, `keyboard-mouse`, `touch`, `gamepad` |
 | `perf` | | | Lowest device class the world targets: `mobile`, `standalone` (self-contained headset), `desktop` (PC-driven) |
@@ -690,7 +706,7 @@ Wherever a destination is offered (a door in a lobby, a portal in a world, the A
 7. **The price,** if entry is paid.
 8. **Whether this device can run it.**
 
-A preview (§5.8), who is there now (open rooms only, §9.10) and why the world is listed are optional extras.
+A preview (§5.8), who is there now (open rooms only, §9.10), why the world is listed, and whether the world draws the items a visitor carries (§10.5) are optional extras.
 
 **Whose word it is.** A lobby and the Airlock are the client's own pages, so what they show is the client's judgment. A portal inside a world is drawn by that world. It should show the same things, and the SDK's portals do, but it is the world's word. The Airlock repeats them before the visitor leaves, which is why it is never skipped for a destination the visitor hasn't approved (§6.5).
 
@@ -769,7 +785,7 @@ Verified means: *whoever controls this origin today vouches for this key.* It do
 
 A home (§4.5) has two parties behind it, and verification names both.
 
-- **Who runs the code:** the renderer's site. Its manifest says that it draws layouts, and for whom: `"spaces": { "layouts": "any" }`, or a list of the keys it hosts.
+- **Who runs the code:** the renderer's site. Its manifest says that it draws layouts, and for whom: `"spaces": { "layouts": "any" }`, or a list of the keys it hosts. It also says which published items it draws: `"items": "builtin"` (the default), `"listed"` with the coordinates of the item lists it accepts, or `"any"` (§10.4).
 - **Who made the place:** the key that signed the layout event.
 
 A home's announcement is verified when all of these hold:
@@ -1071,16 +1087,128 @@ A room's record is a Nostr event, and nothing in an event proves its author is s
 - **Integrity.** Assets referenced from Nostr carry a SHA-256 and should be served from Blossom or another content-addressed store, so any mirror can serve them.
 - **Budgets.** Worlds publish budgets (§7.2), and clients enforce their own hard limits whatever a world claims. Defaults: avatar ≤ 10 MB and ≤ 70k triangles; initial world download warned above 50 MB. Per-device budgets are Q7.
 - **Pictures.** A picture placed in a home (§4.5) is at most 2048 pixels on its longer side and 1 MB, fetched by hash. Preview ceilings are in §5.8.
+- **Items.** An item file (§10.4) is GLB, at most 2 MB and 20,000 triangles, with textures no larger than 1024 pixels, at most 4 animation clips and at most 8 collision shapes. A carried item is at most 1 m on its longest side, and a placed one at most 3 m. Addresses inside the file are not followed. These are starting numbers (Q30).
 
 ### 10.2 Possessions and entitlements
 
-Longer term, NSWP could cover avatar clothing, art objects, collectibles, tickets and creator-issued entitlements.
+NSWP covers things a person can make, be given and show: items (§10.4) and who holds them (§10.5). Tickets and paid entry are entitlements, and in BitPortal those come from BitUnlock (§16).
 
-A signed claim proves who issued it, not universally recognized ownership or exclusive possession. **Each world decides which issuers, claims, licenses and formats it accepts.** In BitPortal, paid entitlements come from BitUnlock (§16).
+A signed claim proves who issued it, not universally recognized ownership or exclusive possession. **Each world decides which issuers, claims, licenses and formats it accepts.**
 
 ### 10.3 Bitcoin and Lightning
 
 Payments are optional, and browsing public worlds never requires one. Uses include admission, tips, subscriptions, purchases and paid events.
+
+### 10.4 Items (proposed)
+
+An **item** is a thing that can be placed in a home or carried by a person: a lantern, a trophy, a chair, a hat. Two events describe it, and they are kept apart on purpose.
+
+- **What the thing is** is an item definition, signed by its maker. It is published once and can be used in many places.
+- **Where the thing is** belongs to whoever holds it: a placement in a home layout (§4.5), or a `carry` tag in an avatar (§10.5).
+
+**The item definition** is addressable (experimental kind **37303**, not allocated by the NIPs process; `d` names the item):
+
+```json
+{
+  "kind": 37303,
+  "tags": [
+    ["d", "brass-lantern"],
+    ["title", "Brass lantern"],
+    ["summary", "A lantern that swings as you walk."],
+    ["model", "https://blossom.example/<sha256>.glb", "glb", "<sha256>"],
+    ["thumb", "https://blossom.example/<sha256>.webp", "<sha256>"],
+    ["size", "0.18 0.42 0.18"],
+    ["collider", "box", "0 0.21 0", "0.18 0.42 0.18"],
+    ["clip", "idle", "Swing"],
+    ["clip", "touch", "Flare"],
+    ["behavior", "holdable"],
+    ["fits", "place", "hand-left", "hand-right"],
+    ["use", "granted"],
+    ["license", "CC-BY-4.0"],
+    ["alt", "Item: Brass lantern"]
+  ],
+  "content": ""
+}
+```
+
+- `model` is the file, its format and its SHA-256. The bytes are checked against the hash, and against the ceilings in §10.1, before anything is drawn.
+- `size` is the item's box in metres: width, height, depth. A file that is larger than its stated size is scaled down to fit.
+- `collider` gives the item's **hit box** as simple shapes: a `box` (centre, size), a `sphere` (centre, radius) or a `capsule` (centre, radius, height). Collision never uses the drawn mesh, so it stays cheap and predictable.
+- `clip` ties a moment to an animation in the file: `idle`, `touch`, `held` or `move`.
+- `behavior` is a short closed list of things an item can be: `holdable`, `sittable` or `touchable`. An unknown value is ignored. The list is Q28.
+- `fits` says where the item may go: `place` (in a layout) and the attachment points in §10.5.
+- `use` is `anyone` (the default) or `granted` (§10.5).
+- `content-warning` and labels apply as they do to a world (§15).
+
+**Rules**
+
+- **Data, never code.** An item carries a shape, a hit box and animations. It carries no script, and a client or world must not run anything found in an item file. A thing that carried code would run a stranger's program inside every world that drew it.
+- **What an item does is the world's rule.** The item says "I can be held" and "this is my hit box". Whether swinging it scores a point, opens a door or does nothing is decided by the world it is in. This is why an item works across worlds at all: no two worlds have to agree on physics or rules.
+- **Drawing one is always a choice.** A renderer or a world may draw an item, draw a plain marker of the same size instead, or draw nothing. It applies its own budgets whatever the item claims.
+- **The maker is always on show.** The definition is signed, so anything that draws an item can say who made it. The SDK shows the maker when a visitor points at an item.
+
+**How the catalogue grows.** The built-in catalogue (§4.5) is fixed and ships with every renderer. Beyond it, a catalogue is a signed list of item definitions: a NIP-51 curation set (kind 30004) that names items by coordinate. Anyone can publish one, and a renderer or world chooses which lists it draws from. No renderer has to ship anyone else's items, because an item brings its own file.
+
+### 10.5 Items you hold and carry (proposed)
+
+**Three claims, and what backs each**
+
+| Claim | What proves it | Limit |
+|---|---|---|
+| "I made this" | The maker's signature on the item definition | None. It can be checked anywhere |
+| "This was given to me" | A grant, signed by the maker, naming the holder's key | It is the maker's word, and the maker can withdraw it |
+| "Only one exists" or "I can resell it" | Nothing | Not provided. See below |
+
+**The grant** follows the shape of a Nostr badge award (NIP-58). It is a regular event signed by the item's maker (experimental kind **7303**, not allocated by the NIPs process):
+
+```json
+{
+  "kind": 7303,
+  "tags": [
+    ["a", "37303:<maker>:brass-lantern"],
+    ["p", "<holder pubkey>"],
+    ["edition", "12", "100"],
+    ["alt", "Item grant: Brass lantern"]
+  ],
+  "content": ""
+}
+```
+
+- An item with `use` set to `granted` is drawn for a person only when a grant from its maker names that person's key.
+- A grant is not transferable. To pass an item on, the maker grants it to someone else. The maker withdraws a grant by deleting it (NIP-09), and a world should then stop drawing the item.
+- `edition` is the maker's statement, such as "number 12 of 100". Nothing checks it but the maker's reputation.
+- A maker who sells items issues the grant after payment. In BitPortal the payment is a BitUnlock purchase (§16). The grant, not the receipt, is what worlds check.
+- Whether grants should reuse NIP-58's own kinds, so that ordinary Nostr apps show items as badges, is Q27.
+
+**No scarcity, said plainly.** Nostr can prove who signed something. It cannot stop a maker granting the same item a thousand times, and it has no ledger that would let a holder sell an item on without the maker. NSWP doesn't pretend otherwise and doesn't add a ledger. An item is "made by this key, given to that key", which is enough to show a trophy, a membership or a gift.
+
+**Carrying.** A person lists what they carry in their avatar event (§4.2), one tag each:
+
+```text
+["carry", "37303:<maker>:brass-lantern", "hand-right", "<grant event ID>"]
+["carry", "37303:<own key>:paper-hat", "head"]
+```
+
+- Attachment points are a closed list: `head`, `back`, `hand-left`, `hand-right` and `side` (beside the person, for something that follows them). At most 4 carried items.
+- A carried item is drawn with its holder and leaves when they leave. A visitor can't put an item down in someone else's world. Leaving things behind would make them that world's content, and its problem.
+
+**Worlds opt in.** A world that draws carried items says so with the capability `items` in its announcement. Without it, nothing is carried in. A world that lists it still chooses what to draw: only items on lists it trusts, only some attachment points, or a marker instead of the model. The Airlock tells the visitor before they enter whether their items will be drawn.
+
+**What a world checks** before drawing a carried item:
+
+1. The holder is who they say they are: an entry assertion (§4.4) or a room pass (§9.2).
+2. The item definition's signature, and the file against its hash and the ceilings.
+3. For a `granted` item, a grant signed by the item's maker that names the holder's key and hasn't been deleted.
+
+In a room, each member's copy of the world makes the same checks, so nobody has to take the host's word.
+
+**Carrying is tied to identity.** An item traces to its holder, which is the point, and also the cost.
+
+- Items are carried only when the visitor enters under the identity that holds them. Entering anonymously carries nothing.
+- An alternate identity (§4.3) carries only what was granted to that identity. Showing an item without revealing which key holds it is Q29.
+- The Airlock lists what will be carried and lets the visitor leave it behind for this visit (`"carry": false`, §4.4). That is a request. A world that knows a visitor's key can look up their public avatar event regardless, so the real choice is which identity to enter with, and the Airlock says so.
+
+**Other people's protection.** An item is content a stranger brings into view. A world's moderators can refuse items by maker or by list. A visitor's client applies their mutes, so a muted person's items go with their avatar, and labels on an item or its maker apply as elsewhere (§15).
 
 ---
 
@@ -1133,8 +1261,12 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | A preview that misrepresents a world | Previews are signed claims; reports and labels apply; the Airlock still shows the real address (§5.8) |
 | Unwanted imagery arriving as a preview | Shown automatically only for worlds the visitor's own choices brought in, and never past a content warning (§5.8) |
 | A preview fetch revealing interest in a world | Fetched by hash from storage or a mirror, not from the world's site (§5.8) |
-| Abusive pictures or notes in a home | Catalogue-only layouts; hash-checked pictures under a size ceiling; labels on the layout; renderer policy (§4.5) |
+| Abusive pictures, notes or items in a home | The built-in catalogue by default, and published items only where the renderer allows them; hash-checked files under ceilings; labels on the layout; renderer policy (§4.5) |
 | A renderer misrepresenting someone's layout | The Airlock names both parties; a layout can be opened through another renderer (§7.5) |
+| An item that carries code | Items are data. Scripts are never run and addresses inside an item file are never followed (§10.4) |
+| An item used to harass, obstruct or overload | Worlds opt in and choose what to draw; hash-checked files under ceilings; simple hit boxes; at most 4 carried items; mutes and labels apply (§10.5) |
+| A false claim to hold an item | A grant signed by the maker names the holder's key, and the holder's identity is proven by assertion or room pass (§10.5) |
+| Carried items linking a person across worlds | Carried only under the identity that holds them; never when anonymous; the Airlock lists them first (§10.5) |
 
 ### 12.2 Client protections
 
@@ -1370,6 +1502,18 @@ A directory with no worlds attracts no users, and creators won't integrate with 
 | **7** | Registers a BitUnlock product | Paid entry, tickets, passes |
 | — | Keeps its own multiplayer server, verifying entry assertions | Its existing system, with visitors' chosen identities (§9.9) |
 
+### 19.1 The world template
+
+Most of the ladder is plumbing that is the same for every world. A **world template** does it once: a repository to copy, under MIT, that is already a working world.
+
+- **What it ships:** a Three.js scene with WebXR, the manifest and a signed announcement, arrival handling, a portal that goes through the visitor's Airlock, preview capture, rooms with avatars and voice, and a deploy script for static hosting. `nswp check` passes on the first deploy.
+- **Where it starts:** as a home you host yourself (§4.5). The starting scene reads its owner's layout event and places the items, so there is something to stand in before any code is written.
+- **Where it goes:** anywhere. A home, a game, a gallery, a landscape. The scene is the owner's code, and nothing in the protocol limits it.
+- **Made to be changed with an AI assistant.** The repository carries plain instructions for one: which files are the scene and free to change, which are the protocol's plumbing, and the rules that must survive any change (the Airlock for every outbound portal, no credentials inside the world, scrub the arrival fragment). The checks say when one has been broken.
+- **Not part of the protocol.** It is one starting point. A world written from nothing, or in another engine, is every bit as much an NSWP world.
+
+It is extracted from the reference worlds, which already do all of this.
+
 **Bootstrapping.** The first directory is curated from WebXR experiences that already exist, by hand, into the starter set. Curators link, they don't embed or copy, and they honour `listing: deny` (§7.2).
 
 ## 20. Minimum Viable Product
@@ -1474,6 +1618,13 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** four people on different networks, at least one in a headset, share a reference world, hear each other and see each other move. A person without the invitation can't join an invite-only room, and a blocked person can't connect to the member who blocked them.
 
+### Phase 4c: World template
+- A separate repository, extracted from the reference worlds (§19.1): scene, manifest, announcement, portal, preview capture, rooms, deploy.
+- Instructions for AI assistants, and checks that fail when a protocol rule is broken.
+- The starting scene draws its owner's home layout from the built-in catalogue.
+
+**Exit:** someone outside the project copies the template, changes the scene with an AI assistant, deploys it, and `nswp check` reports a verified world with a working portal.
+
 ### Phase 5: Paid access with BitUnlock
 - A paid reference world and a ticketed event, with the world server verifying receipts (§16).
 - Buy on phone, enter in headset. The "buy privately" purchase key.
@@ -1500,6 +1651,19 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** two signed-in people, each with an avatar they chose, meet in one's home. The home was laid out without writing code, and it opens unchanged through a second renderer.
 
+### Phase 8b: Items
+- Fixtures for kind 37303, with the ceilings and the hash check. A loader in the SDK that draws an item, its hit box and its animations, and refuses anything over the ceilings.
+- Published items in home layouts, with a marker for items a renderer won't draw. Item lists as catalogues.
+
+**Exit:** an item made by one person stands in another person's home, shows its maker when pointed at, and appears as a marker in a renderer that draws only the built-in catalogue.
+
+### Phase 8c: Granted and carried items
+- Grants (kind 7303) and `carry` tags, with the three checks in §10.5.
+- The Airlock lists what will be carried and whether the destination draws it.
+- Carried items in the SDK's presence code, in rooms.
+
+**Exit:** a person carries a granted item from their home into a second world that allows it, where another visitor can see who made it and who holds it. A third world that doesn't allow items shows none, and the Airlock said so beforehand.
+
 ---
 
 ## 21. Reference Implementation
@@ -1516,6 +1680,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 | Payments | `@bitunlock/sdk` (once published under MIT); NIP-57 for tips |
 | Assets | Blossom servers; glTF/VRM loaders with KTX2 and Meshopt |
 | World hosting | Static HTTPS hosting |
+| World template | A repository to copy, extracted from the reference worlds (§19.1) |
 | Rooms, peer-to-peer | WebRTC data channels and audio; handshake over Nostr relays; a conflict-free replicated data type library for shared objects |
 | Rooms, hosted | An open-source media forwarding server behind the room server interface (candidates in Appendix C) |
 | Getting through home networks | Public STUN; an optional community-run TURN server |
@@ -1595,9 +1760,12 @@ The first version will **not**:
 
 - Replace existing web browsers, or render other websites inside an immersive session.
 - Render arbitrary Three.js sites in VR automatically.
-- Define a universal physics engine, interaction system or scene format. A home layout (§4.5) is a list of placements from a fixed catalogue, not a scene format.
+- Define a universal physics engine, interaction system or scene format. A home layout (§4.5) is a list of placements, not a scene format, and an item (§10.4) declares a shape and a hit box, not what happens when it is used.
+- Run code carried by an item, an avatar or a layout.
+- Make items scarce, transferable or resellable. An item is made by one key and granted to another (§10.5).
+- Let a visitor leave objects behind in someone else's world.
 - Guarantee continuous, loading-free transitions.
-- Standardize every avatar and animation system, or define an avatar customization system. The protocol carries a simple avatar and a pointer to a model (§4.2); editors belong to clients.
+- Standardize every avatar and animation system, or define an avatar customization system. The protocol carries a simple avatar, a pointer to a model and a short list of carried items (§4.2); editors belong to clients.
 - Show a live view of another world through a portal (§5.8).
 - Replace multiplayer game servers, or provide anti-cheat or authoritative game logic in peer-to-peer rooms.
 - Hide a room from the world it is held in (§9.8).
@@ -1656,13 +1824,21 @@ The first version will **not**:
 
 **Q22 Preview formats:** is one 360° still enough, or should stereo panoramas, or a small 3D model that shifts as the viewer moves, be standardized too?
 
-**Q23 Home catalogue:** who defines the catalogue of room templates and items, how does it grow without every renderer having to ship every item, and when, if ever, are custom 3D models allowed?
+**Q23 Home catalogue:** who defines the built-in catalogue of room templates and items? Beyond it, 0.7 lets the catalogue grow through published items and signed lists of them (§10.4). Is that enough, and should room templates be publishable the same way?
 
 **Q24 Renderer verification:** is "hosted on / laid out by" (§7.5) clear enough to a visitor? And may a renderer refuse a layout after it has been announced?
 
 **Q25 Simple avatar fields:** what is the smallest set of choices that still lets people look different from each other?
 
 **Q26 Preview consent:** is "it reached you through something you chose" the right line for showing a preview automatically, and how does it apply to search results?
+
+**Q27 Grant kinds:** should item grants reuse NIP-58's badge definition and award kinds, so ordinary Nostr apps show items as badges, or keep kinds of their own so that badge apps aren't filled with 3D objects they can't draw?
+
+**Q28 Item behaviours:** is `holdable`, `sittable`, `touchable` the right closed list, and how does it grow without becoming an interaction system (§23)?
+
+**Q29 Items and alternate identities:** an item is granted to one key. Can a person show it while entering under a different identity, without revealing that the two are the same person?
+
+**Q30 Item budgets:** are 2 MB and 20,000 triangles right, and what is the total for a room where twenty people each carry four items on a standalone headset?
 
 ---
 
@@ -1730,6 +1906,10 @@ Just as the web links documents and applications through URLs, the spatial web c
 | World announcement | 37300 (addressable, experimental) | **Yes** |
 | Avatar (simple choices and an optional model) | 37301 (addressable, experimental) | **Yes** |
 | Home layout | 37302 (addressable, experimental) | **Yes** |
+| Item definition | 37303 (addressable, experimental) | **Yes** |
+| Item grant | 7303 (regular, experimental; NIP-58 award shape) | **Yes** (Q27) |
+| Carried items | `carry` tags on the avatar event (37301) | No |
+| Item catalogues | NIP-51 curation sets (30004) of item coordinates | No |
 | Preview | `preview` tag on the world event; the file is fetched by hash | No |
 | Origin verification | `/.well-known/nswp.json` (HTTP, not an event) | No |
 | Arrival context | URL fragment (not an event) | No |
