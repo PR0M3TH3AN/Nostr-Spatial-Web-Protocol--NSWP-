@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/arrival.schema.json",
+  "title": "NSWP arrival context",
+  "description": "The JSON inside #nswp=<base64url, no padding>. Destinations must read it, then remove it from the URL with history.replaceState before loading third-party scripts. Assertions and receipts are untrusted until verified server-side. See spec §4.4.",
+  "type": "object",
+  "required": ["v"],
+  "properties": {
+    "v": { "type": "string", "pattern": "^nswp/arrival/" },
+    "entry": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$" },
+    "airlock": { "type": "string", "pattern": "^https://" },
+    "assertion": { "$ref": "entry-assertion.schema.json" },
+    "avatar": { "type": "string", "pattern": "^naddr1" },
+    "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
+  }
+}

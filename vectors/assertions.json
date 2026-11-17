@@ -1,0 +1,325 @@
+{
+  "description": "Entry assertions (spec §4.4). Verify with the given `origin`, `now` and already-`seen` event IDs.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    }
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "description": "Fresh and bound to this origin.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57",
+        "sig": "3dc94f4366fa6818437ee8d45820696a656785b577d695789d54cbf6f67a466283e1285613a1dcfa5c774bc34059521278854330fe9101d4564f126f565c60d7"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430805,
+      "seen": [],
+      "expect": {
+        "valid": true,
+        "errors": []
+      }
+    },
+    {
+      "name": "other_origin",
+      "description": "Made for a different site.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://evil.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://evil.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "c2c39a4e346d4366fcef0b9286e194370c1e6f31268787121b34ef34a3ba63eb",
+        "sig": "c1561a0b17d3a612296b85c74cd5b68758801251da0e8863c3cd558a3bcfbb54ec4d54675111a46f32ce206f710d3787bbf9d116b5f3d94255d3fc36effcc475"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430805,
+      "seen": [],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "origin_mismatch",
+          "origin_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "expired",
+      "description": "Past its expiration.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57",
+        "sig": "3dc94f4366fa6818437ee8d45820696a656785b577d695789d54cbf6f67a466283e1285613a1dcfa5c774bc34059521278854330fe9101d4564f126f565c60d7"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430861,
+      "seen": [],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "assertion_expired",
+          "assertion_expired"
+        ]
+      }
+    },
+    {
+      "name": "future_dated",
+      "description": "created_at more than 10 s ahead.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430830,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430890"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "bb96b70c23fb33e1efe89a4d78cb2ac54e6976d2f78431f7b78c64e8594369b3",
+        "sig": "ca6c8d33c1164f2f9ca2da51797aa8a40f31f3b07919c09dc05a8e5556385d43133e0548bce461592c6ec39d657a946af6953533c4a5cda711dc81c9103e4c42"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430800,
+      "seen": [],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "created_in_future"
+        ]
+      }
+    },
+    {
+      "name": "replayed",
+      "description": "Event ID already used.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57",
+        "sig": "3dc94f4366fa6818437ee8d45820696a656785b577d695789d54cbf6f67a466283e1285613a1dcfa5c774bc34059521278854330fe9101d4564f126f565c60d7"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430805,
+      "seen": [
+        "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57"
+      ],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "assertion_replayed"
+        ]
+      }
+    },
+    {
+      "name": "short_nonce",
+      "description": "Nonce under 16 characters.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "abc"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "9a525d015804e87d72e915898b9ceb411939e4756d6b5ae949419899f22c422f",
+        "sig": "13ceb41640776a8f5311ceaad91f2f4d4dc51db450961e7d4753413a4cef9ba6dd6dd259af0591822bc78a9ed1d40d62dc6b057848c90bf63386588ad8cdbfde"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430805,
+      "seen": [],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "nonce_too_short"
+        ]
+      }
+    },
+    {
+      "name": "tampered",
+      "description": "Tag added after signing.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "u",
+            "https://museum.example/world"
+          ],
+          [
+            "method",
+            "GET"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "nswp:nonce",
+            "AAECAwQFBgcICQoLDA0ODw"
+          ],
+          [
+            "expiration",
+            "1794430860"
+          ],
+          [
+            "nswp:mutes",
+            "shared"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57",
+        "sig": "3dc94f4366fa6818437ee8d45820696a656785b577d695789d54cbf6f67a466283e1285613a1dcfa5c774bc34059521278854330fe9101d4564f126f565c60d7"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430805,
+      "seen": [],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "bad_signature"
+        ]
+      }
+    }
+  ]
+}

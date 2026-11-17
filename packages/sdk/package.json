@@ -1,0 +1,10 @@
+{
+  "name": "nswp-sdk",
+  "version": "0.1.0",
+  "description": "World-side NSWP library: portals through the visitor's Airlock, and arrival context handling.",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@nswp/core": "0.1.0" },
+  "devDependencies": { "@types/webxr": "^0.5.24" }
+}

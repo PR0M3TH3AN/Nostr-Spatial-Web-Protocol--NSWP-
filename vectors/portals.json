@@ -1,0 +1,86 @@
+{
+  "description": "Portals (spec §6.1) and NIP-19 naddr round-trips.",
+  "portals": [
+    {
+      "name": "naddr_and_url",
+      "portal": {
+        "schema": "nswp/portal/0.3",
+        "label": "Enter the museum",
+        "destination": {
+          "naddr": "naddr1qq8x27rpd4cxcefdd46hxet4d5q3xamnwvaz7tmjv4kxz7fwv4uxzmtsd3jsygqpk5msuwtcgvqu8c68kqfsyehtkqzut3s5r0jc9cevmf7rvu59ccpsgqqqjx6qpfzls0",
+          "url": "https://museum.example/world",
+          "entry_point": "main-entrance"
+        }
+      },
+      "expect": {
+        "valid": true,
+        "errors": []
+      }
+    },
+    {
+      "name": "url_only",
+      "portal": {
+        "schema": "nswp/portal/0.3",
+        "label": "Somewhere",
+        "destination": {
+          "url": "https://unlisted.example/"
+        }
+      },
+      "expect": {
+        "valid": true,
+        "errors": []
+      }
+    },
+    {
+      "name": "javascript_url",
+      "portal": {
+        "schema": "nswp/portal/0.3",
+        "label": "Free prize",
+        "destination": {
+          "url": "javascript:alert(1)"
+        }
+      },
+      "expect": {
+        "valid": false,
+        "errors": [
+          "url_not_https"
+        ]
+      }
+    },
+    {
+      "name": "no_destination",
+      "portal": {
+        "schema": "nswp/portal/0.3",
+        "label": "Nowhere",
+        "destination": {}
+      },
+      "expect": {
+        "valid": false,
+        "errors": [
+          "missing_field"
+        ]
+      }
+    }
+  ],
+  "naddr": [
+    {
+      "pointer": {
+        "kind": 37300,
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "identifier": "example-museum",
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "naddr": "naddr1qq8x27rpd4cxcefdd46hxet4d5q3xamnwvaz7tmjv4kxz7fwv4uxzmtsd3jsygqpk5msuwtcgvqu8c68kqfsyehtkqzut3s5r0jc9cevmf7rvu59ccpsgqqqjx6qpfzls0"
+    },
+    {
+      "pointer": {
+        "kind": 37300,
+        "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "identifier": "tiny"
+      },
+      "naddr": "naddr1qqz8g6tw0ypzp8efrmcand578ud7cjf47r798vhywxps2zdde7qjspmyq679k67kqvzqqqy3kseejrhn"
+    }
+  ]
+}

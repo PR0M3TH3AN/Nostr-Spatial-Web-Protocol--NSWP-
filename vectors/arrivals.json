@@ -1,0 +1,83 @@
+{
+  "description": "Arrival context: the value of #nswp= (spec §4.4). Hostile fields are dropped with warnings, not fatal.",
+  "vectors": [
+    {
+      "name": "entry_and_return_airlock",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImFpcmxvY2siOiJodHRwczovL2FpcmxvY2suZXhhbXBsZS9nbyJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "airlock": "https://airlock.example/go"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "with_assertion",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImFzc2VydGlvbiI6eyJraW5kIjoyNzIzNSwiY3JlYXRlZF9hdCI6MTc5NDQzMDgwMCwidGFncyI6W1sidSIsImh0dHBzOi8vbXVzZXVtLmV4YW1wbGUvd29ybGQiXSxbIm1ldGhvZCIsIkdFVCJdLFsibnN3cDpvcmlnaW4iLCJodHRwczovL211c2V1bS5leGFtcGxlIl0sWyJuc3dwOm5vbmNlIiwiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EdyJdLFsiZXhwaXJhdGlvbiIsIjE3OTQ0MzA4NjAiXV0sImNvbnRlbnQiOiIiLCJwdWJrZXkiOiIwMWI1MzcwZTM5Nzg0MzAxYzNlMzQ3YjAxMzAyNjZlYmIwMDVjNWM2MTQxYmU1ODJlMzJjZGE3YzM2NzI4NWM2IiwiaWQiOiJhMjY4ZTJhYzc3YTliZTgzM2Q4MWYyZGNmYmY2YWQzMzY4N2Q4MWE0YzdjODM1NTFkMzY3MjQ3YWY3NzQ1ZDU3Iiwic2lnIjoiM2RjOTRmNDM2NmZhNjgxODQzN2VlOGQ0NTgyMDY5NmE2NTY3ODViNTc3ZDY5NTc4OWQ1NGNiZjZmNjdhNDY2MjgzZTEyODU2MTNhMWRjZmE1Yzc3NGJjMzQwNTk1MjEyNzg4NTQzMzBmZTkxMDFkNDU2NGYxMjZmNTY1YzYwZDcifX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "assertion": {
+            "kind": 27235,
+            "created_at": 1794430800,
+            "tags": [
+              [
+                "u",
+                "https://museum.example/world"
+              ],
+              [
+                "method",
+                "GET"
+              ],
+              [
+                "nswp:origin",
+                "https://museum.example"
+              ],
+              [
+                "nswp:nonce",
+                "AAECAwQFBgcICQoLDA0ODw"
+              ],
+              [
+                "expiration",
+                "1794430860"
+              ]
+            ],
+            "content": "",
+            "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            "id": "a268e2ac77a9be833d81f2dcfbf6ad33687d81a4c7c83551d367247af7745d57",
+            "sig": "3dc94f4366fa6818437ee8d45820696a656785b577d695789d54cbf6f67a466283e1285613a1dcfa5c774bc34059521278854330fe9101d4564f126f565c60d7"
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "hostile_fields_dropped",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImFpcmxvY2siOiJqYXZhc2NyaXB0OmFsZXJ0KDEpIiwiZW50cnkiOiIuLi8uLi9hZG1pbiJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3"
+        },
+        "warnings": [
+          "invalid_entry_point",
+          "url_not_https"
+        ]
+      }
+    },
+    {
+      "name": "not_base64_json",
+      "value": "this-is-not-json",
+      "expect": {
+        "valid": false,
+        "decoded": null,
+        "warnings": []
+      }
+    }
+  ]
+}

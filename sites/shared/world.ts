@@ -1,0 +1,293 @@
+/**
+ * Shared scene for the NSWP reference worlds.
+ *
+ * Input is written against the plain WebXR `select` event on every input
+ * source, so the same code works with controllers, hand tracking (pinch) and
+ * gaze-and-pinch (`transient-pointer`), across headsets. On desktop and
+ * phones, tap or click the portal.
+ *
+ * Testing without a headset: add `?xr=emulate` to load IWER, which emulates a
+ * Meta Quest 3 in the page. `window.__nswpTest` exposes hooks for automation.
+ */
+import * as THREE from "three";
+import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
+import { checkDestination } from "@nswp/core";
+
+export interface WorldConfig {
+  name: string;
+  tagline: string;
+  palette: { sky: number; ground: number; accent: number; fog: number; text: string };
+  airlock: string;
+  entryPoints: Record<string, { position: [number, number, number]; yaw: number }>;
+  portal: PortalDestination & { label: string; position: [number, number, number] };
+  decorate(scene: THREE.Scene, accent: THREE.Color): (t: number) => void;
+}
+
+type TestHooks = {
+  state: Record<string, unknown>;
+  goThroughPortal(): Promise<void>;
+  device?: unknown;
+};
+
+declare global {
+  interface Window {
+    __nswpTest?: TestHooks;
+  }
+}
+
+export async function startWorld(cfg: WorldConfig): Promise<void> {
+  // Read and scrub the arrival context before anything else (spec §4.4).
+  const { context, warnings } = arrival.read();
+  configure({ defaultAirlock: cfg.airlock });
+
+  const emulate = new URLSearchParams(location.search).get("xr") === "emulate";
+  const hooks: TestHooks = {
+    state: { world: cfg.name, arrival: context, arrivalWarnings: warnings, emulate, xr: "idle" },
+    goThroughPortal: async () => {},
+  };
+  window.__nswpTest = hooks;
+  if (emulate) {
+    const { XRDevice, metaQuest3 } = await import("iwer");
+    const device = new XRDevice(metaQuest3, { stereoEnabled: false });
+    device.installRuntime({ forceInstall: true });
+    hooks.device = device;
+  }
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType("local-floor");
+  document.getElementById("stage")!.append(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(cfg.palette.sky);
+  scene.fog = new THREE.Fog(cfg.palette.fog, 12, 40);
+  const accent = new THREE.Color(cfg.palette.accent);
+
+  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 100);
+  camera.position.set(0, 1.6, 0);
+  const rig = new THREE.Group();
+  rig.add(camera);
+  scene.add(rig);
+
+  const entryName = context?.entry && cfg.entryPoints[context.entry] ? context.entry : "main-entrance";
+  const spawn = cfg.entryPoints[entryName]!;
+  rig.position.set(...spawn.position);
+  rig.rotation.y = spawn.yaw;
+  hooks.state.entryPoint = entryName;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, cfg.palette.ground, 1.4));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+  sun.position.set(4, 10, 2);
+  scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: cfg.palette.ground, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+  const tick = cfg.decorate(scene, accent);
+
+  // --- the portal ---------------------------------------------------------
+  const portalGroup = new THREE.Group();
+  portalGroup.position.set(...cfg.portal.position);
+  portalGroup.lookAt(rig.position.x, cfg.portal.position[1], rig.position.z);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.08, 16, 96),
+    new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 1.2 }),
+  );
+  const discMat = new THREE.ShaderMaterial({
+    transparent: true,
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 }, uColor: { value: accent }, uHover: { value: 0 } },
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+    fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uHover; varying vec2 vUv;
+      void main(){ vec2 p = vUv - 0.5; float r = length(p) * 2.0; float a = atan(p.y, p.x);
+        float swirl = 0.5 + 0.5 * sin(a * 3.0 + r * 9.0 - uTime * 2.0);
+        vec3 c = mix(vec3(0.02,0.02,0.05), uColor, swirl * (1.0 - r) + uHover * 0.35);
+        gl_FragColor = vec4(c, smoothstep(1.0, 0.92, r)); }`,
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.95, 64), discMat);
+  disc.name = "portal";
+  portalGroup.add(ring, disc);
+  const portalLabel = textSprite(`${cfg.portal.label}\n${destinationHost(cfg.portal.url)}`, cfg.palette.text, 2.2);
+  portalLabel.position.set(0, 1.5, 0);
+  portalGroup.add(portalLabel);
+  portalGroup.position.y = 1.2;
+  scene.add(portalGroup);
+
+  // --- info panel near the spawn point -------------------------------------
+  const airlockNow = portal.airlockFor();
+  const lines = [
+    cfg.name,
+    cfg.tagline,
+    "",
+    context ? `Arrived at: ${entryName}` : "Arrived directly (no arrival context)",
+    context?.airlock ? `Return Airlock: ${destinationHost(context.airlock)}` : "Return Airlock: none (using world default)",
+    `This portal goes through: ${airlockNow ? destinationHost(airlockNow) : "built-in screen"}`,
+  ];
+  // Placed 3 m ahead and to the left, small enough to stay in view on a
+  // landscape screen (≈86° horizontal field of view) as well as in a headset.
+  const panel = textSprite(lines.join("\n"), cfg.palette.text, 1.7);
+  const yawAxis = new THREE.Vector3(0, 1, 0);
+  panel.position
+    .set(...spawn.position)
+    .add(new THREE.Vector3(-1.45, 1.75, -3).applyAxisAngle(yawAxis, spawn.yaw));
+  scene.add(panel);
+
+  // --- going through ---------------------------------------------------------
+  let leaving = false;
+  const go = async () => {
+    if (leaving) return;
+    leaving = true;
+    hooks.state.leaving = true;
+    document.body.classList.add("leaving");
+    const { label: _l, position: _p, ...dest } = cfg.portal;
+    await portal.go(dest, { xrSession: renderer.xr.getSession() });
+  };
+  hooks.goThroughPortal = go;
+  document.getElementById("portal-button")?.addEventListener("click", go);
+
+  // Desktop / touch: tap the portal. Drag to look around.
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let dragging = false;
+  let lastX = 0;
+  let moved = 0;
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    lastX = e.clientX;
+    moved = 0;
+  });
+  addEventListener("pointerup", (e) => {
+    dragging = false;
+    if (moved > 6 || renderer.xr.isPresenting || e.target !== renderer.domElement) return;
+    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    if (raycaster.intersectObject(disc).length) void go();
+  });
+  addEventListener("pointermove", (e) => {
+    if (dragging && !renderer.xr.isPresenting) {
+      rig.rotation.y += (e.clientX - lastX) * 0.005;
+      moved += Math.abs(e.clientX - lastX);
+      lastX = e.clientX;
+    }
+    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  });
+
+  // XR: any input source's `select` (trigger, pinch, gaze-and-pinch) on the portal.
+  const tmpMatrix = new THREE.Matrix4();
+  const rayHits = (source: THREE.Object3D) => {
+    tmpMatrix.identity().extractRotation(source.matrixWorld);
+    raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tmpMatrix);
+    return raycaster.intersectObject(disc).length > 0;
+  };
+  const controllers: THREE.Group[] = [];
+  for (let i = 0; i < 2; i++) {
+    const c = renderer.xr.getController(i);
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }),
+    );
+    c.add(line);
+    c.addEventListener("select", () => {
+      hooks.state.lastSelect = i;
+      if (rayHits(c)) void go();
+    });
+    rig.add(c);
+    controllers.push(c);
+  }
+
+  // XR: physically walking into the disc also works.
+  const camWorld = new THREE.Vector3();
+  const local = new THREE.Vector3();
+  const checkWalkThrough = () => {
+    camera.getWorldPosition(camWorld);
+    local.copy(camWorld);
+    portalGroup.worldToLocal(local);
+    if (Math.hypot(local.x, local.y) < 0.8 && Math.abs(local.z) < 0.25) void go();
+  };
+
+  const vrButton = document.getElementById("vr-button") as HTMLButtonElement;
+  const xr = navigator.xr;
+  const supported = xr ? await xr.isSessionSupported("immersive-vr").catch(() => false) : false;
+  hooks.state.vrSupported = supported;
+  if (supported) {
+    vrButton.disabled = false;
+    vrButton.textContent = "Enter VR";
+    vrButton.addEventListener("click", async () => {
+      if (renderer.xr.isPresenting) {
+        await renderer.xr.getSession()?.end();
+        return;
+      }
+      try {
+        const session = await xr!.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] });
+        await renderer.xr.setSession(session);
+        hooks.state.xr = "presenting";
+        vrButton.textContent = "Exit VR";
+        session.addEventListener("end", () => {
+          hooks.state.xr = "ended";
+          vrButton.textContent = "Enter VR";
+        });
+      } catch (err) {
+        hooks.state.xr = `error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    });
+  } else {
+    vrButton.textContent = xr ? "VR not available on this device" : "WebXR not supported in this browser";
+  }
+
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const t = clock.getElapsedTime();
+    discMat.uniforms.uTime!.value = t;
+    ring.rotation.z = t * 0.2;
+    tick(t);
+    let hover = 0;
+    if (renderer.xr.isPresenting) {
+      for (const c of controllers) if (rayHits(c)) hover = 1;
+      checkWalkThrough();
+    } else {
+      raycaster.setFromCamera(ndc, camera);
+      hover = raycaster.intersectObject(disc).length ? 1 : 0;
+      renderer.domElement.style.cursor = hover ? "pointer" : "grab";
+    }
+    discMat.uniforms.uHover!.value += (hover - (discMat.uniforms.uHover!.value as number)) * 0.2;
+    renderer.render(scene, camera);
+  });
+  hooks.state.ready = true;
+}
+
+function destinationHost(url: string | undefined): string {
+  if (!url) return "";
+  const chk = checkDestination(url);
+  return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid destination";
+}
+
+function textSprite(text: string, color: string, width: number): THREE.Sprite {
+  const lines = text.split("\n");
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 64 + lines.length * 72;
+  const g = canvas.getContext("2d")!;
+  g.fillStyle = "rgba(10,12,18,0.72)";
+  g.beginPath();
+  g.roundRect(0, 0, canvas.width, canvas.height, 32);
+  g.fill();
+  g.fillStyle = color;
+  g.textBaseline = "top";
+  lines.forEach((line, i) => {
+    g.font = i === 0 ? "bold 56px system-ui, sans-serif" : "44px system-ui, sans-serif";
+    g.fillText(line, 40, 32 + i * 72, canvas.width - 80);
+  });
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  sprite.scale.set(width, (width * canvas.height) / canvas.width, 1);
+  return sprite;
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>NSWP Airlock</title>
+<meta name="description" content="The reference NSWP Airlock: see where a portal really leads before you go through.">
+<style>
+  :root {
+    --bg: #f6f7f9; --fg: #14161a; --muted: #5b6270; --card: #ffffff; --line: #dfe3ea;
+    --ok: #137a3d; --ok-bg: #e5f5ec; --warn: #8a5a00; --warn-bg: #fff4dc; --bad: #a3192b; --bad-bg: #fde8eb; --accent: #2f6df6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --fg: #eef0f4; --muted: #9aa3b2; --card: #171a21; --line: #2a2f3a;
+      --ok: #6fdc9b; --ok-bg: #12301f; --warn: #ffcf70; --warn-bg: #33270e; --bad: #ff8b98; --bad-bg: #3a1419;
+    }
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .eyebrow { margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-size: .8em; }
+  .host { margin: 4px 0 0; font-size: clamp(1.8em, 7vw, 2.6em); line-height: 1.15; word-break: break-all; }
+  .host .prefix { color: var(--muted); font-weight: 400; }
+  .full-url { margin: 4px 0 16px; font-size: .85em; word-break: break-all; }
+  h1 { font-size: 1.25em; margin: 12px 0 4px; }
+  .muted { color: var(--muted); }
+  .small { font-size: .8em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: .85em; }
+  .chip.ok { color: var(--ok); background: var(--ok-bg); border-color: transparent; font-weight: 600; }
+  .chip.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; font-weight: 600; }
+  .chip.bad { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+  .issues { margin: 12px 0; padding: 10px 14px 10px 30px; border-radius: 10px; }
+  .issues.warn { background: var(--warn-bg); color: var(--warn); }
+  .issues.bad { background: var(--bad-bg); color: var(--bad); }
+  fieldset.identity { border: 1px solid var(--line); border-radius: 10px; margin: 16px 0 8px; padding: 8px 14px 12px; }
+  fieldset label { display: block; padding: 4px 0; }
+  .remember { display: block; margin: 8px 0; }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
+  button { font: inherit; padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; min-height: 48px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .blocked { border-color: var(--bad); }
+  .fast { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--ok-bg); color: var(--ok); padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; }
+  #checking { color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main id="main">
+  <p id="checking" hidden>Checking where this portal leads…</p>
+  <section id="landing" class="card" hidden>
+    <p class="eyebrow">NSWP reference Airlock</p>
+    <h1>See where a portal really leads, before you go through</h1>
+    <p>When a world sends you through a portal, it sends you here first. This page shows the real address of the destination, whether its publisher is verified for that address, and what to expect when you arrive. Nothing about your trip is sent to a server.</p>
+    <p>Try it: start in <a href="https://nswp-world-a.vercel.app/">World A</a> or <a href="https://nswp-world-b.vercel.app/">World B</a> and use the portal.</p>
+    <p class="muted small">Part of the <a href="https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-">Nostr Spatial Web Protocol</a> test build.</p>
+  </section>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

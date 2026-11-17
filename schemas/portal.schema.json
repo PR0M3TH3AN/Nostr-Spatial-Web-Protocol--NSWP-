@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/portal.schema.json",
+  "title": "NSWP portal",
+  "description": "A link from one world to another. When both naddr and url are present, naddr wins and the url must match the announcement's r tag. See spec §6.1.",
+  "type": "object",
+  "required": ["schema", "label", "destination"],
+  "properties": {
+    "schema": { "type": "string", "pattern": "^nswp/portal/" },
+    "label": { "type": "string", "minLength": 1 },
+    "destination": {
+      "type": "object",
+      "anyOf": [{ "required": ["naddr"] }, { "required": ["url"] }],
+      "properties": {
+        "naddr": { "type": "string", "pattern": "^naddr1[02-9ac-hj-np-z]+$" },
+        "url": { "type": "string", "pattern": "^https://" },
+        "entry_point": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$" }
+      }
+    },
+    "transition": { "type": "object", "properties": { "preferred_style": { "type": "string" } } }
+  }
+}

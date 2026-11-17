@@ -1,0 +1,110 @@
+{
+  "kind": 37300,
+  "created_at": 1794941699,
+  "tags": [
+    [
+      "d",
+      "nswp-reference-world-b"
+    ],
+    [
+      "title",
+      "NSWP Reference World B: The Grove"
+    ],
+    [
+      "summary",
+      "A warm grove of glowing trees with a portal back to World A."
+    ],
+    [
+      "r",
+      "https://nswp-world-b.vercel.app/"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "stationary"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "nswp"
+    ],
+    [
+      "t",
+      "reference"
+    ],
+    [
+      "t",
+      "nature"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: NSWP Reference World B: The Grove"
+    ]
+  ],
+  "content": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "5d937e0335e9bea841eedb45c26069960da880576dc64aa27da07691e459e239",
+  "sig": "39e029b064916b4dd048fcded4bb3195c292cff80b0fed17099d9ca238ee956c29c404e9074a6602ce3a8418d438d009b707d75325ba0f41ef31f9f4962f7f3b"
+}

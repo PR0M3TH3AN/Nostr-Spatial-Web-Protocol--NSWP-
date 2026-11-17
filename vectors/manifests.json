@@ -1,0 +1,1177 @@
+{
+  "description": "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    }
+  },
+  "manifests": [
+    {
+      "name": "valid",
+      "description": "A complete manifest.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "listing_deny",
+      "description": "The origin opts out of third-party listing.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ],
+        "listing": "deny"
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "too_large",
+      "description": "Bodies over 64 KB are rejected.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "byteLength": 70000,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "manifest_too_large"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "bad_publisher_key",
+      "description": "Publisher keys must be lowercase hex.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01B5370E39784301C3E347B0130266EBB005C5C6141BE582E32CDA7C367285C6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": false,
+        "errors": [
+          "invalid_pubkey"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "wrong_schema",
+      "description": "Not an NSWP manifest.",
+      "manifest": {
+        "schema": "something/else",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": false,
+        "errors": [
+          "schema_mismatch"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "insecure_entry",
+      "description": "World entry URLs must be https.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "http://museum.example/world"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": false,
+        "errors": [
+          "invalid_entry"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "bad_multiplayer_endpoint_is_ignored",
+      "description": "A non-wss multiplayer endpoint is dropped with a warning.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "multiplayer": {
+              "endpoint": "ws://museum.example/session"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "invalid_field"
+        ]
+      }
+    }
+  ],
+  "verification": [
+    {
+      "name": "verified",
+      "description": "All four rules hold.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://museum.example/.well-known/nswp.json",
+      "expect": {
+        "verified": true,
+        "failed": []
+      }
+    },
+    {
+      "name": "publisher_not_listed",
+      "description": "Signed by a key the origin doesn't list.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "id": "e8daf857db922423dd6c43ef1063154b208df1ecef492739f1b45ea3aca70e9c",
+        "sig": "135b627af2f52c2d3c9e6c35f449a96b3f3245a644feb72b28fc6380a5a3194eecc263e1bafc098b89b13db14f56c88be557625b0b07607a16730c30c53c319c"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://museum.example/.well-known/nswp.json",
+      "expect": {
+        "verified": false,
+        "failed": [
+          "publisher_listed",
+          "world_listed"
+        ]
+      }
+    },
+    {
+      "name": "world_not_listed",
+      "description": "The publisher is listed but not for this world ID.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "another-world"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://museum.example/.well-known/nswp.json",
+      "expect": {
+        "verified": false,
+        "failed": [
+          "world_listed"
+        ]
+      }
+    },
+    {
+      "name": "wrong_origin",
+      "description": "Manifest fetched from a different origin than the entry URL.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://evil.example/.well-known/nswp.json",
+      "expect": {
+        "verified": false,
+        "failed": [
+          "same_origin"
+        ]
+      }
+    },
+    {
+      "name": "not_well_known_path",
+      "description": "Only the well-known path counts.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://museum.example/nswp.json",
+      "expect": {
+        "verified": false,
+        "failed": [
+          "same_origin"
+        ]
+      }
+    },
+    {
+      "name": "entry_url_mismatch",
+      "description": "The announcement points somewhere the manifest doesn't.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/other"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "manifestUrl": "https://museum.example/.well-known/nswp.json",
+      "expect": {
+        "verified": false,
+        "failed": [
+          "entry_url_matches"
+        ]
+      }
+    }
+  ]
+}
