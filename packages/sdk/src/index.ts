@@ -118,6 +118,25 @@ export const portal = {
     }
     showFallback(dest);
   },
+
+  /**
+   * Take the visitor back to their own client's start place (spec §6.3): the
+   * Airlock they came through, opened with no destination. Returns false, and
+   * does nothing, when there is no Airlock to go back to.
+   */
+  async home(opts: GoOptions = {}): Promise<boolean> {
+    const airlock = portal.airlockFor(opts);
+    if (!airlock) return false;
+    if (opts.xrSession) {
+      try {
+        await opts.xrSession.end();
+      } catch {
+        /* already ended */
+      }
+    }
+    location.assign(airlock);
+    return true;
+  },
 };
 
 declare global {
