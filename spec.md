@@ -1,13 +1,21 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.3 (concept specification)
+**Version:** 0.3.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.2 (git history, merge `acc2253`); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.3.1
+
+- **Phase 0 is built** (§20): `@nswp/core`, the `nswp` CLI, the portal SDK, JSON Schemas, test vectors, and two reference worlds plus an Airlock, deployed for testing.
+- **Real kind numbers**: 37300 for worlds and 37301 for avatars (§5.1), replacing the placeholders.
+- **Curation uses NIP-51 curation sets (kind 30004)**, which already exist (§5.4).
+- **Registrable domains must use the private section of the Public Suffix List** (§6.2). Building the Airlock showed that without it, every `*.vercel.app` site displays as the same domain.
+- **Target devices** (§21.2), including Valve's Steam Frame.
 
 ## 0. What changed in 0.3
 
@@ -188,11 +196,11 @@ A user is a Nostr public key, held as lowercase 64-character hex and shown as an
 
 ### 4.2 Portable avatar profile
 
-A user may publish avatar preferences. A proposed addressable event carries them (kind `AVATAR_KIND`, a placeholder; `d` = avatar slot such as `default`):
+A user may publish avatar preferences. A proposed addressable event carries them (experimental kind **37301**, not allocated by the NIPs process; `d` = avatar slot such as `default`):
 
 ```json
 {
-  "kind": "AVATAR_KIND",
+  "kind": 37301,
   "tags": [
     ["d", "default"],
     ["title", "Example Avatar"],
@@ -282,9 +290,9 @@ The central primitive is the **Spatial World Announcement**: a signed, addressab
 
 ### 5.1 Event classification
 
-- Use an experimental addressable kind in the `30000–39999` range, written as `WORLD_KIND` until assigned. Before choosing one, check it against the NIPs repository, known clients and **the kinds the BitBlocks stack already uses**. BitRoad products and BitUnlock products and receipts use `30078` (NIP-78), so that kind is ruled out.
+- World announcements use the experimental addressable kind **37300** (avatars use **37301**). Neither is allocated by the NIPs process; both were checked on 2026-11-17 against the NIPs registry, open NIPs pull requests (no earlier spatial or metaverse proposal exists) and every kind the BitBlocks repositories use. BitRoad and BitUnlock use `30078` and Tessera uses `33600`–`33604`. Code refers to these as `WORLD_KIND` and `AVATAR_KIND` so they can change if the NIP process assigns others.
 - A `d` tag holds the stable world identifier.
-- The world is referenced elsewhere by its coordinate `WORLD_KIND:<pubkey>:<d>` (an `a` tag, or an `naddr`).
+- The world is referenced elsewhere by its coordinate `37300:<pubkey>:<d>` (an `a` tag, or an `naddr`).
 - A dedicated kind is proposed later through the NIP process (§22).
 
 ### 5.2 World announcement event (tag-first)
@@ -293,7 +301,7 @@ Relays index **single-letter** tags, so the fields people filter on are single-l
 
 ```json
 {
-  "kind": "WORLD_KIND",
+  "kind": 37300,
   "created_at": 1794430800,
   "tags": [
     ["d", "example-museum"],
@@ -326,7 +334,7 @@ Relays index **single-letter** tags, so the fields people filter on are single-l
 }
 ```
 
-This shows the unsigned body; signing adds `id`, `pubkey` and `sig`. `WORLD_KIND` must be replaced with a real kind before anything is implemented.
+This shows the unsigned body; signing adds `id`, `pubkey` and `sig`.
 
 ### 5.3 Tags
 
@@ -360,7 +368,7 @@ There are two kinds of "listing", and clients must tell them apart:
 - **Operator announcement.** A world event that passes origin verification (§7.3). Clients show it as **verified for this origin**.
 - **Curation.** Anyone can recommend or list a world without claiming to run it. Curators use a NIP-51 set of `a` / `r` references, or a recommendation (§8.2). An unverified world event is treated as curation: shown, but labelled "listed by", never "by".
 
-NIP-51 has no set kind made for worlds. Bookmark sets (kind 30003) work for experiments; a dedicated curation-set kind may be part of the eventual NIP.
+NIP-51 already defines **curation sets (kind 30004)**, groups of items picked as belonging together, and they hold `a` tags. Curators list worlds with them.
 
 Curation is what lets the directory start with worlds that have never heard of NSWP (§19). An origin that doesn't want to be listed can say so (§7.2), and compliant clients honour it.
 
@@ -383,7 +391,7 @@ Relays provide discoverability. They don't guarantee that a referenced site is u
 
 - **Publishing.** A world event goes to the publisher's NIP-65 write relays. `naddr` references carry relay hints.
 - **Follow-graph discovery** uses the outbox model: read each followed author's events from that author's write relays.
-- **Global discovery** needs relays that hold many world events. Clients keep a visible, editable list of discovery relays. Anyone can run an index relay that accepts only `WORLD_KIND`; a client's default list is a convenience, not an authority.
+- **Global discovery** needs relays that hold many world events. Clients keep a visible, editable list of discovery relays. Anyone can run an index relay that accepts only kind 37300; a client's default list is a convenience, not an authority.
 - **Verification is local.** Clients check every signature themselves and never trust a relay's word for an event.
 - The manifest's `relays` field (§7.2) hints where a world's events live.
 
@@ -426,7 +434,7 @@ A web app can't draw trusted UI inside someone else's immersive session: whoever
 
 The Airlock:
 
-1. Shows the **real destination origin** in large type, with the registrable domain emphasised and mixed-script or punycode names shown in their raw form, so lookalike domains stand out.
+1. Shows the **real destination origin** in large type, with the registrable domain emphasised and mixed-script or punycode names shown in their raw form, so lookalike domains stand out. The registrable domain comes from the Public Suffix List **including its private section**: every site under `vercel.app` or `github.io` belongs to someone different, and must not all display as the same domain.
 2. Shows publisher verification status, and warns if the publisher for this origin has changed since the user last visited (§7.3).
 3. Shows the policy verdict (BitPortal: BitGate, §15): warnings, required confirmations, or a block.
 4. Shows comfort, input and performance requirements, and whether the user's device meets them.
@@ -907,10 +915,12 @@ Each phase has an exit criterion that has to be met before the next starts.
 ### Phase 0: Protocol fixtures
 - JSON Schemas for the world event, manifest, portal, arrival context and entry assertion.
 - Test vectors: signed example events, valid and invalid manifests, assertion replay cases, hostile Airlock destinations (non-HTTPS schemes, lookalike domains).
-- An event-kind collision check covering `WORLD_KIND` and `AVATAR_KIND`.
+- An event-kind collision check (done: 37300 and 37301, §5.1).
 - Two reference worlds with `.well-known/nswp.json`, served with the right CORS header.
 
 **Exit:** a third party can validate an announcement and a manifest using only the schemas and vectors.
+
+**Status (2026-11-17): built.** Everything above exists in this repository. The reference worlds and the Airlock are deployed at `nswp-world-a.vercel.app`, `nswp-world-b.vercel.app` and `nswp-airlock.vercel.app`. A crossing from World A through the Airlock to World B, and back, was tested in an emulated Meta Quest 3 (IWER), including a controller trigger on the portal. Still open: the reference announcements are signed but not yet published to relays, so the worlds show as unlisted rather than verified.
 
 ### Phase 1: Read-only lobby
 - BitPortal static shell on desktop and at least one standalone headset browser.
@@ -994,6 +1004,28 @@ These items affect BitPortal directly. BitPortal therefore becomes a **forcing f
 | BitUnlock | SDK unpublished, with no license file; limited mainnet beta; public entitlement-status route to be confirmed | Phase 5 waits on the SDK being published under MIT | Phase 5 |
 
 ---
+
+### 21.2 Target devices
+
+BitPortal and the reference worlds aim to run on every headset with a standards-compliant WebXR browser. Status as of 2026-11-17; rows marked *verify* come from general knowledge, not testing.
+
+| Device | Browser | WebXR |
+|---|---|---|
+| Meta Quest 2 / 3 / 3S / Pro | Meta Quest Browser | Supported |
+| Valve Steam Frame | Built-in Chromium | Beta only: added in the SteamOS 0.5.7 beta (Chromium 157 and later), not yet in the stable release |
+| PC VR headsets (SteamVR or OpenXR) | Chrome or Edge on Windows | Supported |
+| Android XR headsets | Chrome | Supported (*verify*) |
+| Pico 4 / 4 Ultra | Pico Browser | Supported (*verify*) |
+| Apple Vision Pro | Safari | Immersive VR with gaze-and-pinch input (`transient-pointer`) (*verify*) |
+| Phones and desktops | Any modern browser | Inline 3D only; tap or click the portal |
+
+Rules that keep this list working:
+
+- **Input goes through the WebXR `select` event only.** It fires for a controller trigger, a hand pinch and gaze-and-pinch alike. Nothing depends on a vendor's button layout.
+- **No vendor-only features on the critical path.** `hand-tracking` and similar are requested as optional features. `sessiongranted` is feature-detected, never required.
+- **Every world also works without VR**, as inline 3D with tap or click.
+- **Test without hardware** using the IWER emulator: the reference worlds load it with `?xr=emulate`.
+- **Before calling a device supported**, test it on the real device and record the date here.
 
 ## 22. Standards Strategy
 
@@ -1133,12 +1165,12 @@ Just as the web links documents and applications through URLs, the spatial web c
 
 | Need | Mechanism | New kind? |
 |---|---|---|
-| World announcement | `WORLD_KIND` (addressable, experimental) | **Yes** |
-| Avatar preference | `AVATAR_KIND` (addressable, experimental) | **Yes** |
+| World announcement | 37300 (addressable, experimental) | **Yes** |
+| Avatar preference | 37301 (addressable, experimental) | **Yes** |
 | Origin verification | `/.well-known/nswp.json` (HTTP, not an event) | No |
 | Arrival context | URL fragment (not an event) | No |
 | Entry assertion | Kind 27235 (NIP-98 shape) + NIP-40 expiration | No (Q3) |
-| Curation and directories | NIP-51 sets (30003 for now) | Possibly later |
+| Curation and directories | NIP-51 curation sets (30004) | No |
 | Bookmarks (public and private) | NIP-51 (10003 / 30003, NIP-44 private items) | No |
 | Reviews and comments | NIP-22 (1111) | No |
 | Reactions | NIP-25 (7) | No |

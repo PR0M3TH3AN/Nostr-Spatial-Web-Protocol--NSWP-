@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/world-event.schema.json",
+  "title": "NSWP Spatial World Announcement (kind 37300)",
+  "description": "Structural rules only. A validator must also check: exactly one d/title/r/alt, https URLs, the id hash and signature (NIP-01), and that every l tag has a matching L (NIP-32). See spec §5.",
+  "type": "object",
+  "required": ["kind", "created_at", "tags", "content"],
+  "properties": {
+    "kind": { "const": 37300 },
+    "created_at": { "type": "integer", "minimum": 0 },
+    "content": { "type": "string" },
+    "pubkey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+      "allOf": [
+        { "contains": { "type": "array", "prefixItems": [{ "const": "d" }, { "type": "string", "minLength": 1, "maxLength": 128 }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "title" }, { "type": "string", "minLength": 1 }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "r" }, { "type": "string", "pattern": "^https://" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "alt" }, { "type": "string" }], "minItems": 2 } }
+      ]
+    }
+  }
+}

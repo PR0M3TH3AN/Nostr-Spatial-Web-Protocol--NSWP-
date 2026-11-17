@@ -1,0 +1,9 @@
+{
+  "publisher": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "relays": ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"],
+  "airlock": "https://nswp-airlock.vercel.app/",
+  "worlds": {
+    "world-a": { "d": "nswp-reference-world-a", "url": "https://nswp-world-a.vercel.app/" },
+    "world-b": { "d": "nswp-reference-world-b", "url": "https://nswp-world-b.vercel.app/" }
+  }
+}

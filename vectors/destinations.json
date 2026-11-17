@@ -1,0 +1,134 @@
+{
+  "description": "Airlock destination checks (spec §6.2). Registrable domains use the Public Suffix List including its private section.",
+  "vectors": [
+    {
+      "input": "https://museum.example.com/world",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "example.com",
+        "hostPrefix": "museum.",
+        "warnings": []
+      }
+    },
+    {
+      "input": "https://museum.example/world",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "museum.example",
+        "hostPrefix": "",
+        "warnings": [
+          "unknown_suffix"
+        ]
+      }
+    },
+    {
+      "input": "https://wing.museum.example.co.uk/world",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "example.co.uk",
+        "hostPrefix": "wing.museum.",
+        "warnings": []
+      }
+    },
+    {
+      "input": "https://nswp-world-a.vercel.app/",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "nswp-world-a.vercel.app",
+        "hostPrefix": "",
+        "warnings": []
+      }
+    },
+    {
+      "input": "https://someone.github.io/world/",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "someone.github.io",
+        "hostPrefix": "",
+        "warnings": []
+      }
+    },
+    {
+      "input": "https://xn--pple-43d.com/",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "xn--pple-43d.com",
+        "hostPrefix": "",
+        "warnings": [
+          "punycode_hostname"
+        ]
+      }
+    },
+    {
+      "input": "https://203.0.113.9/",
+      "expect": {
+        "ok": true,
+        "registrableDomain": null,
+        "hostPrefix": "",
+        "warnings": [
+          "ip_address_host"
+        ]
+      }
+    },
+    {
+      "input": "https://museum.example.com:8443/",
+      "expect": {
+        "ok": true,
+        "registrableDomain": "example.com",
+        "hostPrefix": "museum.",
+        "warnings": [
+          "non_default_port"
+        ]
+      }
+    },
+    {
+      "input": "http://museum.example/",
+      "expect": {
+        "ok": false,
+        "error": "url_not_https"
+      }
+    },
+    {
+      "input": "javascript:alert(document.cookie)",
+      "expect": {
+        "ok": false,
+        "error": "url_not_https"
+      }
+    },
+    {
+      "input": "data:text/html,<script>alert(1)</script>",
+      "expect": {
+        "ok": false,
+        "error": "url_not_https"
+      }
+    },
+    {
+      "input": "file:///etc/passwd",
+      "expect": {
+        "ok": false,
+        "error": "url_not_https"
+      }
+    },
+    {
+      "input": "https://user:hunter2@museum.example/",
+      "expect": {
+        "ok": false,
+        "error": "url_has_credentials"
+      }
+    },
+    {
+      "input": "not a url",
+      "expect": {
+        "ok": false,
+        "error": "url_invalid"
+      }
+    },
+    {
+      "input": "",
+      "expect": {
+        "ok": false,
+        "error": "destination_missing"
+      }
+    }
+  ]
+}

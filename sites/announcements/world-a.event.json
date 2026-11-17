@@ -1,0 +1,110 @@
+{
+  "kind": 37300,
+  "created_at": 1794941699,
+  "tags": [
+    [
+      "d",
+      "nswp-reference-world-a"
+    ],
+    [
+      "title",
+      "NSWP Reference World A: The Gallery"
+    ],
+    [
+      "summary",
+      "A calm blue gallery with a portal to World B."
+    ],
+    [
+      "r",
+      "https://nswp-world-a.vercel.app/"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "stationary"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "nswp"
+    ],
+    [
+      "t",
+      "reference"
+    ],
+    [
+      "t",
+      "gallery"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: NSWP Reference World A: The Gallery"
+    ]
+  ],
+  "content": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "0ff117d89b518379182de9c89129494e93ba6cbe298d15a6627343237ba3dd7b",
+  "sig": "9163c2852c1784e313f3d5141299489bb4e2a1f963334eb63fcc14d4341e89868b33240b893c5dac05414dca96a10df729a81aec0b9a9105f2b4e933139909ea"
+}

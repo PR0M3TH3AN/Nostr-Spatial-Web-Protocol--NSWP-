@@ -1,0 +1,37 @@
+{
+  "d": "nswp-reference-world-a",
+  "title": "NSWP Reference World A: The Gallery",
+  "url": "https://nswp-world-a.vercel.app/",
+  "summary": "A calm blue gallery with a portal to World B.",
+  "description": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals"
+  ],
+  "comfort": {
+    "locomotion": "stationary",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "nswp",
+    "reference",
+    "gallery"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta"
+}

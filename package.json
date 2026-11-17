@@ -1,0 +1,29 @@
+{
+  "name": "nswp",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @nswp/core && npm run build -w @nswp/cli && node scripts/build-sites.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/sdk && tsc -p sites",
+    "vectors": "tsx scripts/generate-vectors.ts",
+    "vectors:check": "tsx scripts/generate-vectors.ts --check",
+    "nswp": "tsx packages/cli/src/index.ts",
+    "deploy:sites": "node scripts/deploy-sites.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/three": "^0.187.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.28.2",
+    "iwer": "^2.8.0",
+    "three": "^0.187.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

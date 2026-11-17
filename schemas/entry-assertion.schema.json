@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/entry-assertion.schema.json",
+  "title": "NSWP entry assertion (kind 27235, NIP-98 shape)",
+  "description": "Structural rules only. A verifier must also check the signature, that u and nswp:origin match its own origin, that expiration is in the future and at most 60 s after created_at, that created_at is within the NIP-98 window, and that the event id has not been seen before. See spec §4.4.",
+  "type": "object",
+  "required": ["kind", "created_at", "tags", "content", "pubkey", "id", "sig"],
+  "properties": {
+    "kind": { "const": 27235 },
+    "created_at": { "type": "integer" },
+    "content": { "const": "" },
+    "pubkey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "string" } },
+      "allOf": [
+        { "contains": { "type": "array", "prefixItems": [{ "const": "u" }, { "type": "string", "pattern": "^https://" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "method" }, { "const": "GET" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:origin" }, { "type": "string", "pattern": "^https://" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:nonce" }, { "type": "string", "minLength": 16 }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "expiration" }, { "type": "string", "pattern": "^[0-9]+$" }], "minItems": 2 } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@nswp/cli",
+  "version": "0.1.0",
+  "description": "Check and author NSWP worlds from the command line.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "nswp": "./dist/nswp.mjs" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/nswp.mjs"
+  },
+  "dependencies": { "@nswp/core": "0.1.0" }
+}
