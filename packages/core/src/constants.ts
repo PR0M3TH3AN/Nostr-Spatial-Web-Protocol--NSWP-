@@ -17,6 +17,7 @@ export const WELL_KNOWN_PATH = "/.well-known/nswp.json";
 export const MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"] as const;
 export const CAPABILITIES = [
   "webxr",
+  "rooms",
   "multiplayer",
   "voice",
   "spatial-portals",

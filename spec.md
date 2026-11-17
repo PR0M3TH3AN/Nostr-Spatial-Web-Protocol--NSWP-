@@ -1,13 +1,24 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.3.1 (concept specification)
+**Version:** 0.4 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
-**Previous versions:** 0.2 (git history, merge `acc2253`); 0.1 (`docs/history/spec-v0.1.md`)
+**Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.4
+
+**Shared rooms** (§9): how two or more people share a world, without requiring anyone's server.
+
+- A room's traffic travels **peer-to-peer** between participants, or through a **hosted** room server that anyone can run. Identity, access rules, moderation, invitations and the developer's code are the same either way, and a room can be promoted from one to the other while it is running.
+- Rooms are described with the existing NIP-53 room event (kind 30312).
+- **The room pass** (§9.2) lets a world prove who is in a room without ever holding the user's signer.
+- Access can be open, by invitation, by a Nostr list of people, by the host's follows, or by ticket (§9.3).
+- New phases: **4b** (peer-to-peer rooms) and **7** (hosted rooms). Existing phase numbers are unchanged.
+- Rooms are not built yet. The Phase 0 library, schemas and vectors cover the 0.3.1 formats; room formats get their own fixtures in Phase 4b.
 
 ## 0. What changed in 0.3.1
 
@@ -112,6 +123,8 @@ They land in a lobby:
 
 They pick a virtual museum. A portal opens onto the **Airlock**, which shows the real destination origin, whether the publisher is verified for that origin, any warnings from the moderators they trust, and the identity they'll enter as. They confirm, the museum loads, and they press "Enter VR".
 
+Two friends are already there, in a private room they were invited to. Their headsets talk directly to each other, and no server sits in between.
+
 Inside the museum is a portal to another creator's world. Walking through it goes back through the Airlock. The museum knows they stepped into that portal, but not whether they went through, or who they chose to be on the other side.
 
 No central company runs the destinations. The user's identity, social graph, discovery algorithm and moderation choices travel with them.
@@ -162,7 +175,7 @@ Each world is hosted by its creator: a Three.js or A-Frame app, a custom WebXR e
 
 ### Layer 4: Real-time services
 
-Real-time features (position sync, voice, shared physics, game state, sessions) run on suitable infrastructure such as WebRTC, WebSockets or a dedicated multiplayer server, not on relays.
+Real-time features (position sync, voice, shared objects, game state) don't run on relays. They run directly between participants' browsers, or through a room server that anyone can operate (§9). Relays carry only the short handshake that lets participants find each other.
 
 ### 3.1 Layer map for BitPortal
 
@@ -243,12 +256,19 @@ The problem: a world is on a different origin from the client, so it can't see t
   "airlock": "https://portal.bitblocks.network/go",
   "assertion": "<signed event object, optional>",
   "avatar": "naddr1…",
-  "receipts": ["<entitlement receipt event, optional (§16)>"]
+  "receipts": ["<entitlement receipt event, optional (§16)>"],
+  "room": {
+    "event": "<room event, or its naddr>",
+    "pass": "<room pass event; absent for guests>",
+    "sessionKey": "<session secret key>",
+    "secret": "<room secret, for invite-only rooms>"
+  }
 }
 ```
 
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
+- `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
 - Everything else is present only if the user ticked it at the Airlock.
 
 **The destination must scrub the fragment at once**: read it, then call `history.replaceState` to remove it, before loading any third-party script. Otherwise it stays in the browser history and is readable by every script on the page. The SDK does this.
@@ -346,7 +366,7 @@ This shows the unsigned body; signing adds `id`, `pubkey` and `sig`.
 | `summary` | | | One-line description |
 | `image` | | | Preview image, optional dimensions; a content-addressed host is preferred (§5.7) |
 | `mode` | | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`; repeatable, in order of preference |
-| `capability` | | | `webxr`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments` |
+| `capability` | | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments` |
 | `comfort` | | | `locomotion` (`stationary`, `teleport`, `smooth`, `vehicle`), `intensity` (`low`, `medium`, `high`), `seated` (`supported`, `required`, `unsupported`) |
 | `input` | | | `controllers`, `hands`, `gaze`, `keyboard-mouse`, `touch`, `gamepad` |
 | `perf` | | | Lowest device class the world targets: `mobile`, `standalone` (self-contained headset), `desktop` (PC-driven) |
@@ -440,7 +460,8 @@ The Airlock:
 4. Shows comfort, input and performance requirements, and whether the user's device meets them.
 5. Lets the user choose an identity: anonymous, main or alternate (§4.4).
 6. Shows the price, if any, and whether the user already holds an entitlement (§16).
-7. Needs a **user gesture** to continue.
+7. When the user is joining a room (§9): shows who hosts it, how they qualify to enter, and whether it is direct between participants or hosted, by whom, and what that exposes.
+8. Needs a **user gesture** to continue.
 
 **Hard rules**
 
@@ -537,8 +558,14 @@ Only the well-known path counts for verification.
     "example-museum": {
       "entry": { "url": "https://museum.example/world", "modes": ["immersive-vr", "inline-3d"] },
       "entry_points": ["main-entrance", "north-wing", "rooftop"],
-      "capabilities": ["webxr", "spatial-portals", "avatars", "multiplayer", "entry-assertion"],
+      "capabilities": ["webxr", "spatial-portals", "avatars", "rooms", "multiplayer", "entry-assertion"],
       "avatar": { "formats": ["vrm", "glb"], "max_file_size_mb": 10, "max_triangles": 70000 },
+      "rooms": {
+        "transports": ["mesh", "hosted"],
+        "hosted": "wss://rooms.museum.example",
+        "max_mesh": 8,
+        "ice": ["stun:stun.museum.example:3478"]
+      },
       "multiplayer": { "endpoint": "wss://museum.example/session", "auth": "entry-assertion" },
       "budgets": { "initial_download_mb": 40 },
       "airlock": "https://portal.bitblocks.network/go"
@@ -549,6 +576,8 @@ Only the well-known path counts for verification.
 ```
 
 `listing` is `allow` (default) or `deny`. With `deny`, compliant clients don't show third-party curation of this origin on their shelves; a direct link still works.
+
+`rooms` says which room transports the world supports (§9), the room server it offers for hosted rooms, its limit for peer-to-peer rooms, and any STUN or TURN servers it provides. `multiplayer` is for a world with its own custom multiplayer server (§9.9). Both are optional.
 
 ### 7.3 Verification and conflict rules
 
@@ -598,6 +627,8 @@ The client uses NIP-02 follows (kind 3), NIP-65 relay lists (kind 10002) and NIP
 
 Invitations are private by default: a NIP-17 direct message (NIP-59 gift-wrapped) containing the world `naddr`, an entry point and optionally a time. Public invitations are just notes.
 
+An invitation to a room (§9) also carries the room event and, for an invite-only room, the room secret. The same content can be shared as a link whose fragment holds it, for people who aren't reachable by direct message.
+
 ### 8.5 Presence
 
 Presence is optional and particularly privacy-sensitive.
@@ -606,6 +637,7 @@ Presence is optional and particularly privacy-sensitive.
 - Coarse public status ("in VR", "available to hang out") uses NIP-38 user status (kind 30315) with a NIP-40 `expiration` no more than 15 minutes ahead, refreshed while active.
 - Status that names a world goes **only** to a chosen audience, gift-wrapped (NIP-59) to each member of a close-friends list.
 - **Exact position, movement history and attendance records are never published.**
+- Being in a room is visible to that room's members, and to its server if it is hosted. Announcing it more widely (NIP-53 room presence, kind 10312) is opt-in and offered only for open rooms.
 - Expiry is a request to relays, not a guarantee, and any recipient can keep what they were sent. The client says this where presence is switched on.
 
 ### 8.6 Events and gatherings
@@ -615,25 +647,202 @@ Presence is optional and particularly privacy-sensitive.
 
 ---
 
-## 9. Multiplayer Interoperability
+## 9. Shared Rooms
 
-Nostr doesn't replace real-time networking. A multiplayer world uses Nostr for identity and invitations and runs its own networking.
+A **room** is a gathering inside a world: a set of people who can see each other's avatars, hear each other and share the same objects. The world is the place, and a room is one group of people in it. Many rooms can be held in one world at once.
 
-```text
-Nostr identity → entry assertion (§4.4) → world auth endpoint → session server → real-time sync
+A room's real-time traffic can travel two ways, and everything else about the room is the same in both:
+
+| | Peer-to-peer ("mesh") | Hosted |
+|---|---|---|
+| Who carries voice and movement | The participants' own devices, directly | A room server run by the world's owner, a community or anyone else |
+| Comfortable size | 2–8, more with limits (§9.4) | Dozens per room, more by splitting into several rooms (§9.5) |
+| Cost | None | Someone pays for the server |
+| Who sees your IP address | The other members | The server's operator, not the other members |
+| Who could listen in | Nobody outside the room | The operator, unless voice is end-to-end encrypted |
+| Referee for shared state | None | The server, which makes games and persistent state possible |
+
+What never changes between the two: who you are (your Nostr key), who may enter, who moderates, how you're invited, your avatar, and the code a world developer writes.
+
+### 9.1 The room event
+
+A room is described by a NIP-53 interactive room event (kind 30312), with a few NSWP tags:
+
+```json
+{
+  "kind": 30312,
+  "tags": [
+    ["d", "friday-gallery-walk"],
+    ["room", "Friday gallery walk"],
+    ["summary", "A slow lap of the new exhibition."],
+    ["status", "private"],
+    ["service", "https://museum.example/world"],
+    ["a", "37300:<publisher pubkey>:example-museum"],
+    ["p", "<host pubkey>", "", "Host"],
+    ["p", "<moderator pubkey>", "", "Moderator"],
+    ["nswp:transport", "mesh"],
+    ["nswp:access", "list", "30000:<host pubkey>:gallery-friends"],
+    ["nswp:max", "8"],
+    ["nswp:entry", "main-entrance"],
+    ["relays", "wss://relay.example"]
+  ],
+  "content": ""
+}
 ```
 
-### 9.1 Minimum expectations
+- `service` is the world's entry URL. Clients open it through the Airlock, never directly.
+- The `a` tag names the world, so a client can ask relays for the rooms being held in it.
+- `status` follows NIP-53: `open`, `private` or `closed`. Anything other than open access is `private`.
+- `nswp:transport` is `mesh`, or `hosted` followed by the room server's `wss://` address. A hosted room adds `e2ee` when voice is end-to-end encrypted.
+- `nswp:access` is one of the rules in §9.3.
+- The room belongs to the key that signed the event. Roles come from its `p` tags: `Host`, `Moderator`, `Speaker`.
+- **A room doesn't have to be published.** An invite-only room's event can travel only inside its invitations (§8.4), so nobody else learns that it exists. A published room can be found by anyone.
 
-The protocol doesn't standardize physics, combat, animation or interaction systems. It defines only:
+Reusing kind 30312 means existing clients that understand NIP-53 rooms can list NSWP rooms and link to them. Whether the fit holds is open question Q15.
 
-- How worlds advertise multiplayer (`capability`, and `multiplayer` in the manifest).
-- One optional auth method, `entry-assertion`: the world server verifies the signature, origin, nonce and expiry, then issues its *own* session.
-- That world sessions never require a user's signer after entry. Later in-world signing (for example, posting a note from inside a world) goes back through the client with its own consent prompt, or isn't offered.
+### 9.2 Who you are in a room: the room pass
 
-### 9.2 Cross-world sessions
+Other members, or a room server, need to know who each participant is. But a world never holds the user's signer (§4.1), and a room runs inside the world's page. The **room pass** solves this.
 
-Continuous sessions that span providers are out of initial scope. Party handoff ("bring my group through the portal") is the likeliest first extension: one invitation per member, all pointing at the same destination and entry point.
+At the Airlock, the client creates a fresh **session key** for this one room, and signs a pass with the user's identity key:
+
+```json
+{
+  "kind": 27300,
+  "created_at": 1794430800,
+  "tags": [
+    ["a", "30312:<host pubkey>:friday-gallery-walk"],
+    ["nswp:session", "<session public key>"],
+    ["nswp:origin", "https://museum.example"],
+    ["expiration", "1794445200"]
+  ],
+  "content": ""
+}
+```
+
+The pass says: "for this room, at this site, until this time, the session key speaks for me." The arrival context (§4.4) hands the world the pass and the session key. The world uses the session key for everything in the room; anyone who checks the pass knows which identity is behind it.
+
+- **Scope.** The session key is useless outside this room, this origin and this time window. The identity key never leaves the client.
+- **Lifetime.** A pass expires after 4 hours by default and 12 hours at most. It can't be revoked early (Q18).
+- **Guests.** A participant with a session key and no pass is a guest. Guests are admitted only to `open` rooms, and are always shown as guests.
+- **What it reveals.** Every member of the room, and the server if there is one, sees the pass. Like an entry assertion, it is a lasting, transferable proof that this identity joined this room (§4.4).
+- **Kind.** 27300 is experimental and not allocated by the NIPs process. It sits in the ephemeral range on purpose: a relay that receives one isn't expected to store it.
+
+### 9.3 Who may enter
+
+| `nswp:access` | Who gets in |
+|---|---|
+| `open` | Anyone, including guests |
+| `invite` | Anyone holding the room secret, a random value delivered in the invitation |
+| `list` + a NIP-51 follow set (kind 30000) | The people on that list |
+| `follows` | People the host follows (the host's kind 3 list) |
+| `ticket` + a product coordinate | Holders of a valid entitlement for that product (BitPortal: a BitUnlock receipt, §16) |
+
+- A room secret can be added to any rule. It hides the room's handshake from everyone without it (§9.4).
+- **Who enforces the rule.** In a mesh room, every member's client checks each newcomer independently before connecting to them. In a hosted room the server checks, and clients still apply their own blocks.
+- **Lists that others must check have to be readable by them.** A list with hidden members can't be verified by the other participants. For a private guest list, use an invite secret (Q20).
+
+### 9.4 Peer-to-peer rooms
+
+Browsers connect directly using WebRTC. Nostr relays carry only the short handshake that lets them find each other.
+
+**Joining**
+
+1. The newcomer announces themselves on the room's topic with their session public key and pass.
+2. Each member already present checks, on their own: the pass is valid for this room and origin; the access rule admits this person; the member hasn't blocked them; the client's policy allows it (BitPortal: BitGate, §15); and the room isn't full.
+3. Each member who accepts exchanges connection details with the newcomer.
+4. The two browsers connect directly.
+
+**Handshake messages** are ephemeral events (experimental kind 27301), signed by session keys, encrypted with NIP-44 to the recipient's session key, and tagged with the room's topic. The topic is a hash of the room's coordinate, mixed with the room secret when there is one, so outsiders to an invite-only room can't even find the handshake. Each connection's WebRTC fingerprint travels inside a signed message, which binds the connection to the session key: a relay can carry the handshake but can't put itself in the middle.
+
+**What travels between peers**
+
+- Head and hand positions, 10–20 times a second, on a channel that may drop packets.
+- Control messages and shared-object changes, on a reliable channel.
+- Voice as Opus audio, placed in space by the listener's device.
+
+**Shared objects** (a whiteboard, a moved chair) are kept in step with a conflict-free replicated data type, so no device is in charge. That suits social spaces. It can't prevent cheating, so it doesn't suit competitive games.
+
+**There is no hub.** The host is a role, not a relay. If the host leaves, the room carries on under its rules until it is empty, and moderators can still act.
+
+**Members can differ on who they accept.** If one member has blocked a newcomer and another hasn't, the blocked pair simply aren't connected. Clients show when there are people in the room you aren't connected to.
+
+**Getting through home networks**
+
+- A STUN server tells each browser its public address. Public ones are free.
+- An estimated one in five to ten pairs can't connect directly and need a TURN server, which relays their encrypted traffic without being able to read it. Someone has to run it (Q17).
+- TURN and STUN servers can come from the user's client settings, the world's manifest (§7.2) or the room event. Without TURN, some pairs won't connect.
+
+**IP addresses.** A direct connection shows each member's IP address to the others. That is acceptable among invited friends and a real exposure in an open room. Clients offer a relay-only setting that hides it by sending everything through TURN, and the Airlock says so before entry to an open mesh room.
+
+**Size.** Every member connects to every other, so the work grows quickly with headcount, and a standalone headset is a phone-class computer. These are estimates until Phase 4b measures them:
+
+| Members | What works |
+|---|---|
+| 2–8 | Everyone sees and hears everyone. This is the default limit |
+| 9–20 | Positions for everyone; voice only from the nearest six or so. Experimental |
+| More than 20 | Use a hosted room, or several rooms |
+
+### 9.5 Hosted rooms
+
+A room whose transport is `hosted` sends voice and movement through a **room server**, which forwards each member's streams to the others. Anyone can run one: the world's owner, a community or a hosting provider. An open-source reference server is part of Phase 7, so "hosted" never has to mean one company's product.
+
+**Joining** is the same as for a mesh room, except that the newcomer presents the pass to the server instead of to each member. There are no accounts, passwords or server-issued identities.
+
+A conforming room server must:
+
+1. Identify participants only by their room pass.
+2. Apply the room event's access rule, and honour moderation from the room's roles (§9.8). It may add an operator policy of its own, which it must disclose.
+3. Pass along each member's **presence beacons**: short statements signed by the member's session key, naming the room and the time. Clients verify them, so a server can't invent participants or speak as one.
+4. Say whether voice is end-to-end encrypted. When it is, members exchange keys pairwise between session keys and encrypt each audio frame, so the server forwards what it can't hear.
+5. Ask nothing more of the user's signer.
+
+**What the operator can see:** each member's IP address, who is present and when, and the voice itself unless it is end-to-end encrypted. Other members don't see your IP address. Compared with a mesh room, a hosted room protects you better from strangers in the room and less from the operator.
+
+**A referee, when wanted.** A server can hold the authoritative copy of shared state, which makes games and persistent rooms possible. That logic is the world's own; the protocol doesn't standardize it.
+
+**Very popular rooms** split into several instances. People who arrive together stay together (§9.7).
+
+**Interface.** The room server interface is small: join with a pass, the roster and its beacons, media negotiation, and moderation messages. It is defined alongside the reference server in Phase 7 (Q19). A world with a custom server either implements it or supplies an adapter to the SDK.
+
+### 9.6 One room, either transport
+
+A world developer writes one call, and the SDK does the rest from the room event:
+
+```javascript
+import { room } from "nswp-sdk";
+
+const session = await room.join();   // reads the room from the arrival context
+session.on("member", (member) => { /* member.pubkey, or member.guest */ });
+session.on("pose", (member, pose) => { /* move their avatar */ });
+```
+
+This is a **proposed API**; it doesn't exist yet.
+
+- **Disclosure.** Before entry, the Airlock states the transport in plain words: "Direct between participants" or "Hosted by rooms.museum.example", with what each exposes.
+- **Promotion.** A room that outgrows the mesh can move to a server without ending. The host or a moderator publishes an updated room event naming the hosted transport. Clients watching the event reconnect there, with a brief interruption. Passes stay valid, because a pass is bound to the room, not to how its traffic travels. A room can move back the same way.
+- **Small private rooms stay possible.** A world that offers hosted rooms should still allow mesh rooms, so meeting a few friends never depends on someone's server.
+- **Chat.** Text messages in a room are signed with the sender's session key, so neither a server nor another member can forge them. Mirroring a public room's chat to relays under members' own identities is Q16.
+
+### 9.7 Moving together
+
+A group can go through a portal as a group. One member proposes a destination: a world, an entry point and a room to meet in. Each other member's client asks them, and each who agrees crosses through **their own Airlock**, gets a new pass, and arrives in the same room. Nobody is moved without their own gesture, and the fast path (§6.5) makes a familiar destination a single one.
+
+### 9.8 Moderation in rooms
+
+- **Roles** come from the room event: `Host`, `Moderator`, `Speaker`.
+- **Remove.** A host or moderator signs a removal. In a mesh room every client drops that member; in a hosted room the server does.
+- **Ban.** The host adds the person to the room's deny list (a NIP-51 set the room event names). It is checked at every join.
+- **Block.** A member's own blocks and mutes always apply and always win. In a mesh room a block means no connection at all, so the blocked person receives nothing from you. In a hosted room the client tells the server not to forward in either direction.
+- **Stage rooms.** When a room uses the `Speaker` role, only speakers transmit voice.
+- **Reports** are NIP-56 events naming the person and the room.
+- **Safety basics** in every client: a personal-space boundary other avatars can't enter, and one gesture that mutes everyone and offers the exit.
+
+**The venue sees everything.** A room runs inside the world's page, so the world's code handles every position, voice stream and message in it, whichever transport is used. An invite-only room keeps strangers out; it doesn't keep the venue out. Hold private gatherings in worlds you trust.
+
+### 9.9 What the protocol leaves to worlds
+
+The protocol doesn't standardize physics, combat, animation or game logic. A world with its own multiplayer system can keep it: it advertises `multiplayer` in its manifest and authenticates visitors with the entry assertion (§4.4), then issues its own session. A world's session never needs the user's signer after entry.
 
 ---
 
@@ -666,8 +875,8 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | **1 — Discovery** | Relay connectivity; read world announcements; directory; ordinary navigation; origin verification display | BitFeed lobby, or a plain list in no-BitBlocks mode |
 | **2 — Immersion** | WebXR; capability detection; user-approved entry; manifests; Airlock portal navigation | Airlock + SDK |
 | **3 — Identity portability** | External signing; per-world identity choice; entry assertions; avatar preferences; bookmarks | BitLogin |
-| **4 — Social interoperability** | Recommendations; invitations; optional presence; events; multiplayer auth | BitFeed recipes, NIP-17/38/52/53 |
-| **5 — Advanced spatial networking** | Seamless transitions; party handoff; portable entitlements; cross-world conventions | BitUnlock receipts; `sessiongranted` |
+| **4 — Social interoperability** | Recommendations; invitations; optional presence; events; peer-to-peer rooms with room passes | BitFeed recipes, NIP-17/38/52/53, SDK rooms |
+| **5 — Advanced spatial networking** | Seamless transitions; hosted rooms and promotion; moving together; portable entitlements | Reference room server; BitUnlock receipts; `sessiongranted` |
 | **Safety (applies to every level)** | Show the destination origin before navigation; HTTPS-only destinations; user blocks and mutes; report flow; asset limits; lobby network privacy | BitGate + shell limits |
 
 ---
@@ -692,7 +901,14 @@ These levels are a proposed roadmap, not a certification program. The column on 
 | Hostile or oversized avatar and world assets | Format allow-list, hash checks, hard budgets |
 | Unauthorized signer requests | The signer lives only in the client shell; worlds never get it |
 | Spam and Sybil announcements | Starter set for new users; social-distance ranking; trusted labels (§14, §15) |
-| Harassment inside worlds | The world's responsibility, helped by optional mute-list sharing (§4.4) |
+| Harassment inside worlds and rooms | Room roles, removal, bans and personal blocks (§9.8); optional mute-list sharing (§4.4) |
+| IP address exposure to room members (peer-to-peer) | Relay-only setting; hosted rooms; disclosure at the Airlock (§9.4) |
+| Eavesdropping or logging by a room server | End-to-end encrypted voice where declared; operator disclosure (§9.5) |
+| A server or member forging participants or messages | Session-key signatures and presence beacons (§9.5, §9.6) |
+| Uninvited people joining a room | Every client checks the access rule; a room secret hides the handshake (§9.3, §9.4) |
+| A relay interfering with the handshake | Connection fingerprints travel in signed, encrypted messages (§9.4) |
+| A stolen session key | Scoped to one room, origin and time window; never the identity key (§9.2) |
+| The venue observing a private room | Stated plainly (§9.8); verification and labels help users choose venues |
 | Comfort-related harm (motion sickness, photosensitivity) | Comfort metadata, content warnings, reports for mislabelled comfort |
 | Excessive resource use | Client-side budgets, the `perf` tier, a visible exit control |
 | Supply chain: a compromised SDK or vendored block | Tagged releases with integrity manifests; vendored hashes checked in CI |
@@ -724,6 +940,7 @@ Statements in this part about what each block does today were checked against th
 - BitPortal embeds `<bitlogin-auth>` in its 2D shell, vendored same-origin from a **tagged BitLogin release with its integrity manifest** (D7), never hotlinked. The widget runs same-origin with the host, so it is part of BitPortal's trusted computing base.
 - BitPortal consumes the session through BitLogin's NIP-07-shaped signer, passed **explicitly** to anything that needs it (D8). It listens for `bitlogin:login` / `bitlogin:logout` (D2) and reads `pubkey` (D1). Until those aliases ship, a thin adapter reads the current hyphen events and `publicKey`, as BitFeed's adapter does today.
 - The Airlock is served from BitPortal's own origin, so it shares the BitLogin session. This is why a user must come back to their *own* client's Airlock (§6.3): no other origin can sign for them.
+- **Room passes** (§9.2) are signed by the BitLogin signer at the Airlock, like entry assertions. The world receives only the room's session key.
 - **Signing inside immersion.** DOM elements aren't visible in immersive VR, so the widget can't appear there. Actions that need a signature mid-session queue until the user is back in the 2D shell.
 
 **Identities per world**
@@ -795,6 +1012,19 @@ So the plan is:
 | `transaction` (`allow` → `require-review` → `deny`) | Paid entry (§16): blocks or warns before any BitUnlock quote is requested |
 | `ranking` (`normal` → `downrank`) | Passed into BitFeed as a scorer |
 
+**In rooms (§9)**
+
+BitGate's targets today include users and addressable events, which is what rooms need, so this part has no gap.
+
+| Decision | Effect in a room |
+|---|---|
+| `interaction: deny` on a person | BitPortal's client won't connect to them in a peer-to-peer room, and asks a hosted room's server not to forward in either direction |
+| `visibility: hide` or `warn` on a person | Their avatar and voice are hidden, or shown behind a notice |
+| Any decision on a room's coordinate | Acts on the room at the Airlock and in the lobby, exactly as for a world |
+
+- **List-gated rooms** use a NIP-51 list of people (kind 30000). This is the same mechanism bitvid's whitelist mode uses, and the lists BitGate already reads for moderator roles.
+- **Each member runs their own BitGate.** In a peer-to-peer room nobody's policy is imposed on anyone else: two members can reach different decisions about a third (§9.4).
+
 **Signals**
 
 - NIP-32 labels (kind 1985) in a `bitportal:moderation` namespace, targeting a world coordinate (`a`) or a publisher (`p`).
@@ -854,6 +1084,8 @@ The cost: a purchase key lives on one device unless the user backs it up, so the
 
 **Honest limits.** BitUnlock is currently a hosted, limited mainnet beta. The protocol is open to self-hosted implementations, and no NSWP field depends on BitUnlock specifically.
 
+**Rooms.** A room whose access rule is `ticket` (§9.3) admits holders of a BitUnlock receipt for the product it names. Each member's client, or the room server, checks the receipt with the steps above. An operator can fund a room server this way, but no room requires payment by design.
+
 **Tips are not BitUnlock.** Tips and donations are plain NIP-57 zaps to the world publisher's Lightning address.
 
 ## 17. Other BitBlocks-family integrations (optional, after the MVP)
@@ -901,8 +1133,10 @@ A directory with no worlds attracts no users, and creators won't integrate with 
 | **2** | Hosts one static JSON file (§7) | "Verified for this origin"; eligible for the New worlds shelf |
 | **3** | Adds the SDK and a portal (a few lines) | Outbound portals through the visitor's own Airlock; visitors return to their lobby |
 | **4** | Reads the arrival context | Named entry points; guests with a chosen identity and avatar |
-| **5** | Verifies entry assertions on a server | Trustworthy multiplayer identity |
-| **6** | Registers a BitUnlock product | Paid entry, tickets, passes |
+| **5** | Calls `room.join()` from the SDK | Shared rooms with voice for small groups, with no server to run |
+| **6** | Runs or rents a room server | Larger rooms, stage events, a referee for shared state |
+| **7** | Registers a BitUnlock product | Paid entry, tickets, passes |
+| — | Keeps its own multiplayer server, verifying entry assertions | Its existing system, with visitors' chosen identities (§9.9) |
 
 **Bootstrapping.** The first directory is curated from WebXR experiences that already exist, by hand, into the starter set. Curators link, they don't embed or copy, and they honour `listing: deny` (§7.2).
 
@@ -955,9 +1189,18 @@ Each phase has an exit criterion that has to be met before the next starts.
 ### Phase 4: Portal SDK and identity handoff
 - `nswp-sdk`: `portal.go()`, `arrival.read()`, the built-in fallback interstitial, a manifest helper, and a server-side assertion verifier.
 - Per-world identity choice, entry assertions, return-Airlock handling, the fast path.
-- One multiplayer reference world that authenticates with an entry assertion.
 
-**Exit:** two worlds by different authors link to each other through portals, a user returns to their own Airlock from each, and the multiplayer world shows the chosen identity, or "guest" for anonymous entry.
+**Exit:** two worlds by different authors link to each other through portals, a user returns to their own Airlock from each, and a world shows the visitor's chosen identity, or "guest" for anonymous entry.
+
+### Phase 4b: Shared rooms, peer-to-peer
+- Room events, room passes, the handshake over relays, and direct connections carrying positions and voice (§9.1–§9.4).
+- `room.join()` in the SDK; rooms in both reference worlds; the room disclosure in the Airlock.
+- Access by open entry, invite link and list. Personal blocks and removal by a host.
+- Schemas and test vectors for the room event, the room pass and handshake messages.
+- Measurements on a desktop and a standalone headset, replacing the size estimates in §9.4.
+- **An early spike is allowed.** A two-person, guest-only room in the reference worlds depends on nothing in Phases 1–4. It can be built first, to learn how shared presence feels before the rest is designed around it.
+
+**Exit:** four people on different networks, at least one in a headset, share a reference world, hear each other and see each other move. A person without the invitation can't join an invite-only room, and a blocked person can't connect to the member who blocked them.
 
 ### Phase 5: Paid access with BitUnlock
 - A paid reference world and a ticketed event, with the world server verifying receipts (§16).
@@ -969,6 +1212,14 @@ Each phase has an exit criterion that has to be met before the next starts.
 - NIP-17 invitations, opt-in NIP-38 presence with expiry, NIP-52 and NIP-53 events in the lobby.
 
 **Exit:** a group of friends arranges a meetup and arrives at the same entry point without anyone publishing a permanent location record.
+
+### Phase 7: Hosted rooms
+- The room server interface and an open-source reference room server (§9.5).
+- Promotion of a running room from peer-to-peer to hosted, and back (§9.6).
+- End-to-end encrypted voice. Stage rooms. Splitting a popular room into instances.
+- Moving together through a portal (§9.7).
+
+**Exit:** a room of eight is promoted to a hosted server mid-session and keeps everyone's identity and roles. Twenty-five people share one hosted room. A test shows the server can't add a participant or speak as one.
 
 ---
 
@@ -986,7 +1237,9 @@ Each phase has an exit criterion that has to be met before the next starts.
 | Payments | `@bitunlock/sdk` (once published under MIT); NIP-57 for tips |
 | Assets | Blossom servers; glTF/VRM loaders with KTX2 and Meshopt |
 | World hosting | Static HTTPS hosting |
-| Multiplayer reference | WebSocket server with entry-assertion auth; WebRTC for voice |
+| Rooms, peer-to-peer | WebRTC data channels and audio; handshake over Nostr relays; a conflict-free replicated data type library for shared objects |
+| Rooms, hosted | An open-source media forwarding server behind the room server interface (candidates in Appendix C) |
+| Getting through home networks | Public STUN; an optional community-run TURN server |
 | Build | Vite → static `dist/`; TypeScript |
 | Hosting | `portal.bitblocks.network` on the same static-hosting pattern as the other block sites (proposed) |
 
@@ -1004,6 +1257,8 @@ These items affect BitPortal directly. BitPortal therefore becomes a **forcing f
 | BitUnlock | SDK unpublished, with no license file; limited mainnet beta; public entitlement-status route to be confirmed | Phase 5 waits on the SDK being published under MIT | Phase 5 |
 
 ---
+
+Shared rooms need no change to any block. Guests work with none of them, identified members need BitLogin as in Phase 2, and per-person BitGate decisions arrive with Phase 3b.
 
 ### 21.2 Target devices
 
@@ -1064,7 +1319,8 @@ The first version will **not**:
 - Define a universal physics engine, interaction system or scene format.
 - Guarantee continuous, loading-free transitions.
 - Standardize every avatar and animation system (VRM is recommended, not required).
-- Replace multiplayer game servers.
+- Replace multiplayer game servers, or provide anti-cheat or authoritative game logic in peer-to-peer rooms.
+- Hide a room from the world it is held in (§9.8).
 - Require Bitcoin, Lightning or any BitBlocks component.
 - Guarantee that possessions work across every world.
 - Establish a central authority over destinations. (An instance operator's policy for their own site, §15, is not that.)
@@ -1103,6 +1359,18 @@ The first version will **not**:
 **Q13 Verification attestations:** should third parties be able to publish "verified origin" labels so lobbies needn't contact world origins at all (§5.7)? Who would be trusted to, and does that reintroduce a gatekeeper?
 
 **Q14 Shared-host verification:** is there a safe way to verify worlds hosted on a path of a shared domain, or is "get your own subdomain" the permanent answer?
+
+**Q15 Room event:** is reusing NIP-53's room event (kind 30312) right, or will NSWP's extra tags and unpublished rooms strain it enough to need a separate kind?
+
+**Q16 Public chat:** posting a room's chat to relays under a member's own identity needs their signer, which a world never holds. Should the client mirror it, or should readers accept session-key authorship backed by room passes?
+
+**Q17 Fallback relays:** who runs TURN servers for the pairs that can't connect directly, and how are they paid for without becoming a dependency?
+
+**Q18 Room pass lifetime:** a pass can't be revoked. Is four hours the right default, and should members accept a renewed pass without a new Airlock visit?
+
+**Q19 Room server interface:** adopt an existing open-source media server's protocol, or define a thin neutral interface with adapters?
+
+**Q20 Private guest lists:** other members can't check a list whose entries are hidden. Is an invite secret enough for rooms that need a private membership?
 
 ---
 
@@ -1145,7 +1413,7 @@ Just as the web links documents and applications through URLs, the spatial web c
 - [NIP-50: Search](https://github.com/nostr-protocol/nips/blob/master/50.md)
 - [NIP-51: Lists](https://github.com/nostr-protocol/nips/blob/master/51.md)
 - [NIP-52: Calendar Events](https://github.com/nostr-protocol/nips/blob/master/52.md)
-- [NIP-53: Live Activities](https://github.com/nostr-protocol/nips/blob/master/53.md)
+- [NIP-53: Live Activities](https://github.com/nostr-protocol/nips/blob/master/53.md) (also defines the room event, kind 30312, and room presence, kind 10312)
 - [NIP-56: Reporting](https://github.com/nostr-protocol/nips/blob/master/56.md)
 - [NIP-57: Lightning Zaps](https://github.com/nostr-protocol/nips/blob/master/57.md)
 - [NIP-59: Gift Wrap](https://github.com/nostr-protocol/nips/blob/master/59.md)
@@ -1156,6 +1424,8 @@ Just as the web links documents and applications through URLs, the spatial web c
 - [NIP-98: HTTP Auth](https://github.com/nostr-protocol/nips/blob/master/98.md)
 - [Blossom (BUDs)](https://github.com/hzrd149/blossom)
 - [W3C WebXR Device API](https://www.w3.org/TR/webxr/)
+- [W3C WebRTC](https://www.w3.org/TR/webrtc/)
+- [RFC 9605: Secure Frame (SFrame)](https://www.rfc-editor.org/rfc/rfc9605) (end-to-end encryption through a forwarding server)
 - [Immersive Web CG: WebXR navigation proposal](https://github.com/immersive-web/navigation)
 - [VRM specification](https://github.com/vrm-c/vrm-specification)
 - [Three.js](https://threejs.org/)
@@ -1180,12 +1450,17 @@ Just as the web links documents and applications through URLs, the spatial web c
 | Scheduled and live events | NIP-52 (31922/31923), NIP-53 (30311) | No |
 | Moderation | NIP-32 labels (1985), NIP-56 reports (1984), NIP-51 mutes | No |
 | Retirement | `status` tag, then NIP-09 (5) | No |
+| Room | NIP-53 interactive room (30312) with `nswp:` tags | No (Q15) |
+| Room pass | 27300 (experimental, ephemeral range; not published) | **Yes** |
+| Room handshake | 27301 (experimental, ephemeral) | **Yes** |
+| Room access and deny lists | NIP-51 sets (30000) | No |
+| Room presence (public, opt-in) | NIP-53 (10312) | No |
 | Paid access | BitUnlock product and receipt (30078), product referenced by `a` tag | No (BitBlocks-specific, optional) |
 | Handler discovery | NIP-89 (31989/31990) | No |
 
 ## Appendix C: Prior art to review
 
-Linking 3D places like web pages has been tried before. Before Phase 0 freezes any format, the project should study what these efforts learned, and reuse their formats where they fit. The descriptions below are from general knowledge and each needs checking against the project's current state.
+Linking 3D places like web pages has been tried before, and so has serverless multiplayer. Before more formats are frozen, the project should study what these efforts learned, and reuse their formats where they fit. The descriptions below are from general knowledge and each needs checking against the project's current state.
 
 | Project or group | Why it matters here |
 |---|---|
@@ -1195,6 +1470,10 @@ Linking 3D places like web pages has been tried before. Before Phase 0 freezes a
 | Hyperfy, Webaverse and similar web-native world platforms | Self-hostable browser worlds; potential first worlds to list, and potential second-client partners |
 | Metaverse Standards Forum | The venue where interoperability work across vendors is coordinated |
 | VRM Consortium | Owner of the avatar format recommended in §4.2 |
+| Trystero and similar serverless WebRTC libraries | Browsers finding each other through public networks, Nostr relays among them, with no server of their own; the closest precedent for §9.4 |
+| Nostr Nests and other NIP-53 room clients | Audio rooms described by Nostr events and carried by a media server; the precedent for §9.1 and §9.5 |
+| LiveKit, mediasoup and other open-source media forwarding servers | Candidates for the reference room server and its interface (Q19) |
+| Yjs, Automerge and other conflict-free replicated data type libraries | Shared objects with no device in charge (§9.4) |
 
 *This is a conceptual technical proposal. As of this draft, NSWP is not an adopted Nostr Improvement Proposal, a W3C standard or an implemented interoperability protocol, and BitPortal is not yet built.*
 
