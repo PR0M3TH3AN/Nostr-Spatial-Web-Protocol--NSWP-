@@ -1,13 +1,17 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.5 (concept specification)
+**Version:** 0.5.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.3.1 and 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.5.1
+
+- **The walk-in lobby is built** (§20, Phase 1): BitPortal's doors as a hall, usable in a headset, with a shared room. The avatar and voice code moved into the SDK as `nswp-sdk/three` so worlds and BitPortal share it.
 
 ## 0. What changed in 0.5
 
@@ -1220,6 +1224,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 - *Built:* the lobby, with three BitFeed shelves that each say why a world is there; doors whose art is generated from the world's address; verification when a door is opened; BitPortal's own Airlock at `/go/`; the plain no-BitBlocks mode; and a signed starter set of six worlds (the two reference worlds and four existing WebXR sites).
 - *Tested:* from the lobby, through the Airlock, into three separately hosted sites; a world's portal returning to BitPortal's Airlock; plain mode loading no ranking code; a `javascript:` destination being blocked.
+- *Walk-in lobby:* the same catalogue as a hall of doors at `/walk/`. A door is chosen by mouse, controller ray or pinch, or by walking through it, and always leads to the flat Airlock page. A Join button adds the Phase 4b room: avatars and spatial voice. Tested with an emulated Quest 3 (a controller trigger on a door reached the Airlock) and with two tabs sharing a room.
 - *Not tested:* a real headset, which the exit criterion asks for.
 - *Published:* the starter set and the curator's four listings are on six public relays as well as bundled with the app. A client with no bundled copy, the reference Airlock, resolves a listing from relays alone and shows it as listed, not verified.
 
