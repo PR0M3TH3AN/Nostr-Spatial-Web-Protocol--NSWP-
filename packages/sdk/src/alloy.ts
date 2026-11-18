@@ -38,7 +38,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   float line = pow(1.0 - abs(h), 60.0);
   vec3 up = mix(ground * 0.55, ground * 0.2, smoothstep(0.0, 0.7, h));
   vec3 base = h > 0.0 ? up : ground;
-  return base + accent * (band * 0.5 + line * 0.9);
+  return base + accent * (band * 0.4 + line * 0.9);
 }`;
 
 export function createAlloy(accent: THREE.ColorRepresentation, opts: AlloyOptions = {}): Alloy {
