@@ -207,7 +207,8 @@ async function hangPicture(url: string, sha256: string, picture: THREE.Mesh, max
 /** The room's walls. The floor is the environment's grid. */
 function buildRoom(layout: Layout, blocks: Blocks, group: THREE.Group): void {
   const accent = new THREE.Color(layout.room.accent);
-  const wall = new THREE.Color(layout.room.color).lerp(new THREE.Color(0xffffff), 0.05);
+  // A shade up from the ground, so a wall reads as standing on it. (Colours here are in linear light, where a little white goes a long way.)
+  const wall = new THREE.Color(layout.room.color).multiplyScalar(1.7).lerp(accent, 0.012);
   blocks.at([0, 0, 0]);
   if (layout.room.template === "open") {
     // A ring of light on the floor, marking the middle of an open place.

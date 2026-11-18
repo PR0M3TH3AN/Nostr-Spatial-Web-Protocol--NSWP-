@@ -116,7 +116,7 @@ export function createEnvironment(accent: THREE.ColorRepresentation, opts: Envir
     const unit = new THREE.BoxGeometry(1, 1, 1);
     const edge = new THREE.EdgesGeometry(unit).getAttribute("position").array as Float32Array;
     const COUNT = 84;
-    const fills = new THREE.InstancedMesh(unit, new THREE.MeshBasicMaterial({ color: ground.clone().lerp(glow, 0.04) }), COUNT);
+    const fills = new THREE.InstancedMesh(unit, new THREE.MeshBasicMaterial({ color: ground.clone().multiplyScalar(1.5).lerp(glow, 0.008) }), COUNT);
     const lines = new Float32Array(COUNT * edge.length);
     const m = new THREE.Matrix4();
     const v = new THREE.Vector3();
