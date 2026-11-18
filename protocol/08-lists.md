@@ -118,6 +118,47 @@ at all. It is also where spam arrives. A client that shows them:
   Two announcements for one address can't both be right, and the listed one
   was at least chosen by someone.
 
+## A client that shows only what its host has listed
+
+Whoever hosts a client answers for what it shows. A host who must not show
+some worlds (worlds for adults, say) can't lean on what makers say about
+their own worlds, because a maker can lie ([NSWP-01](01-worlds.md)). What
+works is the other way round: show a world only when someone the host trusts
+has listed it.
+
+- **The host's list is an ordinary list:** kind 30004, signed by a key the
+  client is built to trust, under a `d` name the client knows. The reference
+  client uses `bitportal`. Nothing about the list says it is special; what
+  makes it count is whose key signed it.
+- **A strict client shows nothing else.** No lists a visitor follows, and no
+  worlds nobody has listed. It says so, and says how many worlds it is
+  holding back and why.
+- **It still drops what it must not show.** A world on the host's list that
+  says it is for adults is dropped all the same: a list can be wrong, or a
+  world can change after it was listed.
+- **It checks at the door as well.** A link can lead to the Airlock without
+  passing the lobby, so the Airlock asks the same question before sending
+  anyone on. It shows the address either way.
+- **The host lists with their own signature.** Signed in with the trusted
+  key, they see what is waiting and add or remove a world. Each change is a
+  new version of the one list, so the newest is the whole truth.
+- **It is one copy's answer.** Announcements stay on relays, and another copy
+  of the same client, hosted by someone else, shows what its own host lists.
+
+## Hashtags
+
+A world's `t` tags are its hashtags. A client may let a visitor press one to
+see every world that carries it, and ask for more or less of one.
+
+- **What a visitor likes stays on their device** and is sent nowhere. It is
+  not published, and no relay is asked a question that gives it away.
+- **Ranking by it is said out loud:** a world that sits higher because of a
+  hashtag says which one.
+- **Less is not gone.** Asking for less of a hashtag moves its worlds down.
+  It hides nothing: hiding is what lists and the host's answers are for.
+- **A hashtag is the maker's word,** like everything else in an
+  announcement. It is a way of finding, and never a reason to trust.
+
 ## Searching
 
 `t` tags are a world's topics and `l` tags its languages
@@ -140,17 +181,28 @@ from people says how in the list's `description`.
 
 ## What the reference client does today
 
+- As hosted at bitblocks.network, it is strict: it shows its starter list and
+  what its operator's key has listed under `bitportal`, and no world for
+  adults. A copy hosted with other answers follows the visitor's lists and
+  shows unlisted worlds when asked, as below.
 - Shows its bundled starter list, which the visitor can hide.
 - Follows any list the visitor gives it by `naddr`, each as a shelf of its
   own, named with its curator's key. The lists a visitor follows are kept on
   their device.
 - Says how many announced worlds nobody has listed, and shows them when asked,
   under the rules above.
-- Filters all of that by a word, a topic or a language.
+- Filters all of that by a word, a hashtag or a language, and ranks by the
+  hashtags a visitor has asked for more or less of.
 - Lets a visitor save any door to their own wall, kept on their device.
 - Has a page for announcing a world, and says there how a world gets listed.
 
 ## Proposed, not built
+
+- **A list of what a host refuses,** beside the list of what it shows. A
+  strict client has no use for one. An open one does.
+- **Hashtags a visitor likes as a list of their own on Nostr** (NIP-51
+  interests), so they follow the visitor between devices. They are private
+  today, so publishing them is a decision of its own.
 
 - **Worlds and lists from the people a visitor follows.** It needs names to
   be worth reading ("listed by" a key says little), so it waits for profiles.

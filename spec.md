@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.11.0 (concept specification)
+**Version:** 0.12.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
@@ -1391,6 +1391,14 @@ This is BitPortal's choice, not the protocol's. Another client may start its vis
 | `ranking` (`normal` → `downrank`) | Passed into BitFeed as a scorer |
 
 **Previews and homes.** BitGate also decides whether a preview is shown. A `visibility` decision of `warn` or worse on a world or its publisher replaces the preview with a placeholder. "Misleading preview" is a report reason alongside comfort mislabelling. A home's layout is an addressable event, so the same labels and decisions apply to it as to a world.
+
+**What is built instead, for now (since 0.12.0).** BitGate decides per visitor: each picks whose labels they trust. That answers "what do I want to see", and it doesn't answer a question a host has: "what am I willing to serve from my own address". Someone who hosts a copy of BitPortal is answerable for what it shows, whoever is looking. So each copy carries its host's answers in one file, and they bind every visitor of that copy:
+
+- **Whose list counts.** The host's own key, or several. A list of worlds signed by one of them, under a name the copy knows, is what the copy shows ([NSWP-08](protocol/08-lists.md)).
+- **Only that list, or more.** A strict copy shows nothing else: no lists a visitor follows, and no worlds nobody has listed. An open copy behaves as before.
+- **Adult worlds, or not.** A copy that says no drops any world that is for adults by its maker's word ([NSWP-01](protocol/01-worlds.md)), listed or not, from the lobby, the room and saved doors, and its Airlock won't send anyone to one. The Airlock still shows the address: this is what the site does, not a wall around the visitor.
+
+The copy at bitblocks.network is strict and shows no adult worlds. This is not censorship of the network and can't be: announcements stay on relays, any address can still be typed into a browser, and anyone can host a copy with different answers. The lobby says all of this in plain words, including how many worlds it is holding back. When BitGate is wired in, the host's answers become a floor that a visitor's own choices can tighten and never loosen. A list of what a host refuses (the other half of what bitvid has) is not built: with a strict list it has nothing to do, and it becomes useful the day a copy is opened up.
 
 **In rooms (§9)**
 

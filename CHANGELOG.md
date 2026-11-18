@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.12.0
+
+Who a world is for, and a copy of the client that shows only what its host has listed.
+
+- **`audience`, a tag on a world's announcement** ([NSWP-01](protocol/01-worlds.md)): `kids`, `general` or `adult`, in the maker's own word. An `adult` world also carries `content-warning`, which readers that don't know `audience` already read. A careful reader takes a world as adult when it says so, and also when it carries a warning and names no audience. A world that says nothing is unrated.
+- **What a rating can't do.** It keeps honest makers' worlds where they belong and does nothing about a maker who lies. So a client that must not show adult worlds does two things together ([NSWP-08](protocol/08-lists.md)): it shows only worlds on a list signed by a key its host trusts, and it drops from those any that say they are adult.
+- **A host's list is an ordinary list.** Kind 30004, signed by the host's key, under a name the client knows. No new kind, and nothing a relay or a world has to do.
+- **Hashtags.** `t` tags were already topics. A client may now let a visitor ask for more or less of one, and rank by that on the visitor's own device ([NSWP-08](protocol/08-lists.md)).
+- **BitPortal, as hosted at bitblocks.network (§15):** shows a world only when its operator's key has listed it or it is in the starter set, and never a world for adults, in the lobby, the room, saved doors or the Airlock. The operator, signed in, sees what is waiting and lists or unlists a world with their own signature. Someone who hosts their own copy sets their own key and their own answers in one file.
+- **The world template** asks for `audience` in `world.json` and announces it.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome with made-up sites, a throwaway key standing in for the operator's, and every relay answered by the test: a visitor shown listed worlds only, and none for adults; a world with a warning and no audience held back the same way; the Airlock refusing to send anyone to an adult world while still showing its address; the operator shown what is waiting, listing one with their own signature, and every visitor then shown it; someone else signed in shown none of that; a hashtag asked for more of moving worlds up and getting a shelf of its own. Not tried with the operator's real sign-in. The seven reference worlds' announcements carry no rating yet: they show as "Not rated by its maker" until they are signed again.
+
 ## 0.11.0
 
 A home of your own to start in. Three small additions to the protocol, and one decision in BitPortal's own design changed.
