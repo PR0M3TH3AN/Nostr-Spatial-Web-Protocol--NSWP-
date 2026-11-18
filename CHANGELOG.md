@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.1
+
+Rooms: a visitor can stop hearing someone, or stop being in a room with them. Nothing in the protocol's formats changes.
+
+- **Stop hearing someone.** Select a person in the People list, then "Stop hearing". They are still seen, still see and hear the visitor, and aren't told. It lasts while they are here.
+- **Block someone** (§9.4, §9.8). The visitor's own browser closes its connection to that person and makes no new one. Nobody is asked, nothing is published, and the others in the room carry on. To the blocked person, the visitor has left.
+- **What a block can hold on to.** Someone who came by name showed a pass for a key of their own, so the block is kept, on that site, and holds when they come back. A guest is a new key every visit, so blocking one lasts the visit and the room says so plainly.
+- **Letting someone back** is in the same list, and takes effect the next time either side announces itself.
+- **One wart, said plainly:** who someone is comes out only once connected, so a blocked named person is connected to for a moment each time they return, and then dropped.
+- **Not built:** removal by a host, which needs rooms to have hosts (a room is still named by a string), and carrying a block list from one site to another, which would be a job for the visitor's own client.
+- **Status (2026-11-18):** built, not deployed.
+
 ## 0.13.0
 
 Smaller things that were in the way: a tap that moved too far, and having to join again in every world.

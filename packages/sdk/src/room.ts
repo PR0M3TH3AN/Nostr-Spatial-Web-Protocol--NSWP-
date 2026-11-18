@@ -73,6 +73,11 @@ export interface JoinOptions {
    * checked here, and shown to each member directly, never to a relay.
    */
   identity?: { pass: NostrEvent; sessionKey: string };
+  /**
+   * Keys this visitor has blocked: the identity keys of people who came by
+   * name, or session keys from this visit. Nobody on it is connected to.
+   */
+  blocked?: Iterable<string>;
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -147,6 +152,8 @@ export class RoomSession {
 
   private readonly key: Uint8Array;
   private readonly relays: string[];
+  /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
+  private readonly blocked = new Set<string>();
   private readonly maxMembers: number;
   private readonly iceServers: RTCIceServer[];
   private readonly sockets = new Map<string, WebSocket>();
@@ -206,6 +213,39 @@ export class RoomSession {
     this.relays = opts.relays ?? DEFAULT_RELAYS;
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
+    for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
+  }
+
+  /**
+   * Stop being in a room with someone. The connection to them is closed and
+   * no new one is made, by their session key and, if they came by name, by
+   * the key behind the name: so it holds when they come back. It is this
+   * visitor's decision alone and nobody else is told; to the blocked person,
+   * this visitor has left. Returns what was blocked, or null if they aren't
+   * here.
+   */
+  block(pubkey: string): { session: string; identity?: string; name: string } | null {
+    const peer = this.peers.get(pubkey);
+    if (!peer) return null;
+    const { identity, name } = peer.member;
+    this.blocked.add(pubkey);
+    if (identity) this.blocked.add(identity);
+    try {
+      this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+    } catch {
+      /* they find out when the connection closes */
+    }
+    this.drop(pubkey, true);
+    return { session: pubkey, ...(identity ? { identity } : {}), name };
+  }
+
+  /** Let someone back: they are connected to again the next time either side announces itself. */
+  unblock(key: string): void {
+    this.blocked.delete(key);
+  }
+
+  isBlocked(key: string): boolean {
+    return this.blocked.has(key);
   }
 
   on<K extends keyof Events>(event: K, fn: Events[K]): () => void {
@@ -301,6 +341,8 @@ export class RoomSession {
     const opened = openSignal(raw, this.key, this.topic);
     if (!opened || this.closed) return;
     const { from, message } = opened;
+    // Someone this visitor blocked is not answered, whatever they send.
+    if (this.blocked.has(from)) return;
     const existing = this.peers.get(from);
     try {
       switch (message.t) {
@@ -423,6 +465,18 @@ export class RoomSession {
     const checked = verifyRoomPass(event, { origin: this.origin, session: peer.member.pubkey });
     if (!checked.ok) {
       peer.refused++;
+      return;
+    }
+    // Who someone is comes out only once they are connected and show a pass, which they do at once. If this
+    // visitor blocked that person before, the connection ends here, a moment after it began.
+    if (this.blocked.has(checked.value.pubkey)) {
+      this.blocked.add(peer.member.pubkey);
+      try {
+        this.publish(buildSignal(this.topic, this.key, peer.member.pubkey, { t: "bye" }));
+      } catch {
+        /* the closed connection says it */
+      }
+      this.drop(peer.member.pubkey, true);
       return;
     }
     peer.passUntil = checked.value.expiresAt;

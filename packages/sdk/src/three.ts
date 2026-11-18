@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { decodeLook, encodeNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
+import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
 
 import { turnVisitor } from "./turn.js";
 export { turnVisitor } from "./turn.js";
@@ -64,6 +65,8 @@ export interface AvatarInfo {
   guest: boolean;
   /** The identity key behind them, if proven. */
   identity: string | null;
+  /** This visitor has stopped hearing them. */
+  muted: boolean;
 }
 
 export interface Presence {
@@ -84,6 +87,22 @@ export interface Presence {
   pointOut(pubkey: string): void;
   /** Everyone else in the room, as they are being drawn. */
   people(): Member[];
+  /**
+   * Stop hearing one member, or hear them again. They are still seen, and still see and hear this visitor.
+   * Nobody is told. It lasts while they are here.
+   */
+  mute(pubkey: string, on: boolean): void;
+  isMuted(pubkey: string): boolean;
+  /**
+   * Stop being in a room with one member: the connection to them is closed and not made again. To them, this
+   * visitor has left. Someone who came by name stays blocked on this site when they come back; a guest is a new
+   * key each visit, so that block lasts this visit. Returns their name, or null if they aren't here.
+   */
+  block(pubkey: string): string | null;
+  /** Let someone back, by the key `blocked()` lists them under. */
+  unblock(key: string): void;
+  /** Everyone this visitor has blocked: named people, kept on this site, and guests blocked this visit. */
+  blocked(): { key: string; name: string; kept: boolean }[];
   /** Call once per frame with the seconds since the last one. */
   update(dt: number): void;
   /** What this visitor currently sees of each member (for tests and debugging). */
@@ -233,6 +252,14 @@ export function createPresence(d: PresenceOptions): Presence {
     return a;
   };
 
+  // Who this visitor won't be in a room with. Named people are kept on this site; guests only for this visit,
+  // because a guest's key is new every time and a list of them would promise what it can't do.
+  let keptBlocks: Blocked[] = loadBlocked();
+  const blockedNow = new Map<string, string>(); // a session key from this visit -> what they were called
+  const blockedKeys = () => [...keptBlocks.map((b) => b.key), ...blockedNow.keys()];
+  // Whom they have stopped hearing, by session key: it lasts while that person is here.
+  const mutedKeys = new Set<string>();
+
   const attachAudio = (avatar: Avatar, stream: MediaStream) => {
     if (avatar.audio) return;
     // Chrome only feeds a remote WebRTC stream into Web Audio while it is also
@@ -249,6 +276,7 @@ export function createPresence(d: PresenceOptions): Presence {
     const analyser = listener.context.createAnalyser();
     analyser.fftSize = 512;
     listener.context.createMediaStreamSource(stream).connect(analyser);
+    if (mutedKeys.has(avatar.member.pubkey)) pa.setVolume(0);
     avatar.audio = pa;
     avatar.element = el;
     avatar.analyser = analyser;
@@ -326,7 +354,7 @@ export function createPresence(d: PresenceOptions): Presence {
     }
     const look = typeof d.look === "function" ? d.look() : d.look;
     const identity = typeof d.identity === "function" ? d.identity() : d.identity;
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}) });
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys() });
     session = s;
     if (!offsetApplied) {
       // Step aside from the spawn point so two people don't arrive inside each other.
@@ -439,6 +467,37 @@ export function createPresence(d: PresenceOptions): Presence {
     people() {
       return [...avatars.values()].map((a) => a.member);
     },
+    mute(pubkey, on) {
+      if (on) mutedKeys.add(pubkey);
+      else mutedKeys.delete(pubkey);
+      avatars.get(pubkey)?.audio?.setVolume(on ? 0 : 1);
+      changed();
+    },
+    isMuted(pubkey) {
+      return mutedKeys.has(pubkey);
+    },
+    block(pubkey) {
+      const gone = session?.block(pubkey);
+      if (!gone) return null;
+      mutedKeys.delete(pubkey);
+      if (gone.identity) {
+        // By name: the key behind the name is the same next visit, so this is kept.
+        keptBlocks = withBlocked(keptBlocks, { key: gone.identity, name: gone.name });
+        storeBlocked(keptBlocks);
+      } else blockedNow.set(gone.session, gone.name);
+      changed();
+      return gone.name;
+    },
+    unblock(key) {
+      session?.unblock(key);
+      if (blockedNow.delete(key)) return changed();
+      keptBlocks = withoutBlocked(keptBlocks, key);
+      storeBlocked(keptBlocks);
+      changed();
+    },
+    blocked() {
+      return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];
+    },
     testTone() {
       const ctx = listener.context;
       const osc = ctx.createOscillator();
@@ -492,6 +551,7 @@ export function createPresence(d: PresenceOptions): Presence {
           head: a.target?.head.position.map((n) => Math.round(n * 100) / 100) ?? null,
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
+          muted: mutedKeys.has(a.member.pubkey),
           look: a.member.look,
           guest: a.member.guest,
           identity: a.member.identity ?? null,
@@ -782,16 +842,26 @@ export function addRoomControls(
   };
   // Who else is here: one entry each, in their own colour. Selecting one shows where they are.
   let listed: string[] = [];
+  /** What is offered about the person last selected, and the way back for anyone blocked. */
+  let extras: string[] = [];
+  let chosen: string | null = null;
   const recorders = new Set<string>();
   const people = () => {
     const here = presence.session ? presence.people() : [];
-    for (const id of listed) controls.remove(id);
+    for (const id of [...listed, ...extras]) controls.remove(id);
+    extras = [];
     listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
+    if (!here.some((m) => m.pubkey === chosen)) chosen = null;
     controls.addSection({
       id: "people",
       label: "People",
       icon: "people",
-      note: () => (!presence.session ? "Join the room to see who else is here." : here.length === 0 ? "Nobody else is here yet." : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are.`),
+      note: () =>
+        !presence.session
+          ? "Join the room to see who else is here."
+          : here.length === 0
+            ? "Nobody else is here yet."
+            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to stop hearing them or block them.`,
     });
     here.forEach((m, i) =>
       controls.add({
@@ -801,12 +871,67 @@ export function addRoomControls(
         color: m.look.light,
         label: () => (m.recording ? `${m.name}, recording` : m.name),
         act: () => {
+          chosen = m.pubkey;
+          people();
           presence.pointOut(m.pubkey);
           // A name is not unique and a mark can be matched, so the key behind a name is one action away, in full.
           controls.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
         },
       }),
     );
+    // The person last selected: stop hearing them, or stop being in a room with them. Both are this visitor's own
+    // doing, on their own device, and nobody is told.
+    const who = here.find((m) => m.pubkey === chosen);
+    if (who) {
+      extras.push("person-mute", "person-block");
+      controls.add(
+        {
+          id: "person-mute",
+          section: "people",
+          icon: () => (presence.isMuted(who.pubkey) ? "mic" : "micOff"),
+          on: () => presence.isMuted(who.pubkey),
+          label: () => (presence.isMuted(who.pubkey) ? `Hear ${who.name} again` : `Stop hearing ${who.name}`),
+          act: () => {
+            const now = !presence.isMuted(who.pubkey);
+            presence.mute(who.pubkey, now);
+            controls.say(now ? `You no longer hear ${who.name}. They still see and hear you, and aren't told.` : `You hear ${who.name} again.`);
+          },
+        },
+        {
+          id: "person-block",
+          section: "people",
+          icon: "exit",
+          label: `Block ${who.name}`,
+          act: () => {
+            const name = presence.block(who.pubkey);
+            if (!name) return;
+            chosen = null;
+            controls.say(
+              who.identity
+                ? `${name} is blocked. You won't see or hear each other here, now or when they come back by that name. To them, you have left.`
+                : `${name} is blocked for this visit. You won't see or hear each other. A guest gets a new key each visit, so it can't hold beyond this one.`,
+            );
+            refresh();
+          },
+        },
+      );
+    }
+    // Anyone blocked can be let back, here, by the visitor who blocked them.
+    for (const b of presence.blocked()) {
+      const id = `unblock-${b.key.slice(0, 12)}`;
+      extras.push(id);
+      controls.add({
+        id,
+        section: "people",
+        icon: "check",
+        label: `Let ${b.name} back${b.kept ? "" : " (blocked this visit)"}`,
+        act: () => {
+          presence.unblock(b.key);
+          controls.say(`${b.name} is no longer blocked. You'll see each other again within half a minute if they are here.`);
+          refresh();
+        },
+      });
+    }
     // Say it once when someone starts recording: a light alone is easy to miss.
     for (const m of here) {
       if (m.recording && !recorders.has(m.pubkey)) controls.say(`${m.name} is recording what they see.`);
