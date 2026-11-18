@@ -71,6 +71,33 @@
       }
     },
     {
+      "name": "with_look",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImxvb2siOiJ7XCJzXCI6XCJndWVzdC03ZjNhOTFjMlwiLFwiaGVhZFwiOlwidGFsbFwiLFwibGlnaHRcIjpcIiM0N2Y1NjFcIn0ifQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "look": "{\"s\":\"guest-7f3a91c2\",\"head\":\"tall\",\"light\":\"#47f561\"}"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "unreadable_look_dropped",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImxvb2siOiJ7XCJoZWFkXCI6XCJ0YWxsXCJ9In0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_look"
+        ]
+      }
+    },
+    {
       "name": "not_base64_json",
       "value": "this-is-not-json",
       "expect": {

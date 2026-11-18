@@ -466,7 +466,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // ------------------------------------------------------------- the room
   // Other visitors appear only after someone presses Join (spec §9.4).
   let refreshRoom = () => {};
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, onChange: () => refreshRoom() });
+  // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), onChange: () => refreshRoom() });
   ({ refresh: refreshRoom } = addRoomControls(controls, presence, { onState: (room) => (state.room = room) }));
   hooks.roomInfo = () => presence.info();
 

@@ -26,6 +26,9 @@ import {
   unpackPose,
   type NostrEvent,
   type Pose,
+  decodeLook,
+  generatedLook,
+  type Look,
 } from "@nswp/core";
 
 export interface Member {
@@ -34,6 +37,8 @@ export interface Member {
   guest: true;
   name: string;
   color: number;
+  /** How they look (spec §4.2). What their session key generates, until they say otherwise. */
+  look: Look;
 }
 
 export interface JoinOptions {
@@ -44,6 +49,12 @@ export interface JoinOptions {
   relays?: string[];
   maxMembers?: number;
   iceServers?: RTCIceServer[];
+  /**
+   * Your look, in its inline form (spec §4.2), to be drawn as by the others.
+   * It is sent to each member directly, once connected, never to a relay.
+   * Left out, you are drawn as your session key generates: new every visit.
+   */
+  look?: string;
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -52,6 +63,8 @@ interface Events {
   member: (member: Member) => void;
   leave: (member: Member) => void;
   pose: (member: Member, pose: Pose) => void;
+  /** A member said how they look. Arrives shortly after `member`. */
+  look: (member: Member, look: Look) => void;
   audio: (member: Member, stream: MediaStream) => void;
   status: (status: RoomStatus) => void;
 }
@@ -88,9 +101,11 @@ export class RoomSession {
     member: new Set(),
     leave: new Set(),
     pose: new Set(),
+    look: new Set(),
     audio: new Set(),
     status: new Set(),
   };
+  private readonly look: string | null;
   private mic: MediaStreamTrack | null = null;
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
@@ -98,7 +113,9 @@ export class RoomSession {
   constructor(opts: JoinOptions = {}) {
     this.key = schnorr.utils.randomSecretKey();
     const pubkey = getPublicKey(this.key);
-    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey) };
+    const mine = opts.look ? decodeLook(opts.look) : null;
+    this.look = mine?.ok ? opts.look! : null;
+    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: mine?.ok ? mine.value.look : generatedLook(pubkey) };
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
     this.topic = roomTopic(opts.world ?? `${location.origin}${location.pathname}`, this.name);
     this.relays = opts.relays ?? DEFAULT_RELAYS;
@@ -236,7 +253,7 @@ export class RoomSession {
   private createPeer(pubkey: string): Peer {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const peer: Peer = {
-      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey) },
+      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey) },
       pc,
       open: false,
       lastSeen: Date.now(),
@@ -261,8 +278,18 @@ export class RoomSession {
       peer.open = true;
       peer.lastSeen = Date.now();
       this.emit("member", peer.member);
+      this.sayLook(ch);
     };
     ch.onmessage = (e) => {
+      if (typeof e.data === "string") {
+        // The one text message there is: how this member looks. Anything unreadable is ignored.
+        const said = e.data.startsWith("look:") ? decodeLook(e.data.slice(5)) : null;
+        if (said?.ok && JSON.stringify(said.value.look) !== JSON.stringify(peer.member.look)) {
+          peer.member.look = said.value.look;
+          this.emit("look", peer.member, said.value.look);
+        }
+        return;
+      }
       if (!(e.data instanceof ArrayBuffer)) return;
       const pose = unpackPose(e.data);
       if (!pose) return;
@@ -273,6 +300,26 @@ export class RoomSession {
       // An old connection closing must not remove a newer one to the same member.
       if (this.peers.get(peer.member.pubkey) === peer) this.drop(peer.member.pubkey, peer.open);
     };
+  }
+
+  /**
+   * Tell one member how you look. The channel drops what it can't deliver at
+   * once, so it is said a few times over the first seconds.
+   */
+  private sayLook(ch: RTCDataChannel): void {
+    if (!this.look) return;
+    const text = `look:${this.look}`;
+    let left = 4;
+    const say = () => {
+      if (this.closed || ch.readyState !== "open") return;
+      try {
+        ch.send(text);
+      } catch {
+        /* the channel closed under us */
+      }
+      if (--left > 0) setTimeout(say, 1500);
+    };
+    say();
   }
 
   private async gathered(pc: RTCPeerConnection): Promise<string> {

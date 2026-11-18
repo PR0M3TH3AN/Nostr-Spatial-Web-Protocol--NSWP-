@@ -14,7 +14,7 @@
  */
 import * as THREE from "three";
 import { spawnOffset, type Pose, type Transform } from "@nswp/core";
-import { createFigure } from "./figure.js";
+import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type Member, type RoomSession } from "./room.js";
 
 import { turnVisitor } from "./turn.js";
@@ -32,6 +32,14 @@ export interface PresenceOptions {
   controllers: THREE.Object3D[];
   /** CSS colour for name labels. */
   labelColor?: string;
+  /**
+   * The visitor's own look, in its inline form (spec §4.2), for the others in a
+   * room to draw them by: usually `arrival.look()`. A function is asked each
+   * time a room is joined. Left out, they are drawn as their session key generates.
+   */
+  look?: string | (() => string | undefined);
+  /** Draw other people in this world's own way (spec §4.2, "What a world may change"). */
+  figureStyle?: FigureStyle;
   /** Called whenever membership, status or the microphone changes. */
   onChange?: () => void;
 }
@@ -44,6 +52,8 @@ export interface AvatarInfo {
   head: number[] | null;
   hands: [boolean, boolean];
   audioLevel: number;
+  /** How they are being drawn. */
+  look: Member["look"];
 }
 
 export interface Presence {
@@ -68,6 +78,8 @@ interface Avatar {
   head: THREE.Group;
   torso: THREE.Mesh;
   hands: [THREE.Mesh, THREE.Mesh];
+  figure: Figure;
+  label: THREE.Sprite;
   target: Pose | null;
   placed: boolean;
   /** Every material, with its normal opacity, for the personal-space fade. */
@@ -123,25 +135,46 @@ export function createPresence(d: PresenceOptions): Presence {
   let micTrack: MediaStreamTrack | null = null;
   let offsetApplied = false;
 
-  const makeAvatar = (member: Member): Avatar => {
-    const color = new THREE.Color(member.color);
-    const root = new THREE.Group();
-    root.visible = false;
-    // Until looks travel with people (spec §4.2), each is drawn as their key generates: different from everyone else, and the same next time.
-    const figure = createFigure(member.pubkey);
-    const { head, torso, hands, metal } = figure;
-    const label = textSprite(member.name, labelColor, 0.5);
-    label.position.set(0, 0.3, 0);
-    head.add(label);
-    hands.forEach((h) => (h.visible = false));
-    root.add(figure.group);
-    d.scene.add(root);
-    const materials = [metal, label.material].map((material: THREE.Material) => {
-      const opacity = material.opacity;
+  /** Put a member's figure together from how they look, in place of any they had. */
+  const dress = (a: Avatar, look: Member["look"]) => {
+    const was = a.figure;
+    const figure = createFigure(look, d.figureStyle);
+    figure.head.position.copy(was?.head.position ?? figure.head.position);
+    figure.head.quaternion.copy(was?.head.quaternion ?? figure.head.quaternion);
+    figure.head.add(a.label);
+    figure.hands.forEach((h, i) => {
+      h.visible = was?.hands[i]!.visible ?? false;
+      if (was) {
+        h.position.copy(was.hands[i]!.position);
+        h.quaternion.copy(was.hands[i]!.quaternion);
+      }
+    });
+    if (was) {
+      if (a.audio) figure.head.add(a.audio);
+      a.root.remove(was.group);
+      was.dispose();
+    }
+    a.root.add(figure.group);
+    a.figure = figure;
+    a.head = figure.head;
+    a.torso = figure.torso;
+    a.hands = figure.hands;
+    a.materials = [figure.metal, a.label.material].map((material: THREE.Material) => {
+      const opacity = material === a.label.material ? 1 : material.opacity;
       material.transparent = true;
       return { material, opacity };
     });
-    return { member, root, head, torso, hands, target: null, placed: false, materials };
+  };
+
+  const makeAvatar = (member: Member): Avatar => {
+    const root = new THREE.Group();
+    root.visible = false;
+    const label = textSprite(member.name, labelColor, 0.5);
+    label.position.set(0, 0.3, 0);
+    d.scene.add(root);
+    const a = { member, root, label, target: null, placed: false } as unknown as Avatar;
+    dress(a, member.look);
+    return a;
   };
 
   const attachAudio = (avatar: Avatar, stream: MediaStream) => {
@@ -172,6 +205,7 @@ export function createPresence(d: PresenceOptions): Presence {
     a.audio?.disconnect();
     if (a.element) a.element.srcObject = null;
     d.scene.remove(a.root);
+    a.figure.dispose();
   };
 
   const v = new THREE.Vector3();
@@ -222,7 +256,8 @@ export function createPresence(d: PresenceOptions): Presence {
     leave();
     roomName = name;
     void listener.context.resume();
-    const s = await room.join(name ? { name } : {});
+    const look = typeof d.look === "function" ? d.look() : d.look;
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}) });
     session = s;
     if (!offsetApplied) {
       // Step aside from the spawn point so two people don't arrive inside each other.
@@ -232,6 +267,11 @@ export function createPresence(d: PresenceOptions): Presence {
       offsetApplied = true;
     }
     s.on("status", changed);
+    s.on("look", (m, look) => {
+      const a = avatars.get(m.pubkey);
+      if (a) dress(a, look);
+      changed();
+    });
     s.on("member", (m) => {
       const a = makeAvatar(m);
       avatars.set(m.pubkey, a);
@@ -338,6 +378,7 @@ export function createPresence(d: PresenceOptions): Presence {
           head: a.target?.head.position.map((n) => Math.round(n * 100) / 100) ?? null,
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
+          look: a.member.look,
         };
       });
     },

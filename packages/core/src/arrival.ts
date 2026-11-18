@@ -4,6 +4,7 @@ import { bytesToHex, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { ENTRY_ASSERTION_KIND, LIMITS, SCHEMAS } from "./constants.js";
 import { isHttpsUrl } from "./destination.js";
 import { getTags, getTagValue, hasEventShape, nowSeconds, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
+import { decodeLook } from "./avatar.js";
 import { decodeNaddr } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
 
@@ -14,6 +15,8 @@ export interface Arrival {
   airlock?: string;
   assertion?: NostrEvent;
   avatar?: string;
+  /** The visitor's look, inline (spec §4.2): for someone who hasn't published an avatar. */
+  look?: string;
   receipts?: NostrEvent[];
 }
 
@@ -66,6 +69,10 @@ export function decodeArrival(value: string): Result<Arrival> {
     } catch {
       c.warn("invalid_avatar", "avatar", "Ignoring an avatar reference that is not an naddr.");
     }
+  }
+  if (json.look !== undefined) {
+    if (typeof json.look === "string" && decodeLook(json.look).ok) out.look = json.look;
+    else c.warn("invalid_look", "look", "Ignoring a look that can't be read.");
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {
