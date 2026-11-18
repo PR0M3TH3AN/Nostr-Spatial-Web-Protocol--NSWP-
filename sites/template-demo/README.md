@@ -23,4 +23,9 @@ Last made from template commit `a3325fa`, as The Starter Home (`d` is
 mirrored into `sites/previews/` by `node scripts/capture-previews.mjs
 --elsewhere-only`, so the Workshop's door can show it.
 
+To deploy it again without signing again (so its preview and identity stay
+as published): clone the template at that commit, copy this folder's
+`world.json`, `signed/` and `previews/` into the clone, run `npm run build`,
+and deploy `dist/`. Its announcement is published.
+
 It is not built by `npm run build` here and has no code of its own.
