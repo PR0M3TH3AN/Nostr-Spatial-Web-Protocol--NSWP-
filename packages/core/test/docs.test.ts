@@ -53,7 +53,7 @@ describe("the protocol documents", () => {
 });
 
 describe("the other documents", () => {
-  for (const file of ["README.md", "docs/add-your-site.md", "docs/controls-kit.md", "docs/grid-look.md", "CHANGELOG.md"]) {
+  for (const file of ["README.md", "docs/add-your-site.md", "docs/controls-kit.md", "docs/grid-look.md", "CHANGELOG.md", "browser/spec.md"]) {
     it(`${file}: every file it points at exists`, () => {
       const text = readFileSync(join(root, file), "utf8");
       for (const link of links(text)) expect(existsSync(resolve(dirname(join(root, file)), link)), `${file} -> ${link}`).toBe(true);
