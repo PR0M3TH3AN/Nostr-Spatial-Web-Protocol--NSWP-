@@ -58,6 +58,8 @@ export interface BridgeOptions {
   strangerReplyMs?: number;
   /** What the panel is told this computer is called. */
   name?: string;
+  /** Told how many relays are connected, whenever that changes. With none, no home can find this computer. */
+  onRelays?(open: number, of: number): void;
   now?(): number;
 }
 
@@ -257,9 +259,14 @@ export function createBridge(o: BridgeOptions): Bridge {
     topic: bridgeTopic(pubkey),
     start() {
       if (relays) return;
-      relays = openRelays(o.relays, { kinds: [ROOM_SIGNAL_KIND], "#x": [bridgeTopic(pubkey)], "#p": [pubkey] }, (event) => {
-        void consider(event).catch((e) => log(`Something went wrong reading a request: ${(e as Error).message}`));
-      });
+      relays = openRelays(
+        o.relays,
+        { kinds: [ROOM_SIGNAL_KIND], "#x": [bridgeTopic(pubkey)], "#p": [pubkey] },
+        (event) => {
+          void consider(event).catch((e) => log(`Something went wrong reading a request: ${(e as Error).message}`));
+        },
+        (open) => o.onRelays?.(open, o.relays.length),
+      );
     },
     async stop() {
       session?.end("the Bridge was stopped");

@@ -56,6 +56,17 @@ function main() {
   const args = parse(process.argv.slice(2));
   if (args.help) return console.log(HELP);
 
+  // Read what was asked before anything is made: a mistyped command leaves nothing behind.
+  let asked: string | undefined;
+  if (typeof args.owner === "string") {
+    try {
+      asked = decodeNpub(args.owner);
+    } catch {
+      // The commonest mistake is running an example as it was written.
+      fail(/…|\.\.\.|<|>/.test(args.owner) ? `"${args.owner}" is the example. Put your own public key in its place: the whole of it, starting npub1 and 63 characters long.` : `--owner isn't a public key. One starts npub1 and is 63 characters long, or is 64 hex characters.`);
+    }
+  }
+
   const dir = typeof args.dir === "string" ? args.dir : process.env.NSWP_BRIDGE_DIR ?? join(homedir(), ".config", "nswp");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const keyFile = join(dir, "bridge.key");
@@ -75,13 +86,7 @@ function main() {
     /* first run */
   }
   let owner = typeof kept.owner === "string" && /^[0-9a-f]{64}$/.test(kept.owner) ? kept.owner : undefined;
-  if (typeof args.owner === "string") {
-    let asked: string;
-    try {
-      asked = decodeNpub(args.owner);
-    } catch {
-      fail(`--owner isn't a public key. It looks like npub1…`);
-    }
+  if (asked !== undefined) {
     // Changing whose computer this is must be something a person does on purpose.
     if (owner && owner !== asked) fail(`This computer already answers ${encodeNpub(owner)}.\nTo give it to another key, delete ${settingsFile} and run this again.`);
     owner = asked;
@@ -114,10 +119,27 @@ function main() {
     waiting = null;
   });
 
+  // Whether a home can find this computer at all is worth saying, once it is known and whenever it stops or starts being true.
+  let reached = -1;
+  let settled = false;
+  const sayRelays = () => {
+    const n = bridge.state().relays;
+    if (n === reached) return;
+    const was = reached;
+    reached = n;
+    if (n === 0) console.log(`[${stamp()}] No relay can be reached. Your home can't find this computer until one can. It keeps trying.`);
+    else if (was <= 0) console.log(`[${stamp()}] Listening on ${n} of ${relays.length} relays. Your home can find this computer.`);
+  };
+  setTimeout(() => {
+    settled = true;
+    sayRelays();
+  }, 4000).unref();
+
   const bridge = createBridge({
     key,
     owner,
     relays,
+    onRelays: () => settled && sayRelays(),
     command,
     cwd,
     allowForSec: allowFor * 60,
