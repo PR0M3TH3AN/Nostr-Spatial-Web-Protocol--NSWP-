@@ -1,6 +1,6 @@
 /** What a panel is, as data: what may be kept, where a new one goes, and how a note is laid out. */
 import { describe, expect, it } from "vitest";
-import { cleanLibrary, cleanPlace, cleanRecords, cleanSource, facing, inFront, LIBRARY_LIMITS, libraryPage, newId, PANEL_LIMITS, wrapText } from "../src/panel-store.js";
+import { cleanLibrary, cleanLook, cleanPin, cleanPlace, cleanRecords, cleanSource, facing, inFront, LIBRARY_LIMITS, libraryPage, newId, nextLook, PANEL_LIMITS, PANEL_LOOKS, tagAlong, wrapText, type Follow, type PanelLook } from "../src/panel-store.js";
 
 const place = { position: [1, 1.5, -2] as [number, number, number], yaw: 90, pitch: 0, width: 1 };
 const note = { kind: "note" as const, title: "Read me", text: "Hello\nthere" };
@@ -152,5 +152,69 @@ describe("the library of a visitor's own files", () => {
     expect(libraryPage(all, 9, 8).page).toBe(2); // past the end is the last page
     expect(libraryPage(all, -3, 8).page).toBe(0);
     expect(libraryPage([], 0, 8)).toEqual({ items: [], page: 0, pages: 1 });
+  });
+});
+
+describe("how see-through a panel is", () => {
+  it("is held to what can still be seen and pointed at", () => {
+    expect(cleanLook(undefined)).toEqual({ opacity: 1, dark: 1 });
+    expect(cleanLook({ opacity: 0, dark: -3 })).toEqual({ opacity: 0.15, dark: 0 });
+    expect(cleanLook({ opacity: "half", dark: NaN })).toEqual({ opacity: 1, dark: 1 });
+  });
+
+  it("goes round a few looks with one button, and starts over from any other", () => {
+    let look: PanelLook = { opacity: 1, dark: 1 };
+    const seen: string[] = [];
+    for (let i = 0; i < PANEL_LOOKS.length; i++) {
+      const next = nextLook(look);
+      seen.push(next.name);
+      look = next;
+    }
+    expect(seen.at(-1)).toBe("Solid");
+    expect(new Set(seen).size).toBe(PANEL_LOOKS.length);
+    expect(nextLook({ opacity: 0.77, dark: 0.2 }).name).toBe("Solid");
+  });
+
+  it("is kept with the panel, and a solid one keeps nothing extra", () => {
+    const base = { id: "p-abcdefghij", source: { kind: "note", title: "", text: "hi" }, place: { position: [0, 1.5, -1], yaw: 0, pitch: 0, width: 0.8 } };
+    expect(cleanRecords([{ ...base, look: { opacity: 1, dark: 1 } }])[0]).not.toHaveProperty("look");
+    expect(cleanRecords([{ ...base, look: { opacity: 0.6, dark: 9 } }])[0]!.look).toEqual({ opacity: 0.6, dark: 1 });
+    expect(cleanRecords([{ ...base, pin: [0.3, -0.2, -0.9] }])[0]!.pin).toEqual([0.3, -0.2, -0.9]);
+    expect(cleanRecords([{ ...base, pin: [0, 0, "near"] }])[0]).not.toHaveProperty("pin");
+  });
+});
+
+describe("a panel pinned in the view", () => {
+  it("is never kept behind the head or out of reach", () => {
+    expect(cleanPin([0.2, 0.1, -1])).toEqual([0.2, 0.1, -1]);
+    expect(cleanPin([99, -99, 5])).toEqual([4, -2.5, -0.25]);
+    expect(cleanPin([1, 2])).toBeNull();
+    expect(cleanPin("here")).toBeNull();
+  });
+
+  it("stays put while its visitor looks about, so it can be read", () => {
+    let f: Follow = { position: [0, 1.6, 0], yaw: 0, turning: false, moving: false };
+    for (const yaw of [10, 25, -30, 37]) f = tagAlong(f, { position: [0.1, 1.62, 0.05], yaw }, 1 / 72);
+    expect(f).toEqual({ position: [0, 1.6, 0], yaw: 0, turning: false, moving: false });
+  });
+
+  it("comes round when they have turned well away, and stops when it has", () => {
+    let f: Follow = { position: [0, 1.6, 0], yaw: 0, turning: false, moving: false };
+    f = tagAlong(f, { position: [0, 1.6, 0], yaw: 90 }, 1 / 72);
+    expect(f.turning).toBe(true);
+    for (let i = 0; i < 400; i++) f = tagAlong(f, { position: [0, 1.6, 0], yaw: 90 }, 1 / 72);
+    expect(Math.abs(f.yaw - 90)).toBeLessThanOrEqual(3);
+    expect(f.turning).toBe(false);
+    // The short way round, across the back.
+    f = { position: [0, 1.6, 0], yaw: 170, turning: false, moving: false };
+    f = tagAlong(f, { position: [0, 1.6, 0], yaw: -170 }, 0.1);
+    expect(f.turning).toBe(false); // twenty degrees, not three hundred and forty
+  });
+
+  it("comes along when they walk or step away", () => {
+    let f: Follow = { position: [0, 1.6, 0], yaw: 0, turning: false, moving: false };
+    for (let i = 0; i < 400; i++) f = tagAlong(f, { position: [3, 1.6, -2], yaw: 0 }, 1 / 72);
+    expect(Math.hypot(f.position[0] - 3, f.position[2] + 2)).toBeLessThan(0.05);
+    expect(f.moving).toBe(false);
   });
 });
