@@ -15,6 +15,7 @@ No change to the protocol. How the reference places are drawn changed (`docs/gri
 
 - **One look for the reference places:** a dark plane ruled with a grid of light, a skyline of blocks, and furniture built from dark blocks with lit edges. BitPortal's room and site, the reference worlds, and a home drawn by the SDK share it from one copy in the SDK.
 - **The reference worlds have arched doorways** (§6.7), like everything else. Their preview pictures were retaken and their announcements signed again.
+- **Deployed and published.** BitPortal, both reference worlds and the template demo are deployed in this look. The reference worlds' new announcements are on six public relays, and `nswp check` reports both as verified. On the live sites, in the emulated headset: from BitPortal's room, through the Airlock, into World A, and back to the room from its console. The template demo's announcement is still unpublished. No real headset.
 
 ## 0. What changed in 0.7.5
 
