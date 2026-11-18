@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.2
+
+A shared screen in a room (the browser plan's stage A4). Nothing in the protocol's signed formats changes.
+
+- **Share your screen** from the Room controls, where the browser can offer one: a desk or a laptop. A phone or a headset can't share, and can watch.
+- **Offered, not shown.** Sharing sends nothing by itself. Everyone in the room is told it is there, and it goes only to members who choose to watch. A room is open to strangers, and a picture nobody asked for is the easiest way to spoil one.
+- **Watching** is in the People list, for someone who is sharing. Their screen opens on a panel of the watcher's own, which they move, size, make see-through, pin and put away like any other. Putting it away stops it being sent.
+- **The sharer is told how many are watching.** Stopping, leaving the room, or the browser's own "Stop sharing" takes it from everyone at once.
+- **On the wire:** the connection to each member has a line for a screen from the start, left empty, so sharing needs no second handshake. `scr:1` says a screen is offered and `watch:1` asks for it; both are repeated while true, as "I am recording" is.
+- **What to know:** a room runs in the world's own page, so that world's code can see a shared screen as it can everything else in a room (§9.8). Share one window, and share in worlds you trust.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome on one machine with three visitors, a stand-in relay and a drawn picture in place of a real screen: offered and announced with nothing shown; one visitor choosing to watch and seeing live pictures on a panel; the sharer told "1 person is watching", then 2; a third visitor sent nothing until they asked; a panel put away ending it for that watcher; and stopping taking it down for all. Not tried with a real screen, across two networks, or in a headset, where whether its words can be read is the thing to judge.
+
 ## 0.13.1
 
 Rooms: a visitor can stop hearing someone, or stop being in a room with them. Nothing in the protocol's formats changes.

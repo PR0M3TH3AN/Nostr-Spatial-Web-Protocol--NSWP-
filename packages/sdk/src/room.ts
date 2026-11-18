@@ -51,6 +51,8 @@ export interface Member {
   look: Look;
   /** They have said they are recording what they see (spec §9). */
   recording: boolean;
+  /** They are offering their screen to the room. It is sent only to members who ask to watch. */
+  sharing?: boolean;
 }
 
 export interface JoinOptions {
@@ -93,6 +95,10 @@ interface Events {
   /** A member started or stopped recording what they see. */
   recording: (member: Member, on: boolean) => void;
   audio: (member: Member, stream: MediaStream) => void;
+  /** A member started or stopped offering their screen. */
+  screen: (member: Member, on: boolean) => void;
+  /** The line a member's screen arrives on. It carries pictures only while they share and this visitor watches. */
+  video: (member: Member, stream: MediaStream) => void;
   status: (status: RoomStatus) => void;
 }
 
@@ -101,6 +107,12 @@ interface Peer {
   pc: RTCPeerConnection;
   /** Until when their last "I am recording" holds. */
   recordingUntil?: number;
+  /** Until when their last "I am sharing my screen" holds. */
+  sharingUntil?: number;
+  /** Until when their last "I am watching your screen" holds. */
+  watchingUntil?: number;
+  /** Whether this visitor's screen is going to them now. */
+  fed?: boolean;
   /** What they last said about how they look, as it was read. */
   said?: { look: Look; seed: string };
   /** The last pass they showed, word for word, so the same one isn't checked twice. */
@@ -166,6 +178,8 @@ export class RoomSession {
     look: new Set(),
     identity: new Set(),
     recording: new Set(),
+    screen: new Set(),
+    video: new Set(),
     audio: new Set(),
     status: new Set(),
   };
@@ -176,6 +190,12 @@ export class RoomSession {
   private pass: string | null = null;
   private passUntil = 0;
   private recordingTimer: ReturnType<typeof setInterval> | undefined;
+  /** This visitor's shared screen, while they share one. */
+  private screen: MediaStreamTrack | null = null;
+  private screenTimer: ReturnType<typeof setInterval> | undefined;
+  /** Whose screens this visitor is watching. */
+  private readonly watched = new Set<string>();
+  private watchTimer: ReturnType<typeof setInterval> | undefined;
   private mic: MediaStreamTrack | null = null;
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
@@ -390,7 +410,9 @@ export class RoomSession {
     this.peers.set(pubkey, peer);
     pc.ontrack = (e) => {
       const stream = e.streams[0] ?? new MediaStream([e.track]);
-      this.emit("audio", peer.member, stream);
+      // Two lines to each member: their voice, and their screen. The screen's line is there from the start and
+      // stays empty until they share and this visitor asks to watch.
+      this.emit(e.track.kind === "video" ? "video" : "audio", peer.member, stream);
     };
     pc.onconnectionstatechange = () => {
       if ((pc.connectionState === "failed" || pc.connectionState === "closed") && this.peers.get(pubkey) === peer) this.drop(pubkey, peer.open);
@@ -409,6 +431,17 @@ export class RoomSession {
       this.introduce(ch);
     };
     ch.onmessage = (e) => {
+      if (e.data === "scr:1" || e.data === "scr:0") {
+        // Said again every couple of seconds while it is true, as recording is, on a channel that may lose words.
+        peer.sharingUntil = e.data === "scr:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+        this.markSharing(peer);
+        return;
+      }
+      if (e.data === "watch:1" || e.data === "watch:0") {
+        peer.watchingUntil = e.data === "watch:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+        void this.feed(peer);
+        return;
+      }
       if (e.data === "rec:1" || e.data === "rec:0") {
         // "I am recording" is said again every couple of seconds while it is true, so a lost message can't leave the light stuck either way.
         peer.recordingUntil = e.data === "rec:1" ? Date.now() + RECORDING_HOLD_MS : 0;
@@ -546,12 +579,18 @@ export class RoomSession {
     return pc.getTransceivers().find((t) => t.receiver.track.kind === "audio");
   }
 
+  private videoTransceiver(pc: RTCPeerConnection): RTCRtpTransceiver | undefined {
+    return pc.getTransceivers().find((t) => t.receiver.track.kind === "video");
+  }
+
   private async offerTo(pubkey: string): Promise<void> {
     const peer = this.createPeer(pubkey);
     // The audio line is negotiated up front, so turning the microphone on
     // later is just a track swap with no second handshake.
     const audio = peer.pc.addTransceiver("audio", { direction: "sendrecv" });
     if (this.mic) await audio.sender.replaceTrack(this.mic);
+    // And a line for a screen, agreed now and left empty, so sharing later needs no second handshake either.
+    peer.pc.addTransceiver("video", { direction: "sendrecv" });
     this.wirePoseChannel(peer, peer.pc.createDataChannel("pose", { ordered: false, maxRetransmits: 0 }));
     await peer.pc.setLocalDescription(await peer.pc.createOffer());
     const sdp = await this.gathered(peer.pc);
@@ -569,6 +608,8 @@ export class RoomSession {
       audio.direction = "sendrecv";
       if (this.mic) await audio.sender.replaceTrack(this.mic);
     }
+    const video = this.videoTransceiver(peer.pc);
+    if (video) video.direction = "sendrecv";
     await peer.pc.setLocalDescription(await peer.pc.createAnswer());
     const answer = await this.gathered(peer.pc);
     if (this.peers.get(pubkey) === peer) this.publish(buildSignal(this.topic, this.key, pubkey, { t: "answer", sdp: answer }));
@@ -579,6 +620,102 @@ export class RoomSession {
     if (on === peer.member.recording) return;
     peer.member.recording = on;
     this.emit("recording", peer.member, on);
+  }
+
+  private markSharing(peer: Peer): void {
+    const on = (peer.sharingUntil ?? 0) > Date.now();
+    if (on === !!peer.member.sharing) return;
+    peer.member.sharing = on;
+    if (!on) this.watched.delete(peer.member.pubkey);
+    this.emit("screen", peer.member, on);
+  }
+
+  /** Send this visitor's screen to a member who is watching it, and stop when they aren't or there is none. */
+  private async feed(peer: Peer): Promise<void> {
+    const wants = !!this.screen && (peer.watchingUntil ?? 0) > Date.now();
+    if (wants === !!peer.fed) return;
+    peer.fed = wants;
+    try {
+      const sender = this.videoTransceiver(peer.pc)?.sender;
+      await sender?.replaceTrack(wants ? this.screen : null);
+      if (wants && sender) {
+        // A screen is mostly words: keep them sharp, and let the rate drop instead.
+        const params = sender.getParameters();
+        params.degradationPreference = "maintain-resolution";
+        for (const e of params.encodings ?? []) e.maxBitrate = 2_500_000;
+        await sender.setParameters(params).catch(() => {});
+      }
+    } catch {
+      /* that connection is closing */
+    }
+  }
+
+  private tellAll(word: string, to?: (peer: Peer) => boolean): void {
+    for (const peer of this.peers.values()) {
+      if (!peer.open || peer.pose?.readyState !== "open" || (to && !to(peer))) continue;
+      try {
+        peer.pose.send(word);
+      } catch {
+        /* that connection is closing */
+      }
+    }
+  }
+
+  /**
+   * Offer a screen to the room, or stop. Offering sends nothing by itself:
+   * each member is told it is there, and it goes only to those who ask to
+   * watch. Stopping takes it from everyone at once.
+   */
+  async setScreen(track: MediaStreamTrack | null): Promise<void> {
+    this.screen = track;
+    this.self.sharing = !!track;
+    clearInterval(this.screenTimer);
+    const say = () => this.tellAll(this.screen ? "scr:1" : "scr:0");
+    say();
+    if (track) this.screenTimer = setInterval(say, 2000);
+    else setTimeout(say, 400);
+    // Changing what is shared, or stopping, goes to whoever was being sent it.
+    await Promise.all(
+      [...this.peers.values()].map(async (peer) => {
+        peer.fed = false;
+        await this.feed(peer).catch(() => {});
+        if (!track) await this.videoTransceiver(peer.pc)?.sender.replaceTrack(null).catch(() => {});
+      }),
+    );
+  }
+
+  /** Whether this visitor is offering their screen. */
+  get sharing(): boolean {
+    return !!this.screen;
+  }
+
+  /** How many members this visitor's screen is going to now. */
+  get screenViewers(): number {
+    return this.screen ? [...this.peers.values()].filter((p) => p.open && p.fed).length : 0;
+  }
+
+  /**
+   * Ask to be sent a member's screen, or to stop being sent it. Nothing
+   * arrives unless they are sharing. It is asked again every couple of
+   * seconds while watching, so a member who stops being asked stops sending.
+   */
+  watch(pubkey: string, on: boolean): void {
+    if (on) this.watched.add(pubkey);
+    else this.watched.delete(pubkey);
+    const peer = this.peers.get(pubkey);
+    if (peer?.open && peer.pose?.readyState === "open") {
+      try {
+        peer.pose.send(on ? "watch:1" : "watch:0");
+      } catch {
+        /* that connection is closing */
+      }
+    }
+    clearInterval(this.watchTimer);
+    if (this.watched.size) this.watchTimer = setInterval(() => this.tellAll("watch:1", (p) => this.watched.has(p.member.pubkey)), 2000);
+  }
+
+  isWatching(pubkey: string): boolean {
+    return this.watched.has(pubkey);
   }
 
   /**
@@ -621,6 +758,8 @@ export class RoomSession {
     const now = Date.now();
     for (const [pubkey, peer] of this.peers) {
       this.markRecording(peer);
+      this.markSharing(peer);
+      void this.feed(peer);
       if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
       else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
     }
@@ -663,6 +802,8 @@ export class RoomSession {
       }
     }
     this.closed = true;
+    clearInterval(this.screenTimer);
+    clearInterval(this.watchTimer);
     for (const t of this.timers) clearInterval(t);
     removeEventListener("pagehide", this.onPageHide);
     for (const pubkey of [...this.peers.keys()]) this.drop(pubkey, true);
