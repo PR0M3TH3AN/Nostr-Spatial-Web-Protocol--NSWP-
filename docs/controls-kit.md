@@ -30,7 +30,7 @@ same things, and why a change to the controls shows up in both.
 
 ```ts
 import { createControls, mountHud } from "nswp-sdk/ui";
-import { addRoomControls, addViewControls, createConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, createConsole } from "nswp-sdk/three";
 
 const controls = createControls({ title: "My world", address: "example.org", theme: { accent: "#62d9ff" } });
 const hud = mountHud(controls);
@@ -40,6 +40,8 @@ scene.add(xrConsole.group);
 controls.add({ id: "home", section: "travel", icon: "home", label: "Back to your lobby", short: "Home", hotbar: true, act: () => portal.home() });
 await addViewControls(controls, { renderer, rig, camera, hud }); // Enter VR, Turn around
 addRoomControls(controls, presence);                             // Join, microphone, invite
+addCameraControls(controls, { renderer, scene, camera,           // Picture, selfie, clip
+  look: () => presence.selfLook(), recording: (on) => presence.setRecording(on) });
 
 // each frame
 xrConsole.update(dt, camera, renderer.xr.isPresenting);
@@ -59,6 +61,33 @@ if (hit) xrConsole.press(hit);
 | What is being pointed at | `controls.setTarget("World B, at example.org")` |
 | An icon | One line of SVG path data in `packages/sdk/src/ui/icons.ts`. Both renderers draw from it |
 | A new kind of control | A `kind` in `ui/model.ts`, and one drawing function for it in `ui/hud.ts` and in `console.ts`. `"swatch"`, a choice of colour, is the worked example |
+
+## People and the camera
+
+Two sections come with the kit and need no account.
+
+**People** lists who else is in the room, each in the colour of their own
+light. Selecting one stands a column of light over them for a few seconds, so
+they can be found in a crowd. `addRoomControls` fills it.
+
+**Camera** takes a picture of what the visitor sees, a selfie, or a clip of up
+to thirty seconds, and saves it to their device. Nothing is sent anywhere.
+`addCameraControls` adds it.
+
+- A picture is the scene drawn once more into a file, so the HUD is never in
+  it. Pass `hide` for things in the scene that shouldn't be either.
+- A selfie is taken from a camera held out in front of the visitor, with their
+  own figure put in for the moment.
+- A clip records the page's canvas: picture only, no sound. It isn't offered
+  inside a headset, where the page's canvas isn't what is drawn.
+- Inside a headset a save can't be shown, so pictures are kept and offered
+  under **Save** once the visitor is out.
+- **Recording is said out loud.** While a clip is being recorded the others in
+  the room see a red light over the recorder, their name in the People list
+  says so, and each is told once. A single picture gives no notice.
+
+A world with a camera of its own can use the pieces directly: `takePicture`,
+`takeSelfie` and `recordClip`.
 
 ## Sharing the screen with a world's own interface
 

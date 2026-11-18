@@ -39,6 +39,8 @@ export interface Member {
   color: number;
   /** How they look (spec §4.2). What their session key generates, until they say otherwise. */
   look: Look;
+  /** They have said they are recording what they see (spec §9). */
+  recording: boolean;
 }
 
 export interface JoinOptions {
@@ -65,6 +67,8 @@ interface Events {
   pose: (member: Member, pose: Pose) => void;
   /** A member said how they look. Arrives shortly after `member`. */
   look: (member: Member, look: Look) => void;
+  /** A member started or stopped recording what they see. */
+  recording: (member: Member, on: boolean) => void;
   audio: (member: Member, stream: MediaStream) => void;
   status: (status: RoomStatus) => void;
 }
@@ -72,6 +76,8 @@ interface Events {
 interface Peer {
   member: Member;
   pc: RTCPeerConnection;
+  /** Until when their last "I am recording" holds. */
+  recordingUntil?: number;
   pose?: RTCDataChannel;
   open: boolean;
   lastSeen: number;
@@ -80,6 +86,8 @@ interface Peer {
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
 const HELLO_EVERY_MS = 20_000;
+/** How long one "I am recording" keeps the light on. It is repeated every two seconds. */
+const RECORDING_HOLD_MS = 6000;
 const CONNECT_TIMEOUT_MS = 25_000;
 const SILENT_TIMEOUT_MS = 8_000;
 const GATHER_TIMEOUT_MS = 2_500;
@@ -102,10 +110,12 @@ export class RoomSession {
     leave: new Set(),
     pose: new Set(),
     look: new Set(),
+    recording: new Set(),
     audio: new Set(),
     status: new Set(),
   };
   private readonly look: string | null;
+  private recordingTimer: ReturnType<typeof setInterval> | undefined;
   private mic: MediaStreamTrack | null = null;
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
@@ -115,7 +125,7 @@ export class RoomSession {
     const pubkey = getPublicKey(this.key);
     const mine = opts.look ? decodeLook(opts.look) : null;
     this.look = mine?.ok ? opts.look! : null;
-    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: mine?.ok ? mine.value.look : generatedLook(pubkey) };
+    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: mine?.ok ? mine.value.look : generatedLook(pubkey), recording: false };
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
     this.topic = roomTopic(opts.world ?? `${location.origin}${location.pathname}`, this.name);
     this.relays = opts.relays ?? DEFAULT_RELAYS;
@@ -253,7 +263,7 @@ export class RoomSession {
   private createPeer(pubkey: string): Peer {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const peer: Peer = {
-      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey) },
+      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
       pc,
       open: false,
       lastSeen: Date.now(),
@@ -281,6 +291,12 @@ export class RoomSession {
       this.sayLook(ch);
     };
     ch.onmessage = (e) => {
+      if (e.data === "rec:1" || e.data === "rec:0") {
+        // "I am recording" is said again every couple of seconds while it is true, so a lost message can't leave the light stuck either way.
+        peer.recordingUntil = e.data === "rec:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+        this.markRecording(peer);
+        return;
+      }
       if (typeof e.data === "string") {
         // The one text message there is: how this member looks. Anything unreadable is ignored.
         const said = e.data.startsWith("look:") ? decodeLook(e.data.slice(5)) : null;
@@ -369,6 +385,37 @@ export class RoomSession {
     if (this.peers.get(pubkey) === peer) this.publish(buildSignal(this.topic, this.key, pubkey, { t: "answer", sdp: answer }));
   }
 
+  private markRecording(peer: Peer): void {
+    const on = (peer.recordingUntil ?? 0) > Date.now();
+    if (on === peer.member.recording) return;
+    peer.member.recording = on;
+    this.emit("recording", peer.member, on);
+  }
+
+  /**
+   * Say that you are recording what you see, or have stopped. The others are
+   * shown a light on your figure while it is true. An honest client says so
+   * whenever it records other people; nothing can make a dishonest one.
+   */
+  setRecording(on: boolean): void {
+    if (on === this.self.recording) return;
+    this.self.recording = on;
+    clearInterval(this.recordingTimer);
+    const say = () => {
+      for (const peer of this.peers.values()) {
+        if (!peer.open || peer.pose?.readyState !== "open") continue;
+        try {
+          peer.pose.send(on ? "rec:1" : "rec:0");
+        } catch {
+          /* that connection is closing */
+        }
+      }
+    };
+    say();
+    if (on) this.recordingTimer = setInterval(say, 2000);
+    else setTimeout(say, 400);
+  }
+
   private drop(pubkey: string, announce: boolean): void {
     const peer = this.peers.get(pubkey);
     if (!peer) return;
@@ -384,6 +431,7 @@ export class RoomSession {
   private sweep(): void {
     const now = Date.now();
     for (const [pubkey, peer] of this.peers) {
+      this.markRecording(peer);
       if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
       else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
     }

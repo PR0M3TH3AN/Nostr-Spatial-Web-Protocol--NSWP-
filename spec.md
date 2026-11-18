@@ -1,13 +1,23 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.8.0 (concept specification)
+**Version:** 0.8.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License:** this document, and the schemas and test vectors beside it, are CC0 1.0 (`LICENSE-CC0`). BitPortal and the SDK are MIT, matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.8.1
+
+The first of the things people do together, and the first that needs no account.
+
+- **A camera of the visitor's own** in the controls kit: a picture, a selfie, a clip of up to thirty seconds, saved to their device. Nothing is sent anywhere.
+- **Recording is said out loud** (§21.3). A member who records a clip tells the others, and each sees a light on the recorder's figure and is told once. It is said over the connection the members already share, and again every two seconds while it is true, so a lost message can't leave the light stuck on or off. An honest client says so; nothing can make a dishonest one.
+- **People**: a list of who else is in the room, and a way to point one of them out.
+- **What comes next, and where it can live.** Names, profiles, a feed, messages and notifications need a person's key. A world is someone else's website, so those belong in the visitor's own client and reach a world only by a hand-off, the way a door goes through the Airlock. Not designed in detail yet.
+- **Status:** built and tried in headless Chrome with three visitors. Not deployed. Not tried in a headset, where a clip can't be recorded at all.
 
 ## 0. What changed in 0.8.0
 
@@ -1950,6 +1960,7 @@ A world has an interface of its own: a score, a toolbar, a pause menu, an art di
 | Go home, when they arrived with somewhere to return to (§6.3) | The one exit a world can offer that leads somewhere the visitor already trusts |
 | Leave the immersive session | Without reaching for the headset's own controls |
 | See whether they are in a room, and whether their microphone is on; leave the room; turn the microphone off (§9) | Being heard without knowing it is the worst failure a shared place has |
+| See when someone in the room is recording what they see (§9) | Being recorded without knowing it is the next worst |
 | Turn, and move, without turning their body or walking (§21.2) | Some visitors are seated |
 | See the address of the world they are in | It is the world's word about itself, but its absence is a warning sign |
 

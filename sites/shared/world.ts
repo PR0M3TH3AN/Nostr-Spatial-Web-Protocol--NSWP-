@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -103,6 +103,8 @@ type TestHooks = {
   device?: unknown;
   controls?: Controls;
   console?: XrConsole;
+  /** The visitor's camera: what it has taken. */
+  camera?: Camera;
 };
 
 declare global {
@@ -470,6 +472,16 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), onChange: () => refreshRoom() });
   ({ refresh: refreshRoom } = addRoomControls(controls, presence, { onState: (room) => (state.room = room) }));
   hooks.roomInfo = () => presence.info();
+  // A camera of the visitor's own: pictures, selfies and clips, saved to their device.
+  hooks.camera = addCameraControls(controls, {
+    renderer,
+    scene,
+    camera,
+    look: () => presence.selfLook(),
+    recording: (on) => presence.setRecording(on),
+    hide: () => [xrConsole.group, reticle, welcome],
+    name: cfg.title,
+  });
 
   // ------------------------------------------------------------- for tests
   const figures: Figure[] = [];
