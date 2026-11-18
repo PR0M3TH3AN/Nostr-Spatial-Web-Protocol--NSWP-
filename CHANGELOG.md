@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.14.0
+
+Blocks that travel: someone blocked in one world stays blocked in the next.
+
+- **Why it needed the protocol.** A block is carried out in a visitor's own browser, on one site. Each world is its own site, so a block made in the Gallery meant nothing in the Grove. What goes everywhere a visitor goes is their own client, so the list is the client's.
+- **`blocked` on the link** ([NSWP-02](protocol/02-doors.md)): a world reports the people its visitor blocked there during this visit, by identity key.
+- **`blocked` in the arrival context** ([NSWP-03](protocol/03-arrival.md)): the visitor's client hands their list to each world they arrive in. The world leaves them unconnected to anyone on it, for that visit, and keeps nothing.
+- **A link is something anyone can write,** so a client never adds to the list unseen: it names who, and the visitor says yes. It doesn't hurry past the question. Nobody is taken off the list by a link, ever.
+- **Only people who go by name.** A guest is a new key each visit.
+- **The cost:** each world arrived in learns the keys on the list. BitPortal says so where the list is kept.
+- **BitPortal:** the Airlock shows who a world reported, with a box to tick ("Block this person everywhere you go"), unticked. Settings on the front page lists everyone blocked everywhere, with Unblock, and anyone reported on the way home, still waiting for an answer. People blocked in BitPortal's own room are part of the list already. In a world, the People part of the menu says how many are blocked wherever the visitor goes.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome with the Grove, the Gallery and BitPortal answered from their builds at their real addresses, every relay the test, and throwaway keys: someone who goes by name blocked in the Grove; the link reporting her; the Airlock naming her, unticked, with no countdown; ticked, the two never connected in the Gallery, which kept nothing; not ticked, she was there; a link somebody else wrote adding nobody; a report on the way home waiting, shown in Settings, and forgotten there; and Unblock in Settings emptying the list. Not tried with a real sign-in.
+
 ## 0.13.5
 
 Muting, in two parts.

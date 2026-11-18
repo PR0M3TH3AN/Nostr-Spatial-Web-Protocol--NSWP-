@@ -38,6 +38,7 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `home` | `true` when this world is where the visitor starts, and their own client has brought them home ([NSWP-07](07-homes.md)). The world offers the way to their doors, since the way home leads nowhere new |
 | `joined` | `true` when the visitor was in a room where they came from and stays among people here. The world joins its **open** room without asking again, tells them so at once, and puts leaving where joining was ([NSWP-02](02-doors.md), "Staying joined"). |
 | `mic` | `true` when their microphone was on and they have told their client it may stay on as they travel. Read only with `joined`. The world turns the microphone on if the browser allows it one, and says so; if not, it says that instead. |
+| `blocked` | The identity keys of people the visitor has blocked: their own client's list, at most 64. The world connects them to nobody on it for this visit, and does not keep it ([NSWP-02](02-doors.md), "Blocks that travel"). A list with anything in it but keys is ignored whole. |
 | `avatar` | The `naddr` of a published avatar event |
 | `assertion` | An entry assertion, below |
 | `receipts` | Up to 8 events proving the visitor paid for entry |
