@@ -1642,6 +1642,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 - *Built:* throwaway guest keys, the encrypted handshake over relays (kind 27301), direct connections, head and hand positions, spatial voice, an open room per world, and private rooms by unguessable link.
 - *Tested:* two browser tabs on one computer saw each other move, including an emulated headset's hands, and a test tone sent as voice arrived at the expected level. Leaving was noticed at once. Six public relays carried the handshake; two refused it, so clients need several.
+- *Added since (0.13.0, 0.13.1):* staying joined from world to world and through a refresh, with the microphone when the visitor has said it may travel; and stopping hearing or blocking a member, kept between visits for people who came by name.
 - *Not tested:* two different networks, real microphones, a real headset, or more than two people.
 - *Differs from §9:* a room is named by a string, not a room event. There are no room passes, access rules, moderation or TURN servers, and voice must be switched on before entering VR.
 
