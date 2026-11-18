@@ -7,7 +7,7 @@ a fresh copy of the template to make it, so it can be made again:
 
 - `world.json`: the demo's name and address.
 - `signed/`: its announcement and home layout, signed with the reference
-  publisher key. **Not published to relays.**
+  publisher key. The announcement is published to relays.
 - `previews/`: its preview picture.
 
 To redeploy after the template changes: clone the template and put this
@@ -22,6 +22,11 @@ Last made from template commit `a2d1457` (built with the signatures and preview 
 `starter`), with a new preview picture and signatures. Its preview is also
 mirrored into `sites/previews/` by `node scripts/capture-previews.mjs
 --elsewhere-only`, so the Workshop's door can show it.
+
+On 2026-11-18 its announcement alone was signed again, to add `audience:
+general` (NSWP-01): nothing else in it changed, and the site was not built or
+deployed again. So `signed/world.event.json` here is newer than the copy the
+live site was built with; the relays hold the newer one.
 
 To deploy it again without signing again (so its preview and identity stay
 as published): clone the template at that commit, copy this folder's

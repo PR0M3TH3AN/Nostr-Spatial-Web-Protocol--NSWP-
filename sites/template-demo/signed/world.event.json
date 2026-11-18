@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794974481,
+  "created_at": 1795030815,
   "tags": [
     [
       "d",
@@ -106,6 +106,10 @@
       "ISO-639-1"
     ],
     [
+      "audience",
+      "general"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -116,6 +120,6 @@
   ],
   "content": "The NSWP world template, deployed unchanged: a hall, some furniture, and two doors. It is where a world of your own begins.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "6086af9f1a90119ce7fdfcadbc91caf2a3cec0d2826c36a65b2f086f70184cb6",
-  "sig": "bb6861da7e08eda7d50e51f61f55558dd998e304b408a0fa3d1c5c6f95f77e38bcd88035eeec563575ba54a607717f12122ed08b9b17d99321fa01671b0e1b9e"
+  "id": "192da36c7e0ab902cfa124d3eac5d4d96b6534a7698feb1e23ffc415e878ddec",
+  "sig": "e0163270625ac0cc704d5cd47412a1c983c5ee7c52110ce991e4ba5c1430b3d110d26bdddb587aa12975449d7da8ddbdccd065cc2fba351d7f5456a1df8b4c0e"
 }
