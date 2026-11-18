@@ -88,6 +88,8 @@ export interface Presence {
   pointOut(pubkey: string): void;
   /** Everyone else in the room, as they are being drawn. */
   people(): Member[];
+  /** How loud other people's voices are for this visitor, from 0 to 1. Theirs to set, and nobody else's. */
+  setVolume(volume: number): void;
   /** Whether this visitor is offering their screen to the room. */
   readonly screenOn: boolean;
   /** How many members their screen is going to now. */
@@ -536,6 +538,9 @@ export function createPresence(d: PresenceOptions): Presence {
     people() {
       return [...avatars.values()].map((a) => a.member);
     },
+    setVolume(volume) {
+      listener.setMasterVolume(Math.min(1, Math.max(0, volume)));
+    },
     mute(pubkey, on) {
       if (on) mutedKeys.add(pubkey);
       else mutedKeys.delete(pubkey);
@@ -982,9 +987,13 @@ export function addRoomControls(
   /** What is offered about the person last selected, and the way back for anyone blocked. */
   let extras: string[] = [];
   let chosen: string | null = null;
+  let headcount = 0;
   const recorders = new Set<string>();
   const people = () => {
     const here = presence.session ? presence.people() : [];
+    // Someone came, or someone went: heard, as well as listed.
+    if (presence.session && here.length !== headcount) controls.signal(here.length > headcount ? "join" : "leave");
+    headcount = presence.session ? here.length : 0;
     for (const id of [...listed, ...extras]) controls.remove(id);
     extras = [];
     listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
@@ -1116,12 +1125,14 @@ export function addRoomControls(
         if (presence.session) {
           for (const key of [...watching.keys()]) stopWatching(key);
           presence.leave();
+          controls.signal("leave");
           tell("You left the room.");
           return refresh();
         }
         busy = true;
         try {
           await presence.join(invited);
+          controls.signal("join");
         } catch (err) {
           tell(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
         } finally {
@@ -1140,8 +1151,11 @@ export function addRoomControls(
       on: () => presence.micOn,
       hidden: () => !presence.session,
       act: async () => {
-        if (presence.micOn) await presence.setMicrophone(null);
-        else if (!(await microphone())) tell("The microphone is blocked or unavailable.");
+        if (presence.micOn) {
+          await presence.setMicrophone(null);
+          controls.signal("micOff");
+        } else if (await microphone()) controls.signal("micOn");
+        else tell("The microphone is blocked or unavailable.");
         refresh();
       },
     },
@@ -1372,6 +1386,7 @@ export { LIBRARY_LIMITS, PANEL_LIMITS, PANEL_LOOKS, type LibraryItem, type Panel
 import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
 export { createStroll, reachOf, TAP_REACH, WALK_SPEED, type Stroll } from "./stroll.js";
+export { addSoundControls, createSounds, CUES, type Cue, type Jukebox, type Song, type SoundLevels, type Sounds, type SoundsOptions, type SoundTheme } from "./sound.js";
 export { browserVoice, computerVoice, createVoice, recordVoice, toPcm16, type Hearing, type Voice, type VoiceSource, type VoiceState } from "./speech.js";
 export { createKeyboard, type AskOptions, type Keyboard, type KeyboardOptions } from "./keyboard.js";
 export { createLibrary, type Library, type LibraryOptions } from "./library.js";

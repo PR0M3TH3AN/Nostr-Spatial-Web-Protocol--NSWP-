@@ -2,6 +2,22 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.3
+
+Sound. Until now a place was silent but for voices. Nothing in the protocol's formats changes.
+
+- **Cues.** A short sound for something that happened: a step, landing a jump, walking into something, a press, the menu, going through a door and coming out, someone joining or leaving, the microphone, a notice, an error. A closed list of seventeen. Each has a default made in the browser from tones and noise, so there is no file to fetch or license.
+- **A place's own music.** When a world names none, the kit makes a quiet one from the place's title: held notes that swell and fade, with single notes over them. The same for everyone there, different from place to place.
+- **A world's own sounds.** For any cue, a file on the world's own site to play instead, or null for silence; for the music, a file, or null for none. Whatever it doesn't name keeps the default. A file on another site is refused: it would tell that site who is here.
+- **How loud is not the world's to say.** A world's cue is brought down to the loudness of the defaults, a cue over three seconds or half a megabyte is refused, and everything goes out through one limiter.
+- **The visitor's volumes** are theirs, kept for the site: effects, music, other people's voices, and all sound off. No world sets them.
+- **The visitor's own music.** Songs added from their own device, kept in the browser for that site. Only they hear it, and the place's music steps back while it plays.
+- **Steps are made from how far a visitor was moved,** not from how their head sways, and nobody sends anybody a sound: what is heard of other people is their voice.
+- **Nothing before the first touch.** A browser holds sound back until then.
+- **The kit:** `createSounds`, `addSoundControls`, `controls.signal()` and `onSignal()`; `createStroll` says when a wall stopped it. The reference worlds, the world template (a `sounds/` folder and `"sounds"` in `world.json`) and BitPortal's room use them.
+- **Not built:** sound placed in space (another person's steps where they are), a sound for grabbing and dropping with a controller, and sharing music with people nearby, which is its own piece.
+- **Status (2026-11-18):** built, not deployed. Measured in Chrome on one machine, since nobody was listening: silence before the first touch; every cue heard; a walk of two metres making two steps; the menu heard; the place's music playing; all sound off being silence; volumes and a song kept through a reload; a song added from a file, played and taken out; and, in a copy of the template with sounds of its own, its step and its music used, a silenced cue silent, a five-second file refused in favour of the default, and a loud file brought down. **Not judged:** what any of it sounds like. Whether the defaults are pleasant is for ears.
+
 ## 0.13.2
 
 A shared screen in a room (the browser plan's stage A4). Nothing in the protocol's signed formats changes.
