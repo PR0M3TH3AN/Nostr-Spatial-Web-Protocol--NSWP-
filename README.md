@@ -5,22 +5,22 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.7.2. **Phase 0** (formats,
+Read [`spec.md`](spec.md) first. Status: concept spec v0.7.3. **Phase 0** (formats,
 reference library, test worlds), **Phase 1** (the BitPortal lobby, in the
 separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) and
-**Phase 1b** (previews) are built, along with a first cut of shared rooms.
-The world template is in its own
-[`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template)
-repo. Items, carried items and the start room are design only. Nothing here is
-an adopted NIP or standard.
+**Phase 1b** (previews) are built, along with a first cut of shared rooms and
+the start room (your own doors, saved on your device). The world template is in
+its own [`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template)
+repo. Items and carried items are design only. Nothing here is an adopted NIP
+or standard.
 
 ## Try it
 
 Start in the lobby: <https://bitportal.vercel.app/>. Pick a door, and the
 Airlock shows where it leads before you go.
 
-Or stand in it: <https://bitportal.vercel.app/walk/> is the same lobby as a
-hall of doors. Add `?xr=emulate` to try the headset view without a headset.
+Or stand in it: <https://bitportal.vercel.app/walk/> is the room you start in,
+with your saved doors on one wall and suggested ones on the other. Add `?xr=emulate` to try the headset view without a headset.
 
 Or go straight to a test world. No headset needed:
 
@@ -57,7 +57,7 @@ fallback for networks that block direct connections (spec §9, §20).
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
-| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars, spatial voice and previews for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal | MIT |
+| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars, spatial voice and previews for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal, an arched doorway | MIT |
 | `sites/` | Two reference worlds and the reference Airlock | MIT |
 
 CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is
