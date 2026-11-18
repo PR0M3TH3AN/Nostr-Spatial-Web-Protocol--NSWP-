@@ -1,13 +1,20 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.3 (concept specification)
+**Version:** 0.7.4 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.4
+
+- **A world's controls must be reachable in a headset** (§21.2). In an immersive session the page is gone, and its buttons with it. The SDK has a menu that goes in the scene, and the template, the reference worlds and BitPortal's room use it.
+- **The way home works in VR, and the reference worlds have one** (§6.3).
+- **BitPortal's room works from a chair** (§14.1): Turn around, stepping, and larger buttons clear of the doors.
+- **A headset checklist** (`docs/headset-checklist.md`), to run the first time anyone has a headset on. Nothing has been.
 
 ## 0. What changed in 0.7.3
 
@@ -677,7 +684,7 @@ A world can't know which client a user prefers, so the client tells it:
 
 The return address tells the world which client the user came from. That is a small disclosure, and the SDK doesn't keep it past the tab session.
 
-**Going home.** An Airlock opened with no destination takes the visitor to that client's start place, with no confirmation, because nothing is being crossed into. A world offers this with `portal.home()` (§6.6), which follows the same three steps: the return address, then the world's default, then nothing. It is the one exit a world can offer that leads somewhere the visitor already trusts. A world that doesn't use the SDK offers no such exit, and the visitor has only the browser's own controls.
+**Going home.** An Airlock opened with no destination takes the visitor to that client's start place, with no confirmation, because nothing is being crossed into. A world offers this with `portal.home()` (§6.6), which follows the same three steps: the return address, then the world's default, then nothing. It is the one exit a world can offer that leads somewhere the visitor already trusts. A world offers it where the visitor can reach it: as a button on the page, and inside a headset as a button in the scene (§21.2), since the page can't be seen there. A world that doesn't use the SDK offers no such exit, and the visitor has only the browser's own controls.
 
 **Fake Airlocks.** A hostile world can ignore the return address and send the user to a lookalike page that asks them to "sign in again". Defences: the user is already signed in at their real Airlock, so a sign-in prompt in the middle of a crossing is itself the warning sign; passkeys are bound to the real origin and can't be used on a fake; and the address bar is visible, because the Airlock is always a 2D page. Clients teach this rule alongside §12.3.
 
@@ -1433,7 +1440,7 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 
 This is BitPortal's choice, not the protocol's. Another client may start its visitors anywhere (§3.2). How many doors a wall should hold, and whether one room holds up, is Q31.
 
-**Status (2026-11-17): built, deployed at `bitportal.vercel.app/walk/`, and tested on a desktop only.**
+**Status (2026-11-17): built, deployed at `bitportal.vercel.app/walk/`, and tested on a desktop only.** Since 0.7.4 the room also has the in-headset menu (Turn around, the room and microphone controls, the list, Leave VR), stepping by pointing at the floor, Save and Remove buttons a metre wide in a row of their own, and a one-time line on how a door is used. Those were tested on a desktop and through the emulated headset's menu, not by a controller.
 
 - *Built:* the two walls, with Save and Remove on every door and a way to put back the last door removed. Saved places kept on the device with their announcements, each with a fixed place. The list page shows them first, and a jump list opens from every flat page. The three arrivals: facing suggestions, facing your own wall, and facing the door you left through. A sign leading to the list when a wall is full. The room's floor and furniture are drawn from a home layout kept on the device, which can be pasted into Settings.
 - *Narrower than above:* the room draws a layout's colours and built-in furniture only. It leaves out pictures and published items, because fetching them would contact other sites, and it doesn't yet put a layout's own doors on the wall. There are no invitations, no editor for the layout, and no jump list inside the headset beyond the wall itself. Saved places don't move between devices; that waits for sign-in (Phase 3a).
@@ -1821,7 +1828,10 @@ Rules that keep this list working:
 - **No vendor-only features on the critical path.** `hand-tracking` and similar are requested as optional features. `sessiongranted` is feature-detected, never required.
 - **Every world also works without VR**, as inline 3D with tap or click.
 - **Test without hardware** using the IWER emulator: the reference worlds load it with `?xr=emulate`.
-- **Before calling a device supported**, test it on the real device and record the date here.
+- **Before calling a device supported**, test it on the real device and record the date here. `docs/headset-checklist.md` is the test.
+- **Everything a visitor needs must be reachable inside the session.** An immersive session shows the scene and nothing else: the page's buttons can't be seen or pressed. So the way home, a room's join, leave and microphone controls, and any way to turn or move must exist in the scene, as something to point at and select. The SDK's menu does this (`createWorldMenu` in `nswp-sdk/three`): one small button that keeps low and in front of the visitor and opens a column of large ones. A menu fixed to a wrist would need a tracked hand, which gaze-and-pinch doesn't give.
+- **Nothing may need the visitor to turn their body or walk.** Someone seated on a sofa can do neither. A turn is a button that turns them in one step, and movement is a step to where they point.
+- **A world's menu is the world's.** It is drawn by the world, so it is not a trusted surface and must not be called one. A visitor's sure way out of any world is their headset's own controls.
 
 ## 22. Standards Strategy
 

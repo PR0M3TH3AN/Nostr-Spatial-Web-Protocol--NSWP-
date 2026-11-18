@@ -16,6 +16,8 @@ import * as THREE from "three";
 import { spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { room, type Member, type RoomSession } from "./room.js";
 
+export { createWorldMenu, menuItemFor, turnVisitor, type MenuItem, type WorldMenu, type WorldMenuOptions } from "./menu.js";
+
 export interface PresenceOptions {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
