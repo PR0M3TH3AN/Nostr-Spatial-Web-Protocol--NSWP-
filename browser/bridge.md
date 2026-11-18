@@ -190,8 +190,11 @@ refused before anyone is asked; a no at the computer is a no; the whole path
 from BitPortal's room in Chrome, on a flat screen and in an emulated headset
 with the drawn keyboard.
 
-Not tried: a real headset; a real sign-in signing the grant; two networks
-(the home and the computer were on one machine); public relays; macOS.
+Also tried: the Bridge started with a real owner's key, reaching the four
+public relays; and the live BitPortal room offering to add a computer.
+
+Not tried: a terminal opened by a real sign-in; a real headset; two networks
+(the home and the computer were on one machine); macOS.
 
 ## Proposed, not built
 

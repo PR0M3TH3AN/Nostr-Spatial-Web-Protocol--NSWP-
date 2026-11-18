@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RTCPeerConnection, type RTCDataChannel } from "werift";
@@ -387,13 +387,14 @@ describe("the program", () => {
       return what.exec(out)!;
     };
     const link = await seen(/#bridge=(npub1[a-z0-9]+)/);
+    // It says whether a home can find it.
+    await seen(/Listening on 1 of 1 relays/);
     const its = decodeNpub(link[1]!);
     expect(out).toContain(`Answers only    ${encodeNpub(owner)}`);
     expect(out).toContain("It asks here before every session.");
     // The key file: this user only, and not the key it printed.
     expect(statSync(join(dir, "bridge.key")).mode & 0o777).toBe(0o600);
     expect(out).not.toContain(readFileSync(join(dir, "bridge.key"), "utf8").trim());
-    await new Promise((r) => setTimeout(r, 400)); // its relay connection
 
     const going = attempt({ to: its, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: its }), OWNER) });
     const code = await seen(/The code is (\d{4})\./);
@@ -422,5 +423,14 @@ describe("the program", () => {
     const status = await new Promise((r) => second.on("exit", r));
     expect(status).toBe(1);
     expect(said).toContain(`already answers ${encodeNpub(owner)}`);
+
+    // An example run as it was written is told so, and makes no settings.
+    const fresh = mkdtempSync(join(tmpdir(), "nswp-bridge-test-"));
+    const example = spawn("npx", ["tsx", "packages/bridge/src/index.ts", "--dir", fresh, "--owner", "npub1\u2026"], { stdio: ["pipe", "pipe", "pipe"] });
+    let told = "";
+    example.stderr.on("data", (d: Buffer) => (told += d.toString()));
+    expect(await new Promise((r) => example.on("exit", r))).toBe(1);
+    expect(told).toContain("is the example");
+    expect(readdirSync(fresh)).toEqual([]);
   }, 90000);
 });
