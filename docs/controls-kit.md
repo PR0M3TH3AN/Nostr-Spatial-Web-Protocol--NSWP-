@@ -460,9 +460,14 @@ sounds.moved(metres);
   `hover`, `press`, `menuOpen`, `menuClose`, `cross`, `arrive`, `join`,
   `leave`, `micOn`, `micOff`, `notice`, `error`. Each has a default made in
   the browser.
+- **The kit's own files.** Serve `packages/sdk/sounds/` from your site and
+  pass its address: `createSounds({ kit: "/sounds/kit/" })`. The defaults are
+  then recorded: seventeen cues, a room's hum, a piece of music. Without it,
+  or where a file can't be played, the defaults are made in the browser.
 - **A theme** names a file on the world's own site for any cue, or `null` for
-  silence. `music` is a file, `null` for none, or left out for the quiet music
-  the kit makes from `seed`.
+  silence; a list of files is chosen among each time. `music` is a file, a
+  list to play in turn, or `null` for none. `hum` is a file or `null`. What a
+  theme leaves out keeps the default.
 - **Limits.** A cue file is at most 512 KB and three seconds, and is brought
   down to the loudness of the defaults. Everything passes one limiter.
 - **The visitor's volumes** (effects, music, voices, all off) are in the menu
