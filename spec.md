@@ -1,13 +1,20 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.5 (concept specification)
+**Version:** 0.7.6 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.6
+
+No change to the protocol. How the reference places are drawn changed (`docs/grid-look.md`).
+
+- **One look for the reference places:** a dark plane ruled with a grid of light, a skyline of blocks, and furniture built from dark blocks with lit edges. BitPortal's room and site, the reference worlds, and a home drawn by the SDK share it from one copy in the SDK.
+- **The reference worlds have arched doorways** (§6.7), like everything else. Their preview pictures were retaken and their announcements signed again.
 
 ## 0. What changed in 0.7.5
 
