@@ -140,7 +140,7 @@ function main() {
 
   This computer   ${me}
   Answers only    ${encodeNpub(owner)}
-  A terminal runs ${command.join(" ")}
+  A terminal runs ${args.tmux ? "tmux (one lasting terminal)" : typeof args.command === "string" ? args.command : command[0]}
   Starting in     ${cwd}
   ${allowFor ? `After you say yes once, it opens without asking for ${allowFor} minutes.` : "It asks here before every session."}
 
