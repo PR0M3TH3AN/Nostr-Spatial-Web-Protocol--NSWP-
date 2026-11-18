@@ -1144,6 +1144,11 @@ export function addRoomControls(
   let chosen: string | null = null;
   let headcount = 0;
   let toldOfMusic = false;
+  // Who is blocked is always in sight here, in a room or out of one, with the way to undo it beside each name.
+  const blockedNote = () => {
+    const n = presence.blocked().length;
+    return n === 0 ? "" : `You have blocked ${n === 1 ? "1 person" : `${n} people`} here: you don't see or hear each other. Unblock anyone below. `;
+  };
   const recorders = new Set<string>();
   const people = () => {
     const here = presence.session ? presence.people() : [];
@@ -1159,11 +1164,13 @@ export function addRoomControls(
       label: "People",
       icon: "people",
       note: () =>
-        !presence.session
+        `${blockedNote()}${
+          !presence.session
           ? "Join the room to see who else is here."
           : here.length === 0
             ? "Nobody else is here yet."
-            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to mute their voice or their music, or block them.`,
+            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to mute their voice or their music, or block them.`
+        }`,
     });
     here.forEach((m, i) =>
       controls.add({
@@ -1279,7 +1286,7 @@ export function addRoomControls(
         id,
         section: "people",
         icon: "check",
-        label: `Let ${b.name} back${b.kept ? "" : " (blocked this visit)"}`,
+        label: `Unblock ${b.name}${b.kept ? "" : " (blocked this visit)"}`,
         act: () => {
           presence.unblock(b.key);
           controls.say(`${b.name} is no longer blocked. You'll see each other again within half a minute if they are here.`);
