@@ -17,7 +17,7 @@ No change to the protocol. The reference app and its worlds get real addresses a
 - **Every world is for something.** The two test worlds became the Gallery (sculptures made in code) and the Grove (somewhere to sit and talk). Five are new: the Tour (five stops for someone's first minute), the Arcade (a small game), the Observatory (a terrace for looking at the sky), the Workshop (every part the worlds are built from, named) and the Library (eight notes on why it is built this way). The Starter Home is the world template, deployed unchanged. Each has two doors to others, and all eight are in BitPortal's room.
 - **The worlds share one harness** (`sites/shared/world.ts`): several doors, each showing where it leads; stepping by pointing at the floor; signs; where a visitor may stand. The Gallery and the Grove keep their identities (`d`), so doors saved to them still lead there.
 - **A caution kept in mind.** All of these sit under one registrable domain with BitLogin's sign-in page, which browsers treat as the same site. That is acceptable because they are all ours and set no cookies. A world made by anyone else does not belong under `bitblocks.network`.
-- **Status: built and signed in the repositories; not live until the DNS records for the new names exist.** Then: deploy, publish the announcements, and check.
+- **Live.** All nine sites answer at their new addresses, and the old `vercel.app` addresses redirect. The eight worlds' announcements are on six public relays, and `nswp check` reports each as verified for its site. BitPortal's starter list and its four listings, signed again by the curator, are on the same relays. `bitblocks.network` lists BitPortal, marked experimental. On the live sites, on a flat screen: from BitPortal's room through the Airlock (which shows "Verified") into the Tour, through the Tour's door and the Airlock into the Gallery, and Home back to the room, with the arrival context read and scrubbed each time. Not tried: a real headset; BitLogin sign-in at the new address; and doors saved at the old address, which stay there, because a browser keeps them per address.
 
 ## 0. What changed in 0.7.8
 
@@ -115,7 +115,7 @@ Four additions, each with a stated limit. None is built yet.
 
 ## 0. What changed in 0.5
 
-- **Phase 1 is built** (§20): BitPortal's read-only lobby and its own Airlock, in a separate `bitportal` repository, deployed for testing at `bitportal.vercel.app`.
+- **Phase 1 is built** (§20): BitPortal's read-only lobby and its own Airlock, in a separate `bitportal` repository, deployed at `portal.bitblocks.network` (first at `bitportal.vercel.app`, which now sends visitors on).
 - **Rooms that outlive their host** (§9.10): a heartbeat so a dead room stops reading as live, succession so a room survives its host leaving, and a salted fingerprint of the guest list for private rooms. All three are taken from COMBATRIG, where they were worked out in play.
 - **Found while building the lobby:** a shelf can't require "verified" without contacting every listed world (§14); a site that hasn't adopted NSWP gets a plain visit with no arrival context (§4.4); the Airlock knows the starter set's worlds without asking a relay (§6.2).
 
@@ -193,7 +193,7 @@ Users move between ordinary 2D websites and immersive 3D worlds in compatible br
 | Deliverable | What it is | License |
 |---|---|---|
 | **NSWP** (Part I) | Event formats, manifest format, portal and handoff conventions, conformance levels | CC0 |
-| **BitPortal** (Part II) | The reference spatial directory and lobby, built on BitBlocks and hosted at `portal.bitblocks.network` (proposed) | MIT |
+| **BitPortal** (Part II) | The reference spatial directory and lobby, built on BitBlocks and hosted at `portal.bitblocks.network` | MIT |
 | **NSWP Portal SDK** | A small world-side library for portals, manifests and arrival handling, shipped as a tagged release artifact with an integrity manifest | MIT |
 | **Reference worlds** | At least three independently hosted demo worlds, at least one built by someone outside the project | Per world |
 
@@ -1477,7 +1477,7 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 
 This is BitPortal's choice, not the protocol's. Another client may start its visitors anywhere (§3.2). How many doors a wall should hold, and whether one room holds up, is Q31.
 
-**Status (2026-11-17): built, deployed at `bitportal.vercel.app/walk/`, and tested on a desktop only.** Since 0.7.4 the room also has the in-headset menu (Turn around, the room and microphone controls, the list, Leave VR), stepping by pointing at the floor, Save and Remove buttons a metre wide in a row of their own, and a one-time line on how a door is used. Those were tested on a desktop and through the emulated headset's menu, not by a controller. All of it is deployed, along with the reference worlds and the template demo. On the live sites, in the emulated headset: from BitPortal's room, through the Airlock, into World A, then the menu's Back to your lobby returned to the room, facing the door left through.
+**Status (2026-11-17): built, deployed at `portal.bitblocks.network/walk/`, and tested on a desktop only.** Since 0.7.4 the room also has the in-headset menu (Turn around, the room and microphone controls, the list, Leave VR), stepping by pointing at the floor, Save and Remove buttons a metre wide in a row of their own, and a one-time line on how a door is used. Those were tested on a desktop and through the emulated headset's menu, not by a controller. All of it is deployed, along with the reference worlds and the template demo. On the live sites, in the emulated headset: from BitPortal's room, through the Airlock, into World A, then the menu's Back to your lobby returned to the room, facing the door left through.
 
 - *Built:* the two walls, with Save and Remove on every door and a way to put back the last door removed. Saved places kept on the device with their announcements, each with a fixed place. The list page shows them first, and a jump list opens from every flat page. The three arrivals: facing suggestions, facing your own wall, and facing the door you left through. A sign leading to the list when a wall is full. The room's floor and furniture are drawn from a home layout kept on the device, which can be pasted into Settings.
 - *Narrower than above:* the room draws a layout's colours and built-in furniture only. It leaves out pictures and published items, because fetching them would contact other sites, and it doesn't yet put a layout's own doors on the wall. There are no invitations, no editor for the layout, and no jump list inside the headset beyond the wall itself. Saved places don't move between devices; that waits for sign-in (Phase 3a).
@@ -1655,7 +1655,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** a third party can validate an announcement and a manifest using only the schemas and vectors.
 
-**Status (2026-11-17): built.** Everything above exists in this repository. The reference worlds and the Airlock are deployed at `nswp-world-a.vercel.app`, `nswp-world-b.vercel.app` and `nswp-airlock.vercel.app`. A crossing from World A through the Airlock to World B, and back, was tested in an emulated Meta Quest 3 (IWER), including a controller trigger on the portal. The reference announcements are published to six public relays, and `nswp check` reports both worlds as verified for their origins. The Airlock's verified view and its fast path (§6.5) were tested live: an approved world gets a three-second countdown with a cancel control, and unticking the approval makes the Airlock ask again.
+**Status (2026-11-17): built.** Everything above exists in this repository. The worlds are deployed under `bitblocks.network` (`gallery`, `grove`, `tour`, `arcade`, `observatory`, `workshop`, `library`; the first two were `nswp-world-a.vercel.app` and `nswp-world-b.vercel.app`, which now send visitors on), and the reference Airlock at `nswp-airlock.vercel.app`. A crossing from World A through the Airlock to World B, and back, was tested in an emulated Meta Quest 3 (IWER), including a controller trigger on the portal. The reference announcements are published to six public relays, and `nswp check` reports both worlds as verified for their origins. The Airlock's verified view and its fast path (§6.5) were tested live: an approved world gets a three-second countdown with a cancel control, and unticking the approval makes the Airlock ask again.
 
 ### Phase 1: Read-only lobby
 - BitPortal static shell on desktop and at least one standalone headset browser.
@@ -1666,7 +1666,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** a signed-out user in a headset browses, passes the Airlock and enters three independently hosted worlds, and the no-BitBlocks mode does the same.
 
-**Status (2026-11-17): built, and tested on a desktop only.** BitPortal lives in its own `bitportal` repository and is deployed for testing at `bitportal.vercel.app`.
+**Status (2026-11-17): built, and tested on a desktop only.** BitPortal lives in its own `bitportal` repository and is deployed at `portal.bitblocks.network` (first at `bitportal.vercel.app`, which now sends visitors on).
 
 - *Built:* the lobby, with three BitFeed shelves that each say why a world is there; doors whose art is generated from the world's address; verification when a door is opened; BitPortal's own Airlock at `/go/`; the plain no-BitBlocks mode; and a signed starter set of six worlds (the two reference worlds and four existing WebXR sites).
 - *Tested:* from the lobby, through the Airlock, into three separately hosted sites; a world's portal returning to BitPortal's Airlock; plain mode loading no ranking code; a `javascript:` destination being blocked.
@@ -1760,7 +1760,7 @@ Each phase has an exit criterion that has to be met before the next starts.
   - The same maze, after the fixes. It took pictures of its scene with the new command, and the maze came out lit, with hedges that block.
   - What the trials changed: the picture command, the blocking hook, stepping, portals a scene adds being animated and named by the plumbing, pictures by file name, and instructions that say what to refuse, when a world's identity may change, the room's measurements, and how bright a scene must be.
   - What they didn't show: none of the assistants played its game through, and the template's author walked both mazes without finishing one. No assistant generated a key, announced or deployed, and none was asked to.
-- *Tested by hand:* a fresh copy was given a name and address, signed, checked and deployed to `nswp-world-template.vercel.app` with no code changes. `nswp check` finds a valid manifest there. In a desktop browser, a visitor went from BitPortal's Airlock into the demo, saw its portals named from relay announcements, used "Back to your lobby" to return to BitPortal, and crossed a portal through their own Airlock. The demo was redeployed after the fixes, most recently from template commit `fe2a63e`, and checked again: its portals are named, and a step moves the visitor.
+- *Tested by hand:* a fresh copy was given a name and address, signed, checked and deployed with no code changes (now at `starter.bitblocks.network`, as the Starter Home). `nswp check` finds a valid manifest there. In a desktop browser, a visitor went from BitPortal's Airlock into the demo, saw its portals named from relay announcements, used "Back to your lobby" to return to BitPortal, and crossed a portal through their own Airlock. The demo was redeployed after the fixes, most recently from template commit `fe2a63e`, and checked again: its portals are named, and a step moves the visitor.
 - *Not done:* the demo's announcement is signed but not published, so `nswp check` reports it as reachable, not verified. The offline check confirms the manifest and the announcement agree.
 - *Not tested:* the exit criterion itself. Nobody outside the project has used the template. The repository is private, so nobody outside can yet. Stepping has not been tried with a controller. In an emulated headset the floor marker follows the controller's ray, but a trigger pull didn't register in the test, so the step itself was run only through a test hook. That hook found a crash on the controller's path, which is fixed. No real headset.
 - *Narrower than §19.1 says:* the starting scene draws the layout bundled with the site. It doesn't yet look on relays for a newer one.
@@ -1826,7 +1826,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 | Rooms, hosted | An open-source media forwarding server behind the room server interface (candidates in Appendix C) |
 | Getting through home networks | Public STUN; an optional community-run TURN server |
 | Build | esbuild → static `dist/`; TypeScript. Dependencies are vendored from sibling checkouts, with source commits and file hashes recorded (`vendor/integrity.json`) |
-| Hosting | `portal.bitblocks.network` on the same static-hosting pattern as the other block sites (proposed) |
+| Hosting | `portal.bitblocks.network`, on the same static-hosting pattern as the other block sites |
 
 Prioritize desktop and one standalone headset browser first. Consider a dedicated browser fork only after the discovery, Airlock and handoff model is validated.
 
