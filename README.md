@@ -96,6 +96,12 @@ Check any world from the command line:
 npm run -s nswp -- check https://gallery.bitblocks.network/
 ```
 
+### Adding a site you already have
+
+[`docs/add-your-site.md`](docs/add-your-site.md) is the short path for an
+existing website: be listed, announce yourself so the door shows as verified,
+and welcome travellers with a way back. It needs no VR mode.
+
 ### Validating your own implementation
 
 `vectors/*.json` lists inputs with the exact issue codes a validator should
