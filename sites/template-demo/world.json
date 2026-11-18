@@ -38,9 +38,9 @@
     "status": "beta",
     "previews": [
       {
-        "url": "https://nswp-world-template.vercel.app/previews/24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0.webp",
+        "url": "https://nswp-world-template.vercel.app/previews/7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a.webp",
         "type": "pano",
-        "sha256": "24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0",
+        "sha256": "7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a",
         "width": 2048,
         "height": 1024
       }
@@ -63,5 +63,5 @@
       "yaw": 0
     }
   },
-  "sky": "#0a0b0d"
+  "sky": "#04070b"
 }
