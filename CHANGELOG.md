@@ -11,6 +11,7 @@ The terminal, after its first real use. Nothing a world implements changes, and 
 - **Page up, page down, home and end** on the drawn keyboard's last layer.
 - **A few terminals at once.** The Bridge keeps four, each asked about at the computer, each with a place of its own that `--tmux` turns into a lasting terminal. At four, the owner being let in again takes the place of the one quiet longest.
 - **Found by trying it:** in a headset the drawn keyboard sat between the hand and the panel's foot, so a press meant for a button typed a letter instead. Up for a terminal, the keyboard now sits lower and nearer, under the panel.
+- **A key that only looks like one is refused.** About half of all 64-character hex strings are not public keys at all. `decodeNpub` now says so (`isPublicKey`), so such a key is never kept as a computer or as a Bridge's owner. And a panel shows only words written for the visitor, never what a library said when it failed. Found on the live site, with a made-up key.
 - **Status (2026-11-18):** built, not deployed. Tried on one machine with throwaway keys, in Chrome and an emulated Quest 3: each button pressed for real with a mouse and with a controller, two terminals open on one computer at once, and the earlier checks again. Not on a real headset, where whether the foot's buttons are large enough to point at is the first thing to judge.
 
 ## 0.10.3

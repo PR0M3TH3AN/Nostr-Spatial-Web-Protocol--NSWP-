@@ -26,6 +26,21 @@ export function isHex64(v: unknown): v is string {
   return typeof v === "string" && HEX64.test(v);
 }
 
+/**
+ * Whether 64 hex characters are a public key at all. About half of all such
+ * strings are not: no point on the curve has that x. A key written down by a
+ * person, or handed over in a link, is checked with this before it is kept.
+ */
+export function isPublicKey(v: unknown): v is string {
+  if (!isHex64(v)) return false;
+  try {
+    schnorr.utils.lift_x(BigInt(`0x${v}`));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
