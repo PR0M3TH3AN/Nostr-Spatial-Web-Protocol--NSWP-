@@ -212,7 +212,21 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   };
 
   // A world's own files for cues: fetched once, checked, and used from then on. One that can't be used leaves the default.
-  const buffers = new Map<Cue, AudioBuffer>();
+  const buffers = new Map<Cue, { buffer: AudioBuffer; gain: number }>();
+  /** How loud a cue of a world's own is let be: about what the loudest default is. A quieter file is left alone. */
+  const CUE_LOUDNESS = 0.14;
+  const loudnessOf = (buffer: AudioBuffer): number => {
+    let sum = 0;
+    let n = 0;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i += 4) {
+        sum += data[i]! * data[i]!;
+        n++;
+      }
+    }
+    return n ? Math.sqrt(sum / n) : 0;
+  };
   for (const [cue, address] of Object.entries(theme.cues) as [Cue, string | null][]) {
     if (!address) continue;
     void (async () => {
@@ -222,7 +236,10 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
         const bytes = await res.arrayBuffer();
         if (bytes.byteLength > SOUND_LIMITS.cueBytes) return;
         const buffer = await ctx.decodeAudioData(bytes);
-        if (buffer.duration <= SOUND_LIMITS.cueSeconds && !disposed) buffers.set(cue, buffer);
+        if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return;
+        // A world chooses what a cue sounds like, not how loud it is: a loud file is brought down to the others.
+        const loud = loudnessOf(buffer);
+        buffers.set(cue, { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 });
       } catch {
         /* the default stays */
       }
@@ -236,11 +253,14 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     const now = ctx.currentTime;
     if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
     last.set(cue, now);
-    const buffer = buffers.get(cue);
-    if (buffer) {
+    const own = buffers.get(cue);
+    if (own) {
       const src = ctx.createBufferSource();
-      src.buffer = buffer;
-      src.connect(effects);
+      src.buffer = own.buffer;
+      const level = ctx.createGain();
+      level.gain.value = own.gain;
+      src.connect(level);
+      level.connect(effects);
       src.start();
       return;
     }
@@ -270,7 +290,11 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       const audio = new Audio(theme.music!);
       audio.loop = true;
       const node = ctx.createMediaElementSource(audio);
-      node.connect(placeMusic);
+      // Under the visitor's music volume, and a little back: it is the room, not the event.
+      const back = ctx.createGain();
+      back.gain.value = 0.6;
+      node.connect(back);
+      back.connect(placeMusic);
       void audio.play().catch(() => {});
       stopMusic = () => {
         audio.pause();
