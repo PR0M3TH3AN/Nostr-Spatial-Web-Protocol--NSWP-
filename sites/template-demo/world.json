@@ -38,9 +38,9 @@
     "status": "beta",
     "previews": [
       {
-        "url": "https://nswp-world-template.vercel.app/previews/7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a.webp",
+        "url": "https://nswp-world-template.vercel.app/previews/7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e.webp",
         "type": "pano",
-        "sha256": "7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a",
+        "sha256": "7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e",
         "width": 2048,
         "height": 1024
       }
