@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { decodeLook, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type Member, type RoomSession } from "./room.js";
 
@@ -66,6 +66,14 @@ export interface Presence {
   setMicrophone(track: MediaStreamTrack | null): Promise<void>;
   /** A quiet test tone to use in place of a microphone. */
   testTone(): MediaStreamTrack;
+  /** Tell the others you are recording what you see, or have stopped. They are shown a light on your figure. */
+  setRecording(on: boolean): void;
+  /** How this visitor looks to the others: for a selfie, or a mirror. */
+  selfLook(): Member["look"] | string;
+  /** Show for a few seconds where one member is: a column of light over their head. */
+  pointOut(pubkey: string): void;
+  /** Everyone else in the room, as they are being drawn. */
+  people(): Member[];
   /** Call once per frame with the seconds since the last one. */
   update(dt: number): void;
   /** What this visitor currently sees of each member (for tests and debugging). */
@@ -80,6 +88,11 @@ interface Avatar {
   hands: [THREE.Mesh, THREE.Mesh];
   figure: Figure;
   label: THREE.Sprite;
+  /** Shown while they say they are recording. */
+  light?: THREE.Sprite;
+  /** Shown while they are being pointed out. */
+  beam?: THREE.Sprite;
+  beamUntil?: number;
   target: Pose | null;
   placed: boolean;
   /** Every material, with its normal opacity, for the personal-space fade. */
@@ -134,6 +147,37 @@ export function createPresence(d: PresenceOptions): Presence {
   let sendTimer: ReturnType<typeof setInterval> | undefined;
   let micTrack: MediaStreamTrack | null = null;
   let offsetApplied = false;
+  let plainSeed: string | undefined;
+
+  // A soft dot of light: red over someone recording, in their own colour when they are pointed out.
+  let dot: THREE.Texture | null = null;
+  const glow = (color: THREE.ColorRepresentation): THREE.Sprite => {
+    if (!dot) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const g = canvas.getContext("2d")!;
+      const fade = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      fade.addColorStop(0, "rgba(255,255,255,1)");
+      fade.addColorStop(0.35, "rgba(255,255,255,0.85)");
+      fade.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = fade;
+      g.fillRect(0, 0, 64, 64);
+      dot = new THREE.CanvasTexture(canvas);
+    }
+    return new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color, transparent: true, depthWrite: false }));
+  };
+  /** The light that says a member is recording: over their name, where it can't be missed. */
+  const showRecording = (a: Avatar, on: boolean) => {
+    if (on && !a.light) {
+      a.light = glow(0xff3b30);
+      a.light.scale.setScalar(0.16);
+      a.light.position.set(0, 0.46, 0);
+    }
+    if (a.light) {
+      a.light.visible = on;
+      a.head.add(a.light);
+    }
+  };
 
   /** Put a member's figure together from how they look, in place of any they had. */
   const dress = (a: Avatar, look: Member["look"]) => {
@@ -154,6 +198,8 @@ export function createPresence(d: PresenceOptions): Presence {
       a.root.remove(was.group);
       was.dispose();
     }
+    if (a.light) figure.head.add(a.light);
+    if (a.beam) figure.head.add(a.beam);
     a.root.add(figure.group);
     a.figure = figure;
     a.head = figure.head;
@@ -267,6 +313,11 @@ export function createPresence(d: PresenceOptions): Presence {
       offsetApplied = true;
     }
     s.on("status", changed);
+    s.on("recording", (m, on) => {
+      const a = avatars.get(m.pubkey);
+      if (a) showRecording(a, on);
+      changed();
+    });
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
@@ -326,6 +377,31 @@ export function createPresence(d: PresenceOptions): Presence {
       await session?.setMicrophone(track);
       changed();
     },
+    setRecording(on) {
+      session?.setRecording(on);
+    },
+    selfLook() {
+      if (session) return session.self.look;
+      const mine = typeof d.look === "function" ? d.look() : d.look;
+      const read = mine ? decodeLook(mine) : null;
+      // Not in a room and wearing nothing: a figure of their own for this visit.
+      return read?.ok ? read.value.look : (plainSeed ??= `plain-${Math.random().toString(36).slice(2, 12)}`);
+    },
+    pointOut(pubkey) {
+      const a = avatars.get(pubkey);
+      if (!a) return;
+      if (!a.beam) {
+        a.beam = glow(a.member.look.light);
+        a.beam.scale.set(0.5, 3.2, 1);
+        a.beam.position.set(0, 2.1, 0);
+      }
+      a.head.add(a.beam);
+      a.beam.visible = true;
+      a.beamUntil = performance.now() + 4000;
+    },
+    people() {
+      return [...avatars.values()].map((a) => a.member);
+    },
     testTone() {
       const ctx = listener.context;
       const osc = ctx.createOscillator();
@@ -345,6 +421,7 @@ export function createPresence(d: PresenceOptions): Presence {
         const near = THREE.MathUtils.clamp((a.head.position.distanceTo(v) - FADE_END) / (FADE_START - FADE_END), 0, 1);
         for (const m of a.materials) m.material.opacity = m.opacity * near;
         (a.materials[0]!.material as { tick?: (t: number) => void }).tick?.(performance.now() / 1000);
+        if (a.beam?.visible && performance.now() > (a.beamUntil ?? 0)) a.beam.visible = false;
         const snap = a.placed ? k : 1;
         apply(a.head, a.target.head, snap);
         a.placed = true;
@@ -617,6 +694,40 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
       s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn } : null,
     );
     controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
+    people();
+  };
+  // Who else is here: one entry each, in their own colour. Selecting one shows where they are.
+  let listed: string[] = [];
+  const recorders = new Set<string>();
+  const people = () => {
+    const here = presence.session ? presence.people() : [];
+    for (const id of listed) controls.remove(id);
+    listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
+    controls.addSection({
+      id: "people",
+      label: "People",
+      icon: "people",
+      note: () => (!presence.session ? "Join the room to see who else is here." : here.length === 0 ? "Nobody else is here yet." : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are.`),
+    });
+    here.forEach((m, i) =>
+      controls.add({
+        id: listed[i]!,
+        section: "people",
+        kind: "swatch",
+        color: m.look.light,
+        label: () => (m.recording ? `${m.name}, recording` : m.name),
+        act: () => {
+          presence.pointOut(m.pubkey);
+          controls.say(`${m.name} is under the column of light.`);
+        },
+      }),
+    );
+    // Say it once when someone starts recording: a light alone is easy to miss.
+    for (const m of here) {
+      if (m.recording && !recorders.has(m.pubkey)) controls.say(`${m.name} is recording what they see.`);
+      if (m.recording) recorders.add(m.pubkey);
+      else recorders.delete(m.pubkey);
+    }
   };
 
   controls.add(
@@ -754,3 +865,5 @@ export async function addViewControls(
 }
 
 export { createFigure, type Figure, type FigureStyle } from "./figure.js";
+
+export { addCameraControls, canRecord, recordClip, saveFile, takePicture, takeSelfie, type Camera, type CameraOptions, type Capture, type Clip } from "./camera.js";

@@ -168,6 +168,8 @@ const read = (t: Text | undefined): string => (typeof t === "function" ? t() : (
 const STANDARD: UiSection[] = [
   { id: "travel", label: "Travel", icon: "door" },
   { id: "room", label: "Room", icon: "room" },
+  { id: "people", label: "People", icon: "people" },
+  { id: "camera", label: "Camera", icon: "camera" },
   { id: "view", label: "View", icon: "vr" },
   { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
   { id: "help", label: "Help", icon: "help" },
