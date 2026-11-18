@@ -39,6 +39,8 @@ export interface TerminalPanelOptions {
   presenting?: () => boolean;
   iceServers?: RTCIceServer[];
   onStatus?(status: BridgeStatus): void;
+  /** The panel was put away, and the connection with it. */
+  onClosed?(): void;
 }
 
 export interface TerminalPanel {
@@ -305,6 +307,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         link?.close();
         term.dispose();
         texture.dispose();
+        o.onClosed?.();
       },
     },
     { place: { width: 1.3 }, keep: false },
