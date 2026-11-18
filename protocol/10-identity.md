@@ -149,10 +149,17 @@ protocol:
 | As a guest, wearing their look | Their look ([NSWP-05](05-looks.md)) |
 | Plain | Nothing |
 
-"By name" is offered only to someone already signed in. The Airlock never
-asks anyone to sign in: a sign-in prompt in the middle of a crossing is
-exactly what a fake Airlock would show. The choice is remembered, and the
-first time it is never "by name".
+- **"By name" is offered only to someone already signed in.** The Airlock
+  never asks anyone to sign in: a sign-in prompt in the middle of a crossing
+  is exactly what a fake Airlock would show. If the session can't sign just
+  then, the visitor is told, and chooses again; they are never sent on as
+  something they didn't pick.
+- **Only for a verified world.** A pass names the visitor's key for good, so
+  it goes only to a site that has proved it is the one its announcement says.
+- **The choice is remembered** once it has worked, and the first time it is
+  never "by name".
+- **A new session key every trip.** Two passes can't be linked by their
+  session keys, only by the identity that signed them.
 
 ## In code
 
