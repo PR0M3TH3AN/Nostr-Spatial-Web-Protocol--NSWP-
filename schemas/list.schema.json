@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/list.schema.json",
+  "title": "NSWP list of worlds (NIP-51 curation set, kind 30004)",
+  "description": "Structural rules only. The worlds on a list are its `a` tags whose value is `37300:<pubkey>:<d>`; a reader passes over every other tag, so this schema does not forbid them. A reader must also check the id hash and signature (NIP-01). See protocol/08-lists.md.",
+  "type": "object",
+  "required": ["kind", "created_at", "tags", "content"],
+  "properties": {
+    "kind": { "const": 30004 },
+    "created_at": { "type": "integer", "minimum": 0 },
+    "content": { "type": "string" },
+    "pubkey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+      "contains": { "type": "array", "prefixItems": [{ "const": "d" }, { "type": "string", "maxLength": 128 }], "minItems": 2 }
+    }
+  }
+}

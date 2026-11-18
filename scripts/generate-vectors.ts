@@ -16,6 +16,7 @@ import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import {
   buildAvatarEvent,
   buildEntryAssertion,
+  buildListEvent,
   buildWorldEvent,
   checkDestination,
   decodeArrival,
@@ -29,12 +30,14 @@ import {
   markFor,
   markGrid,
   parseAvatarEvent,
+  parseListEvent,
   parseManifest,
   parsePortal,
   parseWorldEvent,
   verifyEntryAssertion,
   verifyEvent,
   verifyOrigin,
+  CURATION_SET_KIND,
   WORLD_KIND,
   type EventTemplate,
   type NostrEvent,
@@ -382,6 +385,53 @@ const avatarVectors = ["00000000000000000000000000000000000000000000000000000000
 expectEqual("avatar/copied keeps the copier's mark", avatarVectors[0]!.expect.look.mark, markFor(avatarVectors[0]!.pubkey));
 expectEqual("avatar/chosen parts survive", [avatarVectors[0]!.expect.look.head, avatarVectors[0]!.expect.look.accessory], ["wedge", "halo"]);
 
+// ----------------------------------------------------------------------- lists
+const W1 = `37300:${PK1}:example-museum`;
+const W2 = `37300:${PK2}:grove`;
+const baseList = { d: "quiet-places", title: "Quiet places", description: "Worlds worth sitting down in.", worlds: [W1, W2], createdAt: T0 };
+const listWith = (f: (tags: string[][]) => string[][]): EventTemplate => {
+  const t = buildListEvent(baseList);
+  return { ...t, tags: f(t.tags) };
+};
+type ListVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; title?: string; worlds?: string[] | { count: number; last: string } } };
+const manyWorlds = Array.from({ length: 201 }, (_, i) => `37300:${PK1}:w${i}`);
+const listVectors: ListVector[] = [
+  { name: "valid", description: "A signed list of two worlds.", event: sign(buildListEvent(baseList)), expect: { valid: true, signatureValid: true, errors: [], warnings: [], title: "Quiet places", worlds: [W1, W2] } },
+  { name: "empty", description: "A list with no worlds is a list. It shows nothing.", event: buildListEvent({ ...baseList, worlds: [] }), expect: { valid: true, signatureValid: null, errors: [], warnings: [], title: "Quiet places", worlds: [] } },
+  { name: "no_title_uses_d", description: "Without a title, the list goes by its d.", event: listWith((t) => t.filter((x) => x[0] !== "title")), expect: { valid: true, signatureValid: null, errors: [], warnings: [], title: "quiet-places", worlds: [W1, W2] } },
+  {
+    name: "other_things_are_passed_over",
+    description: "A curation set can hold articles, notes and anything else. A reader keeps the worlds, in order, and says nothing about the rest.",
+    event: listWith((t) => [...t, ["a", `30023:${PK1}:an-article`], ["e", "0".repeat(64)], ["a", "not a coordinate"], ["a", `37300:${PK1}:`], ["a", `37300:${PK2}:arcade`, "wss://relay.example"]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: [], title: "Quiet places", worlds: [W1, W2, `37300:${PK2}:arcade`] },
+  },
+  { name: "a_world_counts_once", description: "A world named twice keeps its first place.", event: listWith((t) => [...t, ["a", W1]]), expect: { valid: true, signatureValid: null, errors: [], warnings: [], title: "Quiet places", worlds: [W1, W2] } },
+  {
+    name: "too_many_worlds",
+    description: "A reader stops at 200 worlds and says so.",
+    event: buildListEvent({ ...baseList, worlds: manyWorlds }),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: ["too_many_worlds"], title: "Quiet places", worlds: { count: 200, last: manyWorlds[199]! } },
+  },
+  { name: "long_title_is_cut", description: "A title past 200 characters is cut, not refused.", event: listWith((t) => t.map((x) => (x[0] === "title" ? ["title", "T".repeat(260)] : x))), expect: { valid: true, signatureValid: null, errors: [], warnings: ["value_too_long"], title: "T".repeat(200), worlds: [W1, W2] } },
+  { name: "missing_d", description: "No d: the list has no name to follow it by.", event: listWith((t) => t.filter((x) => x[0] !== "d")), expect: { valid: false, signatureValid: null, errors: ["missing_tag"], warnings: [] } },
+  { name: "wrong_kind", description: "A follow set (kind 30000) is not a list of worlds.", event: { ...buildListEvent(baseList), kind: 30000 }, expect: { valid: false, signatureValid: null, errors: ["wrong_kind"], warnings: [] } },
+];
+for (const v of listVectors) {
+  const r = parseListEvent(v.event);
+  expectEqual(`list/${v.name} valid`, r.ok, v.expect.valid);
+  expectEqual(`list/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
+  expectEqual(`list/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
+  expectEqual(`list/${v.name} signature`, (v.event as { sig?: string }).sig ? verifyEvent(v.event) : null, v.expect.signatureValid);
+  if (r.ok) {
+    expectEqual(`list/${v.name} title`, r.value.title, v.expect.title);
+    const w = v.expect.worlds;
+    if (Array.isArray(w)) expectEqual(`list/${v.name} worlds`, r.value.worlds, w);
+    else expectEqual(`list/${v.name} worlds`, { count: r.value.worlds.length, last: r.value.worlds.at(-1) }, w);
+  }
+}
+expectEqual("list/kind", buildListEvent(baseList).kind, CURATION_SET_KIND);
+expectEqual("list/coordinate", parseListEvent(sign(buildListEvent(baseList))).ok && (parseListEvent(sign(buildListEvent(baseList))) as { value: { coordinate?: string } }).value.coordinate, `30004:${PK1}:quiet-places`);
+
 // --------------------------------------------------------------------- output
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
@@ -400,6 +450,12 @@ const files: Record<string, unknown> = {
     generated: generatedVectors,
     inline: inlineVectors,
     avatarEvents: avatarVectors,
+  },
+  "lists.json": {
+    description:
+      "Lists of worlds (protocol/08-lists.md): NIP-51 curation sets. `worlds` is what a reader must take from the list, in order; where it is an object, the count and the last world kept. `errors` and `warnings` are sorted issue codes; `signatureValid` is null when the vector is unsigned.",
+    testKeys,
+    vectors: listVectors,
   },
   "portals.json": { description: "Portals (spec §6.1) and NIP-19 naddr round-trips.", portals: portalVectors, naddr: naddrVectors },
 };

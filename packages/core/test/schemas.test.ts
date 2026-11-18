@@ -12,7 +12,7 @@ const root = join(import.meta.dirname, "../../..");
 const load = (p: string) => JSON.parse(readFileSync(join(root, p), "utf8"));
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
-for (const s of ["entry-assertion", "world-event", "manifest", "portal", "arrival", "look"]) {
+for (const s of ["entry-assertion", "world-event", "manifest", "portal", "arrival", "look", "list"]) {
   ajv.addSchema(load(`schemas/${s}.schema.json`), `${s}.schema.json`);
 }
 const validate = (schema: string, data: unknown) => ajv.validate(`${schema}.schema.json`, data);
@@ -46,6 +46,12 @@ describe("JSON Schemas agree with the vectors", () => {
     for (const v of load("vectors/assertions.json").vectors) {
       if (v.expect.valid) expect(validate("entry-assertion", v.event), v.name).toBe(true);
     }
+  });
+
+  it("lists", () => {
+    const { vectors } = load("vectors/lists.json");
+    for (const v of vectors) if (v.expect.valid) expect(validate("list", v.event), v.name).toBe(true);
+    for (const n of ["missing_d", "wrong_kind"]) expect(validate("list", vectors.find((v: { name: string }) => v.name === n).event), n).toBe(false);
   });
 
   it("looks, inline", () => {
