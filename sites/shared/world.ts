@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type XrConsole } from "nswp-sdk/three";
+import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -99,7 +99,7 @@ type TestHooks = {
   /** What the last frame cost to draw. */
   drawn?: () => { calls: number; triangles: number };
   /** Stand a visitor's figure somewhere, to see how one looks. */
-  figure?: (x: number, z: number, yaw?: number) => void;
+  figure?: (x: number, z: number, yaw?: number, seed?: string, skin?: string) => unknown;
   device?: unknown;
   controls?: Controls;
   console?: XrConsole;
@@ -471,6 +471,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.roomInfo = () => presence.info();
 
   // ------------------------------------------------------------- for tests
+  const figures: Figure[] = [];
   hooks.teleport = (x, z) => {
     rig.position.x = x - camera.position.x;
     rig.position.z = z - camera.position.z;
@@ -480,11 +481,20 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     return [Math.round(at.x * 100) / 100, Math.round(at.z * 100) / 100];
   };
   hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
-  hooks.figure = (x, z, yaw = 0) => {
-    const figure = createFigure(0xff7ab6);
+  // Stand a figure somewhere, to see how one looks: from a seed, as it is or re-dressed in one of three ways.
+  const skins: Record<string, FigureStyle> = {
+    plastic: { material: () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.1 }) },
+    drab: { palette: [0x4b5320, 0x6b6f4a, 0x2f3524, 0xc2b280, 0xff7a1a], material: () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }) },
+    wire: { material: (light) => new THREE.MeshBasicMaterial({ color: light, wireframe: true }) },
+    plain: { omit: ["accessory", "shoulders"], palette: [0x1c2530, 0x8fa3b8, 0x4cc9f0] },
+  };
+  hooks.figure = (x, z, yaw = 0, seed = "visitor", skin) => {
+    const figure = createFigure(seed, skin ? skins[skin] : undefined);
     figure.group.position.set(x, 1.6, z);
     figure.group.rotation.y = THREE.MathUtils.degToRad(yaw);
     scene.add(figure.group);
+    figures.push(figure);
+    return figure.look;
   };
   hooks.face = (yaw, pitch = 0) => {
     rig.rotation.y = THREE.MathUtils.degToRad(yaw);
@@ -524,6 +534,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     presence.update(dt);
     environment.update(t);
     for (const a of alloys) a.tick(t);
+    for (const f of figures) f.tick(t);
     handle.update?.(t, dt);
     let aimed = -1;
     reticle.visible = false;

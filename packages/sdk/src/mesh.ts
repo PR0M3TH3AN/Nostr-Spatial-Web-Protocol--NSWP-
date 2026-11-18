@@ -66,6 +66,9 @@ export class MeshBuilder {
   private rotation = new THREE.Matrix3();
   /** The colour faces take when they don't say. */
   tone = new THREE.Color(0x0c151d);
+  /** The colour of this piece's lights, for a material that reads plain vertex colours (see `geometry`). */
+  light = new THREE.Color(0xffffff);
+  private colors: number[] = [];
 
   get triangles(): number {
     return this.positions.length / 9;
@@ -110,6 +113,8 @@ export class MeshBuilder {
       this.normals.push(nn.x, nn.y, nn.z);
       this.tones.push(col.r, col.g, col.b);
       this.glows.push(paint.glow ?? 0);
+      const g = paint.glow ?? 0;
+      this.colors.push(col.r + (this.light.r - col.r) * g, col.g + (this.light.g - col.g) * g, col.b + (this.light.b - col.b) * g);
       this.flows.push(fo[i]!);
     }
   }
@@ -229,8 +234,9 @@ export class MeshBuilder {
    * Turn a profile on a lathe about the vertical through `at`. The profile is
    * [radius, height] pairs from the bottom up. `sides` is how many faces round:
    * 4 makes a square column, 6 a hexagon, 24 a round one. `twist` turns it as it rises.
+   * `paint(row, side)` colours each face: `row` counts up the profile, `side` round it.
    */
-  lathe(profile: P2[], at: V3, sides: number, paint: (row: number) => Paint = () => ({}), o: { twist?: number; turn?: number } = {}): void {
+  lathe(profile: P2[], at: V3, sides: number, paint: (row: number, side: number) => Paint = () => ({}), o: { twist?: number; turn?: number } = {}): void {
     const top = profile[profile.length - 1]![1];
     const ring = (row: number, s: number): V3 => {
       const [r, y] = profile[row]!;
@@ -245,7 +251,7 @@ export class MeshBuilder {
         // Going up the profile, outward is to its right: (dy, -dr), turned to this side.
         const out: V3 = [Math.cos(a) * (y2 - y1), -(r2 - r1), Math.sin(a) * (y2 - y1)];
         if (Math.abs(out[0]) + Math.abs(out[1]) + Math.abs(out[2]) < 1e-9) continue;
-        const p = paint(row);
+        const p = paint(row, s);
         this.quad(ring(row, s), ring(row, s + 1), ring(row + 1, s + 1), ring(row + 1, s), { ...p, flow: p.flow ?? [y1, y1, y2, y2] }, out);
       }
     }
@@ -278,6 +284,9 @@ export class MeshBuilder {
     g.setAttribute("tone", new THREE.Float32BufferAttribute(this.tones, 3));
     g.setAttribute("glow", new THREE.Float32BufferAttribute(this.glows, 1));
     g.setAttribute("flow", new THREE.Float32BufferAttribute(this.flows, 1));
+    // The same thing as plain vertex colours, lights included, for any material
+    // of a world's own: `new THREE.MeshStandardMaterial({ vertexColors: true })`.
+    g.setAttribute("color", new THREE.Float32BufferAttribute(this.colors, 3));
     g.computeBoundingSphere();
     return g;
   }

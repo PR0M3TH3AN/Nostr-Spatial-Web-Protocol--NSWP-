@@ -11,5 +11,6 @@ export * from "./relay.js";
 export * from "./nip44.js";
 export * from "./room.js";
 export * from "./layout.js";
+export * from "./avatar.js";
 
 export const VERSION = "0.1.0";

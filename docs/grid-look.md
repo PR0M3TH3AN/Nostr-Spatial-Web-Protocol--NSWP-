@@ -18,7 +18,7 @@ scene is its own; nothing here is part of the protocol.
 | The parts | A doorway frame, a wall, furniture, sculptures, a tree: each a function that adds itself to a builder | `addWall`, `addBench`, `addTree`, `addKnot` … |
 | The doorway | An arch standing on the floor, with its sign above, a field of light inside and a glow round it | `createPortalGate()` |
 | A home | The place, a room of walls, and the built-in furniture | `createHome(layout)` |
-| A visitor | A helmet, a cloak and a point of light for each hand, lit in one colour | `createFigure(color)` in `nswp-sdk/three` |
+| A visitor | A head, a body and a point of light for each hand, drawn from their look (spec §4.2): six heads, six faces, four bodies and more, in their own three colours, with a mark that comes from their key. A world can re-dress it in its own material and palette | `createFigure(look, style)` in `nswp-sdk/three` |
 
 Everything but the last is in `nswp-sdk/home`.
 
@@ -116,7 +116,7 @@ grove) are worked examples.
 | How surfaces catch light | `alloy.ts` |
 | The doorway's frame, the furniture, the sculptures, the tree | `models.ts` |
 | What fills a doorway with no picture, and its glow | `veilMaterial` and `gateGlow` in `home.ts` |
-| A visitor's figure | `avatarParts` in `three.ts` |
+| A visitor's figure, and how a world re-dresses it | `figure.ts`; the lists of parts are `LOOK_PARTS` in `packages/core/src/avatar.ts` |
 
 `packages/sdk/test/mesh.test.ts` checks that what the kit builds is sound:
 faces the right way out, nothing inside the doorway's opening.
