@@ -179,6 +179,38 @@ exitButton.onclick = () => portal.go({ url: "https://gallery.bitblocks.network/"
 That adds about 170 KB to your bundle before compression, most of it the
 signature checking.
 
+### How your visitors look to each other
+
+If your site has shared rooms, each visitor has a **look**: a few parts and
+colours they chose, or that their key generates (spec §4.2). It is data, not a
+3D file, so nothing is downloaded to draw a stranger.
+
+```js
+import { decodeLook } from "@nswp/core";
+import { arrival } from "nswp-sdk";
+import { createFigure } from "nswp-sdk/three";
+
+const arrived = arrival.look();                       // what this visitor chose to wear here, or undefined if they came plain
+const read = arrived ? decodeLook(arrived) : null;    // never trust it unread
+const figure = createFigure(read?.ok ? read.value.look : theirKey); // a key or any seed generates a look of its own
+```
+
+You choose how much of it to keep:
+
+- **As it is:** `createFigure(look)` draws the standard figure.
+- **Re-dressed:** `createFigure(look, { material, palette, omit })` keeps the
+  shapes and uses your material and your colours.
+- **Your own thing:** read the look's fields (`color`, `build`, `head` and the
+  rest) and draw whatever fits your world. A game might paint a vehicle in
+  the visitor's `color`.
+
+Whatever you do, try to keep the **mark** visible: a five-by-five pattern from
+the visitor's key (`markGrid(look.mark)` in `@nswp/core`). It is the one thing
+that follows a person from world to world and that someone else can't copy.
+
+The SDK's room code does all of this for you:
+`createPresence({ look: () => arrival.look(), figureStyle })`.
+
 ### What every world owes a visitor
 
 Your interface is yours, and it leads. But a visitor needs a few things to be

@@ -18,7 +18,7 @@ Avatars are worked out in detail (§4.2). The earlier sketch had two colours, th
 - **A mark that isn't a choice.** A five-by-five pattern from the key, on every figure. It follows a person through any change of clothes, and a copied look comes out with the copier's mark.
 - **How a look travels**: by key, by the avatar event, inline in the arrival context for a guest, or in a room's hello. And the cost said plainly: a look that is the same everywhere makes its wearer recognisable everywhere, so the Airlock offers going plain.
 - **What a world may change**: draw it as it is, re-dress it in its own material and palette, recast it as something of its own, or ignore it. A world that tells visitors apart at all should keep the mark.
-- **Built so far:** the format in `@nswp/core`, and a figure in the SDK that draws any look and can be re-dressed. **Not built:** carrying a look between worlds, an editor, and the Airlock's choice.
+- **Built:** the format in `@nswp/core`; a figure in the SDK that draws any look and can be re-dressed; looks carried in the arrival context and between a room's members; and in BitPortal an editor, the visitor's own figure in their room, and the Airlock's choice. **Not built:** publishing a look for someone signed in, proof of a key behind a mark, and an editor usable inside a headset.
 
 ## 0. What changed in 0.7.9
 
@@ -442,7 +442,7 @@ A world that draws visitors differently from each other at all **should keep the
 - **Things you carry** are items (§10.5), attached at a few fixed points. They are listed in this event with `carry` tags.
 - **An editor is a client feature.** It shows the lists, draws the result, keeps the choice on the device, and writes this event for someone signed in. The protocol defines the lists, not the editor.
 
-**Status (2026-11-17): the format and the figure are built; nothing travels yet.** `@nswp/core` generates, reads and writes looks and avatar events, with tests. The SDK draws a figure from any look and re-dresses it (`createFigure(look, style)`), and rooms draw each member's generated look from their session key. Not built: looks in the arrival context or the room's hello, an editor, and the choice at the Airlock. A guest's session key changes every visit, so today nobody is yet the same from one visit to the next. The lists above are a first proposal (Q25): they were chosen to be drawable in a few hundred triangles, not tested with people.
+**Status (2026-11-18): built, and tried on a desktop only; not deployed.** `@nswp/core` generates, reads and writes looks and avatar events, and carries a look in the arrival context (`look`), with tests and vectors. The SDK draws a figure from any look and re-dresses it (`createFigure(look, style)`); a room's members tell each other how they look over the connection they already share, never through a relay; and `arrival.look()` hands a world the look its visitor arrived wearing. BitPortal has an editor at `/look/` that keeps the look on the device, shows a visitor their own figure in their room, and asks at the Airlock, every trip, whether to go as themselves or plain. Nothing is kept or sent until a visitor makes a look. Three visitors in one world in headless Chrome each saw the others as chosen, and the one who came plain as their key generates. Not built: publishing the avatar event for someone signed in (the editor keeps looks on the device only), proof of a key (so every mark is still "the same visitor as before"), an editor usable inside a headset, and the model tier. The lists above are a first proposal (Q25): they were chosen to be drawable in a few hundred triangles, not tested with people.
 
 ### 4.3 Privacy-preserving identity
 
@@ -468,7 +468,7 @@ The problem: a world is on a different origin from the client, so it can't see t
   "airlock": "https://portal.bitblocks.network/go",
   "assertion": "<signed event object, optional>",
   "avatar": "naddr1…",
-  "look": "<a look, inline; proposed (§4.2)>",
+  "look": "<a look, inline (§4.2)>",
   "receipts": ["<entitlement receipt event, optional (§16)>"],
   "room": {
     "event": "<room event, or its naddr>",
@@ -481,7 +481,7 @@ The problem: a world is on a different origin from the client, so it can't see t
 
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
-- `look` (proposed, not yet read by the reference library) is a look written inline (§4.2): a seed and the parts that were chosen, for a visitor who hasn't published an avatar. It makes them recognisable to the world, so the Airlock sends it only when the visitor chose to go as themselves.
+- `look` is a look written inline (§4.2): a seed and the parts that were chosen, for a visitor who hasn't published an avatar. It makes them recognisable to the world, so the Airlock sends it only when the visitor chose to go as themselves.
 - `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
 - `"carry": false` asks the world not to draw the items the user carries (§10.5). It is a 0.7 addition, also not yet in the schemas or library.
 - **Only a site that publishes a manifest gets an arrival context.** A site that hasn't adopted NSWP, such as one a curator listed, gets a plain visit with nothing added to its address.
