@@ -1,5 +1,6 @@
 /** Spatial World Announcements (spec §5). */
 import {
+  AUDIENCES,
   CAPABILITIES,
   COMFORT,
   INPUTS,
@@ -11,6 +12,7 @@ import {
   STATUSES,
   WELL_KNOWN_PATH,
   WORLD_KIND,
+  type Audience,
 } from "./constants.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -54,6 +56,8 @@ export interface WorldInput {
   languages?: string[];
   /** `true` for a warning with no reason. */
   contentWarning?: string | true;
+  /** Who it is for: `kids`, `general` or `adult`. An adult world is given a content warning if it has none. */
+  audience?: Audience;
   status?: string;
   /** Only when the manifest is not at the well-known path (it then can't verify). */
   manifest?: string;
@@ -83,11 +87,29 @@ export interface World {
   topics: string[];
   languages: string[];
   contentWarning?: string;
+  /** Who its maker says it is for. Left out when they didn't say, or said something else. */
+  audience?: Audience;
   status: string;
   manifest?: string;
   coCreators: string[];
   access?: string;
   createdAt: number;
+}
+
+/**
+ * How a reader that wants to be careful takes a world's word about itself.
+ * `adult` when it says so, and also when it carries a content warning and
+ * doesn't say who it is for: a warning with no audience is not a promise that
+ * it is fit for everyone. `unrated` when it says nothing at all.
+ *
+ * This is the maker's own word. It keeps honest makers' worlds where they
+ * belong; it does nothing about a maker who lies. That is what lists are for
+ * (protocol/08-lists.md).
+ */
+export function audienceOf(w: Pick<World, "audience" | "contentWarning">): Audience | "unrated" {
+  if (w.audience === "adult") return "adult";
+  if (w.audience) return w.audience;
+  return w.contentWarning !== undefined ? "adult" : "unrated";
 }
 
 /** Build an unsigned world announcement, tag-first (spec §5.2). */
@@ -115,7 +137,10 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
     tags.push(["L", "ISO-639-1"]);
     for (const l of w.languages) tags.push(["l", l, "ISO-639-1"]);
   }
-  if (w.contentWarning !== undefined) tags.push(w.contentWarning === true ? ["content-warning"] : ["content-warning", w.contentWarning]);
+  // An adult world always carries the warning other clients already understand (NIP-36).
+  const warning = w.contentWarning ?? (w.audience === "adult" ? "adult" : undefined);
+  if (warning !== undefined) tags.push(warning === true ? ["content-warning"] : ["content-warning", warning]);
+  if (w.audience) tags.push(["audience", w.audience]);
   if (w.status) tags.push(["status", w.status]);
   if (w.manifest) tags.push(["manifest", w.manifest]);
   for (const p of w.coCreators ?? []) tags.push(["p", p, "", "co-creator"]);
@@ -279,6 +304,15 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   const cw = getTags({ tags }, "content-warning")[0];
   const contentWarning = cw ? (cw[1] ?? "") : undefined;
 
+  let audience: Audience | undefined;
+  const said = getTags({ tags }, "audience")[0]?.[1];
+  if (said !== undefined) {
+    if ((AUDIENCES as readonly string[]).includes(said)) audience = said as Audience;
+    else c.warn("unknown_audience", "tags.audience", `Unknown audience "${said}"; treated as not stated.`);
+  }
+  if (audience === "adult" && contentWarning === undefined) c.warn("adult_without_warning", "tags.audience", "An adult world should also carry a content-warning, which other clients read.");
+  if (audience === "kids" && contentWarning !== undefined) c.warn("kids_with_warning", "tags.audience", "A world for kids carries a content warning. One of the two is wrong.");
+
   const manifest = single(c, tags, "manifest", false);
   if (manifest) {
     if (!isHttpsUrl(manifest)) c.warn("url_not_https", "tags.manifest", "The manifest tag must be an https URL; ignored.");
@@ -324,6 +358,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (image) world.image = image;
   if (perf) world.perf = perf;
   if (contentWarning !== undefined) world.contentWarning = contentWarning;
+  if (audience) world.audience = audience;
   if (manifest) world.manifest = manifest;
   if (access) world.access = access;
   return c.result(world);

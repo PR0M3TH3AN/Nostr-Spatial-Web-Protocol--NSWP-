@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildWayUrl,
   wayWithoutDestination,
+  audienceOf,
   arrivalParam,
   buildAirlockUrl,
   buildArrivalUrl,
@@ -426,5 +427,36 @@ describe("a way with no destination", () => {
     for (const o of [{}, { doors: true }, { immersive: true }, { doors: true, immersive: true }]) expect(wayWithoutDestination(new URL(buildWayUrl(airlock, o)).hash)).toEqual({ immersive: !!o.immersive, doors: !!o.doors });
     // An Airlock's own fragment is replaced, never added to.
     expect(buildWayUrl(`${airlock}#to=https://elsewhere.example`, { doors: true })).toBe(`${airlock}#doors=1`);
+  });
+});
+
+describe("who a world is for", () => {
+  const base = { d: "w", title: "W", url: "https://w.example/" };
+  const read = (w: Parameters<typeof buildWorldEvent>[0]) => {
+    const r = parseWorldEvent(buildWorldEvent(w));
+    if (!r.ok) throw new Error("should parse");
+    return r.value;
+  };
+
+  it("is the maker's word, carried in the announcement", () => {
+    expect(read({ ...base, audience: "kids" }).audience).toBe("kids");
+    expect(read({ ...base, audience: "general" }).audience).toBe("general");
+    expect(read(base).audience).toBeUndefined();
+  });
+
+  it("gives an adult world the warning other clients already read", () => {
+    const adult = read({ ...base, audience: "adult" });
+    expect(adult.audience).toBe("adult");
+    expect(adult.contentWarning).toBe("adult");
+    // A maker's own reason is kept.
+    expect(read({ ...base, audience: "adult", contentWarning: "nudity" }).contentWarning).toBe("nudity");
+  });
+
+  it("is read with care: a warning with no audience is taken as adult", () => {
+    expect(audienceOf(read({ ...base, audience: "kids" }))).toBe("kids");
+    expect(audienceOf(read({ ...base, audience: "general", contentWarning: "flashing lights" }))).toBe("general");
+    expect(audienceOf(read({ ...base, contentWarning: "flashing lights" }))).toBe("adult");
+    expect(audienceOf(read({ ...base, contentWarning: true }))).toBe("adult");
+    expect(audienceOf(read(base))).toBe("unrated");
   });
 });
