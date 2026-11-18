@@ -72,6 +72,21 @@ export function encodeNpub(pubkey: string): string {
   return bech32.encode("npub", bech32.toWords(hexToBytes(pubkey)), BECH32_LIMIT);
 }
 
+/** Read a public key someone wrote down: an `npub1…`, or 64 hex characters. Throws when it is neither. */
+export function decodeNpub(s: string): string {
+  const text = s.trim();
+  if (/^[0-9a-f]{64}$/i.test(text)) return text.toLowerCase();
+  let decoded: { prefix: string; words: number[] };
+  try {
+    decoded = bech32.decode(text as `${string}1${string}`, BECH32_LIMIT);
+  } catch (cause) {
+    throw new NswpError("npub_invalid", "not a public key: expected npub1… or 64 hex characters", { cause });
+  }
+  const bytes = bech32.fromWords(decoded.words);
+  if (decoded.prefix !== "npub" || bytes.length !== 32) throw new NswpError("npub_invalid", "not a public key: expected npub1… or 64 hex characters");
+  return bytesToHex(Uint8Array.from(bytes));
+}
+
 /** An npub short enough to sit beside a figure: its start and its end. */
 export function shortNpub(pubkey: string): string {
   const npub = encodeNpub(pubkey);

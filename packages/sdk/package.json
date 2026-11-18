@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./three": "./src/three.ts",
     "./home": "./src/home.ts",
-    "./ui": "./src/ui.ts"
+    "./ui": "./src/ui.ts",
+    "./terminal": "./src/terminal.ts"
   },
   "peerDependencies": {
     "three": ">=0.170.0"
@@ -19,8 +20,9 @@
     }
   },
   "dependencies": {
+    "@noble/curves": "^2.4.0",
     "@nswp/core": "0.1.0",
-    "@noble/curves": "^2.4.0"
+    "@xterm/headless": "^6.0.0"
   },
   "devDependencies": {
     "@types/webxr": "^0.5.24"

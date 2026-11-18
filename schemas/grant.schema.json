@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/grant.schema.json",
+  "title": "Bridge grant (kind 27302)",
+  "description": "Structural rules only. A Bridge must also check the signature, that the signer is its owner, that nswp:bridge is its own key, that nswp:session is the key that sent the grant and is neither the owner's nor its own, that expiration is in the future and at most 300 seconds after created_at, that created_at is not in the future, and that the grant has not been used before. See browser/bridge.md. Not part of the protocol a world implements.",
+  "type": "object",
+  "required": ["kind", "created_at", "tags", "content", "pubkey", "id", "sig"],
+  "properties": {
+    "kind": { "const": 27302 },
+    "created_at": { "type": "integer" },
+    "content": { "type": "string" },
+    "pubkey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "string" } },
+      "allOf": [
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:session" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:bridge" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "expiration" }, { "type": "string", "pattern": "^[0-9]+$" }], "minItems": 2 } },
+        { "not": { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:origin" }], "minItems": 1 } } }
+      ]
+    }
+  }
+}
