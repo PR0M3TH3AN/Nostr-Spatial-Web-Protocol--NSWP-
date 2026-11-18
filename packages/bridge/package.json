@@ -1,0 +1,14 @@
+{
+  "name": "nswp-bridge",
+  "version": "0.1.0",
+  "description": "A terminal on your own computer, opened from your BitPortal home. Answers one Nostr key: yours.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "nswp-bridge": "./dist/nswp-bridge.mjs" },
+  "files": ["dist"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/nswp-bridge.mjs --banner:js=\"import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);\""
+  },
+  "dependencies": { "@nswp/core": "0.1.0", "werift": "^0.27.0" }
+}

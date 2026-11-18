@@ -39,6 +39,10 @@ import {
   verifyEvent,
   verifyOrigin,
   verifyRoomPass,
+  buildBridgeGrant,
+  verifyBridgeGrant,
+  grantCode,
+  bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
   type EventTemplate,
@@ -501,6 +505,38 @@ for (const v of passVectors) {
   if (r.ok) expectEqual(`pass/${v.name} who`, [r.value.pubkey, r.value.name], [v.expect.pubkey, v.expect.name]);
 }
 
+// ---------------------------------------------------------------------- grants
+// Key 1 owns a Bridge whose key is key 2; the session key is the throwaway.
+const goodGrant = sign(buildBridgeGrant({ session: PK3, bridge: PK2, createdAt: T0 }));
+const rawGrant = (tags: string[][], kind = 27302, key = KEY1): NostrEvent => sign({ kind, created_at: T0, tags, content: "" }, key);
+const grantTags = (over: Record<string, string | null> = {}): string[][] =>
+  Object.entries({ "nswp:session": PK3, "nswp:bridge": PK2, expiration: String(T0 + 300), ...over }).flatMap(([k, v]) => (v === null ? [] : [[k, v]]));
+type GrantVector = { name: string; description: string; event: unknown; owner: string; bridge: string; session: string; now: number; seen?: string[]; expect: { valid: boolean; errors: string[]; code?: string } };
+const grantAt = { owner: PK1, bridge: PK2, session: PK3, now: T0 + 30 };
+const grantVectors: GrantVector[] = [
+  { name: "valid", description: "Key 1 says the session key may open a terminal on its Bridge (key 2), for five minutes.", event: goodGrant, ...grantAt, expect: { valid: true, errors: [], code: grantCode(goodGrant.id) } },
+  { name: "not_the_owner", description: "Signed correctly, by somebody who isn't this Bridge's owner. This is the second key that is refused.", event: rawGrant(grantTags({ "nswp:session": PK3 }), 27302, KEY2), ...grantAt, bridge: PK2, expect: { valid: false, errors: ["not_owner"] } },
+  { name: "another_bridge", description: "A grant for a different computer.", event: rawGrant(grantTags({ "nswp:bridge": PK1.replace(/^../, "ff") })), ...grantAt, expect: { valid: false, errors: ["bridge_mismatch"] } },
+  { name: "another_session_key", description: "Sent by a key the grant doesn't name: someone replaying a grant they overheard.", event: goodGrant, ...grantAt, session: PK1.replace(/^../, "ee"), expect: { valid: false, errors: ["session_mismatch"] } },
+  { name: "expired", description: "Six minutes on.", event: goodGrant, ...grantAt, now: T0 + 360, expect: { valid: false, errors: ["grant_expired"] } },
+  { name: "lives_too_long", description: "An hour is more than a grant may claim.", event: rawGrant(grantTags({ expiration: String(T0 + 3600) })), ...grantAt, expect: { valid: false, errors: ["ttl_too_long"] } },
+  { name: "dated_in_the_future", description: "Read ten minutes before it says it was signed.", event: goodGrant, ...grantAt, now: T0 - 600, expect: { valid: false, errors: ["created_in_future"] } },
+  { name: "used_before", description: "The same grant, a second time.", event: goodGrant, ...grantAt, seen: [goodGrant.id], expect: { valid: false, errors: ["grant_reused"] } },
+  { name: "changed_after_signing", description: "The Bridge's key was swapped, so the signature no longer holds.", event: { ...goodGrant, tags: goodGrant.tags.map((t) => (t[0] === "nswp:bridge" ? ["nswp:bridge", PK1] : t)) }, ...grantAt, expect: { valid: false, errors: ["bad_signature"] } },
+  { name: "a_pass_is_not_a_grant", description: "The pass a world is handed, signed by the owner for this very session key. It opens nothing.", event: sign(buildRoomPass({ session: PK3, origin: "https://museum.example", createdAt: T0, ttlSec: 300 })), ...grantAt, expect: { valid: false, errors: ["missing_tag", "names_a_site", "wrong_kind"] } },
+  { name: "names_a_site", description: "A grant's kind and tags with a site added: something made to pass as both.", event: rawGrant([...grantTags(), ["nswp:origin", "https://museum.example"]]), ...grantAt, expect: { valid: false, errors: ["names_a_site"] } },
+  { name: "names_the_owner", description: "The session key must be a throwaway, never the owner's key.", event: rawGrant(grantTags({ "nswp:session": PK1 })), ...grantAt, session: PK1, expect: { valid: false, errors: ["invalid_session"] } },
+  { name: "no_bridge", description: "A grant that names no computer.", event: rawGrant(grantTags({ "nswp:bridge": null })), ...grantAt, expect: { valid: false, errors: ["missing_tag"] } },
+];
+for (const v of grantVectors) {
+  const r = verifyBridgeGrant(v.event, { owner: v.owner, bridge: v.bridge, session: v.session, now: v.now, ...(v.seen ? { seen: new Set(v.seen) } : {}) });
+  expectEqual(`grant/${v.name} valid`, r.ok, v.expect.valid);
+  expectEqual(`grant/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
+}
+// And the other way: a grant is worth nothing to a world.
+expectEqual("grant/as a pass", verifyRoomPass(goodGrant, { origin: "https://museum.example", session: PK3, now: T0 + 30 }).ok, false);
+const grantTopic = { bridge: PK2, topic: bridgeTopic(PK2) };
+
 // --------------------------------------------------------------------- output
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
@@ -525,6 +561,13 @@ const files: Record<string, unknown> = {
       "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show.",
     testKeys,
     vectors: passVectors,
+  },
+  "grants.json": {
+    description:
+      "Bridge grants (browser/bridge.md; not part of the protocol a world implements). Verify each `event` as the Bridge with key `bridge`, owned by `owner`, sent by `session`, at time `now`, having already used the grants in `seen`. `errors` are sorted issue codes. `code` is the four digits both ends show. `topic` is where that Bridge listens.",
+    testKeys,
+    topic: grantTopic,
+    vectors: grantVectors,
   },
   "lists.json": {
     description:

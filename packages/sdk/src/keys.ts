@@ -4,7 +4,7 @@
  * is tested like arithmetic. `keyboard.ts` draws it in a headset.
  */
 
-export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system";
+export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system" | "esc" | "tab" | "ctrl" | "up" | "down" | "left" | "right" | "close";
 
 export interface Key {
   /** What a press of it is called: the character itself for a letter, a word for the rest. */
@@ -37,9 +37,8 @@ export function keyRows(layer: Layer, o: { system?: boolean; multiline?: boolean
   return [chars("1234567890"), chars("-/:;()!?@"), [...chars("'\"_&#+=*"), key("back", "delete", "back", 2)], bottom, actions];
 }
 
-/** Where every key of a layer sits on a board ten letter-widths across. */
-export function placeKeys(layer: Layer, o: { system?: boolean; multiline?: boolean } = {}): PlacedKey[] {
-  const rows = keyRows(layer, o);
+/** Where every key of a layer sits on a board ten letter-widths across. `rows` lays out other rows the same way. */
+export function placeKeys(layer: Layer, o: { system?: boolean; multiline?: boolean } = {}, rows: Key[][] = keyRows(layer, o)): PlacedKey[] {
   const gap = 0.012;
   const height = 1 / rows.length;
   return rows.flatMap((row, r) => {
@@ -135,6 +134,9 @@ export class TextEntry {
         return "cancel";
       case "system":
         return "system";
+      default:
+        // A terminal's keys (term-keys.ts) are not on this board.
+        return "typing";
     }
   }
 }

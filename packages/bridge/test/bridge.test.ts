@@ -1,0 +1,426 @@
+/**
+ * The Bridge, whole: a relay on this machine, throwaway keys, and a real
+ * terminal. What matters most is who it turns away.
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomBytes } from "node:crypto";
+import { spawn } from "node:child_process";
+import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { RTCPeerConnection, type RTCDataChannel } from "werift";
+import { bridgeTopic, decodeNpub, encodeNpub, buildBridgeGrant, buildBridgeSignal, buildRoomPass, finalizeEvent, getPublicKey, grantCode, openBridgeSignal, type NostrEvent } from "@nswp/core";
+import { createBridge, type AskAbout, type Bridge } from "../src/bridge.js";
+import { startRelay, type TestRelay } from "./relay.js";
+
+const key = () => Uint8Array.from(randomBytes(32));
+const OWNER = key();
+const BRIDGE = key();
+const owner = getPublicKey(OWNER);
+const theBridge = getPublicKey(BRIDGE);
+const bridgeKey = theBridge;
+
+let relay: TestRelay;
+let bridge: Bridge;
+const asked: AskAbout[] = [];
+const log: string[] = [];
+let answer = true;
+
+interface Attempt {
+  waited: boolean;
+  refused?: string;
+  grant: NostrEvent;
+  channel?: RTCDataChannel;
+  /** Everything the terminal has written so far. */
+  text(): string;
+  frames: Record<string, unknown>[];
+  type(s: string): void;
+  until(what: RegExp | ((a: Attempt) => boolean), ms?: number): Promise<void>;
+  close(): Promise<void>;
+}
+
+/** Ask the Bridge for a terminal the way a home does. `signer` signs the grant; `make` may build something else to send as one. */
+async function attempt(o: { signer?: Uint8Array; session?: Uint8Array; make?: (session: string) => NostrEvent; send?: NostrEvent; size?: [number, number]; to?: string; on?: string } = {}): Promise<Attempt> {
+  const bridgeKey = o.to ?? theBridge;
+  const sessionKey = o.session ?? key();
+  const session = getPublicKey(sessionKey);
+  const grant = o.send ?? o.make?.(session) ?? finalizeEvent(buildBridgeGrant({ session, bridge: bridgeKey }), o.signer ?? OWNER);
+  const pc = new RTCPeerConnection({ iceServers: [], iceUseDefaultStunServer: false });
+  const channel = pc.createDataChannel("term");
+  let out = "";
+  const a: Attempt = {
+    waited: false,
+    grant,
+    text: () => out,
+    frames: [],
+    type: (s) => channel.send(Buffer.from(s)),
+    async until(what, ms = 15000) {
+      const ok = () => (typeof what === "function" ? what(a) : what.test(out));
+      const end = Date.now() + ms;
+      while (!ok()) {
+        if (Date.now() > end) throw new Error(`waited ${ms} ms for ${what}; the terminal has written: ${JSON.stringify(out.slice(-400))}`);
+        await new Promise((r) => setTimeout(r, 25));
+      }
+    },
+    async close() {
+      ws.close();
+      await pc.close();
+    },
+  };
+  channel.onMessage.subscribe((data) => {
+    if (typeof data === "string") a.frames.push(JSON.parse(data) as Record<string, unknown>);
+    else out += data.toString("utf8");
+  });
+  await pc.setLocalDescription(await pc.createOffer());
+  if (pc.iceGatheringState !== "complete") await pc.iceGatheringStateChange.watch((s) => s === "complete", 5000);
+
+  const open = buildBridgeSignal(bridgeKey, sessionKey, bridgeKey, { t: "open", grant, sdp: pc.localDescription!.sdp });
+  const ws = new WebSocket(o.on ?? relay.url);
+  await new Promise((r) => (ws.onopen = r));
+  const settled = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("the Bridge never answered")), 8000);
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(String(msg.data)) as unknown[];
+      if (data[0] !== "EVENT") return;
+      const note = openBridgeSignal(data[2], sessionKey, bridgeKey);
+      // Only the Bridge, and only about this request.
+      if (!note || note.from !== bridgeKey || note.re !== open.id) return;
+      if (note.message.t === "wait") a.waited = true;
+      if (note.message.t === "refused") {
+        a.refused = note.message.why;
+        clearTimeout(timer);
+        resolve();
+      }
+      if (note.message.t === "answer") {
+        clearTimeout(timer);
+        void pc.setRemoteDescription({ type: "answer", sdp: note.message.sdp }).then(async () => {
+          if (channel.readyState !== "open") await channel.stateChanged.watch((s) => s === "open", 8000);
+          a.channel = channel;
+          channel.send(JSON.stringify({ t: "size", cols: o.size?.[0] ?? 90, rows: o.size?.[1] ?? 28 }));
+          resolve();
+        }, reject);
+      }
+    };
+  });
+  ws.send(JSON.stringify(["REQ", "home", { kinds: [27301], "#x": [bridgeTopic(bridgeKey)], "#p": [session] }]));
+  ws.send(JSON.stringify(["EVENT", open]));
+  await settled;
+  return a;
+}
+
+const idle = async () => {
+  const end = Date.now() + 8000;
+  while (bridge.state().busy !== "no" && Date.now() < end) await new Promise((r) => setTimeout(r, 25));
+  expect(bridge.state().busy).toBe("no");
+};
+
+beforeAll(async () => {
+  relay = await startRelay();
+  bridge = createBridge({
+    key: BRIDGE,
+    owner,
+    relays: [relay.url],
+    command: ["/bin/sh"],
+    iceServers: [],
+    strangerReplyMs: 0,
+    name: "the test computer",
+    log: (line) => log.push(line),
+    ask(about) {
+      asked.push(about);
+      return Promise.resolve(answer);
+    },
+  });
+  bridge.start();
+  const end = Date.now() + 5000;
+  while (!bridge.state().relays && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+});
+
+afterAll(async () => {
+  await bridge.stop();
+  await relay.close();
+});
+
+describe("the owner", () => {
+  it("opens a terminal, runs a command, and sees it end", async () => {
+    const before = asked.length;
+    const a = await attempt();
+    expect(a.refused).toBeUndefined();
+    expect(a.waited).toBe(true);
+    // The person at the computer was asked, about this request, with the code the panel shows.
+    expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1], replaces: false }]);
+    await a.until((x) => x.frames.some((f) => f.t === "ready"));
+    expect(a.frames.find((f) => f.t === "ready")).toEqual({ t: "ready", name: "the test computer" });
+    a.type("echo made-$((40 + 2))\n");
+    await a.until(/made-42/);
+    a.type("stty size\n");
+    await a.until(/28 90/);
+    a.channel!.send(JSON.stringify({ t: "size", cols: 120, rows: 40 }));
+    a.type("stty size\n");
+    await a.until(/40 120/);
+    a.type("exit 3\n");
+    await a.until((x) => x.frames.some((f) => f.t === "exit"));
+    expect(a.frames.find((f) => f.t === "exit")).toEqual({ t: "exit", code: 3 });
+    await a.close();
+    await idle();
+    expect(log.some((l) => l.startsWith("Terminal open"))).toBe(true);
+    expect(log.some((l) => l.startsWith("Terminal closed"))).toBe(true);
+  }, 30000);
+
+  it("is turned away when nobody at the computer says yes", async () => {
+    answer = false;
+    const opened = bridge.state().opened;
+    const a = await attempt();
+    answer = true;
+    expect(a.waited).toBe(true);
+    expect(a.refused).toMatch(/Nobody at the computer/);
+    expect(bridge.state().opened).toBe(opened);
+    await a.close();
+    await idle();
+  }, 20000);
+
+  it("has one terminal at a time: opening another, once allowed, hangs up the first and its program", async () => {
+    const first = await attempt();
+    await first.until((x) => x.frames.some((f) => f.t === "ready"));
+    // A program that would run for ever.
+    first.type("echo pid-$$ && sleep 600\n");
+    await first.until(/pid-(\d+)/);
+    const pid = Number(/pid-(\d+)/.exec(first.text())![1]);
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    expect(alive()).toBe(true);
+    // The owner again, from somewhere else. The person at the computer is told what a yes will do.
+    const second = await attempt();
+    expect(second.refused).toBeUndefined();
+    expect(asked.at(-1)).toMatchObject({ replaces: true });
+    await second.until((x) => x.frames.some((f) => f.t === "ready"));
+    const end = Date.now() + 6000;
+    while (alive() && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+    expect(alive()).toBe(false);
+    expect(log.some((l) => /another was opened in its place/.test(l))).toBe(true);
+    // The second is whole: it is its own shell, and the first is gone.
+    second.type("echo second-$((1 + 1))\n");
+    await second.until(/second-2/);
+    expect(bridge.state().busy).toBe("open");
+    await first.close();
+    await second.close();
+    await idle();
+  }, 40000);
+
+  it("is not kept out by a question still waiting for its answer", async () => {
+    let let_in: (yes: boolean) => void = () => {};
+    const other = await startRelay();
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => new Promise((r) => (let_in = r)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const make = (session: string) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER);
+    const first = attempt({ to: b.pubkey, on: other.url, make });
+    while (b.state().busy !== "asking") await new Promise((r) => setTimeout(r, 20));
+    const second = await attempt({ to: b.pubkey, on: other.url, make });
+    expect(second.refused).toMatch(/already answering/);
+    let_in(false);
+    expect((await first).refused).toMatch(/Nobody at the computer/);
+    await (await first).close();
+    await second.close();
+    await b.stop();
+    await other.close();
+  }, 30000);
+
+  it("is hung up on when its home goes quiet", async () => {
+    const other = await startRelay();
+    const said: string[] = [];
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], quietMs: 1500, log: (l) => said.push(l), ask: () => Promise.resolve(true) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const a = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER) });
+    await a.until((x) => x.frames.some((f) => f.t === "ready"));
+    // The connection is still up, and nothing is said on it: a page that froze, a headset in a drawer.
+    const end = Date.now() + 12000;
+    while (b.state().busy !== "no" && Date.now() < end) await new Promise((r) => setTimeout(r, 100));
+    expect(b.state().busy).toBe("no");
+    expect(said.some((l) => /the home went quiet/.test(l))).toBe(true);
+    await a.close();
+    await b.stop();
+    await other.close();
+  }, 30000);
+});
+
+describe("anyone else", () => {
+  const nothingOpened = async (a: Attempt, opened: number, askedBefore: number) => {
+    expect(a.channel).toBeUndefined();
+    expect(a.waited).toBe(false);
+    expect(bridge.state().opened).toBe(opened);
+    // And nobody at the computer was even bothered.
+    expect(asked.length).toBe(askedBefore);
+    await a.close();
+  };
+
+  it("a second key is refused, however well its grant is signed", async () => {
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ signer: key() });
+    expect(a.refused).toBe("This computer answers a different key.");
+    await nothingOpened(a, opened, n);
+  }, 20000);
+
+  it("the Bridge's own key is refused too", async () => {
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ signer: BRIDGE });
+    expect(a.refused).toBeDefined();
+    await nothingOpened(a, opened, n);
+  }, 20000);
+
+  it("a pass the owner signed for a world opens nothing", async () => {
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ make: (session) => finalizeEvent(buildRoomPass({ session, origin: "https://world.example", ttlSec: 300 }), OWNER) });
+    expect(a.refused).toBeDefined();
+    await nothingOpened(a, opened, n);
+  }, 20000);
+
+  it("a grant for another computer opens nothing", async () => {
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: getPublicKey(key()) }), OWNER) });
+    expect(a.refused).toBe("That was meant for a different computer.");
+    await nothingOpened(a, opened, n);
+  }, 20000);
+
+  it("an old grant opens nothing", async () => {
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: bridgeKey, createdAt: Math.floor(Date.now() / 1000) - 400 }), OWNER) });
+    expect(a.refused).toMatch(/too old/);
+    await nothingOpened(a, opened, n);
+  }, 20000);
+
+  it("a grant overheard and sent again opens nothing: not by another key, and not by the same one", async () => {
+    const session = key();
+    const first = await attempt({ session });
+    expect(first.refused).toBeUndefined();
+    await first.until((x) => x.frames.some((f) => f.t === "ready"));
+    first.type("exit\n");
+    await first.until((x) => x.frames.some((f) => f.t === "exit"));
+    await first.close();
+    await idle();
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const thief = await attempt({ send: first.grant });
+    expect(thief.refused).toBeDefined();
+    await nothingOpened(thief, opened, n);
+    const again = await attempt({ session, send: first.grant });
+    expect(again.refused).toMatch(/already used/);
+    await nothingOpened(again, opened, n);
+  }, 40000);
+
+  it("learns nothing from the relay but two keys talking", () => {
+    const text = JSON.stringify(relay.events);
+    for (const secret of ["made-42", "stty", "nswp:bridge", "nswp:session", "a=candidate", "the test computer"]) expect(text, secret).not.toContain(secret);
+    expect(relay.events.every((e) => e.kind === 27301)).toBe(true);
+  });
+});
+
+describe("how often it asks, and how often it answers", () => {
+  it("asks once, then not again for as long as it was told", async () => {
+    const other = await startRelay();
+    const k = key();
+    const questions: AskAbout[] = [];
+    const b = createBridge({ key: k, owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], allowForSec: 3, ask: (q) => (questions.push(q), Promise.resolve(true)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const go = async () => {
+      const a = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER) });
+      expect(a.refused).toBeUndefined();
+      await a.until((x) => x.frames.some((f) => f.t === "ready"));
+      a.type("exit\n");
+      await a.until((x) => x.frames.some((f) => f.t === "exit"));
+      await a.close();
+      while (b.state().busy !== "no") await new Promise((r) => setTimeout(r, 20));
+      return a;
+    };
+    expect((await go()).waited).toBe(true);
+    expect((await go()).waited).toBe(false); // inside the three seconds: straight in
+    expect(questions.length).toBe(1);
+    // Still nobody but the owner, asked or not.
+    const stranger = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), key()) });
+    expect(stranger.refused).toBe("This computer answers a different key.");
+    await stranger.close();
+    await new Promise((r) => setTimeout(r, 3200));
+    expect((await go()).waited).toBe(true);
+    expect(questions.length).toBe(2);
+    await b.stop();
+    await other.close();
+  }, 60000);
+
+  it("answers a stranger once, however many times they ask", async () => {
+    const other = await startRelay();
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => Promise.resolve(true) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const stranger = key();
+    const first = await attempt({ to: b.pubkey, on: other.url, signer: stranger });
+    expect(first.refused).toBeDefined();
+    await first.close();
+    await Promise.all([1, 2, 3, 4, 5].map(() => attempt({ to: b.pubkey, on: other.url, signer: stranger }).then((a) => a.close(), () => undefined)));
+    expect(b.state().refused).toBe(6);
+    // Six requests, one reply: the rest got silence.
+    expect(other.events.filter((e) => e.pubkey === b.pubkey).length).toBe(1);
+    await b.stop();
+    await other.close();
+  }, 40000);
+});
+
+describe("the program", () => {
+  it("keeps its key to itself, remembers its owner, asks on its own screen, and won't change hands quietly", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "nswp-bridge-test-"));
+    const run = (args: string[]) => spawn("npx", ["tsx", "packages/bridge/src/index.ts", "--dir", dir, "--relays", relay.url, "--command", "echo from-the-program; exit 0", ...args], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = run(["--owner", encodeNpub(owner)]);
+    let out = "";
+    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    child.stderr.on("data", (d: Buffer) => (out += d.toString()));
+    const seen = async (what: RegExp, ms = 20000) => {
+      const end = Date.now() + ms;
+      while (!what.test(out)) {
+        if (Date.now() > end) throw new Error(`the program never said ${what}: ${out}`);
+        await new Promise((r) => setTimeout(r, 30));
+      }
+      return what.exec(out)!;
+    };
+    const link = await seen(/#bridge=(npub1[a-z0-9]+)/);
+    const its = decodeNpub(link[1]!);
+    expect(out).toContain(`Answers only    ${encodeNpub(owner)}`);
+    expect(out).toContain("It asks here before every session.");
+    // The key file: this user only, and not the key it printed.
+    expect(statSync(join(dir, "bridge.key")).mode & 0o777).toBe(0o600);
+    expect(out).not.toContain(readFileSync(join(dir, "bridge.key"), "utf8").trim());
+    await new Promise((r) => setTimeout(r, 400)); // its relay connection
+
+    const going = attempt({ to: its, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: its }), OWNER) });
+    const code = await seen(/The code is (\d{4})\./);
+    child.stdin.write("y\n");
+    const a = await going;
+    expect(a.refused).toBeUndefined();
+    expect(code[1]).toBe(grantCode(a.grant.id));
+    await a.until(/from-the-program/);
+    await a.until((x) => x.frames.some((f) => f.t === "exit"));
+    await a.close();
+    await seen(/Terminal closed/);
+
+    // Anything but a yes is a no.
+    const no = attempt({ to: its, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: its }), OWNER) });
+    await seen(/The code is \d{4}\.[^]*The code is \d{4}\./);
+    child.stdin.write("sure, why not\n");
+    expect((await no).refused).toMatch(/Nobody at the computer/);
+    await (await no).close();
+    child.kill("SIGTERM");
+    await new Promise((r) => child.on("exit", r));
+
+    // The same folder, another owner: it says whose it is and stops.
+    const second = run(["--owner", encodeNpub(getPublicKey(key()))]);
+    let said = "";
+    second.stderr.on("data", (d: Buffer) => (said += d.toString()));
+    const status = await new Promise((r) => second.on("exit", r));
+    expect(status).toBe(1);
+    expect(said).toContain(`already answers ${encodeNpub(owner)}`);
+  }, 90000);
+});

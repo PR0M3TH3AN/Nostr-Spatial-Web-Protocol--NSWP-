@@ -34,8 +34,13 @@ import { cleanPlace, cleanRecords, cleanSource, facing, inFront, newId, PANEL_LI
 
 export type { PanelPlace, PanelRecord, PanelSource } from "./panel-store.js";
 
-/** What a panel can show. `custom` is a texture of the page's own, for something the kit doesn't draw: it is not kept. */
-export type PanelContent = PanelSource | { kind: "custom"; title: string; texture: THREE.Texture; aspect: number };
+/**
+ * What a panel can show. `custom` is a texture of the page's own, for
+ * something the kit doesn't draw: it is not kept. It may ask to hear a press
+ * on its picture (with where, each from 0 to 1, y downwards), and that it was
+ * put away.
+ */
+export type PanelContent = PanelSource | { kind: "custom"; title: string; texture: THREE.Texture; aspect: number; onPress?: (x: number, y: number) => void; onClose?: () => void };
 
 export interface PanelsOptions {
   scene: THREE.Scene;
@@ -321,6 +326,7 @@ export function createPanels(o: PanelsOptions): Panels {
     }
     for (const b of p.buttons.values()) (b.material as THREE.Material).dispose();
     save();
+    if (p.source.kind === "custom") p.source.onClose?.();
   };
 
   // ------------------------------------------------------------------ opening
@@ -486,6 +492,7 @@ export function createPanels(o: PanelsOptions): Panels {
   // ------------------------------------------------------------- interaction
   const targets = () => [...live.values()].flatMap((p) => [p.body, ...(p.held ? [] : [p.bar]), ...p.buttons.values()]);
   let aimed: string | null = null;
+  let pointed: { name: string; x: number; y: number } | null = null;
   let drag: { p: Live; far: number; moved: boolean } | null = null;
   const find = (hit: string): [Live, string] | null => {
     const cut = hit.lastIndexOf(":");
@@ -526,6 +533,8 @@ export function createPanels(o: PanelsOptions): Panels {
       if (above) return above;
       if (!root.visible) return null;
       const hit = raycaster.intersectObjects(targets(), false)[0];
+      // Where on the picture, for a panel that wants to know.
+      pointed = hit?.uv ? { name: hit.object.name, x: hit.uv.x, y: 1 - hit.uv.y } : null;
       return hit ? hit.object.name : null;
     },
     aim(hit) {
@@ -544,6 +553,7 @@ export function createPanels(o: PanelsOptions): Panels {
       const [p, part] = found;
       if (part === "close") return p.close();
       if (part === "larger" || part === "smaller") return p.moveTo({ width: p.width * (part === "larger" ? 1.25 : 0.8) });
+      if (part === "body" && p.source.kind === "custom") return p.source.onPress?.(pointed?.name === hit ? pointed.x : 0.5, pointed?.name === hit ? pointed.y : 0.5);
       // A video's own picture is its play button too: the largest thing to hit.
       if ((part === "play" || part === "body") && p.video) void (p.video.paused ? p.video.play().catch(() => {}) : Promise.resolve(p.video.pause()));
     },

@@ -1,0 +1,499 @@
+{
+  "description": "Bridge grants (browser/bridge.md; not part of the protocol a world implements). Verify each `event` as the Bridge with key `bridge`, owned by `owner`, sent by `session`, at time `now`, having already used the grants in `seen`. `errors` are sorted issue codes. `code` is the four digits both ends show. `topic` is where that Bridge listens.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "topic": {
+    "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+    "topic": "74e3d98b86932e10dfe14b5915a5c8b4506b661cfae30b6f4f82e017c10ab94f"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "description": "Key 1 says the session key may open a terminal on its Bridge (key 2), for five minutes.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "code": "2447"
+      }
+    },
+    {
+      "name": "not_the_owner",
+      "description": "Signed correctly, by somebody who isn't this Bridge's owner. This is the second key that is refused.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "id": "304d174c4fea87de78513d8fbdcb31eac8a27bf66ac838a01aab21f92e4f367a",
+        "sig": "1717c9217f05e8f851076ab865ea57ed4e71ddaf664c6b21ddeb1ea109e4c3b10e33266d9869c6f7ce86bc58b7c666cd394a22eb2e3534695ccbca3004221578"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "not_owner"
+        ]
+      }
+    },
+    {
+      "name": "another_bridge",
+      "description": "A grant for a different computer.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "ffb5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "9ed3f1cc004f9095653a59b20c3eb3da1b488741e40aec860f636b9fafd67f8e",
+        "sig": "165d91d2b546da1a967c71a871eebb7c1d1a34882583a3a69812ce0910b35205e046e973606783e5272975154265e26922b64386e2b861d3fe7b3fcfb3e827a7"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "bridge_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "another_session_key",
+      "description": "Sent by a key the grant doesn't name: someone replaying a grant they overheard.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "eeb5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "session_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "expired",
+      "description": "Six minutes on.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794431160,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "grant_expired"
+        ]
+      }
+    },
+    {
+      "name": "lives_too_long",
+      "description": "An hour is more than a grant may claim.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794434400"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "b68eb6ab6deef39c5ba2a00244a944a21dff1c70583249011b344418ce612c4b",
+        "sig": "c86b0d902df536a48049f74ed0d62b6d6463bc32fd032bc12125ec4d69efb9b5690967da03080967ffc7457f62da2fac3a821af954c6794c6e80c2f09934db09"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "ttl_too_long"
+        ]
+      }
+    },
+    {
+      "name": "dated_in_the_future",
+      "description": "Read ten minutes before it says it was signed.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430200,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "created_in_future"
+        ]
+      }
+    },
+    {
+      "name": "used_before",
+      "description": "The same grant, a second time.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "seen": [
+        "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a"
+      ],
+      "expect": {
+        "valid": false,
+        "errors": [
+          "grant_reused"
+        ]
+      }
+    },
+    {
+      "name": "changed_after_signing",
+      "description": "The Bridge's key was swapped, so the signature no longer holds.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+        "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "bad_signature"
+        ]
+      }
+    },
+    {
+      "name": "a_pass_is_not_a_grant",
+      "description": "The pass a world is handed, signed by the owner for this very session key. It opens nothing.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "649d05473d006a20250dc975529ef6045250719f1ee5e0dfd18e680afa1d1577",
+        "sig": "271d1d9548880fec9e6c90884df898901cad6a991d823ac7025fc73a913adfc03d6c09deeaf9f74b0c97ab65e93fa29362f4a379b4602e925ca05829f50d2ef2"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "missing_tag",
+          "names_a_site",
+          "wrong_kind"
+        ]
+      }
+    },
+    {
+      "name": "names_a_site",
+      "description": "A grant's kind and tags with a site added: something made to pass as both.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7f2c0507154a5c0e6a20ff845c325448fef7db37eb361a734908a1651f0a0ede",
+        "sig": "5fbea6d612c854fc3c6fd4582ebaa76248bf9ba1dc3a78706f51bdf72ec3fe6c606b6c472ec1253d579cf440b71d7414694899afa26c1331f4e521fae4483d28"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "names_a_site"
+        ]
+      }
+    },
+    {
+      "name": "names_the_owner",
+      "description": "The session key must be a throwaway, never the owner's key.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          [
+            "nswp:bridge",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "b07539282481f312c0e630b76a35cd84ea5bc4cd4299ca5edafb0cf0137b7233",
+        "sig": "85431abd0d622760ab75653d0588bef7533a4ecd7fd8bb9c63f3000babb9235c8d7f1c7d5d2ece7307b3355fc22256578b5a8c78c5640533cafa6b26f0a39348"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "invalid_session"
+        ]
+      }
+    },
+    {
+      "name": "no_bridge",
+      "description": "A grant that names no computer.",
+      "event": {
+        "kind": 27302,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "expiration",
+            "1794431100"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "49106d8823007e9cfd06ec3e9a45e4391602b0a6fb3848c6edf3e539742b68cf",
+        "sig": "530b50c3422206761cd9753b34776d2aa1e3e096eec0d6b4f832d6c92e5e0af0463cbe78bf7cd475cae7dedad8ea639e0b8e919cf2e2164c81a7f36245bd7d1c"
+      },
+      "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "now": 1794430830,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "missing_tag"
+        ]
+      }
+    }
+  ]
+}
