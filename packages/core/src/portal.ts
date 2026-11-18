@@ -1,6 +1,7 @@
 /** Portal objects and Airlock fragments (spec §6.1–§6.3). */
 import { SCHEMAS, WORLD_KIND } from "./constants.js";
 import { checkDestination } from "./destination.js";
+import type { Capability } from "./constants.js";
 import { decodeNaddr, type AddressPointer } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
 
@@ -96,6 +97,28 @@ export interface AirlockRequest {
 export function fragmentSaysImmersive(hash: string): boolean {
   return hash.replace(/^#/, "").split("&").includes("xr=1");
 }
+
+/**
+ * Whether an Airlock was opened as a way with no destination: home, or to
+ * the visitor's doors. It is one when the fragment holds nothing but the two
+ * flags such a way may carry. Null for anything else, which is a crossing or
+ * a mistake.
+ */
+export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean } | null {
+  const parts = hash.replace(/^#/, "").split("&").filter(Boolean);
+  if (parts.some((p) => p !== "xr=1" && p !== "doors=1")) return null;
+  return { immersive: parts.includes("xr=1"), doors: parts.includes("doors=1") };
+}
+
+/** `<airlock>` opened as the way home, or with `doors` as the way to the visitor's doors (protocol/02-doors.md). */
+export function buildWayUrl(airlock: string, opts: { immersive?: boolean; doors?: boolean } = {}): string {
+  const u = new URL(airlock);
+  u.hash = [...(opts.doors ? ["doors=1"] : []), ...(opts.immersive ? ["xr=1"] : [])].join("&");
+  return u.href;
+}
+
+/** A capability a world's manifest may name: it can be the place its owner starts (protocol/07-homes.md). */
+export const HOME_CAPABILITY = "home" satisfies Capability;
 
 /** Parse an Airlock fragment. Returns null when there is no destination. */
 export function parseAirlockFragment(hash: string): AirlockRequest | null {

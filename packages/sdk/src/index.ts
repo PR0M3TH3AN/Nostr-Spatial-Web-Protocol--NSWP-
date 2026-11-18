@@ -12,6 +12,7 @@ import {
   arrivalParam,
   buildAirlockUrl,
   buildArrivalUrl,
+  buildWayUrl,
   checkDestination,
   decodeArrival,
   stripArrivalParam,
@@ -30,6 +31,7 @@ export { dropBrought, somethingBrought, takeBrought, watchBrought, type Brought 
 const RETURN_KEY = "nswp:return-airlock";
 const LOOK_KEY = "nswp:look";
 const PASS_KEY = "nswp:pass";
+const HOME_KEY = "nswp:at-home";
 
 let defaultAirlock: string | undefined;
 let cached: { context: Arrival | null; warnings: Issue[] } | undefined;
@@ -66,6 +68,13 @@ export const arrival = {
     history.replaceState(history.state, "", `${location.pathname}${location.search}${stripArrivalParam(location.hash)}`);
     const r = decodeArrival(raw);
     cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
+    // Arriving any way but home ends being at home, for this tab.
+    try {
+      if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
+      else if (cached.context) session()?.removeItem(HOME_KEY);
+    } catch {
+      /* storage may be unavailable */
+    }
     if (cached.context?.airlock) {
       try {
         session()?.setItem(RETURN_KEY, cached.context.airlock);
@@ -125,6 +134,19 @@ export const arrival = {
   },
 
   /** The Airlock this visitor came from, for this tab's session only. */
+  /**
+   * Whether this world is where the visitor starts: their own client brought
+   * them home (NSWP-07). Remembered for the tab, so a refresh at home is
+   * still at home. From here the way home leads nowhere new.
+   */
+  atHome(): boolean {
+    try {
+      return session()?.getItem(HOME_KEY) === "1";
+    } catch {
+      return false;
+    }
+  },
+
   returnAirlock(): string | undefined {
     try {
       return session()?.getItem(RETURN_KEY) ?? undefined;
@@ -196,9 +218,28 @@ export const portal = {
       }
     }
     // An Airlock opened with no destination is the way home. Saying "from a headset" doesn't make it a destination.
-    const home = new URL(airlock);
-    home.hash = immersive ? "xr=1" : "";
-    location.assign(home.href);
+    location.assign(buildWayUrl(airlock, { immersive }));
+    return true;
+  },
+
+  /**
+   * Take the visitor to their doors: their client's own place for them. For
+   * most visitors that is where home is too. It is a different place for one
+   * whose home is a world of their own, and a world that can be a home
+   * offers this wherever it offers the way home (protocol/07-homes.md).
+   */
+  async doors(opts: GoOptions = {}): Promise<boolean> {
+    const airlock = portal.airlockFor(opts);
+    if (!airlock) return false;
+    const immersive = opts.immersive ?? !!opts.xrSession;
+    if (opts.xrSession) {
+      try {
+        await opts.xrSession.end();
+      } catch {
+        /* already ended */
+      }
+    }
+    location.assign(buildWayUrl(airlock, { immersive, doors: true }));
     return true;
   },
 };

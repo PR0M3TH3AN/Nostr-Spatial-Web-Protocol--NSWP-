@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.11.0
+
+A home of your own to start in. Three small additions to the protocol, and one decision in BitPortal's own design changed.
+
+- **The decision that changed (§14.1).** A visitor's start was always BitPortal's own room and never their own site, for three reasons: it costs a crossing before they have chosen anything, its code can observe them, and when it is down there is nowhere to start. The first two don't hold for a world that is theirs and that they chose. The third is answered by keeping BitPortal's room to fall back to. So someone who has built a world may now choose it as their home.
+- **`home`, a capability** ([NSWP-01](protocol/01-worlds.md), [NSWP-07](protocol/07-homes.md)): a world says it can be the place its owner starts. It is a promise of one thing: wherever it offers the way home, it offers the way to the visitor's doors.
+- **`doors=1`** on an Airlock opened with no destination ([NSWP-02](protocol/02-doors.md)): the way to the visitor's doors, which is the client's own place and never a world. A client with one place for home and doors takes them there either way.
+- **`home` in the arrival context** ([NSWP-03](protocol/03-arrival.md)): a visitor's own client saying it has brought them home, so the world can leave the way home out and show the way to their doors.
+- **What a client should hold to** before a world may be someone's home (NSWP-07): it is theirs both ways (they announced its address with their key, and its site admits that key), it says it can be one, it is on an encrypted address anyone can reach, they chose it, and the client keeps a start of its own to fall back to.
+- **The kit.** `portal.doors()`, `arrival.atHome()`. The way home is now labelled "Go home", since home is no longer always a lobby.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome with two made-up sites and a throwaway key: a world from the template checked and chosen in BitPortal's Settings; a site that only claimed the visitor's key refused; going home with nothing asked; the way to their doors and back; and a home that doesn't answer, no longer admits them, or no longer says it can be a home, each ending in BitPortal's room with a word about why. Not tried with a real sign-in, a real announced world, or a headset.
+
 ## 0.10.6
 
 Terminals in a world you are building. Nothing a world implements changes, and no world gains anything unless its owner gives it.

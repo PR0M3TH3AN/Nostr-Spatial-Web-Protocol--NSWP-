@@ -23,8 +23,7 @@ export const CAPABILITIES = [
   "spatial-portals",
   "avatars",
   "entry-assertion",
-  "payments",
-] as const;
+  "payments", "home"] as const;
 export const COMFORT = {
   locomotion: ["stationary", "teleport", "smooth", "vehicle"],
   intensity: ["low", "medium", "high"],

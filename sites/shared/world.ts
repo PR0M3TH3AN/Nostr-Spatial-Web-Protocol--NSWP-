@@ -341,7 +341,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const back = arrival.returnAirlock();
     if (!back || state.leaving) return;
     state.leaving = true;
-    await crossing.leave({ title: "your lobby", address: new URL(back).host });
+    await crossing.leave({ title: "home", address: new URL(back).host });
     document.body.classList.add("leaving");
     await portal.home({ xrSession: renderer.xr.getSession() });
   };
@@ -354,9 +354,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     section: "travel",
     icon: "home",
     hotbar: true,
-    label: "Back to your lobby",
+    // Home is wherever the visitor's own client starts them: its own room, or a world of theirs they chose.
+    label: "Go home",
     short: "Home",
-    // Offered when the visitor came from a lobby that said where to send them back to.
+    // Offered when the visitor came from a client that said where to send them back to.
     hidden: () => !arrival.returnAirlock(),
     act: () => void goHome(),
   });

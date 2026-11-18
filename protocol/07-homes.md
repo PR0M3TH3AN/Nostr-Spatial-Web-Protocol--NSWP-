@@ -79,6 +79,41 @@ key signed both the announcement and the layout.
 Someone who runs their own site can be their own renderer. The world template
 starts as one.
 
+## A home someone starts in
+
+A client decides where its visitor starts, and may let them choose a world of
+their own. That choice is the client's to offer and the visitor's to make.
+The protocol's part is small: how a world says it can be one, and what it
+then owes.
+
+A world says so with `home` among the `capabilities` of its manifest entry
+([NSWP-01](01-worlds.md)). It is a promise of one thing:
+
+- **Wherever it offers the way home, it offers the way to the visitor's
+  doors** (`doors=1`, [NSWP-02](02-doors.md)). At home, home leads nowhere
+  new, and someone with no way to their doors is stuck in their own house.
+
+A client bringing its visitor home says so with `home` in the arrival
+context ([NSWP-03](03-arrival.md)), so the world can leave the way home out
+and show the way to their doors in its place.
+
+What a client should hold to before it lets a world be someone's home:
+
+- **It is theirs, both ways.** An announcement signed by the visitor's own
+  key names this address, and the site's manifest admits that key
+  ([NSWP-01](01-worlds.md), "verified"). One without the other is not
+  enough: anyone can write a key into a manifest, and anyone can announce an
+  address they don't run.
+- **It says it can be one.**
+- **It is on an encrypted address anyone can reach.** A home on one computer
+  is not somewhere to start on another device.
+- **The visitor chose it.** Never a link, a door or a world asking.
+- **The client keeps a start of its own,** and falls back to it when the
+  home doesn't answer. Nobody is left with nowhere to start.
+
+A visitor's saved doors stay with their client. A home that is a world
+doesn't hold them, and isn't told them.
+
 ## What a client must not do
 
 A person's saved doors say what they are interested in. A client that draws

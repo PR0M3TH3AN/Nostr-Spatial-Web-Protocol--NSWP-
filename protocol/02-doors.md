@@ -61,6 +61,13 @@ still the way home if the fragment says `xr=1` and nothing else. A
 world offers this wherever the visitor can reach it. It is the one exit a
 world can offer that leads somewhere the visitor already trusts.
 
+A client may let a visitor choose where they start: a world of their own
+([NSWP-07](07-homes.md)). Then home and the place their client keeps their
+doors are two places. An Airlock opened with no destination and `doors=1`
+takes the visitor to their doors: the client's own place, never a world. A
+client with one place for both takes them there either way. `doors=1` and
+`xr=1` may come together, and nothing else may.
+
 ## What an Airlock does
 
 Before the visitor commits, it shows:

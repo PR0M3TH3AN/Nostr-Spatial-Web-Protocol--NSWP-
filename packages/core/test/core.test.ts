@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  buildWayUrl,
+  wayWithoutDestination,
   arrivalParam,
   buildAirlockUrl,
   buildArrivalUrl,
@@ -399,5 +401,30 @@ describe("previews (spec §5.8)", () => {
     const world = { url: "https://museum.example/world" };
     expect(previewOnWorldOrigin(world, { url: "https://museum.example/p.webp", type: "pano", sha256: hash })).toBe(true);
     expect(previewOnWorldOrigin(world, { url: "https://blossom.example/p.webp", type: "pano", sha256: hash })).toBe(false);
+  });
+});
+
+describe("a way with no destination", () => {
+  it("is home, or the visitor's doors, and may say they came from a headset", () => {
+    expect(wayWithoutDestination("")).toEqual({ immersive: false, doors: false });
+    expect(wayWithoutDestination("#")).toEqual({ immersive: false, doors: false });
+    expect(wayWithoutDestination("#xr=1")).toEqual({ immersive: true, doors: false });
+    expect(wayWithoutDestination("#doors=1")).toEqual({ immersive: false, doors: true });
+    expect(wayWithoutDestination("#doors=1&xr=1")).toEqual({ immersive: true, doors: true });
+    expect(wayWithoutDestination("#xr=1&doors=1")).toEqual({ immersive: true, doors: true });
+  });
+
+  it("is nothing else: anything more in the address is a crossing or a mistake", () => {
+    for (const hash of ["#to=https://museum.example/", "#doors=1&to=https://museum.example/", "#doors=yes", "#xr=2", "#home=1", "#doors=1&x"]) expect(wayWithoutDestination(hash), hash).toBeNull();
+  });
+
+  it("is built the way it is read", () => {
+    const airlock = "https://portal.bitblocks.network/go/";
+    expect(buildWayUrl(airlock)).toBe(airlock);
+    expect(buildWayUrl(airlock, { immersive: true })).toBe(`${airlock}#xr=1`);
+    expect(buildWayUrl(airlock, { doors: true, immersive: true })).toBe(`${airlock}#doors=1&xr=1`);
+    for (const o of [{}, { doors: true }, { immersive: true }, { doors: true, immersive: true }]) expect(wayWithoutDestination(new URL(buildWayUrl(airlock, o)).hash)).toEqual({ immersive: !!o.immersive, doors: !!o.doors });
+    // An Airlock's own fragment is replaced, never added to.
+    expect(buildWayUrl(`${airlock}#to=https://elsewhere.example`, { doors: true })).toBe(`${airlock}#doors=1`);
   });
 });

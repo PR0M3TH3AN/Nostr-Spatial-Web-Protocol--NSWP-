@@ -47,7 +47,7 @@ how everything else refers to the world.
 | `image` | | A small card image, with optional dimensions |
 | `preview` | | The view through a door: see [NSWP-04](04-previews.md) |
 | `mode` | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`. Repeat in order of preference |
-| `capability` | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `items`, `entry-assertion`, `payments` |
+| `capability` | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `items`, `entry-assertion`, `payments`, `home` |
 | `comfort` | | `locomotion`: `stationary`, `teleport`, `smooth`, `vehicle`. `intensity`: `low`, `medium`, `high`. `seated`: `supported`, `required`, `unsupported` |
 | `input` | | `controllers`, `hands`, `gaze`, `keyboard-mouse`, `touch`, `gamepad` |
 | `perf` | | The weakest device it targets: `mobile`, `standalone`, `desktop` |
@@ -85,6 +85,10 @@ A JSON file at exactly `https://<origin>/.well-known/nswp.json`.
   "relays": ["wss://relay.example"]
 }
 ```
+
+`capabilities` are what the world says it can do. A client that doesn't know
+one ignores it. `home` says it can be the place its owner starts
+([NSWP-07](07-homes.md)).
 
 Serving rules:
 

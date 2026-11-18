@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.10.6 (concept specification)
+**Version:** 0.11.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
@@ -1350,7 +1350,8 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 
 **Rules for the start room**
 
-- **BitPortal draws it.** The start is never a third-party renderer or the visitor's own site. Those need a crossing before the visitor has chosen anything, their code can observe the visitor, and when they are down there is nowhere to start. The visitor's layout is data, so BitPortal draws it. If their own site is a world of its own (§19.1), it is a door on their wall.
+- **BitPortal draws it.** The start is never a third-party renderer, and by default it is not the visitor's own site either. Those need a crossing before the visitor has chosen anything, their code can observe the visitor, and when they are down there is nowhere to start. The visitor's layout is data, so BitPortal draws it. If their own site is a world of its own (§19.1), it is a door on their wall.
+- **Unless they choose a world of their own (since 0.11.0).** Someone who has built a world may make it their home. The first two objections don't hold for a world that is theirs and that they chose; the third is answered by keeping this room as the place to fall back to. So going home, from anywhere, leads to their world, and this room remains where their doors, their sign-in and their computers are: a home and a place for doors, which the reasoning above rules out for a new visitor and allows for one who asks for it. BitPortal lets a world be a home only when it is shown to be the visitor's both ways (they announced its address with their key, and its site admits that key), is on an encrypted address anyone can reach, and says it can be a home, which is a promise to offer the way to their doors ([NSWP-07](protocol/07-homes.md)). The Airlock looks at the home before each trip there, and brings the visitor to this room, saying why, when it doesn't answer or is no longer theirs.
 - **Private.** Arriving joins no room and publishes no presence. Nobody else is there unless invited.
 - **Fast.** Doors are drawn first and work at once. Decorations and published items (§10.4) load afterwards, and not at all on a device that can't spare them. This matters more than it looks: every crossing already costs a visitor in a headset an exit from immersion (§6.5), and the start room is on the way to all of them.
 - **A dozen doors, not a hundred.** A door in a room is found by remembering where it is, which works for about twelve. Each wall shows that many at most. "More" opens the full shelves as a list.

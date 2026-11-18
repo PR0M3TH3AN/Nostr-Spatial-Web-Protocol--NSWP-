@@ -37,7 +37,7 @@ const hud = mountHud(controls);
 const xrConsole = createConsole(controls, { renderer, rig });
 scene.add(xrConsole.group);
 
-controls.add({ id: "home", section: "travel", icon: "home", label: "Back to your lobby", short: "Home", hotbar: true, act: () => portal.home() });
+controls.add({ id: "home", section: "travel", icon: "home", label: "Go home", short: "Home", hotbar: true, act: () => portal.home() });
 await addViewControls(controls, { renderer, rig, camera, hud }); // Enter VR, Turn around
 addRoomControls(controls, presence);                             // Join, microphone, invite
 addCameraControls(controls, { renderer, scene, camera,           // Picture, selfie, clip

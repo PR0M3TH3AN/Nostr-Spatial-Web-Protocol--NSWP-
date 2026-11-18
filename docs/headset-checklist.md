@@ -37,9 +37,9 @@ Open each address in the headset's own browser. No account is needed.
 |---|---|---|
 | 2.1 | On the Airlock, read the page | Show the real address first, then whether it is verified |
 | 2.2 | Press **Continue** | Open the Gallery. **Did you have to press Enter VR again?** (Expected: yes) |
-| 2.3 | In VR, open the console (wrist or **Menu**) | Offer **Back to your lobby** under Travel |
+| 2.3 | In VR, open the console (wrist or **Menu**) | Offer **Go home** under Travel |
 | 2.4 | Close the menu, point at the portal and select it | Leave for the Airlock, naming the Grove |
-| 2.5 | Cancel, go back into the Gallery, open the menu, select **Back to your lobby** | Return you to BitPortal's room, facing the door you left through |
+| 2.5 | Cancel, go back into the Gallery, open the menu, select **Go home** | Return you to BitPortal's room, facing the door you left through |
 | 2.6 | Count the steps from "in the room" to "standing in the Gallery in VR" | **How many, and which felt unnecessary?** |
 
 ## 3. A world from the template: `https://starter.bitblocks.network/`

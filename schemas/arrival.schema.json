@@ -16,6 +16,7 @@
     "pass": { "$ref": "pass.schema.json" },
     "sessionKey": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The secret half of the session key the pass names. Present only with `pass`." },
     "immersive": { "type": "boolean", "description": "True when the visitor left a headset session to make this trip." },
+    "home": { "type": "boolean", "description": "True when this world is where the visitor starts, and their own client has brought them home." },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }
 }
