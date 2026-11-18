@@ -10,6 +10,11 @@
  * it: with a real keyboard anywhere, and with the kit's drawn one in a
  * headset. Press anywhere else to stop typing into it.
  *
+ * Along its foot are five buttons, each one press: back and forward through
+ * what has scrolled away, larger and smaller letters, and copy. The panel's
+ * own + and - change how large the whole panel is; these change how much
+ * fits on it.
+ *
  *   const term = openTerminalPanel({ panels, bridge, owner, relays, sign, presenting });
  *   term.close();
  */
@@ -22,6 +27,11 @@ import type { EventTemplate, NostrEvent } from "@nswp/core";
 
 export type { BridgeStatus } from "./bridge-link.js";
 
+/** How many letters fit across, from the largest letters to the smallest. */
+export const TERMINAL_COLUMNS = [60, 80, 100, 120, 140, 160] as const;
+
+export type TerminalButton = "back" | "forward" | "larger" | "smaller" | "copy";
+
 export interface TerminalPanelOptions {
   panels: Panels;
   /** The computer's Bridge, as 64 hex characters. */
@@ -32,13 +42,15 @@ export interface TerminalPanelOptions {
   relays: string[];
   /** What the owner calls this computer, for the panel's bar. */
   name?: string;
+  /** How many letters fit across to begin with: one of `TERMINAL_COLUMNS`. 100 unless told. */
   cols?: number;
-  rows?: number;
   accent?: THREE.ColorRepresentation;
   /** Whether the visitor is in a headset now: there, pressing the panel brings up the drawn keyboard. */
   presenting?: () => boolean;
   iceServers?: RTCIceServer[];
   onStatus?(status: BridgeStatus): void;
+  /** The visitor chose larger or smaller letters. A home may remember it. */
+  onColumns?(cols: number): void;
   /** The panel was put away, and the connection with it. */
   onClosed?(): void;
 }
@@ -48,12 +60,22 @@ export interface TerminalPanel {
   readonly status: BridgeStatus;
   /** Whether keys typed go to it. */
   readonly focused: boolean;
+  /** How many letters fit across, and how many lines down. */
+  readonly size: { cols: number; rows: number };
   focus(): void;
   blur(): void;
   /** Send keys, as if typed. */
   type(bytes: string): void;
   /** What is on its screen, as lines of text. */
   text(): string[];
+  /** Go back or forward through what has scrolled away, by so many lines. */
+  scroll(lines: number): void;
+  /** Fit this many letters across: the nearest of `TERMINAL_COLUMNS`. The program is told its new size. */
+  setColumns(cols: number): void;
+  /** Put what is on the screen on the clipboard. Resolves false where the browser won't allow it. */
+  copy(): Promise<boolean>;
+  /** Where each button along the foot is on the panel's picture, each from 0 to 1 with y downwards. For a test to press. */
+  buttons(): Record<TerminalButton, [number, number]>;
   close(): void;
 }
 
@@ -61,6 +83,7 @@ export interface TerminalPanel {
 const BASE = ["#1b2430", "#ff6b6b", "#7bd88f", "#ffd166", "#6cb6ff", "#d699ff", "#5fd7d7", "#d7dee7", "#5c6b7c", "#ff8f8f", "#a5f0b4", "#ffe08a", "#9fd0ff", "#e6bcff", "#93eded", "#ffffff"];
 const BG = "#0a1018";
 const FG = "#dfe7ef";
+const QUIET = "#9fb0c0";
 
 function paletteColor(n: number): string {
   if (n < 16) return BASE[n]!;
@@ -74,47 +97,82 @@ function paletteColor(n: number): string {
 }
 const rgb = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
-const PAD = 20;
-const STRIP = 40; // a line under the screen that says what a press will do
-const CH = 30;
-const FONT = `24px ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace`;
+// The picture is one size whatever fits on it, so the panel keeps its shape and larger letters are sharper, not stretched.
+const W = 1920;
+const SCREEN = 1152; // the height the lines have
+const PAD = 24;
+const STRIP = 92; // the foot: what a press will do, and the buttons
+const H = SCREEN + PAD * 2 + STRIP;
+const FACE = `ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace`;
+const BUTTONS: { id: TerminalButton; label: string; w: number }[] = [
+  { id: "back", label: "▲", w: 104 },
+  { id: "forward", label: "▼", w: 104 },
+  { id: "larger", label: "A+", w: 104 },
+  { id: "smaller", label: "A−", w: 104 },
+  { id: "copy", label: "Copy", w: 150 },
+];
+const GAP = 12;
+
+/** The nearest size there is to the one asked for. */
+export function nearestColumns(cols: number): number {
+  return TERMINAL_COLUMNS.reduce((best, c) => (Math.abs(c - cols) < Math.abs(best - cols) ? c : best), TERMINAL_COLUMNS[2]);
+}
 
 export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
-  const cols = o.cols ?? 100;
-  const rows = o.rows ?? 30;
   const accent = `#${new THREE.Color(o.accent ?? 0xffb65c).getHexString()}`;
   const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
   const g = canvas.getContext("2d")!;
-  g.font = FONT;
-  const CW = Math.max(8, Math.ceil(g.measureText("M").width));
-  canvas.width = cols * CW + PAD * 2;
-  canvas.height = rows * CH + PAD * 2 + STRIP;
+  // How wide this face's letters are, as a share of their height.
+  g.font = `100px ${FACE}`;
+  const ratio = Math.max(0.4, g.measureText("M").width / 100);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
 
-  const term = new Terminal({ cols, rows, scrollback: 2000, allowProposedApi: true });
+  /** The size of one letter's cell, and how many lines fit, for so many letters across. */
+  const measure = (cols: number) => {
+    const cw = Math.floor((W - PAD * 2) / cols);
+    const px = Math.floor(cw / ratio);
+    const ch = Math.round(px * 1.22);
+    return { cols, cw, px, ch, rows: Math.max(5, Math.floor(SCREEN / ch)), left: Math.floor((W - cw * cols) / 2) };
+  };
+  let cell = measure(nearestColumns(o.cols ?? 100));
+
+  const term = new Terminal({ cols: cell.cols, rows: cell.rows, scrollback: 3000, allowProposedApi: true });
   let link: BridgeLink | null = null;
   let status: BridgeStatus = { at: "signing" };
   let focused = false;
   let closed = false;
   let scheduled = false;
+  let said: { text: string; until: number } | null = null; // a word about the last button, for a moment
   const where = o.name || "your computer";
+
+  // The buttons, from the right-hand end of the foot.
+  const placed = (() => {
+    let x = W - PAD;
+    return [...BUTTONS].reverse().map((b) => {
+      x -= b.w;
+      const at = { ...b, x, y: H - STRIP + 14, h: STRIP - 28 };
+      x -= GAP;
+      return at;
+    });
+  })();
+  const hintWidth = placed.at(-1)!.x - PAD * 2;
 
   // ------------------------------------------------------------------ drawing
   const message = (lines: { text: string; size?: number; color?: string }[]) => {
     g.textAlign = "center";
     g.textBaseline = "middle";
-    // Sized to the panel, not to how many columns it has: the same words are as large on a small terminal.
-    const scale = canvas.width / 1200;
-    const total = lines.reduce((n, l) => n + (l.size ?? 40) * scale * 1.5, 0);
-    let y = (canvas.height - STRIP) / 2 - total / 2;
+    const total = lines.reduce((n, l) => n + (l.size ?? 62) * 1.5, 0);
+    let y = (H - STRIP) / 2 - total / 2;
     for (const l of lines) {
-      const size = Math.round((l.size ?? 40) * scale);
-      g.font = `${(l.size ?? 0) >= 100 ? "bold " : ""}${size}px system-ui, sans-serif`;
+      const size = l.size ?? 62;
+      g.font = `${size >= 150 ? "bold " : ""}${size}px system-ui, sans-serif`;
       g.fillStyle = l.color ?? FG;
       y += size * 0.75;
-      g.fillText(l.text, canvas.width / 2, y, canvas.width - 80);
+      g.fillText(l.text, W / 2, y, W - 120);
       y += size * 0.75;
     }
     g.textAlign = "left";
@@ -122,83 +180,101 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
 
   const drawScreen = () => {
     const buffer = term.buffer.active;
-    const cell = buffer.getNullCell();
+    const one = buffer.getNullCell();
+    const { cw, ch, px, left } = cell;
+    const face = `${px}px ${FACE}`;
     g.textBaseline = "middle";
-    for (let y = 0; y < rows; y++) {
+    for (let y = 0; y < cell.rows; y++) {
       const line = buffer.getLine(buffer.viewportY + y);
       if (!line) continue;
-      const top = PAD + y * CH;
-      for (let x = 0; x < cols; x++) {
-        line.getCell(x, cell);
-        const width = cell.getWidth();
+      const top = PAD + y * ch;
+      for (let x = 0; x < cell.cols; x++) {
+        line.getCell(x, one);
+        const width = one.getWidth();
         if (!width) continue; // the second half of a wide character
-        let fg = cell.isFgDefault() ? FG : cell.isFgRGB() ? rgb(cell.getFgColor()) : paletteColor(cell.getFgColor());
-        let bg = cell.isBgDefault() ? null : cell.isBgRGB() ? rgb(cell.getBgColor()) : paletteColor(cell.getBgColor());
-        if (cell.isInverse()) [fg, bg] = [bg ?? BG, fg];
+        let fg = one.isFgDefault() ? FG : one.isFgRGB() ? rgb(one.getFgColor()) : paletteColor(one.getFgColor());
+        let bg = one.isBgDefault() ? null : one.isBgRGB() ? rgb(one.getBgColor()) : paletteColor(one.getBgColor());
+        if (one.isInverse()) [fg, bg] = [bg ?? BG, fg];
         const here = buffer.viewportY === buffer.baseY && y === buffer.cursorY && x === buffer.cursorX;
         if (here && focused) [fg, bg] = [BG, accent];
         if (bg) {
           g.fillStyle = bg;
-          g.fillRect(PAD + x * CW, top, CW * width, CH);
+          g.fillRect(left + x * cw, top, cw * width, ch);
         }
         if (here && !focused) {
           g.strokeStyle = accent;
           g.lineWidth = 2;
-          g.strokeRect(PAD + x * CW + 1, top + 1, CW * width - 2, CH - 2);
+          g.strokeRect(left + x * cw + 1, top + 1, cw * width - 2, ch - 2);
         }
-        const chars = cell.getChars();
-        if (!chars || chars === " " || cell.isInvisible()) continue;
-        g.font = `${cell.isItalic() ? "italic " : ""}${cell.isBold() ? "bold " : ""}${FONT}`;
-        g.globalAlpha = cell.isDim() ? 0.6 : 1;
+        const chars = one.getChars();
+        if (!chars || chars === " " || one.isInvisible()) continue;
+        g.font = `${one.isItalic() ? "italic " : ""}${one.isBold() ? "bold " : ""}${face}`;
+        g.globalAlpha = one.isDim() ? 0.6 : 1;
         g.fillStyle = fg;
-        g.fillText(chars, PAD + x * CW, top + CH / 2 + 1);
-        if (cell.isUnderline()) g.fillRect(PAD + x * CW, top + CH - 3, CW * width, 2);
+        g.fillText(chars, left + x * cw, top + ch / 2 + 1);
+        if (one.isUnderline()) g.fillRect(left + x * cw, top + ch - 3, cw * width, 2);
         g.globalAlpha = 1;
       }
     }
   };
 
+  const live = () => status.at === "open" || status.at === "ended";
+  const scrolledBack = () => term.buffer.active.viewportY < term.buffer.active.baseY;
+
   const draw = () => {
     scheduled = false;
     if (closed) return;
     g.fillStyle = BG;
-    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.fillRect(0, 0, W, H);
     let hint = "";
     switch (status.at) {
       case "signing":
         message([{ text: "Asking your key to allow this…" }]);
         break;
       case "finding":
-        message([{ text: `Looking for ${where}…` }, { text: `If it asks, the code is ${status.code}.`, size: 30, color: "#9fb0c0" }]);
+        message([{ text: `Looking for ${where}…` }, { text: `If it asks, the code is ${status.code}.`, size: 46, color: QUIET }]);
         break;
       case "asking":
-        message([{ text: `Say yes at ${where}.` }, { text: status.code, size: 150, color: accent }, { text: "It is asking now, and should show this code. If the code is different, say no.", size: 30, color: "#9fb0c0" }]);
+        message([{ text: `Say yes at ${where}.` }, { text: status.code, size: 230, color: accent }, { text: "It is asking now, and should show this code. If the code is different, say no.", size: 46, color: QUIET }]);
         break;
       case "connecting":
         message([{ text: "Connecting…" }]);
         break;
       case "open":
         drawScreen();
-        hint = focused ? "Typing here. Press anywhere else to stop." : "Press here to type.";
+        hint = scrolledBack() ? "Looking back. Typing returns to the end." : focused ? "Typing here. Press anywhere else to stop." : "Press here to type.";
         break;
       case "ended":
         drawScreen();
         hint = `The program ended${status.code ? ` (${status.code})` : ""}. Press here to open another.`;
         break;
       case "closed":
-        message([{ text: status.why }, { text: "Press here to try again.", size: 30, color: "#9fb0c0" }]);
+        message([{ text: status.why }, { text: "Press here to try again.", size: 46, color: QUIET }]);
         break;
     }
+    if (said && Date.now() < said.until) hint = said.text;
+    // The foot.
     g.fillStyle = "#111a25";
-    g.fillRect(0, canvas.height - STRIP, canvas.width, STRIP);
+    g.fillRect(0, H - STRIP, W, STRIP);
     g.textBaseline = "middle";
-    g.font = "22px system-ui, sans-serif";
-    g.fillStyle = focused ? accent : "#9fb0c0";
-    g.fillText(hint, PAD, canvas.height - STRIP / 2 + 1, canvas.width - PAD * 2 - 300);
-    g.textAlign = "right";
-    g.fillStyle = "#5c6b7c";
-    g.fillText(status.at === "open" ? status.name : "", canvas.width - PAD, canvas.height - STRIP / 2 + 1, 280);
-    g.textAlign = "left";
+    g.font = "32px system-ui, sans-serif";
+    g.fillStyle = focused || (said && Date.now() < said.until) ? accent : QUIET;
+    g.fillText(hint, PAD, H - STRIP / 2 + 1, hintWidth);
+    for (const b of placed) {
+      // Looking back and copying need a screen to look at; the size of the letters can be chosen any time.
+      const usable = b.id === "larger" ? cell.cols > TERMINAL_COLUMNS[0] : b.id === "smaller" ? cell.cols < TERMINAL_COLUMNS.at(-1)! : live();
+      g.globalAlpha = usable ? 1 : 0.35;
+      g.fillStyle = "#1c2836";
+      g.beginPath();
+      g.roundRect(b.x, b.y, b.w, b.h, 10);
+      g.fill();
+      g.fillStyle = FG;
+      g.textAlign = "center";
+      g.font = "bold 34px system-ui, sans-serif";
+      g.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
+      g.textAlign = "left";
+      g.globalAlpha = 1;
+    }
     texture.needsUpdate = true;
   };
   /** Drawn when something changed, and not more often than a screen shows. A timer, because a headset stops the page's own frames. */
@@ -207,9 +283,17 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     scheduled = true;
     setTimeout(draw, 16);
   };
+  const say = (text: string) => {
+    said = { text, until: Date.now() + 2500 };
+    redraw();
+    setTimeout(redraw, 2600);
+  };
 
   // ------------------------------------------------------------------- typing
-  const send = (bytes: string) => link?.send(forApplication(bytes, term.modes.applicationCursorKeysMode));
+  const send = (bytes: string) => {
+    term.scrollToBottom();
+    link?.send(forApplication(bytes, term.modes.applicationCursorKeysMode));
+  };
   // What the emulator itself answers when a program asks it something.
   term.onData((reply) => link?.send(reply));
 
@@ -218,7 +302,6 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     if (bytes === null) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    term.scrollToBottom();
     send(bytes);
   };
   const onPaste = (e: ClipboardEvent) => {
@@ -226,12 +309,14 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     if (!text) return;
     e.preventDefault();
     e.stopImmediatePropagation();
+    term.scrollToBottom();
     link?.send(pasteBytes(text, term.modes.bracketedPasteMode));
   };
-  const onWheel = (e: WheelEvent) => {
-    term.scrollLines(Math.sign(e.deltaY) * 3);
+  const scroll = (lines: number) => {
+    term.scrollLines(Math.trunc(lines));
     redraw();
   };
+  const onWheel = (e: WheelEvent) => scroll(Math.sign(e.deltaY) * 3);
   // A press that isn't on this panel takes the typing away from it.
   let pressedHere = false;
   const onDown = () => {
@@ -266,6 +351,46 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     redraw();
   };
 
+  // ------------------------------------------------------------- the buttons
+  const setColumns = (cols: number) => {
+    const next = measure(nearestColumns(cols));
+    if (next.cols === cell.cols) return;
+    cell = next;
+    term.resize(cell.cols, cell.rows);
+    link?.resize(cell.cols, cell.rows);
+    o.onColumns?.(cell.cols);
+    say(`${cell.cols} letters across, ${cell.rows} lines.`);
+  };
+  const step = (by: number) => {
+    const at = TERMINAL_COLUMNS.indexOf(cell.cols as (typeof TERMINAL_COLUMNS)[number]);
+    const next = TERMINAL_COLUMNS[at + by];
+    if (next) setColumns(next);
+  };
+  const text = () => {
+    const buffer = term.buffer.active;
+    return Array.from({ length: cell.rows }, (_, y) => buffer.getLine(buffer.viewportY + y)?.translateToString(true) ?? "");
+  };
+  const copy = async (): Promise<boolean> => {
+    const lines = text();
+    while (lines.length && !lines.at(-1)!.trim()) lines.pop();
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      say("Copied what is on the screen.");
+      return true;
+    } catch {
+      say("This browser wouldn't let the page copy.");
+      return false;
+    }
+  };
+  const pressButton = (id: TerminalButton) => {
+    if (id === "larger") return step(-1);
+    if (id === "smaller") return step(1);
+    if (!live()) return;
+    if (id === "back") return scroll(-(cell.rows - 2));
+    if (id === "forward") return scroll(cell.rows - 2);
+    void copy();
+  };
+
   // --------------------------------------------------------------- connecting
   const connect = () => {
     term.reset();
@@ -275,8 +400,8 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
       owner: o.owner,
       sign: o.sign,
       relays: o.relays,
-      cols,
-      rows,
+      cols: cell.cols,
+      rows: cell.rows,
       ...(o.iceServers ? { iceServers: o.iceServers } : {}),
       onData: (bytes) => term.write(bytes, redraw),
       onStatus(next) {
@@ -294,12 +419,16 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
       kind: "custom",
       title: o.name ? `Terminal: ${o.name}` : "Terminal",
       texture,
-      aspect: canvas.width / canvas.height,
-      onPress() {
-        if (status.at === "closed" || status.at === "ended") {
-          pressedHere = true;
-          return connect();
+      aspect: W / H,
+      onPress(x, y) {
+        // Anything pressed on this panel is the panel's: it doesn't take the typing away.
+        pressedHere = true;
+        const [px, py] = [x * W, y * H];
+        if (py >= H - STRIP) {
+          const b = placed.find((k) => px >= k.x - GAP / 2 && px <= k.x + k.w + GAP / 2);
+          if (b) return pressButton(b.id);
         }
+        if (status.at === "closed" || status.at === "ended") return connect();
         focus();
       },
       onClose() {
@@ -329,13 +458,17 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     get focused() {
       return focused;
     },
+    get size() {
+      return { cols: cell.cols, rows: cell.rows };
+    },
     focus,
     blur,
     type: send,
-    text() {
-      const buffer = term.buffer.active;
-      return Array.from({ length: rows }, (_, y) => buffer.getLine(buffer.viewportY + y)?.translateToString(true) ?? "");
-    },
+    text,
+    scroll,
+    setColumns,
+    copy,
+    buttons: () => Object.fromEntries(placed.map((b) => [b.id, [(b.x + b.w / 2) / W, (b.y + b.h / 2) / H]])) as Record<TerminalButton, [number, number]>,
     close: () => panel.close(),
   };
 }

@@ -147,7 +147,7 @@ describe("the owner", () => {
     expect(a.refused).toBeUndefined();
     expect(a.waited).toBe(true);
     // The person at the computer was asked, about this request, with the code the panel shows.
-    expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1], replaces: false }]);
+    expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1], open: 0, replaces: false }]);
     await a.until((x) => x.frames.some((f) => f.t === "ready"));
     expect(a.frames.find((f) => f.t === "ready")).toEqual({ t: "ready", name: "the test computer" });
     a.type("echo made-$((40 + 2))\n");
@@ -162,8 +162,8 @@ describe("the owner", () => {
     expect(a.frames.find((f) => f.t === "exit")).toEqual({ t: "exit", code: 3 });
     await a.close();
     await idle();
-    expect(log.some((l) => l.startsWith("Terminal open"))).toBe(true);
-    expect(log.some((l) => l.startsWith("Terminal closed"))).toBe(true);
+    expect(log.some((l) => l.startsWith("Terminal 1 open"))).toBe(true);
+    expect(log.some((l) => l.startsWith("Terminal 1 closed"))).toBe(true);
   }, 30000);
 
   it("is turned away when nobody at the computer says yes", async () => {
@@ -178,14 +178,21 @@ describe("the owner", () => {
     await idle();
   }, 20000);
 
-  it("has one terminal at a time: opening another, once allowed, hangs up the first and its program", async () => {
-    const first = await attempt();
-    await first.until((x) => x.frames.some((f) => f.t === "ready"));
-    // A program that would run for ever.
-    first.type("echo pid-$$ && sleep 600\n");
-    await first.until(/pid-(\d+)/);
-    const pid = Number(/pid-(\d+)/.exec(first.text())![1]);
-    const alive = () => {
+  it("has a few terminals at once, each its own, and each found again by its place", async () => {
+    const other = await startRelay();
+    const questions: AskAbout[] = [];
+    const said: string[] = [];
+    // What a lasting terminal is told: which of the few places it has.
+    const b = createBridge({ key: key(), owner, relays: [other.url], iceServers: [], maxSessions: 2, command: (slot) => ["/bin/sh", "-c", `echo place-${slot}; exec /bin/sh`], log: (l) => said.push(l), ask: (q) => (questions.push(q), Promise.resolve(true)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const go = () => attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER) });
+    const pidOf = async (a: Attempt) => {
+      a.type("echo pid-$$\n");
+      await a.until(/pid-(\d+)/);
+      return Number(/pid-(\d+)/.exec(a.text())![1]);
+    };
+    const alive = (pid: number) => {
       try {
         process.kill(pid, 0);
         return true;
@@ -193,24 +200,45 @@ describe("the owner", () => {
         return false;
       }
     };
-    expect(alive()).toBe(true);
-    // The owner again, from somewhere else. The person at the computer is told what a yes will do.
-    const second = await attempt();
-    expect(second.refused).toBeUndefined();
-    expect(asked.at(-1)).toMatchObject({ replaces: true });
-    await second.until((x) => x.frames.some((f) => f.t === "ready"));
-    const end = Date.now() + 6000;
-    while (alive() && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
-    expect(alive()).toBe(false);
-    expect(log.some((l) => /another was opened in its place/.test(l))).toBe(true);
-    // The second is whole: it is its own shell, and the first is gone.
-    second.type("echo second-$((1 + 1))\n");
-    await second.until(/second-2/);
-    expect(bridge.state().busy).toBe("open");
-    await first.close();
-    await second.close();
-    await idle();
-  }, 40000);
+    const gone = async (pid: number) => {
+      const end = Date.now() + 6000;
+      while (alive(pid) && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+      return !alive(pid);
+    };
+
+    const first = await go();
+    await first.until(/place-1/);
+    const second = await go();
+    await second.until(/place-2/);
+    expect(questions.map((q) => [q.open, q.replaces])).toEqual([[0, false], [1, false]]);
+    expect(b.state().sessions).toBe(2);
+    const [one, two] = [await pidOf(first), await pidOf(second)];
+    expect(one).not.toBe(two);
+
+    // As many as may be are open. A third, once allowed, takes the place of the one quiet longest: the first.
+    await new Promise((r) => setTimeout(r, 300));
+    second.type("echo still-here\n");
+    await second.until(/still-here/);
+    const third = await go();
+    expect(third.refused).toBeUndefined();
+    expect(questions.at(-1)).toMatchObject({ open: 2, replaces: true });
+    await third.until(/place-1/); // the place that came free
+    expect(await gone(one)).toBe(true);
+    expect(alive(two)).toBe(true);
+    expect(b.state().sessions).toBe(2);
+    expect(said.some((l) => /Terminal 1 closed.*another was opened in its place/.test(l))).toBe(true);
+
+    // Putting one away frees its place, and its program is hung up on.
+    const three = await pidOf(third);
+    await third.close();
+    expect(await gone(three)).toBe(true);
+    const again = await go();
+    await again.until(/place-1/);
+    expect(questions.at(-1)).toMatchObject({ open: 1, replaces: false });
+    await Promise.all([first.close(), second.close(), again.close()]);
+    await b.stop();
+    await other.close();
+  }, 60000);
 
   it("is not kept out by a question still waiting for its answer", async () => {
     let let_in: (yes: boolean) => void = () => {};
@@ -405,7 +433,7 @@ describe("the program", () => {
     await a.until(/from-the-program/);
     await a.until((x) => x.frames.some((f) => f.t === "exit"));
     await a.close();
-    await seen(/Terminal closed/);
+    await seen(/Terminal 1 closed/);
 
     // Anything but a yes is a no.
     const no = attempt({ to: its, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: its }), OWNER) });

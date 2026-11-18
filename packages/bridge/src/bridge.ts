@@ -28,7 +28,9 @@ export interface AskAbout {
   code: string;
   /** The throwaway key asking. */
   session: string;
-  /** A terminal is open already. A yes closes it and opens this one in its place. */
+  /** How many terminals are open already. */
+  open: number;
+  /** As many are open as may be. A yes closes the one that has been quiet longest and opens this one in its place. */
   replaces: boolean;
 }
 
@@ -38,8 +40,14 @@ export interface BridgeOptions {
   /** The one public key it answers, as 64 hex characters. */
   owner: string;
   relays: string[];
-  /** What a terminal runs: a shell, or one program. */
-  command: string[];
+  /**
+   * What a terminal runs: a shell, or one program. As a function, it is told
+   * which of the few places the terminal has (1, 2, …), so that each can be a
+   * lasting terminal of its own and be found again.
+   */
+  command: string[] | ((slot: number) => string[]);
+  /** How many terminals may be open at once. Four unless told. */
+  maxSessions?: number;
   cwd?: string;
   /** Ask the person at the computer. Resolves true only for a yes. */
   ask(about: AskAbout): Promise<boolean>;
@@ -69,7 +77,7 @@ export interface Bridge {
   start(): void;
   stop(): Promise<void>;
   /** What it is doing now. */
-  state(): { busy: "no" | "asking" | "connecting" | "open"; relays: number; opened: number; refused: number };
+  state(): { busy: "no" | "asking" | "connecting" | "open"; relays: number; opened: number; refused: number; sessions: number };
 }
 
 const DEFAULT_ICE = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
@@ -90,8 +98,17 @@ export function createBridge(o: BridgeOptions): Bridge {
   const seen = new Map<string, number>(); // grant id -> when it expires
   let relays: RelayLinks | null = null;
   let asking = false;
-  /** The one session there is, while it is connecting or open. */
-  let session: { at: "connecting" | "open"; end(why: string): void } | null = null;
+  interface Session {
+    at: "connecting" | "open";
+    /** Which of the few places it has: 1, 2, … */
+    slot: number;
+    /** When its home was last heard from. */
+    heard: number;
+    end(why: string): void;
+  }
+  /** The few terminals there may be, connecting or open. */
+  const sessions = new Set<Session>();
+  const most = Math.max(1, Math.min(o.maxSessions ?? 4, 8));
   let allowedUntil = 0;
   let opened = 0;
   let refused = 0;
@@ -126,39 +143,44 @@ export function createBridge(o: BridgeOptions): Bridge {
     // From here the request is the owner's. It is used up whatever happens next.
     seen.set(grant.value.id, grant.value.expiresAt);
     // One question at a time, and one connection being made at a time.
-    if (asking || session?.at === "connecting") return refuse(from, note.id, "This computer is already answering a request. Try again in a moment.", "busy with another request", true);
+    if (asking || [...sessions].some((x) => x.at === "connecting")) return refuse(from, note.id, "This computer is already answering a request. Try again in a moment.", "busy with another request", true);
 
     const code = grantCode(grant.value.id);
     if (now() >= allowedUntil) {
       asking = true;
       say(from, note.id, { t: "wait" });
       const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), o.askTimeoutMs ?? 60_000).unref());
-      const yes = await Promise.race([o.ask({ code, session: from, replaces: session !== null }).catch(() => false), timeout]);
+      const yes = await Promise.race([o.ask({ code, session: from, open: sessions.size, replaces: sessions.size >= most }).catch(() => false), timeout]);
       asking = false;
       if (!yes) return refuse(from, note.id, "Nobody at the computer said yes.", "not allowed at the computer", true);
       if (o.allowForSec) allowedUntil = now() + o.allowForSec;
     }
-    // One terminal at a time. The owner asking again, and being let in, is the owner moving: a headset taken
-    // off, a page closed. The old one is hung up, so a session nobody is at can never keep the owner out.
-    session?.end("another was opened in its place");
+    // A few terminals at a time. When as many are open as may be, the owner being let in again takes the place
+    // of the one whose home has been quiet longest: a headset in a drawer, a page that froze. So terminals
+    // nobody is at can never keep the owner out.
+    if (sessions.size >= most) [...sessions].sort((a, b) => a.heard - b.heard)[0]!.end("another was opened in its place");
     try {
       await connect(from, note.id, note.message.sdp);
     } catch (e) {
-      session?.end("it couldn't be made");
+      for (const x of sessions) if (x.at === "connecting") x.end("it couldn't be made");
       refuse(from, note.id, "This computer couldn't make the connection.", `could not connect: ${(e as Error).message}`, true);
     }
   }
 
-  async function connect(to: string, re: string, offer: string): Promise<void> {
+  async function connect(to: string, re: string, offer: string): Promise<Session> {
     const pc = new RTCPeerConnection({ iceServers: o.iceServers ?? DEFAULT_ICE, iceUseDefaultStunServer: false });
     let terminal: Terminal | null = null;
     let channel: RTCDataChannel | null = null;
     let over = false;
     let idle: NodeJS.Timeout | undefined;
-    let heard = Date.now();
     const started = Date.now();
-    const mine: { at: "connecting" | "open"; end(why: string): void } = { at: "connecting", end: (why) => end(why) };
-    session = mine;
+    // The lowest place that is free, so a terminal put away and opened again is the same one.
+    let slot = 1;
+    while ([...sessions].some((x) => x.slot === slot)) slot++;
+    const mine: Session = { at: "connecting", slot, heard: Date.now(), end: (why) => end(why) };
+    sessions.add(mine);
+    const command = typeof o.command === "function" ? o.command(slot) : o.command;
+    const label = most > 1 ? `Terminal ${slot}` : "Terminal";
 
     const end = (why: string) => {
       if (over) return;
@@ -168,9 +190,9 @@ export function createBridge(o: BridgeOptions): Bridge {
       clearTimeout(longest);
       clearInterval(listening);
       terminal?.close();
-      if (session === mine) session = null;
+      sessions.delete(mine);
       const minutes = Math.round((Date.now() - started) / 60000);
-      if (mine.at === "open") log(`Terminal closed after ${minutes ? `${minutes} min` : "under a minute"}: ${why}.`);
+      if (mine.at === "open") log(`${label} closed after ${minutes ? `${minutes} min` : "under a minute"}: ${why}.`);
       else log(`No terminal opened: ${why}.`);
       // Let the last frames leave before the connection goes.
       setTimeout(() => void pc.close().catch(() => undefined), 300).unref();
@@ -183,7 +205,7 @@ export function createBridge(o: BridgeOptions): Bridge {
     const waiting = setTimeout(() => !terminal && end("the other end never connected"), 30_000);
     const longest = setTimeout(() => end("it had been open as long as a session may be"), o.maxMs ?? 12 * 3600_000);
     // The home says it is there every few seconds. One that stops has gone, whatever the connection thinks.
-    const listening = setInterval(() => Date.now() - heard > (o.quietMs ?? 60_000) && end("the home went quiet"), 5000);
+    const listening = setInterval(() => Date.now() - mine.heard > (o.quietMs ?? 60_000) && end("the home went quiet"), 5000);
     waiting.unref();
     longest.unref();
     listening.unref();
@@ -192,7 +214,7 @@ export function createBridge(o: BridgeOptions): Bridge {
       if (terminal || over || !channel) return;
       const ch = channel;
       terminal = openTerminal({
-        command: o.command,
+        command,
         ...(o.cwd ? { cwd: o.cwd } : {}),
         cols,
         rows,
@@ -212,7 +234,7 @@ export function createBridge(o: BridgeOptions): Bridge {
       opened++;
       clearTimeout(waiting);
       touch();
-      log(`Terminal open. Running ${o.command.join(" ")}.`);
+      log(`${label} open. Running ${command.join(" ")}.`);
       ch.send(JSON.stringify({ t: "ready", name: o.name ?? `${userInfo().username}@${hostname()}` }));
     };
 
@@ -224,7 +246,7 @@ export function createBridge(o: BridgeOptions): Bridge {
       ch.bufferedAmountLow.subscribe(() => terminal?.resume());
       ch.onMessage.subscribe((data) => {
         if (over) return;
-        heard = Date.now();
+        mine.heard = Date.now();
         if (typeof data === "string") {
           const said = parseBridgeControl(data);
           if (said?.t !== "size") return;
@@ -250,8 +272,8 @@ export function createBridge(o: BridgeOptions): Bridge {
     await pc.setRemoteDescription({ type: "offer", sdp: offer });
     await pc.setLocalDescription(await pc.createAnswer());
     if (pc.iceGatheringState !== "complete") await Promise.race([pc.iceGatheringStateChange.watch((s) => s === "complete"), new Promise((r) => setTimeout(r, 3000).unref())]);
-    if (over) return;
-    say(to, re, { t: "answer", sdp: pc.localDescription!.sdp });
+    if (!over) say(to, re, { t: "answer", sdp: pc.localDescription!.sdp });
+    return mine;
   }
 
   return {
@@ -269,11 +291,17 @@ export function createBridge(o: BridgeOptions): Bridge {
       );
     },
     async stop() {
-      session?.end("the Bridge was stopped");
+      for (const x of [...sessions]) x.end("the Bridge was stopped");
       relays?.close();
       relays = null;
       await new Promise((r) => setTimeout(r, 350));
     },
-    state: () => ({ busy: asking ? "asking" : (session?.at ?? "no"), relays: relays?.count() ?? 0, opened, refused }),
+    state: () => ({
+      busy: asking ? "asking" : [...sessions].some((x) => x.at === "connecting") ? "connecting" : sessions.size ? "open" : "no",
+      relays: relays?.count() ?? 0,
+      opened,
+      refused,
+      sessions: sessions.size,
+    }),
   };
 }
