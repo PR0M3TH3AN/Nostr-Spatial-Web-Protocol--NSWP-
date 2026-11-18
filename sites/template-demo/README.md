@@ -10,8 +10,14 @@ a fresh copy of the template to make it, so it can be made again:
   publisher key. **Not published to relays.**
 - `previews/`: its preview picture.
 
-To redeploy: clone the template, copy these three over the clone's own, then
-`npm install`, `npm run check`, and deploy `dist/` to the Vercel project named
-in `../vercel-projects.json` under `templateDemo`.
+To redeploy after the template changes: clone the template and put this
+folder's name and address (`d`, `title`, `url`, `summary`, `description`,
+`topics`) into the clone's own `world.json`. Then `npm install`,
+`npm run preview`, `npm run sign` with `NSWP_KEY_FILE` pointing at the
+reference publisher key, `npm run check`, and deploy `dist/` to the Vercel
+project named in `../vercel-projects.json` under `templateDemo`. Copy the
+clone's `world.json`, `signed/` and `previews/` back here.
+
+Last made from template commit `ea27eaa`.
 
 It is not built by `npm run build` here and has no code of its own.
