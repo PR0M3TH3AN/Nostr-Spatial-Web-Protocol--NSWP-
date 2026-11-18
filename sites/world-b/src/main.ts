@@ -1,5 +1,5 @@
-import * as THREE from "three";
 import { encodeNaddr, WORLD_KIND } from "@nswp/core";
+import { addBench, addCrystal, addLamp, addTree, createHalo } from "nswp-sdk/home";
 import previews from "../../previews/index.json";
 import sites from "../../sites.json";
 import { startWorld } from "../../shared/world.js";
@@ -23,30 +23,28 @@ void startWorld({
     position: [0, 0, -3],
     preview: (previews as Record<string, { sha256: string } | undefined>)["world-a"],
   },
-  decorate(scene, accent, blocks) {
-    // A grove: a ring of trees built from blocks, each with a lit crown, and motes drifting between them.
-    const leaf = new THREE.Color(0x1a1206).lerp(accent, 0.3);
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const r = 7 + (i % 3);
-      blocks.at([Math.round(Math.cos(a) * r * 2) / 2, 0, Math.round(Math.sin(a) * r * 2) / 2], (i * 37) % 90);
-      const tall = 1.6 + (i % 4) * 0.2;
-      blocks.box([0.3, tall, 0.3], [0, tall / 2, 0], { color: 0x1a1108 });
-      blocks.box([1.4, 0.6, 1.4], [0, tall + 0.3, 0], { color: leaf });
-      blocks.box([1.0, 0.6, 1.0], [0, tall + 0.9, 0], { color: leaf });
-      blocks.box([0.5, 0.5, 0.5], [0, tall + 1.45, 0], { color: accent, lit: true });
-    }
-    const motes = new THREE.Points(
-      new THREE.BufferGeometry().setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(Array.from({ length: 600 }, (_, i) => (i % 3 === 1 ? Math.random() * 4 : (Math.random() - 0.5) * 16)), 3),
-      ),
-      new THREE.PointsMaterial({ color: accent, size: 0.05 }),
-    );
-    scene.add(motes);
-    return (t) => {
-      motes.rotation.y = t * 0.03;
-      motes.position.y = Math.sin(t * 0.5) * 0.1;
+  decorate(scene, kit) {
+    // A grove: a clearing ringed with lantern trees, more of them thinning out behind, and somewhere to sit.
+    const grove = kit.builder;
+    const leaf = kit.builder.tone.clone().lerp(kit.accent, 0.035);
+    const tree = (i: number, angle: number, out: number) => {
+      grove.at([Math.cos(angle) * out, 0, Math.sin(angle) * out], (i * 37) % 360, 0.9 + (i % 5) * 0.09);
+      addTree(grove, leaf, i + 1, 2.1 + (i % 4) * 0.35);
     };
+    for (let i = 0; i < 14; i++) tree(i, (i / 14) * Math.PI * 2 + 0.22, 7.4 + (i % 3) * 0.9);
+    for (let i = 0; i < 22; i++) tree(14 + i, (i / 22) * Math.PI * 2, 12.5 + ((i * 7) % 5) * 2.1);
+    // Stones that have grown crystals, either side of the way through.
+    addCrystal(grove, 0.9, 5, [-2.6, 0, -4.2], 20);
+    addCrystal(grove, 0.6, 9, [2.9, 0, -3.6], 140);
+    addCrystal(grove, 0.5, 2, [-4.4, 0, 2.2], 250);
+    addBench(grove.at([-3.6, 0, -0.4], 70), kit.soft);
+    addBench(grove.at([3.6, 0, 0.6], -75), kit.soft);
+    for (const [x, z] of [[-1.9, 2.2], [1.9, 2.2], [-1.9, -1.4], [1.9, -1.4]] as const) {
+      addLamp(grove.at([x, 0, z]));
+      const halo = createHalo(kit.accent, 1.5);
+      halo.position.set(x, 1.64, z);
+      scene.add(halo);
+    }
+    return () => {};
   },
 });
