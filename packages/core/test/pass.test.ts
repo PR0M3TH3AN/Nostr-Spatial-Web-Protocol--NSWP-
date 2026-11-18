@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { buildAirlockUrl, buildRoomPass, claimsKey, cleanName, decodeArrival, encodeArrival, encodeNpub, finalizeEvent, fragmentSaysImmersive, getPublicKey, parseAirlockFragment, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
+import { buildAirlockUrl, buildRoomPass, claimsKey, cleanName, decodeArrival, decodeNpub, isPublicKey, encodeArrival, encodeNpub, finalizeEvent, fragmentSaysImmersive, getPublicKey, parseAirlockFragment, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
 
 const ME = sha256(utf8ToBytes("pass test identity"));
 const SESSION = sha256(utf8ToBytes("pass test session"));
@@ -51,6 +51,20 @@ describe("names", () => {
     // The example from NIP-19.
     expect(encodeNpub("3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d")).toBe("npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6");
     expect(shortNpub("3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d")).toBe("npub180cvv\u2026h6w6");
+  });
+
+  it("reads one back, and refuses what only looks like one", () => {
+    const key = "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d";
+    expect(decodeNpub(encodeNpub(key))).toBe(key);
+    expect(decodeNpub(`  ${key.toUpperCase()} `)).toBe(key);
+    expect(isPublicKey(key)).toBe(true);
+    // The right length and letters, and no key at all: nothing on the curve has this x.
+    const none = "cd".repeat(32);
+    expect(isPublicKey(none)).toBe(false);
+    expect(() => decodeNpub(none)).toThrow(/not a public key/);
+    expect(() => decodeNpub(encodeNpub(none))).toThrow(/not a public key/);
+    for (const bad of ["", "npub1", "npub1nonsense", key.slice(1), "nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5"]) expect(() => decodeNpub(bad), bad).toThrow();
+    expect(isPublicKey(42)).toBe(false);
   });
 });
 

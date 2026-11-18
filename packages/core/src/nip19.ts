@@ -1,7 +1,7 @@
 /** NIP-19 `naddr` encoding and decoding (TLV over bech32). */
 import { bech32 } from "@scure/base";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js";
-import { isHex64 } from "./event.js";
+import { isHex64, isPublicKey } from "./event.js";
 import { NswpError } from "./result.js";
 
 export interface AddressPointer {
@@ -75,7 +75,12 @@ export function encodeNpub(pubkey: string): string {
 /** Read a public key someone wrote down: an `npub1…`, or 64 hex characters. Throws when it is neither. */
 export function decodeNpub(s: string): string {
   const text = s.trim();
-  if (/^[0-9a-f]{64}$/i.test(text)) return text.toLowerCase();
+  const real = (hex: string) => {
+    // The right length and the right letters is not enough: it has to be a key somebody could hold.
+    if (!isPublicKey(hex)) throw new NswpError("npub_invalid", "not a public key: no key has that value");
+    return hex;
+  };
+  if (/^[0-9a-f]{64}$/i.test(text)) return real(text.toLowerCase());
   let decoded: { prefix: string; words: number[] };
   try {
     decoded = bech32.decode(text as `${string}1${string}`, BECH32_LIMIT);
@@ -84,7 +89,7 @@ export function decodeNpub(s: string): string {
   }
   const bytes = bech32.fromWords(decoded.words);
   if (decoded.prefix !== "npub" || bytes.length !== 32) throw new NswpError("npub_invalid", "not a public key: expected npub1… or 64 hex characters");
-  return bytesToHex(Uint8Array.from(bytes));
+  return real(bytesToHex(Uint8Array.from(bytes)));
 }
 
 /** An npub short enough to sit beside a figure: its start and its end. */
