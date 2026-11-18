@@ -167,7 +167,8 @@ export function createBridge(o: BridgeOptions): Bridge {
       clearInterval(listening);
       terminal?.close();
       if (session === mine) session = null;
-      if (mine.at === "open") log(`Terminal closed after ${Math.max(1, Math.round((Date.now() - started) / 60000))} min: ${why}.`);
+      const minutes = Math.round((Date.now() - started) / 60000);
+      if (mine.at === "open") log(`Terminal closed after ${minutes ? `${minutes} min` : "under a minute"}: ${why}.`);
       else log(`No terminal opened: ${why}.`);
       // Let the last frames leave before the connection goes.
       setTimeout(() => void pc.close().catch(() => undefined), 300).unref();

@@ -105,14 +105,16 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
   const message = (lines: { text: string; size?: number; color?: string }[]) => {
     g.textAlign = "center";
     g.textBaseline = "middle";
-    const total = lines.reduce((n, l) => n + (l.size ?? 34) * 1.5, 0);
+    // Sized to the panel, not to how many columns it has: the same words are as large on a small terminal.
+    const scale = canvas.width / 1200;
+    const total = lines.reduce((n, l) => n + (l.size ?? 40) * scale * 1.5, 0);
     let y = (canvas.height - STRIP) / 2 - total / 2;
     for (const l of lines) {
-      const size = l.size ?? 34;
-      g.font = `${size >= 100 ? "bold " : ""}${size}px system-ui, sans-serif`;
+      const size = Math.round((l.size ?? 40) * scale);
+      g.font = `${(l.size ?? 0) >= 100 ? "bold " : ""}${size}px system-ui, sans-serif`;
       g.fillStyle = l.color ?? FG;
       y += size * 0.75;
-      g.fillText(l.text, canvas.width / 2, y, canvas.width - 120);
+      g.fillText(l.text, canvas.width / 2, y, canvas.width - 80);
       y += size * 0.75;
     }
     g.textAlign = "left";
@@ -167,10 +169,10 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         message([{ text: "Asking your key to allow this…" }]);
         break;
       case "finding":
-        message([{ text: `Looking for ${where}…` }, { text: `If it asks, the code is ${status.code}.`, size: 28, color: "#9fb0c0" }]);
+        message([{ text: `Looking for ${where}…` }, { text: `If it asks, the code is ${status.code}.`, size: 30, color: "#9fb0c0" }]);
         break;
       case "asking":
-        message([{ text: `Say yes at ${where}.` }, { text: status.code, size: 150, color: accent }, { text: "It is asking now, and should show this code. If the code is different, say no.", size: 28, color: "#9fb0c0" }]);
+        message([{ text: `Say yes at ${where}.` }, { text: status.code, size: 150, color: accent }, { text: "It is asking now, and should show this code. If the code is different, say no.", size: 30, color: "#9fb0c0" }]);
         break;
       case "connecting":
         message([{ text: "Connecting…" }]);
@@ -184,7 +186,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         hint = `The program ended${status.code ? ` (${status.code})` : ""}. Press here to open another.`;
         break;
       case "closed":
-        message([{ text: status.why }, { text: "Press here to try again.", size: 28, color: "#9fb0c0" }]);
+        message([{ text: status.why }, { text: "Press here to try again.", size: 30, color: "#9fb0c0" }]);
         break;
     }
     g.fillStyle = "#111a25";
