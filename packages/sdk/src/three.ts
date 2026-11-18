@@ -16,8 +16,8 @@ import * as THREE from "three";
 import { spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { room, type Member, type RoomSession } from "./room.js";
 
-import { turnVisitor } from "./menu.js";
-export { createWorldMenu, menuItemFor, turnVisitor, type MenuItem, type WorldMenu, type WorldMenuOptions } from "./menu.js";
+import { turnVisitor } from "./turn.js";
+export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 
@@ -349,18 +349,6 @@ export function createPresence(d: PresenceOptions): Presence {
 
 // ------------------------------------------------------------ page controls
 
-export interface RoomControls {
-  roomButton: HTMLButtonElement;
-  micButton: HTMLButtonElement;
-  inviteButton: HTMLButtonElement;
-  /** Where room status is written. Give it `role="status"`. */
-  status: HTMLElement;
-  /** `?mic=tone` uses a test tone instead of asking for the microphone. */
-  search?: string;
-  /** Called with a small summary whenever the room changes (for tests). */
-  onState?: (state: Record<string, unknown> | null) => void;
-}
-
 function roomNameFromHash(hash: string): string | null {
   for (const part of hash.replace(/^#/, "").split("&")) {
     if (part.startsWith("room=")) {
@@ -374,100 +362,6 @@ function roomNameFromHash(hash: string): string | null {
   }
   return null;
 }
-
-/**
- * Wires a page's Join / microphone / invite buttons to a presence. Nothing
- * connects until Join is pressed, because joining shows the visitor's IP
- * address to the other members. Voice has to be switched on from the page,
- * before entering VR.
- *
- * Wrap the returned `refresh` into the presence's `onChange`.
- */
-export function attachRoomControls(presence: Presence, c: RoomControls): { refresh(): void } {
-  const useTone = new URLSearchParams(c.search ?? location.search).get("mic") === "tone";
-  let invited = roomNameFromHash(location.hash);
-  let note = "";
-
-  const refresh = () => {
-    const s = presence.session;
-    c.onState?.(
-      s
-        ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn }
-        : null,
-    );
-    c.roomButton.textContent = s ? "Leave the room" : "Join the room";
-    c.micButton.hidden = !s;
-    c.inviteButton.hidden = !s;
-    c.micButton.textContent = presence.micOn ? "Turn microphone off" : "Turn microphone on";
-    c.inviteButton.textContent = presence.roomName ? "Copy invite link" : "Make a private room";
-    if (!s) return;
-    const others = s.members.length;
-    const who =
-      s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
-    c.status.textContent = `${presence.roomName ? "Private room" : "Open room"}: ${who}.${note ? ` ${note}` : ""}`;
-  };
-
-  c.roomButton.addEventListener("click", () => {
-    if (presence.session) {
-      presence.leave();
-      note = "";
-      refresh();
-      c.status.textContent = "You left the room.";
-      return;
-    }
-    c.roomButton.disabled = true;
-    presence
-      .join(invited)
-      .then(refresh)
-      .catch((err) => {
-        c.status.textContent = `Couldn't join: ${err instanceof Error ? err.message : String(err)}`;
-      })
-      .finally(() => (c.roomButton.disabled = false));
-  });
-
-  c.micButton.addEventListener("click", async () => {
-    if (!presence.session) return;
-    if (presence.micOn) {
-      await presence.setMicrophone(null);
-      note = "";
-    } else {
-      try {
-        const track = useTone
-          ? presence.testTone()
-          : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0]!;
-        await presence.setMicrophone(track);
-        note = "Your microphone is on.";
-      } catch {
-        note = "The microphone is blocked or unavailable.";
-      }
-    }
-    refresh();
-  });
-
-  c.inviteButton.addEventListener("click", async () => {
-    if (!presence.session) return;
-    if (!presence.roomName) {
-      const bytes = crypto.getRandomValues(new Uint8Array(9));
-      const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
-      history.replaceState(history.state, "", `${location.pathname}${location.search}#room=${code}`);
-      invited = code;
-      await presence.join(code);
-    }
-    try {
-      await navigator.clipboard.writeText(location.href);
-      note = "Invite link copied. Anyone with it can join.";
-    } catch {
-      note = "Copy this page's address to invite someone.";
-    }
-    refresh();
-  });
-
-  if (invited) c.status.textContent = "You were invited to a private room. Joining shows your IP address to the others in it.";
-  refresh();
-  return { refresh };
-}
-
-// ------------------------------------------------------------------ previews
 
 export interface CaptureOptions {
   /** Width of the panorama in pixels; the height is half of it. Default 2048, at most 4096. */
