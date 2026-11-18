@@ -282,7 +282,9 @@ async function worlds(): Promise<number> {
   const skip = new Set<string>();
   const notOn = flag("not-on");
   if (notOn) {
-    const l = parseListEvent(JSON.parse(readFileSync(notOn, "utf8")));
+    // A list event, or a file that holds one under "set" (BitPortal's bundled starter set).
+    const file = JSON.parse(readFileSync(notOn, "utf8"));
+    const l = parseListEvent(file?.set ?? file);
     if (!l.ok) {
       printIssues(l.errors, l.warnings);
       return 1;
