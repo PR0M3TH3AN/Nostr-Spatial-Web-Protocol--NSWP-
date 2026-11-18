@@ -190,11 +190,17 @@ refused before anyone is asked; a no at the computer is a no; the whole path
 from BitPortal's room in Chrome, on a flat screen and in an emulated headset
 with the drawn keyboard.
 
-Also tried: the Bridge started with a real owner's key, reaching the four
-public relays; and the live BitPortal room offering to add a computer.
+Also tried, once, for real: on the live BitPortal room, the owner's own
+sign-in signed the grant, the four public relays carried it, the code on the
+panel matched the one at the computer, and a program with a full-screen
+display ran in the panel. The browser and the Bridge were on one computer.
 
-Not tried: a terminal opened by a real sign-in; a real headset; two networks
-(the home and the computer were on one machine); macOS.
+Not tried: a real headset; a browser on one network and the computer on
+another; macOS.
+
+A terminal started by a plain `nswp-bridge` ends when its panel is closed,
+and whatever was running in it ends too. Start the Bridge with `--tmux` to
+keep one terminal going between visits.
 
 ## Proposed, not built
 
