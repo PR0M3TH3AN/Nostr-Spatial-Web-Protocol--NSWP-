@@ -12,7 +12,7 @@
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes } from "@nswp/core";
-import { capturePanorama, createPortalWindow, panoramaTexture } from "nswp-sdk/three";
+import { capturePanorama, createPortalWindow, createWorldMenu, menuItemFor, panoramaTexture, turnVisitor, type WorldMenu } from "nswp-sdk/three";
 import { setupPresence } from "./presence.js";
 import { textSprite } from "./text.js";
 
@@ -36,6 +36,8 @@ type TestHooks = {
   /** Test aid: put the visitor at a floor position. */
   teleport?: (x: number, z: number) => void;
   device?: unknown;
+  /** The in-headset menu. */
+  menu?: WorldMenu;
 };
 
 declare global {
@@ -224,6 +226,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   });
 
+  let menu: WorldMenu;
   // XR: any input source's `select` (trigger, pinch, gaze-and-pinch) on the portal.
   const tmpMatrix = new THREE.Matrix4();
   const rayHits = (source: THREE.Object3D) => {
@@ -242,13 +245,42 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     c.add(line);
     c.addEventListener("select", () => {
       hooks.state.lastSelect = i;
-      if (rayHits(c)) void go();
+      const onPortal = rayHits(c); // leaves the ray where this hand points
+      const button = menu.pick(raycaster);
+      if (button) menu.press(button);
+      else if (onPortal) void go();
     });
     rig.add(c);
     controllers.push(c);
   }
 
   const presence = setupPresence({ scene, camera, rig, renderer, controllers, textColor: cfg.palette.text, state: hooks.state });
+
+  // The way back to the visitor's own lobby, offered when they came from one.
+  const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;
+  const homeButton = byId<HTMLButtonElement>("home-button");
+  if (homeButton && arrival.returnAirlock()) {
+    homeButton.hidden = false;
+    homeButton.addEventListener("click", () => void portal.home({ xrSession: renderer.xr.getSession() }));
+  }
+  // In a headset the page's buttons are out of reach, so the same ones go in a menu in the scene.
+  const pageButton = (id: string) => {
+    const b = byId<HTMLButtonElement>(id);
+    return b ? [menuItemFor(b)] : [];
+  };
+  menu = createWorldMenu({
+    textColor: cfg.palette.text,
+    note: () => byId("room-status")?.textContent ?? "",
+    items: [
+      ...pageButton("home-button"),
+      { label: "Turn around", act: () => turnVisitor(rig, camera, 180) },
+      ...pageButton("room-button"),
+      ...pageButton("mic-button"),
+      { label: "Leave VR", act: () => renderer.xr.getSession()?.end() },
+    ],
+  });
+  scene.add(menu.group);
+  hooks.menu = menu;
   hooks.roomInfo = () => presence.info();
   hooks.teleport = (x, z) => {
     rig.position.x = x - camera.position.x;
@@ -330,7 +362,14 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     tick(t);
     let hover = 0;
     if (renderer.xr.isPresenting) {
-      for (const c of controllers) if (rayHits(c)) hover = 1;
+      let button: THREE.Mesh | null = null;
+      for (const c of controllers) {
+        const onPortal = rayHits(c);
+        const b = menu.pick(raycaster);
+        if (b) button = b;
+        else if (onPortal) hover = 1;
+      }
+      menu.aim(button);
       checkWalkThrough();
     } else {
       walk(dt);
@@ -338,6 +377,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       hover = raycaster.intersectObject(disc).length ? 1 : 0;
       renderer.domElement.style.cursor = hover ? "pointer" : "grab";
     }
+    menu.update(dt, camera, renderer.xr.isPresenting);
     discMat.uniforms.uHover!.value += (hover - (discMat.uniforms.uHover!.value as number)) * 0.2;
     renderer.render(scene, camera);
   });
