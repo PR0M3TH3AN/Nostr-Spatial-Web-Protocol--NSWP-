@@ -116,3 +116,17 @@ describe("the keyboard drawn in a headset", () => {
     expect(keyAt(keys, esc.x + esc.width / 2, esc.y + esc.height / 2)?.id).toBe("esc");
   });
 });
+
+describe("a key to speak with", () => {
+  it("is on the keyboard only where something can listen, and typing is never mistaken for it", () => {
+    expect(liveRows("letters").flat().map((k) => k.id)).not.toContain("mic");
+    for (const layer of ["letters", "symbols", "more"] as const) {
+      const rows = liveRows(layer, { mic: true });
+      expect(rows.flat().map((k) => k.id)).toContain("mic");
+      for (const row of rows) expect(row.reduce((n, k) => n + k.w, 0)).toBeLessThanOrEqual(10.0001);
+    }
+    const k = new LiveKeys();
+    expect(k.press("mic", liveRows("letters", { mic: true }).flat())).toEqual({ mic: true });
+    expect(k.press("mic")).toBeNull(); // not on a board without one
+  });
+});

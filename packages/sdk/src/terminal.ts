@@ -10,8 +10,11 @@
  * it: with a real keyboard anywhere, and with the kit's drawn one in a
  * headset. Press anywhere else to stop typing into it.
  *
- * Along its foot are five buttons, each one press: back and forward through
- * what has scrolled away, larger and smaller letters, and copy. The panel's
+ * Along its foot are six buttons, each one press: speak, back and forward
+ * through what has scrolled away, larger and smaller letters, and copy.
+ * Speak types what is said, and never presses Enter. The words are worked out
+ * on the visitor's own computer where its Bridge listens, and otherwise by
+ * their browser where it can, after saying so. The panel's
  * own + and - change how large the whole panel is; these change how much
  * fits on it.
  *
@@ -23,6 +26,7 @@ import { Terminal } from "@xterm/headless";
 import { openBridgeLink, type BridgeLink, type BridgeStatus } from "./bridge-link.js";
 import type { Panel, PanelLook, PanelPlace, Panels } from "./panels.js";
 import type { V3 } from "./panel-store.js";
+import { computerVoice } from "./speech.js";
 import { forApplication, keyBytes, pasteBytes } from "./term-keys.js";
 import type { EventTemplate, NostrEvent } from "@nswp/core";
 
@@ -31,7 +35,7 @@ export type { BridgeStatus } from "./bridge-link.js";
 /** How many letters fit across, from the largest letters to the smallest. */
 export const TERMINAL_COLUMNS = [60, 80, 100, 120, 140, 160] as const;
 
-export type TerminalButton = "back" | "forward" | "larger" | "smaller" | "copy";
+export type TerminalButton = "speak" | "back" | "forward" | "larger" | "smaller" | "copy";
 
 export interface TerminalPanelOptions {
   panels: Panels;
@@ -110,6 +114,7 @@ const STRIP = 116; // the foot: what a press will do, and the buttons, tall enou
 const H = SCREEN + PAD * 2 + STRIP;
 const FACE = `ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace`;
 const BUTTONS: { id: TerminalButton; label: string; w: number }[] = [
+  { id: "speak", label: "Speak", w: 170 },
   { id: "back", label: "▲", w: 124 },
   { id: "forward", label: "▼", w: 124 },
   { id: "larger", label: "A+", w: 124 },
@@ -267,13 +272,14 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     g.fillText(hint, PAD, H - STRIP / 2 + 1, hintWidth);
     for (const b of placed) {
       // Looking back and copying need a screen to look at; the size of the letters can be chosen any time.
-      const usable = b.id === "larger" ? cell.cols > TERMINAL_COLUMNS[0] : b.id === "smaller" ? cell.cols < TERMINAL_COLUMNS.at(-1)! : live();
+      const usable = b.id === "larger" ? cell.cols > TERMINAL_COLUMNS[0] : b.id === "smaller" ? cell.cols < TERMINAL_COLUMNS.at(-1)! : b.id === "speak" ? status.at === "open" && !!voice.source : live();
+      const lit = b.id === "speak" && voice.state !== "idle";
       g.globalAlpha = usable ? 1 : 0.35;
-      g.fillStyle = "#1c2836";
+      g.fillStyle = lit ? accent : "#1c2836";
       g.beginPath();
       g.roundRect(b.x, b.y, b.w, b.h, 10);
       g.fill();
-      g.fillStyle = FG;
+      g.fillStyle = lit ? BG : FG;
       g.textAlign = "center";
       g.font = "bold 40px system-ui, sans-serif";
       g.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
@@ -289,10 +295,25 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     setTimeout(draw, 16);
   };
   const say = (text: string) => {
-    said = { text, until: Date.now() + 2500 };
+    // Nothing to say puts the usual line back at once.
+    said = text ? { text, until: Date.now() + (text.length > 60 ? 6000 : 2500) } : null;
     redraw();
-    setTimeout(redraw, 2600);
+    setTimeout(redraw, (text.length > 60 ? 6000 : 2500) + 100);
   };
+
+  // ---------------------------------------------------------------- speaking
+  const voice = o.panels.keyboard.voice;
+  let unlisten: (() => void) | null = null; // this computer, offered as a way to listen while it is connected
+  const unheard = voice.subscribe(() => redraw());
+  const speak = () =>
+    voice.toggle({
+      onText(words) {
+        term.scrollToBottom();
+        // Typed as a paste is, with a space after: the visitor reads it, and presses Enter themselves.
+        link?.send(pasteBytes(`${words} `, term.modes.bracketedPasteMode));
+      },
+      say,
+    });
 
   // ------------------------------------------------------------------- typing
   const send = (bytes: string) => {
@@ -390,6 +411,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
   const pressButton = (id: TerminalButton) => {
     if (id === "larger") return step(-1);
     if (id === "smaller") return step(1);
+    if (id === "speak") return status.at === "open" ? speak() : undefined;
     if (!live()) return;
     if (id === "back") return scroll(-(cell.rows - 2));
     if (id === "forward") return scroll(cell.rows - 2);
@@ -412,6 +434,12 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
       onStatus(next) {
         status = next;
         if (next.at !== "open") blur();
+        // While it is connected and listens, this computer is the way speech becomes words: its own, and private.
+        unlisten?.();
+        unlisten = null;
+        const through = link;
+        if (next.at === "open" && next.speech && through) unlisten = voice.add(computerVoice(where, (pcm, lang) => through.transcribe(pcm, lang)));
+        if (next.at !== "open") voice.cancel();
         o.onStatus?.(next);
         redraw();
       },
@@ -440,6 +468,8 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         if (closed) return;
         blur();
         closed = true;
+        unlisten?.();
+        unheard();
         link?.close();
         removeEventListener("pagehide", onLeave);
         term.dispose();

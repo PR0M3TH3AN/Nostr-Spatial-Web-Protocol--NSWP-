@@ -16,6 +16,7 @@
 import * as THREE from "three";
 import { keyAt, placeKeys, TextEntry, type PlacedKey } from "./keys.js";
 import { wrapText } from "./panel-store.js";
+import { createVoice, type Voice } from "./speech.js";
 import { LiveKeys, placeLiveKeys } from "./term-keys.js";
 
 export interface KeyboardOptions {
@@ -25,6 +26,8 @@ export interface KeyboardOptions {
   textColor?: string;
   /** The headset session, if there is one: asked whether its browser has a keyboard of its own to offer. */
   session?: () => XRSession | null | undefined;
+  /** What turns speech into words, where a page has its own. Left out, the keyboard makes one. */
+  voice?: Voice;
 }
 
 export interface AskOptions {
@@ -52,6 +55,12 @@ export interface Keyboard {
   /** Whether it is up for a terminal: every key sent as it is pressed. */
   readonly isLive: boolean;
   /**
+   * Speaking instead of typing. Where something can turn speech into words
+   * (the visitor's own computer, or their browser), the keyboard has a Speak
+   * key. Anything else that takes text can use the same one button.
+   */
+  readonly voice: Voice;
+  /**
    * Put the keyboard up for something that takes keys as they are typed, a
    * terminal. It has Esc, Tab, Ctrl and the arrows, and stays up until it is
    * put away. A real keyboard is the caller's to listen to.
@@ -69,7 +78,7 @@ export interface Keyboard {
   /** Where a key is in the world, for a test to point at. */
   pointOf(hit: string): THREE.Vector3 | null;
   /** What is written so far, and which keys are showing. */
-  info(): { open: boolean; live: boolean; title: string; value: string; layer: string; shift: string; ctrl: boolean; keys: string[] };
+  info(): { open: boolean; live: boolean; title: string; value: string; layer: string; shift: string; ctrl: boolean; keys: string[]; voice: string; notice: string };
   update(t: number): void;
   dispose(): void;
 }
@@ -106,9 +115,16 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
   let stale = true;
   let field: HTMLTextAreaElement | null = null; // the page's own text box, while the headset's keyboard has it
   let live: { keys: LiveKeys; o: LiveOptions } | null = null;
+  const voice = o.voice ?? createVoice();
+  let notice = ""; // a line about listening, in place of the title while there is something to say
+  const say = (message: string) => {
+    notice = message;
+    stale = true;
+  };
   const systemOffered = () => !!(o.session?.() as unknown as { isSystemKeyboardSupported?: boolean } | null | undefined)?.isSystemKeyboardSupported;
   const lay = () => {
-    keys = live ? placeLiveKeys(live.keys.layer) : placeKeys(entry.layer, { multiline: entry.multiline, system: systemOffered() });
+    const mic = !!voice.source;
+    keys = live ? placeLiveKeys(live.keys.layer, { mic }) : placeKeys(entry.layer, { multiline: entry.multiline, system: systemOffered(), mic });
     stale = true;
   };
 
@@ -125,9 +141,9 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
     g.textBaseline = "top";
     g.fillStyle = accent;
     g.font = "bold 30px system-ui, sans-serif";
-    if (live) g.fillText(live.keys.ctrl ? `${title}. Ctrl is on for the next key.` : title, 36, top + 22, W - 72);
+    if (live) g.fillText(notice || (live.keys.ctrl ? `${title}. Ctrl is on for the next key.` : title), 36, top + 22, W - 72);
     else {
-      g.fillText(title, 36, 24, W - 72);
+      g.fillText(notice || title, 36, 24, W - 72);
       g.fillStyle = ink;
       g.font = "40px system-ui, sans-serif";
       const lines = wrapText(`${entry.value}▏`, W - 72, (s) => g.measureText(s).width, 400);
@@ -137,7 +153,7 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
     for (const k of keys) {
       const [x, y, w, h] = [k.x * W, SHOW + k.y * KEYS, k.width * W, k.height * KEYS];
       const shift = live ? live.keys.shift : entry.shift;
-      const on = aimed === k.id || (k.kind === "shift" && shift !== "off") || (k.kind === "ctrl" && !!live?.keys.ctrl);
+      const on = aimed === k.id || (k.kind === "shift" && shift !== "off") || (k.kind === "ctrl" && !!live?.keys.ctrl) || (k.kind === "mic" && voice.state !== "idle");
       g.fillStyle = on ? accent : k.kind === "char" || k.kind === "space" ? "#162231" : k.kind === "done" ? "#24384c" : "#0e1722";
       g.beginPath();
       g.roundRect(x, y, w, h, 16);
@@ -158,6 +174,8 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
 
   const finish = (value: string | null) => {
     if (!done) return;
+    voice.cancel();
+    notice = "";
     const resolve = done;
     done = null;
     group.visible = false;
@@ -213,6 +231,8 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
     field.focus();
   };
 
+  // A way to listen that comes or goes changes which keys there are; listening starting or ending changes how one is lit.
+  const unheard = voice.subscribe(() => (done || live ? lay() : undefined));
   const at = new THREE.Vector3();
   const facing = new THREE.Vector3();
   const local = new THREE.Vector3();
@@ -237,6 +257,8 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
     const was = live;
     live = null;
     aimed = null;
+    voice.cancel();
+    notice = "";
     if (!done) group.visible = false;
     was.o.onClose?.();
   };
@@ -295,12 +317,25 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
       if (live) {
         const what = live.keys.press(hit.slice(3), keys);
         if (what && "close" in what) return closeLive();
+        const to = live.o;
+        // What is said is typed, with a space after it, and nothing is pressed for them.
+        if (what && "mic" in what) voice.toggle({ onText: (text) => to.onKey(`${text} `), say });
         lay();
-        if (what) live.o.onKey(what.send);
+        if (what && "send" in what) live.o.onKey(what.send);
         return;
       }
       if (!done) return;
       const what = entry.press(hit.slice(3), keys);
+      if (what === "mic") {
+        const into = entry;
+        voice.toggle({
+          onText(text) {
+            into.type(into.value && !/\s$/.test(into.value) ? ` ${text}` : text);
+            stale = true;
+          },
+          say,
+        });
+      }
       if (what === "done") return finish(entry.value);
       if (what === "cancel") return finish(null);
       if (what === "system") useSystem();
@@ -315,13 +350,15 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
       group.updateMatrixWorld(true);
       return board.localToWorld(local.clone());
     },
-    info: () => ({ open: !!done || !!live, live: !!live, title, value: live ? "" : entry.value, layer: live ? live.keys.layer : entry.layer, shift: live ? live.keys.shift : entry.shift, ctrl: !!live?.keys.ctrl, keys: keys.map((k) => k.id) }),
+    voice,
+    info: () => ({ voice: voice.state, notice, open: !!done || !!live, live: !!live, title, value: live ? "" : entry.value, layer: live ? live.keys.layer : entry.layer, shift: live ? live.keys.shift : entry.shift, ctrl: !!live?.keys.ctrl, keys: keys.map((k) => k.id) }),
     update() {
       if ((done || live) && stale) paint();
     },
     dispose() {
       finish(null);
       closeLive();
+      unheard();
       o.scene.remove(group);
       board.geometry.dispose();
       (board.material as THREE.Material).dispose();
