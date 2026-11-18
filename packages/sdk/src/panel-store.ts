@@ -163,3 +163,40 @@ export function wrapText(text: string, width: number, measure: (s: string) => nu
   }
   return out;
 }
+
+// ------------------------------------------------------------------- library
+
+/** One file of the visitor's own, kept in this browser: a picture or a video they hung or took. */
+export interface LibraryItem {
+  id: string;
+  kind: "picture" | "video";
+  title: string;
+  bytes: number;
+  /** Seconds since 1970. */
+  addedAt: number;
+  /** A small picture of it, as a data address, or "" when none could be made. */
+  thumb: string;
+}
+
+export const LIBRARY_LIMITS = { count: 60, thumbChars: 60_000 } as const;
+
+/** Read the list of kept files back from storage, dropping anything that isn't what it claims to be. Newest first. */
+export function cleanLibrary(input: unknown): LibraryItem[] {
+  if (!Array.isArray(input)) return [];
+  const out: LibraryItem[] = [];
+  for (const item of input as Partial<LibraryItem>[]) {
+    if (!item || typeof item !== "object" || typeof item.id !== "string" || !ID.test(item.id) || out.some((x) => x.id === item.id)) continue;
+    if (item.kind !== "picture" && item.kind !== "video") continue;
+    // A thumbnail is a small picture and nothing else: never an address to fetch.
+    const thumb = typeof item.thumb === "string" && item.thumb.length <= LIBRARY_LIMITS.thumbChars && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(item.thumb) ? item.thumb : "";
+    out.push({ id: item.id, kind: item.kind, title: tidy(item.title, PANEL_LIMITS.titleChars), bytes: finite(item.bytes) && item.bytes >= 0 ? item.bytes : 0, addedAt: finite(item.addedAt) ? item.addedAt : 0, thumb });
+  }
+  return out.sort((a, b) => b.addedAt - a.addedAt).slice(0, LIBRARY_LIMITS.count);
+}
+
+/** Which items are on a page of the board, and how many pages there are. */
+export function libraryPage<T>(items: T[], page: number, perPage: number): { items: T[]; page: number; pages: number } {
+  const pages = Math.max(1, Math.ceil(items.length / perPage));
+  const at = Math.min(pages - 1, Math.max(0, Math.floor(page)));
+  return { items: items.slice(at * perPage, (at + 1) * perPage), page: at, pages };
+}

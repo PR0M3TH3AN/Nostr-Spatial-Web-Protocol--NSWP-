@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.2
+
+A keyboard and a library, so a headset is no longer the place where a visitor can only move things about.
+
+- **A keyboard drawn in the scene** (`panels.keyboard`). Keys are pressed with a select, so it works on every headset. A real keyboard and a paste type into it too, and nothing behind hears them. Where a headset's browser offers its own keyboard to a page, one key hands over to it.
+- **A library** (`panels.library`): the pictures and video of the visitor's own that their browser keeps, on a board to choose from in the headset. A page can't show a device's files; it can show what it was given.
+- **The camera** can hand everything it takes to the library (`onCapture`).
+- **Found by trying it:** the keyboard comes up where the console's own button sits, and the button was taking the presses. The keyboard is asked first now, and the console steps aside while it is up.
+- **Status:** driven on a local build in an emulated Quest 3. The headset's own keyboard has been tried nowhere. Not deployed.
+
 ## 0.10.1
 
 Panels. No change to any format: this is the SDK, and the first stage of [`browser/spec.md`](browser/spec.md).

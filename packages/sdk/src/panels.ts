@@ -26,6 +26,8 @@
 import * as THREE from "three";
 import { createAlloy, type Alloy } from "./alloy.js";
 import type { XrInput } from "./input.js";
+import { createKeyboard, type Keyboard } from "./keyboard.js";
+import { createLibrary, fileStore, type Library } from "./library.js";
 import { MeshBuilder } from "./mesh.js";
 import type { Controls } from "./ui/model.js";
 import { cleanPlace, cleanRecords, cleanSource, facing, inFront, newId, PANEL_LIMITS, wrapText, type PanelPlace, type PanelRecord, type PanelSource, type V3 } from "./panel-store.js";
@@ -46,6 +48,8 @@ export interface PanelsOptions {
   keep?: string;
   /** Called when a panel is opened, moved, resized or put away. */
   onChange?: () => void;
+  /** The headset session, if there is one: its browser may have a keyboard of its own to offer. */
+  session?: () => XRSession | null | undefined;
 }
 
 export interface Panel {
@@ -72,8 +76,14 @@ export interface PanelInfo {
 export interface Panels {
   /** Hang a panel. Without a place, it goes a comfortable reach in front of the visitor, facing them. */
   open(content: PanelContent, opts?: { id?: string; place?: Partial<PanelPlace>; keep?: boolean }): Panel;
-  /** Hang a file the visitor chose from their own device: a picture or a video. It is kept in this browser. */
+  /** Hang a file the visitor chose from their own device: a picture or a video. It goes into their library, and is kept in this browser. */
   openFile(file: Blob & { name?: string }): Promise<Panel | null>;
+  /** A keyboard to type on inside a headset. Its keys are found by `pick()` and pressed by `press()`, like a panel's. */
+  readonly keyboard: Keyboard;
+  /** The pictures and video of the visitor's own that this browser keeps, and a board to choose one from. */
+  readonly library: Library;
+  /** Where something `pick()` could return is in the world: a key, a cell of the library. For a test to point at. */
+  pointOf(hit: string): THREE.Vector3 | null;
   list(): Panel[];
   /** Hide every panel, or show them again. They keep their places. */
   visible: boolean;
@@ -94,30 +104,6 @@ const BAR = 0.085; // the bar's height, for a panel one metre wide
 const GAP = 0.012;
 const BUTTON = 0.062;
 const DEG = Math.PI / 180;
-
-// ------------------------------------------------------------------ kept files
-
-const DB = "nswp-panels";
-function files(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const open = indexedDB.open(DB, 1);
-    open.onupgradeneeded = () => open.result.createObjectStore("files");
-    open.onsuccess = () => resolve(open.result);
-    open.onerror = () => reject(open.error);
-  });
-}
-async function fileStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> {
-  try {
-    const db = await files();
-    return await new Promise<T>((resolve, reject) => {
-      const request = run(db.transaction("files", mode).objectStore("files"));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return undefined; // no storage here: the file lasts for the visit
-  }
-}
 
 // --------------------------------------------------------------------- drawing
 
@@ -254,6 +240,29 @@ export function createPanels(o: PanelsOptions): Panels {
     }
   };
 
+  // ------------------------------------------------- the keyboard, and the library
+  const keyboard = createKeyboard({ scene: o.scene, camera: o.camera, accent, textColor: ink, ...(o.session ? { session: o.session } : {}) });
+  const library = createLibrary({
+    scene: o.scene,
+    camera: o.camera,
+    accent,
+    textColor: ink,
+    ...(o.keep ? { keep: o.keep } : {}),
+    onChoose: (item) => {
+      try {
+        open({ kind: item.kind, title: item.title, src: `kept:${item.id}` });
+      } catch {
+        /* too many are open: the board stays up, and nothing is lost */
+      }
+    },
+    onChange: () => {
+      // A file taken out of the library takes any panel showing it along.
+      const have = new Set(library.list().map((x) => `kept:${x.id}`));
+      for (const p of [...live.values()]) if (p.source.kind !== "custom" && "src" in p.source && p.source.src.startsWith("kept:") && !have.has(p.source.src)) p.close();
+      o.onChange?.();
+    },
+  });
+
   // ------------------------------------------------------------------- layout
   /** Put a panel's parts where they belong for its shape. Everything is sized for a panel one metre wide, and the group is scaled. */
   const layout = (p: Live) => {
@@ -302,8 +311,6 @@ export function createPanels(o: PanelsOptions): Panels {
     p.video?.pause();
     if (p.video) p.video.src = "";
     if (p.blobUrl) URL.revokeObjectURL(p.blobUrl);
-    const src = p.record && "src" in p.record.source ? p.record.source.src : "";
-    if (src.startsWith("kept:")) void fileStore("readwrite", (s) => s.delete(src.slice(5)));
     root.remove(p.group);
     p.bar.removeFromParent();
     for (const mesh of [p.body, p.bar]) {
@@ -394,7 +401,9 @@ export function createPanels(o: PanelsOptions): Panels {
         let src = source.src;
         if (src.startsWith("kept:")) {
           const blob = await fileStore<Blob>("readonly", (s) => s.get(src.slice(5)) as IDBRequest<Blob>);
-          if (!blob || !live.has(id)) return;
+          // The file was taken out of the library: there is nothing left to show.
+          if (!blob) return void (live.has(id) && p.close());
+          if (!live.has(id)) return;
           src = p.blobUrl = URL.createObjectURL(blob);
         }
         if (source.kind === "picture") {
@@ -494,12 +503,14 @@ export function createPanels(o: PanelsOptions): Panels {
     async openFile(file) {
       const kind = file.type.startsWith("image/") ? "picture" : file.type.startsWith("video/") ? "video" : null;
       if (!kind || file.size > PANEL_LIMITS.fileBytes) return null;
-      const name = newId();
-      const stored = (await fileStore("readwrite", (s) => s.put(file, name))) !== undefined;
-      const title = (file.name ?? "").replace(/\.[a-z0-9]+$/i, "");
-      // Kept if this browser will hold it; otherwise shown for this visit only.
-      return stored ? open({ kind, title, src: `kept:${name}` }) : open({ kind, title, src: URL.createObjectURL(file) }, { keep: false });
+      const item = await library.add(file, file.name ?? "");
+      if (item) return open({ kind, title: item.title, src: `kept:${item.id}` });
+      // The library is full, or this browser keeps nothing: it hangs for this visit only.
+      return open({ kind, title: (file.name ?? "").replace(/\.[a-z0-9]+$/i, ""), src: URL.createObjectURL(file) }, { keep: false });
     },
+    keyboard,
+    library,
+    pointOf: (hit) => (hit.startsWith("kb:") ? keyboard.pointOf(hit) : hit.startsWith("lib:") ? library.pointOf(hit) : null),
     list: () => [...live.values()],
     get visible() {
       return root.visible;
@@ -510,17 +521,24 @@ export function createPanels(o: PanelsOptions): Panels {
       o.onChange?.();
     },
     pick(raycaster) {
+      // The keyboard is in front of everything while it is up, then the library's board, then the panels.
+      const above = keyboard.pick(raycaster) ?? library.pick(raycaster);
+      if (above) return above;
       if (!root.visible) return null;
       const hit = raycaster.intersectObjects(targets(), false)[0];
       return hit ? hit.object.name : null;
     },
     aim(hit) {
+      keyboard.aim(hit);
+      library.aim(hit);
       if (hit === aimed) return;
       tint(aimed, false);
       aimed = hit;
       tint(aimed, true);
     },
     press(hit) {
+      if (hit.startsWith("kb:")) return keyboard.press(hit);
+      if (hit.startsWith("lib:")) return library.press(hit);
       const found = find(hit);
       if (!found) return;
       const [p, part] = found;
@@ -531,6 +549,7 @@ export function createPanels(o: PanelsOptions): Panels {
     },
     pointer(phase, raycaster) {
       if (phase === "down") {
+        if (keyboard.pick(raycaster) ?? library.pick(raycaster)) return false; // those are pressed, not dragged
         const hit = root.visible ? raycaster.intersectObjects(targets(), false)[0] : undefined;
         const found = hit ? find(hit.object.name) : null;
         if (!found || found[1] !== "bar") return false;
@@ -555,6 +574,8 @@ export function createPanels(o: PanelsOptions): Panels {
     },
     update(t) {
       metal.tick(t);
+      keyboard.update(t);
+      library.update();
       for (const p of live.values()) {
         if (!p.held) continue;
         // The bar is in the visitor's hand. The panel hangs from it, and turns to face them.
@@ -583,6 +604,8 @@ export function createPanels(o: PanelsOptions): Panels {
         if (p.blobUrl) URL.revokeObjectURL(p.blobUrl);
       }
       live.clear();
+      keyboard.dispose();
+      library.dispose();
       o.scene.remove(root);
       frameShape.dispose();
       metal.dispose();
@@ -648,12 +671,12 @@ function askForNote(done: (note: { title: string; text: string } | null) => void
 export function addPanelControls(controls: Controls, panels: Panels, o: { presenting: () => boolean; kept?: boolean }): void {
   const note = () =>
     o.presenting()
-      ? "Take a panel by its bar to move it. Write notes and hang pictures on a flat screen: a headset has no keyboard or files to offer."
+      ? "Take a panel by its bar to move it. Write a note on the keyboard, or hang something from your pictures and video."
       : `Notes, pictures and video in frames you can hang anywhere. Drag one by its bar.${o.kept ? " They are kept in this browser and are here next visit." : ""} A panel can't show another website.`;
   controls.addSection({ id: "panels", label: "Panels", icon: "panel", note });
-  const full = (act: () => void) => {
+  const hang = (source: PanelSource) => {
     try {
-      act();
+      panels.open(source);
     } catch (err) {
       controls.say(err instanceof Error && /Put one away/.test(err.message) ? `${PANEL_LIMITS.count} panels are open. Put one away first.` : "That couldn't be hung.");
     }
@@ -679,13 +702,31 @@ export function addPanelControls(controls: Controls, panels: Panels, o: { presen
       icon: "note",
       label: "Write a note",
       short: "Note",
-      hidden: o.presenting,
-      act: () =>
-        askForNote((n) => {
-          if (n) full(() => void panels.open({ kind: "note", ...n }));
-        }),
+      act: () => {
+        // In a headset, on the keyboard the kit draws; on a flat screen, in a box on the page.
+        if (o.presenting()) {
+          void panels.keyboard.ask({ title: "A note. Done hangs it in front of you.", multiline: true, maxLength: PANEL_LIMITS.noteChars }).then((text) => {
+            if (text?.trim()) hang({ kind: "note", title: "", text });
+          });
+        } else
+          askForNote((n) => {
+            if (n) hang({ kind: "note", ...n });
+          });
+      },
     },
-    { id: "panel-file", section: "panels", icon: "panel", label: "Hang a picture or video", short: "Hang", hidden: o.presenting, act: () => picker.click() },
+    {
+      id: "panel-library",
+      section: "panels",
+      icon: "panel",
+      on: () => panels.library.showing,
+      label: () => (panels.library.showing ? "Put your pictures and video away" : "Your pictures and video"),
+      short: "Yours",
+      act: () => {
+        panels.library.showing = !panels.library.showing;
+      },
+    },
+    // The device's own files: the browser shows those itself, as a flat window, so this is offered outside a headset.
+    { id: "panel-file", section: "panels", icon: "panel", label: "Hang a picture or video from this device", short: "Hang", hidden: o.presenting, act: () => picker.click() },
     {
       id: "panel-hide",
       section: "panels",
