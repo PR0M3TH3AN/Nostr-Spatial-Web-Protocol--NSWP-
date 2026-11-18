@@ -54,6 +54,8 @@ type TestHooks = {
   teleport?: (x: number, z: number) => void;
   /** Turn the view: degrees to the left of the way in, and degrees up. */
   face?: (yaw: number, pitch?: number) => void;
+  /** What the last frame cost to draw. */
+  drawn?: () => { calls: number; triangles: number };
   /** Stand a visitor's figure somewhere, to see how one looks. */
   figure?: (x: number, z: number, yaw?: number) => void;
   device?: unknown;
@@ -302,6 +304,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     rig.position.x = x - camera.position.x;
     rig.position.z = z - camera.position.z;
   };
+  hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
   hooks.figure = (x, z, yaw = 0) => {
     const figure = createFigure(0xff7ab6);
     figure.group.position.set(x, 1.6, z);
