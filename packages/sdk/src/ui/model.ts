@@ -33,6 +33,15 @@ export interface UiAction {
   tone?: "normal" | "primary" | "warn";
   /** Put it in the row of things always at hand. Keep that row to six. */
   hotbar?: boolean;
+  /** A word or two for where there is little room, such as under a hotbar key. */
+  short?: Text;
+  /**
+   * What kind of control it is. Each kind is drawn by one small function in
+   * each renderer, so a new kind is added there and nowhere else.
+   * "swatch" is a choice of colour, and needs `color`.
+   */
+  kind?: "button" | "swatch";
+  color?: string;
 }
 
 export interface UiSection {
@@ -51,6 +60,9 @@ export interface UiItemView {
   tone: "normal" | "primary" | "warn";
   /** The number key that presses it from the hotbar, or "". */
   key: string;
+  short: string;
+  kind: "button" | "swatch";
+  color: string;
 }
 export interface UiSectionView {
   id: string;
@@ -180,7 +192,7 @@ export function createControls(opts: ControlsOptions): Controls {
       const bar = showing.filter((a) => a.hotbar).slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1) };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: a.color ?? "" };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);
@@ -209,7 +221,7 @@ export function createControls(opts: ControlsOptions): Controls {
   const keep = (patch: Partial<UiTheme>) => controls.setTheme(patch, true);
   controls.add(
     ...UI_PRESETS.map(
-      (p): UiAction => ({ id: `look-${p.id}`, section: "look", label: p.label, icon: "look", on: () => theme.accent === p.accent, act: () => keep({ accent: p.accent }) }),
+      (p): UiAction => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep({ accent: p.accent }) }),
     ),
     { id: "look-size", section: "look", icon: "size", label: () => (theme.scale > 1 ? "Text: larger" : "Text: normal"), on: () => theme.scale > 1, act: () => keep({ scale: theme.scale > 1 ? 1 : 1.25 }) },
     { id: "look-motion", section: "look", icon: "motion", label: () => (theme.motion ? "Motion: on" : "Motion: off"), on: () => theme.motion, act: () => keep({ motion: !theme.motion }) },

@@ -316,10 +316,21 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         g.fillRect(x + 14, y + cellH - 7, cellW - 28, 3);
         g.strokeStyle = g.fillStyle = item.tone === "warn" ? t.warn : item.on ? t.accent : t.ink;
         const iconSize = Math.min(40, cellH - 30);
-        strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
-        g.font = `600 ${Math.round((cols === 3 ? 24 : 28) * k)}px ${SANS}`;
+        if (item.kind === "swatch") {
+          // A choice of colour: a small doorway lit in it.
+          const ink = g.fillStyle;
+          g.fillStyle = item.color;
+          g.beginPath();
+          g.roundRect(x + 20, y + (cellH - iconSize) / 2 - 4, iconSize * 0.78, iconSize, [iconSize * 0.39, iconSize * 0.39, 4, 4]);
+          g.fill();
+          g.fillStyle = ink;
+        } else strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
+        const size = Math.round((cols === 3 ? 23 : 28) * k);
+        g.font = `600 ${size}px ${SANS}`;
         g.textBaseline = "middle";
-        g.fillText(fit(g, item.label, cellW - iconSize - 44), x + iconSize + 30, y + cellH / 2 - 2);
+        // Two lines before any word is cut short: a button's words are how it is found.
+        const words = wrap(g, item.label, cellW - iconSize - 44, cellH > 70 ? 2 : 1);
+        words.forEach((line, n) => g.fillText(line, x + iconSize + 30, y + cellH / 2 - 2 + (n - (words.length - 1) / 2) * (size + 3)));
         g.textBaseline = "alphabetic";
       });
     });

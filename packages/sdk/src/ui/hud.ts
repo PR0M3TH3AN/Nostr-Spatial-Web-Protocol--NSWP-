@@ -42,6 +42,12 @@ svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-wi
   -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); }
 .mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-weight: 400; }
 
+/* ---- the corners of the view, marked lightly: this is a HUD, laid over a place */
+.corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(var(--accent), .5); }
+.corner.a { left: 6px; bottom: 6px; border-left-width: 1px; border-bottom-width: 1px; border-bottom-left-radius: 6px; }
+.corner.b { right: 6px; bottom: 6px; border-right-width: 1px; border-bottom-width: 1px; border-bottom-right-radius: 6px; }
+@media (max-width: 640px) { .corner { display: none; } }
+
 /* ---- who and where: top left */
 .id { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
   display: flex; align-items: center; gap: 10px; max-width: min(60vw, 420px); padding: 8px 14px 8px 10px; border-radius: 6px 14px 14px 6px;
@@ -95,7 +101,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab:hover { color: rgb(var(--ink)); }
 .tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
-.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22); }
+.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
+/* A choice of colour is a row of small doorways, each lit in its own. */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
+.swatch { width: 66px; display: grid; justify-items: center; gap: 6px; font-size: .86em; color: rgba(var(--ink), .8); }
+.swatch i { width: 38px; height: 44px; border-radius: 19px 19px 5px 5px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
+.swatch u { width: 46px; height: 2px; margin-top: -3px; border-radius: 1px; background: rgba(var(--ink), .25); }
+.swatch:hover i { transform: translateY(-2px); }
+.swatch[aria-pressed="true"] i { box-shadow: 0 0 16px var(--c); }
+.swatch[aria-pressed="true"] u { background: var(--c); box-shadow: 0 0 10px var(--c); }
+.swatch[aria-pressed="true"] { color: rgb(var(--ink)); }
 .row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
   border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
 .row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
@@ -115,8 +131,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 @keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 @keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
-:host(.moving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
-:host(.moving) .id, :host(.moving) .menu { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+:host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
+:host(.moving.arriving) .id, :host(.moving.arriving) .menu { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
 :host(.moving) .sheet:not([hidden]) { animation: unfold .24s cubic-bezier(.2, .8, .2, 1) both; }
 :host(:not(.moving)) * { transition: none !important; animation: none !important; }
 
@@ -158,8 +174,17 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
 export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}): Hud {
   const host = document.createElement("nswp-hud");
   const root = host.attachShadow({ mode: "open" });
-  const style = document.createElement("style");
-  style.textContent = CSS;
+  // A constructed stylesheet, not a <style> element: a site with a strict
+  // content security policy forbids inline styles, and this isn't one.
+  let style: HTMLStyleElement | "" = "";
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(CSS);
+    root.adoptedStyleSheets = [sheet];
+  } catch {
+    style = document.createElement("style");
+    style.textContent = CSS;
+  }
 
   const title = el("b");
   const address = el("span", { class: "mono" });
@@ -173,7 +198,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const note = el("p", { class: "note" });
   const close = el("button", { class: "close", type: "button" }, "Close");
   const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
-  root.append(style, id, menu, says, sheet, el("div", { class: "low" }, target, hotbar));
+  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, says, sheet, el("div", { class: "low" }, target, hotbar));
   (opts.parent ?? document.body).append(host);
 
   let open = false;
@@ -208,7 +233,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
           { class: `key ${item.tone}`, type: "button", "aria-label": item.label, ...(item.on === null ? {} : { "aria-pressed": String(item.on) }) },
           el("span", { class: "arch" }, icon(item.icon ?? "door")),
           el("span", { class: "sill" }),
-          el("span", { class: "name" }, item.label),
+          el("span", { class: "name" }, item.short),
           el("kbd", { class: "num mono" }, item.key),
         );
         b.style.setProperty("--i", String(i));
@@ -230,8 +255,16 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       }),
     );
     const current = view.sections.find((s) => s.id === section);
+    const drawSwatch = (item: UiItemView) => {
+      const b = el("button", { class: "swatch", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, el("i"), el("u"), item.label);
+      b.style.setProperty("--c", item.color);
+      b.addEventListener("click", () => press(item));
+      return b;
+    };
+    const swatches = (current?.items ?? []).filter((i) => i.kind === "swatch");
     rows.replaceChildren(
-      ...(current?.items ?? []).map((item) => {
+      swatches.length ? el("div", { class: "swatches" }, ...swatches.map(drawSwatch)) : "",
+      ...(current?.items ?? []).filter((i) => i.kind !== "swatch").map((item) => {
         const b = el(
           "button",
           { class: `row ${item.tone}`, type: "button", ...(item.on === null ? {} : { "aria-pressed": String(item.on) }) },
@@ -281,6 +314,9 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const stop = controls.subscribe(draw);
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);
+  // Things arrive once, when the HUD first appears. A key redrawn later is simply there.
+  host.classList.add("arriving");
+  setTimeout(() => host.classList.remove("arriving"), 1200);
   draw();
 
   return {

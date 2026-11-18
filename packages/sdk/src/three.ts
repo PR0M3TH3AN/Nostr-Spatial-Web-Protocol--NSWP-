@@ -694,6 +694,7 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
       hotbar: true,
       icon: () => (presence.session ? "leave" : "room"),
       label: () => (presence.session ? "Leave the room" : "Join the room"),
+      short: () => (presence.session ? "Leave" : "Join"),
       on: () => !!presence.session,
       hidden: () => busy,
       act: async () => {
@@ -719,6 +720,7 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
       hotbar: true,
       icon: () => (presence.micOn ? "mic" : "micOff"),
       label: () => (presence.micOn ? "Turn microphone off" : "Turn microphone on"),
+      short: "Mic",
       on: () => presence.micOn,
       hidden: () => !presence.session,
       act: async () => {
@@ -794,6 +796,7 @@ export async function addViewControls(
       hotbar: true,
       hidden: () => !supported,
       label: () => (presenting() ? "Leave VR" : "Enter VR"),
+      short: "VR",
       act: async () => {
         if (presenting()) return void (await d.renderer.xr.getSession()?.end());
         try {

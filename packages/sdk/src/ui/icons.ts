@@ -4,8 +4,7 @@
  * headset console draws them on its canvas with Path2D.
  */
 export const ICONS = {
-  /** An arched doorway: home, and this project's mark for a way through. */
-  home: "M6 21V11a6 6 0 0 1 12 0v10M4 21h16M12 21v-5",
+  home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
   turn: "M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5",
   room: "M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20a6 6 0 0 1 12 0M16.5 11.5a2.5 2.5 0 1 0 0-5M17.5 14.6A5 5 0 0 1 21.5 20",
   leave: "M10 4H5v16h5M14 8l4 4-4 4M18 12H9",
@@ -17,6 +16,7 @@ export const ICONS = {
   look: "M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11ZM9 14a3 3 0 0 0 3 3",
   help: "M9.2 9a3 3 0 1 1 4.6 2.5c-1 .7-1.8 1.4-1.8 2.7M12 18h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
   menu: "M4 7h16M4 12h16M4 17h10",
+  /** An arched doorway: this project's mark for a way through. */
   door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
   save: "M7 4h10v17l-5-3.5L7 21V4Z",
