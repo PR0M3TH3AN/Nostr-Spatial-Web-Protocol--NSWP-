@@ -1,13 +1,21 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.7 (concept specification)
+**Version:** 0.7.8 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.8
+
+No change to the protocol. The reference places are modelled now, not stacked from boxes (`docs/grid-look.md`).
+
+- **A modelling kit in the SDK.** Shapes are made in code the way a modeller makes them: boxes with bevelled edges and panels pressed in, profiles swept along a path or turned on a lathe. Everything that stays still in a place is one mesh, drawn in one surface shader with no lights. The doorway's frame, walls, furniture, sculptures, trees and a visitor's figure are parts made with it, and a world can use them or make its own.
+- **A sky worth looking at.** Another world hangs low in it, ruled with the same grid, with lights on its night side and rings its shadow falls across. Behind it: stars, one faint band of them, and constellations drawn like a map of a network. Every world's sky is arranged differently. The skyline is modelled towers and, far off, great arches.
+- **Not deployed or published yet.** The reference worlds' preview pictures were retaken and their announcements signed again in the repository. The live sites and the relays still carry the look from 0.7.6 until the owner approves a deploy and a publish. No real headset has drawn any of this: the pictures come from a software renderer, and frame rate on a headset is unmeasured.
 
 ## 0. What changed in 0.7.7
 
