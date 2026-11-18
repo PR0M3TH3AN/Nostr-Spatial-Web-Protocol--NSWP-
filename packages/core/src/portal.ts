@@ -1,6 +1,7 @@
 /** Portal objects and Airlock fragments (spec §6.1–§6.3). */
 import { SCHEMAS, WORLD_KIND } from "./constants.js";
 import { checkDestination } from "./destination.js";
+import type { Capability } from "./constants.js";
 import { decodeNaddr, type AddressPointer } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
 
@@ -117,7 +118,7 @@ export function buildWayUrl(airlock: string, opts: { immersive?: boolean; doors?
 }
 
 /** A capability a world's manifest may name: it can be the place its owner starts (protocol/07-homes.md). */
-export const HOME_CAPABILITY = "home";
+export const HOME_CAPABILITY = "home" satisfies Capability;
 
 /** Parse an Airlock fragment. Returns null when there is no destination. */
 export function parseAirlockFragment(hash: string): AirlockRequest | null {
