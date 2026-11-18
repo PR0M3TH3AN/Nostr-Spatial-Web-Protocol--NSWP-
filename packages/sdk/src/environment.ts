@@ -36,6 +36,12 @@ export interface EnvironmentOptions {
   constellations?: boolean;
   /** Any number: it turns the sky, so two worlds don't share one. Taken from the colours when left out. */
   seed?: number;
+  /**
+   * Where the ringed world hangs, for a place that wants to say: degrees to
+   * the right of the way in (negative for left), degrees above the horizon,
+   * and how big it is next to its usual size.
+   */
+  planet?: { turn?: number; height?: number; size?: number };
 }
 
 /** The ground colour this look is drawn on unless a place asks for another. */
@@ -81,18 +87,18 @@ interface SkyPlan {
   band: THREE.Vector3;
 }
 
-function planSky(seed: number): SkyPlan {
+function planSky(seed: number, ask: EnvironmentOptions["planet"] = {}): SkyPlan {
   const rand = seeded(seed * 31 + 5);
-  const side = rand() > 0.5 ? 1 : -1;
+  const side = ask.turn !== undefined ? (ask.turn < 0 ? -1 : 1) : rand() > 0.5 ? 1 : -1;
   // Off to one side of the way in, low enough to sit over the skyline.
-  const az = side * THREE.MathUtils.degToRad(30 + rand() * 22);
-  const el = THREE.MathUtils.degToRad(19 + rand() * 4);
+  const az = ask.turn !== undefined ? THREE.MathUtils.degToRad(ask.turn) : side * THREE.MathUtils.degToRad(30 + rand() * 22);
+  const el = THREE.MathUtils.degToRad(ask.height ?? 19 + rand() * 4);
   const planet = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
   const right = new THREE.Vector3(0, 1, 0).cross(planet).normalize().negate();
   const up = planet.clone().cross(right).normalize().negate();
   const lean = rand() * Math.PI * 2;
   const band = new THREE.Vector3(Math.cos(lean) * 0.75, 0.62, Math.sin(lean) * 0.75).normalize();
-  return { planet, right, up, size: 0.12 + rand() * 0.03, side, band };
+  return { planet, right, up, size: (0.12 + rand() * 0.03) * (ask.size ?? 1), side, band };
 }
 
 /**
@@ -477,7 +483,7 @@ export function createEnvironment(accent: THREE.ColorRepresentation, opts: Envir
   const seed = opts.seed ?? Math.round((glow.r * 7 + glow.g * 13 + glow.b * 29 + ground.r * 31) * 1000);
   const ticking: THREE.ShaderMaterial[] = [];
 
-  const plan = planSky(seed);
+  const plan = planSky(seed, opts.planet);
   const sky = createSky(glow, ground, seed, plan);
   const floor = createGround(glow, ground);
   ticking.push(sky.material as THREE.ShaderMaterial, floor.material as THREE.ShaderMaterial);

@@ -60,12 +60,24 @@ try {
   await browser.close();
 }
 
+// Worlds kept elsewhere that a door here leads to: their previews are mirrored
+// too, from where their own repository keeps them.
+for (const [name, place] of Object.entries(sites.elsewhere ?? {})) {
+  const from = join(root, "sites", "template-demo");
+  const world = JSON.parse(readFileSync(join(from, "world.json"), "utf8")).world;
+  const p = world.d === place.d ? world.previews?.[0] : undefined;
+  if (!p) continue;
+  writeFileSync(join(outDir, `${p.sha256}.webp`), readFileSync(join(from, "previews", `${p.sha256}.webp`)));
+  index[name] = { sha256: p.sha256, width: p.width, height: p.height, elsewhere: true };
+}
+
 // Drop preview files that no world uses any more.
 const keep = new Set(Object.values(index).map((p) => `${p.sha256}.webp`));
 for (const f of readdirSync(outDir)) if (f.endsWith(".webp") && !keep.has(f)) rmSync(join(outDir, f));
 writeFileSync(join(outDir, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
 
 for (const [name, p] of Object.entries(index)) {
+  if (p.elsewhere) continue;
   const path = join(root, "sites", name, "world.json");
   const world = JSON.parse(readFileSync(path, "utf8"));
   world.previews = [{ url: new URL(`/previews/${p.sha256}.webp`, sites.worlds[name].url).href, type: "pano", sha256: p.sha256, width: p.width, height: p.height }];

@@ -1,0 +1,41 @@
+{
+  "d": "library",
+  "title": "The Library",
+  "url": "https://library.bitblocks.network/",
+  "summary": "Eight short notes on why the open spatial web is built this way.",
+  "description": "A reading room. Eight notes on its walls explain worlds, doors, the page between them, signing, verifying, and what stays private.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "reading",
+    "ideas",
+    "how-it-works"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance"
+  ]
+}

@@ -1,67 +1,107 @@
 /**
- * Shared scene for the NSWP reference worlds.
+ * What every world in sites/ runs on: the stage, arriving, doors, moving, the
+ * controls, the room, and the preview picture. A world supplies its colours,
+ * where its doors stand, and a `build` function that models what is in it.
  *
- * Input is written against the plain WebXR `select` event on every input
- * source, so the same code works with controllers, hand tracking (pinch) and
- * gaze-and-pinch (`transient-pointer`), across headsets. On desktop and
- * phones, tap or click the portal.
- *
- * Testing without a headset: add `?xr=emulate` to load IWER, which emulates a
- * Meta Quest 3 in the page. `window.__nswpTest` exposes hooks for automation.
+ * Works in a browser (click or tap), with a keyboard (W, A, S, D), and in any
+ * WebXR headset: every action is one `select`, so a trigger, a pinch, and
+ * gaze-and-pinch all work. `?xr=emulate` pretends to be a Meta Quest 3.
+ * `window.__nswpTest` is for automation.
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes } from "@nswp/core";
-import { createAlloy, createEnvironment, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy } from "nswp-sdk/home";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
+import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
+import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
+import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
-import { textSprite } from "./text.js";
+import previews from "../previews/index.json";
+import sites from "../sites.json";
+
+type V3 = [number, number, number];
+type Place = { d: string; url: string; title?: string };
+const places: Record<string, Place> = { ...sites.worlds, ...sites.elsewhere };
+
+export interface Door {
+  /** Which world it leads to: a name from sites.json. */
+  to: string;
+  /** What its sign says. */
+  label: string;
+  position: V3;
+  /** Degrees about the vertical. Left out, it faces where visitors arrive. */
+  rotation?: number;
+}
 
 export interface WorldKit {
+  scene: THREE.Scene;
   accent: THREE.Color;
   /** One builder for everything that stays still. Its tone is this world's metal. */
   builder: MeshBuilder;
-  /** This world's metal with some of its accent in it: for seats, leaves, things to notice. */
+  /** This world's metal with a little of its accent in it: for seats, leaves, things to notice. */
   soft: THREE.Color;
+  /** Where the visitor's head is, kept up to date. */
+  head: THREE.Vector3;
+  /** Everything a visitor can do here. Add to it, or say a few words with `controls.say()`. */
+  controls: Controls;
   /** A surface to draw a mesh of your own in. It is kept in time with the rest. */
   alloy(options?: { gloss?: number; sheen?: number }): Alloy;
+  /** A sign that faces the reader. The first line is its heading; the rest is wrapped to fit. */
+  sign(heading: string, text: string, at: V3, width?: number): THREE.Sprite;
+  /** A soft glow, for round anything that gives off light. */
+  halo(at: V3, size?: number): THREE.Sprite;
+  /** Leave a note for tests: it shows up in `__nswpTest.state`. */
+  note(key: string, value: unknown): void;
+}
+
+export interface WorldHandle {
+  update?(t: number, dt: number): void;
+  /** May a visitor stand here? Asked on top of the world's `reach`. */
+  canStand?(x: number, z: number): boolean;
+  /** Things to leave out of the preview picture, such as a score. */
+  hideFromPreview?: THREE.Object3D[];
 }
 
 export interface WorldConfig {
-  name: string;
-  tagline: string;
-  palette: { sky: number; ground: number; accent: number; fog: number; text: string };
-  airlock: string;
-  entryPoints: Record<string, { position: [number, number, number]; yaw: number }>;
-  /** `preview` is the destination's panorama, mirrored on this site at /previews/<sha256>.webp. */
-  portal: PortalDestination & { label: string; position: [number, number, number]; preview?: { sha256: string } };
-  /** Build what is in this world. `blocks` draws boxes with lit edges, all together; add anything else to the scene. Returns what to do each frame. */
-  /**
-   * Build what stands in this world. Add what stays still to `kit.builder`: it
-   * all becomes one mesh. Things that move are meshes of their own; draw them
-   * in `kit.alloy(...)` so they are lit the same way. Returns what to do each frame.
-   */
-  decorate(scene: THREE.Scene, kit: WorldKit): (t: number) => void;
+  /** This world's name in sites.json. */
+  site: string;
+  title: string;
+  /** One or two sentences: what this place is for. Shown on the sign where visitors arrive. */
+  purpose: string;
+  palette: { ground: number; accent: number; text: string };
+  /** Positions in metres; yaw in degrees, 0 facing -Z. */
+  entryPoints: Record<string, { position: V3; yaw: number }>;
+  doors: Door[];
+  /** How far from `middle` a visitor may go, in metres. Default 14 from the origin. */
+  reach?: number;
+  middle?: [number, number];
+  environment?: EnvironmentOptions;
+  /** Where the sign that says what this place is for hangs. Left out: ahead of the visitor and a little to the left. */
+  welcome?: V3;
+  /** How much room the controls take: a game asks for "quiet". */
+  quiet?: boolean;
+  build(kit: WorldKit): WorldHandle | void;
 }
 
 type TestHooks = {
   state: Record<string, unknown>;
+  doors(): { label: string; to: string; url: string; position: number[] }[];
+  goThrough(i: number): Promise<void>;
+  /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
   /** Capture this world's preview panorama (spec §5.8), as a base64 WebP. */
   capturePreview?: (width?: number) => Promise<{ base64: string; width: number; height: number; bytes: number }>;
-  /** Test aid: put the visitor at a floor position. */
   teleport?: (x: number, z: number) => void;
-  /** Turn the view: degrees to the left of the way in, and degrees up. */
+  /** Turn the view: degrees to the left of -Z, and degrees up. */
   face?: (yaw: number, pitch?: number) => void;
+  /** Point at a spot on the floor and select it, as a visitor would. */
+  step?: (x: number, z: number) => void;
+  where?: () => number[];
   /** What the last frame cost to draw. */
   drawn?: () => { calls: number; triangles: number };
   /** Stand a visitor's figure somewhere, to see how one looks. */
   figure?: (x: number, z: number, yaw?: number) => void;
   device?: unknown;
-  /** Everything a visitor can do here. */
   controls?: Controls;
-  /** The console shown in a headset. */
   console?: XrConsole;
 };
 
@@ -71,16 +111,30 @@ declare global {
   }
 }
 
+/** Break a paragraph into lines of about `width` letters. */
+function wrap(text: string, width: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(/\s+/)) {
+      if (line && (line + " " + word).length > width) {
+        lines.push(line);
+        line = word;
+      } else line = line ? `${line} ${word}` : word;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
 export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Read and scrub the arrival context before anything else (spec §4.4).
   const { context, warnings } = arrival.read();
-  configure({ defaultAirlock: cfg.airlock });
+  configure({ defaultAirlock: sites.airlock });
 
   const emulate = new URLSearchParams(location.search).get("xr") === "emulate";
-  const hooks: TestHooks = {
-    state: { world: cfg.name, arrival: context, arrivalWarnings: warnings, emulate, xr: "idle" },
-    goThroughPortal: async () => {},
-  };
+  const state: Record<string, unknown> = { world: cfg.title, arrival: context, arrivalWarnings: warnings, emulate, xr: "idle", ready: false };
+  const hooks: TestHooks = { state, doors: () => [], goThrough: async () => {}, goThroughPortal: async () => {} };
   window.__nswpTest = hooks;
   if (emulate) {
     const { XRDevice, metaQuest3 } = await import("iwer");
@@ -89,6 +143,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     hooks.device = device;
   }
 
+  // ------------------------------------------------------------- the stage
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
@@ -97,10 +152,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   document.getElementById("stage")!.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(cfg.palette.sky);
-  scene.fog = new THREE.Fog(cfg.palette.fog, 60, 300);
+  scene.background = new THREE.Color(cfg.palette.ground);
   const accent = new THREE.Color(cfg.palette.accent);
-
   const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 700);
   camera.position.set(0, 1.6, 0);
   const rig = new THREE.Group();
@@ -110,15 +163,25 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const entryName = context?.entry && cfg.entryPoints[context.entry] ? context.entry : "main-entrance";
   const spawn = cfg.entryPoints[entryName]!;
   rig.position.set(...spawn.position);
-  rig.rotation.y = spawn.yaw;
-  hooks.state.entryPoint = entryName;
+  rig.rotation.y = THREE.MathUtils.degToRad(spawn.yaw);
+  state.entryPoint = entryName;
 
-  scene.add(new THREE.HemisphereLight(0xffffff, cfg.palette.ground, 1.4));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-  sun.position.set(4, 10, 2);
-  scene.add(sun);
-  // The ground: the grid every NSWP reference place stands on, in this world's colour.
-  const environment = createEnvironment(accent, { ground: cfg.palette.ground });
+  // Everything modelled is drawn without lights; this is for anything a world adds that needs one.
+  scene.add(new THREE.HemisphereLight(0xffffff, cfg.palette.ground, 1.2));
+
+  // ------------------------------------------------------------- the controls
+  const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
+  const hud = mountHud(controls);
+  hooks.controls = controls;
+  if (cfg.quiet) {
+    // A game has an interface of its own, and the keyboard is for playing (spec §21.3).
+    controls.setPresence("quiet");
+    controls.setCorner("top-right");
+    controls.setKeys({ hotbar: false });
+  }
+
+  // ------------------------------------------------------------- the place
+  const environment = createEnvironment(accent, { ground: cfg.palette.ground, ...cfg.environment });
   scene.add(environment.group);
   const builder = new MeshBuilder();
   builder.tone = metalTone(cfg.palette.ground);
@@ -128,125 +191,191 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     alloys.push(made);
     return made;
   };
-  const tick = cfg.decorate(scene, { accent, builder, soft: builder.tone.clone().lerp(accent, 0.03), alloy });
+  const head = new THREE.Vector3();
+  camera.getWorldPosition(head);
+  const kit: WorldKit = {
+    scene,
+    accent,
+    builder,
+    soft: builder.tone.clone().lerp(accent, 0.03),
+    head,
+    controls,
+    alloy,
+    sign(heading, text, at, width = 1.8) {
+      const sprite = textSprite([heading, ...wrap(text, 38)].join("\n"), cfg.palette.text, width);
+      sprite.position.set(...at);
+      scene.add(sprite);
+      return sprite;
+    },
+    halo(at, size = 1.5) {
+      const halo = createHalo(accent, size);
+      halo.position.set(...at);
+      scene.add(halo);
+      return halo;
+    },
+    note(key, value) {
+      state[key] = value;
+    },
+  };
+  const handle = cfg.build(kit) ?? {};
   scene.add(builder.build(alloy()));
 
-  // --- the portal ---------------------------------------------------------
-  // The standard doorway: an arch standing on the floor, with its sign above.
-  const { label: portalLabel, position: _at, ...destination } = cfg.portal;
-  const gate = createPortalGate(destination, { label: portalLabel, color: accent, textColor: cfg.palette.text });
-  const portalGroup = gate.group;
-  portalGroup.position.set(...cfg.portal.position);
-  portalGroup.lookAt(rig.position.x, cfg.portal.position[1], rig.position.z);
-  const disc = gate.target; // what a ray is tested against
-
-  // The view through the portal: the destination's preview, if this site
-  // mirrors one. It is fetched from this site, never from the destination, and
-  // checked against its hash before it is shown (spec §5.8).
-  const previewHash = cfg.portal.preview?.sha256;
-  let portalWindow: THREE.Mesh | null = null;
-  if (previewHash) {
-    void (async () => {
-      try {
-        const res = await fetch(`/previews/${previewHash}.webp`);
-        if (!res.ok) return;
-        const bytes = new Uint8Array(await res.arrayBuffer());
-        const check = checkPreviewBytes({ url: res.url, type: "pano", sha256: previewHash }, bytes);
-        if (!check.ok) {
-          hooks.state.preview = check.code;
-          return;
-        }
-        const image = new Image();
-        image.src = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
-        await image.decode();
-        portalWindow = gate.showThrough(panoramaTexture(image));
-        hooks.state.preview = "shown";
-      } catch {
-        hooks.state.preview = "failed";
-      }
-    })();
-  }
-  scene.add(portalGroup);
-
-  // --- info panel near the spawn point -------------------------------------
-  const airlockNow = portal.airlockFor();
-  const lines = [
-    cfg.name,
-    cfg.tagline,
-    "",
-    context ? `Arrived at: ${entryName}` : "Arrived directly (no arrival context)",
-    context?.airlock ? `Return Airlock: ${destinationHost(context.airlock)}` : "Return Airlock: none (using world default)",
-    `This portal goes through: ${airlockNow ? destinationHost(airlockNow) : "built-in screen"}`,
-  ];
-  // Placed 3 m ahead and to the left, small enough to stay in view on a
-  // landscape screen (≈86° horizontal field of view) as well as in a headset.
-  const panel = textSprite(lines.join("\n"), cfg.palette.text, 1.7);
+  // What this place is for, where a visitor first looks: ahead and a little to the left.
   const yawAxis = new THREE.Vector3(0, 1, 0);
-  panel.position
-    .set(...spawn.position)
-    .add(new THREE.Vector3(-1.45, 1.75, -3).applyAxisAngle(yawAxis, spawn.yaw));
-  scene.add(panel);
+  // Hung further off, it is made larger, so it reads the same from where a visitor arrives.
+  const away = cfg.welcome ? Math.hypot(cfg.welcome[0] - spawn.position[0], cfg.welcome[2] - spawn.position[2]) : 0;
+  const welcome = kit.sign(cfg.title, cfg.purpose, [0, 0, 0], Math.max(2.1, away * 0.36));
+  if (cfg.welcome) welcome.position.set(...cfg.welcome);
+  else welcome.position.set(...spawn.position).add(new THREE.Vector3(-1.75, 1.85, -3.4).applyAxisAngle(yawAxis, rig.rotation.y));
 
-  hooks.capturePreview = async (width = 2048) => {
-    const main = cfg.entryPoints["main-entrance"]!;
-    // The arrival panel is about one visitor, so it stays out of the picture.
-    // So does the view through the portal: a preview that contained the other
-    // world's preview would change every time either one was retaken.
-    const hide: THREE.Object3D[] = portalWindow ? [panel, portalWindow] : [panel];
-    const blob = await capturePanorama(renderer, scene, new THREE.Vector3(main.position[0], 1.6, main.position[2]), { width, hide });
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    return { base64: btoa(binary), width, height: width / 2, bytes: bytes.length };
-  };
+  // ------------------------------------------------------------- the doors
+  // The standard doorway, with the destination's preview inside it when this
+  // site mirrors one. The preview is fetched from this site, never from the
+  // destination, and checked against its hash before it is shown (spec §5.8).
+  const gates: { gate: PortalGate; door: Door; destination: PortalDestination; place: Place; window: THREE.Mesh | null }[] = [];
+  for (const door of cfg.doors) {
+    const place = places[door.to];
+    if (!place) throw new Error(`${cfg.site}: no world called "${door.to}" in sites.json`);
+    const destination: PortalDestination = {
+      naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: sites.publisher, identifier: place.d, relays: sites.relays.slice(0, 2) }),
+      url: place.url,
+      entryPoint: "main-entrance",
+    };
+    const gate = createPortalGate(destination, { label: door.label, color: accent, textColor: cfg.palette.text });
+    gate.group.position.set(...door.position);
+    if (door.rotation === undefined) gate.group.lookAt(spawn.position[0], door.position[1], spawn.position[2]);
+    else gate.group.rotation.y = THREE.MathUtils.degToRad(door.rotation);
+    scene.add(gate.group);
+    const entry = { gate, door, destination, place, window: null as THREE.Mesh | null };
+    gates.push(entry);
+    const hash = (previews as Record<string, { sha256: string } | undefined>)[door.to]?.sha256;
+    if (hash) {
+      void (async () => {
+        try {
+          const res = await fetch(`/previews/${hash}.webp`);
+          if (!res.ok) return;
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          if (!checkPreviewBytes({ url: res.url, type: "pano", sha256: hash }, bytes).ok) return;
+          const image = new Image();
+          image.src = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
+          await image.decode();
+          entry.window = gate.showThrough(panoramaTexture(image));
+          state.previews = ((state.previews as number | undefined) ?? 0) + 1;
+        } catch {
+          /* the doorway keeps its field of light */
+        }
+      })();
+    }
+  }
+  hooks.doors = () => gates.map((g) => ({ label: g.door.label, to: g.door.to, url: g.place.url, position: g.gate.group.position.toArray() }));
 
-  // --- going through ---------------------------------------------------------
-  let leaving = false;
-  const go = async () => {
-    if (leaving) return;
-    leaving = true;
-    hooks.state.leaving = true;
+  // ------------------------------------------------------------- leaving
+  const go = async (i: number) => {
+    const g = gates[i];
+    if (!g || state.leaving) return;
+    state.leaving = true;
     document.body.classList.add("leaving");
-    const { label: _l, position: _p, ...dest } = cfg.portal;
-    await portal.go(dest, { xrSession: renderer.xr.getSession() });
+    await portal.go(g.destination, { xrSession: renderer.xr.getSession() });
   };
-  hooks.goThroughPortal = go;
+  hooks.goThrough = go;
+  hooks.goThroughPortal = () => go(0);
 
-  // One list of what a visitor can do here (the NSWP controls kit). The HUD
-  // draws it on a flat screen and the console draws it in a headset.
-  const controls = createControls({ title: cfg.name, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
-  const hud = mountHud(controls);
-  hooks.controls = controls;
-  controls.add(
-    { id: "portal", section: "travel", icon: "door", hotbar: true, label: cfg.portal.label, short: "Portal", act: go },
-    {
-      id: "home",
-      section: "travel",
-      icon: "home",
-      hotbar: true,
-      label: "Back to your lobby",
-      short: "Home",
-      // Offered when the visitor came from a lobby that said where to send them back to.
-      hidden: () => !arrival.returnAirlock(),
-      act: () => void portal.home({ xrSession: renderer.xr.getSession() }),
-    },
-  );
+  gates.forEach((g, i) => controls.add({ id: `door-${i}`, section: "travel", icon: "door", label: g.door.label, short: "Door", act: () => void go(i) }));
+  controls.add({
+    id: "home",
+    section: "travel",
+    icon: "home",
+    hotbar: true,
+    label: "Back to your lobby",
+    short: "Home",
+    // Offered when the visitor came from a lobby that said where to send them back to.
+    hidden: () => !arrival.returnAirlock(),
+    act: () => void portal.home({ xrSession: renderer.xr.getSession() }),
+  });
   controls.addSection({
     id: "help",
     label: "Help",
     icon: "help",
-    note: `${cfg.tagline} Drag to look around, walk with W, A, S, D, and select the portal to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
+    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D, or point at the floor and select to step there. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
   });
   const xrConsole: XrConsole = createConsole(controls, { renderer, rig });
   scene.add(xrConsole.group);
   hooks.console = xrConsole;
 
-  // Desktop / touch: tap the portal. Drag to look around.
+  // ------------------------------------------------------------- moving
+  const [midX, midZ] = cfg.middle ?? [0, 0];
+  const reach = cfg.reach ?? 14;
+  const canStand = (x: number, z: number) => Math.hypot(x - midX, z - midZ) <= reach && (handle.canStand?.(x, z) ?? true);
+  const headAt = new THREE.Vector3();
+  /** Move the visitor's head towards (x, z) in a straight line, stopping at the first place they may not stand. */
+  const moveTowards = (x: number, z: number) => {
+    camera.getWorldPosition(headAt);
+    const dx = x - headAt.x;
+    const dz = z - headAt.z;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.1));
+    let reached = 0;
+    for (let i = 1; i <= steps; i++) {
+      if (!canStand(headAt.x + (dx * i) / steps, headAt.z + (dz * i) / steps)) break;
+      reached = i;
+    }
+    rig.position.x += (dx * reached) / steps;
+    rig.position.z += (dz * reached) / steps;
+  };
+  // Stepping: point at the floor and select (click, tap, trigger or pinch) to
+  // stand there. A jump, not a slide, which keeps it comfortable in a headset,
+  // and the only way to move for a visitor with no keyboard.
   const raycaster = new THREE.Raycaster();
-  const ndc = new THREE.Vector2();
+  raycaster.camera = camera; // signs are sprites, which can't be tested against a ray without it
+  const STEP_MAX = 5;
+  const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const spotAt = new THREE.Vector3();
+  const floorHit = new THREE.Vector3();
+  const floorUnder = (): THREE.Vector3 | null => {
+    if (!raycaster.ray.intersectPlane(floor, spotAt)) return null;
+    floorHit.copy(spotAt);
+    camera.getWorldPosition(headAt);
+    const dx = spotAt.x - headAt.x;
+    const dz = spotAt.z - headAt.z;
+    const far = Math.hypot(dx, dz);
+    if (far < 0.3) return null;
+    if (far > STEP_MAX) spotAt.set(headAt.x + (dx / far) * STEP_MAX, 0, headAt.z + (dz / far) * STEP_MAX);
+    return spotAt;
+  };
+  const reticle = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.28, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false }));
+  reticle.rotation.x = -Math.PI / 2;
+  reticle.renderOrder = 5;
+  reticle.visible = false;
+  scene.add(reticle);
+  /** Is this something a visitor could be pointing at instead of the floor? The sky, the ground and glows are not. */
+  const solid = (o: THREE.Object3D) => {
+    if (!(o as THREE.Mesh).isMesh || o === reticle || !o.visible) return false;
+    if ((o as THREE.Mesh).material && ((o as THREE.Mesh).material as THREE.Material).transparent) return false;
+    for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === environment.group) return false;
+    return true;
+  };
+  const stepTo = (spot: THREE.Vector3) => {
+    // Pointing at a thing is not pointing at the floor behind it.
+    const toFloor = raycaster.ray.origin.distanceTo(floorHit);
+    const inTheWay = raycaster.intersectObjects(scene.children, true).find((h) => solid(h.object));
+    if (inTheWay && inTheWay.distance < toFloor - 0.05) return;
+    moveTowards(spot.x, spot.z);
+    state.steps = ((state.steps as number | undefined) ?? 0) + 1;
+  };
+  hooks.step = (x, z) => {
+    raycaster.ray.origin.copy(camera.getWorldPosition(new THREE.Vector3()));
+    raycaster.ray.direction.set(x, 0, z).sub(raycaster.ray.origin).normalize();
+    const spot = floorUnder();
+    if (spot) stepTo(spot);
+  };
+
+  // ------------------------------------------------------------- input
+  const targets = gates.map((g) => g.gate.target);
+  const doorAt = (object: THREE.Object3D | undefined) => gates.findIndex((g) => g.gate.target === object);
+  const pointer = new THREE.Vector2(2, 2);
   let dragging = false;
   let lastX = 0;
   let moved = 0;
+  const setPointer = (e: PointerEvent) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   renderer.domElement.addEventListener("pointerdown", (e) => {
     dragging = true;
     lastX = e.clientX;
@@ -255,9 +384,14 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   addEventListener("pointerup", (e) => {
     dragging = false;
     if (moved > 6 || renderer.xr.isPresenting || e.target !== renderer.domElement) return;
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-    raycaster.setFromCamera(ndc, camera);
-    if (raycaster.intersectObject(disc).length) void go();
+    setPointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+    if (door >= 0) void go(door);
+    else {
+      const spot = floorUnder();
+      if (spot) stepTo(spot);
+    }
   });
   addEventListener("pointermove", (e) => {
     if (dragging && !renderer.xr.isPresenting) {
@@ -265,44 +399,85 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       moved += Math.abs(e.clientX - lastX);
       lastX = e.clientX;
     }
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    setPointer(e);
   });
 
-  // XR: any input source's `select` (trigger, pinch, gaze-and-pinch) on the portal.
-  const tmpMatrix = new THREE.Matrix4();
-  const rayHits = (source: THREE.Object3D) => {
-    tmpMatrix.identity().extractRotation(source.matrixWorld);
+  // In a headset: a `select` from any input source.
+  const rotation = new THREE.Matrix4();
+  const aimFrom = (source: THREE.Object3D): number => {
+    rotation.identity().extractRotation(source.matrixWorld);
     raycaster.ray.origin.setFromMatrixPosition(source.matrixWorld);
-    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tmpMatrix);
-    return raycaster.intersectObject(disc).length > 0;
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(rotation);
+    return doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
   };
   const controllers: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const c = renderer.xr.getController(i);
-    const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]),
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }),
+    c.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }),
+      ),
     );
-    c.add(line);
     c.addEventListener("select", () => {
-      hooks.state.lastSelect = i;
-      const onPortal = rayHits(c); // leaves the ray where this hand points
+      state.lastSelect = i;
+      const door = aimFrom(c); // leaves the ray where this hand points
       const button = xrConsole.pick(raycaster);
       if (button) xrConsole.press(button);
-      else if (onPortal) void go();
+      else if (door >= 0) void go(door);
+      else {
+        const spot = floorUnder();
+        if (spot) stepTo(spot);
+      }
     });
     rig.add(c);
     controllers.push(c);
   }
 
+  // Walking into a doorway also goes through it.
+  const local = new THREE.Vector3();
+  const walkedInto = (): number => {
+    for (let i = 0; i < gates.length; i++) {
+      gates[i]!.gate.group.worldToLocal(local.copy(head));
+      if (Math.abs(local.x) < PORTAL_WIDTH / 2 - 0.15 && local.y > 0 && local.y < PORTAL_HEIGHT && Math.abs(local.z) < 0.25) return i;
+    }
+    return -1;
+  };
+
+  // Without a headset: W, A, S, D or the arrow keys.
+  const keys = new Set<string>();
+  addEventListener("keydown", (e) => {
+    if (!(e.target instanceof HTMLButtonElement)) keys.add(e.code);
+  });
+  addEventListener("keyup", (e) => keys.delete(e.code));
+  addEventListener("blur", () => keys.clear());
+  const stride = new THREE.Vector3();
+  const walk = (dt: number) => {
+    const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+    const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
+    if (!forward && !strafe) return;
+    stride.set(strafe, 0, -forward).normalize().multiplyScalar(2.4 * dt).applyAxisAngle(yawAxis, rig.rotation.y);
+    // Try the whole step, then each direction alone, so a visitor slides along an edge instead of sticking to it.
+    if (canStand(head.x + stride.x, head.z + stride.z)) rig.position.add(stride);
+    else if (canStand(head.x + stride.x, head.z)) rig.position.x += stride.x;
+    else if (canStand(head.x, head.z + stride.z)) rig.position.z += stride.z;
+  };
+
+  // ------------------------------------------------------------- the room
   // Other visitors appear only after someone presses Join (spec §9.4).
   let refreshRoom = () => {};
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, onChange: () => refreshRoom() });
-  ({ refresh: refreshRoom } = addRoomControls(controls, presence, { onState: (room) => (hooks.state.room = room) }));
+  ({ refresh: refreshRoom } = addRoomControls(controls, presence, { onState: (room) => (state.room = room) }));
   hooks.roomInfo = () => presence.info();
+
+  // ------------------------------------------------------------- for tests
   hooks.teleport = (x, z) => {
     rig.position.x = x - camera.position.x;
     rig.position.z = z - camera.position.z;
+  };
+  hooks.where = () => {
+    const at = camera.getWorldPosition(new THREE.Vector3());
+    return [Math.round(at.x * 100) / 100, Math.round(at.z * 100) / 100];
   };
   hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
   hooks.figure = (x, z, yaw = 0) => {
@@ -316,35 +491,21 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     camera.rotation.x = THREE.MathUtils.degToRad(pitch);
   };
 
-  // Desktop: WASD or arrow keys to walk.
-  const keys = new Set<string>();
-  addEventListener("keydown", (e) => {
-    if (!(e.target instanceof HTMLButtonElement)) keys.add(e.code);
-  });
-  addEventListener("keyup", (e) => keys.delete(e.code));
-  addEventListener("blur", () => keys.clear());
-  const step = new THREE.Vector3();
-  const walk = (dt: number) => {
-    const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
-    const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
-    if (!forward && !strafe) return;
-    step.set(strafe, 0, -forward).normalize().multiplyScalar(2 * dt).applyAxisAngle(THREE.Object3D.DEFAULT_UP, rig.rotation.y);
-    rig.position.add(step);
-    rig.position.x = THREE.MathUtils.clamp(rig.position.x, -12, 12);
-    rig.position.z = THREE.MathUtils.clamp(rig.position.z, -12, 12);
+  // ------------------------------------------------------------- preview
+  hooks.capturePreview = async (width = 2048) => {
+    const main = cfg.entryPoints["main-entrance"]!;
+    // Left out: the sign of welcome, anything about one visitor, and the views
+    // through the doors, since a preview that held another world's preview
+    // would change every time either was retaken.
+    const hide: THREE.Object3D[] = [welcome, ...(handle.hideFromPreview ?? []), ...gates.flatMap((g) => (g.window ? [g.window] : []))];
+    const blob = await capturePanorama(renderer, scene, new THREE.Vector3(main.position[0], 1.6, main.position[2]), { width, hide });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return { base64: btoa(binary), width, height: width / 2, bytes: bytes.length };
   };
 
-  // XR: physically walking into the disc also works.
-  const camWorld = new THREE.Vector3();
-  const local = new THREE.Vector3();
-  const checkWalkThrough = () => {
-    camera.getWorldPosition(camWorld);
-    local.copy(camWorld);
-    portalGroup.worldToLocal(local);
-    if (Math.abs(local.x) < PORTAL_WIDTH / 2 - 0.15 && local.y > 0 && local.y < PORTAL_HEIGHT && Math.abs(local.z) < 0.25) void go();
-  };
-
-  hooks.state.vrSupported = await addViewControls(controls, { renderer, rig, camera, hud, onState: (x) => (hooks.state.xr = x) });
+  state.vrSupported = await addViewControls(controls, { renderer, rig, camera, hud, onState: (x) => (state.xr = x) });
 
   addEventListener("resize", () => {
     camera.aspect = innerWidth / innerHeight;
@@ -352,44 +513,59 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  // ------------------------------------------------------------- each frame
   const startedAt = performance.now();
   let lastT = 0;
   renderer.setAnimationLoop(() => {
     const t = (performance.now() - startedAt) / 1000;
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
+    camera.getWorldPosition(head);
     presence.update(dt);
     environment.update(t);
     for (const a of alloys) a.tick(t);
-    tick(t);
-    let hover = 0;
+    handle.update?.(t, dt);
+    let aimed = -1;
+    reticle.visible = false;
     if (renderer.xr.isPresenting) {
       let button: string | null = null;
       for (const c of controllers) {
-        const onPortal = rayHits(c);
-        const b = xrConsole.pick(raycaster);
-        if (b) button = b;
-        else if (onPortal) hover = 1;
+        if (!c.visible) continue;
+        const door = aimFrom(c);
+        const onMenu = xrConsole.pick(raycaster);
+        if (onMenu) {
+          button = onMenu;
+          continue;
+        }
+        if (door >= 0) aimed = door;
+        const spot = door >= 0 ? null : floorUnder();
+        if (spot) {
+          reticle.position.set(spot.x, 0.02, spot.z);
+          reticle.visible = true;
+        }
       }
       xrConsole.aim(button);
-      checkWalkThrough();
+      const through = walkedInto();
+      if (through >= 0) void go(through);
     } else {
       walk(dt);
-      raycaster.setFromCamera(ndc, camera);
-      hover = raycaster.intersectObject(disc).length ? 1 : 0;
-      renderer.domElement.style.cursor = hover ? "pointer" : "grab";
+      raycaster.setFromCamera(pointer, camera);
+      aimed = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+      renderer.domElement.style.cursor = aimed >= 0 ? "pointer" : "grab";
     }
     xrConsole.update(dt, camera, renderer.xr.isPresenting);
-    controls.setTarget(hover ? `${cfg.portal.label}, at ${destinationHost(cfg.portal.url)}` : "");
-    gate.aimed = hover;
-    gate.update(t, dt);
+    const at = gates[aimed];
+    controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "");
+    gates.forEach((g, i) => {
+      g.gate.aimed = i === aimed ? 1 : 0;
+      g.gate.update(t, dt);
+    });
     renderer.render(scene, camera);
   });
-  hooks.state.ready = true;
+  state.ready = true;
 }
 
-function destinationHost(url: string | undefined): string {
-  if (!url) return "";
+function host(url: string): string {
   const chk = checkDestination(url);
-  return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid destination";
+  return chk.ok ? chk.value.hostname : "an address that can't be read";
 }

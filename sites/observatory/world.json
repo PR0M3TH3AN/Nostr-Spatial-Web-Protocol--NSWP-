@@ -1,0 +1,41 @@
+{
+  "d": "observatory",
+  "title": "The Observatory",
+  "url": "https://observatory.bitblocks.network/",
+  "summary": "A terrace under the ringed world, for looking at the sky.",
+  "description": "A round terrace with an orrery turning at its middle, under a sky with a ringed world and constellations drawn like a network.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "sky",
+    "quiet",
+    "observatory"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance"
+  ]
+}

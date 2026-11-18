@@ -1,15 +1,56 @@
 // Builds the reference sites into sites/<name>/dist as plain static files.
 import { build } from "esbuild";
-import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const sites = [
-  { name: "world-a", entry: "src/main.ts", world: true },
-  { name: "world-b", entry: "src/main.ts", world: true },
-  { name: "airlock", entry: "src/airlock.ts", world: false },
-];
+const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
+// Every world in sites.json, and the reference Airlock. Pass names to build only those.
+const only = process.argv.slice(2);
+const sites = [...Object.keys(config.worlds).map((name) => ({ name, entry: "src/main.ts", world: true })), { name: "airlock", entry: "src/airlock.ts", world: false }].filter(
+  (s) => !only.length || only.includes(s.name),
+);
+
+const escape = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+/** A world's page: a stage and nothing else. Its controls come from the NSWP controls kit. */
+const page = (world) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>${escape(world.title)}</title>
+<meta name="description" content="${escape(world.summary)}">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #stage canvas { display: block; touch-action: none; }
+  .leaving #stage { opacity: .4; transition: opacity .3s; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
+`;
+/** What the site says about itself (spec §5.3): which key may announce it, and where it is. */
+const manifest = (world) => ({
+  schema: "nswp/manifest/0.3",
+  listing: "allow",
+  publishers: { [config.publisher]: { worlds: [world.d] } },
+  worlds: {
+    [world.d]: {
+      entry: { url: world.url, modes: world.modes },
+      entry_points: world.entryPoints,
+      capabilities: world.capabilities,
+      rooms: { transports: ["mesh"], max_mesh: 8 },
+      budgets: { initial_download_mb: 2 },
+      airlock: config.airlock,
+    },
+  },
+  relays: config.relays,
+});
 
 const common = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -34,7 +75,9 @@ for (const s of sites) {
     legalComments: "linked",
     logLevel: "warning",
   });
-  cpSync(join(dir, "index.html"), join(out, "index.html"));
+  const world = s.world ? JSON.parse(readFileSync(join(dir, "world.json"), "utf8")) : null;
+  if (world) writeFileSync(join(out, "index.html"), page(world));
+  else cpSync(join(dir, "index.html"), join(out, "index.html"));
   if (s.world) {
     // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
     mkdirSync(join(out, "previews"), { recursive: true });
@@ -42,7 +85,7 @@ for (const s of sites) {
       if (/^[0-9a-f]{64}\.webp$/.test(f)) cpSync(join(root, "sites", "previews", f), join(out, "previews", f));
     }
     mkdirSync(join(out, ".well-known"), { recursive: true });
-    cpSync(join(dir, "nswp.json"), join(out, ".well-known", "nswp.json"));
+    writeFileSync(join(out, ".well-known", "nswp.json"), `${JSON.stringify(manifest(world), null, 2)}\n`);
   }
   const csp = [
     "default-src 'self'",
@@ -82,6 +125,9 @@ for (const s of sites) {
       ],
     });
   }
-  writeFileSync(join(out, "vercel.json"), `${JSON.stringify({ headers }, null, 2)}\n`);
+  // A world that has moved sends visitors of its old address on to the new one.
+  const was = config.worlds[s.name]?.was;
+  const redirects = was ? [{ source: "/(.*)", has: [{ type: "host", value: was }], destination: `${config.worlds[s.name].url}$1`, permanent: false }] : undefined;
+  writeFileSync(join(out, "vercel.json"), `${JSON.stringify({ headers, redirects }, null, 2)}\n`);
   console.log(`built sites/${s.name}/dist`);
 }
