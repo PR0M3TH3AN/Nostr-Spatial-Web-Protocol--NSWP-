@@ -60,6 +60,44 @@ if (hit) xrConsole.press(hit);
 | An icon | One line of SVG path data in `packages/sdk/src/ui/icons.ts`. Both renderers draw from it |
 | A new kind of control | A `kind` in `ui/model.ts`, and one drawing function for it in `ui/hud.ts` and in `console.ts`. `"swatch"`, a choice of colour, is the worked example |
 
+## Sharing the screen with a world's own interface
+
+A world with an interface of its own leads, and the kit stays out of its way
+(spec §21.3). Three levels, set at the start or changed as the world goes:
+
+```ts
+const controls = createControls({ title, presence: "quiet", corner: "top-right", keys: { hotbar: false } });
+
+controls.setPresence("full");   // a lobby, a menu screen
+controls.setPresence("quiet");  // during play: one mark in a corner
+controls.setPresence("hidden"); // a cutscene, or a world that draws these itself
+```
+
+| Level | Flat screen | Headset |
+|---|---|---|
+| `"full"` | Name, hotbar, Menu | Menu button low in front, and the wrist |
+| `"quiet"` | One mark in the chosen corner; it opens the same sheet | The wrist. The Menu button, smaller, only where no hand is tracked |
+| `"hidden"` | Nothing | Nothing, until the world calls `xrConsole.setOpen(true)` or `hud.setOpen(true)` |
+
+- **Where it sits.** `controls.setCorner("bottom-right")` moves the quiet mark.
+  `hud.bounds()` returns the rectangle of every visible part, to lay your own
+  interface out around; `hud.cover()` says how much of the top and bottom the
+  full HUD takes.
+- **Keys.** `controls.setKeys({ menu: "p" })` moves the menu key,
+  `{ menu: null }` removes it, `{ hotbar: false }` frees 1 to 6.
+  `controls.claimInput(true)` takes every key for the world until you give
+  them back. Escape still closes a sheet the kit has opened, and the mark can
+  still be clicked.
+- **Your own menu instead.** Use the list without either renderer: don't call
+  `mountHud` or `createConsole`, read `controls.view()` for the sections and
+  their buttons, call `controls.run(id)` when one is pressed, and
+  `controls.subscribe()` to hear of changes. `addViewControls` and
+  `addRoomControls` still fill the list for you.
+- **The duty that comes with hiding it.** A world that hides the kit must put
+  the same things within one action somewhere of its own: the way home,
+  leaving VR, the room and the microphone, turning and stepping, and its
+  address. A visitor counts on finding them in every world.
+
 ## The look
 
 Seven values in `ui/theme.ts`: the accent, the ink, the glass, the warning
