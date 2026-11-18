@@ -14,8 +14,7 @@
  */
 import * as THREE from "three";
 import { spawnOffset, type Pose, type Transform } from "@nswp/core";
-import { createAlloy, type Alloy } from "./alloy.js";
-import { MeshBuilder } from "./mesh.js";
+import { createFigure } from "./figure.js";
 import { room, type Member, type RoomSession } from "./room.js";
 
 import { turnVisitor } from "./turn.js";
@@ -78,60 +77,6 @@ interface Avatar {
   analyser?: AnalyserNode;
 }
 
-let avatarShapes: { head: THREE.BufferGeometry; torso: THREE.BufferGeometry; hand: THREE.BufferGeometry } | null = null;
-/** The pieces of a visitor's figure, modelled once and shared by everyone in the room. */
-function avatarParts(): NonNullable<typeof avatarShapes> {
-  if (avatarShapes) return avatarShapes;
-  const tone = new THREE.Color(0x1a2530);
-  // The helmet: faceted, facing -Z like a camera, with a visor of light and a lit collar.
-  const head = new MeshBuilder().at();
-  head.tone = tone;
-  head.lathe([[0.0005, -0.135], [0.07, -0.125], [0.118, -0.05], [0.13, 0.02], [0.112, 0.085], [0.06, 0.128], [0.0005, 0.14]], [0, 0, 0], 8, (row) => ({ shade: 0.85 + row * 0.12 }), { turn: Math.PI / 8 });
-  head.lathe([[0.074, -0.125], [0.084, -0.118]], [0, 0, 0], 8, () => ({ glow: 0.8 }), { turn: Math.PI / 8 });
-  head.box([0.15, 0.04, 0.05], [0, 0.02, -0.108], { glow: 1 });
-  head.box([0.18, 0.065, 0.04], [0, 0.02, -0.098], { bevel: 0.012, shade: 0.6 });
-  for (const x of [-0.128, 0.128]) head.box([0.02, 0.07, 0.07], [x, 0.0, 0], { bevel: 0.006, shade: 1.3 });
-  // The cloak: narrow at the shoulders, wider below, open underneath, with a seam of light down the front.
-  const torso = new MeshBuilder().at();
-  torso.tone = tone;
-  torso.lathe([[0.03, -0.2], [0.17, -0.25], [0.12, 0.12], [0.145, 0.165], [0.145, 0.19], [0.08, 0.25], [0.0005, 0.25]], [0, 0, 0], 6, (row) => (row === 0 ? { glow: 0.45 } : row === 3 ? { glow: 0.7 } : { shade: 0.9 + (row % 2) * 0.2 }), { turn: Math.PI / 6 });
-  const hand = new MeshBuilder().at();
-  hand.lathe([[0.0005, -0.06], [0.04, 0], [0.0005, 0.06]], [0, 0, 0], 4, () => ({ glow: 0.75 }));
-  avatarShapes = { head: head.geometry(), torso: torso.geometry(), hand: hand.geometry() };
-  return avatarShapes;
-}
-
-export interface Figure {
-  group: THREE.Group;
-  /** Faces -Z, like a camera. Its origin is between the eyes. */
-  head: THREE.Group;
-  torso: THREE.Mesh;
-  hands: [THREE.Mesh, THREE.Mesh];
-  metal: Alloy;
-}
-
-/**
- * A visitor's figure: a helmet with a band of light for a visor, a cloak, and
- * a point of light for each hand, in the same metal as the place and lit in
- * one colour. It is what other people in a room are drawn as. The parts are
- * placed by whoever uses it; as made, the head is at the origin and the torso
- * hangs below it.
- */
-export function createFigure(color: THREE.ColorRepresentation): Figure {
-  const parts = avatarParts();
-  const metal = createAlloy(color, { gloss: 0.7 });
-  const head = new THREE.Group();
-  head.add(new THREE.Mesh(parts.head, metal));
-  const torso = new THREE.Mesh(parts.torso, metal);
-  torso.position.y = -0.45;
-  const hands: [THREE.Mesh, THREE.Mesh] = [new THREE.Mesh(parts.hand, metal), new THREE.Mesh(parts.hand, metal)];
-  hands[0].position.set(-0.28, -0.5, -0.12);
-  hands[1].position.set(0.28, -0.5, -0.12);
-  const group = new THREE.Group();
-  group.add(head, torso, ...hands);
-  return { group, head, torso, hands, metal };
-}
-
 const SEND_EVERY_MS = 66; // 15 poses a second
 /** Personal space: avatars fade out between these distances from your head (metres). */
 const FADE_START = 0.9;
@@ -182,7 +127,8 @@ export function createPresence(d: PresenceOptions): Presence {
     const color = new THREE.Color(member.color);
     const root = new THREE.Group();
     root.visible = false;
-    const figure = createFigure(color);
+    // Until looks travel with people (spec §4.2), each is drawn as their key generates: different from everyone else, and the same next time.
+    const figure = createFigure(member.pubkey);
     const { head, torso, hands, metal } = figure;
     const label = textSprite(member.name, labelColor, 0.5);
     label.position.set(0, 0.3, 0);
@@ -358,7 +304,7 @@ export function createPresence(d: PresenceOptions): Presence {
         // Personal space: nobody's avatar can fill your view.
         const near = THREE.MathUtils.clamp((a.head.position.distanceTo(v) - FADE_END) / (FADE_START - FADE_END), 0, 1);
         for (const m of a.materials) m.material.opacity = m.opacity * near;
-        (a.materials[0]!.material as Alloy).tick(performance.now() / 1000);
+        (a.materials[0]!.material as { tick?: (t: number) => void }).tick?.(performance.now() / 1000);
         const snap = a.placed ? k : 1;
         apply(a.head, a.target.head, snap);
         a.placed = true;
@@ -765,3 +711,5 @@ export async function addViewControls(
   });
   return supported;
 }
+
+export { createFigure, type Figure, type FigureStyle } from "./figure.js";

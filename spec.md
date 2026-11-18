@@ -1,13 +1,24 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.9 (concept specification)
+**Version:** 0.8.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License:** this document, and the schemas and test vectors beside it, are CC0 1.0 (`LICENSE-CC0`). BitPortal and the SDK are MIT, matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.8.0
+
+Avatars are worked out in detail (§4.2). The earlier sketch had two colours, three heads and five accessories.
+
+- **A look**: three colours and one choice from each of eight closed lists (build, head, face, accessory, body, shoulders, pattern, finish). It is data, never a file.
+- **Everyone has one already.** A key generates its own look, the same in every world, with nothing published. Choosing a look overrides parts of the generated one.
+- **A mark that isn't a choice.** A five-by-five pattern from the key, on every figure. It follows a person through any change of clothes, and a copied look comes out with the copier's mark.
+- **How a look travels**: by key, by the avatar event, inline in the arrival context for a guest, or in a room's hello. And the cost said plainly: a look that is the same everywhere makes its wearer recognisable everywhere, so the Airlock offers going plain.
+- **What a world may change**: draw it as it is, re-dress it in its own material and palette, recast it as something of its own, or ignore it. A world that tells visitors apart at all should keep the mark.
+- **Built so far:** the format in `@nswp/core`, and a figure in the SDK that draws any look and can be re-dressed. **Not built:** carrying a look between worlds, an editor, and the Airlock's choice.
 
 ## 0. What changed in 0.7.9
 
@@ -347,8 +358,8 @@ An avatar comes in three tiers. Each asks more of the world that draws it.
 
 | Tier | What it is | What a world needs to draw it |
 |---|---|---|
-| **Generated** | A colour and a name derived from the key. Nothing is published | Nothing. This is what the rooms spike draws |
-| **Simple** | A few choices the user publishes: two colours, a head shape, an accessory, a height | A few lines of drawing code. No file is loaded |
+| **Generated** | A whole look worked out from the key: colours, a head, a body, a mark. Nothing is published | Nothing but the key. Everyone is different from the start |
+| **Simple** | The same look, with the parts its owner chose in place of the generated ones | A few lines of drawing code. No file is loaded |
 | **Model** | A 3D file the user points at | To fetch and draw a stranger's file, within its own budgets |
 
 A world draws the highest tier it accepts and falls back down the list. One addressable event carries the published tiers (experimental kind **37301**, not allocated by the NIPs process; `d` = avatar slot such as `default`):
@@ -361,8 +372,11 @@ A world draws the highest tier it accepts and falls back down the list. One addr
     ["title", "Example Avatar"],
     ["simple", "color", "#3fc584"],
     ["simple", "accent", "#f2f3f6"],
+    ["simple", "light", "#47f561"],
     ["simple", "head", "round"],
-    ["simple", "accessory", "visor"],
+    ["simple", "face", "band"],
+    ["simple", "accessory", "halo"],
+    ["simple", "body", "cloak"],
     ["height", "1.72"],
     ["model", "https://blossom.example/<sha256>.vrm", "vrm", "<sha256>"],
     ["thumb", "https://blossom.example/<sha256>.webp"],
@@ -373,13 +387,62 @@ A world draws the highest tier it accepts and falls back down the list. One addr
 }
 ```
 
-- **Simple avatars** use short closed lists: `color` and `accent` are hex colours; `head` is `round`, `square` or `tall`; `accessory` is `none`, `visor`, `antenna`, `halo` or `hat`. An unknown value falls back to the default. Because a simple avatar is a handful of shapes, it can't carry an image or overload a device, so any world with rooms should draw it. The exact lists are Q25.
+#### A look
+
+A **look** is what the generated and simple tiers share: three colours, and one choice from each of eight short closed lists. It is data, never a file. Nothing is fetched to draw it, it can't carry an image, and it can't overload a device, so any world with rooms should draw it.
+
+| Part | Choices (the first is the fallback) |
+|---|---|
+| `color`, `accent`, `light` | Hex colours: the main colour, the trim, and everything that glows |
+| `build` | `medium`, `slight`, `broad` |
+| `head` | `round`, `square`, `tall`, `wedge`, `flat`, `faceted` |
+| `face` | `band`, `split`, `dots`, `tee`, `slit`, `wide`: how the light of the face is cut |
+| `accessory` | `none`, `antenna`, `halo`, `hat`, `crest`, `fins` |
+| `body` | `cloak`, `coat`, `plate`, `robe` |
+| `shoulders` | `none`, `pads`, `mantle`, `collar` |
+| `pattern` | `plain`, `halves`, `stripe`, `bands`, `yoke`: how the two colours are laid on the body |
+| `finish` | `matte`, `gloss`, `sheen` |
+
+That is 155,520 combinations before colour. The lists name parts, not shapes: `tall` means a tall head, and a world is free to draw its own idea of one.
+
+- **Everyone has a look already.** The generated look is worked out from the key, the same way everywhere: the bytes of SHA-256 of the key (lowercase hex) pick each colour and part in a fixed order (`generatedLook` in `@nswp/core`; a test pins one key's result). So two strangers never look alike by default, and the same person looks the same in every world, with nothing published and nothing asked of them.
+- **Choosing is overriding.** A `["simple", part, value]` tag replaces that one part. A missing tag, or a value not on the list, keeps the generated one. A look therefore never fails to draw, and a newer list is read safely by an older world.
+- **The mark is not a choice.** Each figure carries a mark: five rows of five cells, mirrored left to right, lit from fifteen bits of the hash of the key. Whatever else two people choose alike, their marks differ, and a copy of someone's tags published under another key comes out with the copier's mark. Until a world has proof of the key (an entry assertion, §4.4, or a room pass, §9.2), a mark says only "the same visitor as before", not "this named person".
+- **No sliders, no uploads.** There is no free-form geometry, texture or text in a look. That is what makes it safe to draw a stranger's.
+
+#### How a look reaches a world
+
+| Who | How | What is published |
+|---|---|---|
+| Anyone with a key the world can see | The world generates it from the key | Nothing |
+| Someone who chose a look and is signed in | Their kind 37301 event, found by their key or named in the arrival context (`avatar`, §4.4) | The event |
+| A guest who chose a look | Inline in the arrival context (`look`, §4.4): a seed their lobby keeps on their device, and the parts they changed. Under 600 characters | Nothing |
+| People already in a room | Each sends their look in the room's hello (§9), in the same inline form | Nothing |
+
+A guest's seed stands in for a key: it gives them the same mark and the same unchosen parts in every world. **That is also what makes them recognisable from world to world**, which is the point of a look and its cost. The Airlock therefore offers the choice per trip: go as yourself, or go plain, with a fresh seed that says nothing about earlier visits.
+
+#### What a world may change
+
+A world decides how its visitors are drawn (§3.2). The reference SDK offers three levels, and a world may do something else entirely:
+
+| Level | What the world does | What survives |
+|---|---|---|
+| **As it is** | Draws the SDK's figure: `createFigure(look)` | Everything |
+| **Re-dressed** | The same shapes in its own material, its own palette (each colour becomes the nearest the world allows), with parts left off | Shapes, the mark, and as much colour as the palette has |
+| **Recast** | Reads the look and draws something of its own: a vehicle painted in `color` with the mark as a decal, say | Whatever the world maps. The mark should be one of them |
+| **Uniform** | Ignores it: everyone is a pawn, or a fish | Nothing. A world may |
+
+A world that draws visitors differently from each other at all **should keep the mark recognisable**: it is the one cue that follows a person everywhere, and the one an impersonator can't copy.
+
+#### The rest
+
 - **Models.** VRM 1.0 (built on glTF) is the recommended format, with plain GLB as a fallback. Model URLs should be content-addressed (Blossom) and carry the SHA-256, so a world can check the bytes it fetched.
-- **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* is pointed at it is decided at the Airlock (§4.4). A user who wants a private avatar doesn't publish this event and gives the URL in the arrival context instead.
+- **Sharing.** The avatar event is public if the user publishes it. Whether a particular *world* is pointed at it is decided at the Airlock (§4.4). A user who wants a private avatar doesn't publish this event and sends the look, or a model's URL, in the arrival context instead.
 - **Worlds decide.** Worlds keep control of rendering and rules. Avatar portability doesn't oblige any world to accept every model.
 - **Things you carry** are items (§10.5), attached at a few fixed points. They are listed in this event with `carry` tags.
-- **Not in the protocol:** an avatar customization system with body parts or sliders. An avatar editor is a client feature; it writes this event.
-- Until room passes exist (§9.2), everyone in a room is a guest with a generated avatar.
+- **An editor is a client feature.** It shows the lists, draws the result, keeps the choice on the device, and writes this event for someone signed in. The protocol defines the lists, not the editor.
+
+**Status (2026-11-17): the format and the figure are built; nothing travels yet.** `@nswp/core` generates, reads and writes looks and avatar events, with tests. The SDK draws a figure from any look and re-dresses it (`createFigure(look, style)`), and rooms draw each member's generated look from their session key. Not built: looks in the arrival context or the room's hello, an editor, and the choice at the Airlock. A guest's session key changes every visit, so today nobody is yet the same from one visit to the next. The lists above are a first proposal (Q25): they were chosen to be drawable in a few hundred triangles, not tested with people.
 
 ### 4.3 Privacy-preserving identity
 
@@ -405,6 +468,7 @@ The problem: a world is on a different origin from the client, so it can't see t
   "airlock": "https://portal.bitblocks.network/go",
   "assertion": "<signed event object, optional>",
   "avatar": "naddr1…",
+  "look": "<a look, inline; proposed (§4.2)>",
   "receipts": ["<entitlement receipt event, optional (§16)>"],
   "room": {
     "event": "<room event, or its naddr>",
@@ -417,6 +481,7 @@ The problem: a world is on a different origin from the client, so it can't see t
 
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
+- `look` (proposed, not yet read by the reference library) is a look written inline (§4.2): a seed and the parts that were chosen, for a visitor who hasn't published an avatar. It makes them recognisable to the world, so the Airlock sends it only when the visitor chose to go as themselves.
 - `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
 - `"carry": false` asks the world not to draw the items the user carries (§10.5). It is a 0.7 addition, also not yet in the schemas or library.
 - **Only a site that publishes a manifest gets an arrival context.** A site that hasn't adopted NSWP, such as one a curator listed, gets a plain visit with nothing added to its address.
