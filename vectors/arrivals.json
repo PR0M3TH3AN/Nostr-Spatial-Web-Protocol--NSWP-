@@ -98,6 +98,73 @@
       }
     },
     {
+      "name": "with_pass",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInBhc3MiOnsia2luZCI6MjczMDAsImNyZWF0ZWRfYXQiOjE3OTQ0MzA4MDAsInRhZ3MiOltbIm5zd3A6c2Vzc2lvbiIsIjIzYTM1NTMzZWFlYTg2YmE2NTZjYTU2NzQ2ZTg3N2YwODI5NDVjYTE3NGUyZWMxM2U1MmFkMTgxNTg0MDQ2MWYiXSxbIm5zd3A6b3JpZ2luIiwiaHR0cHM6Ly9tdXNldW0uZXhhbXBsZSJdLFsiZXhwaXJhdGlvbiIsIjE3OTQ0NDUyMDAiXSxbIm5hbWUiLCJBbGljZSJdXSwiY29udGVudCI6IiIsInB1YmtleSI6IjAxYjUzNzBlMzk3ODQzMDFjM2UzNDdiMDEzMDI2NmViYjAwNWM1YzYxNDFiZTU4MmUzMmNkYTdjMzY3Mjg1YzYiLCJpZCI6IjAzZjVkNThiM2QyMTI2NzI0ZDk3ZWExNDc4MTQwYmFmNTQ1YTRiMDhiYjg5OTFhMWY5NzhhMTYwMzE0YWJkNjgiLCJzaWciOiJiNGZjMTk2ZDEyNjc2ZDRiNzE1MDAxMGNjYWI3MmU0NDM4NzliZWM1OTE2YjdkZmYwODY1ODBlZmFhMDZiOWNhY2RkNjZmZjc1YWEwZDVjNjZmZmRlZTM5ZDVmNjExZjFhYmRiZDcxOGYwMGMwMGViYjNiYTFkN2JiOTRhNDFiNiJ9LCJzZXNzaW9uS2V5IjoiMjA0NjExMmY3N2VmN2UxMTdjMDM4OThlNTNhZWM0MGM3ZDMzZThhYTVhMTY0ZWZlNjZkN2I3NjcyYzRkYjRjOSJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "pass": {
+            "kind": 27300,
+            "created_at": 1794430800,
+            "tags": [
+              [
+                "nswp:session",
+                "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+              ],
+              [
+                "nswp:origin",
+                "https://museum.example"
+              ],
+              [
+                "expiration",
+                "1794445200"
+              ],
+              [
+                "name",
+                "Alice"
+              ]
+            ],
+            "content": "",
+            "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+            "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+          },
+          "sessionKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "pass_without_its_key_dropped",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInBhc3MiOnsia2luZCI6MjczMDAsImNyZWF0ZWRfYXQiOjE3OTQ0MzA4MDAsInRhZ3MiOltbIm5zd3A6c2Vzc2lvbiIsIjIzYTM1NTMzZWFlYTg2YmE2NTZjYTU2NzQ2ZTg3N2YwODI5NDVjYTE3NGUyZWMxM2U1MmFkMTgxNTg0MDQ2MWYiXSxbIm5zd3A6b3JpZ2luIiwiaHR0cHM6Ly9tdXNldW0uZXhhbXBsZSJdLFsiZXhwaXJhdGlvbiIsIjE3OTQ0NDUyMDAiXSxbIm5hbWUiLCJBbGljZSJdXSwiY29udGVudCI6IiIsInB1YmtleSI6IjAxYjUzNzBlMzk3ODQzMDFjM2UzNDdiMDEzMDI2NmViYjAwNWM1YzYxNDFiZTU4MmUzMmNkYTdjMzY3Mjg1YzYiLCJpZCI6IjAzZjVkNThiM2QyMTI2NzI0ZDk3ZWExNDc4MTQwYmFmNTQ1YTRiMDhiYjg5OTFhMWY5NzhhMTYwMzE0YWJkNjgiLCJzaWciOiJiNGZjMTk2ZDEyNjc2ZDRiNzE1MDAxMGNjYWI3MmU0NDM4NzliZWM1OTE2YjdkZmYwODY1ODBlZmFhMDZiOWNhY2RkNjZmZjc1YWEwZDVjNjZmZmRlZTM5ZDVmNjExZjFhYmRiZDcxOGYwMGMwMGViYjNiYTFkN2JiOTRhNDFiNiJ9fQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_pass"
+        ]
+      }
+    },
+    {
+      "name": "pass_with_another_key_dropped",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInBhc3MiOnsia2luZCI6MjczMDAsImNyZWF0ZWRfYXQiOjE3OTQ0MzA4MDAsInRhZ3MiOltbIm5zd3A6c2Vzc2lvbiIsIjIzYTM1NTMzZWFlYTg2YmE2NTZjYTU2NzQ2ZTg3N2YwODI5NDVjYTE3NGUyZWMxM2U1MmFkMTgxNTg0MDQ2MWYiXSxbIm5zd3A6b3JpZ2luIiwiaHR0cHM6Ly9tdXNldW0uZXhhbXBsZSJdLFsiZXhwaXJhdGlvbiIsIjE3OTQ0NDUyMDAiXSxbIm5hbWUiLCJBbGljZSJdXSwiY29udGVudCI6IiIsInB1YmtleSI6IjAxYjUzNzBlMzk3ODQzMDFjM2UzNDdiMDEzMDI2NmViYjAwNWM1YzYxNDFiZTU4MmUzMmNkYTdjMzY3Mjg1YzYiLCJpZCI6IjAzZjVkNThiM2QyMTI2NzI0ZDk3ZWExNDc4MTQwYmFmNTQ1YTRiMDhiYjg5OTFhMWY5NzhhMTYwMzE0YWJkNjgiLCJzaWciOiJiNGZjMTk2ZDEyNjc2ZDRiNzE1MDAxMGNjYWI3MmU0NDM4NzliZWM1OTE2YjdkZmYwODY1ODBlZmFhMDZiOWNhY2RkNjZmZjc1YWEwZDVjNjZmZmRlZTM5ZDVmNjExZjFhYmRiZDcxOGYwMGMwMGViYjNiYTFkN2JiOTRhNDFiNiJ9LCJzZXNzaW9uS2V5IjoiNWJjNWNhMTkyNGJkNjY0YzYxMjk5OTk0NzA2MGJkMzc4NWQxZTU2OGUzYjBmZGU1NjNiNzNmZWEwYTRiOTk1OSJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_pass"
+        ]
+      }
+    },
+    {
       "name": "not_base64_json",
       "value": "this-is-not-json",
       "expect": {

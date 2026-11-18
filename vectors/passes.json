@@ -1,0 +1,479 @@
+{
+  "description": "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "description": "Key 1 says the session key speaks for it at the museum, for four hours.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice"
+      }
+    },
+    {
+      "name": "valid_without_a_name",
+      "description": "A name is optional. Without one a reader shows the key.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "dab2b512cde12d903b6a5235581cf358c81740b8360ffb6934534046ed040a26",
+        "sig": "d5ecbd0444bf46d07c37355a3a868a6d5b0b929a119cf2480de4355639cc5e3d9b86ff8ba88858aeb8c12bc6a1f8f9f8c7d8da10976ba6c43bb78514185e74b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": ""
+      }
+    },
+    {
+      "name": "name_is_tidied",
+      "description": "A name with line breaks, a hidden separator and more than 48 characters is tidied, not refused.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "  Ali\u2028ce\n\n  Smith xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "3196833c13682902b81e3c3e02d00efc12506d8fd0a0ef242f7a6bbdbd17c905",
+        "sig": "752ac75f856c4d6f0ac73e3f2c1304be8902d8d014f0ea215336a5d888f8b3f5a810c17604e7fc5dde72f03d0b5659de8637da71fd459e6b7bca4aaddf729c33"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "name_cleaned"
+        ],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Ali ce Smith xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "name": "another_site",
+      "description": "A pass made for the museum is worth nothing anywhere else.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://other.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "origin_mismatch"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "another_session_key",
+      "description": "A member showing someone else's pass: it names a session key they aren't using.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "session_mismatch"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "expired",
+      "description": "Five hours on.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794448800,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "pass_expired"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "lives_too_long",
+      "description": "Thirteen hours is more than a pass may claim.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794477600"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "4f70db0ae91eb9b4ee14e6fb42153dcc52930c406bf0d262ce1dd179ef58deae",
+        "sig": "897f99ad04e1ae277477f6a7d41f75dda90f0d5c7356b8567763bc1282404eaf7ef3ff9a1fb023bb96f6356495c5b71676be53e40bde63004c7d955902d2e570"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "ttl_too_long"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "dated_in_the_future",
+      "description": "Read ten minutes before it says it was signed.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430200,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "created_in_future"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "changed_after_signing",
+      "description": "The name was edited, so the signature no longer holds.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Mallory"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "03f5d58b3d2126724d97ea1478140baf545a4b08bb8991a1f978a160314abd68",
+        "sig": "b4fc196d12676d4b7150010ccab72e443879bec5916b7dff086580efaa06b9cacdd66ff75aa0d5c66ffdee39d5f611f1abdbd718f00c00ebb3ba1d7bb94a41b6"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "bad_signature"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "wrong_kind",
+      "description": "An entry assertion's kind is not a pass.",
+      "event": {
+        "kind": 27235,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "f50f219dc09e4f75af2b2be50b841173a2706e2c394d637bdc812c7e19436905",
+        "sig": "cbdd0005ec6c1bb0fa39a832b589813a3a00aad6bc08894ba8ba07c969cb661f083d62cb29bd731825540559a7bcbe6a60504f5f7e4d94b15970674aa138cf70"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": false,
+        "errors": [
+          "wrong_kind"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "names_itself",
+      "description": "The session key must be a throwaway, never the identity key.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "b0c4535bc4937db1ad0dd059f3b508a91ec96ec7a63b165478a7f12f172140ff",
+        "sig": "2113d74e5580a88a1dbe21cab29f86a56de7806d9e488e24ee9bbb321bd3bbad6e539bb4a01fe3ed86dd4e942fca5811cab2f1d54c27f584ae45e70afabe3878"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "invalid_session"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "no_session_key",
+      "description": "A pass that speaks for no key.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "651a6c4d351be5df7df2ba52f7881bd974e4a9ef3abf59edbdae2827e97c84c6",
+        "sig": "c91d355de5d36e0e2f35c9f896f833781a80fc8835d0242c2137089ecadbc70e55709acf115faad073a84d2f269a737fad66f5f5da1a95dd2fa5f76c5e1cfe52"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "expect": {
+        "valid": false,
+        "errors": [
+          "missing_tag"
+        ],
+        "warnings": []
+      }
+    }
+  ]
+}

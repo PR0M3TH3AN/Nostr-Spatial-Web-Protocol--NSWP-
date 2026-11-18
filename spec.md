@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.8.3 (concept specification)
+**Version:** 0.9.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
@@ -294,10 +294,10 @@ The problem: a world is on a different origin from the client, so it can't see t
   "avatar": "naddr1…",
   "look": "<a look, inline (§4.2)>",
   "receipts": ["<entitlement receipt event, optional (§16)>"],
+  "pass": "<pass event (§9.2); absent for guests>",
+  "sessionKey": "<session secret key; present only with a pass>",
   "room": {
     "event": "<room event, or its naddr>",
-    "pass": "<room pass event; absent for guests>",
-    "sessionKey": "<session secret key>",
     "secret": "<room secret, for invite-only rooms>"
   }
 }
@@ -306,6 +306,7 @@ The problem: a world is on a different origin from the client, so it can't see t
 - `entry` is the requested entry point.
 - `airlock` is the return address for outbound portals (§6.3).
 - `look` is a look written inline (§4.2): a seed and the parts that were chosen, for a visitor who hasn't published an avatar. It makes them recognisable to the world, so the Airlock sends it only when the visitor chose to go as themselves.
+- `pass` and `sessionKey` are present when the user chose to go by name (§9.2). As built in 0.9 they sit at the top level, not inside `room`, because a pass is good for a whole site until rooms have events of their own.
 - `room` is present when the user is joining a room (§9). It is a 0.4 addition and not yet in the Phase 0 schemas or library.
 - `"carry": false` asks the world not to draw the items the user carries (§10.5). It is a 0.7 addition, also not yet in the schemas or library.
 - **Only a site that publishes a manifest gets an arrival context.** A site that hasn't adopted NSWP, such as one a curator listed, gets a plain visit with nothing added to its address.
@@ -885,6 +886,7 @@ At the Airlock, the client creates a fresh **session key** for this one room, an
 The pass says: "for this room, at this site, until this time, the session key speaks for me." The arrival context (§4.4) hands the world the pass and the session key. The world uses the session key for everything in the room; anyone who checks the pass knows which identity is behind it.
 
 - **Scope.** The session key is useless outside this room, this origin and this time window. The identity key never leaves the client.
+- **As built (0.9).** There are no room events yet, so a pass names no room: it has no `a` tag and is good in any room at its origin. It may carry `["name", …]`, the name the user chose to be known by, so that showing a name needs no request to anyone. The exact rules are in `protocol/10-identity.md`.
 - **Lifetime.** A pass expires after 4 hours by default and 12 hours at most. It can't be revoked early (Q18).
 - **Guests.** A participant with a session key and no pass is a guest. Guests are admitted only to `open` rooms, and are always shown as guests.
 - **What it reveals.** Every member of the room, and the server if there is one, sees the pass. Like an entry assertion, it is a lasting, transferable proof that this identity joined this room (§4.4).

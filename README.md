@@ -4,7 +4,7 @@ An open protocol for linking independently hosted 3D and VR worlds through
 Nostr. A world is a website, a door is a link, and who runs what is said with
 signed events, so there is no index to be listed in and no platform to ask.
 
-**Building something? Start at [`protocol/`](protocol/README.md):** nine short
+**Building something? Start at [`protocol/`](protocol/README.md):** ten short
 documents, one per part of the protocol, each saying what is built and what is
 only proposed.
 
@@ -21,10 +21,10 @@ only proposed.
 [BitBlocks](https://bitblocks.network/) stack. The protocol does not depend on
 either.
 
-Status: spec v0.8.3, an exploratory draft. Worlds, doors, the Airlock,
-previews, looks, a first version of rooms, and home layouts are built and
-live. Published items, room passes, and finding worlds through the people you
-follow are design only. Nothing here is an adopted NIP or standard, and every
+Status: spec v0.9.0, an exploratory draft. Worlds, doors, the Airlock,
+previews, looks, lists, a first version of rooms, going by name in a room,
+and home layouts are built. Published items, hosted rooms, and finding worlds
+through the people you follow are design only. Nothing here is an adopted NIP or standard, and every
 event kind is experimental.
 
 ## Try it
@@ -68,7 +68,7 @@ fallback for networks that block direct connections (spec §9, §20).
 
 | Path | What it is | License |
 |---|---|---|
-| `protocol/` | The protocol, as nine short documents an implementer reads | CC0 1.0 |
+| `protocol/` | The protocol, as ten short documents an implementer reads | CC0 1.0 |
 | `spec.md` | The full design: reasoning, the reference app, the roadmap, open questions | CC0 1.0 |
 | `schemas/` | JSON Schemas for world events, manifests, portals, arrival context, entry assertions | CC0 1.0 |
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |

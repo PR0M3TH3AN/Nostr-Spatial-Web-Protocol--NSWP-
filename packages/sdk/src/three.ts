@@ -13,9 +13,9 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { decodeLook, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { decodeLook, encodeNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
-import { room, type Member, type RoomSession } from "./room.js";
+import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 
 import { turnVisitor } from "./turn.js";
 export { turnVisitor } from "./turn.js";
@@ -38,6 +38,12 @@ export interface PresenceOptions {
    * time a room is joined. Left out, they are drawn as their session key generates.
    */
   look?: string | (() => string | undefined);
+  /**
+   * Who the visitor is, if they came by name (protocol/10-identity.md):
+   * usually `() => arrival.identity()`. Asked each time a room is joined.
+   * Left out, they are a guest.
+   */
+  identity?: JoinOptions["identity"] | (() => JoinOptions["identity"] | undefined);
   /** Draw other people in this world's own way (spec §4.2, "What a world may change"). */
   figureStyle?: FigureStyle;
   /** Called whenever membership, status or the microphone changes. */
@@ -54,6 +60,10 @@ export interface AvatarInfo {
   audioLevel: number;
   /** How they are being drawn. */
   look: Member["look"];
+  /** True until their pass has checked out. */
+  guest: boolean;
+  /** The identity key behind them, if proven. */
+  identity: string | null;
 }
 
 export interface Presence {
@@ -182,7 +192,7 @@ export function createPresence(d: PresenceOptions): Presence {
   /** Put a member's figure together from how they look, in place of any they had. */
   const dress = (a: Avatar, look: Member["look"]) => {
     const was = a.figure;
-    const figure = createFigure(look, d.figureStyle);
+    const figure = createFigure(look, d.figureStyle, { proven: !a.member.guest });
     figure.head.position.copy(was?.head.position ?? figure.head.position);
     figure.head.quaternion.copy(was?.head.quaternion ?? figure.head.quaternion);
     figure.head.add(a.label);
@@ -216,7 +226,7 @@ export function createPresence(d: PresenceOptions): Presence {
     const root = new THREE.Group();
     root.visible = false;
     const label = textSprite(member.name, labelColor, 0.5);
-    label.position.set(0, 0.3, 0);
+    label.position.set(0, 0.42, 0); // clear of the tallest head with a hat on it
     d.scene.add(root);
     const a = { member, root, label, target: null, placed: false } as unknown as Avatar;
     dress(a, member.look);
@@ -303,7 +313,8 @@ export function createPresence(d: PresenceOptions): Presence {
     roomName = name;
     void listener.context.resume();
     const look = typeof d.look === "function" ? d.look() : d.look;
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}) });
+    const identity = typeof d.identity === "function" ? d.identity() : d.identity;
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}) });
     session = s;
     if (!offsetApplied) {
       // Step aside from the spawn point so two people don't arrive inside each other.
@@ -321,6 +332,20 @@ export function createPresence(d: PresenceOptions): Presence {
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
+      changed();
+    });
+    // A pass checked out, or ran out: their name changes, and so does the frame round their mark.
+    s.on("identity", (m) => {
+      const a = avatars.get(m.pubkey);
+      if (a) {
+        const label = textSprite(m.name, labelColor, 0.5);
+        label.position.copy(a.label.position);
+        a.label.removeFromParent();
+        a.label.material.map?.dispose();
+        a.label.material.dispose();
+        a.label = label;
+        dress(a, m.look);
+      }
       changed();
     });
     s.on("member", (m) => {
@@ -456,6 +481,8 @@ export function createPresence(d: PresenceOptions): Presence {
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
           look: a.member.look,
+          guest: a.member.guest,
+          identity: a.member.identity ?? null,
         };
       });
     },
@@ -686,7 +713,9 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
     if (!s) return last;
     const others = s.members.length;
     const who = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
-    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${presence.micOn ? " Your microphone is on." : ""}`;
+    // Say how the others see this visitor: by a name their own client vouched for, or as a guest.
+    const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
+    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}`;
   };
   const refresh = () => {
     const s = presence.session;
@@ -718,7 +747,8 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
         label: () => (m.recording ? `${m.name}, recording` : m.name),
         act: () => {
           presence.pointOut(m.pubkey);
-          controls.say(`${m.name} is under the column of light.`);
+          // A name is not unique and a mark can be matched, so the key behind a name is one action away, in full.
+          controls.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
         },
       }),
     );
@@ -864,6 +894,6 @@ export async function addViewControls(
   return supported;
 }
 
-export { createFigure, type Figure, type FigureStyle } from "./figure.js";
+export { createFigure, type Figure, type FigureFacts, type FigureStyle } from "./figure.js";
 
 export { addCameraControls, canRecord, recordClip, saveFile, takePicture, takeSelfie, type Camera, type CameraOptions, type Capture, type Clip } from "./camera.js";

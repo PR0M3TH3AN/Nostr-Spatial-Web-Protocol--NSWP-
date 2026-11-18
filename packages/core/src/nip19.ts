@@ -67,6 +67,17 @@ export function decodeNaddr(s: string): AddressPointer {
   return relays.length ? { kind, pubkey, identifier, relays } : { kind, pubkey, identifier };
 }
 
+/** A public key as people write one down: `npub1…`. */
+export function encodeNpub(pubkey: string): string {
+  return bech32.encode("npub", bech32.toWords(hexToBytes(pubkey)), BECH32_LIMIT);
+}
+
+/** An npub short enough to sit beside a figure: its start and its end. */
+export function shortNpub(pubkey: string): string {
+  const npub = encodeNpub(pubkey);
+  return `${npub.slice(0, 10)}…${npub.slice(-4)}`;
+}
+
 export function coordinate(p: { kind: number; pubkey: string; identifier: string }): string {
   return `${p.kind}:${p.pubkey}:${p.identifier}`;
 }

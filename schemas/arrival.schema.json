@@ -5,6 +5,7 @@
   "description": "The JSON inside #nswp=<base64url, no padding>. Destinations must read it, then remove it from the URL with history.replaceState before loading third-party scripts. Assertions and receipts are untrusted until verified server-side. See spec §4.4.",
   "type": "object",
   "required": ["v"],
+  "dependentRequired": { "pass": ["sessionKey"], "sessionKey": ["pass"] },
   "properties": {
     "v": { "type": "string", "pattern": "^nswp/arrival/" },
     "entry": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$" },
@@ -12,6 +13,8 @@
     "assertion": { "$ref": "entry-assertion.schema.json" },
     "avatar": { "type": "string", "pattern": "^naddr1" },
     "look": { "type": "string", "maxLength": 600 },
+    "pass": { "$ref": "pass.schema.json" },
+    "sessionKey": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The secret half of the session key the pass names. Present only with `pass`." },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }
 }

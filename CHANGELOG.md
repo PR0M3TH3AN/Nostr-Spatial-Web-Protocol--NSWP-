@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.9.0
+
+Who someone is ([NSWP-10](protocol/10-identity.md)). Until now everyone in a room was a guest, and a name or a mark proved nothing.
+
+- **Passes are built.** At the Airlock, the visitor's own client makes a throwaway session key and signs a pass with their identity key: "at this site, until this time, this key speaks for me". The world gets the pass and the session key; the identity key never leaves the client. This is §9.2 as designed, with one difference: there are no room events yet, so a pass is good in any room at its site.
+- **A name is shown only when it is proved.** A pass may carry the name its owner chose, so showing it needs no request to anyone. A guest can't choose the text they are shown by.
+- **The mark, honestly.** It is fifteen bits and proves nothing alone. A member whose pass checks out wears their identity key's mark, drawn with a lit frame. A look whose seed is someone's key is not honoured without a pass for that key.
+- **In a room** a pass travels member to member as `id:<pass>`, never through a relay, and counts only if it names the session key the member's handshake was signed with.
+- **The arrival context** gains `pass` and `sessionKey`, which travel together or not at all.
+- **The library:** `buildRoomPass`, `verifyRoomPass`, `cleanName`, `claimsKey`, `encodeNpub`; a schema and twelve vectors. **The SDK:** `arrival.identity()`, and rooms that check passes.
+- **What going by name gives away** is written down, for a client to say before the first time: the world and everyone in the room learn the key, with the visitor's IP address, and a pass can't be taken back.
+- **Status:** built in the library, the SDK and BitPortal's Airlock. Not deployed.
+
 ## 0.8.3
 
 How worlds are found, beyond one client's own list ([NSWP-08](protocol/08-lists.md)).

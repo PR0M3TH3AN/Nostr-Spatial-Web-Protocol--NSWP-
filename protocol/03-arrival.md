@@ -1,6 +1,6 @@
 # NSWP-03: Arriving
 
-**Status:** Implemented, except the `room` and `carry` fields · **Kinds:** 27235 (entry assertion) · **Schemas:** [`arrival`](../schemas/arrival.schema.json), [`entry-assertion`](../schemas/entry-assertion.schema.json) · **Vectors:** [`arrivals`](../vectors/arrivals.json), [`assertions`](../vectors/assertions.json) · **Code:** [`arrival.ts`](../packages/core/src/arrival.ts)
+**Status:** Implemented, except the `room` and `carry` fields; no client issues an entry assertion yet · **Kinds:** 27235 (entry assertion) · **Schemas:** [`arrival`](../schemas/arrival.schema.json), [`entry-assertion`](../schemas/entry-assertion.schema.json) · **Vectors:** [`arrivals`](../vectors/arrivals.json), [`assertions`](../vectors/assertions.json) · **Code:** [`arrival.ts`](../packages/core/src/arrival.ts)
 
 A world is on a different origin from the visitor's client. It can't see their
 signer and shouldn't. What it needs to know about an arriving visitor travels
@@ -18,6 +18,8 @@ The value is the base64url encoding, without padding, of a JSON object:
   "entry": "main-entrance",
   "airlock": "https://portal.bitblocks.network/go/",
   "look": "{\"s\":\"g0123456789abcdef01234567\",\"head\":\"tall\"}",
+  "pass": { "kind": 27300, "…": "…" },
+  "sessionKey": "<64 hex characters>",
   "assertion": { "kind": 27235, "…": "…" },
   "avatar": "naddr1…",
   "receipts": []
@@ -30,6 +32,8 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `entry` | Which entry point to arrive at: 1 to 128 of `A-Z a-z 0-9 . _ -` |
 | `airlock` | Where to send the visitor's next door, and the way home ([NSWP-02](02-doors.md)). `https` |
 | `look` | The visitor's look, inline ([NSWP-05](05-looks.md)). At most 600 characters |
+| `pass` | A pass: the visitor's identity key saying that a session key speaks for them here ([NSWP-10](10-identity.md)) |
+| `sessionKey` | The secret half of that session key: a throwaway made for this trip. A pass and its key travel together or not at all; one without the other is dropped |
 | `avatar` | The `naddr` of a published avatar event |
 | `assertion` | An entry assertion, below |
 | `receipts` | Up to 8 events proving the visitor paid for entry |
@@ -50,12 +54,17 @@ Rules for the world that reads it:
 - **Trust none of it unread.** A value longer than 16,384 characters, or not
   JSON, is refused. A field that is malformed is dropped with a warning and
   the rest is kept: a bad `airlock` must not stop a visitor arriving.
-- The return address and the look are kept for the browser tab's session and
-  no longer.
+- The return address, the look and the pass are kept for the browser tab's
+  session and no longer. Arriving again without a look or a pass clears the
+  one that was kept: each arrival says afresh how the visitor wants to be seen.
 
 ## The entry assertion
 
-A visitor who chose to arrive as themselves carries a short-lived signed event:
+This is proof for a world's **server**, good for one request. Proof for the
+people in a room is a pass ([NSWP-10](10-identity.md)), which is what the
+reference client issues today.
+
+A visitor who chose to arrive as themselves can carry a short-lived signed event:
 
 ```json
 {
@@ -95,6 +104,7 @@ import { arrival } from "nswp-sdk";
 const { context, warnings } = arrival.read(); // reads, validates and scrubs
 arrival.returnAirlock();                       // for this tab
 arrival.look();                                // what they chose to wear here
+arrival.identity();                            // who they chose to be here, checked, or undefined
 ```
 
 ## Proposed, not built

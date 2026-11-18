@@ -29,6 +29,16 @@ export interface FigureStyle {
   omit?: ("accessory" | "shoulders" | "mark")[];
 }
 
+/** What is known about the person, as opposed to how they chose to look. */
+export interface FigureFacts {
+  /**
+   * Their pass checked out (protocol/10-identity.md), so the mark is their
+   * identity key's. It is drawn with a lit ring round it. Never set this on
+   * anyone's say-so.
+   */
+  proven?: boolean;
+}
+
 export interface Figure {
   group: THREE.Group;
   /** Faces -Z, like a camera. Its origin is between the eyes. */
@@ -151,7 +161,7 @@ function buildHead(b: MeshBuilder, look: Look, main: THREE.Color, accent: THREE.
   }
 }
 
-function buildBody(b: MeshBuilder, look: Look, main: THREE.Color, accent: THREE.Color, omit: Set<string>): void {
+function buildBody(b: MeshBuilder, look: Look, main: THREE.Color, accent: THREE.Color, omit: Set<string>, proven = false): void {
   const k = look.build === "slight" ? 0.86 : look.build === "broad" ? 1.2 : 1;
   /** How the two colours are laid on: by height (`row` of `rows`) and by which way a face points (`side` of `sides`). */
   const cloth = (row: number, rows: number, side: number, sides: number, turn = 0): THREE.Color => {
@@ -218,6 +228,15 @@ function buildBody(b: MeshBuilder, look: Look, main: THREE.Color, accent: THREE.
     const pitch = cell * 1.14;
     const wide = pitch * 5 + cell * 0.7;
     b.box([wide, wide, 0.02], [x, y, z - facing * 0.008], { color: DARK, bevel: 0.006 });
+    if (proven) {
+      // A lit frame: this mark has been proved, and is not merely worn.
+      const [half, band, zz] = [wide / 2 + cell * 0.55, cell * 0.38, z + facing * 0.0025];
+      const bar = (x0: number, y0: number, x1: number, y1: number) => b.quad([x + x0, y + y0, zz], [x + x1, y + y0, zz], [x + x1, y + y1, zz], [x + x0, y + y1, zz], { glow: 1 }, [0, 0, facing]);
+      bar(-half, half - band, half, half);
+      bar(-half, -half, half, -half + band);
+      bar(-half, -half + band, -half + band, half - band);
+      bar(half - band, -half + band, half, half - band);
+    }
     markGrid(look.mark).forEach((row, r) =>
       row.forEach((on, c) => {
         if (!on) return;
@@ -236,7 +255,7 @@ function buildBody(b: MeshBuilder, look: Look, main: THREE.Color, accent: THREE.
  * from. As made, the head is at the origin facing -Z, the body hangs below
  * it and the hands rest at its sides: whoever uses it moves the parts.
  */
-export function createFigure(look: Look | string, style: FigureStyle = {}): Figure {
+export function createFigure(look: Look | string, style: FigureStyle = {}, facts: FigureFacts = {}): Figure {
   const wearing = typeof look === "string" ? generatedLook(look) : look;
   const omit = new Set<string>(style.omit ?? []);
   let [main, accent, light] = [new THREE.Color(wearing.color), new THREE.Color(wearing.accent), new THREE.Color(wearing.light)];
@@ -256,7 +275,7 @@ export function createFigure(look: Look | string, style: FigureStyle = {}): Figu
   const headShape = builder();
   buildHead(headShape, wearing, cloth, trim, omit);
   const bodyShape = builder();
-  buildBody(bodyShape, wearing, cloth, trim, omit);
+  buildBody(bodyShape, wearing, cloth, trim, omit, facts.proven === true);
   const handShape = builder();
   handShape.lathe([[0.0005, -0.06], [0.04, 0], [0.0005, 0.06]], [0, 0, 0], 4, () => ({ glow: 0.75 }));
 
