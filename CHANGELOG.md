@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.5
+
+Muting, in two parts.
+
+- **A person's voice and their music are muted apart.** Select someone in the People list: "Mute their voice" and "Mute their music" are two switches. Their voice without their music, their music without their voice, neither, or both. Muting someone's voice no longer takes their music with it, as it did for one release.
+- **Their music can be muted before they share any,** so it never starts.
+- Blocking is unchanged: it ends the connection, so neither is heard.
+- **Status (2026-11-18):** built, not deployed. Tried with three visitors on one machine: a voice muted with the music still heard, the music muted with the voice still heard, and each put back.
+
 ## 0.13.4
 
 Music shared with people nearby. Nothing in the protocol's signed formats changes.
@@ -11,7 +20,7 @@ Music shared with people nearby. Nothing in the protocol's signed formats change
 - **By distance.** It is full beside the person sharing, fades with distance, and is nothing at twelve metres. Past that it isn't asked for and isn't sent.
 - **Under voices.** Shared music steps back while anyone is speaking and comes forward after.
 - **The nearest two.** One visitor hears at most two people's music at once.
-- **One person's music** can be silenced without silencing their voice. Not hearing someone at all, or blocking them, covers their music too.
+- **One person's music** can be silenced without silencing their voice. Blocking them covers their music too.
 - **The sharer is told how many are hearing it.** Stopping, or leaving the room, ends it for everyone.
 - **A world can switch it off** in its space (`sharedMusic: false`): a concert, a library. Each visitor's own music still plays for them.
 - **On the wire:** a third line to each member, for music, agreed from the start and left empty, like the screen's. `mus:1` says music is offered and `hear:1` asks for it; both repeated while true.
