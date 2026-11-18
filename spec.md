@@ -17,7 +17,7 @@ The first of the things people do together, and the first that needs no account.
 - **Recording is said out loud** (§21.3). A member who records a clip tells the others, and each sees a light on the recorder's figure and is told once. It is said over the connection the members already share, and again every two seconds while it is true, so a lost message can't leave the light stuck on or off. An honest client says so; nothing can make a dishonest one.
 - **People**: a list of who else is in the room, and a way to point one of them out.
 - **What comes next, and where it can live.** Names, profiles, a feed, messages and notifications need a person's key. A world is someone else's website, so those belong in the visitor's own client and reach a world only by a hand-off, the way a door goes through the Airlock. Not designed in detail yet.
-- **Status:** built and tried in headless Chrome with three visitors. Not deployed. Not tried in a headset, where a clip can't be recorded at all.
+- **Status (2026-11-18):** built and deployed. On the live sites, in headless Chrome: a picture, a selfie and a clip taken in the Grove, in BitPortal's room and in the Starter Home; and two visitors in a private room in the Grove, where one recording a clip put "recording" beside their name in the other's People list, told them once, and cleared when it stopped. Not tried in a headset, where a clip can't be recorded at all.
 
 ## 0. What changed in 0.8.0
 
