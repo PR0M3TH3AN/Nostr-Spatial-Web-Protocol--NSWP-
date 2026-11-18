@@ -10,7 +10,7 @@ Crossing from one world to another, with as little asked as a browser allows, an
 - **`xr=1`** on a door's address, and **`immersive`** in the arrival context: the visitor left a headset session to make this trip. The destination uses it to put **Enter VR** first, large and alone, before it has finished loading.
 - **The chamber.** A small round room in the SDK (`createCrossing`). Walls rise round a visitor as they leave; they arrive standing in it, and its doors open onto the new world when it is ready. It is scenery and proves nothing, and the rules say so: nothing to press, no claim of verification, never a delay.
 - **`sessiongranted`** is listened for. Where a browser gives it, nothing is asked on arrival. Few do, and none has been tried.
-- **Status:** built in the library, the SDK, the reference worlds, the template and BitPortal. Driven on local builds, flat and in an emulated Quest 3. Not on a real headset. Not deployed.
+- **Status (2026-11-18):** built and deployed to BitPortal, the seven worlds and the Starter Home. One whole crossing was run on the live sites in an emulated Quest 3: from BitPortal's room in a headset session, through a door (one action), the Airlock told `xr=1` and reading large (Continue, the second), to the Grove, where **Enter VR** was first and focused and the chamber's doors waited for it (the third), then opened in the headset; and home again in one action, into the chamber in BitPortal's room, facing the door left through. The two sites were the only hosts asked for anything. **Not tried:** any real headset, and `sessiongranted` on any browser.
 
 ## 0.9.1
 

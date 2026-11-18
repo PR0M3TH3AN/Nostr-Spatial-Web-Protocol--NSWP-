@@ -18,7 +18,7 @@ reference publisher key, `npm run check`, and deploy `dist/` to the Vercel
 project named in `../vercel-projects.json` under `templateDemo`. Copy the
 clone's `world.json`, `signed/` and `previews/` back here.
 
-Last made from template commit `1399b4f` (built with the signatures and preview below, not signed again), as The Starter Home (`d` is
+Last made from template commit `a2d1457` (built with the signatures and preview below, not signed again), as The Starter Home (`d` is
 `starter`), with a new preview picture and signatures. Its preview is also
 mirrored into `sites/previews/` by `node scripts/capture-previews.mjs
 --elsewhere-only`, so the Workshop's door can show it.
