@@ -19,7 +19,7 @@ const HELP = `nswp-bridge: a terminal on this computer, opened from your home.
 
   --command "<program>"   run this instead of your shell, for example "claude"
   --cwd <folder>          start there instead of your home folder
-  --tmux                  one lasting terminal that outlives the connection (needs tmux)
+  --tmux                  lasting terminals that outlive the connection (needs tmux)
   --allow-for <minutes>   after you say yes once, don't ask again for this long
   --relays <a,b,c>        where to be found (default: the four NSWP uses)
   --home <address>        your home, for the pairing link
@@ -97,7 +97,9 @@ function main() {
 
   const allowFor = typeof args["allow-for"] === "string" ? Number(args["allow-for"]) : 0;
   if (!Number.isFinite(allowFor) || allowFor < 0 || allowFor > 24 * 60) fail("--allow-for is a number of minutes, at most 1440.");
-  const command = args.tmux ? ["tmux", "new-session", "-A", "-s", "nswp-bridge"] : typeof args.command === "string" ? ["/bin/sh", "-c", args.command] : [process.env.SHELL || "/bin/sh", "-l"];
+  const plain = typeof args.command === "string" ? ["/bin/sh", "-c", args.command] : [process.env.SHELL || "/bin/sh", "-l"];
+  // With tmux each of the few terminals is a lasting one of its own, found again by its number.
+  const command = args.tmux ? (slot: number) => ["tmux", "new-session", "-A", "-s", `nswp-bridge-${slot}`] : plain;
   const cwd = typeof args.cwd === "string" ? args.cwd : homedir();
   if (!existsSync(cwd)) fail(`There is no folder ${cwd}.`);
   const relays = typeof args.relays === "string" ? args.relays.split(",").map((r) => r.trim()).filter(Boolean) : DEFAULT_RELAYS;
@@ -144,13 +146,13 @@ function main() {
     cwd,
     allowForSec: allowFor * 60,
     log: (line) => console.log(`[${stamp()}] ${line}`),
-    ask({ code, replaces }) {
+    ask({ code, open, replaces }) {
       if (nobody) {
         console.log(`[${stamp()}] A terminal was asked for, and there is nobody here to ask. Run this in a terminal of its own.`);
         return Promise.resolve(false);
       }
       waiting?.(false);
-      process.stdout.write(`\u0007\n[${stamp()}] Your home is asking to open a terminal on this computer.\n        The code is ${code}. It should be the one showing in your home.\n${replaces ? "        A terminal is open already. Saying yes closes it and opens this one.\n" : ""}        Open it? Type y and press Enter. Anything else says no: `);
+      process.stdout.write(`\u0007\n[${stamp()}] Your home is asking to open a terminal on this computer.\n        The code is ${code}. It should be the one showing in your home.\n${replaces ? `        ${open} terminals are open, which is as many as there may be. Saying yes closes the one that has been quiet longest.\n` : open ? `        ${open === 1 ? "One terminal is" : `${open} terminals are`} open already. This would be another.\n` : ""}        Open it? Type y and press Enter. Anything else says no: `);
       return new Promise((resolve) => {
         waiting = resolve;
       });
@@ -162,7 +164,7 @@ function main() {
 
   This computer   ${me}
   Answers only    ${encodeNpub(owner)}
-  A terminal runs ${args.tmux ? "tmux (one lasting terminal)" : typeof args.command === "string" ? args.command : command[0]}
+  A terminal runs ${args.tmux ? "tmux (lasting terminals: nswp-bridge-1, -2, …)" : typeof args.command === "string" ? args.command : plain[0]}
   Starting in     ${cwd}
   ${allowFor ? `After you say yes once, it opens without asking for ${allowFor} minutes.` : "It asks here before every session."}
 

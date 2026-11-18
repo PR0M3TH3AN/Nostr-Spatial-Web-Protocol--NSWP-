@@ -92,7 +92,9 @@ export function liveRows(layer: LiveLayer): Key[][] {
   const away = [key("close", "Put the keyboard away", "close", 10)];
   if (layer === "letters") return [top, ...keyRows("letters").slice(0, 3), bottom, away];
   if (layer === "symbols") return [top, chars("1234567890"), chars(":;()$&@\"'_"), [...chars("|~<>{}[]\\"), key("back", "del", "back", 1)], bottom, away];
-  return [top, chars("!?`#+=*%^"), [key("back", "delete", "back", 2)], bottom, away];
+  // The last layer has the keys a pager or an editor wants: a page at a time, and the ends of a line.
+  const pages = [key("pgup", "page up", "pgup", 2.5), key("pgdn", "page down", "pgdn", 2.5), key("home", "home", "home", 1.5), key("end", "end", "end", 1.5), key("back", "delete", "back", 2)];
+  return [top, chars("!?`#+=*%^"), pages, bottom, away];
 }
 
 /** Where every key sits, as `placeKeys` lays them. */
@@ -150,6 +152,14 @@ export class LiveKeys {
         return send(`${ESC}[C`);
       case "left":
         return send(`${ESC}[D`);
+      case "pgup":
+        return send(`${ESC}[5~`);
+      case "pgdn":
+        return send(`${ESC}[6~`);
+      case "home":
+        return send(`${ESC}[H`);
+      case "end":
+        return send(`${ESC}[F`);
       case "shift":
         this.shift = this.shift === "off" ? "once" : this.shift === "once" ? "lock" : "off";
         return null;

@@ -4,7 +4,7 @@
  * is tested like arithmetic. `keyboard.ts` draws it in a headset.
  */
 
-export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system" | "esc" | "tab" | "ctrl" | "up" | "down" | "left" | "right" | "close";
+export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system" | "esc" | "tab" | "ctrl" | "up" | "down" | "left" | "right" | "pgup" | "pgdn" | "home" | "end" | "close";
 
 export interface Key {
   /** What a press of it is called: the character itself for a letter, a word for the rest. */

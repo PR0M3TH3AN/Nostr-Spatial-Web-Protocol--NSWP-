@@ -69,6 +69,13 @@ describe("the keyboard drawn in a headset", () => {
     expect(k.press("esc")).toEqual({ send: "\x1b" });
     expect(k.press("back")).toEqual({ send: "\x7f" });
     expect(k.press("close")).toEqual({ close: true });
+    // A page at a time, for a pager or an editor: on the last layer.
+    k.press("layer");
+    k.press("layer");
+    expect(k.press("pgup")).toEqual({ send: "\x1b[5~" });
+    expect(k.press("pgdn")).toEqual({ send: "\x1b[6~" });
+    expect(k.press("home")).toEqual({ send: "\x1b[H" });
+    expect(k.press("end")).toEqual({ send: "\x1b[F" });
     expect(k.press("nothing")).toBeNull();
   });
 

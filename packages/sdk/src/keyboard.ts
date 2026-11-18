@@ -216,15 +216,20 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
   const at = new THREE.Vector3();
   const facing = new THREE.Vector3();
   const local = new THREE.Vector3();
-  /** Below the eyes and a short reach ahead, leaning back like something on a desk. */
-  const putUp = () => {
+  /**
+   * Below the eyes and a short reach ahead, leaning back like something on a
+   * desk. Up for a terminal it sits lower and nearer, like a keyboard under a
+   * screen, so that it is never between the visitor's hand and the panel.
+   */
+  const putUp = (under = false) => {
     o.camera.getWorldPosition(at);
     o.camera.getWorldDirection(facing);
     facing.y = 0;
     if (facing.lengthSq() < 1e-6) facing.set(0, 0, -1);
     facing.normalize();
-    group.position.set(at.x + facing.x * 0.68, Math.max(0.5, at.y - 0.4), at.z + facing.z * 0.68);
-    group.rotation.set(-32 * (Math.PI / 180), Math.atan2(-facing.x, -facing.z), 0, "YXZ");
+    const reach = under ? 0.62 : 0.68;
+    group.position.set(at.x + facing.x * reach, Math.max(under ? 0.42 : 0.5, at.y - (under ? 0.58 : 0.4)), at.z + facing.z * reach);
+    group.rotation.set((under ? -42 : -32) * (Math.PI / 180), Math.atan2(-facing.x, -facing.z), 0, "YXZ");
     group.visible = true;
   };
   const closeLive = () => {
@@ -249,7 +254,7 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
       live = { keys: new LiveKeys(), o: l };
       title = l.title;
       lay();
-      putUp();
+      putUp(true);
     },
     closeLive,
     ask(a) {
