@@ -112,7 +112,7 @@ export interface Presence {
   shareMusic(track: MediaStreamTrack | null): Promise<void>;
   /** Whether to hear music people nearby share, and how loud. Off until the visitor turns it on. */
   setHearShared(on: boolean, volume: number): void;
-  /** Stop hearing one member's music, or hear it again. Their voice is not affected. */
+  /** Stop hearing one member's music, or hear it again, whether or not they are sharing any now. Their voice is not affected. */
   muteMusic(pubkey: string, on: boolean): void;
   isMusicMuted(pubkey: string): boolean;
   /** Whether this visitor is offering their screen to the room. */
@@ -130,8 +130,9 @@ export interface Presence {
   /** The line a member's screen arrives on, or null before they are connected. It is empty unless watched. */
   screenOf(pubkey: string): MediaStream | null;
   /**
-   * Stop hearing one member, or hear them again. They are still seen, and still see and hear this visitor.
-   * Nobody is told. It lasts while they are here.
+   * Stop hearing one member's voice, or hear it again. They are still seen, and still see and hear this
+   * visitor. Their music, if they share any, is a separate choice (`muteMusic`). Nobody is told. It lasts while
+   * they are here.
    */
   mute(pubkey: string, on: boolean): void;
   isMuted(pubkey: string): boolean;
@@ -354,7 +355,7 @@ export function createPresence(d: PresenceOptions): Presence {
     sinceChoosing += dt;
     if (sinceChoosing > 0.4) {
       sinceChoosing = 0;
-      const sharing = [...avatars.values()].filter((a) => a.member.music).map((a) => ({ pubkey: a.member.pubkey, metres: away(a), refused: mutedKeys.has(a.member.pubkey) || tuneMuted.has(a.member.pubkey) }));
+      const sharing = [...avatars.values()].filter((a) => a.member.music).map((a) => ({ pubkey: a.member.pubkey, metres: away(a), refused: tuneMuted.has(a.member.pubkey) }));
       const want = new Set(musicToHear(sharing, hearShared));
       for (const a of avatars.values()) {
         const on = want.has(a.member.pubkey);
@@ -686,7 +687,6 @@ export function createPresence(d: PresenceOptions): Presence {
       if (on) mutedKeys.add(pubkey);
       else mutedKeys.delete(pubkey);
       avatars.get(pubkey)?.audio?.setVolume(on ? 0 : voiceVolume);
-      sinceChoosing = 1; // not hearing someone covers their music too
       changed();
     },
     isMuted(pubkey) {
@@ -1163,7 +1163,7 @@ export function addRoomControls(
           ? "Join the room to see who else is here."
           : here.length === 0
             ? "Nobody else is here yet."
-            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to stop hearing them or block them.`,
+            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to mute their voice or their music, or block them.`,
     });
     here.forEach((m, i) =>
       controls.add({
@@ -1213,36 +1213,44 @@ export function addRoomControls(
         },
       });
     }
-    if (who?.music && sounds) {
-      extras.push("person-music");
-      controls.add({
-        id: "person-music",
-        section: "people",
-        icon: "sound",
-        on: () => !presence.isMusicMuted(who.pubkey),
-        label: () => (presence.isMusicMuted(who.pubkey) ? `Hear ${who.name}'s music again` : `Stop hearing ${who.name}'s music`),
-        act: () => {
-          const now = !presence.isMusicMuted(who.pubkey);
-          presence.muteMusic(who.pubkey, now);
-          controls.say(now ? `You no longer hear ${who.name}'s music. You still hear them speak.` : `You hear ${who.name}'s music again when you are near.`);
-        },
-      });
-    }
     if (who) {
-      extras.push("person-mute", "person-block");
+      extras.push("person-mute", "person-music", "person-block");
       controls.add(
         {
           id: "person-mute",
           section: "people",
           icon: () => (presence.isMuted(who.pubkey) ? "mic" : "micOff"),
           on: () => presence.isMuted(who.pubkey),
-          label: () => (presence.isMuted(who.pubkey) ? `Hear ${who.name} again` : `Stop hearing ${who.name}`),
+          label: () => (presence.isMuted(who.pubkey) ? `Unmute ${who.name}'s voice` : `Mute ${who.name}'s voice`),
           act: () => {
             const now = !presence.isMuted(who.pubkey);
             presence.mute(who.pubkey, now);
-            controls.say(now ? `You no longer hear ${who.name}. They still see and hear you, and aren't told.` : `You hear ${who.name} again.`);
+            controls.say(now ? `You no longer hear ${who.name} speak. They still see and hear you, and aren't told.` : `You hear ${who.name} speak again.`);
           },
         },
+        // Their music is a choice of its own: someone's voice without their music, or their music without their voice.
+        ...(sounds
+          ? [
+              {
+                id: "person-music",
+                section: "people",
+                icon: (() => (presence.isMusicMuted(who.pubkey) ? "sound" : "soundOff")) as () => "sound" | "soundOff",
+                on: () => presence.isMusicMuted(who.pubkey),
+                label: () => (presence.isMusicMuted(who.pubkey) ? `Unmute ${who.name}'s music` : `Mute ${who.name}'s music`),
+                act: () => {
+                  const now = !presence.isMusicMuted(who.pubkey);
+                  presence.muteMusic(who.pubkey, now);
+                  controls.say(
+                    now
+                      ? `You won't hear music ${who.name} shares. You still hear them speak.`
+                      : sounds.levels.hearShared
+                        ? `You hear ${who.name}'s music again when they share it and you are near.`
+                        : `${who.name}'s music is no longer muted. To hear anyone's shared music, turn it on in Sound.`,
+                  );
+                },
+              },
+            ]
+          : []),
         {
           id: "person-block",
           section: "people",
