@@ -180,15 +180,62 @@ addPanelControls(controls, panels, { presenting: () => renderer.xr.isPresenting,
 - **Loading tells.** A picture or video from another site tells that site who
   is looking. The kit loads whatever the page's own rules allow, and the
   reference sites allow only their own files and the visitor's.
-- **Writing happens on a flat screen.** A headset has no keyboard or files to
-  offer a page, so "Write a note" and "Hang a picture or video" are offered
-  outside one. Inside, panels are moved, resized and put away.
+- **Writing works in a headset.** The kit draws a keyboard in the scene
+  (below), so "Write a note" is offered everywhere.
+- **The device's own files are shown by the browser,** as a flat window, so
+  "Hang a picture or video from this device" is offered outside a headset.
+  Inside one, the visitor chooses from their library (below).
 - **A panel is in the way of what is behind it,** like any solid thing: a
   select on a panel is not a step onto the floor past it.
 - **Yours only.** Others in a room don't see a visitor's panels.
 
 `panel-store.ts` is the part with no three.js in it: what may be kept, where a
 new panel goes, how a note is wrapped.
+
+### A keyboard in the headset
+
+`panels.keyboard` is a keyboard the kit draws: its keys are pressed with a
+select, like everything else, so it works on every headset.
+
+```js
+const text = await panels.keyboard.ask({ title: "A name for the room", maxLength: 48 });   // null if they gave up
+```
+
+- It comes up low in front of the visitor, leaning back like something on a
+  desk, with what they have written above the keys.
+- Letters, a second layer of numbers and marks, shift (once for one capital,
+  twice to stay), and a capital at the start of each sentence.
+- **A real keyboard types into it too,** and so does a paste. While it is up,
+  nothing behind hears the keys: no walking, no shortcuts.
+- **It is in front of everything.** Its keys are found by `panels.pick()` and
+  pressed by `panels.press()`, with no wiring of their own. A world that has a
+  console should ask `panels.keyboard.pick()` before its console, and put the
+  console away while `panels.keyboard.open`: the two come up in the same
+  place.
+- **The headset's own keyboard,** where its browser offers one to a page, is
+  one key away. It is the visitor's choice, because it has been tried on no
+  headset here.
+
+`keys.ts` is the part with no three.js in it: the layout, and what each press
+does to the words.
+
+### A library of the visitor's own
+
+A page can't show the files on a visitor's device. What it can hold is what
+they have already given it. `panels.library` keeps every picture and video
+they hang, in their browser, and shows them on a board to choose from.
+
+```js
+panels.library.showing = true;                       // the board, in front of them
+addCameraControls(controls, { ..., onCapture: (c) => void panels.library.add(c.blob, c.name) });
+```
+
+- Select one to hang it. **Remove one** turns the next select into removing:
+  the file goes, and any panel showing it goes with it.
+- With `onCapture`, every picture taken with the kit's camera goes into the
+  library, so a picture taken in a headset can be hung without leaving it.
+- Sixty files at most, 64 MB each, with a small picture of each to recognise
+  it by. Kept for this site, in this browser. Nothing is sent anywhere.
 
 ## Leaving and arriving
 

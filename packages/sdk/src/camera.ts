@@ -190,6 +190,8 @@ export interface CameraOptions {
   name?: string;
   /** Longest clip, in seconds. Default 30. */
   maxSeconds?: number;
+  /** Called with everything taken: a picture, a selfie or a clip. A place to keep it, such as the visitor's library. */
+  onCapture?: (capture: Capture) => void;
 }
 
 export interface Camera {
@@ -228,6 +230,7 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
   let latest: Capture | null = null;
   const keep = (capture: Capture) => {
     latest = capture;
+    d.onCapture?.(capture);
     if (presenting()) {
       kept.push(capture);
       tell(`Kept. Save ${kept.length === 1 ? "it" : `all ${kept.length}`} from the Camera menu when you leave VR.`);

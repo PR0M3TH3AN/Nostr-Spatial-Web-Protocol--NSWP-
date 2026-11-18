@@ -109,6 +109,8 @@ type TestHooks = {
   screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
   crossing?: () => string;
+  /** What the hand in a slot points at: a button of the console, something on a panel, a door, or nothing. */
+  pointedAt?: (slot: number) => string | null;
   /** Where on the floor the hand in a slot points, or null. */
   pointing?: (slot: number) => number[] | null;
   /** Which way the visitor has been turned, in degrees. */
@@ -498,8 +500,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       if (input?.claimed(i)) return; // that pinch picked something up; it wasn't a press
       state.lastSelect = i;
       const door = aimFrom(c); // leaves the ray where this hand points
-      const button = xrConsole.pick(raycaster);
-      const onPanel = button ? null : panels!.pick(raycaster);
+      // While the keyboard is up it is in front of everything, the console's own button included.
+      const key = panels!.keyboard.pick(raycaster);
+      const button = key ? null : xrConsole.pick(raycaster);
+      const onPanel = key ?? (button ? null : panels!.pick(raycaster));
       if (button || onPanel || door >= 0) input?.pulse(i, 0.5, 30);
       if (button) xrConsole.press(button);
       else if (onPanel) panels!.press(onPanel);
@@ -533,9 +537,15 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.input = () => input!.info();
   // Panels: notes, pictures and video in frames a visitor can move about. Taken by the bar with a grip, or pressed
   // with a select like everything else.
-  panels = createPanels({ scene, camera, accent, textColor: cfg.palette.text, input });
+  panels = createPanels({ scene, camera, accent, textColor: cfg.palette.text, input, session: () => renderer.xr.getSession() });
   for (const [content, place] of toHang) panels.open(content, { ...(place ? { place } : {}), keep: false });
   hooks.panels = panels;
+  hooks.pointedAt = (slot) => {
+    const door = aimFrom(controllers[slot]!);
+    const key = panels?.keyboard.pick(raycaster);
+    const button = key ? null : xrConsole.pick(raycaster);
+    return key ?? (button ? `console:${button}` : (panels?.pick(raycaster) ?? (door >= 0 ? `door:${door}` : null)));
+  };
   hooks.pointing = (slot) => {
     aimFrom(controllers[slot]!);
     const spot = floorUnder();
@@ -602,8 +612,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.heading = () => Math.round(THREE.MathUtils.radToDeg(rig.rotation.y) * 10) / 10;
   hooks.thing = (name) => {
     const object = scene.getObjectByName(name);
-    if (!object) return null;
-    const world = object.getWorldPosition(new THREE.Vector3());
+    // A key of the keyboard or a cell of the library has no object of its own: the kit says where it is.
+    const world = object ? object.getWorldPosition(new THREE.Vector3()) : (panels?.pointOf(name) ?? null);
+    if (!world) return null;
     return { world: world.toArray().map((n) => Math.round(n * 1000) / 1000), local: rig.worldToLocal(world.clone()).toArray() };
   };
   hooks.screenOf = (name) => {
@@ -675,12 +686,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // ------------------------------------------------------------- each frame
   const startedAt = performance.now();
   let lastT = 0;
+  let wasBusy = false;
   renderer.setAnimationLoop(() => {
     const t = (performance.now() - startedAt) / 1000;
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
     input!.update(dt);
     panels!.update(t, dt);
+    // The keyboard and the library's board come up where the console is: it steps aside for them.
+    const busy = panels!.keyboard.open || panels!.library.showing;
+    if (busy && !wasBusy) xrConsole.setOpen(false);
+    wasBusy = busy;
     crossing.update(t, dt);
     camera.getWorldPosition(head);
     presence.update(dt);
@@ -696,12 +712,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       for (const c of controllers) {
         if (!c.visible) continue;
         const door = aimFrom(c);
-        const onMenu = xrConsole.pick(raycaster);
+        const key = panels!.keyboard.pick(raycaster);
+        const onMenu = key ? null : xrConsole.pick(raycaster);
         if (onMenu) {
           button = onMenu;
           continue;
         }
-        const onPanel = panels!.pick(raycaster);
+        const onPanel = key ?? panels!.pick(raycaster);
         if (onPanel) {
           panelAimed = onPanel;
           continue;
@@ -725,6 +742,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     }
     panels!.aim(panelAimed);
     xrConsole.update(dt, camera, renderer.xr.isPresenting);
+    // The console's own button sits where the keyboard comes up, and shows through it: away while typing.
+    if (panels!.keyboard.open) xrConsole.group.visible = false;
     const at = gates[aimed];
     controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "");
     gates.forEach((g, i) => {

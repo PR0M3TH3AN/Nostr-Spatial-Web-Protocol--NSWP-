@@ -1,6 +1,6 @@
 /** What a panel is, as data: what may be kept, where a new one goes, and how a note is laid out. */
 import { describe, expect, it } from "vitest";
-import { cleanPlace, cleanRecords, cleanSource, facing, inFront, newId, PANEL_LIMITS, wrapText } from "../src/panel-store.js";
+import { cleanLibrary, cleanPlace, cleanRecords, cleanSource, facing, inFront, LIBRARY_LIMITS, libraryPage, newId, PANEL_LIMITS, wrapText } from "../src/panel-store.js";
 
 const place = { position: [1, 1.5, -2] as [number, number, number], yaw: 90, pitch: 0, width: 1 };
 const note = { kind: "note" as const, title: "Read me", text: "Hello\nthere" };
@@ -113,5 +113,44 @@ describe("laying out a note", () => {
     const lines = wrapText(Array(100).fill("word").join("\n"), 9, measure, 5);
     expect(lines.length).toBe(5);
     expect(lines[4]!.endsWith("…")).toBe(true);
+  });
+});
+
+describe("the library of a visitor's own files", () => {
+  const item = { id: "p-abc123defg", kind: "picture" as const, title: "The grove", bytes: 1200, addedAt: 100, thumb: "data:image/jpeg;base64,AAAA" };
+
+  it("comes back as it was, newest first", () => {
+    const older = { ...item, id: "p-older12345", addedAt: 50 };
+    expect(cleanLibrary(JSON.parse(JSON.stringify([older, item])))).toEqual([item, older]);
+  });
+
+  it("keeps a thumbnail only if it is a small picture, never an address to fetch", () => {
+    for (const thumb of ["https://tracker.example/pixel.png", "data:text/html;base64,AAAA", "data:image/svg+xml;base64,AAAA", "javascript:alert(1)", `data:image/jpeg;base64,${"A".repeat(LIBRARY_LIMITS.thumbChars)}`]) {
+      expect(cleanLibrary([{ ...item, thumb }])[0]!.thumb, thumb.slice(0, 30)).toBe("");
+    }
+    expect(cleanLibrary([{ ...item, thumb: "data:image/webp;base64,AA+/=" }])[0]!.thumb).toBe("data:image/webp;base64,AA+/=");
+  });
+
+  it("drops what isn't a picture or a video, and counts a file once", () => {
+    expect(cleanLibrary([{ ...item, kind: "note" }, { ...item, id: "bad id" }, null, 7])).toEqual([]);
+    expect(cleanLibrary([item, item]).length).toBe(1);
+    expect(cleanLibrary("nope")).toEqual([]);
+    expect(cleanLibrary([{ ...item, title: "  two\nlines ", bytes: -4, addedAt: "soon" }])[0]).toMatchObject({ title: "two lines", bytes: 0, addedAt: 0 });
+  });
+
+  it("stops at its limit, keeping the newest", () => {
+    const many = Array.from({ length: LIBRARY_LIMITS.count + 5 }, (_, i) => ({ ...item, id: `p-${String(i).padStart(10, "0")}`, addedAt: i }));
+    const kept = cleanLibrary(many);
+    expect(kept.length).toBe(LIBRARY_LIMITS.count);
+    expect(kept[0]!.addedAt).toBe(LIBRARY_LIMITS.count + 4);
+  });
+
+  it("is shown a page at a time", () => {
+    const all = Array.from({ length: 19 }, (_, i) => i);
+    expect(libraryPage(all, 0, 8)).toEqual({ items: [0, 1, 2, 3, 4, 5, 6, 7], page: 0, pages: 3 });
+    expect(libraryPage(all, 2, 8).items).toEqual([16, 17, 18]);
+    expect(libraryPage(all, 9, 8).page).toBe(2); // past the end is the last page
+    expect(libraryPage(all, -3, 8).page).toBe(0);
+    expect(libraryPage([], 0, 8)).toEqual({ items: [], page: 0, pages: 1 });
   });
 });
