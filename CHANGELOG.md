@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.8.3
+
+How worlds are found, beyond one client's own list ([NSWP-08](protocol/08-lists.md)).
+
+- **Lists are a format of their own now,** with a reader and a writer in the library (`parseListEvent`, `buildListEvent`), a schema and test vectors. A reader keeps a list's worlds in order, passes over anything on it that isn't a world, and stops at 200.
+- **Following a list.** A list is followed by its coordinate, shared as an `naddr`. A newer copy counts only if the same key signed it. Whose lists a visitor follows stays with them.
+- **Worlds nobody has listed.** The rules for a client that shows them: kept apart and labelled, shown when the visitor asks, pictures held, a limit on what one key can take up, and no second claim on an address the visitor already has a door to.
+- **Asking to be listed** needs no message: announcing a world is the request. `nswp worlds --verify --not-on <list>` is what a curator reads.
+- **The tool** signs lists (`nswp sign-list`) and validates them.
+- **Status:** built in the library and in BitPortal. Not deployed.
+
 ## 0.8.2
 
 No change to the protocol. How it is written down changed.

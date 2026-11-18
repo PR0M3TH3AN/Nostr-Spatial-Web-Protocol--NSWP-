@@ -1,6 +1,6 @@
 # NSWP-08: Lists and finding worlds
 
-**Status:** Lists are implemented; finding worlds through the people you follow, and search, are proposed · **Kinds:** 30004 (NIP-51 curation set), 37300 · **Code:** BitPortal's [`catalog.ts`](https://github.com/PR0M3TH3AN/bitportal/blob/main/src/shared/catalog.ts)
+**Status:** Lists, following a list, and a shelf of unreviewed worlds are implemented; finding worlds through the people you follow, and search by relays, are proposed · **Kinds:** 30004 (NIP-51 curation set), 37300 · **Schema:** [`list`](../schemas/list.schema.json) · **Vectors:** [`lists`](../vectors/lists.json) · **Code:** [`list.ts`](../packages/core/src/list.ts); BitPortal's [`catalog.ts`](https://github.com/PR0M3TH3AN/bitportal/blob/main/src/shared/catalog.ts)
 
 There is no index of worlds, and nobody to apply to. A world is found because
 it announced itself, because someone put it on a list, or because a link to it
@@ -34,9 +34,42 @@ the order the curator wants them shown.
 }
 ```
 
-A client decides whose lists to show. The reference client ships one, signed
-by its own curator's key, bundled with the page so the first screen needs no
-relay. It takes a newer copy from relays only if the same key signed it.
+### Reading one
+
+- Check the signature. A list is its curator's word and nobody else's.
+- The worlds are the `a` tags whose value is `37300:<pubkey>:<d>`, in order,
+  each counted once. A curation set can hold articles and notes too: pass over
+  anything that isn't a world, without complaint.
+- `title` is the list's name; without one, use its `d`. `description` is
+  optional. Read at most 200 worlds, 200 characters of title and 1000 of
+  description. A list with no worlds is still a list: it shows nothing.
+- Ignore `image`. A list is not a reason to fetch a picture from anywhere.
+
+### Following one
+
+A list's address is its coordinate, `30004:<pubkey>:<d>`, shared as an
+`naddr`. A client follows a list by that coordinate, which fixes the key:
+
+- A newer copy replaces the one a client has only if **the same key** signed
+  it and its `created_at` is later.
+- When relays are silent, the last copy the client saw stands.
+- Whose lists a visitor follows is theirs to keep. Following a list tells its
+  curator nothing, and a client does not publish it unless the visitor asks.
+
+A client decides which lists a new visitor starts with. The reference client
+ships one, signed by its own curator's key and bundled with the page, so the
+first screen needs no relay. The visitor can stop showing it.
+
+### Making one
+
+```bash
+nswp sign-list my-list.json --key-file ~/.config/nswp/my.key --out my-list.event.json
+nswp publish my-list.event.json
+```
+
+`my-list.json` is `{ "d", "title", "description", "worlds": [...] }`, where
+each world is a coordinate or an `naddr`. Signing prints the `naddr` people
+follow the list by. Publishing it again under the same `d` replaces it.
 
 ## Listing a site that hasn't announced itself
 
@@ -65,22 +98,66 @@ compliant client drops other people's listings of it.
 - **Keep the list of relays visible and editable.** A default list is a
   convenience, not an authority.
 
+## Worlds nobody has listed
+
+An announcement on a relay needs nobody's permission, so a client that reads
+relays will find worlds no list names. Showing them is how a new world is seen
+at all. It is also where spam arrives. A client that shows them:
+
+- **Keeps them apart and says what they are:** announced, and reviewed by
+  nobody the visitor has chosen. They never sit among listed worlds.
+- **Waits to be asked.** It may say how many there are. It shows them once the
+  visitor asks, and may remember that they did.
+- **Holds their pictures** until the visitor asks for each
+  ([NSWP-04](04-previews.md)), and still contacts no world's site to list it.
+  So none of them can show as verified until its door is opened: that is the
+  cost of looking privately, and it is the right way round.
+- **Limits what one key can take up:** the reference client shows at most
+  three unlisted worlds from one key, newest first, and sixty in all.
+- **Drops a second claim on an address the visitor already has a door to.**
+  Two announcements for one address can't both be right, and the listed one
+  was at least chosen by someone.
+
+## Searching
+
+`t` tags are a world's topics and `l` tags its languages
+([NSWP-01](01-worlds.md)). A client can filter what it already holds by those,
+by title, by summary and by address, without asking anyone. The reference
+client does that and nothing more.
+
+## Asking to be listed
+
+There is no message for this, and no queue. Announcing a world is the request:
+it puts the world where every curator can read it.
+
+```bash
+nswp worlds --verify --not-on my-list.event.json
+```
+
+prints every world announced on the relays that a list doesn't have yet, newest
+first, and whether each one's site vouches for it. A curator who wants to hear
+from people says how in the list's `description`.
+
 ## What the reference client does today
 
-- Shows its bundled starter list.
-- Has a setting, off by default, to also show any announced world it finds on
-  its relays, at most 60.
+- Shows its bundled starter list, which the visitor can hide.
+- Follows any list the visitor gives it by `naddr`, each as a shelf of its
+  own, named with its curator's key. The lists a visitor follows are kept on
+  their device.
+- Says how many announced worlds nobody has listed, and shows them when asked,
+  under the rules above.
+- Filters all of that by a word, a topic or a language.
 - Lets a visitor save any door to their own wall, kept on their device.
-- Has a page for announcing a world.
+- Has a page for announcing a world, and says there how a world gets listed.
 
 ## Proposed, not built
 
-- **Following other people's lists,** and worlds announced or recommended by
-  the people a visitor follows.
-- **A shelf of new worlds** shown without a setting. Showing only verified
-  ones is not free: verifying a world means contacting its site, which a
-  lobby must not do merely to list it.
-- **Search** over topics and languages.
-- **A way to ask a curator to list a world.**
+- **Worlds and lists from the people a visitor follows.** It needs names to
+  be worth reading ("listed by" a key says little), so it waits for profiles.
+- **Making a list in the client,** from a visitor's saved doors. Saved doors
+  are private today, so publishing them is a decision of its own.
+- **Search by relays** (NIP-50, or a `#t` filter), for worlds a client doesn't
+  already hold.
+- **Lists of lists,** and a way for a list to say who else is worth following.
 
 Background and reasoning: [`spec.md`](../spec.md) §5.4 to §5.7.

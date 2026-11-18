@@ -6,6 +6,8 @@
  *   nswp validate <file.json>
  *   nswp keygen <key-file>
  *   nswp sign-world <world-input.json> --key-file <path> [--out <file>]
+ *   nswp sign-list <list-input.json> --key-file <path> [--out <file>]
+ *   nswp worlds [--relays ...] [--verify] [--not-on <list-event.json>] [--json]
  *   nswp publish <event.json> [--relays ...]
  */
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -13,8 +15,12 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import {
+  buildListEvent,
   buildWorldEvent,
   checkDestination,
+  coordinate,
+  CURATION_SET_KIND,
+  decodeNaddr,
   DEFAULT_RELAYS,
   encodeNaddr,
   fetchManifest,
@@ -22,6 +28,7 @@ import {
   getPublicKey,
   hasEventShape,
   latestAddressable,
+  parseListEvent,
   parseManifest,
   parsePortal,
   parseWorldEvent,
@@ -32,6 +39,7 @@ import {
   verifyOrigin,
   WORLD_KIND,
   type Issue,
+  type ListInput,
   type WorldInput,
 } from "@nswp/core";
 
@@ -41,7 +49,7 @@ const flag = (name: string) => {
   return i >= 0 ? argv[i + 1] : undefined;
 };
 const has = (name: string) => argv.includes(`--${name}`);
-const positional = argv.filter((a, i) => !a.startsWith("--") && !(i > 0 && argv[i - 1]!.startsWith("--") && !["json"].includes(argv[i - 1]!.slice(2))));
+const positional = argv.filter((a, i) => !a.startsWith("--") && !(i > 0 && argv[i - 1]!.startsWith("--") && !["json", "verify"].includes(argv[i - 1]!.slice(2))));
 
 const tty = process.stdout.isTTY;
 const paint = (code: string) => (s: string) => (tty ? `\x1b[${code}m${s}\x1b[0m` : s);
@@ -163,8 +171,8 @@ function validateFile(path: string): number {
   let kind = "unknown";
   let r: { ok: boolean; errors?: Issue[]; warnings: Issue[] };
   if (typeof data?.kind === "number") {
-    kind = `event (kind ${data.kind})`;
-    r = parseWorldEvent(data);
+    kind = data.kind === CURATION_SET_KIND ? "list (kind 30004)" : `event (kind ${data.kind})`;
+    r = data.kind === CURATION_SET_KIND ? parseListEvent(data) : parseWorldEvent(data);
     if (hasEventShape(data)) console.log(verifyEvent(data) ? `${OK} signature valid` : `${BAD} signature INVALID`);
   } else if (typeof data?.schema === "string" && data.schema.startsWith("nswp/manifest/")) {
     kind = "manifest";
@@ -173,7 +181,7 @@ function validateFile(path: string): number {
     kind = "portal";
     r = parsePortal(data);
   } else {
-    console.log(`${BAD} Not a world event, manifest or portal.`);
+    console.log(`${BAD} Not a world event, list, manifest or portal.`);
     return 1;
   }
   console.log(`${r.ok ? OK : BAD} ${kind} ${r.ok ? "is valid" : "is invalid"}`);
@@ -223,6 +231,88 @@ function signWorld(inputPath: string): number {
   return 0;
 }
 
+/** A world named any of the ways people write one down: a coordinate, or an naddr. */
+function worldCoordinate(s: string): string {
+  if (s.startsWith("naddr1")) {
+    const p = decodeNaddr(s);
+    if (p.kind !== WORLD_KIND) throw new Error(`${s.slice(0, 24)}… is not a world (kind ${p.kind})`);
+    return coordinate(p);
+  }
+  return s;
+}
+
+function signList(inputPath: string): number {
+  const keyFile = flag("key-file");
+  if (!keyFile) {
+    console.log(`${BAD} --key-file is required`);
+    return 1;
+  }
+  const input = JSON.parse(readFileSync(inputPath, "utf8")) as ListInput;
+  if (typeof input.d !== "string" || typeof input.title !== "string" || !Array.isArray(input.worlds)) {
+    console.log(`${BAD} A list needs "d", "title" and "worlds" (an array of world addresses).`);
+    return 1;
+  }
+  const worlds = input.worlds.map(worldCoordinate);
+  const event = finalizeEvent(buildListEvent({ ...input, worlds }), readKey(keyFile));
+  const r = parseListEvent(event, { requireSigned: true });
+  if (!r.ok) {
+    printIssues(r.errors, r.warnings);
+    return 1;
+  }
+  if (r.value.worlds.length !== new Set(worlds).size) {
+    console.log(`${BAD} ${new Set(worlds).size - r.value.worlds.length} of the worlds are not world addresses (37300:<pubkey>:<d>, or an naddr).`);
+    return 1;
+  }
+  const text = `${JSON.stringify(event, null, 2)}\n`;
+  const outPath = flag("out");
+  if (outPath) {
+    writeFileSync(outPath, text);
+    console.log(`${OK} Signed "${r.value.title}" (${r.value.worlds.length} world${r.value.worlds.length === 1 ? "" : "s"}) → ${outPath}`);
+    console.log(`  Once published, this is the address people follow it by:`);
+    console.log(`  ${encodeNaddr({ kind: CURATION_SET_KIND, pubkey: event.pubkey, identifier: input.d, relays: relaysArg().slice(0, 2) })}`);
+  } else process.stdout.write(text);
+  printIssues([], r.warnings);
+  return 0;
+}
+
+/** Every world announced on the relays, newest first: what a curator reads to find something to list. */
+async function worlds(): Promise<number> {
+  const json = has("json");
+  const relays = relaysArg();
+  const skip = new Set<string>();
+  const notOn = flag("not-on");
+  if (notOn) {
+    const l = parseListEvent(JSON.parse(readFileSync(notOn, "utf8")));
+    if (!l.ok) {
+      printIssues(l.errors, l.warnings);
+      return 1;
+    }
+    for (const w of l.value.worlds) skip.add(w);
+  }
+  const res = await queryRelays(relays, { kinds: [WORLD_KIND], limit: 500 }, 6000);
+  const rows: Record<string, unknown>[] = [];
+  const events = latestAddressable(res.events).sort((a, b) => b.created_at - a.created_at);
+  for (const e of events) {
+    const w = parseWorldEvent(e);
+    if (!w.ok || !w.value.coordinate || skip.has(w.value.coordinate) || w.value.status === "retired") continue;
+    let verified: boolean | null = null;
+    if (has("verify")) {
+      const m = await fetchManifest(w.value.url);
+      verified = m.manifest ? verifyOrigin(w.value, m.manifest, m.url).verified : false;
+    }
+    const naddr = encodeNaddr({ kind: WORLD_KIND, pubkey: e.pubkey, identifier: w.value.d, relays: relays.slice(0, 2) });
+    rows.push({ coordinate: w.value.coordinate, title: w.value.title, url: w.value.url, announced: new Date(e.created_at * 1000).toISOString().slice(0, 10), verified, naddr });
+    if (!json) {
+      const mark = verified === null ? " " : verified ? OK : WARN;
+      console.log(`${mark} ${bold(w.value.title)} ${dim(w.value.url)}`);
+      console.log(dim(`    ${new Date(e.created_at * 1000).toISOString().slice(0, 10)}  ${verified === null ? "" : verified ? "verified  " : "not verified  "}${w.value.coordinate}`));
+    }
+  }
+  if (json) console.log(JSON.stringify({ relays: res.relays, worlds: rows }, null, 2));
+  else console.log(`\n${rows.length} world${rows.length === 1 ? "" : "s"}${notOn ? " not on that list" : ""}. ${has("verify") ? "" : dim("Add --verify to check each site vouches for its announcement.")}`);
+  return 0;
+}
+
 async function publish(path: string): Promise<number> {
   const event = JSON.parse(readFileSync(path, "utf8"));
   if (!verifyEvent(event)) {
@@ -253,6 +343,11 @@ async function main(): Promise<number> {
     case "sign-world":
       if (arg) return signWorld(arg);
       break;
+    case "sign-list":
+      if (arg) return signList(arg);
+      break;
+    case "worlds":
+      return worlds();
     case "publish":
       if (arg) return publish(arg);
       break;
@@ -266,9 +361,11 @@ async function main(): Promise<number> {
   console.log(`nswp ${VERSION}
 
   nswp check <url> [--relays wss://a,wss://b] [--json]   check a world: manifest, CORS, announcements, verification
-  nswp validate <file.json>                               validate a world event, manifest or portal
+  nswp validate <file.json>                               validate a world event, list, manifest or portal
   nswp keygen <key-file>                                  create a publisher key (hex, mode 600)
   nswp sign-world <input.json> --key-file <f> [--out f]   sign a world announcement from a WorldInput file
+  nswp sign-list <input.json> --key-file <f> [--out f]    sign a list of worlds: { "d", "title", "description", "worlds": [addresses] }
+  nswp worlds [--verify] [--not-on <list.json>] [--json]  every world announced on the relays, newest first
   nswp publish <event.json> [--relays ...]                publish a signed event`);
   return cmd ? 1 : 0;
 }
