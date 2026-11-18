@@ -9,7 +9,7 @@ import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RTCPeerConnection, type RTCDataChannel } from "werift";
-import { bridgeTopic, decodeNpub, encodeNpub, buildBridgeGrant, buildBridgeSignal, buildRoomPass, finalizeEvent, getPublicKey, grantCode, openBridgeSignal, type NostrEvent } from "@nswp/core";
+import { bridgeTopic, buildWorldGrant, decodeNpub, encodeNpub, buildBridgeGrant, buildBridgeSignal, buildRoomPass, finalizeEvent, getPublicKey, grantCode, openBridgeSignal, type NostrEvent } from "@nswp/core";
 import { createBridge, type AskAbout, type Bridge } from "../src/bridge.js";
 import { commandEars, wav, whisperEars } from "../src/ears.js";
 import { startRelay, type TestRelay } from "./relay.js";
@@ -567,4 +567,100 @@ describe("speaking to it", () => {
     if (was === undefined) delete process.env.PYTHONPATH;
     else process.env.PYTHONPATH = was;
   }, 40000);
+});
+
+describe("a world the owner is building", () => {
+  const WORLD = "http://127.0.0.1:5173";
+
+  it("may open a terminal when this computer was told about it, is asked about by name, and may come back", async () => {
+    const other = await startRelay();
+    const questions: AskAbout[] = [];
+    const said: string[] = [];
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], worlds: [WORLD], log: (l) => said.push(l), ask: (q) => (questions.push(q), Promise.resolve(true)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const session = key();
+    const grant = finalizeEvent(buildWorldGrant({ session: getPublicKey(session), bridge: b.pubkey, world: `${WORLD}/` }), OWNER);
+    const go = () => attempt({ to: b.pubkey, on: other.url, session, send: grant });
+
+    const first = await go();
+    expect(first.refused).toBeUndefined();
+    await first.until((x) => x.frames.some((f) => f.t === "ready"));
+    expect(questions[0]).toMatchObject({ world: WORLD, open: 0 });
+    expect(said.some((l) => l.includes(`from the world ${WORLD}`))).toBe(true);
+    first.type("echo in-the-world\n");
+    await first.until(/in-the-world/);
+    await first.close();
+    while (b.state().busy !== "no") await new Promise((r) => setTimeout(r, 20));
+
+    // A refresh: the same grant, the same key, a new connection. The computer is asked again, with new digits.
+    const again = await go();
+    expect(again.refused).toBeUndefined();
+    await again.until((x) => x.frames.some((f) => f.t === "ready"));
+    expect(questions.length).toBe(2);
+    expect(questions[1]!.code).not.toBe(questions[0]!.code);
+    await again.close();
+    while (b.state().busy !== "no") await new Promise((r) => setTimeout(r, 20));
+
+    // Somebody who overheard the grant has no use for it: they don't hold the key it names.
+    const thief = await attempt({ to: b.pubkey, on: other.url, send: grant });
+    expect(thief.refused).toBeDefined();
+    expect(thief.waited).toBe(false);
+    expect(questions.length).toBe(2);
+    await thief.close();
+    await b.stop();
+    await other.close();
+  }, 60000);
+
+  it("opens nothing on a computer that wasn't told about it, whoever signed", async () => {
+    // The main Bridge of these tests was started with no worlds at all.
+    const [opened, n] = [bridge.state().opened, asked.length];
+    const a = await attempt({ make: (session) => finalizeEvent(buildWorldGrant({ session, bridge: bridgeKey, world: WORLD }), OWNER) });
+    expect(a.refused).toMatch(/wasn't told about this world/);
+    expect(a.waited).toBe(false);
+    expect(bridge.state().opened).toBe(opened);
+    expect(asked.length).toBe(n);
+    await a.close();
+
+    const other = await startRelay();
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], strangerReplyMs: 0, worlds: [WORLD], ask: () => Promise.resolve(true) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    // Another world; and the right world, signed by somebody else.
+    const elsewhere = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildWorldGrant({ session, bridge: b.pubkey, world: "https://other.example" }), OWNER) });
+    expect(elsewhere.refused).toMatch(/wasn't told about this world/);
+    const stranger = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildWorldGrant({ session, bridge: b.pubkey, world: WORLD }), key()) });
+    expect(stranger.refused).toBe("This computer answers a different key.");
+    expect(b.state().opened).toBe(0);
+    await elsewhere.close();
+    await stranger.close();
+    await b.stop();
+    await other.close();
+  }, 40000);
+
+  it("being let in for a while is not the home being let in, nor another world", async () => {
+    const other = await startRelay();
+    const questions: AskAbout[] = [];
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], worlds: [WORLD, "https://second.example"], allowForSec: 600, ask: (q) => (questions.push(q), Promise.resolve(true)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const session = key();
+    const grant = finalizeEvent(buildWorldGrant({ session: getPublicKey(session), bridge: b.pubkey, world: WORLD }), OWNER);
+    const done = async (a: Attempt) => {
+      expect(a.refused).toBeUndefined();
+      await a.until((x) => x.frames.some((f) => f.t === "ready"));
+      await a.close();
+      while (b.state().busy !== "no") await new Promise((r) => setTimeout(r, 20));
+      return a;
+    };
+    expect((await done(await attempt({ to: b.pubkey, on: other.url, session, send: grant }))).waited).toBe(true);
+    // The same world again, inside the ten minutes: straight in. This is the refresh that mustn't break the flow.
+    expect((await done(await attempt({ to: b.pubkey, on: other.url, session, send: grant }))).waited).toBe(false);
+    // The home, and another world, are each asked about for themselves.
+    expect((await done(await attempt({ to: b.pubkey, on: other.url, make: (s) => finalizeEvent(buildBridgeGrant({ session: s, bridge: b.pubkey }), OWNER) }))).waited).toBe(true);
+    expect((await done(await attempt({ to: b.pubkey, on: other.url, make: (s) => finalizeEvent(buildWorldGrant({ session: s, bridge: b.pubkey, world: "https://second.example" }), OWNER) }))).waited).toBe(true);
+    expect(questions.map((q) => q.world)).toEqual([WORLD, undefined, "https://second.example"]);
+    await b.stop();
+    await other.close();
+  }, 60000);
 });

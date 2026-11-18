@@ -20,6 +20,8 @@ import {
   cleanSpeechText,
   ROOM_SIGNAL_KIND,
   verifyBridgeGrant,
+  verifyWorldGrant,
+  BRIDGE_WORLD_GRANT_KIND,
   type BridgeMessage,
 } from "@nswp/core";
 import type { Transcribe } from "./ears.js";
@@ -31,6 +33,8 @@ export interface AskAbout {
   code: string;
   /** The throwaway key asking. */
   session: string;
+  /** The world asking, when it is one the owner is building and not their home. */
+  world?: string;
   /** How many terminals are open already. */
   open: number;
   /** As many are open as may be. A yes closes the one that has been quiet longest and opens this one in its place. */
@@ -51,6 +55,12 @@ export interface BridgeOptions {
   command: string[] | ((slot: number) => string[]);
   /** How many terminals may be open at once. Four unless told. */
   maxSessions?: number;
+  /**
+   * The worlds the owner is building, as origins. A page at one of these may
+   * open a terminal with a world grant its owner signed. Left out or empty,
+   * only the owner's home can: every world grant is refused.
+   */
+  worlds?: readonly string[];
   /**
    * Turn what the owner says into text, on this computer. Left out, this
    * Bridge doesn't listen: a home is told so, and nothing it sends is kept.
@@ -93,6 +103,7 @@ const CHUNK = 16 * 1024;
 const HIGH_WATER = 1024 * 1024;
 const WHY: Record<string, string> = {
   not_owner: "This computer answers a different key.",
+  world_not_allowed: "This computer wasn't told about this world. Start its Bridge again, naming it with --world.",
   bridge_mismatch: "That was meant for a different computer.",
   grant_expired: "That request was too old. Try again.",
   created_in_future: "This computer's clock and yours disagree.",
@@ -117,7 +128,8 @@ export function createBridge(o: BridgeOptions): Bridge {
   /** The few terminals there may be, connecting or open. */
   const sessions = new Set<Session>();
   const most = Math.max(1, Math.min(o.maxSessions ?? 4, 8));
-  let allowedUntil = 0;
+  /** Until when each asker is let in without asking again: the home, and each world, by itself. A yes to one is not a yes to another. */
+  const allowedUntil = new Map<string, number>();
   let opened = 0;
   let refused = 0;
   let lastReply = 0;
@@ -143,39 +155,46 @@ export function createBridge(o: BridgeOptions): Bridge {
     if (!note || note.message.t !== "open") return;
     const from = note.from;
     for (const [id, until] of seen) if (until < now() - BRIDGE_LIMITS.skewSec) seen.delete(id);
-    const grant = verifyBridgeGrant(note.message.grant, { owner: o.owner, bridge: pubkey, session: from, now: now(), seen });
+    // Two kinds of grant, never taken for each other: a home's, for one connection in the next five minutes, and a
+    // world's, for a world the owner is building and this computer was told about, good until it expires.
+    const fromWorld = (note.message.grant as { kind?: unknown } | null)?.kind === BRIDGE_WORLD_GRANT_KIND;
+    const asWorld = fromWorld ? verifyWorldGrant(note.message.grant, { owner: o.owner, bridge: pubkey, session: from, worlds: o.worlds ?? [], now: now() }) : null;
+    const grant = asWorld ?? verifyBridgeGrant(note.message.grant, { owner: o.owner, bridge: pubkey, session: from, now: now(), seen });
     if (!grant.ok) {
       const codes = grant.errors.map((e) => e.code);
       return refuse(from, note.id, WHY[codes[0]!] ?? "That request wasn't one this computer accepts.", codes.join(", "));
     }
-    // From here the request is the owner's. It is used up whatever happens next.
-    seen.set(grant.value.id, grant.value.expiresAt);
+    const world = asWorld?.ok ? asWorld.value.world : undefined;
+    // From here the request is the owner's. A home's grant is used up whatever happens next.
+    if (!fromWorld) seen.set(grant.value.id, grant.value.expiresAt);
     // One question at a time, and one connection being made at a time.
     if (asking || [...sessions].some((x) => x.at === "connecting")) return refuse(from, note.id, "This computer is already answering a request. Try again in a moment.", "busy with another request", true);
 
-    const code = grantCode(grant.value.id);
-    if (now() >= allowedUntil) {
+    // The four digits come from the grant, or for a world from this very request: its grant is used many times.
+    const code = grantCode(fromWorld ? note.id : grant.value.id);
+    const asker = world ?? "home";
+    if (now() >= (allowedUntil.get(asker) ?? 0)) {
       asking = true;
       say(from, note.id, { t: "wait" });
       const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), o.askTimeoutMs ?? 60_000).unref());
-      const yes = await Promise.race([o.ask({ code, session: from, open: sessions.size, replaces: sessions.size >= most }).catch(() => false), timeout]);
+      const yes = await Promise.race([o.ask({ code, session: from, ...(world ? { world } : {}), open: sessions.size, replaces: sessions.size >= most }).catch(() => false), timeout]);
       asking = false;
       if (!yes) return refuse(from, note.id, "Nobody at the computer said yes.", "not allowed at the computer", true);
-      if (o.allowForSec) allowedUntil = now() + o.allowForSec;
+      if (o.allowForSec) allowedUntil.set(asker, now() + o.allowForSec);
     }
     // A few terminals at a time. When as many are open as may be, the owner being let in again takes the place
     // of the one whose home has been quiet longest: a headset in a drawer, a page that froze. So terminals
     // nobody is at can never keep the owner out.
     if (sessions.size >= most) [...sessions].sort((a, b) => a.heard - b.heard)[0]!.end("another was opened in its place");
     try {
-      await connect(from, note.id, note.message.sdp);
+      await connect(from, note.id, note.message.sdp, world);
     } catch (e) {
       for (const x of sessions) if (x.at === "connecting") x.end("it couldn't be made");
       refuse(from, note.id, "This computer couldn't make the connection.", `could not connect: ${(e as Error).message}`, true);
     }
   }
 
-  async function connect(to: string, re: string, offer: string): Promise<Session> {
+  async function connect(to: string, re: string, offer: string, world?: string): Promise<Session> {
     const pc = new RTCPeerConnection({ iceServers: o.iceServers ?? DEFAULT_ICE, iceUseDefaultStunServer: false });
     let terminal: Terminal | null = null;
     let channel: RTCDataChannel | null = null;
@@ -242,7 +261,7 @@ export function createBridge(o: BridgeOptions): Bridge {
       opened++;
       clearTimeout(waiting);
       touch();
-      log(`${label} open. Running ${command.join(" ")}.`);
+      log(`${label} open${world ? `, from the world ${world}` : ""}. Running ${command.join(" ")}.`);
       ch.send(JSON.stringify({ t: "ready", name: o.name ?? `${userInfo().username}@${hostname()}`, speech: !!o.transcribe }));
     };
 
