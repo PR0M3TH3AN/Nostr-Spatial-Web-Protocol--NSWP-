@@ -22,6 +22,7 @@ import { turnVisitor } from "./turn.js";
 export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
+import type { Panel, Panels } from "./panels.js";
 
 export interface PresenceOptions {
   scene: THREE.Scene;
@@ -87,6 +88,20 @@ export interface Presence {
   pointOut(pubkey: string): void;
   /** Everyone else in the room, as they are being drawn. */
   people(): Member[];
+  /** Whether this visitor is offering their screen to the room. */
+  readonly screenOn: boolean;
+  /** How many members their screen is going to now. */
+  readonly screenViewers: number;
+  /**
+   * Offer a screen to the room, or stop (null). It is sent only to members who ask to watch. It ends when the
+   * visitor leaves the room, or stops it from the browser's own bar.
+   */
+  shareScreen(track: MediaStreamTrack | null): Promise<void>;
+  /** Ask to be sent a member's screen, or stop. */
+  watch(pubkey: string, on: boolean): void;
+  isWatching(pubkey: string): boolean;
+  /** The line a member's screen arrives on, or null before they are connected. It is empty unless watched. */
+  screenOf(pubkey: string): MediaStream | null;
   /**
    * Stop hearing one member, or hear them again. They are still seen, and still see and hear this visitor.
    * Nobody is told. It lasts while they are here.
@@ -252,6 +267,15 @@ export function createPresence(d: PresenceOptions): Presence {
     return a;
   };
 
+  // A screen this visitor is sharing, and the lines other members' screens arrive on.
+  let screenTrack: MediaStreamTrack | null = null;
+  const screens = new Map<string, MediaStream>();
+  const stopScreen = () => {
+    if (!screenTrack) return;
+    screenTrack.onended = null;
+    screenTrack.stop();
+    screenTrack = null;
+  };
   // Who this visitor won't be in a room with. Named people are kept on this site; guests only for this visit,
   // because a guest's key is new every time and a list of them would promise what it can't do.
   let keptBlocks: Blocked[] = loadBlocked();
@@ -331,6 +355,9 @@ export function createPresence(d: PresenceOptions): Presence {
     sendTimer = undefined;
     session?.leave();
     session = null;
+    // A screen is shared with a room, and stops with it.
+    stopScreen();
+    screens.clear();
     for (const key of [...avatars.keys()]) removeAvatar(key);
     pendingStreams.clear();
     changed();
@@ -396,6 +423,7 @@ export function createPresence(d: PresenceOptions): Presence {
       changed();
     });
     s.on("leave", (m) => {
+      screens.delete(m.pubkey);
       removeAvatar(m.pubkey);
       pendingStreams.delete(m.pubkey);
       changed();
@@ -406,6 +434,10 @@ export function createPresence(d: PresenceOptions): Presence {
       if (!a.target) stepApart(s.self.pubkey, m.pubkey, pose);
       a.target = pose;
     });
+    s.on("video", (m, stream) => {
+      screens.set(m.pubkey, stream);
+    });
+    s.on("screen", () => changed());
     s.on("audio", (m, stream) => {
       pendingStreams.set(m.pubkey, stream);
       const a = avatars.get(m.pubkey);
@@ -433,6 +465,43 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     get micOn() {
       return !!micTrack;
+    },
+    get screenOn() {
+      return !!screenTrack;
+    },
+    get screenViewers() {
+      return session?.screenViewers ?? 0;
+    },
+    async shareScreen(track) {
+      if (!session) {
+        track?.stop();
+        return;
+      }
+      stopScreen();
+      screenTrack = track;
+      if (track) {
+        // Words on a screen should stay sharp.
+        track.contentHint = "detail";
+        // The browser's own "Stop sharing" ends it here too.
+        track.onended = () => {
+          if (screenTrack !== track) return;
+          screenTrack = null;
+          void session?.setScreen(null);
+          changed();
+        };
+      }
+      await session.setScreen(track);
+      changed();
+    },
+    watch(pubkey, on) {
+      session?.watch(pubkey, on);
+      changed();
+    },
+    isWatching(pubkey) {
+      return !!session?.isWatching(pubkey);
+    },
+    screenOf(pubkey) {
+      return screens.get(pubkey) ?? null;
     },
     join,
     leave,
@@ -790,9 +859,17 @@ export function addRoomControls(
      * (`arrival.read().context`, its `joined` and `mic`). The open room is joined without asking again.
      */
     arrived?: { joined?: boolean; mic?: boolean } | null;
+    /**
+     * The visitor's panels. With them, a screen someone shares in the room can be watched: it opens on a panel
+     * of the watcher's own, which they move, size and put away like any other. Without them nobody here can watch.
+     */
+    panels?: Panels | null;
   } = {},
 ): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
+  // For tests: a drawn picture that changes, in place of the browser's screen picker.
+  const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
+  const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
   let invited = roomNameFromHash(location.hash);
   let busy = false;
   let last = invited
@@ -809,12 +886,12 @@ export function addRoomControls(
     const who = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
     // Say how the others see this visitor: by a name their own client vouched for, or as a guest.
     const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}`;
+    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
   };
   const refresh = () => {
     const s = presence.session;
     opts.onState?.(
-      s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn } : null,
+      s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn, screen: presence.screenOn, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching.keys()] } : null,
     );
     controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
     people();
@@ -841,6 +918,66 @@ export function addRoomControls(
     }
   };
   // Who else is here: one entry each, in their own colour. Selecting one shows where they are.
+  // ---- Screens. Someone sharing theirs is never put in front of anyone: each person chooses to watch, and what
+  // they watch hangs on a panel of their own. A room is open to strangers, and a picture nobody asked for is the
+  // easiest way to spoil one.
+  const watching = new Map<string, { video: HTMLVideoElement; texture: THREE.VideoTexture | null; panel: Panel | null }>();
+  const sharers = new Set<string>();
+  const stopWatching = (pubkey: string, panelGone = false) => {
+    const w = watching.get(pubkey);
+    if (!w) return;
+    watching.delete(pubkey);
+    presence.watch(pubkey, false);
+    w.video.srcObject = null;
+    w.texture?.dispose();
+    if (!panelGone) w.panel?.close();
+  };
+  const startWatching = (m: Member) => {
+    const stream = presence.screenOf(m.pubkey);
+    if (!opts.panels || !stream || watching.has(m.pubkey)) return false;
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    const w: { video: HTMLVideoElement; texture: THREE.VideoTexture | null; panel: Panel | null } = { video, texture: null, panel: null };
+    watching.set(m.pubkey, w);
+    // The panel opens when the first picture arrives, at the shape it arrives in.
+    const show = () => {
+      if (w.panel || watching.get(m.pubkey) !== w || !video.videoWidth || !video.videoHeight) return;
+      w.texture = new THREE.VideoTexture(video);
+      w.texture.colorSpace = THREE.SRGBColorSpace;
+      w.panel = opts.panels!.open(
+        { kind: "custom", title: `${m.name}'s screen`, texture: w.texture, aspect: video.videoWidth / video.videoHeight, onClose: () => stopWatching(m.pubkey, true) },
+        { keep: false },
+      );
+      refresh();
+    };
+    video.addEventListener("loadedmetadata", show);
+    video.addEventListener("resize", show);
+    void video.play().catch(() => {});
+    presence.watch(m.pubkey, true);
+    return true;
+  };
+  const testScreen = (): MediaStreamTrack => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const g = canvas.getContext("2d")!;
+    let n = 0;
+    const draw = () => {
+      g.fillStyle = "#10243a";
+      g.fillRect(0, 0, 1280, 720);
+      g.fillStyle = "#ffd166";
+      g.font = "64px sans-serif";
+      g.fillText(`A shared screen, frame ${++n}`, 80, 380);
+    };
+    draw();
+    const timer = setInterval(draw, 200);
+    const track = canvas.captureStream(10).getVideoTracks()[0]!;
+    track.addEventListener("ended", () => clearInterval(timer));
+    return track;
+  };
+
   let listed: string[] = [];
   /** What is offered about the person last selected, and the way back for anyone blocked. */
   let extras: string[] = [];
@@ -869,7 +1006,7 @@ export function addRoomControls(
         section: "people",
         kind: "swatch",
         color: m.look.light,
-        label: () => (m.recording ? `${m.name}, recording` : m.name),
+        label: () => `${m.name}${m.recording ? ", recording" : ""}${m.sharing ? ", sharing their screen" : ""}`,
         act: () => {
           chosen = m.pubkey;
           people();
@@ -879,9 +1016,33 @@ export function addRoomControls(
         },
       }),
     );
+    // A screen that is no longer offered, or whose owner has gone, comes down.
+    for (const key of [...watching.keys()]) if (!here.some((m) => m.pubkey === key && m.sharing)) stopWatching(key);
+    // Say it once when someone starts sharing. Nothing is shown until this visitor asks.
+    for (const m of here) {
+      if (m.sharing && !sharers.has(m.pubkey)) controls.say(opts.panels ? `${m.name} is sharing their screen. Select them in People to watch.` : `${m.name} is sharing their screen.`);
+      if (m.sharing) sharers.add(m.pubkey);
+      else sharers.delete(m.pubkey);
+    }
     // The person last selected: stop hearing them, or stop being in a room with them. Both are this visitor's own
     // doing, on their own device, and nobody is told.
     const who = here.find((m) => m.pubkey === chosen);
+    if (who?.sharing && opts.panels) {
+      extras.push("person-watch");
+      controls.add({
+        id: "person-watch",
+        section: "people",
+        icon: "panel",
+        on: () => watching.has(who.pubkey),
+        label: () => (watching.has(who.pubkey) ? `Stop watching ${who.name}'s screen` : `Watch ${who.name}'s screen`),
+        act: () => {
+          if (watching.has(who.pubkey)) stopWatching(who.pubkey);
+          else if (startWatching(who)) controls.say(`${who.name}'s screen is opening on a panel of your own. Put the panel away to stop.`);
+          else controls.say(`${who.name}'s screen can't be shown here.`);
+          refresh();
+        },
+      });
+    }
     if (who) {
       extras.push("person-mute", "person-block");
       controls.add(
@@ -903,6 +1064,7 @@ export function addRoomControls(
           icon: "exit",
           label: `Block ${who.name}`,
           act: () => {
+            stopWatching(who.pubkey);
             const name = presence.block(who.pubkey);
             if (!name) return;
             chosen = null;
@@ -952,6 +1114,7 @@ export function addRoomControls(
       hidden: () => busy,
       act: async () => {
         if (presence.session) {
+          for (const key of [...watching.keys()]) stopWatching(key);
           presence.leave();
           tell("You left the room.");
           return refresh();
@@ -979,6 +1142,30 @@ export function addRoomControls(
       act: async () => {
         if (presence.micOn) await presence.setMicrophone(null);
         else if (!(await microphone())) tell("The microphone is blocked or unavailable.");
+        refresh();
+      },
+    },
+    {
+      id: "room-screen",
+      section: "room",
+      icon: "panel",
+      on: () => presence.screenOn,
+      label: () => (presence.screenOn ? "Stop sharing your screen" : "Share your screen"),
+      // A phone or a headset's browser can't offer a screen. It can still watch one.
+      hidden: () => !presence.session || !canShare,
+      act: async () => {
+        if (presence.screenOn) {
+          await presence.shareScreen(null);
+          tell("You stopped sharing your screen.");
+          return refresh();
+        }
+        try {
+          const track = useTestScreen ? testScreen() : (await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false })).getVideoTracks()[0]!;
+          await presence.shareScreen(track);
+          tell("Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.");
+        } catch {
+          tell("Nothing was shared.");
+        }
         refresh();
       },
     },

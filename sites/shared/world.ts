@@ -621,7 +621,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let refreshRoom = () => {};
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
-  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context }));
+  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels }));
   hooks.roomInfo = () => presence.info();
   // A camera of the visitor's own: pictures, selfies and clips, saved to their device.
   hooks.camera = addCameraControls(controls, {
