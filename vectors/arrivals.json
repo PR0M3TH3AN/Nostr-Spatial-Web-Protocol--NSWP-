@@ -206,6 +206,62 @@
       }
     },
     {
+      "name": "joined_with_the_microphone_on",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImpvaW5lZCI6dHJ1ZSwibWljIjp0cnVlfQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "joined": true,
+          "mic": true
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "joined_alone",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImpvaW5lZCI6dHJ1ZX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "joined": true
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "a_microphone_without_joined_is_ignored",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsIm1pYyI6dHJ1ZX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_mic"
+        ]
+      }
+    },
+    {
+      "name": "joined_must_be_a_boolean",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImpvaW5lZCI6InllcyIsIm1pYyI6dHJ1ZX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_joined",
+          "invalid_mic"
+        ]
+      }
+    },
+    {
       "name": "immersive_must_be_a_boolean",
       "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImltbWVyc2l2ZSI6InllcyJ9",
       "expect": {

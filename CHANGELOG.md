@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.0
+
+Smaller things that were in the way: a tap that moved too far, and having to join again in every world.
+
+- **A tap is a walk.** On a phone or a desk, a tap or click on the floor was a jump of up to five metres: the room lurched. It is now a walk at the pace the keys walk, to a spot three metres off at most, and a second tap changes where it is headed. A headset keeps the jump, which is what sits well there, and so does anyone who asked for less motion (a short one). The kit has it as `createStroll`, `reachOf`, `TAP_REACH` and `WALK_SPEED`; the reference worlds, the world template and BitPortal's room use it.
+- **Staying joined** ([NSWP-02](protocol/02-doors.md), [NSWP-03](protocol/03-arrival.md)). Someone in a world's open room who goes through a door arrives joined in the next. `joined=1` on the link a world sends them through, and `joined` in the arrival context their client writes.
+- **And heard, if they have said so.** `mic=1` beside `joined=1`, and `mic` in the arrival. A link is something anyone can write, so a microphone travels only when the visitor has told their own client that theirs may stay on between worlds: off until then, remembered after. Joined alone is passed on by default, shown on the Airlock, and theirs to untick.
+- **What doesn't travel:** a private room (the next world's open room is other people), and a microphone without joined.
+- **A refresh keeps them in the room too,** with the microphone as it was. This tab only.
+- **Told at once.** Arriving joined, a visitor is told others can see them (and hear them), and Leave is where Join was. Sound from the others starts on their first touch, since a browser holds it back until then.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome on one machine, with the Gallery, the Grove and BitPortal answered from their builds at their real addresses, every relay the test itself, and a microphone the browser made up: a tap, a click and a touch each walking three metres at walking pace; joined carried from the Gallery to the Grove, where someone already there saw them arrive; the microphone left off the first time and carried once the box was ticked, and the choice remembered; unticking "stay" arriving unjoined; a link written by somebody else arriving joined with the microphone off; a private room not travelling; a refresh; and the way home to BitPortal's room, joined. Not tried on a real phone, a real headset, or with a real voice.
+
 ## 0.12.0
 
 Who a world is for, and a copy of the client that shows only what its host has listed.

@@ -39,6 +39,18 @@ export interface Arrival {
    * their doors instead.
    */
   home?: true;
+  /**
+   * The visitor was among people where they came from, and stays among them
+   * here: the world joins its open room without asking again. Said only by
+   * their own client (protocol/03-arrival.md, "Staying joined").
+   */
+  joined?: true;
+  /**
+   * Their microphone was on, and they have told their client it may stay on
+   * as they travel. Read only with `joined`. The browser still decides
+   * whether this world may use a microphone at all.
+   */
+  mic?: true;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -117,6 +129,15 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.home !== undefined && json.home !== false) {
     if (json.home === true) out.home = true;
     else c.warn("invalid_home", "home", "Ignoring a home hint that isn't true or false.");
+  }
+  if (json.joined !== undefined && json.joined !== false) {
+    if (json.joined === true) out.joined = true;
+    else c.warn("invalid_joined", "joined", "Ignoring a joined hint that isn't true or false.");
+  }
+  if (json.mic !== undefined && json.mic !== false) {
+    // A microphone with nobody to hear it means nothing, and is never a reason to join.
+    if (json.mic === true && out.joined) out.mic = true;
+    else c.warn("invalid_mic", "mic", "Ignoring a microphone hint that isn't true, or that comes without joined.");
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {

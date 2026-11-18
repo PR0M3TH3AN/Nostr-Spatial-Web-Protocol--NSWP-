@@ -36,6 +36,8 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `sessionKey` | The secret half of that session key: a throwaway made for this trip. A pass and its key travel together or not at all; one without the other is dropped |
 | `immersive` | `true` when the visitor left a headset session to make this trip. The world offers the way back into one before anything else ([NSWP-02](02-doors.md)). It says what they were doing, not who they are |
 | `home` | `true` when this world is where the visitor starts, and their own client has brought them home ([NSWP-07](07-homes.md)). The world offers the way to their doors, since the way home leads nowhere new |
+| `joined` | `true` when the visitor was in a room where they came from and stays among people here. The world joins its **open** room without asking again, tells them so at once, and puts leaving where joining was ([NSWP-02](02-doors.md), "Staying joined"). |
+| `mic` | `true` when their microphone was on and they have told their client it may stay on as they travel. Read only with `joined`. The world turns the microphone on if the browser allows it one, and says so; if not, it says that instead. |
 | `avatar` | The `naddr` of a published avatar event |
 | `assertion` | An entry assertion, below |
 | `receipts` | Up to 8 events proving the visitor paid for entry |
@@ -107,7 +109,13 @@ const { context, warnings } = arrival.read(); // reads, validates and scrubs
 arrival.returnAirlock();                       // for this tab
 arrival.look();                                // what they chose to wear here
 arrival.identity();                            // who they chose to be here, checked, or undefined
+addRoomControls(controls, presence, { arrived: context }); // stays joined, and heard, if their client says so
 ```
+
+A world acts on `joined` and `mic` only from the arrival context its
+visitor's client wrote, never from its own address, a link, or anything
+another page says. And only for its open room: an invitation to a private
+room is a link of its own, and is still asked about.
 
 ## Proposed, not built
 

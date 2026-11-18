@@ -36,12 +36,17 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&joined=1&mic=1
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
 headset session as they leave, which the world ends first. It lets the next
 place offer the way back into one at once.
+
+`joined=1` is there only when the visitor is in the world's open room as they
+leave, and `mic=1`, only beside it, when their microphone is on. They are
+what lets someone stay among people from one world to the next ("Staying
+joined", below).
 
 ### Which Airlock
 
@@ -65,8 +70,8 @@ A client may let a visitor choose where they start: a world of their own
 ([NSWP-07](07-homes.md)). Then home and the place their client keeps their
 doors are two places. An Airlock opened with no destination and `doors=1`
 takes the visitor to their doors: the client's own place, never a world. A
-client with one place for both takes them there either way. `doors=1` and
-`xr=1` may come together, and nothing else may.
+client with one place for both takes them there either way. `doors=1`,
+`xr=1`, `joined=1` and `mic=1` may come together, and nothing else may.
 
 ## What an Airlock does
 
@@ -151,6 +156,39 @@ and one where the browser allows it. Each party keeps its own count down:
 - Lets the visitor in before it is ready, and finishes loading behind the
   chamber's doors.
 
+## Staying joined
+
+Someone in a room with other people, who walks through a door, expects to
+still be with people on the other side. Asking them to join again in every
+world is the kind of small thing that makes a place feel like separate
+websites. So being joined can travel, and so can a microphone that is on.
+
+It travels as a claim, and the rules are about who may make it and who may
+act on it:
+
+- **A world says it** by adding `joined=1` to the link it sends the visitor
+  through, and `mic=1` beside it. It says so only for its **open** room. A
+  private room does not travel: the open room in the next world is other
+  people.
+- **A link is something anyone can write.** A link in a message can say
+  `joined=1&mic=1` as easily as a world can. So neither flag is ever an
+  instruction to the destination. The visitor's own client reads them and
+  decides.
+- **Joined** may be passed on by default. Being seen in a room is what
+  joining was, the visitor is told the moment they arrive, and leaving is one
+  press. The client shows it on its screen and lets them say no there.
+- **A microphone is passed on only when the visitor has said, in their own
+  client, that theirs may stay on as they travel.** Off until they say so,
+  and remembered once they do. Without that, a link somebody sent could put
+  a live microphone into a room of strangers. A microphone never travels
+  without joined.
+- **The destination trusts its arrival context, not the link.** It joins its
+  open room when the arrival says `joined`, and turns the microphone on when
+  it says `mic` and the browser allows that site a microphone at all
+  ([NSWP-03](03-arrival.md)). It says both to the visitor at once.
+- **On the way home** nothing is asked, so joined goes along and a microphone
+  goes only when the visitor had already said it may.
+
 ## The chamber
 
 The two ends of a crossing can be the same place. The reference SDK ships a
@@ -190,6 +228,10 @@ portal.home();
 ```
 
 Both say `xr=1` when given the session to end: `portal.go(dest, { xrSession })`.
+
+Both say `joined=1` and `mic=1` when given them:
+`portal.go(dest, { xrSession, ...room.travelling() })`, where `room` is what
+`addRoomControls` returned.
 
 ## Not decided
 

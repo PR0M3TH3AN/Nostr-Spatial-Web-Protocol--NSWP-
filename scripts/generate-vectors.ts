@@ -379,6 +379,26 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_home"] },
   },
   {
+    name: "joined_with_the_microphone_on",
+    value: encodeArrival({ entry: "main-entrance", joined: true, mic: true }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", joined: true, mic: true }, warnings: [] },
+  },
+  {
+    name: "joined_alone",
+    value: encodeArrival({ entry: "main-entrance", joined: true }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", joined: true }, warnings: [] },
+  },
+  {
+    name: "a_microphone_without_joined_is_ignored",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", mic: true })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_mic"] },
+  },
+  {
+    name: "joined_must_be_a_boolean",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", joined: "yes", mic: true })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_joined", "invalid_mic"] },
+  },
+  {
     name: "immersive_must_be_a_boolean",
     value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", immersive: "yes" })).toString("base64url"),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_immersive"] },
