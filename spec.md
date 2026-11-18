@@ -1,13 +1,18 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.6 (concept specification)
+**Version:** 0.7.7 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.7
+
+- **How a world's own interface and the traveller's controls share a screen** (§21.3, new). There is no layer above a world, so the controls are a short list of things every world agrees to offer, drawn by the world. The world leads; they stay out of its way and are never more than one action off.
+- **The controls kit has three levels** to match: full, quiet (one mark in a corner) and hidden. A world can place it, change or switch off its keys, and claim all input during play.
 
 ## 0. What changed in 0.7.6
 
@@ -1847,6 +1852,50 @@ Rules that keep this list working:
 - **Nothing may need the visitor to turn their body or walk.** Someone seated on a sofa can do neither. A turn is a button that turns them in one step, and movement is a step to where they point.
 - **A world's menu is the world's.** It is drawn by the world, so it is not a trusted surface and must not be called one. A visitor's sure way out of any world is their headset's own controls.
 
+### 21.3 A world's own interface, and the traveller's controls
+
+A world has an interface of its own: a score, a toolbar, a pause menu, an art direction. A visitor also needs a few things that are the same in every world. This section says how the two share a screen.
+
+**There is no layer above a world.** While a visitor is in a world, only that world's page is running. A client such as BitPortal is not there, and a web page can't draw over another site's immersive session (§3). So "the traveller's controls" are not something a client lays over a world. They are a small set of things every world agrees to offer, drawn by the world itself.
+
+**The principle: the world leads.** The traveller's controls stay out of the way of what the world is doing, and are never more than one deliberate action away.
+
+**What every world offers.** This is a list of things a visitor can do, not of how they look:
+
+| A visitor can always | Why |
+|---|---|
+| Go home, when they arrived with somewhere to return to (§6.3) | The one exit a world can offer that leads somewhere the visitor already trusts |
+| Leave the immersive session | Without reaching for the headset's own controls |
+| See whether they are in a room, and whether their microphone is on; leave the room; turn the microphone off (§9) | Being heard without knowing it is the worst failure a shared place has |
+| Turn, and move, without turning their body or walking (§21.2) | Some visitors are seated |
+| See the address of the world they are in | It is the world's word about itself, but its absence is a warning sign |
+
+A world may put these anywhere: in its own pause menu, on a wall, on a wrist. It may add as much of its own as it likes. What it may not do is leave one out, or bury one more than a single deliberate action deep. In a headset, "one action" is one `select`; on a flat screen, one click or key.
+
+**How much room they take.** The reference SDK's controls kit (`docs/controls-kit.md`) draws the list for a world that doesn't want to, at three levels the world chooses and can change from moment to moment:
+
+| Level | On a flat screen | In a headset | For |
+|---|---|---|---|
+| Full | The world's name, a row of the things always at hand, and a menu | A small Menu button low in front, and a console above the wrist | A world with no interface of its own |
+| Quiet | One small mark in a corner the world picks; everything else opens from it | The wrist. The Menu button only where no hand is tracked | A world with its own interface, or any world during play |
+| Hidden | Nothing | Nothing | A world that draws the list in menus of its own, or a moment that shouldn't be interrupted |
+
+A hidden console opens only when the world opens it. So a world that hides it takes on the duty above: it must put those things within one action somewhere of its own.
+
+**Sharing the space.** The world says where the kit may sit, and the kit says what it covers, so the world can lay its own interface out around it. The kit never moves into space it wasn't given.
+
+**Sharing the input.** A world may change or switch off the keys the kit answers to, and may claim every key for itself during play. Two things stay: the kit's own mark can still be pressed, and a menu the kit has opened can always be closed. In a headset the console never opens on its own: raising a wrist to look at it is the visitor asking.
+
+**One menu, not two.** A world's own actions go into the same list as the traveller's, in sections of their own. A visitor then learns one menu per world, with the same things in the same places at the top of it.
+
+**The look.** The world sets the colours, so the controls belong to the place. The visitor's own choices of size, contrast and motion still win, because the controls are theirs to read.
+
+**It is still the world's word.** A world draws all of this, so a world can leave it out or fake it. Nothing security depends on it (§3.2). The headset's or browser's own controls are the visitor's sure way out, and a client's own pages, the Airlock above all, are the only place it speaks for itself.
+
+**What a real layer above a world would take.** A client that stays with the visitor inside every world, whatever that world does, needs to be the browser: a dedicated spatial browser or a native app that owns the session and the address bar. That is not part of this design (§23). Putting a world inside a frame on the client's page is not a way round it: it would hide the world's real address, which is the thing the Airlock exists to show (§6.2).
+
+Whether a world keeps this agreement can't be checked from outside; it is Q33.
+
 ## 22. Standards Strategy
 
 The project could eventually propose:
@@ -1964,6 +2013,8 @@ The first version will **not**:
 **Q31 The start room:** does one room with two walls hold up once a visitor has many saved places, and is a dozen doors per wall the right limit? Should a returning visitor on a headset be able to skip the room and land on their jump list?
 
 **Q32 A look that travels:** a visitor can change how a world's controls look, and each site remembers its own answer. Should the choice follow them from world to world? Carrying it in the arrival context is simple, but it is one more value sent to every world, and a distinctive set of preferences tells visitors apart (§5.7). Comfort preferences (seated, turning in steps, larger text) raise the same question with more at stake.
+
+**Q33 Keeping the agreement:** §21.3 lists what every world offers a visitor, and nothing outside a world can check that it does. Should a manifest say which of them a world offers, so a client can warn before a crossing into one that doesn't? That would be a claim like the comfort fields (§5), believed until a visitor reports otherwise. Or is the Airlock's standing advice, that the headset's own controls always work, enough?
 
 ---
 
