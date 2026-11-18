@@ -5,7 +5,7 @@
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
-**License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
+**License:** this document, and the schemas and test vectors beside it, are CC0 1.0 (`LICENSE-CC0`). BitPortal and the SDK are MIT, matching BitBlocks convention D11
 
 ---
 
