@@ -21,7 +21,7 @@ only proposed.
 [BitBlocks](https://bitblocks.network/) stack. The protocol does not depend on
 either.
 
-Status: spec v0.10.2, an exploratory draft. Worlds, doors, the Airlock,
+Status: spec v0.10.3, an exploratory draft. Worlds, doors, the Airlock,
 previews, looks, lists, a first version of rooms, going by name in a room,
 hands in a headset, and home layouts are built and live. Published items, hosted rooms, and finding worlds
 through the people you follow are design only. Nothing here is an adopted NIP or standard, and every
@@ -70,7 +70,8 @@ fallback for networks that block direct connections (spec §9, §20).
 |---|---|---|
 | `protocol/` | The protocol, as ten short documents an implementer reads | CC0 1.0 |
 | `spec.md` | The full design: reasoning, the reference app, the roadmap, open questions | CC0 1.0 |
-| `browser/spec.md` | A plan, not yet built: [a browser of the visitor's own](browser/spec.md), for what a website isn't allowed to do. Crossings with no flat pages, an Airlock inside the headset, web pages and programs on panels | CC0 1.0 |
+| `browser/spec.md` | A plan, built in stages: [a browser of the visitor's own](browser/spec.md), for what a website isn't allowed to do. Crossings with no flat pages, an Airlock inside the headset, web pages and programs on panels | CC0 1.0 |
+| `browser/bridge.md`, `packages/bridge` | [The Bridge](browser/bridge.md): a small program on your own computer that answers your key, so you can open a terminal on it from a panel in your home. What it trusts is the first thing in that document | CC0 1.0, MIT |
 | `schemas/` | JSON Schemas for world events, manifests, portals, arrival context, entry assertions | CC0 1.0 |
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |

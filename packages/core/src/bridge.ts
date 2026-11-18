@@ -211,7 +211,7 @@ export function openBridgeSignal(event: unknown, key: Uint8Array, bridge: string
 
 // ----------------------------------------------------------------- channel
 
-export type BridgeControl = { t: "size"; cols: number; rows: number } | { t: "ready"; name: string } | { t: "exit"; code: number };
+export type BridgeControl = { t: "size"; cols: number; rows: number } | { t: "here" } | { t: "ready"; name: string } | { t: "exit"; code: number };
 
 const whole = (n: unknown, lo: number, hi: number): number | null => (typeof n === "number" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.floor(n))) : null);
 
@@ -237,6 +237,7 @@ export function parseBridgeControl(text: string): BridgeControl | null {
     const size = cleanSize(o.cols, o.rows);
     return size ? { t: "size", ...size } : null;
   }
+  if (o.t === "here") return { t: "here" };
   if (o.t === "ready") {
     if (typeof o.name !== "string") return null;
     // One line that can be shown as it is.

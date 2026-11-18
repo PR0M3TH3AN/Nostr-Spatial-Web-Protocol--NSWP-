@@ -142,6 +142,7 @@ describe("the channel", () => {
     expect(parseBridgeControl('{"t":"size","cols":120,"rows":40}')).toEqual({ t: "size", cols: 120, rows: 40 });
     expect(parseBridgeControl('{"t":"ready","name":"  bash\\n on \\u202edesk  "}')).toEqual({ t: "ready", name: "bash on desk" });
     expect(parseBridgeControl('{"t":"exit","code":0}')).toEqual({ t: "exit", code: 0 });
+    expect(parseBridgeControl('{"t":"here","extra":1}')).toEqual({ t: "here" });
     for (const bad of ['{"t":"run","command":"rm -rf ~"}', '{"t":"size","cols":"80","rows":24}', '{"t":"exit"}', "[]", "null", "not json", `{"t":"ready","name":"${"x".repeat(2000)}"}`]) expect(parseBridgeControl(bad), bad.slice(0, 30)).toBeNull();
   });
 });

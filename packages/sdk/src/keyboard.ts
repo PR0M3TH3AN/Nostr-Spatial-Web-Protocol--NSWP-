@@ -77,6 +77,7 @@ export interface Keyboard {
 const W = 1024;
 const SHOW = 300; // pixels for the words, above the keys
 const KEYS = 520; // and for the keys
+const LIVE_STRIP = 92; // for a terminal, one line above the keys
 const WIDTH = 0.8; // metres across
 
 export function createKeyboard(o: KeyboardOptions): Keyboard {
@@ -115,19 +116,23 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
     stale = false;
     g.clearRect(0, 0, W, canvas.height);
     // The words, on glass.
+    // For a terminal the words are on the terminal, so there is one line here and nothing in the way above it.
+    const top = live ? SHOW - LIVE_STRIP : 0;
     g.fillStyle = "rgba(10, 16, 24, 0.94)";
     g.beginPath();
-    g.roundRect(0, 0, W, SHOW - 16, 26);
+    g.roundRect(0, top, W, SHOW - 16 - top, 26);
     g.fill();
     g.textBaseline = "top";
     g.fillStyle = accent;
     g.font = "bold 30px system-ui, sans-serif";
-    g.fillText(title, 36, 24, W - 72);
-    g.fillStyle = ink;
-    g.font = "40px system-ui, sans-serif";
-    // For a terminal the words are on the terminal. Here: what the next press will do.
-    const lines = live ? [live.keys.ctrl ? "Ctrl is on: the next key is sent with it." : "Each key is sent as you press it."] : wrapText(`${entry.value}▏`, W - 72, (s) => g.measureText(s).width, 400);
-    lines.slice(-4).forEach((line, i) => g.fillText(line, 36, 76 + i * 50, W - 72));
+    if (live) g.fillText(live.keys.ctrl ? `${title}. Ctrl is on for the next key.` : title, 36, top + 22, W - 72);
+    else {
+      g.fillText(title, 36, 24, W - 72);
+      g.fillStyle = ink;
+      g.font = "40px system-ui, sans-serif";
+      const lines = wrapText(`${entry.value}▏`, W - 72, (s) => g.measureText(s).width, 400);
+      lines.slice(-4).forEach((line, i) => g.fillText(line, 36, 76 + i * 50));
+    }
     // The keys.
     for (const k of keys) {
       const [x, y, w, h] = [k.x * W, SHOW + k.y * KEYS, k.width * W, k.height * KEYS];
@@ -269,6 +274,8 @@ export function createKeyboard(o: KeyboardOptions): Keyboard {
       const hit = raycaster.intersectObject(board, false)[0];
       if (!hit?.uv) return null;
       const y = (1 - hit.uv.y) * canvas.height;
+      // Up for a terminal there is nothing above its one line, and the terminal behind can be pointed at.
+      if (live && y < SHOW - LIVE_STRIP) return null;
       const k = y >= SHOW ? keyAt(keys, hit.uv.x, (y - SHOW) / KEYS) : null;
       return `kb:${k?.id ?? ""}`;
     },

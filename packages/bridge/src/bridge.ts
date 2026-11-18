@@ -28,6 +28,8 @@ export interface AskAbout {
   code: string;
   /** The throwaway key asking. */
   session: string;
+  /** A terminal is open already. A yes closes it and opens this one in its place. */
+  replaces: boolean;
 }
 
 export interface BridgeOptions {
@@ -47,6 +49,8 @@ export interface BridgeOptions {
   iceServers?: { urls: string | string[] }[];
   /** A session that has been silent this long is ended. */
   idleMs?: number;
+  /** A session whose home hasn't been heard from for this long is ended: the page was closed, or the headset is off. */
+  quietMs?: number;
   /** No session lasts longer than this. */
   maxMs?: number;
   askTimeoutMs?: number;
@@ -83,12 +87,13 @@ export function createBridge(o: BridgeOptions): Bridge {
   const now = o.now ?? (() => Math.floor(Date.now() / 1000));
   const seen = new Map<string, number>(); // grant id -> when it expires
   let relays: RelayLinks | null = null;
-  let busy: "no" | "asking" | "connecting" | "open" = "no";
+  let asking = false;
+  /** The one session there is, while it is connecting or open. */
+  let session: { at: "connecting" | "open"; end(why: string): void } | null = null;
   let allowedUntil = 0;
   let opened = 0;
   let refused = 0;
   let lastReply = 0;
-  let current: { end(why: string): void } | null = null;
 
   /** Every note this program writes answers a request: `re` is that request's id. */
   const say = (to: string, re: string, message: BridgeMessage) => relays?.publish(buildBridgeSignal(pubkey, o.key, to, message, { re }));
@@ -118,26 +123,26 @@ export function createBridge(o: BridgeOptions): Bridge {
     }
     // From here the request is the owner's. It is used up whatever happens next.
     seen.set(grant.value.id, grant.value.expiresAt);
-    if (busy !== "no") return refuse(from, note.id, "This computer is already busy with a terminal.", "busy with another", true);
+    // One question at a time, and one connection being made at a time.
+    if (asking || session?.at === "connecting") return refuse(from, note.id, "This computer is already answering a request. Try again in a moment.", "busy with another request", true);
 
     const code = grantCode(grant.value.id);
     if (now() >= allowedUntil) {
-      busy = "asking";
+      asking = true;
       say(from, note.id, { t: "wait" });
       const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), o.askTimeoutMs ?? 60_000).unref());
-      const yes = await Promise.race([o.ask({ code, session: from }).catch(() => false), timeout]);
-      if (!yes) {
-        busy = "no";
-        return refuse(from, note.id, "Nobody at the computer said yes.", "not allowed at the computer", true);
-      }
+      const yes = await Promise.race([o.ask({ code, session: from, replaces: session !== null }).catch(() => false), timeout]);
+      asking = false;
+      if (!yes) return refuse(from, note.id, "Nobody at the computer said yes.", "not allowed at the computer", true);
       if (o.allowForSec) allowedUntil = now() + o.allowForSec;
     }
-    busy = "connecting";
+    // One terminal at a time. The owner asking again, and being let in, is the owner moving: a headset taken
+    // off, a page closed. The old one is hung up, so a session nobody is at can never keep the owner out.
+    session?.end("another was opened in its place");
     try {
       await connect(from, note.id, note.message.sdp);
     } catch (e) {
-      busy = "no";
-      current = null;
+      session?.end("it couldn't be made");
       refuse(from, note.id, "This computer couldn't make the connection.", `could not connect: ${(e as Error).message}`, true);
     }
   }
@@ -148,7 +153,10 @@ export function createBridge(o: BridgeOptions): Bridge {
     let channel: RTCDataChannel | null = null;
     let over = false;
     let idle: NodeJS.Timeout | undefined;
+    let heard = Date.now();
     const started = Date.now();
+    const mine: { at: "connecting" | "open"; end(why: string): void } = { at: "connecting", end: (why) => end(why) };
+    session = mine;
 
     const end = (why: string) => {
       if (over) return;
@@ -156,15 +164,14 @@ export function createBridge(o: BridgeOptions): Bridge {
       clearTimeout(idle);
       clearTimeout(waiting);
       clearTimeout(longest);
+      clearInterval(listening);
       terminal?.close();
-      if (current?.end === end) current = null;
-      if (busy === "open") log(`Terminal closed after ${Math.max(1, Math.round((Date.now() - started) / 60000))} min: ${why}.`);
+      if (session === mine) session = null;
+      if (mine.at === "open") log(`Terminal closed after ${Math.max(1, Math.round((Date.now() - started) / 60000))} min: ${why}.`);
       else log(`No terminal opened: ${why}.`);
-      busy = "no";
       // Let the last frames leave before the connection goes.
       setTimeout(() => void pc.close().catch(() => undefined), 300).unref();
     };
-    current = { end };
     const touch = () => {
       clearTimeout(idle);
       idle = setTimeout(() => end("nothing happened for a long while"), o.idleMs ?? 30 * 60_000);
@@ -172,8 +179,11 @@ export function createBridge(o: BridgeOptions): Bridge {
     };
     const waiting = setTimeout(() => !terminal && end("the other end never connected"), 30_000);
     const longest = setTimeout(() => end("it had been open as long as a session may be"), o.maxMs ?? 12 * 3600_000);
+    // The home says it is there every few seconds. One that stops has gone, whatever the connection thinks.
+    const listening = setInterval(() => Date.now() - heard > (o.quietMs ?? 60_000) && end("the home went quiet"), 5000);
     waiting.unref();
     longest.unref();
+    listening.unref();
 
     const begin = (cols: number, rows: number) => {
       if (terminal || over || !channel) return;
@@ -195,7 +205,7 @@ export function createBridge(o: BridgeOptions): Bridge {
           end("the program ended");
         },
       });
-      busy = "open";
+      mine.at = "open";
       opened++;
       clearTimeout(waiting);
       touch();
@@ -211,6 +221,7 @@ export function createBridge(o: BridgeOptions): Bridge {
       ch.bufferedAmountLow.subscribe(() => terminal?.resume());
       ch.onMessage.subscribe((data) => {
         if (over) return;
+        heard = Date.now();
         if (typeof data === "string") {
           const said = parseBridgeControl(data);
           if (said?.t !== "size") return;
@@ -250,11 +261,11 @@ export function createBridge(o: BridgeOptions): Bridge {
       });
     },
     async stop() {
-      current?.end("the Bridge was stopped");
+      session?.end("the Bridge was stopped");
       relays?.close();
       relays = null;
       await new Promise((r) => setTimeout(r, 350));
     },
-    state: () => ({ busy, relays: relays?.count() ?? 0, opened, refused }),
+    state: () => ({ busy: asking ? "asking" : (session?.at ?? "no"), relays: relays?.count() ?? 0, opened, refused }),
   };
 }

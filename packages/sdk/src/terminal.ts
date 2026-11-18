@@ -305,6 +305,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         blur();
         closed = true;
         link?.close();
+        removeEventListener("pagehide", onLeave);
         term.dispose();
         texture.dispose();
         o.onClosed?.();
@@ -314,6 +315,9 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
   );
   draw();
   connect();
+  // Leaving the page hangs up, so the computer knows at once.
+  const onLeave = () => link?.close();
+  addEventListener("pagehide", onLeave);
 
   return {
     panel,

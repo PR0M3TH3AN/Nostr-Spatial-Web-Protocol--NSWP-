@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.3
+
+A terminal on your own computer, from a panel in your home. Stage A3 of [`browser/spec.md`](browser/spec.md). Nothing a world implements changes.
+
+- **The Bridge** ([`browser/bridge.md`](browser/bridge.md), `packages/bridge`): a small program a person runs on their own computer. It answers one Nostr key, its owner's. The home and the Bridge find each other with sealed notes through relays, as two visitors in a room do, then talk directly.
+- **A grant** (kind 27302): the owner's signed word that one throwaway session key may open a terminal on one Bridge, for five minutes, once. It has its own kind and names a Bridge, never a site, so a pass a world holds opens nothing, and a grant is worth nothing to a world. Schema and vectors beside the others.
+- **It asks at the computer.** Before a terminal opens, the Bridge asks on its own screen and shows four digits both ends work out from the grant. No page can answer for the person there. `--allow-for` loosens that, knowingly.
+- **Anyone else is refused before anyone is asked:** another key, the Bridge's own key, a pass, a grant for another computer, an old grant, a grant sent twice. A stranger gets one reply, however often they ask.
+- **A terminal panel** in the SDK (`nswp-sdk/terminal`, its own entry, so nothing else pays for the emulator). It shows each stage of connecting, with the code. Press it to type: a real keyboard anywhere, and in a headset the kit's drawn keyboard in a new mode with Esc, Tab, Ctrl and the arrows, every key sent as it is pressed.
+- **One terminal at a time, and never locked out.** The owner asking again, and being let in, takes the place of a terminal left open by a closed page. A home that goes quiet for a minute is hung up on.
+- **Found by trying it:** a reply was not tied to the request it answered, so an answer to an earlier request could be taken for an answer to this one. Every reply now names its request. And the Bridge did not notice a page that had simply gone, which is where the two rules above came from.
+- **Status (2026-11-18):** built, not deployed. Tried with throwaway keys and a relay on one machine, from BitPortal's room in Chrome: a computer added from its link, the same code on the panel and at the computer, commands typed on a flat screen and on the drawn keyboard in an emulated Quest 3, and a second key refused with nothing opened and nobody asked. **Not tried:** a real headset, a real sign-in signing the grant, two networks, public relays, macOS. The Bridge is not on npm.
+
 ## 0.10.2
 
 A keyboard and a library, so a headset is no longer the place where a visitor can only move things about.

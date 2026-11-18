@@ -147,7 +147,7 @@ describe("the owner", () => {
     expect(a.refused).toBeUndefined();
     expect(a.waited).toBe(true);
     // The person at the computer was asked, about this request, with the code the panel shows.
-    expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1] }]);
+    expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1], replaces: false }]);
     await a.until((x) => x.frames.some((f) => f.t === "ready"));
     expect(a.frames.find((f) => f.t === "ready")).toEqual({ t: "ready", name: "the test computer" });
     a.type("echo made-$((40 + 2))\n");
@@ -178,20 +178,13 @@ describe("the owner", () => {
     await idle();
   }, 20000);
 
-  it("has one terminal at a time, and the program is hung up on when the panel goes", async () => {
+  it("has one terminal at a time: opening another, once allowed, hangs up the first and its program", async () => {
     const first = await attempt();
     await first.until((x) => x.frames.some((f) => f.t === "ready"));
-    const second = await attempt();
-    expect(second.refused).toMatch(/already busy/);
-    await second.close();
     // A program that would run for ever.
     first.type("echo pid-$$ && sleep 600\n");
     await first.until(/pid-(\d+)/);
     const pid = Number(/pid-(\d+)/.exec(first.text())![1]);
-    expect(() => process.kill(pid, 0)).not.toThrow();
-    await first.close();
-    await idle();
-    const end = Date.now() + 6000;
     const alive = () => {
       try {
         process.kill(pid, 0);
@@ -200,9 +193,61 @@ describe("the owner", () => {
         return false;
       }
     };
+    expect(alive()).toBe(true);
+    // The owner again, from somewhere else. The person at the computer is told what a yes will do.
+    const second = await attempt();
+    expect(second.refused).toBeUndefined();
+    expect(asked.at(-1)).toMatchObject({ replaces: true });
+    await second.until((x) => x.frames.some((f) => f.t === "ready"));
+    const end = Date.now() + 6000;
     while (alive() && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
     expect(alive()).toBe(false);
+    expect(log.some((l) => /another was opened in its place/.test(l))).toBe(true);
+    // The second is whole: it is its own shell, and the first is gone.
+    second.type("echo second-$((1 + 1))\n");
+    await second.until(/second-2/);
+    expect(bridge.state().busy).toBe("open");
+    await first.close();
+    await second.close();
+    await idle();
   }, 40000);
+
+  it("is not kept out by a question still waiting for its answer", async () => {
+    let let_in: (yes: boolean) => void = () => {};
+    const other = await startRelay();
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => new Promise((r) => (let_in = r)) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const make = (session: string) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER);
+    const first = attempt({ to: b.pubkey, on: other.url, make });
+    while (b.state().busy !== "asking") await new Promise((r) => setTimeout(r, 20));
+    const second = await attempt({ to: b.pubkey, on: other.url, make });
+    expect(second.refused).toMatch(/already answering/);
+    let_in(false);
+    expect((await first).refused).toMatch(/Nobody at the computer/);
+    await (await first).close();
+    await second.close();
+    await b.stop();
+    await other.close();
+  }, 30000);
+
+  it("is hung up on when its home goes quiet", async () => {
+    const other = await startRelay();
+    const said: string[] = [];
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], quietMs: 1500, log: (l) => said.push(l), ask: () => Promise.resolve(true) });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const a = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER) });
+    await a.until((x) => x.frames.some((f) => f.t === "ready"));
+    // The connection is still up, and nothing is said on it: a page that froze, a headset in a drawer.
+    const end = Date.now() + 12000;
+    while (b.state().busy !== "no" && Date.now() < end) await new Promise((r) => setTimeout(r, 100));
+    expect(b.state().busy).toBe("no");
+    expect(said.some((l) => /the home went quiet/.test(l))).toBe(true);
+    await a.close();
+    await b.stop();
+    await other.close();
+  }, 30000);
 });
 
 describe("anyone else", () => {

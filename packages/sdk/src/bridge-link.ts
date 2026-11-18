@@ -80,7 +80,7 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
     o.onStatus(next);
   };
   const hangUp = () => {
-    for (const t of timers) clearTimeout(t);
+    for (const t of timers.splice(0)) clearTimeout(t); // a timeout and an interval are stopped the same way
     for (const ws of sockets) ws.close();
     sockets.length = 0;
   };
@@ -114,6 +114,8 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
     ch.onopen = () => {
       hangUp(); // the relays have done their part
       ch.send(JSON.stringify({ t: "size", ...size }));
+      // Say "still here" every few seconds, so a computer whose home has gone doesn't keep a terminal open for nobody.
+      timers.push(setInterval(() => ch.readyState === "open" && ch.send('{"t":"here"}'), 10_000));
     };
     ch.onmessage = (e) => {
       if (over) return;

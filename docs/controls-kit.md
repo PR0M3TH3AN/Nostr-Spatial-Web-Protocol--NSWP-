@@ -219,6 +219,27 @@ const text = await panels.keyboard.ask({ title: "A name for the room", maxLength
 `keys.ts` is the part with no three.js in it: the layout, and what each press
 does to the words.
 
+For something that takes keys as they are typed, a terminal, the same
+keyboard has a second mode: `panels.keyboard.live({ title, onKey, onClose })`.
+It has Esc, Tab, Ctrl and the arrows, sends each key as it is pressed, and
+stays up until it is put away. Ctrl is pressed first and the letter after,
+because there is one pointer and not ten fingers. `term-keys.ts` is its part
+with no three.js in it.
+
+### A panel of the page's own
+
+A `custom` panel shows a texture the page draws, and can hear about it:
+
+```js
+panels.open({ kind: "custom", title: "Scores", texture, aspect: 16 / 9,
+  onPress: (x, y) => {},      // where on the picture, each from 0 to 1, y downwards
+  onClose: () => {} });
+```
+
+It is never kept between visits. The terminal panel (`nswp-sdk/terminal`,
+[`browser/bridge.md`](../browser/bridge.md)) is one of these. That entry is
+for a home: it needs the visitor's signer, which a world is never given.
+
 ### A library of the visitor's own
 
 A page can't show the files on a visitor's device. What it can hold is what

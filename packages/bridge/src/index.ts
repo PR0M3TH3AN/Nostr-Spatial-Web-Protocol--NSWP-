@@ -122,13 +122,13 @@ function main() {
     cwd,
     allowForSec: allowFor * 60,
     log: (line) => console.log(`[${stamp()}] ${line}`),
-    ask({ code }) {
+    ask({ code, replaces }) {
       if (nobody) {
         console.log(`[${stamp()}] A terminal was asked for, and there is nobody here to ask. Run this in a terminal of its own.`);
         return Promise.resolve(false);
       }
       waiting?.(false);
-      process.stdout.write(`\u0007\n[${stamp()}] Your home is asking to open a terminal on this computer.\n        The code is ${code}. It should be the one showing in your home.\n        Open it? Type y and press Enter. Anything else says no: `);
+      process.stdout.write(`\u0007\n[${stamp()}] Your home is asking to open a terminal on this computer.\n        The code is ${code}. It should be the one showing in your home.\n${replaces ? "        A terminal is open already. Saying yes closes it and opens this one.\n" : ""}        Open it? Type y and press Enter. Anything else says no: `);
       return new Promise((resolve) => {
         waiting = resolve;
       });
@@ -146,7 +146,7 @@ function main() {
 
 To add this computer to your home, open this while signed in as that key:
 
-  ${home}#bridge=${me}
+  ${home}#bridge=${me}${typeof args.relays === "string" ? relays.map((r) => `&relay=${encodeURIComponent(r)}`).join("") : ""}
 
 Whoever can open a terminal here can do anything you can. Ctrl-C stops it.
 `);

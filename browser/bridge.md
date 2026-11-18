@@ -26,8 +26,17 @@ change anything you can.
   decides when a terminal opens.
 - **You can narrow what it runs:** one command instead of a shell, a starting
   folder, or the whole Bridge inside a container.
+- **Add only your own computer to your home.** A Bridge started by someone
+  else, with your key as its owner, would answer you too. A terminal on it
+  would show its owner everything you typed there. The home shows a
+  computer's whole key before adding it, and adds nothing until you press.
 
 If that is more trust than you want to give a website, don't run it.
+
+What it doesn't trust: relays (they carry sealed notes and can read none of
+them), other people's keys (refused before anyone is asked), and worlds (a
+world is never given your signer, your panels or the list of your computers,
+and a pass it holds opens nothing here).
 
 ## How it connects
 
@@ -111,6 +120,7 @@ One data channel, named `term`, ordered and reliable.
 | Binary | Page | Keys typed, as bytes |
 | Binary | Bridge | What the terminal wrote, as bytes |
 | Text `{"t":"size","cols":100,"rows":30}` | Page | The panel's size, 20 to 300 columns and 5 to 120 rows. The first frame sent |
+| Text `{"t":"here"}` | Page | "Still here", every ten seconds |
 | Text `{"t":"ready","name":"…"}` | Bridge | The terminal has started |
 | Text `{"t":"exit","code":0}` | Bridge | The program ended. The Bridge then closes the channel |
 
@@ -122,7 +132,12 @@ know is ignored.
 - **Answers one owner.** Set when it is first run, shown every time it starts.
 - **Asks at the computer** before each session, unless told `--allow-for`.
   An unanswered question is a refusal after 60 seconds.
-- **One session at a time.** A second `open` while one is running is refused.
+- **One terminal at a time.** When the owner asks for another and is let in,
+  the one already open is hung up and the new one takes its place. So a
+  terminal left open by a closed page or a headset in a drawer can never keep
+  its owner out. The question at the computer says when a yes will do this.
+- **Hangs up on a home that has gone quiet.** A session that hasn't heard
+  from its page for a minute is ended, whatever the connection claims.
 - **Says so on its own screen** when a session opens and when it ends, with
   the time.
 - **Ends a session** that has been silent for 30 minutes, or has run for 12
@@ -132,29 +147,59 @@ know is ignored.
 
 ## Pairing
 
-The Bridge prints its public key, and a link to the owner's home with that
-key in it. Opening the link while signed in as the owner adds the computer to
-their home. From then on the home offers "A terminal on this computer".
+The Bridge prints its public key, and a link to the owner's home:
+
+```text
+https://portal.bitblocks.network/walk/#bridge=npub1…
+```
+
+with `&relay=wss://…` for each relay, when it was told to listen somewhere
+other than the usual four. Opening the link while signed in as the owner
+shows the key and asks; pressing the button adds the computer. A link can
+ask and can't add. From then on the home offers "A terminal on" that
+computer.
 
 The home keeps the list of its owner's computers in the browser. It is never
 published.
 
 ## Running it
 
+It is not on npm yet. From a copy of this repository:
+
 ```bash
-npx nswp-bridge --owner npub1…                # asks before every session
-npx nswp-bridge --owner npub1… --tmux         # one lasting terminal: it outlives the headset
-npx nswp-bridge --owner npub1… --allow-for 480 --command "claude" --cwd ~/code/project
+npm install
+npm run bridge -- --owner npub1…                # asks before every session
+npm run bridge -- --owner npub1… --tmux         # one lasting terminal: it outlives the headset
+npm run bridge -- --owner npub1… --allow-for 480 --command "claude" --cwd ~/code/project
 ```
 
+`npm run build -w nswp-bridge` makes one file, `packages/bridge/dist/nswp-bridge.mjs`,
+that runs anywhere Node does.
+
 It needs Node 22 and Python 3 (for the terminal itself), on Linux or macOS.
+Its key and its owner are kept in `~/.config/nswp/`, readable by you alone.
+To give the computer to another key, delete `bridge.json` there: it won't
+change hands because a command line said so.
+
+## What has been tried, and what hasn't
+
+Tried, with throwaway keys and a relay on one machine: the owner opens a
+terminal and runs commands; a second key, the Bridge's own key, a pass, a
+grant for another computer, an old grant and a replayed grant are all
+refused before anyone is asked; a no at the computer is a no; the whole path
+from BitPortal's room in Chrome, on a flat screen and in an emulated headset
+with the drawn keyboard.
+
+Not tried: a real headset; a real sign-in signing the grant; two networks
+(the home and the computer were on one machine); public relays; macOS.
 
 ## Proposed, not built
 
 - **Windows of other programs**, to look at and then to use
   ([`spec.md`](spec.md), section 7).
-- **More than one computer's worth of sessions at once**, and more than one
-  owner.
+- **More than one terminal at once**, and more than one owner.
+- **Running as a service**, with nobody at the computer to ask. Today the
+  first yes is always typed there.
 - **Ending a session from another device.**
 - **A relay of last resort** for networks where the two can't connect
   directly: the same gap rooms have.
