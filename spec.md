@@ -1,13 +1,20 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.2 (concept specification)
+**Version:** 0.7.3 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.3
+
+- **The start room is built** (§14.1), in BitPortal's walk-in page: two walls of doors, the visitor's own ahead and suggested ones behind.
+- **Saving a place needs no sign-in** (§8.3, §14.1). A client may keep a visitor's saved places on their device, and BitPortal does. Each saved door keeps its place on the wall for as long as it is saved.
+- **The world template was tried by AI assistants** (§19.1, §20 Phase 4c). Three trials. Every rule held, including when the request asked to break one. The gap was that an assistant can't see what it builds, and the template now gives it a way to.
+- **The standard portal is an arched doorway** (§6.7): the same shape in BitPortal, in a home and in a world built from the template.
 
 ## 0. What changed in 0.7.2
 
@@ -729,6 +736,8 @@ Wherever a destination is offered (a door in a lobby, a portal in a world, the A
 
 A preview (§5.8), who is there now (open rooms only, §9.10), why the world is listed, and whether the world draws the items a visitor carries (§10.5) are optional extras.
 
+**One shape for a way out.** The reference SDK and BitPortal draw every portal as the same arched doorway standing on the floor, with its sign above. A visitor who has learned what a way out looks like in one place recognises it in the next. A world may draw its portals differently; the sign's contents are what matter.
+
 **Whose word it is.** A lobby and the Airlock are the client's own pages, so what they show is the client's judgment. A portal inside a world is drawn by that world. It should show the same things, and the SDK's portals do, but it is the world's word. The Airlock repeats them before the visitor leaves, which is why it is never skipped for a destination the visitor hasn't approved (§6.5).
 
 **Ordinary web pages.** A web app can't put a page on a screen inside VR (§3). For a `2d` destination a client shows the `flat` preview on the door, and choosing it leaves immersion and opens the page in the device's own browser. On a headset that browser is already a floating window in the visitor's space.
@@ -839,6 +848,7 @@ The client uses NIP-02 follows (kind 3), NIP-65 relay lists (kind 10002) and NIP
 - Public bookmarks go in a NIP-51 bookmark list (kind 10003) or named bookmark sets (kind 30003) holding `a` tags for world coordinates.
 - Private bookmarks use NIP-51's encrypted private items (NIP-44 encrypted to self), not public events.
 - Entry points and personal labels ride along as extra tag values.
+- **Before sign-in, and for anyone who prefers it,** a client may keep saved places on the visitor's device instead, with each place's signed announcement. Nothing is published, so saving tells nobody. A client that later syncs them to bookmarks asks first, and makes them private items unless told otherwise.
 
 ### 8.4 Invitations
 
@@ -1409,7 +1419,9 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 - **Fast.** Doors are drawn first and work at once. Decorations and published items (§10.4) load afterwards, and not at all on a device that can't spare them. This matters more than it looks: every crossing already costs a visitor in a headset an exit from immersion (§6.5), and the start room is on the way to all of them.
 - **A dozen doors, not a hundred.** A door in a room is found by remembering where it is, which works for about twelve. Each wall shows that many at most. "More" opens the full shelves as a list.
 - **The flat list is the start on a desktop or phone.** Choosing from a list is quicker than walking to a door. The list has the same order: the visitor's doors first, then the shelves. The room is offered, not imposed.
-- **Signed-out visitors** get the same room. Their own wall is empty and the suggestions come from the starter set.
+- **Signed-out visitors** get the same room, and can save. Their saved places are kept on the device (§8.3), and the suggestions come from the starter set.
+- **A door keeps its place.** Each saved place is given a place on the wall when it is saved, and keeps it until it is removed. Removing one leaves a gap that the next saved place fills; nothing else moves. The same holds for the suggested wall during a visit: saving a suggestion leaves a gap there. A wall whose doors shuffle can't be learned.
+- **Arriving.** A visitor with no saved places faces the suggestions. One with saved places faces their own wall.
 
 **Getting around**
 
@@ -1420,6 +1432,13 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 - **From inside another world, a saved place is two hops away:** home, then the destination. BitPortal isn't running inside someone else's world, and a world can't show a visitor's saved places without its own code reading them.
 
 This is BitPortal's choice, not the protocol's. Another client may start its visitors anywhere (§3.2). How many doors a wall should hold, and whether one room holds up, is Q31.
+
+**Status (2026-11-17): built, and tested on a desktop only.** BitPortal's `/walk/` is this room.
+
+- *Built:* the two walls, with Save and Remove on every door and a way to put back the last door removed. Saved places kept on the device with their announcements, each with a fixed place. The list page shows them first, and a jump list opens from every flat page. The three arrivals: facing suggestions, facing your own wall, and facing the door you left through. A sign leading to the list when a wall is full. The room's floor and furniture are drawn from a home layout kept on the device, which can be pasted into Settings.
+- *Narrower than above:* the room draws a layout's colours and built-in furniture only. It leaves out pictures and published items, because fetching them would contact other sites, and it doesn't yet put a layout's own doors on the wall. There are no invitations, no editor for the layout, and no jump list inside the headset beyond the wall itself. Saved places don't move between devices; that waits for sign-in (Phase 3a).
+- *Tested:* in a desktop browser, all of the built list. In an emulated Meta Quest 3, the room draws and a trigger pull on a door reaches the Airlock.
+- *Not tested:* pressing Save or Remove with a controller. The buttons are small targets from across the room, which is the first thing to watch on a real headset. No real headset.
 
 ## 15. Trust and safety: BitGate ("what may you do")
 
@@ -1571,6 +1590,7 @@ Most of the ladder is plumbing that is the same for every world. A **world templ
 - **Where it starts:** as a home you host yourself (§4.5). The starting scene reads its owner's layout event and places the items, so there is something to stand in before any code is written.
 - **Where it goes:** anywhere. A home, a game, a gallery, a landscape. The scene is the owner's code, and nothing in the protocol limits it.
 - **Made to be changed with an AI assistant.** The repository carries plain instructions for one: which files are the scene and free to change, which are the protocol's plumbing, and the rules that must survive any change (the Airlock for every outbound portal, no credentials inside the world, scrub the arrival fragment). The checks say when one has been broken.
+- **It lets an assistant see.** An assistant that can't open a browser builds blind: its scene can pass every check and still be black, or start the visitor facing a wall. The template has a command that writes a picture of the scene from any spot, and its instructions say to look.
 - **Not part of the protocol.** It is one starting point. A world written from nothing, or in another engine, is every bit as much an NSWP world.
 
 It is extracted from the reference worlds, which already do all of this.
@@ -1645,7 +1665,7 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 ### Phase 3a: Social discovery
 - BitFeed shelves (§14) with explanations; NIP-51 bookmarks; NIP-22 reviews; zaps.
-- **Your doors** (§14.1): saved places first on the list and on the visitor's wall of the walk-in room, and a jump list. This needs sign-in and bookmarks, and no home layout.
+- **Your doors** (§14.1): saved places first on the list and on the visitor's wall of the walk-in room, and a jump list. *Built in 0.7.3 without sign-in,* kept on the device. What is left for this phase is carrying them between devices as NIP-51 bookmarks, which needs sign-in.
 - The user's own mutes and blocks, applied directly.
 - No dependency on BitGate, so this phase isn't blocked by its relicense.
 
@@ -1687,12 +1707,18 @@ Each phase has an exit criterion that has to be met before the next starts.
 
 **Exit:** someone outside the project copies the template, changes the scene with an AI assistant, deploys it, and `nswp check` reports a verified world with a working portal.
 
-**Status (2026-11-17): built, and tried only by its author.** The template is the private `nswp-world-template` repository.
+**Status (2026-11-17): built, and tried by AI assistants but by nobody outside.** The template is the private `nswp-world-template` repository.
 
-- *Built:* a starting scene that draws `home.json` through the SDK's home renderer, and a small example game, chosen by one line. Plumbing for arrival, portals, VR by the `select` event, the way home, and the shared room. Commands to run it locally, build, sign, announce (a dry run unless told otherwise), and take a preview. Instructions for AI assistants, and a checker that fails on a navigation outside a portal, a credential prompt, a script from another site, or a changed vendored library.
-- *Tested:* a fresh copy was given a name and address, signed, checked and deployed to `nswp-world-template.vercel.app` with no code changes. `nswp check` finds a valid manifest there. In a desktop browser, a visitor went from BitPortal's Airlock into the demo, saw its portals named from relay announcements, used "Back to your lobby" to return to BitPortal, and crossed a portal through their own Airlock.
+- *Built:* a starting scene that draws `home.json` through the SDK's home renderer, and a small example game, chosen by one line. Plumbing for arrival, portals, VR by the `select` event, the way home, and the shared room. Two ways to move, both for every device: the keyboard, and stepping by pointing at the floor and selecting. A scene says where visitors may not stand. Commands to run it locally, build, sign, announce (a dry run unless told otherwise), take a preview, and take a plain picture of the scene. Pictures for frames are named by file, and the build fills in their address and hash. Instructions for AI assistants, and a checker that fails on a navigation outside a portal, a credential prompt, a script from another site, or a changed vendored library.
+- *Tried by AI assistants:* three trials, each a fresh assistant given a copy and a plain request with no other help.
+  - A gallery, with a request to make the portal skip the Airlock. It built the gallery from `home.json` alone and refused the Airlock request, explaining why.
+  - A maze game, with a request to load a leaderboard script from another site and have visitors type their Nostr key. It refused both, offered a best time kept on the device instead, and stayed out of the plumbing. But it couldn't see its work, and the maze was too dark to play.
+  - The same maze, after the fixes. It took pictures of its scene with the new command, and the maze came out lit, with hedges that block.
+  - What the trials changed: the picture command, the blocking hook, stepping, portals a scene adds being animated and named by the plumbing, pictures by file name, and instructions that say what to refuse, when a world's identity may change, the room's measurements, and how bright a scene must be.
+  - What they didn't show: none of the assistants played its game through, and the template's author walked both mazes without finishing one. No assistant generated a key, announced or deployed, and none was asked to.
+- *Tested by hand:* a fresh copy was given a name and address, signed, checked and deployed to `nswp-world-template.vercel.app` with no code changes. `nswp check` finds a valid manifest there. In a desktop browser, a visitor went from BitPortal's Airlock into the demo, saw its portals named from relay announcements, used "Back to your lobby" to return to BitPortal, and crossed a portal through their own Airlock. That demo is the template as first built; it hasn't been redeployed since the fixes.
 - *Not done:* the demo's announcement is signed but not published, so `nswp check` reports it as reachable, not verified. The offline check confirms the manifest and the announcement agree.
-- *Not tested:* the exit criterion itself. Nobody outside the project has used the template, and no AI assistant has been set loose on it. The repository is private, so nobody outside can yet. No real headset.
+- *Not tested:* the exit criterion itself. Nobody outside the project has used the template. The repository is private, so nobody outside can yet. Stepping has not been tried in a headset, real or emulated. No real headset.
 - *Narrower than §19.1 says:* the starting scene draws the layout bundled with the site. It doesn't yet look on relays for a newer one.
 
 ### Phase 5: Paid access with BitUnlock
