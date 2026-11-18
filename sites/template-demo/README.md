@@ -18,6 +18,7 @@ reference publisher key, `npm run check`, and deploy `dist/` to the Vercel
 project named in `../vercel-projects.json` under `templateDemo`. Copy the
 clone's `world.json`, `signed/` and `previews/` back here.
 
-Last made from template commit `ea27eaa`.
+Last made from template commit `8670074`. The scene and its preview picture
+didn't change, so `world.json`, `signed/` and `previews/` here are as before.
 
 It is not built by `npm run build` here and has no code of its own.
