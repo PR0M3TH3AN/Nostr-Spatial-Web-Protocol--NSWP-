@@ -178,6 +178,34 @@
       }
     },
     {
+      "name": "brought_home",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImFpcmxvY2siOiJodHRwczovL3BvcnRhbC5iaXRibG9ja3MubmV0d29yay9nby8iLCJob21lIjp0cnVlfQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "airlock": "https://portal.bitblocks.network/go/",
+          "home": true
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "home_must_be_a_boolean",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImhvbWUiOiJtaW5lIn0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_home"
+        ]
+      }
+    },
+    {
       "name": "immersive_must_be_a_boolean",
       "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImltbWVyc2l2ZSI6InllcyJ9",
       "expect": {

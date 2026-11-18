@@ -32,6 +32,13 @@ export interface Arrival {
    * what they were doing, not who they are.
    */
   immersive?: true;
+  /**
+   * This world is where the visitor starts: the home they chose
+   * (protocol/07-homes.md). Said only by their own client, bringing them
+   * home. From here "home" leads nowhere new, so the world offers the way to
+   * their doors instead.
+   */
+  home?: true;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -106,6 +113,10 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.immersive !== undefined && json.immersive !== false) {
     if (json.immersive === true) out.immersive = true;
     else c.warn("invalid_immersive", "immersive", "Ignoring an immersive hint that isn't true or false.");
+  }
+  if (json.home !== undefined && json.home !== false) {
+    if (json.home === true) out.home = true;
+    else c.warn("invalid_home", "home", "Ignoring a home hint that isn't true or false.");
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {

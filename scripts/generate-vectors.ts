@@ -357,6 +357,16 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", immersive: true }, warnings: [] },
   },
   {
+    name: "brought_home",
+    value: encodeArrival({ entry: "main-entrance", airlock: "https://portal.bitblocks.network/go/", home: true }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", airlock: "https://portal.bitblocks.network/go/", home: true }, warnings: [] },
+  },
+  {
+    name: "home_must_be_a_boolean",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", home: "mine" })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_home"] },
+  },
+  {
     name: "immersive_must_be_a_boolean",
     value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", immersive: "yes" })).toString("base64url"),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_immersive"] },

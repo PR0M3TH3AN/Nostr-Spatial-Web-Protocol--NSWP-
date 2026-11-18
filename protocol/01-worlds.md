@@ -86,6 +86,10 @@ A JSON file at exactly `https://<origin>/.well-known/nswp.json`.
 }
 ```
 
+`capabilities` are what the world says it can do. A client that doesn't know
+one ignores it. `home` says it can be the place its owner starts
+([NSWP-07](07-homes.md)).
+
 Serving rules:
 
 - `Access-Control-Allow-Origin: *`, or a browser-based client can't read it.

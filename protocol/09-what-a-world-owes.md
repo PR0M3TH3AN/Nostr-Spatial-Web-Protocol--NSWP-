@@ -26,6 +26,10 @@ much of its own as it likes. It may not leave one out, or bury one more than a
 single deliberate action deep. In a headset that is one `select`; on a flat
 screen, one click or key.
 
+A world that says it can be someone's home ([NSWP-07](07-homes.md)) owes one
+thing more: wherever it offers the way home, it offers the way to the
+visitor's doors.
+
 ## What a world never does
 
 - **Navigate a visitor away itself.** A way out goes through their Airlock
