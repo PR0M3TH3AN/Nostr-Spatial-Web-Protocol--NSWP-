@@ -132,10 +132,15 @@ know is ignored.
 - **Answers one owner.** Set when it is first run, shown every time it starts.
 - **Asks at the computer** before each session, unless told `--allow-for`.
   An unanswered question is a refusal after 60 seconds.
-- **One terminal at a time.** When the owner asks for another and is let in,
-  the one already open is hung up and the new one takes its place. So a
-  terminal left open by a closed page or a headset in a drawer can never keep
-  its owner out. The question at the computer says when a yes will do this.
+- **A few terminals at a time:** four. Each is asked about at the computer,
+  and the question says how many are open already. When four are open and
+  the owner is let in again, the one whose home has been quiet longest is
+  hung up and the new one takes its place. So terminals left open by a
+  closed page or a headset in a drawer can never keep their owner out. The
+  question says when a yes will do this.
+- **Gives each terminal a place**, 1 to 4, the lowest that is free. With
+  `--tmux` each place is a lasting terminal of its own (`nswp-bridge-1`, and
+  so on), found again when that place is next opened.
 - **Hangs up on a home that has gone quiet.** A session that hasn't heard
   from its page for a minute is ended, whatever the connection claims.
 - **Says so on its own screen** when a session opens and when it ends, with
@@ -169,7 +174,7 @@ It is not on npm yet. From a copy of this repository:
 ```bash
 npm install
 npm run bridge -- --owner npub1…                # asks before every session
-npm run bridge -- --owner npub1… --tmux         # one lasting terminal: it outlives the headset
+npm run bridge -- --owner npub1… --tmux         # lasting terminals: they outlive the headset
 npm run bridge -- --owner npub1… --allow-for 480 --command "claude" --cwd ~/code/project
 ```
 
@@ -200,13 +205,31 @@ another; macOS.
 
 A terminal started by a plain `nswp-bridge` ends when its panel is closed,
 and whatever was running in it ends too. Start the Bridge with `--tmux` to
-keep one terminal going between visits.
+keep terminals going between visits.
+
+## In the home
+
+The SDK's terminal panel (`nswp-sdk/terminal`) is what a home hangs. Press
+it to type. Along its foot are five buttons, each one press, so they work
+with any controller and a mouse alike:
+
+| | |
+|---|---|
+| ▲ ▼ | Look back and forward through what has scrolled away. Typing returns to the end. A mouse wheel does the same |
+| A+ A− | Larger or smaller letters: 60 to 160 across. The program is told its new size. The panel's own + and − change how large the whole panel is |
+| Copy | What is on the screen, to the clipboard |
+
+In a headset the kit's keyboard comes up under the panel, with Esc, Tab,
+Ctrl and the arrows, and page up, page down, home and end on its last layer.
+A stick does not scroll: every action here is a press, as everywhere in the
+kit. Selecting text with a pointer is not built.
 
 ## Proposed, not built
 
 - **Windows of other programs**, to look at and then to use
   ([`spec.md`](spec.md), section 7).
-- **More than one terminal at once**, and more than one owner.
+- **More than one owner.**
+- **Selecting text on the panel**, and pasting in a headset.
 - **Running as a service**, with nobody at the computer to ask. Today the
   first yes is always typed there.
 - **Ending a session from another device.**

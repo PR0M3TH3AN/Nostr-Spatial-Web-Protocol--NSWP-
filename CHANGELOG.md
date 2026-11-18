@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.4
+
+The terminal, after its first real use. Nothing a world implements changes, and nothing on the wire.
+
+- **Larger and smaller letters** (A+ and A−, 60 to 160 across), on the panel's foot. The picture stays one size, so larger letters are sharper and the panel keeps its shape; the program is told its new size. The panel's own + and − still change how large the whole panel is.
+- **Looking back** (▲ ▼) through what has scrolled away, a press at a time, and **Copy** for what is on the screen.
+- **Page up, page down, home and end** on the drawn keyboard's last layer.
+- **A few terminals at once.** The Bridge keeps four, each asked about at the computer, each with a place of its own that `--tmux` turns into a lasting terminal. At four, the owner being let in again takes the place of the one quiet longest.
+- **Found by trying it:** in a headset the drawn keyboard sat between the hand and the panel's foot, so a press meant for a button typed a letter instead. Up for a terminal, the keyboard now sits lower and nearer, under the panel.
+- **Status (2026-11-18):** built, not deployed. Tried on one machine with throwaway keys, in Chrome and an emulated Quest 3: each button pressed for real with a mouse and with a controller, two terminals open on one computer at once, and the earlier checks again. Not on a real headset, where whether the foot's buttons are large enough to point at is the first thing to judge.
+
 ## 0.10.3
 
 A terminal on your own computer, from a panel in your home. Stage A3 of [`browser/spec.md`](browser/spec.md). Nothing a world implements changes.

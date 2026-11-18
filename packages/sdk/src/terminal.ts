@@ -101,15 +101,15 @@ const rgb = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 const W = 1920;
 const SCREEN = 1152; // the height the lines have
 const PAD = 24;
-const STRIP = 92; // the foot: what a press will do, and the buttons
+const STRIP = 116; // the foot: what a press will do, and the buttons, tall enough to point at from a step away
 const H = SCREEN + PAD * 2 + STRIP;
 const FACE = `ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace`;
 const BUTTONS: { id: TerminalButton; label: string; w: number }[] = [
-  { id: "back", label: "▲", w: 104 },
-  { id: "forward", label: "▼", w: 104 },
-  { id: "larger", label: "A+", w: 104 },
-  { id: "smaller", label: "A−", w: 104 },
-  { id: "copy", label: "Copy", w: 150 },
+  { id: "back", label: "▲", w: 124 },
+  { id: "forward", label: "▼", w: 124 },
+  { id: "larger", label: "A+", w: 124 },
+  { id: "smaller", label: "A−", w: 124 },
+  { id: "copy", label: "Copy", w: 170 },
 ];
 const GAP = 12;
 
@@ -154,7 +154,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     let x = W - PAD;
     return [...BUTTONS].reverse().map((b) => {
       x -= b.w;
-      const at = { ...b, x, y: H - STRIP + 14, h: STRIP - 28 };
+      const at = { ...b, x, y: H - STRIP + 12, h: STRIP - 24 };
       x -= GAP;
       return at;
     });
@@ -257,7 +257,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
     g.fillStyle = "#111a25";
     g.fillRect(0, H - STRIP, W, STRIP);
     g.textBaseline = "middle";
-    g.font = "32px system-ui, sans-serif";
+    g.font = "34px system-ui, sans-serif";
     g.fillStyle = focused || (said && Date.now() < said.until) ? accent : QUIET;
     g.fillText(hint, PAD, H - STRIP / 2 + 1, hintWidth);
     for (const b of placed) {
@@ -270,7 +270,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
       g.fill();
       g.fillStyle = FG;
       g.textAlign = "center";
-      g.font = "bold 34px system-ui, sans-serif";
+      g.font = "bold 40px system-ui, sans-serif";
       g.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 2);
       g.textAlign = "left";
       g.globalAlpha = 1;
