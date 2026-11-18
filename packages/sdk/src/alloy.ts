@@ -100,7 +100,7 @@ export function createAlloy(accent: THREE.ColorRepresentation, opts: AlloyOption
         }
         // Distance takes it into the ground's colour.
         float far = length(cameraPosition - vWorld);
-        c = mix(c, uGround, smoothstep(70.0, 320.0, far) * (1.0 - vGlow * 0.6));
+        c = mix(c, uGround, smoothstep(55.0, 290.0, far) * (1.0 - vGlow * 0.5));
         gl_FragColor = vec4(c, uOpacity);
         #include <colorspace_fragment>
       }`,

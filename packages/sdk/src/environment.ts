@@ -383,7 +383,7 @@ interface SkylineShapes {
 function skylineShapes(): SkylineShapes {
   const dark = { bevel: 0.02 };
   /** Rows of lit windows round a square tier. */
-  const windows = (b: MeshBuilder, y0: number, y1: number, half: number, rows: number, glow = 0.32) => {
+  const windows = (b: MeshBuilder, y0: number, y1: number, half: number, rows: number, glow = 0.26) => {
     for (let r = 0; r < rows; r++) {
       const y = y0 + ((r + 0.5) / rows) * (y1 - y0);
       const w = 0.35 * ((y1 - y0) / rows);
@@ -510,7 +510,7 @@ export function createEnvironment(accent: THREE.ColorRepresentation, opts: Envir
         ),
       );
     };
-    for (let i = 0; i < 24; i++) place(clear + 72 + rand() * 50, 7 + rand() * 6, 9 + rand() * rand() * 22);
+    for (let i = 0; i < 18; i++) place(clear + 85 + rand() * 50, 7 + rand() * 6, 9 + rand() * rand() * 22);
     for (let i = 0; i < 60; i++) place(clear + 125 + rand() * 170, 11 + rand() * 9, 26 + rand() * rand() * 96);
     shapes.towers.forEach((shape, k) => {
       const towers = new THREE.InstancedMesh(shape.geometry(), alloy, each[k]!.length);
