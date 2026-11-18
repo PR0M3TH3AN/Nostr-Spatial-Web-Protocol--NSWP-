@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794974499,
+  "created_at": 1795030679,
   "tags": [
     [
       "d",
@@ -106,6 +106,10 @@
       "ISO-639-1"
     ],
     [
+      "audience",
+      "general"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -116,6 +120,6 @@
   ],
   "content": "For people who want to build a world: the ready-made parts and the four ways of making a shape, each labelled with the name it has in code.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "e282a917f7446dc684e0058113f7c634ae17453ce03e03156f35d9bca8fadb18",
-  "sig": "53bbaf406c213ee6017243f978cad85b50dd80542eaca3facfaf68d2766e7bae1d0befa16a385dd8039a67b5721df4d25d793a88934c1963fabdf4ec7bec3be2"
+  "id": "6b3c6236b046974643ef660a24c770269377de9ee4e0a6b4af7379a72d1c682e",
+  "sig": "1421b0932899891468cf53bc8277533e6cffdd1cc8faf300fafebc994a929f8616eefd59a2b8eb58b927c215e2c82c6ffef3204fc8209e3fcb45565cb84a80ba"
 }

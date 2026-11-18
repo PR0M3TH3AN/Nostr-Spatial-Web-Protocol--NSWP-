@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794974495,
+  "created_at": 1795030674,
   "tags": [
     [
       "d",
@@ -106,6 +106,10 @@
       "ISO-639-1"
     ],
     [
+      "audience",
+      "general"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -116,6 +120,6 @@
   ],
   "content": "Six sculptures, each a few lines of code turned into a shape, on plinths down a long hall. Doors lead to the Grove and the Workshop.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "288e10a4b0d3b999cddb909816e29f9b6d86f98b54850c8eed41b705c1650203",
-  "sig": "498aa69480e2e7a4960d33ba6e98a191046bf7ae9a21b2cbb215906a302f5b3de6602d75808df8bf2008b44646ce33d6115be55af85058e32385aa5b257b4fa9"
+  "id": "8512a2d7c649587e9273a2854b246a757b281ebf4e43e8dc6786e9e265c66dab",
+  "sig": "9438c79e0bb951fafe0c1be1752e89e92b223249691fdd100d821cb6723b88f601cafe97372ab6486b1d98329f66aa76c53a9e1897bfc714c2660441ae15f7ab"
 }

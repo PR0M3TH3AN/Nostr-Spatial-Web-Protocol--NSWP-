@@ -35,6 +35,7 @@
     "en"
   ],
   "status": "beta",
+  "audience": "general",
   "entryPoints": [
     "main-entrance"
   ],

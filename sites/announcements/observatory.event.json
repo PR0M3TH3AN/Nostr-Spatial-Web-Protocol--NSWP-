@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794974498,
+  "created_at": 1795030678,
   "tags": [
     [
       "d",
@@ -106,6 +106,10 @@
       "ISO-639-1"
     ],
     [
+      "audience",
+      "general"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -116,6 +120,6 @@
   ],
   "content": "A round terrace with an orrery turning at its middle, under a sky with a ringed world and constellations drawn like a network.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "39d5803393cd97db25616d7b6982fa5a99e763098a7497e8e148c5ce9ed93b91",
-  "sig": "41f8bf9a20c1a26e33058ab36d46ea53037f2ce5155c99888ee4b99d15c9d37fb0dd68eac3b42cdf519676207dab1cace64797c2eca1aa8dcb52545c84ba1179"
+  "id": "b4bcddcdc079260aedb96f5b6ad8fcc263b9059ab616eb53be11a9cb37f4bc06",
+  "sig": "ebcf3b2225abce9ca4db1f4c3fc2ac0f4f6b5d56e6658cc392750eb06c31eb5fc9577d075c2217f72f0fe39cff8161e92e7601dde642b8c76812b9120668612a"
 }

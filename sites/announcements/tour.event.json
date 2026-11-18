@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794974497,
+  "created_at": 1795030676,
   "tags": [
     [
       "d",
@@ -106,6 +106,10 @@
       "ISO-639-1"
     ],
     [
+      "audience",
+      "general"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -116,6 +120,6 @@
   ],
   "content": "A short path with five stops for someone's first minute on the spatial web: looking round, moving, doors, the page between places, and getting home.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "71a8b70000a56dd7ef4d151f6a4fa90cb0ea44cf30412742f021c488b7f3b6c9",
-  "sig": "d040d7371b80f3b51aca86d2857ba158fcc5ba91acafe44f186ff89dab4fe157344f5a69f28fd2c1c28757e4bff9945e3be796b0fa900f2e0e39595469b0e933"
+  "id": "6231ef160d9730601c9064d7ed7c019791fc45cb8dd7372087b4011fa0a78141",
+  "sig": "78a71df1fbf823b8241160ae378e67a7d2eebad5fd48352bfe66e0605431f77a83840a1b5e594ce10f8b4cc8a574126b81f05cdbf13850ce7aba1bfa511075c3"
 }
