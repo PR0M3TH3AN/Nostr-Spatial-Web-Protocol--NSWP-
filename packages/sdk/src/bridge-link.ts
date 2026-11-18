@@ -19,6 +19,7 @@ import {
   isPublicKey,
   openBridgeSignal,
   parseBridgeControl,
+  parseSpeechControl,
   ROOM_SIGNAL_KIND,
   verifyEvent,
   type EventTemplate,
@@ -33,7 +34,8 @@ export type BridgeStatus =
   /** Someone at the computer is being asked. */
   | { at: "asking"; code: string }
   | { at: "connecting" }
-  | { at: "open"; name: string }
+  /** `speech` says whether that computer will turn what is said into text. */
+  | { at: "open"; name: string; speech: boolean }
   /** The program ended. */
   | { at: "ended"; code: number }
   /** It never opened, or stopped. `why` can be shown as it is. */
@@ -62,6 +64,13 @@ export interface BridgeLink {
   /** Keys typed. Nothing is sent until the terminal is open. */
   send(bytes: string | Uint8Array): void;
   resize(cols: number, rows: number): void;
+  /**
+   * Send what a microphone heard (16-bit samples, 16,000 a second, one
+   * channel) to the computer, and get the words back. It goes over this
+   * connection and nowhere else. Rejects, with words for the visitor, where
+   * the computer doesn't listen or couldn't make it out.
+   */
+  transcribe(pcm: Int16Array, lang: string): Promise<string>;
   close(): void;
 }
 
@@ -75,6 +84,8 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
   let over = false;
   let pc: RTCPeerConnection | null = null;
   let channel: RTCDataChannel | null = null;
+  let ears: RTCDataChannel | null = null;
+  let heard: { resolve(text: string): void; reject(e: Error): void; timer: ReturnType<typeof setTimeout> } | null = null;
   let size = cleanSize(o.cols, o.rows) ?? { cols: 80, rows: 24 };
   const sockets: WebSocket[] = [];
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -130,7 +141,7 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
       if (over) return;
       if (typeof e.data === "string") {
         const said = parseBridgeControl(e.data);
-        if (said?.t === "ready") set({ at: "open", name: said.name });
+        if (said?.t === "ready") set({ at: "open", name: said.name, speech: said.speech });
         if (said?.t === "exit") end({ at: "ended", code: said.code });
         return;
       }
@@ -221,6 +232,47 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
       if (!next) return;
       size = next;
       if (!over && channel?.readyState === "open") channel.send(JSON.stringify({ t: "size", ...size }));
+    },
+    transcribe(pcm, lang) {
+      return new Promise<string>((resolve, reject) => {
+        if (over || status.at !== "open" || !pc) return reject(new Error("The terminal isn't open."));
+        if (!status.speech) return reject(new Error("Your computer isn't set to listen. Start its Bridge with --voice."));
+        if (heard) return reject(new Error("Still working out the last thing you said."));
+        const seconds = pcm.length / BRIDGE_LIMITS.speechRate;
+        if (seconds > BRIDGE_LIMITS.speechSeconds) return reject(new Error(`That was more than ${BRIDGE_LIMITS.speechSeconds} seconds. Say it in shorter pieces.`));
+        // A channel of its own beside the terminal's, opened the first time something is said.
+        if (!ears) {
+          ears = pc.createDataChannel("speech", { ordered: true });
+          ears.onmessage = (e) => {
+            const said = typeof e.data === "string" ? parseSpeechControl(e.data) : null;
+            const waiting = heard;
+            if (!waiting || (said?.t !== "text" && said?.t !== "sorry")) return;
+            heard = null;
+            clearTimeout(waiting.timer);
+            if (said.t === "text") waiting.resolve(said.text);
+            else waiting.reject(new Error(said.why || "Your computer couldn't make that out."));
+          };
+          ears.onclose = () => {
+            ears = null;
+            const waiting = heard;
+            heard = null;
+            if (waiting) {
+              clearTimeout(waiting.timer);
+              waiting.reject(new Error("Your computer stopped listening."));
+            }
+          };
+        }
+        const ch = ears;
+        heard = { resolve, reject, timer: setTimeout(() => heard && (heard.reject(new Error("Your computer took too long over that.")), (heard = null)), 120_000) };
+        const go = () => {
+          ch.send(JSON.stringify({ t: "begin", lang }));
+          const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+          for (let i = 0; i < bytes.length; i += 16384) ch.send(bytes.slice(i, i + 16384));
+          ch.send(JSON.stringify({ t: "end" }));
+        };
+        if (ch.readyState === "open") go();
+        else ch.addEventListener("open", go, { once: true });
+      });
     },
     close: () => end({ at: "closed", why: "You closed it." }),
   };

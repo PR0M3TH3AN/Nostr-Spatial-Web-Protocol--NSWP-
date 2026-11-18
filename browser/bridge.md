@@ -121,11 +121,46 @@ One data channel, named `term`, ordered and reliable.
 | Binary | Bridge | What the terminal wrote, as bytes |
 | Text `{"t":"size","cols":100,"rows":30}` | Page | The panel's size, 20 to 300 columns and 5 to 120 rows. The first frame sent |
 | Text `{"t":"here"}` | Page | "Still here", every ten seconds |
-| Text `{"t":"ready","name":"…"}` | Bridge | The terminal has started |
+| Text `{"t":"ready","name":"…","speech":true}` | Bridge | The terminal has started. `speech` says whether this computer will turn what is said into text |
 | Text `{"t":"exit","code":0}` | Bridge | The program ended. The Bridge then closes the channel |
 
 A frame over 65,536 bytes is dropped. A text frame the other side doesn't
 know is ignored.
+
+## Speaking instead of typing
+
+A second channel, named `speech`, opened by the page the first time something
+is said. Sound goes one way and words come back:
+
+| Frame | From | Meaning |
+|---|---|---|
+| Text `{"t":"begin","lang":"en-GB"}` | Page | Something is about to be said |
+| Binary | Page | What the microphone heard: 16-bit samples, one channel, 16,000 a second |
+| Text `{"t":"end"}` or `{"t":"cancel"}` | Page | That was all of it, or never mind |
+| Text `{"t":"text","text":"…"}` | Bridge | The words |
+| Text `{"t":"sorry","why":"…"}` | Bridge | It couldn't, and why |
+
+- **The sound goes to the owner's computer and nowhere else.** It is written
+  to a file only that user can read, handed to a program on that computer,
+  and deleted. Nothing here calls a service.
+- **Speaking types. It never presses a key.** The words come back as one
+  line: no line break, nothing that is Enter, Escape or anything but a
+  letter. The owner reads what was typed and presses Enter themselves.
+- **At most 90 seconds at a time.**
+- **Off unless asked for.** A Bridge started without `--voice` or
+  `--transcribe` closes the channel and says `"speech": false`.
+
+`--voice` uses OpenAI's Whisper where it is installed
+(`pip install openai-whisper`), kept loaded so a sentence takes about a
+second. The first use of a model downloads it, and Whisper says so on the
+Bridge's screen. `--voice-model small` picks another model. `--transcribe
+"<command>"` uses any program instead: it is given a `.wav` file's path and
+prints the words.
+
+Where no computer listens, a home may use the browser's own speech
+recognition if it has one. Some browsers do that on the device; others send
+the sound to their maker. The SDK says so before the first word is heard,
+and prefers the owner's own computer whenever one is connected.
 
 ## What the Bridge does
 
@@ -175,6 +210,7 @@ It is not on npm yet. From a copy of this repository:
 npm install
 npm run bridge -- --owner npub1…                # asks before every session
 npm run bridge -- --owner npub1… --tmux         # lasting terminals: they outlive the headset
+npm run bridge -- --owner npub1… --voice         # and turns what you say into text, here
 npm run bridge -- --owner npub1… --allow-for 480 --command "claude" --cwd ~/code/project
 ```
 
@@ -210,11 +246,12 @@ keep terminals going between visits.
 ## In the home
 
 The SDK's terminal panel (`nswp-sdk/terminal`) is what a home hangs. Press
-it to type. Along its foot are five buttons, each one press, so they work
+it to type. Along its foot are six buttons, each one press, so they work
 with any controller and a mouse alike:
 
 | | |
 |---|---|
+| Speak | Say it instead. Press again when you have finished; the words are typed, and Enter is yours to press |
 | ▲ ▼ | Look back and forward through what has scrolled away. Typing returns to the end. A mouse wheel does the same |
 | A+ A− | Larger or smaller letters: 60 to 160 across. The program is told its new size. The panel's own + and − change how large the whole panel is |
 | Copy | What is on the screen, to the clipboard |
@@ -223,6 +260,14 @@ In a headset the kit's keyboard comes up under the panel, with Esc, Tab,
 Ctrl and the arrows, and page up, page down, home and end on its last layer.
 A stick does not scroll: every action here is a press, as everywhere in the
 kit. Selecting text with a pointer is not built.
+
+On the panel's bar, beside − + ✕, are two more: one goes round how
+see-through the panel is (solid; dark parts see-through; dark parts clear,
+so it is letters hanging in the air; all of it faint), and one pins it in
+the view so it comes along. A home may bring a terminal back after a refresh
+where it hung, as BitPortal does: each needs a new grant, so the computer
+asks again unless it was told `--allow-for`, and with `--tmux` what was
+running is still there.
 
 ## Proposed, not built
 

@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 import { randomBytes } from "node:crypto";
 import { DEFAULT_RELAYS, decodeNpub, encodeNpub, getPublicKey } from "@nswp/core";
 import { createBridge } from "./bridge.js";
+import { commandEars, whisperEars, type Ears, type Transcribe } from "./ears.js";
 
 export { createBridge, type Bridge, type BridgeOptions, type AskAbout } from "./bridge.js";
 
@@ -20,6 +21,9 @@ const HELP = `nswp-bridge: a terminal on this computer, opened from your home.
   --command "<program>"   run this instead of your shell, for example "claude"
   --cwd <folder>          start there instead of your home folder
   --tmux                  lasting terminals that outlive the connection (needs tmux)
+  --voice                 turn what you say in your home into text, here, with Whisper
+  --voice-model <name>    which Whisper model: base.en unless told (tiny.en is quicker)
+  --transcribe "<cmd>"    or with any command: it is given a .wav file, and prints the words
   --allow-for <minutes>   after you say yes once, don't ask again for this long
   --relays <a,b,c>        where to be found (default: the four NSWP uses)
   --home <address>        your home, for the pairing link
@@ -35,12 +39,12 @@ function fail(message: string): never {
 
 function parse(argv: string[]) {
   const o: Record<string, string | boolean> = {};
-  const takes = new Set(["owner", "command", "cwd", "allow-for", "relays", "home", "dir"]);
+  const takes = new Set(["owner", "command", "cwd", "allow-for", "relays", "home", "dir", "voice-model", "transcribe"]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (!a.startsWith("--")) fail(`Unexpected "${a}".\n\n${HELP}`);
     const name = a.slice(2);
-    if (name === "help" || name === "tmux") o[name] = true;
+    if (name === "help" || name === "tmux" || name === "voice") o[name] = true;
     else if (takes.has(name)) {
       const value = argv[++i];
       if (value === undefined) fail(`--${name} needs a value.`);
@@ -106,6 +110,21 @@ function main() {
   if (!relays.length || relays.some((r) => !/^wss?:\/\//.test(r))) fail("--relays is a list of wss:// addresses, separated by commas.");
   const home = typeof args.home === "string" ? args.home : "https://portal.bitblocks.network/walk/";
 
+  // Speech becomes text on this computer, or not at all.
+  const model = typeof args["voice-model"] === "string" ? args["voice-model"] : "base.en";
+  if (!/^[a-zA-Z0-9._-]{1,40}$/.test(model)) fail("--voice-model is a Whisper model's name, like base.en or small.");
+  let ears: Ears | null = null;
+  let transcribe: Transcribe | undefined;
+  if (typeof args.transcribe === "string") transcribe = commandEars(args.transcribe);
+  else if (args.voice) {
+    ears = whisperEars({ model });
+    transcribe = ears.transcribe;
+    ears.ready.then(
+      () => console.log(`[${stamp()}] Voice is ready: Whisper (${model}), on this computer.`),
+      (e: Error) => console.log(`[${stamp()}] Voice is off. ${e.message}`),
+    );
+  }
+
   // Answers are typed here. Nothing a page sends can reach this.
   const lines = createInterface({ input: process.stdin });
   let waiting: ((yes: boolean) => void) | null = null;
@@ -145,6 +164,7 @@ function main() {
     command,
     cwd,
     allowForSec: allowFor * 60,
+    ...(transcribe ? { transcribe } : {}),
     log: (line) => console.log(`[${stamp()}] ${line}`),
     ask({ code, open, replaces }) {
       if (nobody) {
@@ -166,6 +186,7 @@ function main() {
   Answers only    ${encodeNpub(owner)}
   A terminal runs ${args.tmux ? "tmux (lasting terminals: nswp-bridge-1, -2, …)" : typeof args.command === "string" ? args.command : plain[0]}
   Starting in     ${cwd}
+  Voice           ${typeof args.transcribe === "string" ? "heard by your own command, on this computer" : args.voice ? `Whisper (${model}), on this computer. It is loading` : "off (--voice turns it on)"}
   ${allowFor ? `After you say yes once, it opens without asking for ${allowFor} minutes.` : "It asks here before every session."}
 
 To add this computer to your home, open this while signed in as that key:
@@ -178,6 +199,7 @@ Whoever can open a terminal here can do anything you can. Ctrl-C stops it.
 
   const stop = () => {
     console.log(`\n[${stamp()}] Stopping.`);
+    ears?.close();
     void bridge.stop().then(() => process.exit(0));
   };
   process.on("SIGINT", stop);

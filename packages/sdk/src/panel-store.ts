@@ -28,10 +28,44 @@ export interface PanelPlace {
  */
 export type PanelSource = { kind: "note"; title: string; text: string } | { kind: "picture"; title: string; src: string } | { kind: "video"; title: string; src: string };
 
+/**
+ * How see-through a panel is. `opacity` is the whole of it, from 0.15 to 1.
+ * `dark` is how much of its dark parts is left, from 0 (gone) to 1 (as solid
+ * as the rest): a terminal with `dark` low is bright letters hanging in the
+ * air, with the world showing between them.
+ */
+export interface PanelLook {
+  opacity: number;
+  dark: number;
+}
+
+/** The looks a visitor goes round with one button, in order. Any other look can be set by a page. */
+export const PANEL_LOOKS: readonly (PanelLook & { name: string })[] = [
+  { name: "Solid", opacity: 1, dark: 1 },
+  { name: "Dark parts see-through", opacity: 1, dark: 0.4 },
+  { name: "Dark parts clear", opacity: 1, dark: 0.08 },
+  { name: "All of it faint", opacity: 0.6, dark: 0.35 },
+];
+
+export function cleanLook(input: unknown): PanelLook {
+  const l = (input && typeof input === "object" ? input : {}) as Partial<PanelLook>;
+  return { opacity: finite(l.opacity) ? clamp(l.opacity, 0.15, 1) : 1, dark: finite(l.dark) ? clamp(l.dark, 0, 1) : 1 };
+}
+
+/** The look after this one, going round `PANEL_LOOKS`. A look that isn't one of them goes to the first. */
+export function nextLook(now: PanelLook): PanelLook & { name: string } {
+  const at = PANEL_LOOKS.findIndex((l) => Math.abs(l.opacity - now.opacity) < 0.01 && Math.abs(l.dark - now.dark) < 0.01);
+  return PANEL_LOOKS[(at + 1) % PANEL_LOOKS.length]!;
+}
+
 export interface PanelRecord {
   id: string;
   source: PanelSource;
   place: PanelPlace;
+  /** Left out, it is solid. */
+  look?: PanelLook;
+  /** Where it sits in the visitor's view when it is pinned there: metres right, up and towards them. Left out, it hangs where it was put. */
+  pin?: V3;
 }
 
 export const PANEL_LIMITS = {
@@ -99,10 +133,52 @@ export function cleanRecords(input: unknown): PanelRecord[] {
     const place = cleanPlace(item.place);
     // A page's own temporary address means nothing next visit.
     if (!source || !place || ("src" in source && source.src.startsWith("blob:"))) continue;
-    out.push({ id: item.id, source, place });
+    const look = item.look ? cleanLook(item.look) : null;
+    const pin = cleanPin(item.pin);
+    out.push({ id: item.id, source, place, ...(look && (look.opacity < 1 || look.dark < 1) ? { look } : {}), ...(pin ? { pin } : {}) });
     if (out.length === PANEL_LIMITS.count) break;
   }
   return out;
+}
+
+/** Where a pinned panel sits in the view, kept within reach: never behind the visitor's head and never out of sight. */
+export function cleanPin(input: unknown): V3 | null {
+  if (!Array.isArray(input) || input.length !== 3 || !input.every(finite)) return null;
+  // Forward is -z. From a hand's reach to a few steps away, and not so far aside as to be behind them.
+  const z = clamp(input[2]!, -6, -0.25);
+  return [clamp(input[0]!, -4, 4), clamp(input[1]!, -2.5, 2.5), z];
+}
+
+/** Where a visitor's view is, for something that follows it: a place and a heading, in degrees round the vertical. */
+export interface Follow {
+  position: V3;
+  yaw: number;
+  /** Still catching up with a turn, or a move. */
+  turning: boolean;
+  moving: boolean;
+}
+
+const turn = (from: number, to: number) => ((((to - from) % 360) + 540) % 360) - 180;
+
+/**
+ * Follow a head the way something pinned in a headset should: not glued to
+ * the eyes, which is tiring and makes people ill, but staying put while they
+ * look about, and coming round when they have turned or moved well away.
+ * A small turn or a lean towards it changes nothing, so it can be read.
+ */
+export function tagAlong(now: Follow, head: { position: V3; yaw: number }, dt: number, o: { turn?: number; reach?: number } = {}): Follow {
+  const ease = Math.min(1, dt * 5);
+  const off = turn(now.yaw, head.yaw);
+  const turning = Math.abs(off) > (o.turn ?? 38) || (now.turning && Math.abs(off) > 3);
+  const [dx, dy, dz] = [head.position[0] - now.position[0], head.position[1] - now.position[1], head.position[2] - now.position[2]];
+  const far = Math.hypot(dx, dy, dz);
+  const moving = far > (o.reach ?? 0.4) || (now.moving && far > 0.03);
+  return {
+    yaw: turning ? (((now.yaw + off * ease) % 360) + 360) % 360 : now.yaw,
+    position: moving ? [now.position[0] + dx * ease, now.position[1] + dy * ease, now.position[2] + dz * ease] : now.position,
+    turning,
+    moving,
+  };
 }
 
 /** The way a panel at `at` should turn to face a head at `head`: its yaw and pitch, in degrees. */

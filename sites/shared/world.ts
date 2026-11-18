@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -196,6 +196,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   rig.position.set(...spawn.position);
   rig.rotation.y = THREE.MathUtils.degToRad(spawn.yaw);
   state.entryPoint = entryName;
+  // A refresh is not an arrival: whoever was here is put back where they stood, facing the way they faced.
+  const stay = createStay();
+  const stood = context ? null : stay.before;
+  if (stood) {
+    rig.position.set(stood.x, spawn.position[1], stood.z);
+    rig.rotation.y = THREE.MathUtils.degToRad(stood.yaw);
+  }
+  state.stood = !!stood;
+  const keepPlace = () => stay.keep({ x: rig.position.x, z: rig.position.z, yaw: THREE.MathUtils.radToDeg(rig.rotation.y), headset: renderer.xr.isPresenting });
+  addEventListener("pagehide", keepPlace);
+  setInterval(keepPlace, 1000);
 
   // Everything modelled is drawn without lights; this is for anything a world adds that needs one.
   scene.add(new THREE.HemisphereLight(0xffffff, cfg.palette.ground, 1.2));
@@ -661,7 +672,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Someone who came through an Airlock starts in the chamber, and its doors open when the world is ready. If they
   // left a headset session to get here, the one thing asked of them is whether to go back into one, and the doors
   // wait for that, so they are seen to open.
-  let offered = !!context?.immersive;
+  // The same goes for someone whose headset session a refresh ended: the way back in is offered first, and alone.
+  const backToHeadset = !!context?.immersive || !!stood?.headset;
+  let offered = backToHeadset;
   if (context) {
     camera.updateMatrixWorld(true);
     crossing.arrive({ title: cfg.title, address: location.host, ready: opened, hold: () => offered });
@@ -672,7 +685,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     camera,
     hud,
     onState: (x) => (state.xr = x),
-    ...(context?.immersive ? { arrived: { title: cfg.title } } : {}),
+    ...(backToHeadset ? { arrived: { title: cfg.title } } : {}),
     onOffer: (showing) => (offered = showing),
   });
   if (!state.vrSupported) offered = false;

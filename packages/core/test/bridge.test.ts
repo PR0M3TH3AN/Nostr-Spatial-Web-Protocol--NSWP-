@@ -17,6 +17,8 @@ import {
   openBridgeSignal,
   openSignal,
   parseBridgeControl,
+  parseSpeechControl,
+  cleanSpeechText,
   ROOM_PASS_KIND,
   roomTopic,
   verifyBridgeGrant,
@@ -140,9 +142,31 @@ describe("the channel", () => {
 
   it("reads the few things either side says, and nothing else", () => {
     expect(parseBridgeControl('{"t":"size","cols":120,"rows":40}')).toEqual({ t: "size", cols: 120, rows: 40 });
-    expect(parseBridgeControl('{"t":"ready","name":"  bash\\n on \\u202edesk  "}')).toEqual({ t: "ready", name: "bash on desk" });
+    expect(parseBridgeControl('{"t":"ready","name":"  bash\\n on \\u202edesk  "}')).toEqual({ t: "ready", name: "bash on desk", speech: false });
+    expect(parseBridgeControl('{"t":"ready","name":"desk","speech":true}')).toEqual({ t: "ready", name: "desk", speech: true });
+    expect(parseBridgeControl('{"t":"ready","name":"desk","speech":"yes"}')).toEqual({ t: "ready", name: "desk", speech: false });
     expect(parseBridgeControl('{"t":"exit","code":0}')).toEqual({ t: "exit", code: 0 });
     expect(parseBridgeControl('{"t":"here","extra":1}')).toEqual({ t: "here" });
     for (const bad of ['{"t":"run","command":"rm -rf ~"}', '{"t":"size","cols":"80","rows":24}', '{"t":"exit"}', "[]", "null", "not json", `{"t":"ready","name":"${"x".repeat(2000)}"}`]) expect(parseBridgeControl(bad), bad.slice(0, 30)).toBeNull();
+  });
+});
+
+describe("speech", () => {
+  it("comes back as words to type: one line, and never a key", () => {
+    expect(cleanSpeechText("  list the files\n and\tgo ")).toBe("list the files and go");
+    // Nothing spoken can press Enter, escape, or hide what it is.
+    expect(cleanSpeechText("rm -rf ~\r\n")).toBe("rm -rf ~");
+    expect(cleanSpeechText("a\u001b[2Jb\u202ec")).toBe("a [2Jb c");
+    expect([...cleanSpeechText("x".repeat(9000))].length).toBe(BRIDGE_LIMITS.speechChars);
+  });
+
+  it("is a few things said on its own channel, and nothing else", () => {
+    expect(parseSpeechControl('{"t":"begin","lang":"en-GB"}')).toEqual({ t: "begin", lang: "en-GB" });
+    expect(parseSpeechControl('{"t":"begin","lang":"../../etc"}')).toEqual({ t: "begin", lang: "en" });
+    expect(parseSpeechControl('{"t":"begin"}')).toEqual({ t: "begin", lang: "en" });
+    expect(parseSpeechControl('{"t":"end"}')).toEqual({ t: "end" });
+    expect(parseSpeechControl('{"t":"text","text":"hello\\nworld"}')).toEqual({ t: "text", text: "hello world" });
+    expect(parseSpeechControl('{"t":"sorry","why":"too long"}')).toEqual({ t: "sorry", why: "too long" });
+    for (const bad of ['{"t":"text"}', '{"t":"run"}', "[]", "nope", '{"t":"size","cols":80,"rows":24}']) expect(parseSpeechControl(bad), bad).toBeNull();
   });
 });

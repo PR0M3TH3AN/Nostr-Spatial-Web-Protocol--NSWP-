@@ -4,7 +4,7 @@
  * is tested like arithmetic. `keyboard.ts` draws it in a headset.
  */
 
-export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system" | "esc" | "tab" | "ctrl" | "up" | "down" | "left" | "right" | "pgup" | "pgdn" | "home" | "end" | "close";
+export type KeyKind = "char" | "shift" | "back" | "layer" | "space" | "enter" | "cancel" | "done" | "system" | "esc" | "tab" | "ctrl" | "up" | "down" | "left" | "right" | "pgup" | "pgdn" | "home" | "end" | "close" | "mic";
 
 export interface Key {
   /** What a press of it is called: the character itself for a letter, a word for the rest. */
@@ -30,15 +30,16 @@ const chars = (row: string): Key[] => [...row].map((c) => ({ id: c, label: c, ki
 const key = (id: string, label: string, kind: KeyKind, w: number): Key => ({ id, label, kind, w });
 
 /** The rows of a layer, top to bottom. Every row is ten letter-widths across, or is centred if it is shorter. */
-export function keyRows(layer: Layer, o: { system?: boolean; multiline?: boolean } = {}): Key[][] {
+export function keyRows(layer: Layer, o: { system?: boolean; multiline?: boolean; mic?: boolean } = {}): Key[][] {
   const bottom = [key("layer", layer === "letters" ? "123" : "ABC", "layer", 1.5), ...chars(","), key("space", "space", "space", 4.5), ...chars("."), key("enter", o.multiline ? "new line" : "done", "enter", 2)];
-  const actions = [key("cancel", "Cancel", "cancel", 3), ...(o.system ? [key("system", "Headset's keyboard", "system", 4)] : []), key("done", "Done", "done", 3)];
+  // Speak is there only where something can turn speech into words.
+  const actions = [key("cancel", "Cancel", "cancel", 3), ...(o.mic ? [key("mic", "Speak", "mic", 2.4)] : []), ...(o.system ? [key("system", "Headset's keyboard", "system", 4)] : []), key("done", "Done", "done", 3)];
   if (layer === "letters") return [chars("qwertyuiop"), chars("asdfghjkl"), [key("shift", "shift", "shift", 1.5), ...chars("zxcvbnm"), key("back", "delete", "back", 1.5)], bottom, actions];
   return [chars("1234567890"), chars("-/:;()!?@"), [...chars("'\"_&#+=*"), key("back", "delete", "back", 2)], bottom, actions];
 }
 
 /** Where every key of a layer sits on a board ten letter-widths across. `rows` lays out other rows the same way. */
-export function placeKeys(layer: Layer, o: { system?: boolean; multiline?: boolean } = {}, rows: Key[][] = keyRows(layer, o)): PlacedKey[] {
+export function placeKeys(layer: Layer, o: { system?: boolean; multiline?: boolean; mic?: boolean } = {}, rows: Key[][] = keyRows(layer, o)): PlacedKey[] {
   const gap = 0.012;
   const height = 1 / rows.length;
   return rows.flatMap((row, r) => {
@@ -61,7 +62,7 @@ export function keyAt(keys: PlacedKey[], x: number, y: number): PlacedKey | null
 }
 
 export type Shift = "off" | "once" | "lock";
-export type Pressed = "typing" | "done" | "cancel" | "system";
+export type Pressed = "typing" | "done" | "cancel" | "system" | "mic";
 
 /** The words so far, and what each key does to them. */
 export class TextEntry {
@@ -134,6 +135,8 @@ export class TextEntry {
         return "cancel";
       case "system":
         return "system";
+      case "mic":
+        return "mic";
       default:
         // A terminal's keys (term-keys.ts) are not on this board.
         return "typing";

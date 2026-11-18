@@ -30,9 +30,10 @@ import { createKeyboard, type Keyboard } from "./keyboard.js";
 import { createLibrary, fileStore, type Library } from "./library.js";
 import { MeshBuilder } from "./mesh.js";
 import type { Controls } from "./ui/model.js";
-import { cleanPlace, cleanRecords, cleanSource, facing, inFront, newId, PANEL_LIMITS, wrapText, type PanelPlace, type PanelRecord, type PanelSource, type V3 } from "./panel-store.js";
+import { cleanLook, cleanPin, cleanPlace, cleanRecords, cleanSource, facing, inFront, newId, nextLook, PANEL_LIMITS, tagAlong, wrapText, type Follow, type PanelLook, type PanelPlace, type PanelRecord, type PanelSource, type V3 } from "./panel-store.js";
 
-export type { PanelPlace, PanelRecord, PanelSource } from "./panel-store.js";
+export type { PanelLook, PanelPlace, PanelRecord, PanelSource } from "./panel-store.js";
+export { PANEL_LOOKS } from "./panel-store.js";
 
 /**
  * What a panel can show. `custom` is a texture of the page's own, for
@@ -63,6 +64,18 @@ export interface Panel {
   readonly source: PanelContent;
   place(): PanelPlace;
   moveTo(place: Partial<PanelPlace>): void;
+  /** How see-through it is. */
+  readonly look: PanelLook;
+  setLook(look: Partial<PanelLook>): void;
+  /**
+   * Whether it is pinned in the visitor's view: it comes with them, and stays
+   * where they put it in front of them. On a flat screen it keeps its place on
+   * the screen. In a headset it stays put while they look about and comes
+   * round when they turn or move well away, because a thing glued to the eyes
+   * is tiring. `pin` is where: metres right, up and ahead (ahead is negative).
+   */
+  readonly pin: V3 | null;
+  setPinned(on: boolean): void;
   close(): void;
 }
 
@@ -76,11 +89,13 @@ export interface PanelInfo {
   held: boolean;
   /** Whether what it shows has loaded. */
   ready: boolean;
+  look: PanelLook;
+  pinned: boolean;
 }
 
 export interface Panels {
   /** Hang a panel. Without a place, it goes a comfortable reach in front of the visitor, facing them. */
-  open(content: PanelContent, opts?: { id?: string; place?: Partial<PanelPlace>; keep?: boolean }): Panel;
+  open(content: PanelContent, opts?: { id?: string; place?: Partial<PanelPlace>; keep?: boolean; look?: Partial<PanelLook>; pin?: V3 | null }): Panel;
   /** Hang a file the visitor chose from their own device: a picture or a video. It goes into their library, and is kept in this browser. */
   openFile(file: Blob & { name?: string }): Promise<Panel | null>;
   /** A keyboard to type on inside a headset. Its keys are found by `pick()` and pressed by `press()`, like a panel's. */
@@ -142,7 +157,7 @@ function noteTexture(source: Extract<PanelSource, { kind: "note" }>, ink: string
   return { texture, aspect: W / H };
 }
 
-type Glyph = "close" | "smaller" | "larger" | "play" | "pause";
+type Glyph = "close" | "smaller" | "larger" | "play" | "pause" | "glass" | "pin";
 function glyphTexture(glyph: Glyph, ink: string): THREE.CanvasTexture {
   return canvasTexture(128, 128, (g) => {
     g.fillStyle = "#101a26";
@@ -168,6 +183,25 @@ function glyphTexture(glyph: Glyph, ink: string): THREE.CanvasTexture {
         g.lineTo(64, 90);
       }
       g.stroke();
+    } else if (glyph === "glass") {
+      // A pane, half of it there: how see-through the panel is.
+      g.lineWidth = 8;
+      g.strokeRect(38, 38, 52, 52);
+      g.beginPath();
+      g.moveTo(38, 90);
+      g.lineTo(90, 38);
+      g.lineTo(90, 90);
+      g.closePath();
+      g.fill();
+    } else if (glyph === "pin") {
+      // A pin: a head, a shaft, a point.
+      g.lineWidth = 9;
+      g.arc(64, 50, 17, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.moveTo(64, 62);
+      g.lineTo(64, 98);
+      g.stroke();
     } else if (glyph === "play") {
       g.moveTo(48, 36);
       g.lineTo(92, 64);
@@ -189,7 +223,7 @@ function barTexture(title: string, ink: string): THREE.CanvasTexture {
     g.textBaseline = "middle";
     g.font = "bold 42px system-ui, sans-serif";
     // Leave room at the right for the buttons, and for one at the left on a video.
-    g.fillText(title, 96, h / 2 + 2, w - 96 - 290);
+    g.fillText(title, 96, h / 2 + 2, w - 96 - 440);
   });
 }
 
@@ -205,6 +239,10 @@ interface Live extends Panel {
   width: number;
   ready: boolean;
   held: boolean;
+  seeThrough: PanelLook;
+  /** The shader's own copy of how much of the dark parts is left. */
+  dark: { value: number };
+  pinAt: V3 | null;
   release?: () => void;
   blobUrl?: string;
 }
@@ -239,7 +277,10 @@ export function createPanels(o: PanelsOptions): Panels {
     o.onChange?.();
     if (!o.keep) return;
     try {
-      localStorage.setItem(o.keep, JSON.stringify([...live.values()].flatMap((p) => (p.record ? [{ ...p.record, place: p.place() }] : []))));
+      localStorage.setItem(
+        o.keep,
+        JSON.stringify([...live.values()].flatMap((p) => (p.record ? [{ id: p.record.id, source: p.record.source, place: p.place(), ...(p.seeThrough.opacity < 1 || p.seeThrough.dark < 1 ? { look: p.seeThrough } : {}), ...(p.pinAt ? { pin: p.pinAt } : {}) }] : []))),
+      );
     } catch {
       /* storage unavailable: they last for the visit */
     }
@@ -285,7 +326,7 @@ export function createPanels(o: PanelsOptions): Panels {
       frame.position.set(0, (BAR + GAP) / 2, -0.014);
     }
     let x = 0.5 - BUTTON / 2 - 0.012;
-    for (const name of ["close", "larger", "smaller"]) {
+    for (const name of ["close", "larger", "smaller", "glass", "pin"]) {
       p.buttons.get(name)?.position.set(x, top, 0.004);
       x -= BUTTON + 0.014;
     }
@@ -303,6 +344,59 @@ export function createPanels(o: PanelsOptions): Panels {
       p.width = Math.min(PANEL_LIMITS.maxWidth, Math.max(PANEL_LIMITS.minWidth, place.width));
       layout(p);
     }
+  };
+
+  // ---------------------------------------------------------------- see-through
+  const applyLook = (p: Live) => {
+    const material = p.body.material as THREE.MeshBasicMaterial;
+    const solid = p.seeThrough.opacity >= 1 && p.seeThrough.dark >= 1;
+    material.opacity = p.seeThrough.opacity;
+    material.transparent = !solid;
+    material.depthWrite = solid;
+    p.dark.value = p.seeThrough.dark;
+    p.body.renderOrder = solid ? 0 : 2;
+    // The slab behind the picture would show through it. A see-through panel is its picture and its bar.
+    const frame = p.group.getObjectByName("frame");
+    if (frame) frame.visible = solid;
+    material.needsUpdate = true;
+  };
+  /** Dark parts fade more than light ones: the picture's own brightness decides how much of each point is left. */
+  const seeThroughDark = (material: THREE.MeshBasicMaterial, dark: { value: number }) => {
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.nswpDark = dark;
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nuniform float nswpDark;")
+        .replace("#include <map_fragment>", "#include <map_fragment>\n\tdiffuseColor.a *= mix(nswpDark, 1.0, smoothstep(0.03, 0.45, dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))));");
+    };
+    material.customProgramCacheKey = () => "nswp-panel-body";
+  };
+
+  // --------------------------------------------------------------- pinned in view
+  const presenting = () => !!o.session?.();
+  let follow: Follow | null = null;
+  const anchorAt = new THREE.Vector3();
+  const anchorTurn = new THREE.Quaternion();
+  const offset = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0);
+  /** Where the view is, for what is pinned in it. On a flat screen, the camera itself. In a headset, a calmer thing that follows it. */
+  const anchor = (dt: number) => {
+    o.camera.getWorldPosition(anchorAt);
+    if (!presenting()) {
+      o.camera.getWorldQuaternion(anchorTurn);
+      follow = null;
+      return;
+    }
+    o.camera.getWorldDirection(at);
+    const head = { position: anchorAt.toArray() as V3, yaw: Math.atan2(-at.x, -at.z) / DEG };
+    follow = follow ? tagAlong(follow, head, dt) : { ...head, turning: false, moving: false };
+    anchorAt.set(...follow.position);
+    anchorTurn.setFromAxisAngle(UP, follow.yaw * DEG);
+  };
+  /** Where a panel is now, as seen from the view: what is kept when it is pinned. */
+  const pinFrom = (p: Live): V3 | null => {
+    anchor(0);
+    offset.copy(p.group.position).sub(anchorAt).applyQuaternion(anchorTurn.clone().invert());
+    return cleanPin(offset.toArray());
   };
 
   const turnToFace = (p: Live) => {
@@ -332,7 +426,7 @@ export function createPanels(o: PanelsOptions): Panels {
   // ------------------------------------------------------------------ opening
   const flat = (texture: THREE.Texture | null, w = 1, h = 1) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: texture, color: texture ? 0xffffff : 0x0a1018, toneMapped: false }));
 
-  const open = (content: PanelContent, opts: { id?: string; place?: Partial<PanelPlace>; keep?: boolean } = {}): Panel => {
+  const open = (content: PanelContent, opts: { id?: string; place?: Partial<PanelPlace>; keep?: boolean; look?: Partial<PanelLook>; pin?: V3 | null } = {}): Panel => {
     const source = content.kind === "custom" ? content : cleanSource(content);
     if (!source) throw new Error("nswp-sdk: a panel needs something to show (a note with words, or a picture or video with an address).");
     // Never make room by throwing one of the visitor's away.
@@ -358,6 +452,10 @@ export function createPanels(o: PanelsOptions): Panels {
     button("close", "close");
     button("larger", "larger");
     button("smaller", "smaller");
+    button("glass", "glass");
+    button("pin", "pin");
+    const dark = { value: 1 };
+    seeThroughDark(body.material as THREE.MeshBasicMaterial, dark);
     if (source.kind === "video") button("play", "play");
     group.add(frame, body, bar);
     root.add(group);
@@ -375,6 +473,25 @@ export function createPanels(o: PanelsOptions): Panels {
       width: source.kind === "note" ? 0.8 : 1.1,
       ready: false,
       held: false,
+      seeThrough: cleanLook(opts.look),
+      dark,
+      pinAt: null,
+      get look() {
+        return { ...p.seeThrough };
+      },
+      setLook(look) {
+        p.seeThrough = cleanLook({ ...p.seeThrough, ...look });
+        applyLook(p);
+        save();
+      },
+      get pin() {
+        return p.pinAt ? ([...p.pinAt] as V3) : null;
+      },
+      setPinned(on) {
+        p.pinAt = on ? pinFrom(p) : null;
+        lit(p);
+        save();
+      },
       place() {
         const e = new THREE.Euler().setFromQuaternion(group.quaternion, "YXZ");
         const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -395,6 +512,7 @@ export function createPanels(o: PanelsOptions): Panels {
       p.aspect = Math.min(4, Math.max(0.25, aspect));
       p.ready = true;
       layout(p);
+      applyLook(p);
     };
 
     if (source.kind === "note") {
@@ -465,10 +583,15 @@ export function createPanels(o: PanelsOptions): Panels {
           group.add(bar);
           layout(p);
           turnToFace(p);
+          // Moved while pinned: it is pinned where it was let go.
+          if (p.pinAt) p.pinAt = pinFrom(p);
           save();
         },
       });
     }
+    applyLook(p);
+    p.pinAt = opts.pin ? cleanPin(opts.pin) : null;
+    lit(p);
     if (opts.keep !== false && source.kind !== "custom" && !("src" in source && source.src.startsWith("blob:"))) p.record = { id, source, place: p.place() };
     save();
     return p;
@@ -485,7 +608,7 @@ export function createPanels(o: PanelsOptions): Panels {
     }
     for (const r of kept) {
       const place = cleanPlace(r.place);
-      if (place) open(r.source, { id: r.id, place });
+      if (place) open(r.source, { id: r.id, place, ...(r.look ? { look: r.look } : {}), ...(r.pin ? { pin: r.pin } : {}) });
     }
   })();
 
@@ -502,8 +625,10 @@ export function createPanels(o: PanelsOptions): Panels {
   const tint = (hit: string | null, on: boolean) => {
     const found = hit ? find(hit) : null;
     const mesh = found?.[0].buttons.get(found[1]);
-    if (mesh) (mesh.material as THREE.MeshBasicMaterial).color.copy(on ? accent : new THREE.Color(0xffffff));
+    // The pin stays lit while the panel is pinned.
+    if (mesh) (mesh.material as THREE.MeshBasicMaterial).color.copy(on || (found![1] === "pin" && found![0].pinAt) ? accent : new THREE.Color(0xffffff));
   };
+  const lit = (p: Live) => (p.buttons.get("pin")!.material as THREE.MeshBasicMaterial).color.copy(p.pinAt ? accent : new THREE.Color(0xffffff));
 
   const api: Panels = {
     open,
@@ -552,7 +677,12 @@ export function createPanels(o: PanelsOptions): Panels {
       if (!found) return;
       const [p, part] = found;
       if (part === "close") return p.close();
-      if (part === "larger" || part === "smaller") return p.moveTo({ width: p.width * (part === "larger" ? 1.25 : 0.8) });
+      if (part === "larger" || part === "smaller") {
+        p.moveTo({ width: p.width * (part === "larger" ? 1.25 : 0.8) });
+        return;
+      }
+      if (part === "glass") return p.setLook(nextLook(p.seeThrough));
+      if (part === "pin") return p.setPinned(!p.pinAt);
       if (part === "body" && p.source.kind === "custom") return p.source.onPress?.(pointed?.name === hit ? pointed.x : 0.5, pointed?.name === hit ? pointed.y : 0.5);
       // A video's own picture is its play button too: the largest thing to hit.
       if ((part === "play" || part === "body") && p.video) void (p.video.paused ? p.video.play().catch(() => {}) : Promise.resolve(p.video.pause()));
@@ -578,14 +708,25 @@ export function createPanels(o: PanelsOptions): Panels {
         return true;
       }
       const moved = drag.moved;
+      if (moved && drag.p.pinAt) drag.p.pinAt = pinFrom(drag.p);
       drag = null;
       if (moved) save();
       return moved;
     },
-    update(t) {
+    update(t, dt = 1 / 60) {
       metal.tick(t);
       keyboard.update(t);
       library.update();
+      // What is pinned comes with the view.
+      if ([...live.values()].some((p) => p.pinAt)) {
+        anchor(dt);
+        for (const p of live.values()) {
+          if (!p.pinAt || p.held || drag?.p === p) continue;
+          offset.set(...p.pinAt).applyQuaternion(anchorTurn).add(anchorAt);
+          p.group.position.copy(offset);
+          turnToFace(p);
+        }
+      }
       for (const p of live.values()) {
         if (!p.held) continue;
         // The bar is in the visitor's hand. The panel hangs from it, and turns to face them.
@@ -605,6 +746,8 @@ export function createPanels(o: PanelsOptions): Panels {
         playing: p.video ? !p.video.paused : null,
         held: p.held,
         ready: p.ready,
+        look: { ...p.seeThrough },
+        pinned: !!p.pinAt,
       })),
     dispose() {
       // Going away with the page is not the visitor putting their panels away: nothing kept is touched.

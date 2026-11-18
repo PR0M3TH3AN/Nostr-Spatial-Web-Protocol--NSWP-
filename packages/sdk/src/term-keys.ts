@@ -85,11 +85,11 @@ const key = (id: string, label: string, kind: KeyKind, w: number): Key => ({ id,
  * above them for what a terminal needs and words don't, and no Done. It
  * stays up until it is put away.
  */
-export function liveRows(layer: LiveLayer): Key[][] {
+export function liveRows(layer: LiveLayer, o: { mic?: boolean } = {}): Key[][] {
   const top = [key("esc", "esc", "esc", 1.4), key("tab", "tab", "tab", 1.4), key("ctrl", "ctrl", "ctrl", 1.4), key("left", "←", "left", 1), key("down", "↓", "down", 1), key("up", "↑", "up", 1), key("right", "→", "right", 1), ...chars("/-").map((k, i) => ({ ...k, w: i ? 0.8 : 1 }))];
   const next = layer === "letters" ? "123" : layer === "symbols" ? "#+=" : "abc";
   const bottom = [key("layer", next, "layer", 1.5), ...chars(","), key("space", "space", "space", 4.5), ...chars("."), key("enter", "enter", "enter", 2)];
-  const away = [key("close", "Put the keyboard away", "close", 10)];
+  const away = o.mic ? [key("mic", "Speak", "mic", 3), key("close", "Put the keyboard away", "close", 7)] : [key("close", "Put the keyboard away", "close", 10)];
   if (layer === "letters") return [top, ...keyRows("letters").slice(0, 3), bottom, away];
   if (layer === "symbols") return [top, chars("1234567890"), chars(":;()$&@\"'_"), [...chars("|~<>{}[]\\"), key("back", "del", "back", 1)], bottom, away];
   // The last layer has the keys a pager or an editor wants: a page at a time, and the ends of a line.
@@ -98,11 +98,11 @@ export function liveRows(layer: LiveLayer): Key[][] {
 }
 
 /** Where every key sits, as `placeKeys` lays them. */
-export function placeLiveKeys(layer: LiveLayer): PlacedKey[] {
-  return placeKeys("letters", {}, liveRows(layer));
+export function placeLiveKeys(layer: LiveLayer, o: { mic?: boolean } = {}): PlacedKey[] {
+  return placeKeys("letters", {}, liveRows(layer, o));
 }
 
-export type LivePressed = { send: string } | { close: true } | null;
+export type LivePressed = { send: string } | { close: true } | { mic: true } | null;
 
 /** The drawn keyboard's own state: shift, ctrl and which layer, and what each press sends. */
 export class LiveKeys {
@@ -171,6 +171,8 @@ export class LiveKeys {
         return null;
       case "close":
         return { close: true };
+      case "mic":
+        return { mic: true };
       default:
         return null;
     }
