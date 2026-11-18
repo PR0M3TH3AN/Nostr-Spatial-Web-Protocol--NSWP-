@@ -99,7 +99,9 @@ for line in sys.stdin:
             audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
         # A model that knows only English is told nothing else.
         lang = "en" if name.endswith(".en") else (lang.split("-")[0].lower() or None)
-        result = model.transcribe(audio, fp16=False, language=lang, condition_on_previous_text=False)
+        # One pass. Whisper's way of trying again, hotter, when it is unsure makes someone wait many times as long
+        # for a few words, and they are reading the result before they press Enter anyway.
+        result = model.transcribe(audio, fp16=False, language=lang, condition_on_previous_text=False, temperature=0.0, without_timestamps=True)
         say({"text": result.get("text", "")})
     except Exception as e:
         say({"error": str(e)})

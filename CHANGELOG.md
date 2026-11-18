@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.5
+
+Working in a place instead of visiting it: speaking, panels that come along, and a refresh that isn't a reset. Nothing a world implements changes.
+
+- **Speak instead of typing.** A Speak key on the drawn keyboard and a Speak button on the terminal. Where a terminal's Bridge was started with `--voice`, the sound goes to the owner's own computer over the connection the terminal has, Whisper there turns it into words, and it goes nowhere else. Otherwise the browser's own recognition is used where there is one: on the device where the browser can, and after saying so where it would send the sound to its maker.
+- **Speaking types, and never presses a key.** Words come back as one line. The Bridge and the page each strip anything else.
+- **See-through panels.** A button goes round four looks. Dark parts can fade more than light ones, so a terminal can be letters hanging in the air.
+- **Pinned in the view.** A pinned panel comes along. On a flat screen it keeps its place on the screen; in a headset it stays put while the visitor looks about and comes round when they turn or move well away.
+- **A refresh is not an arrival.** `createStay` puts a visitor back where they stood, facing the way they faced, and offers the way back into a headset first. The reference worlds and BitPortal's room do it; BitPortal also brings back the terminals that were open, as they hung.
+- **Found by trying it:** Whisper, when unsure, tries again and again, hotter: a few words took ten seconds. One pass takes under one.
+- **Status (2026-11-18):** built, not deployed. Tried on one machine with throwaway keys, in Chrome and an emulated Quest 3, with a microphone the browser made up and a stand-in for the recogniser: every part above, and the real Whisper run once on a made-up sound. **Not tried:** a real voice; a real headset, where how a pinned panel feels and whether see-through letters can be read are the things to judge.
+
 ## 0.10.4
 
 The terminal, after its first real use. Nothing a world implements changes, and nothing on the wire.

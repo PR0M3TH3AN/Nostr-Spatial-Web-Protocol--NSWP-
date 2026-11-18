@@ -192,6 +192,59 @@ addPanelControls(controls, panels, { presenting: () => renderer.xr.isPresenting,
 `panel-store.ts` is the part with no three.js in it: what may be kept, where a
 new panel goes, how a note is wrapped.
 
+### See-through, and pinned in the view
+
+Every panel's bar has two more buttons beside − + ✕.
+
+```js
+panel.setLook({ opacity: 1, dark: 0.08 });   // dark parts gone: letters hanging in the air
+panel.setPinned(true);                        // it comes along, where it now sits in the view
+```
+
+- **How see-through.** `opacity` is the whole panel. `dark` is how much of
+  its dark parts is left, so a dark panel can let the world through between
+  its bright parts. The button goes round four looks (`PANEL_LOOKS`).
+- **Pinned.** On a flat screen a pinned panel keeps its place on the screen.
+  In a headset it does not: something glued to the eyes is tiring and makes
+  people ill. It stays put while the visitor looks about, so it can be read,
+  and comes round when they have turned or moved well away.
+- Both are kept with the panel.
+
+### Staying put through a refresh
+
+```js
+const stay = createStay();
+const stood = cameThroughADoor ? null : stay.before;   // { x, z, yaw, headset } after a refresh, null on any arrival
+// now and then, and on pagehide:  stay.keep({ x, z, yaw, headset: renderer.xr.isPresenting })
+```
+
+Someone building a world refreshes it all day, and being sent back to the
+entrance each time makes every change feel like starting again. It is kept
+for the tab, and given back only when the page was refreshed. A refresh
+always ends a headset session, which is the browser's rule: `headset` says
+they were in one, so the way back in can be offered first and alone
+(`addViewControls`' `arrived`).
+
+### Speaking instead of typing
+
+`panels.keyboard.voice` is one button's worth of speech: press to start,
+press again to finish, and the words are typed. The drawn keyboard has a
+**Speak** key wherever something can do the work.
+
+```js
+panels.keyboard.voice.toggle({ onText: (words) => field.value += words, say: (line) => status.textContent = line });
+panels.keyboard.voice.add(computerVoice("my computer", (pcm, lang) => sendSomewhereOfTheirs(pcm, lang)));
+```
+
+- **Who turns the sound into words is the whole question.** A visitor's own
+  computer is preferred when one is connected
+  ([`browser/bridge.md`](../browser/bridge.md)). Otherwise the browser's own
+  recognition is used where it exists, on the device where the browser can.
+- **Where the browser would send the sound away, the visitor is told first,**
+  once, and a second press goes ahead.
+- **Speaking never presses Enter.** Words come back as one line.
+- Not every browser has it. Where nothing can listen there is no Speak key.
+
 ### A keyboard in the headset
 
 `panels.keyboard` is a keyboard the kit draws: its keys are pressed with a
