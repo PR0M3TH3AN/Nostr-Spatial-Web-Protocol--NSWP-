@@ -19,9 +19,8 @@ There are three steps, and each works without the next:
 
 You need the `nswp` command-line tool and, for step 3, the SDK. Neither is on
 a package registry yet. Take both from the
-[world template](https://github.com/PR0M3TH3AN/nswp-world-template) (a private
-repository for now): copy its `vendor/nswp/` folder into your project. It
-holds:
+[world template](https://github.com/PR0M3TH3AN/nswp-world-template): copy its
+`vendor/nswp/` folder into your project. It holds:
 
 - `nswp-cli.js`: the tool. Run it as `node vendor/nswp/nswp-cli.js`.
 - `nswp-core.js` and `sdk/index.js`: the library and the SDK, for step 3.
