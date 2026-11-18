@@ -17,12 +17,15 @@ import { decodeLook, encodeNpub, spawnOffset, type Pose, type Transform } from "
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
+import { MUSIC_DUCK, MUSIC_RANGE, musicFade, musicToHear } from "./sound-store.js";
 
 import { turnVisitor } from "./turn.js";
 export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import type { Panel, Panels } from "./panels.js";
+import type { Sounds } from "./sound.js";
+import { LEVEL_WORDS, levelStep, nextLevel } from "./sound-store.js";
 
 export interface PresenceOptions {
   scene: THREE.Scene;
@@ -68,6 +71,14 @@ export interface AvatarInfo {
   identity: string | null;
   /** This visitor has stopped hearing them. */
   muted: boolean;
+  /** They are offering their music to people nearby. */
+  music: boolean;
+  /** Their music is being asked for and played here. */
+  hearing: boolean;
+  /** How loud their music is being played here, after distance and ducking, from 0 to 1. */
+  musicVolume: number;
+  /** How loud their music is arriving, before any of that. */
+  musicLevel: number;
 }
 
 export interface Presence {
@@ -90,6 +101,20 @@ export interface Presence {
   people(): Member[];
   /** How loud other people's voices are for this visitor, from 0 to 1. Theirs to set, and nobody else's. */
   setVolume(volume: number): void;
+  /** Whether this visitor is offering their music to people nearby. */
+  readonly musicOn: boolean;
+  /** How many members their music is going to now. */
+  readonly musicListeners: number;
+  /**
+   * Offer music to people nearby, or stop (null). It is sent only to members who are near and have turned on
+   * hearing shared music. It ends when the visitor leaves the room.
+   */
+  shareMusic(track: MediaStreamTrack | null): Promise<void>;
+  /** Whether to hear music people nearby share, and how loud. Off until the visitor turns it on. */
+  setHearShared(on: boolean, volume: number): void;
+  /** Stop hearing one member's music, or hear it again. Their voice is not affected. */
+  muteMusic(pubkey: string, on: boolean): void;
+  isMusicMuted(pubkey: string): boolean;
   /** Whether this visitor is offering their screen to the room. */
   readonly screenOn: boolean;
   /** How many members their screen is going to now. */
@@ -128,6 +153,11 @@ export interface Presence {
 
 interface Avatar {
   member: Member;
+  /** Their shared music, while this visitor hears it. */
+  tune?: THREE.PositionalAudio;
+  tuneElement?: HTMLAudioElement;
+  tuneMeter?: AnalyserNode;
+  tuneVolume?: number;
   root: THREE.Group;
   head: THREE.Group;
   torso: THREE.Mesh;
@@ -269,6 +299,81 @@ export function createPresence(d: PresenceOptions): Presence {
     return a;
   };
 
+  // Music: what this visitor shares, the lines other members' music arrives on, and whether they want to hear any.
+  let tuneTrack: MediaStreamTrack | null = null;
+  const tunes = new Map<string, MediaStream>();
+  const tuneMuted = new Set<string>();
+  let hearShared = false;
+  let sharedVolume = 0.7;
+  let voiceVolume = 1;
+  let duck = 1;
+  let sinceChoosing = 0;
+  const playTune = (a: Avatar, stream: MediaStream) => {
+    if (a.tune) return;
+    // As with a voice: Chrome feeds a remote line into Web Audio only while a media element holds it too.
+    const el = new Audio();
+    el.muted = true;
+    el.srcObject = stream;
+    void el.play().catch(() => {});
+    const pa = new THREE.PositionalAudio(listener);
+    pa.setMediaStreamSource(stream);
+    // Where it comes from is heard; how it fades with distance is worked out here, to reach nothing at the edge.
+    pa.setRefDistance(MUSIC_RANGE);
+    pa.setVolume(0);
+    a.head.add(pa);
+    const meter = listener.context.createAnalyser();
+    meter.fftSize = 512;
+    listener.context.createMediaStreamSource(stream).connect(meter);
+    a.tune = pa;
+    a.tuneElement = el;
+    a.tuneMeter = meter;
+    a.tuneVolume = 0;
+  };
+  const stopTune = (a: Avatar) => {
+    a.tune?.disconnect();
+    a.tune?.removeFromParent();
+    if (a.tuneElement) a.tuneElement.srcObject = null;
+    delete a.tune;
+    delete a.tuneElement;
+    delete a.tuneMeter;
+    a.tuneVolume = 0;
+  };
+  const rms = (meter: AnalyserNode | undefined, buf: Float32Array<ArrayBuffer>): number => {
+    if (!meter) return 0;
+    meter.getFloatTimeDomainData(buf);
+    return Math.sqrt(buf.reduce((sum, x) => sum + x * x, 0) / buf.length);
+  };
+  const levelBuf = new Float32Array(512);
+  const headAt = new THREE.Vector3();
+  const theirs = new THREE.Vector3();
+  /** Whose music to ask for, and how loud each is: called every frame, choosing a couple of times a second. */
+  const tendMusic = (dt: number) => {
+    if (!session) return;
+    d.camera.getWorldPosition(headAt);
+    const away = (a: Avatar) => a.head.getWorldPosition(theirs).distanceTo(headAt);
+    sinceChoosing += dt;
+    if (sinceChoosing > 0.4) {
+      sinceChoosing = 0;
+      const sharing = [...avatars.values()].filter((a) => a.member.music).map((a) => ({ pubkey: a.member.pubkey, metres: away(a), refused: mutedKeys.has(a.member.pubkey) || tuneMuted.has(a.member.pubkey) }));
+      const want = new Set(musicToHear(sharing, hearShared));
+      for (const a of avatars.values()) {
+        const on = want.has(a.member.pubkey);
+        session.listen(a.member.pubkey, on);
+        const stream = tunes.get(a.member.pubkey);
+        if (on && stream) playTune(a, stream);
+        else if (!on && a.tune) stopTune(a);
+      }
+    }
+    // Music steps back while anyone is speaking, and comes forward again after.
+    let speaking = false;
+    for (const a of avatars.values()) if (a.analyser && !mutedKeys.has(a.member.pubkey) && rms(a.analyser, levelBuf) > 0.02) speaking = true;
+    duck += ((speaking ? MUSIC_DUCK : 1) - duck) * Math.min(1, dt * (speaking ? 8 : 1.5));
+    for (const a of avatars.values()) {
+      if (!a.tune) continue;
+      a.tuneVolume = sharedVolume * duck * musicFade(away(a));
+      a.tune.setVolume(a.tuneVolume);
+    }
+  };
   // A screen this visitor is sharing, and the lines other members' screens arrive on.
   let screenTrack: MediaStreamTrack | null = null;
   const screens = new Map<string, MediaStream>();
@@ -302,7 +407,7 @@ export function createPresence(d: PresenceOptions): Presence {
     const analyser = listener.context.createAnalyser();
     analyser.fftSize = 512;
     listener.context.createMediaStreamSource(stream).connect(analyser);
-    if (mutedKeys.has(avatar.member.pubkey)) pa.setVolume(0);
+    pa.setVolume(mutedKeys.has(avatar.member.pubkey) ? 0 : voiceVolume);
     avatar.audio = pa;
     avatar.element = el;
     avatar.analyser = analyser;
@@ -313,6 +418,7 @@ export function createPresence(d: PresenceOptions): Presence {
     if (!a) return;
     avatars.delete(pubkey);
     a.audio?.disconnect();
+    stopTune(a);
     if (a.element) a.element.srcObject = null;
     d.scene.remove(a.root);
     a.figure.dispose();
@@ -357,9 +463,11 @@ export function createPresence(d: PresenceOptions): Presence {
     sendTimer = undefined;
     session?.leave();
     session = null;
-    // A screen is shared with a room, and stops with it.
+    // A screen is shared with a room, and stops with it. So is music.
     stopScreen();
     screens.clear();
+    tuneTrack = null;
+    tunes.clear();
     for (const key of [...avatars.keys()]) removeAvatar(key);
     pendingStreams.clear();
     changed();
@@ -426,6 +534,7 @@ export function createPresence(d: PresenceOptions): Presence {
     });
     s.on("leave", (m) => {
       screens.delete(m.pubkey);
+      tunes.delete(m.pubkey);
       removeAvatar(m.pubkey);
       pendingStreams.delete(m.pubkey);
       changed();
@@ -440,6 +549,10 @@ export function createPresence(d: PresenceOptions): Presence {
       screens.set(m.pubkey, stream);
     });
     s.on("screen", () => changed());
+    s.on("music", (m, stream) => {
+      tunes.set(m.pubkey, stream);
+    });
+    s.on("tune", () => changed());
     s.on("audio", (m, stream) => {
       pendingStreams.set(m.pubkey, stream);
       const a = avatars.get(m.pubkey);
@@ -539,12 +652,41 @@ export function createPresence(d: PresenceOptions): Presence {
       return [...avatars.values()].map((a) => a.member);
     },
     setVolume(volume) {
-      listener.setMasterVolume(Math.min(1, Math.max(0, volume)));
+      // Voices alone: other people's music has a volume of its own.
+      voiceVolume = Math.min(1, Math.max(0, volume));
+      for (const a of avatars.values()) a.audio?.setVolume(mutedKeys.has(a.member.pubkey) ? 0 : voiceVolume);
+    },
+    get musicOn() {
+      return !!tuneTrack;
+    },
+    get musicListeners() {
+      return session?.musicListeners ?? 0;
+    },
+    async shareMusic(track) {
+      if (!session) return;
+      tuneTrack = track;
+      await session.setMusic(track);
+      changed();
+    },
+    setHearShared(on, volume) {
+      hearShared = on;
+      sharedVolume = Math.min(1, Math.max(0, volume));
+      sinceChoosing = 1; // choose again at once
+    },
+    muteMusic(pubkey, on) {
+      if (on) tuneMuted.add(pubkey);
+      else tuneMuted.delete(pubkey);
+      sinceChoosing = 1;
+      changed();
+    },
+    isMusicMuted(pubkey) {
+      return tuneMuted.has(pubkey);
     },
     mute(pubkey, on) {
       if (on) mutedKeys.add(pubkey);
       else mutedKeys.delete(pubkey);
-      avatars.get(pubkey)?.audio?.setVolume(on ? 0 : 1);
+      avatars.get(pubkey)?.audio?.setVolume(on ? 0 : voiceVolume);
+      sinceChoosing = 1; // not hearing someone covers their music too
       changed();
     },
     isMuted(pubkey) {
@@ -583,6 +725,7 @@ export function createPresence(d: PresenceOptions): Presence {
       return dest.stream.getAudioTracks()[0]!;
     },
     update(dt) {
+      tendMusic(dt);
       const k = 1 - Math.exp(-dt * 14);
       d.camera.getWorldPosition(v);
       for (const a of avatars.values()) {
@@ -626,6 +769,10 @@ export function createPresence(d: PresenceOptions): Presence {
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
           muted: mutedKeys.has(a.member.pubkey),
+          music: !!a.member.music,
+          hearing: !!a.tune,
+          musicVolume: Math.round((a.tuneVolume ?? 0) * 1000) / 1000,
+          musicLevel: Math.round(rms(a.tuneMeter, levelBuf) * 1000) / 1000,
           look: a.member.look,
           guest: a.member.guest,
           identity: a.member.identity ?? null,
@@ -869,12 +1016,20 @@ export function addRoomControls(
      * of the watcher's own, which they move, size and put away like any other. Without them nobody here can watch.
      */
     panels?: Panels | null;
+    /**
+     * The place's sounds. With them, a visitor can share the music they are playing with people near them, and
+     * choose to hear what others share: both off until they turn them on.
+     */
+    sounds?: Sounds | null;
+    /** False where this world wants no shared music: a concert, a library. Its visitors' own music still plays for them. */
+    sharedMusic?: boolean;
   } = {},
 ): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
   // For tests: a drawn picture that changes, in place of the browser's screen picker.
   const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
   const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
+  const sounds = opts.sharedMusic === false ? null : (opts.sounds ?? null);
   let invited = roomNameFromHash(location.hash);
   let busy = false;
   let last = invited
@@ -891,12 +1046,12 @@ export function addRoomControls(
     const who = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
     // Say how the others see this visitor: by a name their own client vouched for, or as a guest.
     const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
+    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.musicOn ? ` Your music is offered to people near you: ${presence.musicListeners === 0 ? "nobody is hearing it" : presence.musicListeners === 1 ? "1 person is hearing it" : `${presence.musicListeners} people are hearing it`}.` : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
   };
   const refresh = () => {
     const s = presence.session;
     opts.onState?.(
-      s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn, screen: presence.screenOn, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching.keys()] } : null,
+      s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn, screen: presence.screenOn, music: presence.musicOn, musicListeners: presence.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching.keys()] } : null,
     );
     controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
     people();
@@ -988,6 +1143,7 @@ export function addRoomControls(
   let extras: string[] = [];
   let chosen: string | null = null;
   let headcount = 0;
+  let toldOfMusic = false;
   const recorders = new Set<string>();
   const people = () => {
     const here = presence.session ? presence.people() : [];
@@ -1015,7 +1171,7 @@ export function addRoomControls(
         section: "people",
         kind: "swatch",
         color: m.look.light,
-        label: () => `${m.name}${m.recording ? ", recording" : ""}${m.sharing ? ", sharing their screen" : ""}`,
+        label: () => `${m.name}${m.recording ? ", recording" : ""}${m.sharing ? ", sharing their screen" : ""}${m.music ? ", sharing music" : ""}`,
         act: () => {
           chosen = m.pubkey;
           people();
@@ -1025,6 +1181,11 @@ export function addRoomControls(
         },
       }),
     );
+    // Said once a visit, to someone who hasn't turned shared music on: that it is there, and where the switch is.
+    if (sounds && !toldOfMusic && !sounds.levels.hearShared && here.some((m) => m.music)) {
+      toldOfMusic = true;
+      controls.say(`${here.find((m) => m.music)!.name} is sharing music. To hear what people near you share, turn it on in Sound.`);
+    }
     // A screen that is no longer offered, or whose owner has gone, comes down.
     for (const key of [...watching.keys()]) if (!here.some((m) => m.pubkey === key && m.sharing)) stopWatching(key);
     // Say it once when someone starts sharing. Nothing is shown until this visitor asks.
@@ -1049,6 +1210,21 @@ export function addRoomControls(
           else if (startWatching(who)) controls.say(`${who.name}'s screen is opening on a panel of your own. Put the panel away to stop.`);
           else controls.say(`${who.name}'s screen can't be shown here.`);
           refresh();
+        },
+      });
+    }
+    if (who?.music && sounds) {
+      extras.push("person-music");
+      controls.add({
+        id: "person-music",
+        section: "people",
+        icon: "sound",
+        on: () => !presence.isMusicMuted(who.pubkey),
+        label: () => (presence.isMusicMuted(who.pubkey) ? `Hear ${who.name}'s music again` : `Stop hearing ${who.name}'s music`),
+        act: () => {
+          const now = !presence.isMusicMuted(who.pubkey);
+          presence.muteMusic(who.pubkey, now);
+          controls.say(now ? `You no longer hear ${who.name}'s music. You still hear them speak.` : `You hear ${who.name}'s music again when you are near.`);
         },
       });
     }
@@ -1159,6 +1335,51 @@ export function addRoomControls(
         refresh();
       },
     },
+    // ---- Music shared with people nearby. Both halves are off until the visitor turns them on: nobody's music
+    // reaches anyone who didn't ask, and nobody's music leaves their device unless they offer it.
+    ...(sounds
+      ? [
+          {
+            id: "sound-share",
+            section: "sound",
+            icon: "sound" as const,
+            on: () => presence.musicOn,
+            label: () => (presence.musicOn ? "Sharing your music with people near you: on" : "Share your music with people near you"),
+            hidden: () => !presence.session || sounds.jukebox.list().length === 0,
+            act: async () => {
+              if (presence.musicOn) {
+                await presence.shareMusic(null);
+                tell("You stopped sharing your music.");
+                return refresh();
+              }
+              await presence.shareMusic(sounds.jukebox.output());
+              tell(
+                `Your music is offered to people near you. It reaches only those who have chosen to hear shared music, and fades with distance.${presence.micOn ? " With your microphone on, wear headphones, or they hear it twice." : ""}`,
+              );
+              refresh();
+            },
+          },
+          {
+            id: "sound-hear",
+            section: "sound",
+            icon: "sound" as const,
+            on: () => sounds.levels.hearShared,
+            label: () => (sounds.levels.hearShared ? "Hear music others share: on" : "Hear music others share: off"),
+            act: () => {
+              sounds.setLevels({ hearShared: !sounds.levels.hearShared });
+              controls.say(sounds.levels.hearShared ? "You'll hear music that people near you share, quieter the further they are." : "You won't hear anyone's shared music.");
+            },
+          },
+          {
+            id: "sound-shared",
+            section: "sound",
+            hidden: () => !sounds.levels.hearShared,
+            on: () => sounds.levels.shared > 0,
+            label: () => `Others' music: ${LEVEL_WORDS[levelStep(sounds.levels.shared)]}`,
+            act: () => sounds.setLevels({ shared: nextLevel(sounds.levels.shared) }),
+          },
+        ]
+      : []),
     {
       id: "room-screen",
       section: "room",
@@ -1207,6 +1428,12 @@ export function addRoomControls(
       },
     },
   );
+  // The visitor's volumes reach the room: how loud voices are, and whether and how loud to hear shared music.
+  (opts.sounds ?? null)?.onChange((l) => {
+    presence.setVolume(l.off ? 0 : l.voices);
+    presence.setHearShared(!!sounds && !l.off && l.hearShared, l.shared);
+  });
+
   // Staying joined. Two ways a visitor is in the room without pressing Join here: their own client brought them
   // from a place where they were joined, or this page was refreshed while they were. Either way they are told at
   // once, and Leave is where Join was.

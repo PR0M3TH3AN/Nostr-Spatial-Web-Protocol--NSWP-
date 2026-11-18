@@ -85,6 +85,8 @@ export interface WorldConfig {
    * music or null for none. Whatever it doesn't name keeps the kit's default.
    */
   sounds?: SoundTheme;
+  /** False where this world wants no music shared between visitors. Each still hears their own. */
+  sharedMusic?: boolean;
   /** Positions in metres; yaw in degrees, 0 facing -Z. */
   entryPoints: Record<string, { position: V3; yaw: number }>;
   doors: Door[];
@@ -637,7 +639,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let refreshRoom = () => {};
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
-  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels }));
+  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels, sounds, ...(cfg.sharedMusic === false ? { sharedMusic: false } : {}) }));
   hooks.roomInfo = () => presence.info();
   // How loud other people are is the visitor's to set, with the rest of their volumes.
   sounds.onChange((levels) => presence.setVolume(levels.off ? 0 : levels.voices));

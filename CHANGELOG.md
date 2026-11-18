@@ -2,6 +2,22 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.13.4
+
+Music shared with people nearby. Nothing in the protocol's signed formats changes.
+
+- **Sharing.** A visitor playing their own music in a room can offer it to people near them, from the Sound menu.
+- **Hearing.** Off until a visitor turns on "Hear music others share". Nobody's music reaches anyone who didn't ask, and nobody's leaves their device unless they offer it.
+- **By distance.** It is full beside the person sharing, fades with distance, and is nothing at twelve metres. Past that it isn't asked for and isn't sent.
+- **Under voices.** Shared music steps back while anyone is speaking and comes forward after.
+- **The nearest two.** One visitor hears at most two people's music at once.
+- **One person's music** can be silenced without silencing their voice. Not hearing someone at all, or blocking them, covers their music too.
+- **The sharer is told how many are hearing it.** Stopping, or leaving the room, ends it for everyone.
+- **A world can switch it off** in its space (`sharedMusic: false`): a concert, a library. Each visitor's own music still plays for them.
+- **On the wire:** a third line to each member, for music, agreed from the start and left empty, like the screen's. `mus:1` says music is offered and `hear:1` asks for it; both repeated while true.
+- **What to know:** it goes from one browser to another and never through a server of anyone's. It is still playing music to other people, and what a visitor shares is theirs to answer for. And a microphone hears speakers: with both on, headphones, or the others hear it twice.
+- **Status (2026-11-18):** built, not deployed. Measured in Chrome on one machine with three visitors and a stand-in relay: offered and unheard until a listener turned hearing on; then heard, and the sharer told one person was hearing it; a third who never asked sent nothing; a quarter as loud at seven metres; stopped at twenty and the sharer told nobody was hearing it; heard again on coming back; a third as loud under a voice and back up after; one person's music silenced with their voice untouched; and ended for all when the sharer stopped. Not listened to, and not tried across two networks.
+
 ## 0.13.3
 
 Sound. Until now a place was silent but for voices. Nothing in the protocol's formats changes.

@@ -77,6 +77,12 @@ export interface Jukebox {
   next(): Promise<boolean>;
   readonly playing: boolean;
   readonly current: Song | null;
+  /**
+   * What the jukebox is playing, as a line that can be sent to someone else:
+   * for sharing music with people nearby, which is the visitor's to turn on.
+   * It is the music as it is, whatever their own volume is set to.
+   */
+  output(): MediaStreamTrack;
 }
 
 export interface Sounds {
@@ -162,7 +168,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       }
     }
   };
-  const juke = { audio: null as HTMLAudioElement | null, url: "", current: null as Song | null, playing: false };
+  const juke = { audio: null as HTMLAudioElement | null, url: "", current: null as Song | null, playing: false, tap: null as MediaStreamAudioDestinationNode | null };
   const apply = () => {
     const t = ctx.currentTime;
     master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
@@ -384,6 +390,19 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     apply();
     changed();
   };
+  /** The one player the visitor's songs go through, made when it is first needed. */
+  const player = (): { audio: HTMLAudioElement; tap: MediaStreamAudioDestinationNode } => {
+    if (!juke.audio || !juke.tap) {
+      juke.audio = new Audio();
+      const source = ctx.createMediaElementSource(juke.audio);
+      source.connect(ownMusic);
+      // A second way out, before the visitor's own volume: what would be shared, if they share.
+      juke.tap = ctx.createMediaStreamDestination();
+      source.connect(juke.tap);
+      juke.audio.addEventListener("ended", () => void jukebox.next());
+    }
+    return { audio: juke.audio, tap: juke.tap };
+  };
   const jukebox: Jukebox = {
     list: () => [...songs],
     async add(file) {
@@ -410,22 +429,18 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     async play(id) {
       const song = id ? songs.find((s) => s.id === id) : (juke.current ?? songs[0]);
       if (!song || disposed) return false;
-      if (!juke.audio) {
-        juke.audio = new Audio();
-        ctx.createMediaElementSource(juke.audio).connect(ownMusic);
-        juke.audio.addEventListener("ended", () => void jukebox.next());
-      }
+      player();
       if (juke.current?.id !== song.id || !juke.url) {
         const file = await fileStore<Blob>("readonly", (s) => s.get(`song:${song.id}`));
         if (!file) return false;
         if (juke.url) URL.revokeObjectURL(juke.url);
         juke.url = URL.createObjectURL(file);
-        juke.audio.src = juke.url;
+        juke.audio!.src = juke.url;
         juke.current = song;
       }
       try {
         await ctx.resume();
-        await juke.audio.play();
+        await juke.audio!.play();
       } catch {
         juke.playing = false;
         apply();
@@ -449,6 +464,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     get current() {
       return juke.current;
     },
+    output: () => player().tap.stream.getAudioTracks()[0]!,
   };
 
   const samples = new Float32Array(meter.fftSize);

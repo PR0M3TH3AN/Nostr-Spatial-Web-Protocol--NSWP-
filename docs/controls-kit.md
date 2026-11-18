@@ -472,3 +472,7 @@ sounds.moved(metres);
   the browser, and heard by nobody else.
 - **Anything the controls signal** that is a cue's name is played:
   `controls.signal("join")`. A press and the menu are signalled already.
+- **Music shared with people nearby** comes with the room's controls when they
+  are given the sounds: `addRoomControls(controls, presence, { sounds })`. A
+  visitor offers what their jukebox is playing, and others hear it only if
+  they turned that on, by distance. `sharedMusic: false` leaves it out.
