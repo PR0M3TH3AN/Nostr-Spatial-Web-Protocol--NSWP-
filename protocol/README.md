@@ -19,6 +19,7 @@ and says plainly what is built and what is only proposed.
 | **Know who a visitor is,** or let them go by name | [10](10-identity.md) | [03](03-arrival.md) |
 | **Draw people** your own way | [05](05-looks.md), "What a world may change" | |
 | **Know why** it is built this way | [`spec.md`](../spec.md) | |
+| **Build a browser,** or see where a browser could take this | [`browser/spec.md`](../browser/spec.md): a plan, not part of the protocol | [02](02-doors.md), [10](10-identity.md) |
 
 ## The documents
 

@@ -70,6 +70,7 @@ fallback for networks that block direct connections (spec §9, §20).
 |---|---|---|
 | `protocol/` | The protocol, as ten short documents an implementer reads | CC0 1.0 |
 | `spec.md` | The full design: reasoning, the reference app, the roadmap, open questions | CC0 1.0 |
+| `browser/spec.md` | A plan, not yet built: [a browser of the visitor's own](browser/spec.md), for what a website isn't allowed to do. Crossings with no flat pages, an Airlock inside the headset, web pages and programs on panels | CC0 1.0 |
 | `schemas/` | JSON Schemas for world events, manifests, portals, arrival context, entry assertions | CC0 1.0 |
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |

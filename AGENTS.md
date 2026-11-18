@@ -10,3 +10,4 @@
 - Never commit keys. The reference publisher key is at `~/.config/nswp/reference-publisher.key`. Test vector keys are deliberately public and must never appear in a real manifest.
 - Publishing events to public relays and deploying the sites are outward-facing: the repo owner approves each.
 - Part I of the spec must not depend on BitBlocks (spec §1.3).
+- `browser/spec.md` is a plan for a browser, not part of the protocol. A world must never need that browser: nothing in `protocol/` may depend on it, and no announcement field is added for it until one exists to read it.
