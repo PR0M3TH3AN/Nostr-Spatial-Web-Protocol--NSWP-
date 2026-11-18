@@ -10,7 +10,7 @@ const HEARTH: [number, number] = [0, -2];
 void startWorld({
   site: "grove",
   title: "The Grove",
-  purpose: "Somewhere to sit and talk. Press Join to see and hear whoever else is here. Until you do, nobody sees you.",
+  purpose: "Somewhere to sit and talk. Joined, you see and hear whoever else is here, and they see you. Not joined, nobody does.",
   palette: { ground: 0x0d0804, accent: 0xffb703, text: "#fff3d6" },
   entryPoints: {
     "main-entrance": { position: [0, 0, 5], yaw: 0 },

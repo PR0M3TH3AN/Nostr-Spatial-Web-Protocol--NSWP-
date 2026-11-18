@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.12.0 (concept specification)
+**Version:** 0.13.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
@@ -917,6 +917,8 @@ Browsers connect directly using WebRTC. Nostr relays carry only the short handsh
 2. Each member already present checks, on their own: the pass is valid for this room and origin; the access rule admits this person; the member hasn't blocked them; the client's policy allows it (BitPortal: BitGate, §15); and the room isn't full.
 3. Each member who accepts exchanges connection details with the newcomer.
 4. The two browsers connect directly.
+
+**Joining is asked once, not once a world (since 0.13.0).** Other visitors appear only after someone joins. Having joined, they stay joined as they go from world to world and through a refresh: the world they leave says so on the link, their own client decides whether to pass it on, and the world they arrive in joins its open room and tells them at once ([NSWP-02](protocol/02-doors.md), "Staying joined"). A microphone goes along only when they have told their client it may. A private room never travels.
 
 **Handshake messages** are ephemeral events (experimental kind 27301), signed by session keys, encrypted with NIP-44 to the recipient's session key, and tagged with the room's topic. The topic is a hash of the room's coordinate, mixed with the room secret when there is one, so outsiders to an invite-only room can't even find the handshake. Each connection's WebRTC fingerprint travels inside a signed message, which binds the connection to the session key: a relay can carry the handshake but can't put itself in the middle.
 

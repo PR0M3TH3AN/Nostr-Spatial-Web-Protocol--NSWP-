@@ -900,6 +900,10 @@ export function addRoomControls(
       try {
         await presence.join(carried.from === "refresh" ? invited : null);
         const heard = carried.mic ? await microphone() : false;
+        // Joining can be done before the page has finished coming up. Words said then are words nobody reads, so
+        // these wait until the visitor has had a moment to see where they are.
+        const early = 2500 - performance.now();
+        if (early > 0) await new Promise((done) => setTimeout(done, early));
         tell(
           `You are still in the room${carried.from === "there" ? ", as you were where you came from" : ""}: others here can see you${heard ? " and hear you" : ""}.${carried.mic && !heard ? " Your microphone is off here: the browser didn't allow it." : ""} Leave is where Join was.`,
         );
