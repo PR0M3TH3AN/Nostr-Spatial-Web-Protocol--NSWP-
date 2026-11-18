@@ -10,7 +10,7 @@ A keyboard and a library, so a headset is no longer the place where a visitor ca
 - **A library** (`panels.library`): the pictures and video of the visitor's own that their browser keeps, on a board to choose from in the headset. A page can't show a device's files; it can show what it was given.
 - **The camera** can hand everything it takes to the library (`onCapture`).
 - **Found by trying it:** the keyboard comes up where the console's own button sits, and the button was taking the presses. The keyboard is asked first now, and the console steps aside while it is up.
-- **Status:** driven on a local build in an emulated Quest 3. The headset's own keyboard has been tried nowhere. Not deployed.
+- **Status (2026-11-18):** built and deployed to BitPortal and the seven worlds. On the live BitPortal room, inside an emulated Quest 3: a note typed by pointing and on a real keyboard and hung; a picture taken with the camera and found in the library, chosen from the board and hung; and all of it there on the next visit. Only BitPortal's own site was asked for anything. The headset's own keyboard has been tried nowhere, and none of this on a real headset.
 
 ## 0.10.1
 
@@ -21,7 +21,7 @@ Panels. No change to any format: this is the SDK, and the first stage of [`brows
 - **A panel is never another website.** The kit draws what it shows.
 - **Grabbing** gains `pull: false`, for something large that should stay at arm's length instead of coming to the hand.
 - **The Workshop** has a panel to try.
-- **Status:** driven on a local build, on a flat screen and in an emulated Quest 3. Not on a real headset, where the first thing to judge is whether a note's text is sharp enough to read. Not deployed.
+- **Status (2026-11-18):** built and deployed. On the live Workshop: its panel dragged by the bar on a flat screen, and in an emulated Quest 3 made larger with a select and taken by the bar with the grip. Not on a real headset, where the first thing to judge is whether a note's text is sharp enough to read. The world template is not wired for panels yet.
 
 ## 0.10.0
 
