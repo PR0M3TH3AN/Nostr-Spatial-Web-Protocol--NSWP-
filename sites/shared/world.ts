@@ -12,7 +12,8 @@
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes } from "@nswp/core";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createPortalWindow, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
+import { createBlocks, createEnvironment, createPortalGate, PORTAL_HEIGHT, PORTAL_WIDTH, type Blocks } from "nswp-sdk/home";
+import { addRoomControls, addViewControls, capturePanorama, createConsole, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import { textSprite } from "./text.js";
 
@@ -24,7 +25,8 @@ export interface WorldConfig {
   entryPoints: Record<string, { position: [number, number, number]; yaw: number }>;
   /** `preview` is the destination's panorama, mirrored on this site at /previews/<sha256>.webp. */
   portal: PortalDestination & { label: string; position: [number, number, number]; preview?: { sha256: string } };
-  decorate(scene: THREE.Scene, accent: THREE.Color): (t: number) => void;
+  /** Build what is in this world. `blocks` draws boxes with lit edges, all together; add anything else to the scene. Returns what to do each frame. */
+  decorate(scene: THREE.Scene, accent: THREE.Color, blocks: Blocks): (t: number) => void;
 }
 
 type TestHooks = {
@@ -75,10 +77,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(cfg.palette.sky);
-  scene.fog = new THREE.Fog(cfg.palette.fog, 12, 40);
+  scene.fog = new THREE.Fog(cfg.palette.fog, 60, 300);
   const accent = new THREE.Color(cfg.palette.accent);
 
-  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 100);
+  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 700);
   camera.position.set(0, 1.6, 0);
   const rig = new THREE.Group();
   rig.add(camera);
@@ -94,36 +96,21 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   sun.position.set(4, 10, 2);
   scene.add(sun);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: cfg.palette.ground, roughness: 0.95 }));
-  ground.rotation.x = -Math.PI / 2;
-  scene.add(ground);
-  const tick = cfg.decorate(scene, accent);
+  // The ground: the grid every NSWP reference place stands on, in this world's colour.
+  const environment = createEnvironment(accent, { ground: cfg.palette.ground });
+  scene.add(environment.group);
+  const blocks = createBlocks(accent);
+  const tick = cfg.decorate(scene, accent, blocks);
+  scene.add(blocks.build());
 
   // --- the portal ---------------------------------------------------------
-  const portalGroup = new THREE.Group();
+  // The standard doorway: an arch standing on the floor, with its sign above.
+  const { label: portalLabel, position: _at, ...destination } = cfg.portal;
+  const gate = createPortalGate(destination, { label: portalLabel, color: accent, textColor: cfg.palette.text });
+  const portalGroup = gate.group;
   portalGroup.position.set(...cfg.portal.position);
   portalGroup.lookAt(rig.position.x, cfg.portal.position[1], rig.position.z);
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.08, 16, 96),
-    new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 1.2 }),
-  );
-  const discMat = new THREE.ShaderMaterial({
-    transparent: true,
-    side: THREE.DoubleSide,
-    uniforms: { uTime: { value: 0 }, uColor: { value: accent }, uHover: { value: 0 } },
-    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-    fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uHover; varying vec2 vUv;
-      void main(){ vec2 p = vUv - 0.5; float r = length(p) * 2.0; float a = atan(p.y, p.x);
-        float swirl = 0.5 + 0.5 * sin(a * 3.0 + r * 9.0 - uTime * 2.0);
-        vec3 c = mix(vec3(0.02,0.02,0.05), uColor, swirl * (1.0 - r) + uHover * 0.35);
-        gl_FragColor = vec4(c, smoothstep(1.0, 0.92, r)); }`,
-  });
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.95, 64), discMat);
-  disc.name = "portal";
-  portalGroup.add(ring, disc);
-  const portalLabel = textSprite(`${cfg.portal.label}\n${destinationHost(cfg.portal.url)}`, cfg.palette.text, 2.2);
-  portalLabel.position.set(0, 1.5, 0);
-  portalGroup.add(portalLabel);
+  const disc = gate.target; // what a ray is tested against
 
   // The view through the portal: the destination's preview, if this site
   // mirrors one. It is fetched from this site, never from the destination, and
@@ -144,16 +131,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
         const image = new Image();
         image.src = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
         await image.decode();
-        portalWindow = createPortalWindow(new THREE.CircleGeometry(0.95, 64), panoramaTexture(image));
-        portalWindow.position.z = 0.01; // just in front of the swirl, which stays as the fallback and hit target
-        portalGroup.add(portalWindow);
+        portalWindow = gate.showThrough(panoramaTexture(image));
         hooks.state.preview = "shown";
       } catch {
         hooks.state.preview = "failed";
       }
     })();
   }
-  portalGroup.position.y = 1.2;
   scene.add(portalGroup);
 
   // --- info panel near the spawn point -------------------------------------
@@ -318,7 +302,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     camera.getWorldPosition(camWorld);
     local.copy(camWorld);
     portalGroup.worldToLocal(local);
-    if (Math.hypot(local.x, local.y) < 0.8 && Math.abs(local.z) < 0.25) void go();
+    if (Math.abs(local.x) < PORTAL_WIDTH / 2 - 0.15 && local.y > 0 && local.y < PORTAL_HEIGHT && Math.abs(local.z) < 0.25) void go();
   };
 
   hooks.state.vrSupported = await addViewControls(controls, { renderer, rig, camera, hud, onState: (x) => (hooks.state.xr = x) });
@@ -336,8 +320,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
     presence.update(dt);
-    discMat.uniforms.uTime!.value = t;
-    ring.rotation.z = t * 0.2;
+    environment.update(t);
     tick(t);
     let hover = 0;
     if (renderer.xr.isPresenting) {
@@ -358,7 +341,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     }
     xrConsole.update(dt, camera, renderer.xr.isPresenting);
     controls.setTarget(hover ? `${cfg.portal.label}, at ${destinationHost(cfg.portal.url)}` : "");
-    discMat.uniforms.uHover!.value += (hover - (discMat.uniforms.uHover!.value as number)) * 0.2;
+    gate.aimed = hover;
+    gate.update(t, dt);
     renderer.render(scene, camera);
   });
   hooks.state.ready = true;
