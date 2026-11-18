@@ -8,7 +8,8 @@ Muting, in two parts.
 
 - **A person's voice and their music are muted apart.** Select someone in the People list: "Mute their voice" and "Mute their music" are two switches. Their voice without their music, their music without their voice, neither, or both. Muting someone's voice no longer takes their music with it, as it did for one release.
 - **Their music can be muted before they share any,** so it never starts.
-- Blocking is unchanged: it ends the connection, so neither is heard.
+- Blocking is unchanged: it ends the connection, so a blocked person's figure, voice, music and screen are all gone for the visitor who blocked them, and nothing of theirs can reach that visitor. Everyone else still sees them: only a room's host could remove someone for all, and rooms have no hosts yet.
+- **Unblocking is plain to find.** The People part of the menu says how many people are blocked, in a room or out of one, with "Unblock" beside each name.
 - **Status (2026-11-18):** built, not deployed. Tried with three visitors on one machine: a voice muted with the music still heard, the music muted with the voice still heard, and each put back.
 
 ## 0.13.4
