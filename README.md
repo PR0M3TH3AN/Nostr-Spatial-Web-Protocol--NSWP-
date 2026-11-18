@@ -5,7 +5,7 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.7.3. **Phase 0** (formats,
+Read [`spec.md`](spec.md) first. Status: concept spec v0.7.4. **Phase 0** (formats,
 reference library, test worlds), **Phase 1** (the BitPortal lobby, in the
 separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) and
 **Phase 1b** (previews) are built, along with a first cut of shared rooms and
@@ -32,7 +32,10 @@ Or go straight to a test world. No headset needed:
    leads. Continue to arrive in World B, then take its portal back.
 
 With a headset, open the same pages in its browser without `?xr=emulate`
-(see spec §21.2 for which browsers support WebXR).
+(see spec §21.2 for which browsers support WebXR). In VR, look low and ahead
+for the **Menu** button: it has the way back, Turn around, and the room's
+controls. Nothing has been tried on a real headset yet;
+[`docs/headset-checklist.md`](docs/headset-checklist.md) is what to try.
 
 ### Share a room (experimental)
 
@@ -57,7 +60,7 @@ fallback for networks that block direct connections (spec §9, §20).
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
-| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars, spatial voice and previews for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal, an arched doorway | MIT |
+| `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/three` adds avatars, spatial voice, previews and an in-headset menu for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal, an arched doorway | MIT |
 | `sites/` | Two reference worlds and the reference Airlock | MIT |
 
 CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is
