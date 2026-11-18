@@ -12,7 +12,7 @@ Hands in a headset. No change to any format: this is the SDK, and three lines in
 - **What a world owes** ([NSWP-09](protocol/09-what-a-world-owes.md)) gains three lines: sticks, grips and buttons are extras and never the only way; nothing slides unless the visitor asked; no request says what a visitor is holding.
 - **Not adopted:** Meta's Immersive Web SDK. Its input manager is good, but it needs three.js swapped for Meta's fork at the root of every world. The door stays open: `actions.ts` is small and separate.
 - **The Workshop** has three things to pick up. The headset checklist has a section for all of this.
-- **Status:** driven in an emulated Quest 3 only: every row of the table in `docs/controls-kit.md`, with controllers and with tracked hands. Not on any real headset. Not deployed.
+- **Status (2026-11-18):** built and deployed to the seven worlds, the Starter Home and BitPortal's room. Driven in an emulated Quest 3 only: every row of the table in `docs/controls-kit.md` on a local build, and on the live Workshop, Starter Home and BitPortal room a stick's step, a turn with its buzz, the menu button, a grab that goes home, and the switch to tracked hands. Each page asked its own site for everything. Not on any real headset.
 
 ## 0.9.0
 
@@ -25,7 +25,7 @@ Who someone is ([NSWP-10](protocol/10-identity.md)). Until now everyone in a roo
 - **The arrival context** gains `pass` and `sessionKey`, which travel together or not at all.
 - **The library:** `buildRoomPass`, `verifyRoomPass`, `cleanName`, `claimsKey`, `encodeNpub`; a schema and twelve vectors. **The SDK:** `arrival.identity()`, and rooms that check passes.
 - **What going by name gives away** is written down, for a client to say before the first time: the world and everyone in the room learn the key, with the visitor's IP address, and a pass can't be taken back.
-- **Status:** built in the library, the SDK and BitPortal's Airlock. Not deployed.
+- **Status (2026-11-18):** built and deployed. On the live sites, in headless Chrome: a visitor went from BitPortal's Airlock to the Grove by name, with a throwaway test identity (`?signer=test`), and a guest in the same private room saw them by that name, proven, wearing that key's mark with its frame; the named visitor saw the guest as a guest. The address was scrubbed on arrival and the pass kept for the tab. **Not tried:** a real BitLogin session signing a pass, which needs a person. **Found:** a private room's name (`#room=`) doesn't travel through the Airlock, which keeps a world's address as announced. That is the arrival context's `room` field, still proposed.
 
 ## 0.8.3
 
