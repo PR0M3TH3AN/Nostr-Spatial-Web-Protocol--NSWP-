@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.6
+
+Terminals in a world you are building. Nothing a world implements changes, and no world gains anything unless its owner gives it.
+
+- **The rule was "never in a world", and for every world but your own it still is.** The owner decided on this one exception, behind three locks: the world is named in their home, by their own typing; their Bridge is started naming it (`--world`); and the computer asks before each terminal opens, saying which world.
+- **A world grant** (kind 27303): names a Bridge and a world, lasts up to twelve hours, and is good for every connection until then, so a refresh doesn't end the work. A pass, a home's grant and a world grant are each refused as either of the others; the vectors hold every crossing.
+- **Going there.** The home hands the grant to that world's address after the `#`, and the world takes it out of its address at once. A world never holds a signer or learns its owner's key.
+- **The world template** is brought up to date: panels, the keyboard and library, speaking, see-through and pinned panels, staying put through a refresh, and "A terminal on your computer" for an owner who brought one. Anyone else who visits gets none of the last, and the terminal's code isn't even fetched for them.
+- **`--allow-for` is counted for each asker by itself:** the home, and each world.
+- **Found by trying it:** a world already open that is handed something in its address loaded nothing and left it there. It now notices, takes it out, and starts again. And thin letters went faint on a see-through panel; the step from gone to there is shorter now, so letters keep their weight.
+- **Status (2026-11-18):** built, not deployed. Tried on one machine with throwaway keys: the whole trip from BitPortal's room to a world built from the template, with a real Bridge told about that one world. Not tried on a real headset, or with a real sign-in signing the world grant.
+
 ## 0.10.5
 
 Working in a place instead of visiting it: speaking, panels that come along, and a refresh that isn't a reset. Nothing a world implements changes.

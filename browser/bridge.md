@@ -1,6 +1,6 @@
 # The Bridge: a terminal on your own computer, from your room
 
-**Version:** 0.1 · **Status:** A first version is built: a terminal, for one owner. Windows of other programs are proposed · **Kinds:** 27302 (a grant), 27301 (notes) · **Vectors:** [`grants`](../vectors/grants.json) · **Code:** [`bridge.ts`](../packages/core/src/bridge.ts), [`packages/bridge`](../packages/bridge)
+**Version:** 0.1 · **Status:** A first version is built: a terminal, for one owner. Windows of other programs are proposed · **Kinds:** 27302 (a grant), 27303 (a world grant), 27301 (notes) · **Vectors:** [`grants`](../vectors/grants.json) · **Code:** [`bridge.ts`](../packages/core/src/bridge.ts), [`packages/bridge`](../packages/bridge)
 
 This is stage A3 of [`spec.md`](spec.md). The Bridge is a small program a
 person runs on their own computer. It lets them open a terminal on that
@@ -36,7 +36,8 @@ If that is more trust than you want to give a website, don't run it.
 What it doesn't trust: relays (they carry sealed notes and can read none of
 them), other people's keys (refused before anyone is asked), and worlds (a
 world is never given your signer, your panels or the list of your computers,
-and a pass it holds opens nothing here).
+and a pass it holds opens nothing here). The one exception is a world you
+are building and have named at both ends: see "A world of your own".
 
 ## How it connects
 
@@ -127,6 +128,77 @@ One data channel, named `term`, ordered and reliable.
 A frame over 65,536 bytes is dropped. A text frame the other side doesn't
 know is ignored.
 
+## A world of your own
+
+Someone building a world wants their terminals in it, to work on it from
+inside. The rule above is that no world can reach any of this, and for every
+world but their own it stands. This is the one way round it, decided by the
+owner on 2026-11-18, and it is narrow on purpose.
+
+**What it costs.** In a world, the world's own page draws the terminal. So
+that world's code can read what is typed and type for its owner. That is fine
+for code they wrote. If the world's site, or anything it loads, were ever
+tampered with, this is a way to a shell on their computer. Only the owner
+sees the terminals there: panels are never sent to anyone else in a room.
+
+**Three locks, and all three must be open.**
+
+1. **In the home**, the owner names the world as one they are building: they
+   type its address themselves, on a flat screen, and press the button. No
+   link, door or world can add one.
+2. **At the computer**, the Bridge is started naming that world
+   (`--world https://my-world.example`). It is never remembered between
+   runs, and nothing a page sends can add one.
+3. **Each time a terminal opens**, the Bridge asks at the computer, and says
+   which world is asking.
+
+**The world grant.** Going there from their home, the owner's signer signs a
+second kind of grant, and the home hands it to that world's address and to no
+other:
+
+```json
+{
+  "kind": 27303,
+  "created_at": 1794430800,
+  "tags": [
+    ["nswp:session", "<session public key>"],
+    ["nswp:bridge", "<the Bridge's public key>"],
+    ["nswp:world", "https://my-world.example"],
+    ["expiration", "1794459600"]
+  ],
+  "content": ""
+}
+```
+
+A Bridge believes one only when it is signed by its owner; names this Bridge;
+names, as `nswp:world`, an origin the Bridge was started with; names the
+session key that sent it, which is neither the owner's nor the Bridge's;
+carries no `nswp:origin`; expires in the future and at most 12 hours after
+`created_at`; and is not dated ahead. `nswp:world` is an origin: `https`, or
+this computer itself (`http://localhost`, `http://127.0.0.1`) for a world
+still being built.
+
+It differs from a home's grant in two ways, both so that a refresh doesn't
+end the work: it lasts hours, eight unless asked otherwise, and it is good
+for every connection until then. Only the key it names can use it, and that
+key is held by the world's page for the tab. The four digits shown at both
+ends come from each request's own note, not from the grant.
+
+Three things are now signed with similar tags, and none is taken for
+another: a pass (27300, `nswp:origin`), a home's grant (27302, a Bridge and
+no site), a world grant (27303, a Bridge and `nswp:world`). Each check
+refuses the other two; the vectors hold all the crossings.
+
+**The hand-over.** The home goes straight to the world's address, with
+`#nswp-bring=` and a packed copy of the grant, the throwaway key, the
+Bridge's key, the computer's name and its relays. The part after `#` is sent
+to no server. The world takes it out of its address at once, keeps it for
+the tab, and checks that it was made for its own origin and has not run out.
+A world never learns its owner's key from this, and never holds a signer.
+
+`--allow-for` is counted separately for the home and for each world: a yes
+to one is not a yes to another.
+
 ## Speaking instead of typing
 
 A second channel, named `speech`, opened by the page the first time something
@@ -211,6 +283,7 @@ npm install
 npm run bridge -- --owner npub1…                # asks before every session
 npm run bridge -- --owner npub1… --tmux         # lasting terminals: they outlive the headset
 npm run bridge -- --owner npub1… --voice         # and turns what you say into text, here
+npm run bridge -- --world http://127.0.0.1:5173 # and lets a world you are building ask, when you bring your terminals to it
 npm run bridge -- --owner npub1… --allow-for 480 --command "claude" --cwd ~/code/project
 ```
 
@@ -235,6 +308,12 @@ Also tried, once, for real: on the live BitPortal room, the owner's own
 sign-in signed the grant, the four public relays carried it, the code on the
 panel matched the one at the computer, and a program with a full-screen
 display ran in the panel. The browser and the Bridge were on one computer.
+
+Also tried, with throwaway keys: the whole trip to a world of the owner's
+own. Named in BitPortal's room, gone to with one press, a terminal opened in
+a world built from the template as it ships, the computer asked and told
+which world, and everything back after a refresh; a visitor to the same
+world given nothing; a Bridge not told about the world refusing it.
 
 Not tried: a real headset; a browser on one network and the computer on
 another; macOS.
