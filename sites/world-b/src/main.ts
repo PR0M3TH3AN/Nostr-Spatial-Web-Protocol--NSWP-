@@ -9,7 +9,7 @@ const a = sites.worlds["world-a"];
 void startWorld({
   name: "World B: The Grove",
   tagline: "NSWP reference world · test build",
-  palette: { sky: 0x2b1a0f, ground: 0x3a2a14, accent: 0xffb703, fog: 0x2b1a0f, text: "#fff3d6" },
+  palette: { sky: 0x0a0603, ground: 0x0d0804, accent: 0xffb703, fog: 0x0a0603, text: "#fff3d6" },
   airlock: sites.airlock,
   entryPoints: {
     "main-entrance": { position: [0, 0, 4], yaw: 0 },
@@ -23,18 +23,18 @@ void startWorld({
     position: [0, 0, -3],
     preview: (previews as Record<string, { sha256: string } | undefined>)["world-a"],
   },
-  decorate(scene, accent) {
-    // A ring of glowing trees with floating motes.
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4f2a, roughness: 1 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.35, roughness: 0.8 });
+  decorate(scene, accent, blocks) {
+    // A grove: a ring of trees built from blocks, each with a lit crown, and motes drifting between them.
+    const leaf = new THREE.Color(0x1a1206).lerp(accent, 0.3);
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2;
       const r = 7 + (i % 3);
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 2, 8), trunkMat);
-      trunk.position.set(Math.cos(a) * r, 1, Math.sin(a) * r);
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.9, 2, 10), leafMat);
-      crown.position.set(trunk.position.x, 2.8, trunk.position.z);
-      scene.add(trunk, crown);
+      blocks.at([Math.round(Math.cos(a) * r * 2) / 2, 0, Math.round(Math.sin(a) * r * 2) / 2], (i * 37) % 90);
+      const tall = 1.6 + (i % 4) * 0.2;
+      blocks.box([0.3, tall, 0.3], [0, tall / 2, 0], { color: 0x1a1108 });
+      blocks.box([1.4, 0.6, 1.4], [0, tall + 0.3, 0], { color: leaf });
+      blocks.box([1.0, 0.6, 1.0], [0, tall + 0.9, 0], { color: leaf });
+      blocks.box([0.5, 0.5, 0.5], [0, tall + 1.45, 0], { color: accent, lit: true });
     }
     const motes = new THREE.Points(
       new THREE.BufferGeometry().setAttribute(
