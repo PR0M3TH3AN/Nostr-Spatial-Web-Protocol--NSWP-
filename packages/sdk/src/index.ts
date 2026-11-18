@@ -25,6 +25,7 @@ export { room, RoomSession, type JoinOptions, type Member, type RoomStatus } fro
 export type { Pose, Transform } from "@nswp/core";
 
 const RETURN_KEY = "nswp:return-airlock";
+const LOOK_KEY = "nswp:look";
 
 let defaultAirlock: string | undefined;
 let cached: { context: Arrival | null; warnings: Issue[] } | undefined;
@@ -68,7 +69,29 @@ export const arrival = {
         /* storage may be unavailable */
       }
     }
+    // Arriving through an Airlock says how to be seen on this visit: with a look, or plain.
+    if (cached.context) {
+      try {
+        if (cached.context.look) session()?.setItem(LOOK_KEY, cached.context.look);
+        else session()?.removeItem(LOOK_KEY);
+      } catch {
+        /* storage may be unavailable */
+      }
+    }
     return cached;
+  },
+
+  /**
+   * The look this visitor arrived wearing, in its inline form (spec §4.2), or
+   * undefined if they came plain. Hand it to a room so others see them as
+   * they chose to be seen. Kept for this tab's session only.
+   */
+  look(): string | undefined {
+    try {
+      return session()?.getItem(LOOK_KEY) ?? undefined;
+    } catch {
+      return undefined;
+    }
   },
 
   /** The Airlock this visitor came from, for this tab's session only. */

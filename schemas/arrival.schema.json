@@ -11,6 +11,7 @@
     "airlock": { "type": "string", "pattern": "^https://" },
     "assertion": { "$ref": "entry-assertion.schema.json" },
     "avatar": { "type": "string", "pattern": "^naddr1" },
+    "look": { "type": "string", "maxLength": 600 },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }
 }

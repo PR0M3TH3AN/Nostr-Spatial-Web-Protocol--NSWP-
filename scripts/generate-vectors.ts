@@ -304,6 +304,16 @@ const arrivalVectors = [
     value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", airlock: "javascript:alert(1)", entry: "../../admin" })).toString("base64url"),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3" }, warnings: ["invalid_entry_point", "url_not_https"] },
   },
+  {
+    name: "with_look",
+    value: encodeArrival({ entry: "main-entrance", look: '{"s":"guest-7f3a91c2","head":"tall","light":"#47f561"}' }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", look: '{"s":"guest-7f3a91c2","head":"tall","light":"#47f561"}' }, warnings: [] },
+  },
+  {
+    name: "unreadable_look_dropped",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", look: '{"head":"tall"}' })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_look"] },
+  },
   { name: "not_base64_json", value: "this-is-not-json", expect: { valid: false, decoded: null, warnings: [] } },
 ];
 for (const v of arrivalVectors) {
