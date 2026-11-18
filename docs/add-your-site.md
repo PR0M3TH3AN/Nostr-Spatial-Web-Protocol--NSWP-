@@ -209,7 +209,23 @@ the visitor's key (`markGrid(look.mark)` in `@nswp/core`). It is the one thing
 that follows a person from world to world and that someone else can't copy.
 
 The SDK's room code does all of this for you:
-`createPresence({ look: () => arrival.look(), figureStyle })`.
+`createPresence({ look: () => arrival.look(), identity: () => arrival.identity(), figureStyle })`.
+
+### Who your visitors are
+
+Most are guests, and that is fine. A visitor who chose to go by name arrives
+with a **pass**: their own client's signed word that a throwaway key speaks
+for them on your site for a few hours
+([NSWP-10](../protocol/10-identity.md)). You never see their real key, and you
+must never ask for it.
+
+```js
+const who = arrival.identity();   // { pubkey, name } once checked, or undefined for a guest
+if (who) greet(who.name || "friend");
+```
+
+A static site can show the name and should gate nothing on it. Don't store
+the pass: it is proof that this person visited, and it isn't yours to keep.
 
 ### What every world owes a visitor
 

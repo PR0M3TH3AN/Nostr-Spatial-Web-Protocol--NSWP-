@@ -26,15 +26,25 @@ import {
   unpackPose,
   type NostrEvent,
   type Pose,
+  claimsKey,
   decodeLook,
   generatedLook,
+  markFor,
+  PASS_LIMITS,
+  shortNpub,
+  verifyRoomPass,
   type Look,
+  type VerifiedPass,
 } from "@nswp/core";
 
 export interface Member {
-  /** Session public key. In the spike everyone is a guest. */
+  /** Session public key: a throwaway, new each visit. */
   pubkey: string;
-  guest: true;
+  /** True until their pass has checked out (protocol/10-identity.md). */
+  guest: boolean;
+  /** The identity key behind them, once their pass has checked out. Never taken on their say-so. */
+  identity?: string;
+  /** A proven member's own name, or the short form of their key. A guest is "Guest" and four digits. */
   name: string;
   color: number;
   /** How they look (spec §4.2). What their session key generates, until they say otherwise. */
@@ -57,6 +67,12 @@ export interface JoinOptions {
    * Left out, you are drawn as your session key generates: new every visit.
    */
   look?: string;
+  /**
+   * Who you are, if you chose to go by name: the pass your own client signed
+   * and the session key it names, usually from `arrival.identity()`. It is
+   * checked here, and shown to each member directly, never to a relay.
+   */
+  identity?: { pass: NostrEvent; sessionKey: string };
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -67,6 +83,8 @@ interface Events {
   pose: (member: Member, pose: Pose) => void;
   /** A member said how they look. Arrives shortly after `member`. */
   look: (member: Member, look: Look) => void;
+  /** A member's pass checked out, or ran out: `member.guest`, `identity` and `name` have changed. */
+  identity: (member: Member) => void;
   /** A member started or stopped recording what they see. */
   recording: (member: Member, on: boolean) => void;
   audio: (member: Member, stream: MediaStream) => void;
@@ -78,6 +96,14 @@ interface Peer {
   pc: RTCPeerConnection;
   /** Until when their last "I am recording" holds. */
   recordingUntil?: number;
+  /** What they last said about how they look, as it was read. */
+  said?: { look: Look; seed: string };
+  /** The last pass they showed, word for word, so the same one isn't checked twice. */
+  shown?: string;
+  /** How many passes of theirs have failed. Past a few, they are not checked any more. */
+  refused: number;
+  /** When their pass stops, in seconds. */
+  passUntil?: number;
   pose?: RTCDataChannel;
   open: boolean;
   lastSeen: number;
@@ -91,6 +117,27 @@ const RECORDING_HOLD_MS = 6000;
 const CONNECT_TIMEOUT_MS = 25_000;
 const SILENT_TIMEOUT_MS = 8_000;
 const GATHER_TIMEOUT_MS = 2_500;
+
+const hexToBytes = (hex: string): Uint8Array => {
+  if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
+  return Uint8Array.from(hex.match(/../g)!.map((b) => parseInt(b, 16)));
+};
+
+/**
+ * How a member is drawn (protocol/10-identity.md, "The mark"). A proven
+ * member wears their identity key's mark whatever their look says. A look
+ * whose seed is a key is a claim to it, and without a pass the claim isn't
+ * honoured: the mark is the session key's.
+ */
+function seenLook(member: Pick<Member, "pubkey" | "identity">, said?: { look: Look; seed: string }): Look {
+  const look = said?.look ?? generatedLook(member.pubkey);
+  if (member.identity) return { ...look, mark: markFor(member.identity) };
+  if (said && claimsKey(said.seed)) return { ...look, mark: markFor(member.pubkey) };
+  return look;
+}
+
+/** How many passes that fail are checked from one member before they are ignored. */
+const PASS_TRIES = 4;
 
 export class RoomSession {
   readonly self: Member;
@@ -110,24 +157,52 @@ export class RoomSession {
     leave: new Set(),
     pose: new Set(),
     look: new Set(),
+    identity: new Set(),
     recording: new Set(),
     audio: new Set(),
     status: new Set(),
   };
   private readonly look: string | null;
+  /** The world's origin: the only place a pass shown here may have been made for. */
+  private readonly origin: string;
+  /** This visitor's own pass, as it is said to the others, and when it stops. */
+  private pass: string | null = null;
+  private passUntil = 0;
   private recordingTimer: ReturnType<typeof setInterval> | undefined;
   private mic: MediaStreamTrack | null = null;
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
 
   constructor(opts: JoinOptions = {}) {
-    this.key = schnorr.utils.randomSecretKey();
+    const world = opts.world ?? `${location.origin}${location.pathname}`;
+    this.origin = new URL(world).origin;
+    // Going by name: the session key is the one the pass names. Anything that doesn't check out is a guest.
+    let key: Uint8Array = schnorr.utils.randomSecretKey();
+    let proven: VerifiedPass | null = null;
+    if (opts.identity) {
+      try {
+        const named = hexToBytes(opts.identity.sessionKey);
+        const checked = verifyRoomPass(opts.identity.pass, { origin: this.origin, session: getPublicKey(named) });
+        const text = JSON.stringify(opts.identity.pass);
+        if (checked.ok && text.length <= PASS_LIMITS.chars) {
+          key = named;
+          proven = checked.value;
+          this.pass = text;
+          this.passUntil = checked.value.expiresAt;
+        }
+      } catch {
+        /* not a usable key: a guest */
+      }
+    }
+    this.key = key;
     const pubkey = getPublicKey(this.key);
     const mine = opts.look ? decodeLook(opts.look) : null;
     this.look = mine?.ok ? opts.look! : null;
-    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: mine?.ok ? mine.value.look : generatedLook(pubkey), recording: false };
+    this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
+    if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey) });
+    this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
-    this.topic = roomTopic(opts.world ?? `${location.origin}${location.pathname}`, this.name);
+    this.topic = roomTopic(world, this.name);
     this.relays = opts.relays ?? DEFAULT_RELAYS;
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
@@ -265,6 +340,7 @@ export class RoomSession {
     const peer: Peer = {
       member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
       pc,
+      refused: 0,
       open: false,
       lastSeen: Date.now(),
       startedAt: Date.now(),
@@ -288,7 +364,7 @@ export class RoomSession {
       peer.open = true;
       peer.lastSeen = Date.now();
       this.emit("member", peer.member);
-      this.sayLook(ch);
+      this.introduce(ch);
     };
     ch.onmessage = (e) => {
       if (e.data === "rec:1" || e.data === "rec:0") {
@@ -298,12 +374,15 @@ export class RoomSession {
         return;
       }
       if (typeof e.data === "string") {
-        // The one text message there is: how this member looks. Anything unreadable is ignored.
-        const said = e.data.startsWith("look:") ? decodeLook(e.data.slice(5)) : null;
-        if (said?.ok && JSON.stringify(said.value.look) !== JSON.stringify(peer.member.look)) {
-          peer.member.look = said.value.look;
-          this.emit("look", peer.member, said.value.look);
-        }
+        if (e.data.startsWith("look:")) {
+          // How this member looks. Anything unreadable is ignored.
+          const said = decodeLook(e.data.slice(5));
+          if (said.ok) {
+            peer.said = said.value;
+            this.redraw(peer);
+          }
+        } else if (e.data.startsWith("id:")) this.checkPass(peer, e.data.slice(3));
+        // Anything else is a message from a newer client, and is not for us.
         return;
       }
       if (!(e.data instanceof ArrayBuffer)) return;
@@ -318,18 +397,74 @@ export class RoomSession {
     };
   }
 
+  /** Draw a member again if what is known about them changes how they look. */
+  private redraw(peer: Peer): void {
+    const look = seenLook(peer.member, peer.said);
+    if (JSON.stringify(look) === JSON.stringify(peer.member.look)) return;
+    peer.member.look = look;
+    this.emit("look", peer.member, look);
+  }
+
   /**
-   * Tell one member how you look. The channel drops what it can't deliver at
-   * once, so it is said a few times over the first seconds.
+   * A member has shown a pass. It counts only if it checks out for this site
+   * and names the session key they are speaking with, which they have already
+   * proved they hold: the handshake was signed with it.
    */
-  private sayLook(ch: RTCDataChannel): void {
-    if (!this.look) return;
-    const text = `look:${this.look}`;
+  private checkPass(peer: Peer, text: string): void {
+    if (text === peer.shown || text.length > PASS_LIMITS.chars || peer.refused >= PASS_TRIES) return;
+    peer.shown = text;
+    let event: unknown;
+    try {
+      event = JSON.parse(text);
+    } catch {
+      peer.refused++;
+      return;
+    }
+    const checked = verifyRoomPass(event, { origin: this.origin, session: peer.member.pubkey });
+    if (!checked.ok) {
+      peer.refused++;
+      return;
+    }
+    peer.passUntil = checked.value.expiresAt;
+    Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+    this.emit("identity", peer.member);
+    this.redraw(peer);
+  }
+
+  /** A pass that has run out leaves a guest behind. */
+  private expire(now: number): void {
+    for (const peer of this.peers.values()) {
+      if (!peer.passUntil || now < peer.passUntil) continue;
+      delete peer.passUntil;
+      delete peer.shown;
+      delete peer.member.identity;
+      Object.assign(peer.member, { guest: true, name: guestName(peer.member.pubkey) });
+      this.emit("identity", peer.member);
+      this.redraw(peer);
+    }
+    if (this.pass && now >= this.passUntil) {
+      this.pass = null;
+      delete this.self.identity;
+      Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
+      const mine = this.look ? decodeLook(this.look) : null;
+      this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
+      this.emit("identity", this.self);
+    }
+  }
+
+  /**
+   * Tell one member how you look and, if you came by name, who you are. The
+   * channel drops what it can't deliver at once, so each is said a few times
+   * over the first seconds.
+   */
+  private introduce(ch: RTCDataChannel): void {
+    if (!this.look && !this.pass) return;
     let left = 4;
     const say = () => {
       if (this.closed || ch.readyState !== "open") return;
       try {
-        ch.send(text);
+        if (this.look) ch.send(`look:${this.look}`);
+        if (this.pass) ch.send(`id:${this.pass}`);
       } catch {
         /* the channel closed under us */
       }
@@ -435,6 +570,7 @@ export class RoomSession {
       if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
       else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
     }
+    this.expire(Math.floor(now / 1000));
   }
 
   /** Send your pose to everyone. Call 10–20 times a second, from a timer rather than the render loop. */

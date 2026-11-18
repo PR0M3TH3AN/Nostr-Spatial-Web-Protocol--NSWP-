@@ -17,6 +17,7 @@ import {
   buildAvatarEvent,
   buildEntryAssertion,
   buildListEvent,
+  buildRoomPass,
   buildWorldEvent,
   checkDestination,
   decodeArrival,
@@ -37,6 +38,7 @@ import {
   verifyEntryAssertion,
   verifyEvent,
   verifyOrigin,
+  verifyRoomPass,
   CURATION_SET_KIND,
   WORLD_KIND,
   type EventTemplate,
@@ -49,6 +51,9 @@ const check = process.argv.includes("--check");
 
 const KEY1 = sha256(utf8ToBytes("nswp test vector key 1"));
 const KEY2 = sha256(utf8ToBytes("nswp test vector key 2"));
+/** A session key: the throwaway a pass speaks for. */
+const KEY3 = sha256(utf8ToBytes("nswp test vector session key"));
+const PK3 = getPublicKey(KEY3);
 const PK1 = getPublicKey(KEY1);
 const PK2 = getPublicKey(KEY2);
 const AUX = new Uint8Array(32);
@@ -59,6 +64,7 @@ const testKeys = {
   note: "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
   key1: { label: "nswp test vector key 1", secretKey: bytesToHex(KEY1), pubkey: PK1 },
   key2: { label: "nswp test vector key 2", secretKey: bytesToHex(KEY2), pubkey: PK2 },
+  session: { label: "nswp test vector session key", secretKey: bytesToHex(KEY3), pubkey: PK3 },
 };
 
 const failures: string[] = [];
@@ -305,6 +311,7 @@ for (const v of assertionVectors) {
   expectEqual(`assertion/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
 }
 
+const arrivalPass = sign(buildRoomPass({ session: PK3, origin: "https://museum.example", name: "Alice", createdAt: T0 }));
 const arrivalVectors = [
   { name: "entry_and_return_airlock", value: encodeArrival({ entry: "main-entrance", airlock: "https://airlock.example/go" }), expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", airlock: "https://airlock.example/go" }, warnings: [] as string[] } },
   { name: "with_assertion", value: encodeArrival({ entry: "main-entrance", assertion: goodAssertion }), expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", assertion: goodAssertion }, warnings: [] } },
@@ -322,6 +329,21 @@ const arrivalVectors = [
     name: "unreadable_look_dropped",
     value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", look: '{"head":"tall"}' })).toString("base64url"),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_look"] },
+  },
+  {
+    name: "with_pass",
+    value: encodeArrival({ entry: "main-entrance", pass: arrivalPass, sessionKey: bytesToHex(KEY3) }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", pass: arrivalPass, sessionKey: bytesToHex(KEY3) }, warnings: [] },
+  },
+  {
+    name: "pass_without_its_key_dropped",
+    value: encodeArrival({ entry: "main-entrance", pass: arrivalPass }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_pass"] },
+  },
+  {
+    name: "pass_with_another_key_dropped",
+    value: encodeArrival({ entry: "main-entrance", pass: arrivalPass, sessionKey: bytesToHex(KEY2) }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_pass"] },
   },
   { name: "not_base64_json", value: "this-is-not-json", expect: { valid: false, decoded: null, warnings: [] } },
 ];
@@ -432,6 +454,43 @@ for (const v of listVectors) {
 expectEqual("list/kind", buildListEvent(baseList).kind, CURATION_SET_KIND);
 expectEqual("list/coordinate", parseListEvent(sign(buildListEvent(baseList))).ok && (parseListEvent(sign(buildListEvent(baseList))) as { value: { coordinate?: string } }).value.coordinate, `30004:${PK1}:quiet-places`);
 
+// ---------------------------------------------------------------------- passes
+const MUSEUM = "https://museum.example";
+const goodPass = sign(buildRoomPass({ session: PK3, origin: `${MUSEUM}/world`, name: "Alice", createdAt: T0 }));
+const rawPass = (tags: string[][], kind = 27300): NostrEvent => sign({ kind, created_at: T0, tags, content: "" });
+const passTags = (over: Record<string, string | null> = {}): string[][] =>
+  Object.entries({ "nswp:session": PK3, "nswp:origin": MUSEUM, expiration: String(T0 + 4 * 3600), ...over }).flatMap(([k, v]) => (v === null ? [] : [[k, v]]));
+type PassVector = { name: string; description: string; event: unknown; origin: string; now: number; session?: string; expect: { valid: boolean; errors: string[]; warnings: string[]; pubkey?: string; name?: string } };
+const passVectors: PassVector[] = [
+  { name: "valid", description: "Key 1 says the session key speaks for it at the museum, for four hours.", event: goodPass, origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "Alice" } },
+  { name: "valid_without_a_name", description: "A name is optional. Without one a reader shows the key.", event: sign(buildRoomPass({ session: PK3, origin: MUSEUM, createdAt: T0 })), origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "" } },
+  {
+    name: "name_is_tidied",
+    description: "A name with line breaks, a hidden separator and more than 48 characters is tidied, not refused.",
+    event: rawPass([...passTags(), ["name", `  Ali\u2028ce\n\n  Smith ${"x".repeat(60)}`]]),
+    origin: MUSEUM,
+    now: T0 + 60,
+    session: PK3,
+    expect: { valid: true, errors: [], warnings: ["name_cleaned"], pubkey: PK1, name: `Ali ce Smith ${"x".repeat(35)}` },
+  },
+  { name: "another_site", description: "A pass made for the museum is worth nothing anywhere else.", event: goodPass, origin: "https://other.example", now: T0 + 60, session: PK3, expect: { valid: false, errors: ["origin_mismatch"], warnings: [] } },
+  { name: "another_session_key", description: "A member showing someone else's pass: it names a session key they aren't using.", event: goodPass, origin: MUSEUM, now: T0 + 60, session: PK2, expect: { valid: false, errors: ["session_mismatch"], warnings: [] } },
+  { name: "expired", description: "Five hours on.", event: goodPass, origin: MUSEUM, now: T0 + 5 * 3600, session: PK3, expect: { valid: false, errors: ["pass_expired"], warnings: [] } },
+  { name: "lives_too_long", description: "Thirteen hours is more than a pass may claim.", event: rawPass(passTags({ expiration: String(T0 + 13 * 3600) })), origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: false, errors: ["ttl_too_long"], warnings: [] } },
+  { name: "dated_in_the_future", description: "Read ten minutes before it says it was signed.", event: goodPass, origin: MUSEUM, now: T0 - 600, session: PK3, expect: { valid: false, errors: ["created_in_future"], warnings: [] } },
+  { name: "changed_after_signing", description: "The name was edited, so the signature no longer holds.", event: { ...goodPass, tags: goodPass.tags.map((t) => (t[0] === "name" ? ["name", "Mallory"] : t)) }, origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: false, errors: ["bad_signature"], warnings: [] } },
+  { name: "wrong_kind", description: "An entry assertion's kind is not a pass.", event: rawPass(passTags(), 27235), origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: false, errors: ["wrong_kind"], warnings: [] } },
+  { name: "names_itself", description: "The session key must be a throwaway, never the identity key.", event: rawPass(passTags({ "nswp:session": PK1 })), origin: MUSEUM, now: T0 + 60, expect: { valid: false, errors: ["invalid_session"], warnings: [] } },
+  { name: "no_session_key", description: "A pass that speaks for no key.", event: rawPass(passTags({ "nswp:session": null })), origin: MUSEUM, now: T0 + 60, expect: { valid: false, errors: ["missing_tag"], warnings: [] } },
+];
+for (const v of passVectors) {
+  const r = verifyRoomPass(v.event, { origin: v.origin, now: v.now, ...(v.session ? { session: v.session } : {}) });
+  expectEqual(`pass/${v.name} valid`, r.ok, v.expect.valid);
+  expectEqual(`pass/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
+  expectEqual(`pass/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
+  if (r.ok) expectEqual(`pass/${v.name} who`, [r.value.pubkey, r.value.name], [v.expect.pubkey, v.expect.name]);
+}
+
 // --------------------------------------------------------------------- output
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
@@ -451,6 +510,12 @@ const files: Record<string, unknown> = {
     inline: inlineVectors,
     avatarEvents: avatarVectors,
   },
+  "passes.json": {
+    description:
+      "Passes (protocol/10-identity.md). Verify each `event` as a world at `origin`, at time `now`, for a member using the session key `session` when one is given. `errors` and `warnings` are sorted issue codes. On success, `pubkey` is the identity and `name` what a reader may show.",
+    testKeys,
+    vectors: passVectors,
+  },
   "lists.json": {
     description:
       "Lists of worlds (protocol/08-lists.md): NIP-51 curation sets. `worlds` is what a reader must take from the list, in order; where it is an object, the count and the last world kept. `errors` and `warnings` are sorted issue codes; `signatureValid` is null when the vector is unsigned.",
@@ -464,7 +529,8 @@ mkdirSync(outDir, { recursive: true });
 let stale = 0;
 for (const [name, body] of Object.entries(files)) {
   const path = join(outDir, name);
-  const text = `${JSON.stringify(body, null, 2)}\n`;
+  // Invisible characters are written as escapes, so nothing in a vector file is hidden from a reader.
+  const text = `${JSON.stringify(body, null, 2)}\n`.replace(/[\u2000-\u206f\ufeff]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
   if (check) {
     let current = "";
     try {

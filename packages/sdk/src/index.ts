@@ -15,8 +15,10 @@ import {
   checkDestination,
   decodeArrival,
   stripArrivalParam,
+  verifyRoomPass,
   type Arrival,
   type Issue,
+  type NostrEvent,
   type PortalDestination,
 } from "@nswp/core";
 
@@ -26,6 +28,7 @@ export type { Pose, Transform } from "@nswp/core";
 
 const RETURN_KEY = "nswp:return-airlock";
 const LOOK_KEY = "nswp:look";
+const PASS_KEY = "nswp:pass";
 
 let defaultAirlock: string | undefined;
 let cached: { context: Arrival | null; warnings: Issue[] } | undefined;
@@ -74,6 +77,10 @@ export const arrival = {
       try {
         if (cached.context.look) session()?.setItem(LOOK_KEY, cached.context.look);
         else session()?.removeItem(LOOK_KEY);
+        // And whether by name. A pass made for another site, or one that has run out, is not kept.
+        const { pass, sessionKey } = cached.context;
+        if (pass && sessionKey && verifyRoomPass(pass, { origin: location.origin }).ok) session()?.setItem(PASS_KEY, JSON.stringify({ pass, sessionKey }));
+        else session()?.removeItem(PASS_KEY);
       } catch {
         /* storage may be unavailable */
       }
@@ -89,6 +96,28 @@ export const arrival = {
   look(): string | undefined {
     try {
       return session()?.getItem(LOOK_KEY) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  },
+
+  /**
+   * Who this visitor chose to be here, if they came by name
+   * (protocol/10-identity.md): their public key, the name on their pass, and
+   * the pass and session key to hand to a room. Checked against this site and
+   * the clock each time; undefined for a guest, and once the pass has run out.
+   * The world never sees their own key, only this throwaway one.
+   */
+  identity(): { pubkey: string; name: string; pass: NostrEvent; sessionKey: string } | undefined {
+    try {
+      const kept = JSON.parse(session()?.getItem(PASS_KEY) ?? "null") as { pass?: NostrEvent; sessionKey?: string } | null;
+      if (!kept?.pass || typeof kept.sessionKey !== "string") return undefined;
+      const checked = verifyRoomPass(kept.pass, { origin: location.origin });
+      if (!checked.ok) {
+        session()?.removeItem(PASS_KEY);
+        return undefined;
+      }
+      return { pubkey: checked.value.pubkey, name: checked.value.name, pass: kept.pass, sessionKey: kept.sessionKey };
     } catch {
       return undefined;
     }

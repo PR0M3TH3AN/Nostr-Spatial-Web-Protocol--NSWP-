@@ -1,9 +1,9 @@
 /** Arrival context and entry assertions (spec §4.4). */
 import { base64urlnopad } from "@scure/base";
-import { bytesToHex, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
+import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { ENTRY_ASSERTION_KIND, LIMITS, SCHEMAS } from "./constants.js";
 import { isHttpsUrl } from "./destination.js";
-import { getTags, getTagValue, hasEventShape, nowSeconds, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
+import { getPublicKey, getTags, getTagValue, hasEventShape, isHex64, nowSeconds, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
 import { decodeLook } from "./avatar.js";
 import { decodeNaddr } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
@@ -18,6 +18,14 @@ export interface Arrival {
   /** The visitor's look, inline (spec §4.2): for someone who hasn't published an avatar. */
   look?: string;
   receipts?: NostrEvent[];
+  /**
+   * A pass (protocol/10-identity.md): the visitor's identity key saying that
+   * `sessionKey` speaks for them at the destination. Present only with
+   * `sessionKey`, and only when the visitor chose to go by name.
+   */
+  pass?: NostrEvent;
+  /** The secret half of the session key the pass names, as 64 hex characters. A throwaway, made for this trip. */
+  sessionKey?: string;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -73,6 +81,21 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.look !== undefined) {
     if (typeof json.look === "string" && decodeLook(json.look).ok) out.look = json.look;
     else c.warn("invalid_look", "look", "Ignoring a look that can't be read.");
+  }
+  if (json.pass !== undefined || json.sessionKey !== undefined) {
+    // The two are one thing: a pass is no use without the key it names, and the key says nothing without the pass.
+    let fits = false;
+    if (hasEventShape(json.pass) && isHex64(json.sessionKey)) {
+      try {
+        fits = getTagValue(json.pass, "nswp:session") === getPublicKey(hexToBytes(json.sessionKey));
+      } catch {
+        /* not a usable key */
+      }
+    }
+    if (fits) {
+      out.pass = json.pass as NostrEvent;
+      out.sessionKey = json.sessionKey as string;
+    } else c.warn("invalid_pass", "pass", "Ignoring a pass that doesn't come with the session key it names.");
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {

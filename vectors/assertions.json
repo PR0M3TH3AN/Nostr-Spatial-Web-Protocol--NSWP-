@@ -11,6 +11,11 @@
       "label": "nswp test vector key 2",
       "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
       "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
     }
   },
   "vectors": [

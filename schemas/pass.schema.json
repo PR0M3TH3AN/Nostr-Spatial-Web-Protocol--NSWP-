@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/pass.schema.json",
+  "title": "NSWP pass (kind 27300)",
+  "description": "Structural rules only. A reader must also check the signature, that nswp:origin is its own origin, that nswp:session is the key the member is using and is not the identity key, that expiration is in the future and at most 12 hours after created_at, and that created_at is not in the future. See protocol/10-identity.md.",
+  "type": "object",
+  "required": ["kind", "created_at", "tags", "content", "pubkey", "id", "sig"],
+  "properties": {
+    "kind": { "const": 27300 },
+    "created_at": { "type": "integer" },
+    "content": { "type": "string" },
+    "pubkey": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "string" } },
+      "allOf": [
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:session" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "nswp:origin" }, { "type": "string", "pattern": "^https://" }], "minItems": 2 } },
+        { "contains": { "type": "array", "prefixItems": [{ "const": "expiration" }, { "type": "string", "pattern": "^[0-9]+$" }], "minItems": 2 } }
+      ]
+    }
+  }
+}

@@ -15,7 +15,8 @@ and says plainly what is built and what is only proposed.
 | **Build a world** from scratch | [`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template): copy it, edit one scene file | [01](01-worlds.md), [09](09-what-a-world-owes.md) |
 | **Add a site you already have** (a game, a gallery) | [`docs/add-your-site.md`](../docs/add-your-site.md) | [01](01-worlds.md), [03](03-arrival.md), [09](09-what-a-world-owes.md) |
 | **Build a client**: a lobby, a directory, an Airlock | [01](01-worlds.md), [02](02-doors.md), [08](08-lists.md), [04](04-previews.md) | [03](03-arrival.md), [05](05-looks.md) |
-| **Join the same rooms** as the reference worlds | [06](06-rooms.md), [05](05-looks.md) | |
+| **Join the same rooms** as the reference worlds | [06](06-rooms.md), [05](05-looks.md) | [10](10-identity.md) |
+| **Know who a visitor is,** or let them go by name | [10](10-identity.md) | [03](03-arrival.md) |
 | **Draw people** your own way | [05](05-looks.md), "What a world may change" | |
 | **Know why** it is built this way | [`spec.md`](../spec.md) | |
 
@@ -30,8 +31,9 @@ and says plainly what is built and what is only proposed.
 | [05 Looks](05-looks.md) | How a person appears, the same in every world | Implemented, in part | 37301 |
 | [06 Rooms](06-rooms.md) | Seeing and hearing each other | A first version | 27301 |
 | [07 Homes](07-homes.md) | A place of your own, described by a signed layout | Implemented, in part | 37302 |
-| [08 Lists and finding worlds](08-lists.md) | How worlds are listed and found | Implemented, in part | 30004 |
+| [08 Lists and finding worlds](08-lists.md) | Lists anyone can publish and follow; worlds nobody has listed | Implemented, in part | 30004 |
 | [09 What a world owes a visitor](09-what-a-world-owes.md) | The few things that are the same everywhere | Implemented | |
+| [10 Who someone is](10-identity.md) | Going by name without a world ever holding a key: passes, names, the proven mark | Implemented, in part | 27300 |
 
 ## What "status" means
 

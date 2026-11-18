@@ -54,9 +54,19 @@ read as a number, the cell in row `r` (0 at the top) and column `c` is lit when
 bit `r × 3 + min(c, 4 − c)` is set.
 
 Whatever else two people choose alike, their marks differ, and a copy of
-someone's choices under another key comes out with the copier's mark. Until a
-world has proof of the key (an entry assertion, [NSWP-03](03-arrival.md)), a
-mark says only "the same visitor as before", not "this named person".
+someone's choices under another key comes out with the copier's mark.
+
+**A mark alone proves nothing.** It is fifteen bits, so anyone can make a key
+or a seed whose mark matches another's. What makes a mark someone's is a pass
+([NSWP-10](10-identity.md)):
+
+- A member whose pass checks out wears the mark of their identity key,
+  whatever seed their look carries, and a reader draws it as proven. The
+  reference client puts a lit frame round it.
+- A seed that is a public key (64 hex characters) is a claim to that key.
+  From someone with no pass for it, a reader draws the mark their session key
+  generates instead.
+- Anyone else's mark says only "the same visitor as before", if that.
 
 ## Choosing
 

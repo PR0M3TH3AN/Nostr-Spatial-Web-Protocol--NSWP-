@@ -1,6 +1,6 @@
 # NSWP-06: Rooms
 
-**Status:** A first version is implemented: guests only, peer to peer. Room events, passes, hosted rooms and moderation are proposed · **Kinds:** 27301 (signals); 27300 (passes, proposed) · **Code:** [`room.ts`](../packages/core/src/room.ts), SDK [`room.ts`](../packages/sdk/src/room.ts) · **Tests:** [`room.test.ts`](../packages/core/test/room.test.ts)
+**Status:** A first version is implemented: peer to peer, for guests and for people going by name. Room events, entry rules, hosted rooms and moderation are proposed · **Kinds:** 27301 (signals); 27300 (passes, [NSWP-10](10-identity.md)) · **Code:** [`room.ts`](../packages/core/src/room.ts), SDK [`room.ts`](../packages/sdk/src/room.ts) · **Tests:** [`room.test.ts`](../packages/core/test/room.test.ts)
 
 A room is a group of people in a world who can see and hear each other. The
 world is the place; a room is one gathering in it. Nobody is in a room until
@@ -8,7 +8,7 @@ they choose to join one, and joining shows their IP address to the others.
 
 What is written here is exactly what the reference implementation does, so
 that a second one can join the same rooms. It is the smallest room that
-works, and it will change when room events and passes are built.
+works, and it will change when room events are built.
 
 ## Finding each other
 
@@ -26,8 +26,9 @@ room name is `lobby`. A private room has a name nobody else could guess, 4 to
 address. Because the topic is a hash, knowing a world's address is not enough
 to find its private rooms.
 
-Each member makes a fresh **session key** when they join. It says nothing
-about who they are, and is thrown away when they leave.
+Each member speaks with a **session key**: a throwaway. A guest's is made
+when they join and says nothing about who they are. Someone going by name
+uses the one their pass names ([NSWP-10](10-identity.md)).
 
 ## The handshake
 
@@ -93,6 +94,7 @@ ignored, which is how new ones can be added.
 | Text | Meaning |
 |---|---|
 | `look:<inline look>` | How this member looks ([NSWP-05](05-looks.md)). The channel doesn't retry, so it is said when the channel opens and three more times, 1.5 seconds apart. A member who never says it is drawn as their session key generates |
+| `id:<a pass, as JSON>` | "This is who I am" ([NSWP-10](10-identity.md)). At most 4,000 characters, said as often as a look. It counts only if it checks out for this site and names the session key the member is speaking with. A member who never says it is a guest |
 | `rec:1` | "I am recording what I see." Said every 2 seconds while true. It holds for 6 seconds, so a lost message can't leave it stuck on |
 | `rec:0` | "I have stopped." Said twice |
 
@@ -108,13 +110,14 @@ ignored, which is how new ones can be added.
   and 0.45 m from the visitor's head, and moves a newcomer who appears within
   1 m to 1.4 m away. A person in a headset is never moved against their will.
 - **Names.** A guest is shown as `Guest` and the first four hex digits of
-  their session key.
+  their session key. Only a member whose pass has checked out is shown by a
+  name of their own, and their key is one action away
+  ([NSWP-10](10-identity.md)).
 
 ## Proposed, not built
 
-- **Room events** that describe a room, and **room passes** (kind 27300) that
-  let a member prove who they are: the spec's §9.1 and §9.2. Until then
-  everyone is a guest, and names and marks prove nothing.
+- **Room events** that describe a room, and passes that name one room
+  rather than a whole site: the spec's §9.1 and §9.2.
 - **Who may enter** (invites, lists, follows, tickets), **hosted rooms** for
   more than a handful of people, moving between worlds together, and
   moderation: §9.3 to §9.10.

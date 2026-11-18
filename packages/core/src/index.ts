@@ -13,5 +13,6 @@ export * from "./room.js";
 export * from "./layout.js";
 export * from "./avatar.js";
 export * from "./list.js";
+export * from "./pass.js";
 
 export const VERSION = "0.1.0";
