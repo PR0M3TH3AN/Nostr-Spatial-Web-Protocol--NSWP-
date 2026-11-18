@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+import { cleanKit, nextVariant, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
 
 describe("the default cues", () => {
   it("has one for everything on the list, each short and quiet", () => {
@@ -22,10 +22,43 @@ describe("a world's own sounds", () => {
   const base = "https://world.example/play/";
   it("takes files from the world's own site, silence where it says so, and the default everywhere else", () => {
     const t = cleanTheme({ cues: { step: "sounds/step.ogg", press: null, cross: "/shared/door.MP3#t=2", hover: 7 }, music: "music/loop.opus" }, base);
-    expect(t.cues).toEqual({ step: "https://world.example/play/sounds/step.ogg", press: null, cross: "https://world.example/shared/door.MP3" });
-    expect(t.music).toBe("https://world.example/play/music/loop.opus");
+    expect(t.cues).toEqual({ step: ["https://world.example/play/sounds/step.ogg"], press: null, cross: ["https://world.example/shared/door.MP3"] });
+    expect(t.music).toEqual(["https://world.example/play/music/loop.opus"]);
     expect(cleanTheme({ music: null }, base).music).toBeNull();
     expect("music" in cleanTheme({}, base)).toBe(false);
+  });
+
+  it("takes several files for a cue, several pieces of music, and a hum", () => {
+    const t = cleanTheme({ cues: { step: ["a.ogg", "b.ogg", "a.ogg", "https://elsewhere.example/c.ogg", "d.txt"] }, music: ["one.ogg", "two.ogg"], hum: "hum.ogg" }, base);
+    expect(t.cues.step).toEqual(["https://world.example/play/a.ogg", "https://world.example/play/b.ogg"]);
+    expect(t.music).toEqual(["https://world.example/play/one.ogg", "https://world.example/play/two.ogg"]);
+    expect(t.hum).toBe("https://world.example/play/hum.ogg");
+    expect(cleanTheme({ hum: null }, base).hum).toBeNull();
+    expect("hum" in cleanTheme({ hum: "https://elsewhere.example/hum.ogg" }, base)).toBe(false);
+    expect(cleanTheme({ cues: { step: Array.from({ length: 20 }, (_, i) => `s${i}.ogg`) } }, base).cues.step).toHaveLength(6);
+    // Every address in a list unusable: the default stays, as with one.
+    expect(cleanTheme({ cues: { step: ["x.txt"] }, music: ["//elsewhere.example/a.ogg"] }, base)).toEqual({ cues: {} });
+  });
+
+  it("reads the kit's own files, in the form this browser plays", () => {
+    const folder = "https://world.example/sounds/kit/";
+    const json = { cues: { step: [{ ogg: "cues/step.ogg", mp3: "cues/step.mp3" }], hover: [{ ogg: "cues/h1.ogg", mp3: "cues/h1.mp3" }, { ogg: "cues/h2.ogg", mp3: "cues/h2.mp3" }], boom: ["x.ogg"] }, hum: { ogg: "hum.ogg", mp3: "hum.mp3" }, music: ["music/default.ogg"] };
+    const ogg = cleanKit(json, folder, true);
+    expect(ogg.cues).toEqual({ step: [`${folder}cues/step.ogg`], hover: [`${folder}cues/h1.ogg`, `${folder}cues/h2.ogg`] });
+    expect(ogg.hum).toBe(`${folder}hum.ogg`);
+    expect(ogg.music).toEqual([`${folder}music/default.ogg`]);
+    const mp3 = cleanKit(json, folder, false);
+    expect(mp3.cues.step).toEqual([`${folder}cues/step.mp3`]);
+    expect(mp3.hum).toBe(`${folder}hum.mp3`);
+    expect(cleanKit({ cues: { step: ["https://elsewhere.example/s.ogg"] }, hum: "../../../etc/passwd" }, folder, true)).toEqual({ cues: {} });
+    expect(cleanKit(null, folder, true)).toEqual({ cues: {} });
+  });
+
+  it("never plays the same one of several twice running", () => {
+    expect(nextVariant(1, 0)).toBe(0);
+    expect(nextVariant(0, -1)).toBe(0);
+    for (let last = 0; last < 3; last++) for (const r of [0, 0.3, 0.6, 0.99]) expect(nextVariant(3, last, () => r)).not.toBe(last);
+    expect(new Set([0, 0.2, 0.4, 0.6, 0.8].map((r) => nextVariant(3, -1, () => r)))).toEqual(new Set([0, 1, 2])); // the first time, any of them
   });
 
   it("refuses another site's file, anything that isn't a sound, and a cue that isn't on the list", () => {
@@ -40,7 +73,8 @@ describe("a world's own sounds", () => {
 describe("the visitor's volumes", () => {
   it("are theirs, within bounds, with sensible ones to start", () => {
     expect(cleanLevels(null)).toEqual(DEFAULT_LEVELS);
-    expect(cleanLevels({ off: true, effects: 5, music: -1, voices: "loud" })).toEqual({ off: true, effects: 1, music: 0, voices: 1, hearShared: false, shared: 0.7 });
+    expect(cleanLevels({ off: true, effects: 5, music: -1, voices: "loud" })).toEqual({ off: true, effects: 1, music: 0, voices: 1, hearShared: false, shared: 0.7, hum: true });
+    expect(cleanLevels({ hum: false }).hum).toBe(false);
     // Hearing other people's music is off until the visitor turns it on, and "yes" in a kept file isn't that.
     expect(DEFAULT_LEVELS.hearShared).toBe(false);
     expect(cleanLevels({ hearShared: "yes" }).hearShared).toBe(false);

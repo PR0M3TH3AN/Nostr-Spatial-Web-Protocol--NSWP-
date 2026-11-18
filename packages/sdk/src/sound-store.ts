@@ -92,6 +92,10 @@ export const SOUND_LIMITS = {
   cueSeconds: 3,
   /** Kinds of file a world may name. */
   extensions: ["ogg", "oga", "opus", "mp3", "m4a", "aac", "wav", "webm", "flac"],
+  /** Files for one cue: one is chosen each time, so a sound heard often isn't the same sound every time. */
+  variants: 6,
+  /** Pieces of music for one place: they play in turn. */
+  tracks: 8,
   /** The visitor's own songs: this many, each this size at most. */
   songs: 60,
   songBytes: 40 * 1024 * 1024,
@@ -105,14 +109,22 @@ export const SOUND_LIMITS = {
  * left out for the music the kit makes.
  */
 export interface SoundTheme {
-  cues?: Partial<Record<Cue, string | null>>;
-  music?: string | null;
+  /** A file, or several to choose among each time, or null for silence. */
+  cues?: Partial<Record<Cue, string | string[] | null>>;
+  /** A piece of music, or several to play in turn, or null for none. */
+  music?: string | string[] | null;
+  /**
+   * A steady sound under the music: a room's hum. An address, null for
+   * none, or left out for the kit's own where the kit's sounds are served.
+   */
+  hum?: string | null;
 }
 
 /** The same, read and checked: every address is on the world's own site and names a sound file. */
 export interface CleanTheme {
-  cues: Partial<Record<Cue, string | null>>;
-  music?: string | null;
+  cues: Partial<Record<Cue, string[] | null>>;
+  music?: string[] | null;
+  hum?: string | null;
 }
 
 function ownSound(address: unknown, base: string): string | null {
@@ -133,27 +145,86 @@ function ownSound(address: unknown, base: string): string | null {
   return u.href;
 }
 
+/** One address or several, as the ones that can be used, up to a limit. */
+function ownSounds(value: unknown, base: string, limit: number): string[] {
+  const out: string[] = [];
+  for (const v of Array.isArray(value) ? value : [value]) {
+    const address = ownSound(v, base);
+    if (address && !out.includes(address)) out.push(address);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /** Read a world's theme, trusting nothing in it. What can't be used falls back to the default, never to silence. */
 export function cleanTheme(input: unknown, base: string): CleanTheme {
   const out: CleanTheme = { cues: {} };
   if (!input || typeof input !== "object") return out;
-  const { cues, music } = input as Record<string, unknown>;
+  const { cues, music, hum } = input as Record<string, unknown>;
   if (cues && typeof cues === "object") {
     for (const cue of CUES) {
       const v = (cues as Record<string, unknown>)[cue];
       if (v === null) out.cues[cue] = null;
       else if (v !== undefined) {
-        const address = ownSound(v, base);
-        if (address) out.cues[cue] = address;
+        const files = ownSounds(v, base, SOUND_LIMITS.variants);
+        if (files.length) out.cues[cue] = files;
       }
     }
   }
   if (music === null) out.music = null;
   else if (music !== undefined) {
-    const address = ownSound(music, base);
-    if (address) out.music = address;
+    const tracks = ownSounds(music, base, SOUND_LIMITS.tracks);
+    if (tracks.length) out.music = tracks;
+  }
+  if (hum === null) out.hum = null;
+  else if (hum !== undefined) {
+    const address = ownSound(hum, base);
+    if (address) out.hum = address;
   }
   return out;
+}
+
+/**
+ * The kit's own sound files, as a site serves them: a folder holding
+ * `sounds.json` and the files it names. Each sound may come in two forms,
+ * because no one form plays in every browser: `{ "ogg": "…", "mp3": "…" }`.
+ */
+export interface KitSounds {
+  cues: Partial<Record<Cue, string[]>>;
+  music?: string[];
+  hum?: string;
+}
+
+/** Read the kit's `sounds.json`, choosing for each sound the form this browser plays. Addresses are relative to the folder. */
+export function cleanKit(input: unknown, folder: string, playsOgg: boolean): KitSounds {
+  const out: KitSounds = { cues: {} };
+  if (!input || typeof input !== "object") return out;
+  const pick = (entry: unknown): unknown => {
+    if (!entry || typeof entry !== "object") return entry;
+    const { ogg, mp3 } = entry as Record<string, unknown>;
+    return playsOgg ? (ogg ?? mp3) : (mp3 ?? ogg);
+  };
+  const many = (value: unknown, limit: number) => ownSounds((Array.isArray(value) ? value : [value]).map(pick), folder, limit);
+  const { cues, music, hum } = input as Record<string, unknown>;
+  if (cues && typeof cues === "object") {
+    for (const cue of CUES) {
+      const files = many((cues as Record<string, unknown>)[cue], SOUND_LIMITS.variants);
+      if (files.length) out.cues[cue] = files;
+    }
+  }
+  const tracks = many(music, SOUND_LIMITS.tracks);
+  if (tracks.length) out.music = tracks;
+  const h = ownSound(pick(hum), folder);
+  if (h) out.hum = h;
+  return out;
+}
+
+/** Which of several to play next: any but the one just played, so nothing is heard twice running. */
+export function nextVariant(count: number, last: number, random: () => number = Math.random): number {
+  if (count <= 1) return 0;
+  if (last < 0 || last >= count) return Math.min(count - 1, Math.floor(random() * count));
+  const i = Math.floor(random() * (count - 1));
+  return i >= last ? i + 1 : i;
 }
 
 // ------------------------------------------------------------------ volumes
@@ -175,9 +246,11 @@ export interface SoundLevels {
   hearShared: boolean;
   /** How loud other people's music is. */
   shared: number;
+  /** Whether the room's hum is heard: the steady sound under the music, where a place has one. */
+  hum: boolean;
 }
 
-export const DEFAULT_LEVELS: SoundLevels = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7 };
+export const DEFAULT_LEVELS: SoundLevels = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
 /** The steps a volume goes through when its control is pressed. */
 export const LEVEL_STEPS = [0, 0.35, 0.7, 1] as const;
 export const LEVEL_WORDS = ["off", "low", "medium", "high"] as const;
@@ -193,6 +266,7 @@ export function cleanLevels(input: unknown): SoundLevels {
     voices: unit(i.voices, DEFAULT_LEVELS.voices),
     hearShared: i.hearShared === true,
     shared: unit(i.shared, DEFAULT_LEVELS.shared),
+    hum: i.hum !== false,
   };
 }
 

@@ -2,6 +2,21 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.14.1
+
+The sounds are recorded now. The owner chose them by ear.
+
+- **Seventeen cues, a room's hum and a piece of music** come with the kit as files (`packages/sdk/sounds/`), chosen by the owner from candidates made for this project. The cues came from a sound-effect model under the Apache licence and from code; the hum and the music were made in code. That folder's README lists each and where it came from.
+- **The ones made in the browser stay** as what plays where the kit's files aren't served or a file can't be played.
+- **Several for one cue.** A cue may have several files and one is chosen each time, never the same twice running: drop and hover have two each. A world may do the same.
+- **Several pieces of music for a place** play in turn, each fading into the next with the loudness held level. A single piece fades into itself the same way, so a loop has no seam and no dip.
+- **The room's hum** is its own layer under the music, with a switch of the visitor's own. A world names its own or says none.
+- **Each reference world has its own music** (`sites/<name>/sounds/music.ogg`).
+- **Nothing is fetched before a visitor's first touch** but a small list of what there is.
+- **Played as it arrives, not held whole in memory:** a minute of music held whole is tens of megabytes.
+- **Not included:** twelve more pieces of music the owner also picked, from a model whose terms for redistribution are unclear. They wait on the owner's decision.
+- **Status (2026-11-18):** built, not deployed. Measured in Chrome on one machine: in the Grove, the template and BitPortal's room, only the list fetched before a touch, then nineteen cue files, the hum and the place's music; all seventeen cues heard from the files; the hum's switch changing what is heard; and, with two six-second pieces of steady noise as a world's music, three hand-overs in twenty seconds with the loudness staying within about three per cent. Not listened to in the game by anyone yet, and not tried in Safari, where the MP3 forms are what would play.
+
 ## 0.14.0
 
 Blocks that travel: someone blocked in one world stays blocked in the next.
