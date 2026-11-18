@@ -11,7 +11,7 @@ How worlds are found, beyond one client's own list ([NSWP-08](protocol/08-lists.
 - **Worlds nobody has listed.** The rules for a client that shows them: kept apart and labelled, shown when the visitor asks, pictures held, a limit on what one key can take up, and no second claim on an address the visitor already has a door to.
 - **Asking to be listed** needs no message: announcing a world is the request. `nswp worlds --verify --not-on <list>` is what a curator reads.
 - **The tool** signs lists (`nswp sign-list`) and validates them.
-- **Status:** built in the library and in BitPortal. Not deployed.
+- **Status (2026-11-18):** built and deployed. On the live lobby, in headless Chrome: the find bar, and BitPortal's own list looked up by its address on the public relays. The page contacted its own site and relays and nothing else. Following someone else's list was tried only against a stand-in relay, since nobody else has published one. No world outside this project has announced itself yet, so the shelf of unlisted worlds is empty.
 
 ## 0.8.2
 
