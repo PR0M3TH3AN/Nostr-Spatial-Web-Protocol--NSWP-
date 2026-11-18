@@ -35,6 +35,12 @@ export const BRIDGE_LIMITS = {
   frameBytes: 65536,
   nameChars: 80,
   whyChars: 200,
+  /** Speech is sent as 16-bit samples, one channel, at this many a second. */
+  speechRate: 16000,
+  /** The longest anyone may speak in one go, in seconds. */
+  speechSeconds: 90,
+  /** The most text one go may come back as. */
+  speechChars: 2000,
 } as const;
 
 /** Where a Bridge listens on relays. */
@@ -211,7 +217,7 @@ export function openBridgeSignal(event: unknown, key: Uint8Array, bridge: string
 
 // ----------------------------------------------------------------- channel
 
-export type BridgeControl = { t: "size"; cols: number; rows: number } | { t: "here" } | { t: "ready"; name: string } | { t: "exit"; code: number };
+export type BridgeControl = { t: "size"; cols: number; rows: number } | { t: "here" } | { t: "ready"; name: string; speech: boolean } | { t: "exit"; code: number };
 
 const whole = (n: unknown, lo: number, hi: number): number | null => (typeof n === "number" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.floor(n))) : null);
 
@@ -242,11 +248,55 @@ export function parseBridgeControl(text: string): BridgeControl | null {
     if (typeof o.name !== "string") return null;
     // One line that can be shown as it is.
     const name = [...o.name.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ").replace(/\s+/g, " ").trim()].slice(0, BRIDGE_LIMITS.nameChars).join("");
-    return { t: "ready", name };
+    // Whether this computer will turn speech into text.
+    return { t: "ready", name, speech: o.speech === true };
   }
   if (o.t === "exit") {
     const code = whole(o.code, -1, 255);
     return code === null ? null : { t: "exit", code };
   }
+  return null;
+}
+
+// ------------------------------------------------------------------ speech
+
+/**
+ * What is said on the second channel, `speech`: the page sends what a
+ * microphone heard, and the computer sends back the words. Sound goes one
+ * way as binary frames between a `begin` and an `end`.
+ */
+export type SpeechControl =
+  | { t: "begin"; lang: string }
+  | { t: "end" }
+  | { t: "cancel" }
+  /** The words. Never a line break: speaking types, and never presses Enter. */
+  | { t: "text"; text: string }
+  | { t: "sorry"; why: string };
+
+/** Words as they may be typed: one line, nothing hidden, nothing that is a key rather than a letter. */
+export function cleanSpeechText(text: string): string {
+  const cleaned = text
+    .normalize("NFC")
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return [...cleaned].slice(0, BRIDGE_LIMITS.speechChars).join("");
+}
+
+/** Read a text frame from the speech channel, from either end. Null for anything else. */
+export function parseSpeechControl(text: string): SpeechControl | null {
+  if (text.length > BRIDGE_LIMITS.speechChars * 8) return null;
+  let o: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    o = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (o.t === "begin") return { t: "begin", lang: typeof o.lang === "string" && /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/.test(o.lang) ? o.lang : "en" };
+  if (o.t === "end" || o.t === "cancel") return { t: o.t };
+  if (o.t === "text") return typeof o.text === "string" ? { t: "text", text: cleanSpeechText(o.text) } : null;
+  if (o.t === "sorry") return { t: "sorry", why: typeof o.why === "string" ? cleanSpeechText(o.why).slice(0, BRIDGE_LIMITS.whyChars) : "" };
   return null;
 }

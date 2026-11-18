@@ -5,12 +5,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RTCPeerConnection, type RTCDataChannel } from "werift";
 import { bridgeTopic, decodeNpub, encodeNpub, buildBridgeGrant, buildBridgeSignal, buildRoomPass, finalizeEvent, getPublicKey, grantCode, openBridgeSignal, type NostrEvent } from "@nswp/core";
 import { createBridge, type AskAbout, type Bridge } from "../src/bridge.js";
+import { commandEars, wav, whisperEars } from "../src/ears.js";
 import { startRelay, type TestRelay } from "./relay.js";
 
 const key = () => Uint8Array.from(randomBytes(32));
@@ -49,6 +50,7 @@ async function attempt(o: { signer?: Uint8Array; session?: Uint8Array; make?: (s
   const channel = pc.createDataChannel("term");
   let out = "";
   const a: Attempt = {
+    ...({ pc } as object),
     waited: false,
     grant,
     text: () => out,
@@ -149,7 +151,7 @@ describe("the owner", () => {
     // The person at the computer was asked, about this request, with the code the panel shows.
     expect(asked.slice(before)).toEqual([{ code: grantCode(a.grant.id), session: a.grant.tags[0]![1], open: 0, replaces: false }]);
     await a.until((x) => x.frames.some((f) => f.t === "ready"));
-    expect(a.frames.find((f) => f.t === "ready")).toEqual({ t: "ready", name: "the test computer" });
+    expect(a.frames.find((f) => f.t === "ready")).toEqual({ t: "ready", name: "the test computer", speech: false });
     a.type("echo made-$((40 + 2))\n");
     await a.until(/made-42/);
     a.type("stty size\n");
@@ -461,4 +463,108 @@ describe("the program", () => {
     expect(told).toContain("is the example");
     expect(readdirSync(fresh)).toEqual([]);
   }, 90000);
+});
+
+describe("speaking to it", () => {
+  /** Half a second of a tone, as the page sends it: 16-bit samples, 16,000 a second. */
+  const tone = (seconds = 0.5) => {
+    const pcm = Buffer.alloc(Math.round(seconds * 16000) * 2);
+    for (let i = 0; i < pcm.length / 2; i++) pcm.writeInt16LE(Math.round(Math.sin(i / 6) * 9000), i * 2);
+    return pcm;
+  };
+  /** Say something on the speech channel of an open terminal's connection, and wait for what comes back. */
+  const say = (a: Attempt, pcm: Buffer, lang = "en") =>
+    new Promise<Record<string, unknown>>((resolve, reject) => {
+      const pc = (a as unknown as { pc: RTCPeerConnection }).pc;
+      const ch = pc.createDataChannel("speech");
+      const timer = setTimeout(() => reject(new Error("nothing came back on the speech channel")), 15000);
+      ch.onMessage.subscribe((data) => {
+        clearTimeout(timer);
+        resolve(JSON.parse(String(data)) as Record<string, unknown>);
+      });
+      ch.stateChanged.subscribe((state) => {
+        if (state === "closed") {
+          clearTimeout(timer);
+          resolve({ t: "closed" });
+        }
+        if (state !== "open") return;
+        ch.send(JSON.stringify({ t: "begin", lang }));
+        for (let i = 0; i < pcm.length; i += 16000) ch.send(pcm.subarray(i, i + 16000));
+        ch.send(JSON.stringify({ t: "end" }));
+      });
+    });
+
+  it("turns what was said into words on this computer, and tells a home it can", async () => {
+    const other = await startRelay();
+    const heard: { bytes: number; rate: number; lang: string }[] = [];
+    const b = createBridge({
+      key: key(),
+      owner,
+      relays: [other.url],
+      command: ["/bin/sh"],
+      iceServers: [],
+      ask: () => Promise.resolve(true),
+      // What a recogniser might hand back: line breaks, and something that would be a key.
+      transcribe: async (pcm, o) => (heard.push({ bytes: pcm.length, ...o }), " list the files\r\nrm -rf ~\u001b[A "),
+    });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const a = await attempt({ to: b.pubkey, on: other.url, make: (session) => finalizeEvent(buildBridgeGrant({ session, bridge: b.pubkey }), OWNER) });
+    await a.until((x) => x.frames.some((f) => f.t === "ready"));
+    expect(a.frames.find((f) => f.t === "ready")).toMatchObject({ speech: true });
+    const pcm = tone(1);
+    // One line, and nothing in it that presses a key: speaking types, and never runs anything.
+    expect(await say(a, pcm, "en-GB")).toEqual({ t: "text", text: "list the files rm -rf ~ [A" });
+    expect(heard).toEqual([{ bytes: pcm.length, rate: 16000, lang: "en-GB" }]);
+    // Too short to be anything is nothing, without waking the recogniser.
+    expect(await say(a, tone(0.1))).toEqual({ t: "closed" }); // a second speech channel on one connection is not opened
+    expect(heard.length).toBe(1);
+    await a.close();
+    await b.stop();
+    await other.close();
+  }, 40000);
+
+  it("doesn't listen unless it was told to", async () => {
+    const a = await attempt();
+    await a.until((x) => x.frames.some((f) => f.t === "ready"));
+    expect(a.frames.find((f) => f.t === "ready")).toMatchObject({ speech: false });
+    expect(await say(a, tone())).toEqual({ t: "closed" });
+    await a.close();
+    await idle();
+  }, 30000);
+
+  it("hands the sound to any command, in a file only this user can read, and deletes it", async () => {
+    const seen = join(mkdtempSync(join(tmpdir(), "nswp-bridge-test-")), "seen");
+    // The command is given the file's path last. It notes the file's mode and size, and says some words.
+    const ears = commandEars(`sh -c 'stat -c "%a %s" "$1" > ${seen}; echo "$1" >> ${seen}; echo "lang $NSWP_VOICE_LANG"' --`);
+    const pcm = tone(1);
+    expect((await ears(pcm, { rate: 16000, lang: "fr" })).trim()).toBe("lang fr");
+    const [facts, path] = readFileSync(seen, "utf8").trim().split("\n");
+    expect(facts).toBe(`600 ${pcm.length + 44}`);
+    expect(() => statSync(path!)).toThrow(); // gone, with its folder
+    expect(wav(pcm, 16000).subarray(0, 4).toString()).toBe("RIFF");
+    await expect(commandEars("false")(pcm, { rate: 16000, lang: "en" })).rejects.toThrow();
+  });
+
+  it("keeps Whisper loaded and asks it each time, and says plainly when there is none", async () => {
+    // A stand-in for Whisper: the same few calls, no model. The real one is the owner's to try.
+    const dir = mkdtempSync(join(tmpdir(), "nswp-bridge-test-"));
+    writeFileSync(join(dir, "whisper.py"), ["class _M:", "    def transcribe(self, audio, **k):", "        return {'text': ' heard %d samples in %s ' % (len(audio), k.get('language'))}", "def load_model(name):", "    return _M()", ""].join("\n"));
+    const was = process.env.PYTHONPATH;
+    process.env.PYTHONPATH = dir;
+    const ears = whisperEars({ model: "small" });
+    await ears.ready;
+    expect((await ears.transcribe(tone(1), { rate: 16000, lang: "de-DE" })).trim()).toBe("heard 16000 samples in de");
+    expect((await ears.transcribe(tone(0.5), { rate: 16000, lang: "en" })).trim()).toBe("heard 8000 samples in en");
+    ears.close();
+    // A model that only knows English is told nothing else.
+    const english = whisperEars({ model: "base.en" });
+    await english.ready;
+    expect((await english.transcribe(tone(0.5), { rate: 16000, lang: "fr" })).trim()).toBe("heard 8000 samples in en");
+    english.close();
+    writeFileSync(join(dir, "whisper.py"), "raise ImportError('not here')\n");
+    await expect(whisperEars({ model: "small" }).ready).rejects.toThrow(/Whisper isn't installed/);
+    if (was === undefined) delete process.env.PYTHONPATH;
+    else process.env.PYTHONPATH = was;
+  }, 40000);
 });

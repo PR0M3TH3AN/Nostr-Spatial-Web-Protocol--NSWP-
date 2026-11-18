@@ -16,10 +16,13 @@ import {
   grantCode,
   openBridgeSignal,
   parseBridgeControl,
+  parseSpeechControl,
+  cleanSpeechText,
   ROOM_SIGNAL_KIND,
   verifyBridgeGrant,
   type BridgeMessage,
 } from "@nswp/core";
+import type { Transcribe } from "./ears.js";
 import { openTerminal, type Terminal } from "./pty.js";
 import { openRelays, type RelayLinks } from "./relays.js";
 
@@ -48,6 +51,11 @@ export interface BridgeOptions {
   command: string[] | ((slot: number) => string[]);
   /** How many terminals may be open at once. Four unless told. */
   maxSessions?: number;
+  /**
+   * Turn what the owner says into text, on this computer. Left out, this
+   * Bridge doesn't listen: a home is told so, and nothing it sends is kept.
+   */
+  transcribe?: Transcribe;
   cwd?: string;
   /** Ask the person at the computer. Resolves true only for a yes. */
   ask(about: AskAbout): Promise<boolean>;
@@ -235,11 +243,51 @@ export function createBridge(o: BridgeOptions): Bridge {
       clearTimeout(waiting);
       touch();
       log(`${label} open. Running ${command.join(" ")}.`);
-      ch.send(JSON.stringify({ t: "ready", name: o.name ?? `${userInfo().username}@${hostname()}` }));
+      ch.send(JSON.stringify({ t: "ready", name: o.name ?? `${userInfo().username}@${hostname()}`, speech: !!o.transcribe }));
+    };
+
+    // What the owner says, to be typed: sound in, words back. Only where this computer was told to listen.
+    let ears: RTCDataChannel | null = null;
+    const listen = (ch: RTCDataChannel) => {
+      ears = ch;
+      const most = BRIDGE_LIMITS.speechSeconds * BRIDGE_LIMITS.speechRate * 2;
+      let said: { chunks: Buffer[]; bytes: number; lang: string } | null = null;
+      let working = false;
+      const reply = (message: object) => ch.readyState === "open" && ch.send(JSON.stringify(message));
+      ch.onMessage.subscribe((data) => {
+        if (over) return;
+        mine.heard = Date.now();
+        touch();
+        if (typeof data !== "string") {
+          if (!said) return;
+          said.bytes += data.length;
+          if (said.bytes <= most) said.chunks.push(Buffer.from(data));
+          return;
+        }
+        const control = parseSpeechControl(data);
+        if (control?.t === "begin") said = { chunks: [], bytes: 0, lang: control.lang };
+        else if (control?.t === "cancel") said = null;
+        else if (control?.t === "end" && said) {
+          const heard = said;
+          said = null;
+          if (working) return void reply({ t: "sorry", why: "Still working out the last thing you said." });
+          if (heard.bytes > most) return void reply({ t: "sorry", why: `That was more than ${BRIDGE_LIMITS.speechSeconds} seconds. Say it in shorter pieces.` });
+          if (heard.bytes < BRIDGE_LIMITS.speechRate / 2) return void reply({ t: "text", text: "" });
+          working = true;
+          o.transcribe!(Buffer.concat(heard.chunks), { rate: BRIDGE_LIMITS.speechRate, lang: heard.lang }).then(
+            (text) => reply({ t: "text", text: cleanSpeechText(text) }),
+            (e: Error) => {
+              log(`Couldn't make out what was said: ${e.message}`);
+              reply({ t: "sorry", why: "Your computer couldn't make that out." });
+            },
+          ).finally(() => (working = false));
+        }
+      });
     };
 
     pc.onDataChannel.subscribe((ch) => {
-      // One channel, with the one name. Anything else is not something this program does.
+      if (ch.label === "speech" && o.transcribe && !ears) return listen(ch);
+      // One terminal channel, and one for speech where this computer listens. Anything else is not something this program does.
       if (ch.label !== "term" || channel) return ch.close();
       channel = ch;
       ch.bufferedAmountLowThreshold = HIGH_WATER / 4;
