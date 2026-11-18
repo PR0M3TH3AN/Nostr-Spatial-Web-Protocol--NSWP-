@@ -61,10 +61,12 @@ fallback for networks that block direct connections (spec §9, §20).
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
 | `packages/cli` | `nswp`: check a live world, validate files, sign and publish announcements | MIT |
 | `packages/sdk` | `nswp-sdk`: portals, arrival handling and peer-to-peer rooms for world developers. `nswp-sdk/ui` is the controls kit: one list of what a visitor can do, drawn as a HUD on a flat screen ([`docs/controls-kit.md`](docs/controls-kit.md)). `nswp-sdk/three` adds avatars, spatial voice, previews and the same controls as a console in a headset for Three.js worlds, and `nswp-sdk/home` draws a home layout and the standard portal (an arched doorway), and holds the sky, the ground and the modelling kit the reference places are made with ([`docs/grid-look.md`](docs/grid-look.md)) | MIT |
-| `sites/` | Two reference worlds and the reference Airlock | MIT |
+| `sites/` | Seven worlds and the reference Airlock | MIT |
 
-CC0 1.0: <https://creativecommons.org/publicdomain/zero/1.0/>. Everything else is
-under the MIT [`LICENSE`](LICENSE).
+The CC0 1.0 text is in [`LICENSE-CC0`](LICENSE-CC0): the protocol is given to
+the public domain, so anyone may implement it without asking. Everything else
+is under the MIT [`LICENSE`](LICENSE). What the built files contain from other
+projects is listed in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 ## Develop
 
