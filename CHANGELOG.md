@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.10.1
+
+Panels. No change to any format: this is the SDK, and the first stage of [`browser/spec.md`](browser/spec.md).
+
+- **`browser/spec.md`**: a plan for a browser of the visitor's own, beside the protocol and not part of it. What only a browser can do, the bridge a page asks through, which engine fits which device, and a staged plan that starts in BitPortal Web.
+- **`createPanels`** in the SDK: a note, a picture or a video in a frame a visitor can hang anywhere. Dragged by its bar on a flat screen; taken with a grip or a pinch in a headset; made smaller, larger or put away with a select. Kept in the visitor's browser where the page asks, with files of their own.
+- **A panel is never another website.** The kit draws what it shows.
+- **Grabbing** gains `pull: false`, for something large that should stay at arm's length instead of coming to the hand.
+- **The Workshop** has a panel to try.
+- **Status:** driven on a local build, on a flat screen and in an emulated Quest 3. Not on a real headset, where the first thing to judge is whether a note's text is sharp enough to read. Not deployed.
+
 ## 0.10.0
 
 Crossing from one world to another, with as little asked as a browser allows, and the same room at both ends.

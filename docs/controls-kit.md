@@ -142,6 +142,54 @@ The pure part, `actions.ts`, turns a gamepad into intent and has no three.js in
 it: `readPad`, `Locomotion`, `Comfort`. Use it alone in a world that draws and
 moves things its own way.
 
+## Panels
+
+A panel is a flat thing a visitor hangs in the air: a note, a picture or a
+video, in a frame with a bar along its top.
+
+```js
+import { addPanelControls, createPanels } from "nswp-sdk/three";
+
+const panels = createPanels({ scene, camera, accent, input, keep: "my-site:panels" });
+panels.open({ kind: "note", title: "Read me", text: "Welcome." }, { keep: false });   // the world's own
+addPanelControls(controls, panels, { presenting: () => renderer.xr.isPresenting, kept: true });
+// each frame:   panels.update(t, dt)
+// with a ray:   const hit = panels.pick(raycaster); panels.aim(hit);
+// on select:    if (hit) panels.press(hit);
+// flat screen:  pointerdown -> if (panels.pointer("down", raycaster)) the panel has the drag
+//               pointermove -> panels.pointer("move", raycaster);  pointerup -> panels.pointer("up", raycaster)
+```
+
+| A visitor does this | And this happens |
+|---|---|
+| Drags the bar with a mouse or a finger | The panel follows, and turns to face them |
+| Squeezes a grip on the bar, or pinches it | The same, in a headset. From across a room it stays at arm's length and moves from there |
+| Selects **−** or **+** | It gets smaller or larger |
+| Selects **×** | It is put away |
+| Selects a video, or its play button | It plays or pauses |
+
+- **What a panel shows is drawn by the kit:** words it lays out, a picture or
+  video the page may load, or a file the visitor chose from their own device.
+  It is never another website. No page can draw one into a 3D scene; a browser
+  that could is a different thing ([`browser/spec.md`](../browser/spec.md)).
+- **Kept, where the page asks.** With `keep`, a visitor's panels are stored
+  in their browser, for that site, and hang where they left them next visit.
+  A file they chose is kept there too, up to 64 MB. Nothing is sent anywhere.
+- **A world's own panels** are opened with `keep: false`. They are there for
+  every visitor and belong to none of them.
+- **Loading tells.** A picture or video from another site tells that site who
+  is looking. The kit loads whatever the page's own rules allow, and the
+  reference sites allow only their own files and the visitor's.
+- **Writing happens on a flat screen.** A headset has no keyboard or files to
+  offer a page, so "Write a note" and "Hang a picture or video" are offered
+  outside one. Inside, panels are moved, resized and put away.
+- **A panel is in the way of what is behind it,** like any solid thing: a
+  select on a panel is not a step onto the floor past it.
+- **Yours only.** Others in a room don't see a visitor's panels.
+
+`panel-store.ts` is the part with no three.js in it: what may be kept, where a
+new panel goes, how a note is wrapped.
+
 ## Leaving and arriving
 
 A crossing between two sites can't be made seamless: a browser shows flat

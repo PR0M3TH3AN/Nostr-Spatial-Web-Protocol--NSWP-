@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPresence, createXrInput, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -56,6 +56,13 @@ export interface WorldKit {
    * apart. Nobody needs to pick anything up to get around.
    */
   grabbable(object: THREE.Object3D, options?: GrabOptions): void;
+  /**
+   * Hang a panel: a note, a picture or a video in a frame a visitor can
+   * move, resize and put away. Without a place it hangs in front of where
+   * they arrive. A world's own panels are there for every visitor, and are
+   * not kept by any of them.
+   */
+  panel(content: PanelContent, place?: Partial<PanelPlace>): void;
 }
 
 export interface WorldHandle {
@@ -96,6 +103,10 @@ type TestHooks = {
   roomInfo?: () => unknown;
   /** What the visitor's hands are doing, as the input layer reads them. */
   input?: () => unknown;
+  /** The panels hanging here. */
+  panels?: Panels;
+  /** Where a named thing is on the page, in pixels, or null if it is behind the visitor. */
+  screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
   crossing?: () => string;
   /** Where on the floor the hand in a slot points, or null. */
@@ -217,6 +228,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Hands in a headset are set up further down, once there is something to point with.
   let input: XrInput | null = null;
   const toHold: [THREE.Object3D, GrabOptions | undefined][] = [];
+  let panels: Panels | null = null;
+  const toHang: [PanelContent, Partial<PanelPlace> | undefined][] = [];
   const kit: WorldKit = {
     scene,
     accent,
@@ -243,6 +256,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     grabbable(object, options) {
       if (input) input.grabbable(object, options);
       else toHold.push([object, options]);
+    },
+    panel(content, place) {
+      if (panels) panels.open(content, { ...(place ? { place } : {}), keep: false });
+      else toHang.push([content, place]);
     },
   };
   const handle = cfg.build(kit) ?? {};
@@ -417,16 +434,29 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let lastX = 0;
   let moved = 0;
   const setPointer = (e: PointerEvent) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  // A panel taken by its bar is dragged; anything else, and the drag turns the view.
+  let panelDrag = false;
   renderer.domElement.addEventListener("pointerdown", (e) => {
-    dragging = true;
+    setPointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    panelDrag = !renderer.xr.isPresenting && !!panels?.pointer("down", raycaster);
+    dragging = !panelDrag;
     lastX = e.clientX;
     moved = 0;
   });
   addEventListener("pointerup", (e) => {
     dragging = false;
+    if (panelDrag) {
+      panelDrag = false;
+      raycaster.setFromCamera(pointer, camera);
+      panels?.pointer("up", raycaster);
+      return;
+    }
     if (moved > 6 || renderer.xr.isPresenting || e.target !== renderer.domElement) return;
     setPointer(e);
     raycaster.setFromCamera(pointer, camera);
+    const onPanel = panels?.pick(raycaster);
+    if (onPanel) return void panels!.press(onPanel);
     const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
     if (door >= 0) void go(door);
     else {
@@ -441,6 +471,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       lastX = e.clientX;
     }
     setPointer(e);
+    if (panelDrag) {
+      raycaster.setFromCamera(pointer, camera);
+      panels?.pointer("move", raycaster);
+    }
   });
 
   // In a headset: a `select` from any input source.
@@ -465,8 +499,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       state.lastSelect = i;
       const door = aimFrom(c); // leaves the ray where this hand points
       const button = xrConsole.pick(raycaster);
-      if (button || door >= 0) input?.pulse(i, 0.5, 30);
+      const onPanel = button ? null : panels!.pick(raycaster);
+      if (button || onPanel || door >= 0) input?.pulse(i, 0.5, 30);
       if (button) xrConsole.press(button);
+      else if (onPanel) panels!.press(onPanel);
       else if (door >= 0) void go(door);
       else {
         const spot = floorUnder();
@@ -495,6 +531,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   });
   for (const [object, options] of toHold) input.grabbable(object, options);
   hooks.input = () => input!.info();
+  // Panels: notes, pictures and video in frames a visitor can move about. Taken by the bar with a grip, or pressed
+  // with a select like everything else.
+  panels = createPanels({ scene, camera, accent, textColor: cfg.palette.text, input });
+  for (const [content, place] of toHang) panels.open(content, { ...(place ? { place } : {}), keep: false });
+  hooks.panels = panels;
   hooks.pointing = (slot) => {
     aimFrom(controllers[slot]!);
     const spot = floorUnder();
@@ -565,6 +606,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const world = object.getWorldPosition(new THREE.Vector3());
     return { world: world.toArray().map((n) => Math.round(n * 1000) / 1000), local: rig.worldToLocal(world.clone()).toArray() };
   };
+  hooks.screenOf = (name) => {
+    const object = scene.getObjectByName(name);
+    if (!object) return null;
+    const at = object.getWorldPosition(new THREE.Vector3()).project(camera);
+    return at.z > 1 ? null : [Math.round(((at.x + 1) / 2) * innerWidth), Math.round(((1 - at.y) / 2) * innerHeight)];
+  };
   hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
   // Stand a figure somewhere, to see how one looks: from a seed, as it is or re-dressed in one of three ways.
   const skins: Record<string, FigureStyle> = {
@@ -633,6 +680,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
     input!.update(dt);
+    panels!.update(t, dt);
     crossing.update(t, dt);
     camera.getWorldPosition(head);
     presence.update(dt);
@@ -641,6 +689,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     for (const f of figures) f.tick(t);
     handle.update?.(t, dt);
     let aimed = -1;
+    let panelAimed: string | null = null;
     reticle.visible = false;
     if (renderer.xr.isPresenting) {
       let button: string | null = null;
@@ -650,6 +699,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
         const onMenu = xrConsole.pick(raycaster);
         if (onMenu) {
           button = onMenu;
+          continue;
+        }
+        const onPanel = panels!.pick(raycaster);
+        if (onPanel) {
+          panelAimed = onPanel;
           continue;
         }
         if (door >= 0) aimed = door;
@@ -665,9 +719,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     } else {
       walk(dt);
       raycaster.setFromCamera(pointer, camera);
-      aimed = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
-      renderer.domElement.style.cursor = aimed >= 0 ? "pointer" : "grab";
+      panelAimed = panels!.pick(raycaster);
+      aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+      renderer.domElement.style.cursor = aimed >= 0 || panelAimed ? "pointer" : "grab";
     }
+    panels!.aim(panelAimed);
     xrConsole.update(dt, camera, renderer.xr.isPresenting);
     const at = gates[aimed];
     controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "");

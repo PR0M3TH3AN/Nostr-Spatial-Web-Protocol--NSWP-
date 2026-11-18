@@ -35,6 +35,8 @@ export interface GrabOptions {
   reach?: number;
   /** May it be picked up by pointing at it from a distance and squeezing? It comes to the hand. Default true. */
   far?: boolean;
+  /** Taken from a distance, does it come to the hand? False keeps it at arm's length and moves it from there: right for something large. Default true. */
+  pull?: boolean;
   /** When let go: stay where it is put, or go back to where it was. Default "stay". */
   release?: "stay" | "return";
   onGrab?: (slot: number) => void;
@@ -241,7 +243,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   };
 
   // ------------------------------------------------------------------ holding
-  interface Grabbable extends Required<Pick<GrabOptions, "reach" | "far" | "release">> {
+  interface Grabbable extends Required<Pick<GrabOptions, "reach" | "far" | "pull" | "release">> {
     object: THREE.Object3D;
     onGrab?: (slot: number) => void;
     onRelease?: (slot: number) => void;
@@ -298,7 +300,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         // Of the things near the ray, the one it points at most squarely.
         if (off / along < closest) [best, closest] = [thing, off / along];
       }
-      pulled = !!best;
+      pulled = !!best && best.pull;
     }
     if (!best) return false;
     const object = best.object;
@@ -459,7 +461,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     setComfort,
     update,
     grabbable(object, o = {}) {
-      things.set(object, { object, reach: o.reach ?? 0.1, far: o.far ?? true, release: o.release ?? "stay", ...(o.onGrab ? { onGrab: o.onGrab } : {}), ...(o.onRelease ? { onRelease: o.onRelease } : {}) });
+      things.set(object, { object, reach: o.reach ?? 0.1, far: o.far ?? true, pull: o.pull ?? true, release: o.release ?? "stay", ...(o.onGrab ? { onGrab: o.onGrab } : {}), ...(o.onRelease ? { onRelease: o.onRelease } : {}) });
       return () => {
         for (const [slot, h] of held) if (h.thing.object === object) release(slot);
         things.delete(object);
