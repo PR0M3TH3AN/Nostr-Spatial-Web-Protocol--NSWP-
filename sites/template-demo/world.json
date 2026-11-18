@@ -15,7 +15,7 @@
       "rooms"
     ],
     "comfort": {
-      "locomotion": "stationary",
+      "locomotion": "teleport",
       "intensity": "low",
       "seated": "supported"
     },
@@ -38,9 +38,9 @@
     "status": "beta",
     "previews": [
       {
-        "url": "https://nswp-world-template.vercel.app/previews/4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61.webp",
+        "url": "https://nswp-world-template.vercel.app/previews/24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0.webp",
         "type": "pano",
-        "sha256": "4f4542c8c5dfe34beb37113a55c4e3db7fd2644282cd957a2a21b438917ecc61",
+        "sha256": "24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0",
         "width": 2048,
         "height": 1024
       }
