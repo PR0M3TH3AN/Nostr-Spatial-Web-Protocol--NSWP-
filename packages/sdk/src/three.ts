@@ -16,7 +16,10 @@ import * as THREE from "three";
 import { spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { room, type Member, type RoomSession } from "./room.js";
 
+import { turnVisitor } from "./menu.js";
 export { createWorldMenu, menuItemFor, turnVisitor, type MenuItem, type WorldMenu, type WorldMenuOptions } from "./menu.js";
+export { createConsole, type XrConsole } from "./console.js";
+import type { Controls } from "./ui/model.js";
 
 export interface PresenceOptions {
   scene: THREE.Scene;
@@ -648,4 +651,169 @@ export function createPortalWindow(geometry: THREE.BufferGeometry, pano: THREE.T
     (material.uniforms.center!.value as THREE.Vector3).setFromMatrixPosition(mesh.matrixWorld);
   };
   return mesh;
+}
+
+/**
+ * A room's controls, added to a world's controls (ui/model.ts): join or leave,
+ * the microphone, and a private room to invite someone to. The HUD and the
+ * headset console both draw them from there, so neither has room logic of its own.
+ *
+ * Joining shows a visitor's IP address to the others in the room. The Room
+ * section says so before they join, on a flat screen and in a headset.
+ */
+export function addRoomControls(controls: Controls, presence: Presence, opts: { search?: string; onState?: (state: Record<string, unknown> | null) => void } = {}): { refresh(): void } {
+  const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
+  let invited = roomNameFromHash(location.hash);
+  let busy = false;
+  let last = invited
+    ? "You were invited to a private room. Joining shows your IP address to the others in it."
+    : "Joining lets you see and hear others here. It shows your IP address to them.";
+  const tell = (text: string) => {
+    last = text;
+    controls.say(text);
+  };
+  const status = () => {
+    const s = presence.session;
+    if (!s) return last;
+    const others = s.members.length;
+    const who = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
+    return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${presence.micOn ? " Your microphone is on." : ""}`;
+  };
+  const refresh = () => {
+    const s = presence.session;
+    opts.onState?.(
+      s ? { name: s.name, private: !!presence.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence.micOn } : null,
+    );
+    controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
+  };
+
+  controls.add(
+    {
+      id: "room-join",
+      section: "room",
+      hotbar: true,
+      icon: () => (presence.session ? "leave" : "room"),
+      label: () => (presence.session ? "Leave the room" : "Join the room"),
+      on: () => !!presence.session,
+      hidden: () => busy,
+      act: async () => {
+        if (presence.session) {
+          presence.leave();
+          tell("You left the room.");
+          return refresh();
+        }
+        busy = true;
+        try {
+          await presence.join(invited);
+        } catch (err) {
+          tell(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+          busy = false;
+          refresh();
+        }
+      },
+    },
+    {
+      id: "room-mic",
+      section: "room",
+      hotbar: true,
+      icon: () => (presence.micOn ? "mic" : "micOff"),
+      label: () => (presence.micOn ? "Turn microphone off" : "Turn microphone on"),
+      on: () => presence.micOn,
+      hidden: () => !presence.session,
+      act: async () => {
+        if (presence.micOn) await presence.setMicrophone(null);
+        else {
+          try {
+            const track = useTone
+              ? presence.testTone()
+              : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0]!;
+            await presence.setMicrophone(track);
+          } catch {
+            tell("The microphone is blocked or unavailable.");
+          }
+        }
+        refresh();
+      },
+    },
+    {
+      id: "room-invite",
+      section: "room",
+      icon: "link",
+      label: () => (presence.roomName ? "Copy invite link" : "Make a private room"),
+      hidden: () => !presence.session,
+      act: async () => {
+        if (!presence.roomName) {
+          const bytes = crypto.getRandomValues(new Uint8Array(9));
+          const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
+          history.replaceState(history.state, "", `${location.pathname}${location.search}#room=${code}`);
+          invited = code;
+          await presence.join(code);
+        }
+        try {
+          await navigator.clipboard.writeText(location.href);
+          tell("Invite link copied. Anyone with it can join.");
+        } catch {
+          tell("Copy this page's address to invite someone.");
+        }
+        refresh();
+      },
+    },
+  );
+  refresh();
+  return { refresh };
+}
+
+/**
+ * The controls every world's view needs: enter or leave VR, and turn around.
+ * Returns whether this device can enter VR at all.
+ *
+ * It also hides the flat HUD while a headset session runs. The page can't be
+ * seen from inside one, and the console takes over.
+ */
+export async function addViewControls(
+  controls: Controls,
+  d: { renderer: THREE.WebGLRenderer; rig: THREE.Object3D; camera: THREE.Camera; hud?: { setHidden(hidden: boolean): void }; onState?: (state: string) => void },
+): Promise<boolean> {
+  const xr = navigator.xr;
+  let supported = false;
+  try {
+    supported = xr ? await xr.isSessionSupported("immersive-vr") : false;
+  } catch {
+    /* stays false */
+  }
+  const presenting = () => d.renderer.xr.isPresenting;
+  d.renderer.xr.addEventListener("sessionstart", () => d.hud?.setHidden(true));
+  d.renderer.xr.addEventListener("sessionend", () => d.hud?.setHidden(false));
+  controls.add(
+    {
+      id: "vr",
+      section: "view",
+      icon: "vr",
+      tone: "primary",
+      hotbar: true,
+      hidden: () => !supported,
+      label: () => (presenting() ? "Leave VR" : "Enter VR"),
+      act: async () => {
+        if (presenting()) return void (await d.renderer.xr.getSession()?.end());
+        try {
+          const session = await xr!.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] });
+          await d.renderer.xr.setSession(session);
+          d.onState?.("presenting");
+          session.addEventListener("end", () => d.onState?.("ended"));
+        } catch (err) {
+          d.onState?.(`error: ${err instanceof Error ? err.message : String(err)}`);
+          controls.say("Couldn't start VR on this device.");
+        }
+      },
+    },
+    { id: "turn", section: "view", icon: "turn", label: "Turn around", act: () => turnVisitor(d.rig, d.camera, 180) },
+  );
+  controls.addSection({
+    id: "view",
+    label: "View",
+    icon: "vr",
+    note: supported ? "In a headset, raise your wrist or select the small Menu button low in front of you to reach these controls." : "This device can't enter VR. Everything here works without it.",
+  });
+  return supported;
 }

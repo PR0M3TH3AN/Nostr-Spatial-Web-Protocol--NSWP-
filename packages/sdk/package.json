@@ -1,12 +1,28 @@
 {
   "name": "nswp-sdk",
   "version": "0.1.0",
-  "description": "World-side NSWP library: portals through the visitor's Airlock, and arrival context handling.",
+  "description": "World-side NSWP library: portals through the visitor's Airlock, arrival context handling, and the controls kit.",
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts", "./three": "./src/three.ts", "./home": "./src/home.ts" },
-  "peerDependencies": { "three": ">=0.170.0" },
-  "peerDependenciesMeta": { "three": { "optional": true } },
-  "dependencies": { "@nswp/core": "0.1.0", "@noble/curves": "^2.4.0" },
-  "devDependencies": { "@types/webxr": "^0.5.24" }
+  "exports": {
+    ".": "./src/index.ts",
+    "./three": "./src/three.ts",
+    "./home": "./src/home.ts",
+    "./ui": "./src/ui.ts"
+  },
+  "peerDependencies": {
+    "three": ">=0.170.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@nswp/core": "0.1.0",
+    "@noble/curves": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/webxr": "^0.5.24"
+  }
 }
