@@ -220,7 +220,7 @@ No native code, and testable on the machine this is written on.
 
 | | Build | Done when |
 |---|---|---|
-| A1 | **Panels** in the SDK: a surface with a frame, grabbed, moved, resized and put away. Pictures, video, and text the kit draws itself | A visitor in an emulated headset can place a video and a note, and find them there next visit. **Built** (`createPanels`; [`docs/controls-kit.md`](../docs/controls-kit.md), "Panels"), in an emulated headset only |
+| A1 | **Panels** in the SDK: a surface with a frame, grabbed, moved, resized and put away. Pictures, video, and text the kit draws itself | A visitor in an emulated headset can place a video and a note, and find them there next visit. **Built and live** (`createPanels`; [`docs/controls-kit.md`](../docs/controls-kit.md), "Panels"), with a keyboard and a library of the visitor's own files in the headset. Tried in an emulated headset only |
 | A2 | **The bridge, as a contract**, with its fallbacks. The home calls `nswp.*` and nothing else | BitPortal Web runs unchanged in behaviour, with every crossing and sign-in going through the bridge's fallback |
 | A3 | **A terminal panel and the Bridge**, terminal only | The owner pairs a computer by key and runs a command from a panel in their home. A second key is refused |
 | A4 | **A shared screen in a room**, to look at | One visitor shares a window; another sees it on a panel. Rooms carry sound and position today, so this adds video to the connection |
