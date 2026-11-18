@@ -12,7 +12,7 @@ const root = join(import.meta.dirname, "../../..");
 const load = (p: string) => JSON.parse(readFileSync(join(root, p), "utf8"));
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
-for (const s of ["entry-assertion", "world-event", "manifest", "portal", "arrival"]) {
+for (const s of ["entry-assertion", "world-event", "manifest", "portal", "arrival", "look"]) {
   ajv.addSchema(load(`schemas/${s}.schema.json`), `${s}.schema.json`);
 }
 const validate = (schema: string, data: unknown) => ajv.validate(`${schema}.schema.json`, data);
@@ -46,5 +46,20 @@ describe("JSON Schemas agree with the vectors", () => {
     for (const v of load("vectors/assertions.json").vectors) {
       if (v.expect.valid) expect(validate("entry-assertion", v.event), v.name).toBe(true);
     }
+  });
+
+  it("looks, inline", () => {
+    const { inline } = load("vectors/looks.json");
+    for (const v of inline) {
+      let json: unknown;
+      try {
+        json = JSON.parse(v.text);
+      } catch {
+        continue;
+      }
+      // Structural only: the schema can't see the length limit, and unknown values are not errors.
+      if (v.expect.valid) expect(validate("look", json), v.name).toBe(true);
+    }
+    for (const n of ["no_seed", "seed_too_short", "not_an_object"]) expect(validate("look", JSON.parse(inline.find((v: { name: string }) => v.name === n).text)), n).toBe(false);
   });
 });

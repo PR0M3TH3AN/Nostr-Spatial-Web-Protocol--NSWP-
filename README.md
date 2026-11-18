@@ -1,18 +1,31 @@
 # Nostr Spatial Web Protocol (NSWP)
 
-An open protocol for linking independently hosted WebXR worlds through Nostr:
-signed world announcements, origin verification, portals, and a trusted
-handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
-on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
+An open protocol for linking independently hosted 3D and VR worlds through
+Nostr. A world is a website, a door is a link, and who runs what is said with
+signed events, so there is no index to be listed in and no platform to ask.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.8.1. **Phase 0** (formats,
-reference library, test worlds), **Phase 1** (the BitPortal lobby, in the
-separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) and
-**Phase 1b** (previews) are built, along with a first cut of shared rooms and
-the start room (your own doors, saved on your device). The world template is in
-its own [`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template)
-repo. Items and carried items are design only. Nothing here is an adopted NIP
-or standard.
+**Building something? Start at [`protocol/`](protocol/README.md):** nine short
+documents, one per part of the protocol, each saying what is built and what is
+only proposed.
+
+| You want to | Go to |
+|---|---|
+| Build a world | [`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template) |
+| Add a site you already have | [`docs/add-your-site.md`](docs/add-your-site.md) |
+| Build a client, or join the same rooms | [`protocol/`](protocol/README.md) |
+| See it running | <https://portal.bitblocks.network/> |
+| Know why it is built this way | [`spec.md`](spec.md), and [`CHANGELOG.md`](CHANGELOG.md) for what changed |
+
+**BitPortal**, the reference client, is in its own
+[`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo and built on the
+[BitBlocks](https://bitblocks.network/) stack. The protocol does not depend on
+either.
+
+Status: spec v0.8.2, an exploratory draft. Worlds, doors, the Airlock,
+previews, looks, a first version of rooms, and home layouts are built and
+live. Published items, room passes, and finding worlds through the people you
+follow are design only. Nothing here is an adopted NIP or standard, and every
+event kind is experimental.
 
 ## Try it
 
@@ -55,7 +68,8 @@ fallback for networks that block direct connections (spec §9, §20).
 
 | Path | What it is | License |
 |---|---|---|
-| `spec.md` | The protocol and the BitPortal design | CC0 1.0 |
+| `protocol/` | The protocol, as nine short documents an implementer reads | CC0 1.0 |
+| `spec.md` | The full design: reasoning, the reference app, the roadmap, open questions | CC0 1.0 |
 | `schemas/` | JSON Schemas for world events, manifests, portals, arrival context, entry assertions | CC0 1.0 |
 | `vectors/` | Test vectors with expected results, signed with public test-only keys | CC0 1.0 |
 | `packages/core` | `@nswp/core`: build, validate and verify everything above | MIT |
