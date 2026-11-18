@@ -1,6 +1,6 @@
 {
   "kind": 37302,
-  "created_at": 1794962543,
+  "created_at": 1794966626,
   "tags": [
     [
       "d",
@@ -13,8 +13,8 @@
     [
       "room",
       "hall",
-      "#101217",
-      "#3fc584"
+      "#060b11",
+      "#3df2a0"
     ],
     [
       "item",
@@ -90,6 +90,6 @@
   ],
   "content": "",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "ad5aeb9127bdc91233af2bd0b6214aff03083ed09a01ffa5235a466832b77bc2",
-  "sig": "5604bc73436093481dfe229de5a221836044498568e5800a61b9d553fd4096e992c4b53254d93daa62bafea8aea1ed73c419de7dc7c848789a1e271f33905107"
+  "id": "372bccbb93221db012797e08e97e68633e725ca9871781cea7e58c8883f02f3e",
+  "sig": "65be8862e11059416c4a94d4572115434a0e92c12828a61ee1abb84da39c080de018483bce182d7ebfd1ccca26d134ba1ff2cddc761d0e766bb703bc4ede5b28"
 }

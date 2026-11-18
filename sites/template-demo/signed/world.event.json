@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1794962543,
+  "created_at": 1794966626,
   "tags": [
     [
       "d",
@@ -20,9 +20,9 @@
     ],
     [
       "preview",
-      "https://nswp-world-template.vercel.app/previews/24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0.webp",
+      "https://nswp-world-template.vercel.app/previews/7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a.webp",
       "pano",
-      "24fc0b7f33f537714f071acd0a1084ae65efa8b03ca9aaa41dbc0216fec10eb0",
+      "7b38eabc64176b6fff6c6d32913666b5602884f13ba1987c1ade5dcbcb61db9a",
       "2048x1024"
     ],
     [
@@ -116,6 +116,6 @@
   ],
   "content": "A demonstration of the NSWP world template, deployed unchanged. Source: github.com/PR0M3TH3AN/nswp-world-template",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "90440f15fb313caa4463f7b6d79b737514a25713cd7f0512babadfc2aac9be59",
-  "sig": "bd5f50811a557c8454e47b6e61b55bd74a946655817e8b28a7076b4b952211e02eda85867ce826b0db188b06f39e385f0e8267cd7849535cec297a3d251c0d11"
+  "id": "143819293c9aea25c6f90045ee677f7e36ef1db5db721d1a56928c306807d2f9",
+  "sig": "6be081da985f70e6edd8bfe39be6f204e57eca9fba5b0ba7b233ae8fde53be0d65eeaa1a099a714ad6fcb827bb11c920263c584e2750b8a6ed06e2c82bb379aa"
 }
