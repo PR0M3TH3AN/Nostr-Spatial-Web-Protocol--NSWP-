@@ -495,5 +495,570 @@
         ]
       }
     }
-  ]
+  ],
+  "worlds": {
+    "description": "World grants (kind 27303): for a world the owner is building. Verify each as the Bridge with key `bridge`, owned by `owner`, sent by `session`, started knowing the worlds in `worlds`. Unlike the grants above, one is good until it expires.",
+    "vectors": [
+      {
+        "name": "valid",
+        "description": "Key 1 says the session key may open terminals on its Bridge from the world it is building, for eight hours. The world is named by its origin, whatever page was given.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": true,
+          "errors": [],
+          "world": "https://my-world.example"
+        }
+      },
+      {
+        "name": "valid_again",
+        "description": "The same grant, an hour on: it is good until it expires, so a refresh doesn't end the work.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794434400,
+        "expect": {
+          "valid": true,
+          "errors": [],
+          "world": "https://my-world.example"
+        }
+      },
+      {
+        "name": "valid_on_this_computer",
+        "description": "A world still being built, served from the owner's own machine.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "http://127.0.0.1:5173"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "4f39a2a32ff4b8391997cf6ca049f7343b479a209b3991bddc621b8b3d409c58",
+          "sig": "7d04a2679709d651466ecf9a5ffbecb4a95e65696439550066b993f987bc4b52b2b60c54bb5da51a9d056cc4c90bf7d5ba70ec8765fe79592a650a6ddd376b89"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": true,
+          "errors": [],
+          "world": "http://127.0.0.1:5173"
+        }
+      },
+      {
+        "name": "a_world_it_was_not_told_about",
+        "description": "Signed by the owner, for a world this Bridge was never started with. The owner's signature is not enough: the computer has to have been told too.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "world_not_allowed"
+          ]
+        }
+      },
+      {
+        "name": "told_about_no_worlds",
+        "description": "A Bridge started without any world honours none.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "world_not_allowed"
+          ]
+        }
+      },
+      {
+        "name": "not_the_owner",
+        "description": "Somebody else's key, for a world the Bridge does know.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+          "id": "45c17f622dd4bef67afa3f04caebddac1edf33bcffda3635979abc27aee2aa97",
+          "sig": "792b220f1e58e4bb9faf9271d8d935d57381939099e659b883be75eb6464d9832d45b5324d34be6490dc49d52c6bf105299d8ba1070fd97d16df72a13e6b996a"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "not_owner"
+          ]
+        }
+      },
+      {
+        "name": "another_session_key",
+        "description": "Sent by a key the grant doesn't name.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "eeb5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "session_mismatch"
+          ]
+        }
+      },
+      {
+        "name": "expired",
+        "description": "Nine hours on.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "e6814a13bdb935296e9ce21330155c87303f677aefd7e9f6ac5d8a5dd480e265",
+          "sig": "bd9637059864ddb270fd2f07fdd66743c75ee5b194d2c4243f8ebae9273db2c1279121d0926b75fe6378dcc0ea2f6cca4e21ac3407290cb3d13565a00c64f05c"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794463200,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "grant_expired"
+          ]
+        }
+      },
+      {
+        "name": "lives_too_long",
+        "description": "A day is more than a world grant may claim.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794517200"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "8ab2414725a34145450fefc433a8f5e1e127b5f0af3306763e3e9c732b8e6eb5",
+          "sig": "fd739ee73d13f09e6b8b92199f8d8f7fac5f90f9894c226627aafab673eda3731bc3adb0c278222b767abc42246f32901d5d887802ad57d75aff8efd8e061d87"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "ttl_too_long"
+          ]
+        }
+      },
+      {
+        "name": "not_an_origin",
+        "description": "The world is named by its origin and nothing more.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "https://my-world.example/rooms"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "14563afd868a1aee877f4d64f8957f793dbd3508735339e6f9c227c184893345",
+          "sig": "932a0b7e350a3ef6ccd261d0ded6023848a0303676a61d68c19b7ca019ce8fd4d4f1ceda0dc6385d3fad9a51bfebbb3cf80c6599d1a29e96d9d832221587731b"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "invalid_world"
+          ]
+        }
+      },
+      {
+        "name": "a_plain_site",
+        "description": "An unencrypted site that isn't this computer can't be a world to bring a terminal to.",
+        "event": {
+          "kind": 27303,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "nswp:world",
+              "http://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794459600"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "6a4bf1730988c6c1a36e680fe5e2fb5aba75472d990e193c7377df7952d0218b",
+          "sig": "b93a1d52ad7a44854aabc3998f204cf2a8eec314c4a1396ebd86a87780cdfdd0a9197c45feaa4104d45aee1684232b7c87740612e92b39156c3da29238dd35fa"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "http://my-world.example"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "invalid_world"
+          ]
+        }
+      },
+      {
+        "name": "a_home_grant_is_not_a_world_grant",
+        "description": "The five-minute grant a home uses, sent as if it were one of these.",
+        "event": {
+          "kind": 27302,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:bridge",
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+            ],
+            [
+              "expiration",
+              "1794431100"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "7ed785474377d46ea734accd28ad6afd6f713ea25d145e109341ce9f232e2c4a",
+          "sig": "3b5034b9f58f3961164eabc39a0ccbc735b391d3c99e4d96d76182f4959c2363cce03a4e82040a277a171c0d5a27299d9b86630fc7c346aec535d1c682819714"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "missing_tag",
+            "wrong_kind"
+          ]
+        }
+      },
+      {
+        "name": "a_pass_is_not_a_world_grant",
+        "description": "The pass a world is handed when its visitor goes by name.",
+        "event": {
+          "kind": 27300,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "nswp:session",
+              "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+            ],
+            [
+              "nswp:origin",
+              "https://my-world.example"
+            ],
+            [
+              "expiration",
+              "1794445200"
+            ]
+          ],
+          "content": "",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "46b9f3c5283d0f536acc155685178f46f078ae90d76c800887d7aa321eb8b4bd",
+          "sig": "bc9f6d28afe07783cc4af9a9c30df78a820ea84cbbbe5ebb243e68b1a034ae9359904da261d6ad4135a1966935788d93ce73e3ed8cd9e9b3a22497080bad4c8f"
+        },
+        "owner": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "bridge": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "worlds": [
+          "https://my-world.example",
+          "http://127.0.0.1:5173"
+        ],
+        "now": 1794430830,
+        "expect": {
+          "valid": false,
+          "errors": [
+            "missing_tag",
+            "missing_tag",
+            "names_a_site",
+            "wrong_kind"
+          ]
+        }
+      }
+    ]
+  }
 }

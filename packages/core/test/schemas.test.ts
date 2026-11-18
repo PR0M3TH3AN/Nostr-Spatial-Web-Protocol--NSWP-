@@ -12,7 +12,7 @@ const root = join(import.meta.dirname, "../../..");
 const load = (p: string) => JSON.parse(readFileSync(join(root, p), "utf8"));
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
-for (const s of ["entry-assertion", "pass", "grant", "world-event", "manifest", "portal", "arrival", "look", "list"]) {
+for (const s of ["entry-assertion", "pass", "grant", "world-grant", "world-event", "manifest", "portal", "arrival", "look", "list"]) {
   ajv.addSchema(load(`schemas/${s}.schema.json`), `${s}.schema.json`);
 }
 const validate = (schema: string, data: unknown) => ajv.validate(`${schema}.schema.json`, data);
@@ -60,6 +60,16 @@ describe("JSON Schemas agree with the vectors", () => {
     for (const n of ["a_pass_is_not_a_grant", "names_a_site", "no_bridge"]) expect(validate("grant", vectors.find((v: { name: string }) => v.name === n).event), n).toBe(false);
     // And the pass schema refuses a grant.
     expect(validate("pass", vectors[0].event)).toBe(false);
+  });
+
+  it("world grants", () => {
+    const { worlds, vectors: home } = load("vectors/grants.json");
+    for (const v of worlds.vectors) if (v.expect.valid) expect(validate("world-grant", v.event), v.name).toBe(true);
+    for (const n of ["a_home_grant_is_not_a_world_grant", "a_pass_is_not_a_world_grant", "a_plain_site"]) expect(validate("world-grant", worlds.vectors.find((v: { name: string }) => v.name === n).event), n).toBe(false);
+    // The three are told apart by their shape alone.
+    expect(validate("grant", worlds.vectors[0].event)).toBe(false);
+    expect(validate("pass", worlds.vectors[0].event)).toBe(false);
+    expect(validate("world-grant", home[0].event)).toBe(false);
   });
 
   it("lists", () => {

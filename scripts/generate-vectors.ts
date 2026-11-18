@@ -40,6 +40,8 @@ import {
   verifyOrigin,
   verifyRoomPass,
   buildBridgeGrant,
+  buildWorldGrant,
+  verifyWorldGrant,
   verifyBridgeGrant,
   grantCode,
   bridgeTopic,
@@ -537,6 +539,40 @@ for (const v of grantVectors) {
 expectEqual("grant/as a pass", verifyRoomPass(goodGrant, { origin: "https://museum.example", session: PK3, now: T0 + 30 }).ok, false);
 const grantTopic = { bridge: PK2, topic: bridgeTopic(PK2) };
 
+// A world of the owner's own: key 1 is building the world at WORLD, and told its Bridge (key 2) so.
+const WORLD = "https://my-world.example";
+const DEV = "http://127.0.0.1:5173";
+const goodWorldGrant = sign(buildWorldGrant({ session: PK3, bridge: PK2, world: `${WORLD}/rooms/one?x=1`, createdAt: T0 }));
+const rawWorldGrant = (tags: string[][], kind = 27303, key = KEY1): NostrEvent => sign({ kind, created_at: T0, tags, content: "" }, key);
+const worldTags = (over: Record<string, string | null> = {}): string[][] =>
+  Object.entries({ "nswp:session": PK3, "nswp:bridge": PK2, "nswp:world": WORLD, expiration: String(T0 + 8 * 3600), ...over }).flatMap(([k, v]) => (v === null ? [] : [[k, v]]));
+type WorldGrantVector = { name: string; description: string; event: unknown; owner: string; bridge: string; session: string; worlds: string[]; now: number; expect: { valid: boolean; errors: string[]; world?: string } };
+const worldAt = { owner: PK1, bridge: PK2, session: PK3, worlds: [WORLD, DEV], now: T0 + 30 };
+const worldGrantVectors: WorldGrantVector[] = [
+  { name: "valid", description: "Key 1 says the session key may open terminals on its Bridge from the world it is building, for eight hours. The world is named by its origin, whatever page was given.", event: goodWorldGrant, ...worldAt, expect: { valid: true, errors: [], world: WORLD } },
+  { name: "valid_again", description: "The same grant, an hour on: it is good until it expires, so a refresh doesn't end the work.", event: goodWorldGrant, ...worldAt, now: T0 + 3600, expect: { valid: true, errors: [], world: WORLD } },
+  { name: "valid_on_this_computer", description: "A world still being built, served from the owner's own machine.", event: sign(buildWorldGrant({ session: PK3, bridge: PK2, world: DEV, createdAt: T0 })), ...worldAt, expect: { valid: true, errors: [], world: DEV } },
+  { name: "a_world_it_was_not_told_about", description: "Signed by the owner, for a world this Bridge was never started with. The owner's signature is not enough: the computer has to have been told too.", event: goodWorldGrant, ...worldAt, worlds: [DEV], expect: { valid: false, errors: ["world_not_allowed"] } },
+  { name: "told_about_no_worlds", description: "A Bridge started without any world honours none.", event: goodWorldGrant, ...worldAt, worlds: [], expect: { valid: false, errors: ["world_not_allowed"] } },
+  { name: "not_the_owner", description: "Somebody else's key, for a world the Bridge does know.", event: rawWorldGrant(worldTags(), 27303, KEY2), ...worldAt, expect: { valid: false, errors: ["not_owner"] } },
+  { name: "another_session_key", description: "Sent by a key the grant doesn't name.", event: goodWorldGrant, ...worldAt, session: PK1.replace(/^../, "ee"), expect: { valid: false, errors: ["session_mismatch"] } },
+  { name: "expired", description: "Nine hours on.", event: goodWorldGrant, ...worldAt, now: T0 + 9 * 3600, expect: { valid: false, errors: ["grant_expired"] } },
+  { name: "lives_too_long", description: "A day is more than a world grant may claim.", event: rawWorldGrant(worldTags({ expiration: String(T0 + 24 * 3600) })), ...worldAt, expect: { valid: false, errors: ["ttl_too_long"] } },
+  { name: "not_an_origin", description: "The world is named by its origin and nothing more.", event: rawWorldGrant(worldTags({ "nswp:world": `${WORLD}/rooms` })), ...worldAt, expect: { valid: false, errors: ["invalid_world"] } },
+  { name: "a_plain_site", description: "An unencrypted site that isn't this computer can't be a world to bring a terminal to.", event: rawWorldGrant(worldTags({ "nswp:world": "http://my-world.example" })), ...worldAt, worlds: ["http://my-world.example"], expect: { valid: false, errors: ["invalid_world"] } },
+  { name: "a_home_grant_is_not_a_world_grant", description: "The five-minute grant a home uses, sent as if it were one of these.", event: goodGrant, ...worldAt, expect: { valid: false, errors: ["missing_tag", "wrong_kind"] } },
+  { name: "a_pass_is_not_a_world_grant", description: "The pass a world is handed when its visitor goes by name.", event: sign(buildRoomPass({ session: PK3, origin: WORLD, createdAt: T0 })), ...worldAt, expect: { valid: false, errors: ["missing_tag", "missing_tag", "names_a_site", "wrong_kind"] } },
+];
+for (const v of worldGrantVectors) {
+  const r = verifyWorldGrant(v.event, { owner: v.owner, bridge: v.bridge, session: v.session, worlds: v.worlds, now: v.now });
+  expectEqual(`world-grant/${v.name} valid`, r.ok, v.expect.valid);
+  expectEqual(`world-grant/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
+  if (r.ok) expectEqual(`world-grant/${v.name} world`, r.value.world, v.expect.world);
+}
+// And each way round: a world grant opens nothing as a home's grant, and is worth nothing as a pass.
+expectEqual("world-grant/as a home grant", verifyBridgeGrant(goodWorldGrant, { owner: PK1, bridge: PK2, session: PK3, now: T0 + 30 }).ok, false);
+expectEqual("world-grant/as a pass", verifyRoomPass(goodWorldGrant, { origin: WORLD, session: PK3, now: T0 + 30 }).ok, false);
+
 // --------------------------------------------------------------------- output
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
@@ -568,6 +604,10 @@ const files: Record<string, unknown> = {
     testKeys,
     topic: grantTopic,
     vectors: grantVectors,
+    worlds: {
+      description: "World grants (kind 27303): for a world the owner is building. Verify each as the Bridge with key `bridge`, owned by `owner`, sent by `session`, started knowing the worlds in `worlds`. Unlike the grants above, one is good until it expires.",
+      vectors: worldGrantVectors,
+    },
   },
   "lists.json": {
     description:
