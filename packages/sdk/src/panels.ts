@@ -360,13 +360,17 @@ export function createPanels(o: PanelsOptions): Panels {
     if (frame) frame.visible = solid;
     material.needsUpdate = true;
   };
-  /** Dark parts fade more than light ones: the picture's own brightness decides how much of each point is left. */
+  /**
+   * Dark parts fade more than light ones: the picture's own brightness decides how much of each point is left.
+   * The step from gone to there is a short one, so the soft edges of letters stay with the letters and thin
+   * text keeps its weight against whatever is behind it.
+   */
   const seeThroughDark = (material: THREE.MeshBasicMaterial, dark: { value: number }) => {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.nswpDark = dark;
       shader.fragmentShader = shader.fragmentShader
         .replace("#include <common>", "#include <common>\nuniform float nswpDark;")
-        .replace("#include <map_fragment>", "#include <map_fragment>\n\tdiffuseColor.a *= mix(nswpDark, 1.0, smoothstep(0.03, 0.45, dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))));");
+        .replace("#include <map_fragment>", "#include <map_fragment>\n\tdiffuseColor.a *= mix(nswpDark, 1.0, smoothstep(0.02, 0.2, dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))));");
     };
     material.customProgramCacheKey = () => "nswp-panel-body";
   };

@@ -25,7 +25,7 @@ import {
 export type { Arrival, PortalDestination } from "@nswp/core";
 export { room, RoomSession, type JoinOptions, type Member, type RoomStatus } from "./room.js";
 export type { Pose, Transform } from "@nswp/core";
-export { dropBrought, somethingBrought, takeBrought, type Brought } from "./bring.js";
+export { dropBrought, somethingBrought, takeBrought, watchBrought, type Brought } from "./bring.js";
 
 const RETURN_KEY = "nswp:return-airlock";
 const LOOK_KEY = "nswp:look";

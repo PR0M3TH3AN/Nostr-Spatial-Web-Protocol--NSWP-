@@ -74,6 +74,25 @@ export function takeBrought(now = Math.floor(Date.now() / 1000)): (Brought & { f
   return { ...brought, immersive: fresh && brought.immersive, fresh };
 }
 
+/**
+ * A world that is already open may be handed something in its address: its
+ * owner going there again from their home, in the same tab. Then nothing
+ * loads, and the page has to notice. This takes it out of the address and
+ * starts the page again, so it is never left sitting where it can be copied.
+ * Call once.
+ */
+export function watchBrought(): void {
+  addEventListener("hashchange", () => {
+    try {
+      if (!new URLSearchParams(location.hash.replace(/^#/, "")).has(PARAM)) return;
+    } catch {
+      return;
+    }
+    takeBrought();
+    location.reload();
+  });
+}
+
 /** Let go of it: the owner is done here. */
 export function dropBrought(): void {
   tab()?.removeItem(KEPT);
