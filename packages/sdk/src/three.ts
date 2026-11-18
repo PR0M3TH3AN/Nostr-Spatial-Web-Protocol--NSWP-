@@ -846,9 +846,64 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
  * It also hides the flat HUD while a headset session runs. The page can't be
  * seen from inside one, and the console takes over.
  */
+/**
+ * The one thing asked of someone who has just arrived from a headset session:
+ * a large way back in, over everything, that one press answers either way.
+ * A browser won't let a page start a headset session unasked, so this is the
+ * least that can be asked (protocol/02-doors.md).
+ */
+function offerHeadset(title: string, enter: () => void, stay: () => void): { remove(): void } {
+  const scrim = document.createElement("div");
+  scrim.id = "nswp-enter";
+  scrim.setAttribute("role", "dialog");
+  scrim.setAttribute("aria-label", `You've arrived at ${title}`);
+  Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center" });
+  const heading = document.createElement("p");
+  heading.textContent = title;
+  Object.assign(heading.style, { margin: "0", font: "700 clamp(28px, 6vw, 56px)/1.1 system-ui, sans-serif", color: "#eef5fb" });
+  const go = document.createElement("button");
+  go.type = "button";
+  go.id = "nswp-enter-vr";
+  go.textContent = "Enter VR";
+  // Large enough to hit with a controller's ray on a headset's flat panel, first try.
+  Object.assign(go.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
+  const flat = document.createElement("button");
+  flat.type = "button";
+  flat.id = "nswp-enter-flat";
+  flat.textContent = "Look around on this screen";
+  Object.assign(flat.style, { font: "500 18px/1 system-ui, sans-serif", padding: "14px 20px", border: "0", background: "none", color: "#eef5fb", textDecoration: "underline", cursor: "pointer" });
+  scrim.append(heading, go, flat);
+  const remove = () => {
+    removeEventListener("keydown", onKey);
+    scrim.remove();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") stay();
+  };
+  go.addEventListener("click", enter);
+  flat.addEventListener("click", stay);
+  addEventListener("keydown", onKey);
+  document.body.append(scrim);
+  go.focus();
+  return { remove };
+}
+
 export async function addViewControls(
   controls: Controls,
-  d: { renderer: THREE.WebGLRenderer; rig: THREE.Object3D; camera: THREE.Camera; hud?: { setHidden(hidden: boolean): void }; onState?: (state: string) => void },
+  d: {
+    renderer: THREE.WebGLRenderer;
+    rig: THREE.Object3D;
+    camera: THREE.Camera;
+    hud?: { setHidden(hidden: boolean): void };
+    onState?: (state: string) => void;
+    /**
+     * The visitor left a headset session to come here (`arrival.read().context?.immersive`,
+     * or however a client knows). They are offered the way back in before anything else.
+     */
+    arrived?: { title: string };
+    /** The offer above has gone up, or been answered. */
+    onOffer?: (showing: boolean) => void;
+  },
 ): Promise<boolean> {
   const xr = navigator.xr;
   let supported = false;
@@ -860,6 +915,37 @@ export async function addViewControls(
   const presenting = () => d.renderer.xr.isPresenting;
   d.renderer.xr.addEventListener("sessionstart", () => d.hud?.setHidden(true));
   d.renderer.xr.addEventListener("sessionend", () => d.hud?.setHidden(false));
+  let offer: { remove(): void } | null = null;
+  const answered = () => {
+    if (!offer) return;
+    offer.remove();
+    offer = null;
+    d.onOffer?.(false);
+  };
+  const enter = async () => {
+    if (presenting()) return;
+    try {
+      const session = await xr!.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] });
+      await d.renderer.xr.setSession(session);
+      d.onState?.("presenting");
+      session.addEventListener("end", () => d.onState?.("ended"));
+      answered();
+    } catch (err) {
+      d.onState?.(`error: ${err instanceof Error ? err.message : String(err)}`);
+      controls.say("Couldn't start VR on this device.");
+    }
+  };
+  // Where a browser lets a headset session carry on across a crossing, it says so with this event, and
+  // nothing need be asked at all. It is a proposal that few browsers have; everywhere else, nothing happens.
+  try {
+    (xr as unknown as EventTarget | undefined)?.addEventListener?.("sessiongranted", () => void enter());
+  } catch {
+    /* not offered here */
+  }
+  if (supported && d.arrived && !presenting()) {
+    offer = offerHeadset(d.arrived.title, () => void enter(), answered);
+    d.onOffer?.(true);
+  }
   controls.add(
     {
       id: "vr",
@@ -872,15 +958,7 @@ export async function addViewControls(
       short: "VR",
       act: async () => {
         if (presenting()) return void (await d.renderer.xr.getSession()?.end());
-        try {
-          const session = await xr!.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] });
-          await d.renderer.xr.setSession(session);
-          d.onState?.("presenting");
-          session.addEventListener("end", () => d.onState?.("ended"));
-        } catch (err) {
-          d.onState?.(`error: ${err instanceof Error ? err.message : String(err)}`);
-          controls.say("Couldn't start VR on this device.");
-        }
+        await enter();
       },
     },
     { id: "turn", section: "view", icon: "turn", label: "Turn around", act: () => turnVisitor(d.rig, d.camera, 180) },
@@ -897,5 +975,6 @@ export async function addViewControls(
 export { createFigure, type Figure, type FigureFacts, type FigureStyle } from "./figure.js";
 export { createXrInput, type GrabOptions, type XrInput, type XrInputInfo, type XrInputOptions } from "./input.js";
 export { DEFAULT_COMFORT, readPad, type Comfort, type PadState } from "./actions.js";
+export { createChamber, createCrossing, type ArriveOptions, type Chamber, type Crossing, type CrossingOptions, type CrossingState } from "./chamber.js";
 
 export { addCameraControls, canRecord, recordClip, saveFile, takePicture, takeSelfie, type Camera, type CameraOptions, type Capture, type Clip } from "./camera.js";

@@ -43,6 +43,9 @@ screen, one click or key.
   work. Nothing needs a particular controller's buttons.
 - The controls are reachable inside the session. The page can't be seen there.
 - Moving is by stepping to a pointed-at spot, a jump and not a slide.
+- **Arriving costs one action at most.** A visitor who left a headset session
+  to get here is offered the way back in first, large and alone, and is asked
+  nothing else ([NSWP-02](02-doors.md), "How many actions a crossing takes").
 - **Sticks, grips and buttons are extras, never the only way.** A world may
   let a stick turn or move the visitor, a grip pick things up, a button open
   its menu. Anything a visitor must be able to do stays possible with one

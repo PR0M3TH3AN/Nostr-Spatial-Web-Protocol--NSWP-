@@ -273,7 +273,9 @@ async function render(): Promise<void> {
       u.searchParams.set("xr", "emulate");
       target = u.href;
     }
-    location.assign(buildArrivalUrl(target, { ...(entry ? { entry } : {}), airlock: SELF }));
+    // A visitor who left a headset session is offered the way back into one first, at the other end.
+    const immersive = parseAirlockFragment(location.hash)?.immersive;
+    location.assign(buildArrivalUrl(target, { ...(entry ? { entry } : {}), airlock: SELF, ...(immersive ? { immersive: true as const } : {}) }));
   };
   go.addEventListener("click", leave);
   card.append(el("div", { class: "actions" }, backButton(), go));

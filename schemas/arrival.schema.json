@@ -15,6 +15,7 @@
     "look": { "type": "string", "maxLength": 600 },
     "pass": { "$ref": "pass.schema.json" },
     "sessionKey": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The secret half of the session key the pass names. Present only with `pass`." },
+    "immersive": { "type": "boolean", "description": "True when the visitor left a headset session to make this trip." },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }
 }

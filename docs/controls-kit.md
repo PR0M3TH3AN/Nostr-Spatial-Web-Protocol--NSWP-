@@ -142,6 +142,37 @@ The pure part, `actions.ts`, turns a gamepad into intent and has no three.js in
 it: `readPad`, `Locomotion`, `Comfort`. Use it alone in a world that draws and
 moves things its own way.
 
+## Leaving and arriving
+
+A crossing between two sites can't be made seamless: a browser shows flat
+pages in between and asks for a press to go back into a headset. The kit makes
+the two ends the same place, and makes that press the only thing asked.
+
+```js
+import { addViewControls, createCrossing } from "nswp-sdk/three";
+
+const crossing = createCrossing({ scene, camera, accent, motion: () => controls.theme.motion });
+let offered = !!context?.immersive;
+if (context) crossing.arrive({ title, address: location.host, ready: loaded, hold: () => offered });
+await addViewControls(controls, { renderer, rig, camera, hud,
+  ...(context?.immersive ? { arrived: { title } } : {}), onOffer: (showing) => (offered = showing) });
+// each frame:  crossing.update(t, dt)
+// on a door:   await crossing.leave({ title, address }); portal.go(dest, { xrSession });
+// may they stand here?  crossing.allows(x, z) && ...
+```
+
+- **Arriving,** a visitor who came through an Airlock starts inside the
+  chamber. Its doors open when `ready` settles, and then it sinks away.
+- **From a headset,** they are first shown one large **Enter VR**, focused,
+  with a quiet "Look around on this screen" under it. The doors wait for
+  their answer, so they are seen to open from inside.
+- **Leaving,** the walls rise round them with the destination over the doors,
+  and the page goes on to their Airlock about half a second later.
+- **Where a browser carries the session over** (`sessiongranted`), the offer
+  is answered for them.
+- It is scenery: it asks nothing, claims nothing and has nothing to press.
+  [NSWP-02](../protocol/02-doors.md) says why.
+
 ## Sharing the screen with a world's own interface
 
 A world with an interface of its own leads, and the kit stays out of its way

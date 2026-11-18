@@ -165,6 +165,33 @@
       }
     },
     {
+      "name": "came_from_a_headset",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImltbWVyc2l2ZSI6dHJ1ZX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "immersive": true
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "immersive_must_be_a_boolean",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImltbWVyc2l2ZSI6InllcyJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_immersive"
+        ]
+      }
+    },
+    {
       "name": "not_base64_json",
       "value": "this-is-not-json",
       "expect": {
