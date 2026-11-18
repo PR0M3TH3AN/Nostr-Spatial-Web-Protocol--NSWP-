@@ -1,13 +1,23 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.8 (concept specification)
+**Version:** 0.7.9 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.9
+
+No change to the protocol. The reference app and its worlds get real addresses and real jobs.
+
+- **Addresses under `bitblocks.network`.** BitPortal is at `portal.bitblocks.network`, and each world at a name of its own (`gallery`, `grove`, `tour`, `arcade`, `observatory`, `workshop`, `library`, `starter`). The worlds send visitors through BitPortal's Airlock by default, as §6.2's example always showed. The old `vercel.app` addresses send visitors on to the new ones.
+- **Every world is for something.** The two test worlds became the Gallery (sculptures made in code) and the Grove (somewhere to sit and talk). Five are new: the Tour (five stops for someone's first minute), the Arcade (a small game), the Observatory (a terrace for looking at the sky), the Workshop (every part the worlds are built from, named) and the Library (eight notes on why it is built this way). The Starter Home is the world template, deployed unchanged. Each has two doors to others, and all eight are in BitPortal's room.
+- **The worlds share one harness** (`sites/shared/world.ts`): several doors, each showing where it leads; stepping by pointing at the floor; signs; where a visitor may stand. The Gallery and the Grove keep their identities (`d`), so doors saved to them still lead there.
+- **A caution kept in mind.** All of these sit under one registrable domain with BitLogin's sign-in page, which browsers treat as the same site. That is acceptable because they are all ours and set no cookies. A world made by anyone else does not belong under `bitblocks.network`.
+- **Status: built and signed in the repositories; not live until the DNS records for the new names exist.** Then: deploy, publish the announcements, and check.
 
 ## 0. What changed in 0.7.8
 

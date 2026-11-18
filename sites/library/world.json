@@ -37,5 +37,14 @@
   "status": "beta",
   "entryPoints": [
     "main-entrance"
+  ],
+  "previews": [
+    {
+      "url": "https://library.bitblocks.network/previews/5b2a5efad94e836203f53a5b2359e9b4e87baba3299c1e3c432f216625a1e02e.webp",
+      "type": "pano",
+      "sha256": "5b2a5efad94e836203f53a5b2359e9b4e87baba3299c1e3c432f216625a1e02e",
+      "width": 2048,
+      "height": 1024
+    }
   ]
 }

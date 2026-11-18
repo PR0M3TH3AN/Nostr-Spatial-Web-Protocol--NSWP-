@@ -5,7 +5,7 @@ signed world announcements, origin verification, portals, and a trusted
 handoff page (the **Airlock**) between worlds. **BitPortal**, a reference app
 on the [BitBlocks](https://bitblocks.network/) stack, is specified alongside it.
 
-Read [`spec.md`](spec.md) first. Status: concept spec v0.7.8. **Phase 0** (formats,
+Read [`spec.md`](spec.md) first. Status: concept spec v0.7.9. **Phase 0** (formats,
 reference library, test worlds), **Phase 1** (the BitPortal lobby, in the
 separate [`bitportal`](https://github.com/PR0M3TH3AN/bitportal) repo) and
 **Phase 1b** (previews) are built, along with a first cut of shared rooms and
@@ -16,20 +16,20 @@ or standard.
 
 ## Try it
 
-Start in the lobby: <https://bitportal.vercel.app/>. Pick a door, and the
+Start in the lobby: <https://portal.bitblocks.network/>. Pick a door, and the
 Airlock shows where it leads before you go.
 
-Or stand in it: <https://bitportal.vercel.app/walk/> is the room you start in,
+Or stand in it: <https://portal.bitblocks.network/walk/> is the room you start in,
 with your saved doors on one wall and suggested ones on the other. Add `?xr=emulate` to try the headset view without a headset.
 
-Or go straight to a test world. No headset needed:
+Or go straight to a world. No headset needed:
 
-1. Open [World A](https://nswp-world-a.vercel.app/?xr=emulate). `?xr=emulate`
+1. Open [the Gallery](https://gallery.bitblocks.network/?xr=emulate). `?xr=emulate`
    loads the [IWER](https://github.com/meta-quest/immersive-web-emulation-runtime)
    emulator, which pretends to be a Meta Quest 3.
-2. Press **Enter VR**, or just click the portal.
-3. The [Airlock](https://nswp-airlock.vercel.app/) shows where the portal really
-   leads. Continue to arrive in World B, then take its portal back.
+2. Press **Enter VR**, or just click a doorway.
+3. The [Airlock](https://portal.bitblocks.network/go/) shows where the door really
+   leads. Continue to arrive in the Grove, then take its door back.
 
 With a headset, open the same pages in its browser without `?xr=emulate`
 (see spec §21.2 for which browsers support WebXR). In VR, raise your left wrist
@@ -39,10 +39,10 @@ the console, with the way back, Turn around, and the room's controls. Nothing ha
 
 ### Share a room (experimental)
 
-Both worlds have a peer-to-peer room: other visitors appear as avatars, and
+Every world has a peer-to-peer room: other visitors appear as avatars, and
 you can talk.
 
-1. Open [World A](https://nswp-world-a.vercel.app/) and press **Join the room**.
+1. Open [the Grove](https://grove.bitblocks.network/) and press **Join the room**.
    Joining shows your IP address to the others in the room.
 2. Press **Make a private room**. It copies an invite link; send it to someone,
    or open it in a second window to see yourself.
@@ -87,13 +87,13 @@ npm run typecheck
 ```
 
 ```bash
-npm run build            # core, CLI, and the three sites (sites/*/dist)
+npm run build            # core, CLI, and every site (sites/*/dist)
 ```
 
 Check any world from the command line:
 
 ```bash
-npm run -s nswp -- check https://nswp-world-a.vercel.app/
+npm run -s nswp -- check https://gallery.bitblocks.network/
 ```
 
 ### Validating your own implementation
@@ -103,16 +103,39 @@ report. The schemas are structural only and never reject something a full
 validator accepts; the vectors cover the rest (signatures, origin rules,
 expiry, replay).
 
-### Deploying the reference sites
+### The worlds
 
-The three sites deploy to Vercel projects listed in
+Seven worlds are built here, each for a reason, and each at its own address
+under `bitblocks.network`. They are the first doors in BitPortal's room.
+
+| World | What it is for |
+|---|---|
+| [The Tour](https://tour.bitblocks.network/) | Five stops that teach looking, moving, doors and the way home |
+| [The Gallery](https://gallery.bitblocks.network/) | Six sculptures made in code |
+| [The Grove](https://grove.bitblocks.network/) | Somewhere to sit and talk |
+| [The Arcade](https://arcade.bitblocks.network/) | A small game: catch twelve lanterns against a clock |
+| [The Observatory](https://observatory.bitblocks.network/) | A terrace for looking at the sky |
+| [The Workshop](https://workshop.bitblocks.network/) | Every part the worlds are built from, with its name |
+| [The Library](https://library.bitblocks.network/) | Eight notes on why it is built this way |
+
+An eighth, [the Starter Home](https://starter.bitblocks.network/), is the world
+template deployed unchanged (`sites/template-demo/`).
+
+Each is one file, `sites/<name>/src/main.ts`, on the shared code in
+`sites/shared/world.ts`: arriving, doors, stepping, the controls, the room and
+the preview picture. `sites/sites.json` names them and their addresses; a
+world's page and manifest are generated from its `world.json` when it is built.
+
+### Deploying the sites
+
+The sites deploy to Vercel projects listed in
 `sites/vercel-projects.json` (IDs, not secrets):
 
 ```bash
 npm run build && npm run deploy:sites
 ```
 
-The reference worlds' publisher key lives outside the repo, at
+The worlds' publisher key lives outside the repo, at
 `~/.config/nswp/reference-publisher.key`. Signed announcements are in
 `sites/announcements/` and are published to public relays; after changing a
 `world.json`, re-sign it with `nswp sign-world` and publish it with

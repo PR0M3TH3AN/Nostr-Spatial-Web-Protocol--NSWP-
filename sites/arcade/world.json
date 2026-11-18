@@ -37,5 +37,14 @@
   "status": "beta",
   "entryPoints": [
     "main-entrance"
+  ],
+  "previews": [
+    {
+      "url": "https://arcade.bitblocks.network/previews/5947f0ee5b38c5c2f109949e49e62fca076ce760726f66d78f208685bf8d2f8f.webp",
+      "type": "pano",
+      "sha256": "5947f0ee5b38c5c2f109949e49e62fca076ce760726f66d78f208685bf8d2f8f",
+      "width": 2048,
+      "height": 1024
+    }
   ]
 }

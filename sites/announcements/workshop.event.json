@@ -1,28 +1,28 @@
 {
   "kind": 37300,
-  "created_at": 1794972598,
+  "created_at": 1794974499,
   "tags": [
     [
       "d",
-      "nswp-reference-world-a"
+      "workshop"
     ],
     [
       "title",
-      "NSWP Reference World A: The Gallery"
+      "The Workshop"
     ],
     [
       "summary",
-      "A calm blue gallery with a portal to World B."
+      "Every part these worlds are built from, set out with its name."
     ],
     [
       "r",
-      "https://nswp-world-a.vercel.app/"
+      "https://workshop.bitblocks.network/"
     ],
     [
       "preview",
-      "https://nswp-world-a.vercel.app/previews/0cc108d7c57be4c2c969e5b88ab5c93946fe91aebda0c7d80c28c4ce26e11bb7.webp",
+      "https://workshop.bitblocks.network/previews/c1f839aa8f309a7521257adcbbd5bf6ff8b9d241e000ef4f8d84522154299288.webp",
       "pano",
-      "0cc108d7c57be4c2c969e5b88ab5c93946fe91aebda0c7d80c28c4ce26e11bb7",
+      "c1f839aa8f309a7521257adcbbd5bf6ff8b9d241e000ef4f8d84522154299288",
       "2048x1024"
     ],
     [
@@ -42,9 +42,13 @@
       "spatial-portals"
     ],
     [
+      "capability",
+      "rooms"
+    ],
+    [
       "comfort",
       "locomotion",
-      "stationary"
+      "teleport"
     ],
     [
       "comfort",
@@ -82,15 +86,15 @@
     ],
     [
       "t",
-      "nswp"
+      "building"
     ],
     [
       "t",
-      "reference"
+      "tools"
     ],
     [
       "t",
-      "gallery"
+      "how-to"
     ],
     [
       "L",
@@ -107,11 +111,11 @@
     ],
     [
       "alt",
-      "Spatial world listing: NSWP Reference World A: The Gallery"
+      "Spatial world listing: The Workshop"
     ]
   ],
-  "content": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
+  "content": "For people who want to build a world: the ready-made parts and the four ways of making a shape, each labelled with the name it has in code.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "7516301a4f62ce6c77ef420766e1cc2e518dacbce54d42bfa1a5228f7711c7ae",
-  "sig": "6c747760350d919d45c9ec5ac9f118ee5dc1a10f8515706a9aaa9f980647be41dca40d84a8aab6786d60da6a9af8c2a0bdec9981ca5446cc5ba5c466fca626b4"
+  "id": "e282a917f7446dc684e0058113f7c634ae17453ce03e03156f35d9bca8fadb18",
+  "sig": "53bbaf406c213ee6017243f978cad85b50dd80542eaca3facfaf68d2766e7bae1d0befa16a385dd8039a67b5721df4d25d793a88934c1963fabdf4ec7bec3be2"
 }

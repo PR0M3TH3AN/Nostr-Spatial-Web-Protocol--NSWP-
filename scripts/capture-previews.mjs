@@ -33,10 +33,12 @@ function serve(dir) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
 
+// --elsewhere-only: take no pictures; only bring in the previews of worlds kept elsewhere.
+const elsewhereOnly = process.argv.includes("--elsewhere-only");
 const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
-const index = {};
+const index = elsewhereOnly ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(join(outDir, "index.json"), "utf8"))).filter(([, p]) => !p.elsewhere)) : {};
 try {
-  for (const name of Object.keys(sites.worlds)) {
+  for (const name of elsewhereOnly ? [] : Object.keys(sites.worlds)) {
     const dist = join(root, "sites", name, "dist");
     if (!existsSync(join(dist, "index.html"))) throw new Error(`sites/${name}/dist is missing; run npm run build`);
     const server = await serve(dist);
@@ -77,7 +79,7 @@ for (const f of readdirSync(outDir)) if (f.endsWith(".webp") && !keep.has(f)) rm
 writeFileSync(join(outDir, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
 
 for (const [name, p] of Object.entries(index)) {
-  if (p.elsewhere) continue;
+  if (p.elsewhere || elsewhereOnly) continue;
   const path = join(root, "sites", name, "world.json");
   const world = JSON.parse(readFileSync(path, "utf8"));
   world.previews = [{ url: new URL(`/previews/${p.sha256}.webp`, sites.worlds[name].url).href, type: "pano", sha256: p.sha256, width: p.width, height: p.height }];

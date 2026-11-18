@@ -1,6 +1,6 @@
-# The world template's demo
+# The Starter Home
 
-`https://nswp-world-template.vercel.app/` is the
+`https://starter.bitblocks.network/` is the
 [world template](https://github.com/PR0M3TH3AN/nswp-world-template) deployed
 unchanged, as a newcomer would deploy it. This folder keeps what was added to
 a fresh copy of the template to make it, so it can be made again:
@@ -18,7 +18,9 @@ reference publisher key, `npm run check`, and deploy `dist/` to the Vercel
 project named in `../vercel-projects.json` under `templateDemo`. Copy the
 clone's `world.json`, `signed/` and `previews/` back here.
 
-Last made from template commit `96f60be`, in the modelled look, with a new
-preview picture and signatures, and deployed.
+Last made from template commit `a3325fa`, as The Starter Home (`d` is
+`starter`), with a new preview picture and signatures. Its preview is also
+mirrored into `sites/previews/` by `node scripts/capture-previews.mjs
+--elsewhere-only`, so the Workshop's door can show it.
 
 It is not built by `npm run build` here and has no code of its own.

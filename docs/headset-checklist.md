@@ -11,7 +11,7 @@ the useful answer. Record the result in spec §21.2.
 
 Open each address in the headset's own browser. No account is needed.
 
-## 1. The room: `https://bitportal.vercel.app/walk/`
+## 1. The room: `https://portal.bitblocks.network/walk/`
 
 | # | Do this | It should |
 |---|---|---|
@@ -31,18 +31,18 @@ Open each address in the headset's own browser. No account is needed.
 | 1.12 | Sit down and repeat 1.3, 1.6 and 1.10 | All still work without standing or turning your body |
 | 1.13 | Select a door | Leave VR and show the Airlock: a flat page with the address |
 
-## 2. Crossing: the Airlock and World A
+## 2. Crossing: the Airlock and the Gallery
 
 | # | Do this | It should |
 |---|---|---|
 | 2.1 | On the Airlock, read the page | Show the real address first, then whether it is verified |
-| 2.2 | Press **Continue** | Open World A. **Did you have to press Enter VR again?** (Expected: yes) |
+| 2.2 | Press **Continue** | Open the Gallery. **Did you have to press Enter VR again?** (Expected: yes) |
 | 2.3 | In VR, open the console (wrist or **Menu**) | Offer **Back to your lobby** under Travel |
-| 2.4 | Close the menu, point at the portal and select it | Leave for the Airlock, naming World B |
-| 2.5 | Cancel, go back into World A, open the menu, select **Back to your lobby** | Return you to BitPortal's room, facing the door you left through |
-| 2.6 | Count the steps from "in the room" to "standing in World A in VR" | **How many, and which felt unnecessary?** |
+| 2.4 | Close the menu, point at the portal and select it | Leave for the Airlock, naming the Grove |
+| 2.5 | Cancel, go back into the Gallery, open the menu, select **Back to your lobby** | Return you to BitPortal's room, facing the door you left through |
+| 2.6 | Count the steps from "in the room" to "standing in the Gallery in VR" | **How many, and which felt unnecessary?** |
 
-## 3. A world from the template: `https://nswp-world-template.vercel.app/`
+## 3. A world from the template: `https://starter.bitblocks.network/`
 
 | # | Do this | It should |
 |---|---|---|
@@ -57,7 +57,7 @@ Open each address in the headset's own browser. No account is needed.
 
 | # | Do this | It should |
 |---|---|---|
-| 4.1 | In World A in VR, open the console's Room section and read the line under the buttons | Say that joining shows your IP address to the others, before you join |
+| 4.1 | In the Gallery in VR, open the console's Room section and read the line under the buttons | Say that joining shows your IP address to the others, before you join |
 | 4.2 | Select **Join the room**, with someone else joined from another device | Show them as an avatar that moves when they do |
 | 4.3 | Select **Turn microphone on** | Ask for the microphone. **Did the headset show its permission prompt while in VR, or did you have to leave VR?** |
 | 4.4 | Talk | Be heard by the other person, from the direction of your avatar |

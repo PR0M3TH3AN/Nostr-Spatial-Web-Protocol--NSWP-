@@ -1,23 +1,20 @@
 {
-  "note": "Vercel project IDs for the reference sites (not secrets). Deploy with `npm run build && npm run deploy:sites`.",
+  "note": "Vercel project IDs for the sites built here (not secrets). Deploy with `npm run build && npm run deploy:sites`. Each world's address under bitblocks.network is attached to its project; the project names are older than the addresses.",
   "orgId": "team_qGxY9CogxTxoSQFaQ31VEDKp",
   "sites": {
-    "world-a": {
-      "projectId": "prj_m3rqpPmbqrRg3PKSALzjLAQ966cj",
-      "url": "https://nswp-world-a.vercel.app/"
-    },
-    "world-b": {
-      "projectId": "prj_1mUrZZe4HUvsBhi8p5L068AtaNzW",
-      "url": "https://nswp-world-b.vercel.app/"
-    },
-    "airlock": {
-      "projectId": "prj_KvVA9pSRNViNUNAKTveuIRmQ6Hqp",
-      "url": "https://nswp-airlock.vercel.app/"
-    }
+    "gallery": { "projectId": "prj_m3rqpPmbqrRg3PKSALzjLAQ966cj", "project": "nswp-world-a", "url": "https://gallery.bitblocks.network/" },
+    "grove": { "projectId": "prj_1mUrZZe4HUvsBhi8p5L068AtaNzW", "project": "nswp-world-b", "url": "https://grove.bitblocks.network/" },
+    "tour": { "projectId": "prj_LJ07IU9cjT1oLT4AakZgsBZwSAwr", "project": "nswp-tour", "url": "https://tour.bitblocks.network/" },
+    "arcade": { "projectId": "prj_5aCZ5EccH7w1IqK0vMSmtwdoFuNY", "project": "nswp-arcade", "url": "https://arcade.bitblocks.network/" },
+    "observatory": { "projectId": "prj_vaC3cKqG6hFF9MAHMZOoQLvjoK6i", "project": "nswp-observatory", "url": "https://observatory.bitblocks.network/" },
+    "workshop": { "projectId": "prj_81GS5D0fH7kiqYuc96xIcSaKykkR", "project": "nswp-workshop", "url": "https://workshop.bitblocks.network/" },
+    "library": { "projectId": "prj_F7HKYznPfZ04HA0awHn0b89qjJci", "project": "nswp-library", "url": "https://library.bitblocks.network/" },
+    "airlock": { "projectId": "prj_KvVA9pSRNViNUNAKTveuIRmQ6Hqp", "project": "nswp-airlock", "url": "https://nswp-airlock.vercel.app/", "note": "The reference Airlock, kept as a second implementation. The worlds here send visitors through BitPortal's." }
   },
   "templateDemo": {
     "projectId": "prj_Fsyrl3Hn5aVwlls0Zuy6B8SKyazK",
-    "url": "https://nswp-world-template.vercel.app/",
-    "note": "Deployed from a copy of the nswp-world-template repo; see sites/template-demo/README.md."
+    "project": "nswp-world-template",
+    "url": "https://starter.bitblocks.network/",
+    "note": "The Starter Home: deployed from a copy of the nswp-world-template repo; see sites/template-demo/README.md."
   }
 }

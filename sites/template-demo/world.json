@@ -1,10 +1,10 @@
 {
   "world": {
-    "d": "nswp-world-template-demo",
-    "title": "NSWP world template: the starting home",
-    "url": "https://nswp-world-template.vercel.app/",
-    "summary": "What the NSWP world template looks like before anyone changes it.",
-    "description": "A demonstration of the NSWP world template, deployed unchanged. Source: github.com/PR0M3TH3AN/nswp-world-template",
+    "d": "starter",
+    "title": "The Starter Home",
+    "url": "https://starter.bitblocks.network/",
+    "summary": "What a world looks like the day you start one from the template.",
+    "description": "The NSWP world template, deployed unchanged: a hall, some furniture, and two doors. It is where a world of your own begins.",
     "modes": [
       "immersive-vr",
       "inline-3d"
@@ -28,9 +28,9 @@
     ],
     "perf": "mobile",
     "topics": [
-      "nswp",
       "template",
-      "home"
+      "starter",
+      "building"
     ],
     "languages": [
       "en"
@@ -38,15 +38,15 @@
     "status": "beta",
     "previews": [
       {
-        "url": "https://nswp-world-template.vercel.app/previews/7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e.webp",
+        "url": "https://starter.bitblocks.network/previews/521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56.webp",
         "type": "pano",
-        "sha256": "7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e",
+        "sha256": "521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56",
         "width": 2048,
         "height": 1024
       }
     ]
   },
-  "airlock": "https://nswp-airlock.vercel.app/",
+  "airlock": "https://portal.bitblocks.network/go/",
   "relays": [
     "wss://nos.lol",
     "wss://relay.primal.net",

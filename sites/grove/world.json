@@ -38,5 +38,14 @@
   "entryPoints": [
     "main-entrance",
     "clearing"
+  ],
+  "previews": [
+    {
+      "url": "https://grove.bitblocks.network/previews/9342a7bca85354f743f269b9f99199094949568c1a2a6c3ad75ee4ca074c1971.webp",
+      "type": "pano",
+      "sha256": "9342a7bca85354f743f269b9f99199094949568c1a2a6c3ad75ee4ca074c1971",
+      "width": 2048,
+      "height": 1024
+    }
   ]
 }

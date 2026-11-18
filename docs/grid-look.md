@@ -103,7 +103,7 @@ travelling pulse follows.
 and a `sheen`, which makes colour shift with the angle of view: the gallery's
 sculptures use it.
 
-`sites/world-a/src/main.ts` (a gallery) and `sites/world-b/src/main.ts` (a
+`sites/gallery/src/main.ts` (a gallery) and `sites/grove/src/main.ts` (a
 grove) are worked examples.
 
 ## Changing it
