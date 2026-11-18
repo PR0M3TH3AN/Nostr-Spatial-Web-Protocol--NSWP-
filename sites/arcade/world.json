@@ -1,0 +1,50 @@
+{
+  "d": "arcade",
+  "title": "The Arcade",
+  "url": "https://arcade.bitblocks.network/",
+  "summary": "Twelve drifting lanterns and a clock. Catch them all.",
+  "description": "A small game: walk into twelve lanterns drifting over a field while a clock runs. The best time stays on your own device.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "medium",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "game",
+    "arcade",
+    "play"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance"
+  ],
+  "previews": [
+    {
+      "url": "https://arcade.bitblocks.network/previews/5947f0ee5b38c5c2f109949e49e62fca076ce760726f66d78f208685bf8d2f8f.webp",
+      "type": "pano",
+      "sha256": "5947f0ee5b38c5c2f109949e49e62fca076ce760726f66d78f208685bf8d2f8f",
+      "width": 2048,
+      "height": 1024
+    }
+  ]
+}

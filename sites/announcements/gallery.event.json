@@ -1,28 +1,28 @@
 {
   "kind": 37300,
-  "created_at": 1794972599,
+  "created_at": 1794974495,
   "tags": [
     [
       "d",
-      "nswp-reference-world-b"
+      "nswp-reference-world-a"
     ],
     [
       "title",
-      "NSWP Reference World B: The Grove"
+      "The Gallery"
     ],
     [
       "summary",
-      "A warm grove of glowing trees with a portal back to World A."
+      "Sculptures made in code, turning slowly on their plinths."
     ],
     [
       "r",
-      "https://nswp-world-b.vercel.app/"
+      "https://gallery.bitblocks.network/"
     ],
     [
       "preview",
-      "https://nswp-world-b.vercel.app/previews/900bd8e297f8fff2cb7e0bff301bf955258646eaa45bba12ed5989acdd58e682.webp",
+      "https://gallery.bitblocks.network/previews/3f6cfd9b33bc230696e03b6b03113e11d7cccdf183070566fb38fd3fd578f31e.webp",
       "pano",
-      "900bd8e297f8fff2cb7e0bff301bf955258646eaa45bba12ed5989acdd58e682",
+      "3f6cfd9b33bc230696e03b6b03113e11d7cccdf183070566fb38fd3fd578f31e",
       "2048x1024"
     ],
     [
@@ -42,9 +42,13 @@
       "spatial-portals"
     ],
     [
+      "capability",
+      "rooms"
+    ],
+    [
       "comfort",
       "locomotion",
-      "stationary"
+      "teleport"
     ],
     [
       "comfort",
@@ -82,15 +86,15 @@
     ],
     [
       "t",
-      "nswp"
+      "art"
     ],
     [
       "t",
-      "reference"
+      "sculpture"
     ],
     [
       "t",
-      "nature"
+      "gallery"
     ],
     [
       "L",
@@ -107,11 +111,11 @@
     ],
     [
       "alt",
-      "Spatial world listing: NSWP Reference World B: The Grove"
+      "Spatial world listing: The Gallery"
     ]
   ],
-  "content": "A test world for the Nostr Spatial Web Protocol. It exists to try portal crossings through an Airlock. Source: github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-",
+  "content": "Six sculptures, each a few lines of code turned into a shape, on plinths down a long hall. Doors lead to the Grove and the Workshop.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "a06691ea543eccd9a421231bd23b1244cb1db0a53f9aaf9fce0d62f04c69c6a2",
-  "sig": "e4a26013a6cbbb7b80565b807801a82a4bc25253c2133deda97a70f27f70b91b40a0cf1d2995f16976fcdded8da3732993a7483a1618a8628a7a9fc0310161fd"
+  "id": "288e10a4b0d3b999cddb909816e29f9b6d86f98b54850c8eed41b705c1650203",
+  "sig": "498aa69480e2e7a4960d33ba6e98a191046bf7ae9a21b2cbb215906a302f5b3de6602d75808df8bf2008b44646ce33d6115be55af85058e32385aa5b257b4fa9"
 }

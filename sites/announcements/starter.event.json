@@ -1,0 +1,121 @@
+{
+  "kind": 37300,
+  "created_at": 1794974481,
+  "tags": [
+    [
+      "d",
+      "starter"
+    ],
+    [
+      "title",
+      "The Starter Home"
+    ],
+    [
+      "summary",
+      "What a world looks like the day you start one from the template."
+    ],
+    [
+      "r",
+      "https://starter.bitblocks.network/"
+    ],
+    [
+      "preview",
+      "https://starter.bitblocks.network/previews/521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56.webp",
+      "pano",
+      "521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56",
+      "2048x1024"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "capability",
+      "rooms"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "teleport"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "template"
+    ],
+    [
+      "t",
+      "starter"
+    ],
+    [
+      "t",
+      "building"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: The Starter Home"
+    ]
+  ],
+  "content": "The NSWP world template, deployed unchanged: a hall, some furniture, and two doors. It is where a world of your own begins.",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "6086af9f1a90119ce7fdfcadbc91caf2a3cec0d2826c36a65b2f086f70184cb6",
+  "sig": "bb6861da7e08eda7d50e51f61f55558dd998e304b408a0fa3d1c5c6f95f77e38bcd88035eeec563575ba54a607717f12122ed08b9b17d99321fa01671b0e1b9e"
+}

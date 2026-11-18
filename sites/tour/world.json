@@ -1,0 +1,50 @@
+{
+  "d": "tour",
+  "title": "The Tour",
+  "url": "https://tour.bitblocks.network/",
+  "summary": "Five stops that teach looking, moving, doors and the way home.",
+  "description": "A short path with five stops for someone's first minute on the spatial web: looking round, moving, doors, the page between places, and getting home.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "tutorial",
+    "start-here",
+    "help"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance"
+  ],
+  "previews": [
+    {
+      "url": "https://tour.bitblocks.network/previews/022d009727fa780364a4d880c921969be2d41c9e4f7808d47ccb31b6686e4736.webp",
+      "type": "pano",
+      "sha256": "022d009727fa780364a4d880c921969be2d41c9e4f7808d47ccb31b6686e4736",
+      "width": 2048,
+      "height": 1024
+    }
+  ]
+}

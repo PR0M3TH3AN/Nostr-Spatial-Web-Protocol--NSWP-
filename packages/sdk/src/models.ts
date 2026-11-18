@@ -222,14 +222,52 @@ export function metalTone(ground: THREE.ColorRepresentation): THREE.Color {
   return new THREE.Color(ground).multiplyScalar(2.4).lerp(new THREE.Color(0x16222e), 0.5);
 }
 
-/** A ribbon tied in a trefoil knot, `size` across, centred on the builder's place. A seam of light runs round its outside. */
-export function addKnot(b: MeshBuilder, size = 0.7): void {
-  const k = size / 6;
+/**
+ * A ribbon tied in a knot, `size` across, centred on the builder's place, with
+ * a seam of light round its outside. `p` and `q` choose the knot: 2 and 3 is a
+ * trefoil, 2 and 5 a cinquefoil, 3 and 4 something busier.
+ */
+export function addKnot(b: MeshBuilder, size = 0.7, p = 2, q = 3): void {
+  // A torus knot: p times round the hole while q times through it.
+  const [R, r] = [1, 0.48];
+  const k = size / (2 * (R + r));
   const frames = loopFrames((u) => {
     const t = u * Math.PI * 2;
-    return [(Math.sin(t) + 2 * Math.sin(2 * t)) * k, (Math.cos(t) - 2 * Math.cos(2 * t)) * k, -Math.sin(3 * t) * k * 1.25];
-  }, 150);
-  b.sweep(bandProfile(size * 0.16, size * 0.045), frames, (side) => (side === 5 ? { glow: 1 } : side === 1 || side === 9 ? { shade: 1.35 } : side === 11 || side === 0 || side === 10 ? { shade: 0.75 } : {}), { loop: true });
+    const out = R + r * Math.cos(q * t);
+    return [out * Math.cos(p * t) * k, out * Math.sin(p * t) * k, r * Math.sin(q * t) * k * 1.3];
+  }, 60 * Math.max(p, q));
+  const wide = size * (q > 3 ? 0.1 : 0.14);
+  b.sweep(bandProfile(wide, size * 0.04), frames, (side) => (side === 5 ? { glow: 1 } : side === 1 || side === 9 ? { shade: 1.35 } : side === 11 || side === 0 || side === 10 ? { shade: 0.75 } : {}), { loop: true });
+}
+
+/** Two ribbons winding round each other as they rise, `size` high, centred on the builder's place. */
+export function addHelix(b: MeshBuilder, size = 0.8): void {
+  const radius = size * 0.2;
+  const turns = 1.5;
+  const steps = 64;
+  for (const start of [0, Math.PI]) {
+    const frames: Frame[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps;
+      const a = start + u * turns * Math.PI * 2;
+      // Thinner at the ends, so the pair closes to a point top and bottom.
+      const out = radius * (0.25 + 0.75 * Math.sin(u * Math.PI));
+      const x = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+      const travel = new THREE.Vector3(-Math.sin(a) * out * turns * Math.PI * 2, size, Math.cos(a) * out * turns * Math.PI * 2).normalize();
+      const y = travel.clone().cross(x).normalize();
+      frames.push({ p: [x.x * out, size * (u - 0.5), x.z * out], x: [x.x, x.y, x.z], y: [y.x, y.y, y.z], t: u * size * 3 });
+    }
+    b.sweep(bandProfile(size * 0.1, size * 0.03), frames, (side) => (side === 5 ? { glow: 1 } : side === 1 || side === 9 ? { shade: 1.35 } : side >= 10 || side === 0 ? { shade: 0.7 } : {}));
+  }
+  // Rungs between them, every so often, each a bar of light.
+  for (let i = 1; i < 9; i++) {
+    const u = i / 9;
+    const a = u * turns * Math.PI * 2;
+    const out = radius * (0.25 + 0.75 * Math.sin(u * Math.PI));
+    b.place(new THREE.Matrix4().makeRotationY(-a).setPosition(0, size * (u - 0.5), 0));
+    b.box([out * 2, size * 0.012, size * 0.012], [0, 0, 0], { glow: 0.8 });
+  }
+  b.at();
 }
 
 /** Three hoops, one inside another and each tipped a different way, round a point of light. */

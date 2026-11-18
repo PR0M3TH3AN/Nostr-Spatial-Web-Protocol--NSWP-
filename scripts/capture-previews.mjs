@@ -33,10 +33,12 @@ function serve(dir) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
 
+// --elsewhere-only: take no pictures; only bring in the previews of worlds kept elsewhere.
+const elsewhereOnly = process.argv.includes("--elsewhere-only");
 const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
-const index = {};
+const index = elsewhereOnly ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(join(outDir, "index.json"), "utf8"))).filter(([, p]) => !p.elsewhere)) : {};
 try {
-  for (const name of Object.keys(sites.worlds)) {
+  for (const name of elsewhereOnly ? [] : Object.keys(sites.worlds)) {
     const dist = join(root, "sites", name, "dist");
     if (!existsSync(join(dist, "index.html"))) throw new Error(`sites/${name}/dist is missing; run npm run build`);
     const server = await serve(dist);
@@ -60,12 +62,24 @@ try {
   await browser.close();
 }
 
+// Worlds kept elsewhere that a door here leads to: their previews are mirrored
+// too, from where their own repository keeps them.
+for (const [name, place] of Object.entries(sites.elsewhere ?? {})) {
+  const from = join(root, "sites", "template-demo");
+  const world = JSON.parse(readFileSync(join(from, "world.json"), "utf8")).world;
+  const p = world.d === place.d ? world.previews?.[0] : undefined;
+  if (!p) continue;
+  writeFileSync(join(outDir, `${p.sha256}.webp`), readFileSync(join(from, "previews", `${p.sha256}.webp`)));
+  index[name] = { sha256: p.sha256, width: p.width, height: p.height, elsewhere: true };
+}
+
 // Drop preview files that no world uses any more.
 const keep = new Set(Object.values(index).map((p) => `${p.sha256}.webp`));
 for (const f of readdirSync(outDir)) if (f.endsWith(".webp") && !keep.has(f)) rmSync(join(outDir, f));
 writeFileSync(join(outDir, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
 
 for (const [name, p] of Object.entries(index)) {
+  if (p.elsewhere || elsewhereOnly) continue;
   const path = join(root, "sites", name, "world.json");
   const world = JSON.parse(readFileSync(path, "utf8"));
   world.previews = [{ url: new URL(`/previews/${p.sha256}.webp`, sites.worlds[name].url).href, type: "pano", sha256: p.sha256, width: p.width, height: p.height }];

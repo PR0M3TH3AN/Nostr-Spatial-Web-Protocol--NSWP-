@@ -1,0 +1,50 @@
+{
+  "d": "workshop",
+  "title": "The Workshop",
+  "url": "https://workshop.bitblocks.network/",
+  "summary": "Every part these worlds are built from, set out with its name.",
+  "description": "For people who want to build a world: the ready-made parts and the four ways of making a shape, each labelled with the name it has in code.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "building",
+    "tools",
+    "how-to"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance"
+  ],
+  "previews": [
+    {
+      "url": "https://workshop.bitblocks.network/previews/c1f839aa8f309a7521257adcbbd5bf6ff8b9d241e000ef4f8d84522154299288.webp",
+      "type": "pano",
+      "sha256": "c1f839aa8f309a7521257adcbbd5bf6ff8b9d241e000ef4f8d84522154299288",
+      "width": 2048,
+      "height": 1024
+    }
+  ]
+}

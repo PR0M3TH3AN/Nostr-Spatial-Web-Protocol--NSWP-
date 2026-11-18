@@ -1,14 +1,50 @@
 {
-  "world-a": {
-    "sha256": "0cc108d7c57be4c2c969e5b88ab5c93946fe91aebda0c7d80c28c4ce26e11bb7",
+  "gallery": {
+    "sha256": "3f6cfd9b33bc230696e03b6b03113e11d7cccdf183070566fb38fd3fd578f31e",
     "width": 2048,
     "height": 1024,
-    "bytes": 86076
+    "bytes": 86570
   },
-  "world-b": {
-    "sha256": "900bd8e297f8fff2cb7e0bff301bf955258646eaa45bba12ed5989acdd58e682",
+  "grove": {
+    "sha256": "9342a7bca85354f743f269b9f99199094949568c1a2a6c3ad75ee4ca074c1971",
     "width": 2048,
     "height": 1024,
-    "bytes": 118676
+    "bytes": 117960
+  },
+  "tour": {
+    "sha256": "022d009727fa780364a4d880c921969be2d41c9e4f7808d47ccb31b6686e4736",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 117242
+  },
+  "arcade": {
+    "sha256": "5947f0ee5b38c5c2f109949e49e62fca076ce760726f66d78f208685bf8d2f8f",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 97592
+  },
+  "observatory": {
+    "sha256": "204ede78478eff8e6f623cbbdaf37fbf1eed194c7a15ab63e3504eac38693915",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 109268
+  },
+  "workshop": {
+    "sha256": "c1f839aa8f309a7521257adcbbd5bf6ff8b9d241e000ef4f8d84522154299288",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 106972
+  },
+  "library": {
+    "sha256": "5b2a5efad94e836203f53a5b2359e9b4e87baba3299c1e3c432f216625a1e02e",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 92224
+  },
+  "starter": {
+    "sha256": "521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56",
+    "width": 2048,
+    "height": 1024,
+    "elsewhere": true
   }
 }

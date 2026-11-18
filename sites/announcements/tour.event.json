@@ -1,0 +1,121 @@
+{
+  "kind": 37300,
+  "created_at": 1794974497,
+  "tags": [
+    [
+      "d",
+      "tour"
+    ],
+    [
+      "title",
+      "The Tour"
+    ],
+    [
+      "summary",
+      "Five stops that teach looking, moving, doors and the way home."
+    ],
+    [
+      "r",
+      "https://tour.bitblocks.network/"
+    ],
+    [
+      "preview",
+      "https://tour.bitblocks.network/previews/022d009727fa780364a4d880c921969be2d41c9e4f7808d47ccb31b6686e4736.webp",
+      "pano",
+      "022d009727fa780364a4d880c921969be2d41c9e4f7808d47ccb31b6686e4736",
+      "2048x1024"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "capability",
+      "rooms"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "teleport"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "tutorial"
+    ],
+    [
+      "t",
+      "start-here"
+    ],
+    [
+      "t",
+      "help"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: The Tour"
+    ]
+  ],
+  "content": "A short path with five stops for someone's first minute on the spatial web: looking round, moving, doors, the page between places, and getting home.",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "71a8b70000a56dd7ef4d151f6a4fa90cb0ea44cf30412742f021c488b7f3b6c9",
+  "sig": "d040d7371b80f3b51aca86d2857ba158fcc5ba91acafe44f186ff89dab4fe157344f5a69f28fd2c1c28757e4bff9945e3be796b0fa900f2e0e39595469b0e933"
+}

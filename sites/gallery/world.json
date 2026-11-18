@@ -1,0 +1,51 @@
+{
+  "d": "nswp-reference-world-a",
+  "title": "The Gallery",
+  "url": "https://gallery.bitblocks.network/",
+  "summary": "Sculptures made in code, turning slowly on their plinths.",
+  "description": "Six sculptures, each a few lines of code turned into a shape, on plinths down a long hall. Doors lead to the Grove and the Workshop.",
+  "modes": [
+    "immersive-vr",
+    "inline-3d"
+  ],
+  "capabilities": [
+    "webxr",
+    "spatial-portals",
+    "rooms"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "controllers",
+    "hands",
+    "gaze",
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "mobile",
+  "topics": [
+    "art",
+    "sculpture",
+    "gallery"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "entryPoints": [
+    "main-entrance",
+    "balcony"
+  ],
+  "previews": [
+    {
+      "url": "https://gallery.bitblocks.network/previews/3f6cfd9b33bc230696e03b6b03113e11d7cccdf183070566fb38fd3fd578f31e.webp",
+      "type": "pano",
+      "sha256": "3f6cfd9b33bc230696e03b6b03113e11d7cccdf183070566fb38fd3fd578f31e",
+      "width": 2048,
+      "height": 1024
+    }
+  ]
+}

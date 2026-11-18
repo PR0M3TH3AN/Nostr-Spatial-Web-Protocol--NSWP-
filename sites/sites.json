@@ -1,9 +1,18 @@
 {
   "publisher": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
   "relays": ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"],
-  "airlock": "https://nswp-airlock.vercel.app/",
+  "lobby": "https://portal.bitblocks.network/",
+  "airlock": "https://portal.bitblocks.network/go/",
   "worlds": {
-    "world-a": { "d": "nswp-reference-world-a", "url": "https://nswp-world-a.vercel.app/" },
-    "world-b": { "d": "nswp-reference-world-b", "url": "https://nswp-world-b.vercel.app/" }
+    "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "was": "nswp-world-a.vercel.app" },
+    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "was": "nswp-world-b.vercel.app" },
+    "tour": { "d": "tour", "url": "https://tour.bitblocks.network/" },
+    "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/" },
+    "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/" },
+    "workshop": { "d": "workshop", "url": "https://workshop.bitblocks.network/" },
+    "library": { "d": "library", "url": "https://library.bitblocks.network/" }
+  },
+  "elsewhere": {
+    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "was": "nswp-world-template.vercel.app" }
   }
 }

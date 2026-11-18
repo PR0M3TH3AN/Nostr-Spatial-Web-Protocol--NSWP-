@@ -1,0 +1,121 @@
+{
+  "kind": 37300,
+  "created_at": 1794974499,
+  "tags": [
+    [
+      "d",
+      "library"
+    ],
+    [
+      "title",
+      "The Library"
+    ],
+    [
+      "summary",
+      "Eight short notes on why the open spatial web is built this way."
+    ],
+    [
+      "r",
+      "https://library.bitblocks.network/"
+    ],
+    [
+      "preview",
+      "https://library.bitblocks.network/previews/5b2a5efad94e836203f53a5b2359e9b4e87baba3299c1e3c432f216625a1e02e.webp",
+      "pano",
+      "5b2a5efad94e836203f53a5b2359e9b4e87baba3299c1e3c432f216625a1e02e",
+      "2048x1024"
+    ],
+    [
+      "mode",
+      "immersive-vr"
+    ],
+    [
+      "mode",
+      "inline-3d"
+    ],
+    [
+      "capability",
+      "webxr"
+    ],
+    [
+      "capability",
+      "spatial-portals"
+    ],
+    [
+      "capability",
+      "rooms"
+    ],
+    [
+      "comfort",
+      "locomotion",
+      "teleport"
+    ],
+    [
+      "comfort",
+      "intensity",
+      "low"
+    ],
+    [
+      "comfort",
+      "seated",
+      "supported"
+    ],
+    [
+      "input",
+      "controllers"
+    ],
+    [
+      "input",
+      "hands"
+    ],
+    [
+      "input",
+      "gaze"
+    ],
+    [
+      "input",
+      "keyboard-mouse"
+    ],
+    [
+      "input",
+      "touch"
+    ],
+    [
+      "perf",
+      "mobile"
+    ],
+    [
+      "t",
+      "reading"
+    ],
+    [
+      "t",
+      "ideas"
+    ],
+    [
+      "t",
+      "how-it-works"
+    ],
+    [
+      "L",
+      "ISO-639-1"
+    ],
+    [
+      "l",
+      "en",
+      "ISO-639-1"
+    ],
+    [
+      "status",
+      "beta"
+    ],
+    [
+      "alt",
+      "Spatial world listing: The Library"
+    ]
+  ],
+  "content": "A reading room. Eight notes on its walls explain worlds, doors, the page between them, signing, verifying, and what stays private.",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "f0bf3843996bfa1282851a9d703927647c2db6a597793c470ac667bc4e5f2d4f",
+  "sig": "3c1afeea65caccfee9d1d11b5de28805a84f8705efc6582677cf2501e438929eabcce8740a03018a49ec35bdbd36c083e1f187cd42ee94c09b073a032159516e"
+}

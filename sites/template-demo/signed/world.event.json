@@ -1,28 +1,28 @@
 {
   "kind": 37300,
-  "created_at": 1794972983,
+  "created_at": 1794974481,
   "tags": [
     [
       "d",
-      "nswp-world-template-demo"
+      "starter"
     ],
     [
       "title",
-      "NSWP world template: the starting home"
+      "The Starter Home"
     ],
     [
       "summary",
-      "What the NSWP world template looks like before anyone changes it."
+      "What a world looks like the day you start one from the template."
     ],
     [
       "r",
-      "https://nswp-world-template.vercel.app/"
+      "https://starter.bitblocks.network/"
     ],
     [
       "preview",
-      "https://nswp-world-template.vercel.app/previews/7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e.webp",
+      "https://starter.bitblocks.network/previews/521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56.webp",
       "pano",
-      "7ad316faac18f93ca1517ea2c61c76cca919a7f848bda95bf2ded93042296f3e",
+      "521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56",
       "2048x1024"
     ],
     [
@@ -86,15 +86,15 @@
     ],
     [
       "t",
-      "nswp"
-    ],
-    [
-      "t",
       "template"
     ],
     [
       "t",
-      "home"
+      "starter"
+    ],
+    [
+      "t",
+      "building"
     ],
     [
       "L",
@@ -111,11 +111,11 @@
     ],
     [
       "alt",
-      "Spatial world listing: NSWP world template: the starting home"
+      "Spatial world listing: The Starter Home"
     ]
   ],
-  "content": "A demonstration of the NSWP world template, deployed unchanged. Source: github.com/PR0M3TH3AN/nswp-world-template",
+  "content": "The NSWP world template, deployed unchanged: a hall, some furniture, and two doors. It is where a world of your own begins.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "8fd00f544ceb173053f39717f25ce00087c2f2d3b6b2d46e39035d85271dba6f",
-  "sig": "0e235228cecf7d772305de1a95e3e5a67ce06494cbb3e0f895a037ed6e38ac757e5605aff2538bd041285c8fa9daacbc30a5e7354f9838684840c39a869cfa03"
+  "id": "6086af9f1a90119ce7fdfcadbc91caf2a3cec0d2826c36a65b2f086f70184cb6",
+  "sig": "bb6861da7e08eda7d50e51f61f55558dd998e304b408a0fa3d1c5c6f95f77e38bcd88035eeec563575ba54a607717f12122ed08b9b17d99321fa01671b0e1b9e"
 }
