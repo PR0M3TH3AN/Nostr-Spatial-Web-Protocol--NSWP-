@@ -13,6 +13,10 @@
  *    and opens the console floating there. It needs no tracked hand, so it
  *    works with gaze-and-pinch too.
  *
+ * A world with an interface of its own can turn this down (`Presence`, in
+ * ui/model.ts). Quiet, the Menu button shows only where no hand is tracked,
+ * and smaller. Hidden, nothing shows until the world opens it with setOpen().
+ *
  * Everything is pressed with `select` (spec §21.2). It is drawn by the world:
  * it is that world's console, not a trusted surface (spec §3.2).
  *
@@ -401,7 +405,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     setOpen: (next) => setOpen(next, "floating"),
     pick(raycaster) {
       if (!group.visible) return null;
-      if (!open) return raycaster.intersectObject(opener, false).length ? "open" : null;
+      if (!open) return opener.visible && raycaster.intersectObject(opener, false).length ? "open" : null;
       const hit = raycaster.intersectObject(panel, false)[0];
       if (!hit?.uv) return null;
       const x = hit.uv.x * W;
@@ -441,9 +445,11 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       camera.getWorldPosition(head);
       camera.getWorldDirection(facing);
       const t = controls.theme;
+      const presence = controls.presence;
 
       // Raising the chosen wrist close in front of the face opens the console above it; lowering it puts it away.
-      const tracked = t.wrist === "off" ? undefined : grips.find((x) => x.hand === t.wrist && x.grip.visible);
+      // A hidden console answers to nothing but the world.
+      const tracked = t.wrist === "off" || presence === "hidden" ? undefined : grips.find((x) => x.hand === t.wrist && x.grip.visible);
       if (tracked) {
         tracked.grip.getWorldPosition(hand);
         toHand.copy(hand).sub(head);
@@ -500,7 +506,11 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
           sinceRead = 0;
           paint();
         }
-      } else opener.scale.setScalar(aimed === "open" ? 1.1 : 1);
+      } else {
+        // The button is there for anyone in full; in quiet, only for someone with no wrist to raise.
+        opener.visible = presence === "full" || (presence === "quiet" && !tracked);
+        opener.scale.setScalar((presence === "quiet" ? 0.7 : 1) * (aimed === "open" ? 1.1 : 1));
+      }
     },
     describe() {
       const view = controls.view();
@@ -511,13 +521,13 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         mount,
         section: open ? (current?.id ?? "") : "",
         sections: open ? view.sections.map((s) => s.label) : [],
-        buttons: open ? (current?.items.map((i) => i.label) ?? []) : ["Menu"],
+        buttons: open ? (current?.items.map((i) => i.label) ?? []) : opener.visible ? ["Menu"] : [],
         note: open ? (current?.note ?? "") : "",
       };
     },
     pressLabelled(label) {
       if (!open) {
-        if (label !== "Menu") return false;
+        if (label !== "Menu" || !opener.visible) return false;
         con.press("open");
         return true;
       }

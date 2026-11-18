@@ -72,10 +72,33 @@ export interface UiSectionView {
   items: UiItemView[];
 }
 /** Everything a renderer needs to draw, with every word already worked out. */
+/**
+ * How much of the screen the controls take. A world with an interface of its
+ * own leads, and these controls stay out of its way (spec §21.3).
+ *
+ * - "full": the whole HUD, and in a headset the Menu button and the wrist.
+ * - "quiet": one small mark in a corner, which opens everything else. In a
+ *   headset, the wrist; the Menu button only where no hand is tracked.
+ * - "hidden": nothing until the world opens it. For a world that draws these
+ *   actions in menus of its own, or for a moment that shouldn't be interrupted.
+ */
+export type Presence = "full" | "quiet" | "hidden";
+export type Corner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+/** Which keys the HUD answers to. A game needs its keys more than a menu does. */
+export interface UiKeys {
+  /** The key that opens the menu, or null for none. */
+  menu: string | null;
+  /** Whether 1 to 6 press the hotbar. */
+  hotbar: boolean;
+}
+
 export interface UiView {
   title: string;
   address: string;
   target: string;
+  presence: Presence;
+  corner: Corner;
+  keys: UiKeys;
   sections: UiSectionView[];
   hotbar: UiItemView[];
   theme: UiTheme;
@@ -94,6 +117,19 @@ export interface Controls {
   run(id: string): boolean;
   /** Change the look. `keep` also remembers it as this visitor's choice, for this site. */
   setTheme(patch: Partial<UiTheme>, keep?: boolean): void;
+  readonly presence: Presence;
+  /** How much of the screen the controls take. A world can change it as it goes: quiet during play, full in a lobby. */
+  setPresence(presence: Presence): void;
+  /** Which corner the quiet mark sits in. */
+  setCorner(corner: Corner): void;
+  /** Which keys the HUD answers to. */
+  setKeys(keys: Partial<UiKeys>): void;
+  /**
+   * Take every key for the world, or give them back. While claimed, the HUD
+   * answers to no key at all; its mark can still be clicked. For play that
+   * needs the whole keyboard.
+   */
+  claimInput(claimed: boolean): void;
   view(): UiView;
   /** Be told when something changed: a new action, the theme, the target. Returns how to stop being told. */
   subscribe(fn: () => void): () => void;
@@ -109,6 +145,21 @@ export interface ControlsOptions {
   /** The look this world would like. The visitor's own choice overrides it. */
   theme?: Partial<UiTheme>;
   sections?: UiSection[];
+  /** How much of the screen the controls take. "full" unless the world says otherwise. */
+  presence?: Presence;
+  /** Which corner the quiet mark sits in. Top left by default. */
+  corner?: Corner;
+  keys?: Partial<UiKeys>;
+}
+
+const PRESENCES: readonly Presence[] = ["full", "quiet", "hidden"];
+const CORNERS: readonly Corner[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
+/** A key setting, kept only if it is one: these arrive from a world's settings file as well as from code. */
+function cleanKeys(now: UiKeys, k: Partial<UiKeys> | undefined): UiKeys {
+  const out = { ...now };
+  if (k && (k.menu === null || (typeof k.menu === "string" && k.menu.length === 1))) out.menu = k.menu === null ? null : k.menu.toLowerCase();
+  if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+  return out;
 }
 
 const read = (t: Text | undefined): string => (typeof t === "function" ? t() : (t ?? ""));
@@ -131,6 +182,10 @@ export function createControls(opts: ControlsOptions): Controls {
   let visitor = loadVisitorTheme();
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
+  let presence: Presence = PRESENCES.includes(opts.presence as Presence) ? (opts.presence as Presence) : "full";
+  let corner: Corner = CORNERS.includes(opts.corner as Corner) ? (opts.corner as Corner) : "top-left";
+  let keys = cleanKeys({ menu: "m", hotbar: true }, opts.keys);
+  let claimed = false;
   const changed = () => {
     for (const fn of listeners) fn();
   };
@@ -160,6 +215,28 @@ export function createControls(opts: ControlsOptions): Controls {
     },
     addSection(s) {
       addSection(s);
+      changed();
+    },
+    get presence() {
+      return presence;
+    },
+    setPresence(next) {
+      if (!PRESENCES.includes(next) || next === presence) return;
+      presence = next;
+      changed();
+    },
+    setCorner(next) {
+      if (!CORNERS.includes(next) || next === corner) return;
+      corner = next;
+      changed();
+    },
+    setKeys(next) {
+      keys = cleanKeys(keys, next);
+      changed();
+    },
+    claimInput(next) {
+      if (claimed === next) return;
+      claimed = next;
       changed();
     },
     setTarget(text) {
@@ -205,6 +282,9 @@ export function createControls(opts: ControlsOptions): Controls {
           .filter((s) => s.items.length > 0 || s.note),
         hotbar: bar.map(item),
         theme,
+        presence,
+        corner,
+        keys: claimed ? { menu: null, hotbar: false } : keys,
       };
     },
     subscribe(fn) {
