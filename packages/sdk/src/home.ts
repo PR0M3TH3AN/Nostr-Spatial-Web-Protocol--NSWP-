@@ -14,8 +14,10 @@
  */
 import * as THREE from "three";
 import { checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portalTarget, WORLD_KIND, type Layout, type Placement, type PortalDestination } from "@nswp/core";
-import { BLOCK, createBlocks, type Blocks } from "./blocks.js";
+import { createAlloy, type Alloy } from "./alloy.js";
 import { createEnvironment } from "./environment.js";
+import { MeshBuilder } from "./mesh.js";
+import { addArchFrame, addBench, addLamp, addPictureFrame, addPlant, addPlinth, addTable, addWall, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH } from "./models.js";
 import { createPortalWindow, textSprite } from "./three.js";
 
 export interface PortalGateOptions {
@@ -46,14 +48,11 @@ function addressLine(dest: PortalDestination): string {
   return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid address";
 }
 
-/** The standard doorway's size, in metres. */
-export const PORTAL_WIDTH = 1.5;
-export const PORTAL_HEIGHT = 2.1;
 /** Where the doorway's straight sides end and its round top begins. */
 const SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
 
 let archMask: THREE.Texture | null = null;
-/** The doorway's outline as a cut-out, for a preview to be seen through. */
+/** The doorway's opening as a cut-out, for a preview to be seen through. */
 function archMaskTexture(): THREE.Texture {
   if (archMask) return archMask;
   const canvas = document.createElement("canvas");
@@ -61,17 +60,117 @@ function archMaskTexture(): THREE.Texture {
   canvas.height = 700;
   const g = canvas.getContext("2d")!;
   const k = canvas.height / PORTAL_HEIGHT; // pixels per metre
-  const inset = 0.045 * k; // the frame stays in front of the preview
   g.beginPath();
-  g.moveTo(inset, canvas.height);
-  g.lineTo(inset, canvas.height - SPRING * k);
-  g.arc(canvas.width / 2, canvas.height - SPRING * k, canvas.width / 2 - inset, Math.PI, 0);
-  g.lineTo(canvas.width - inset, canvas.height);
+  g.moveTo(0, canvas.height);
+  g.lineTo(0, canvas.height - SPRING * k);
+  g.arc(canvas.width / 2, canvas.height - SPRING * k, canvas.width / 2, Math.PI, 0);
+  g.lineTo(canvas.width, canvas.height);
   g.closePath();
   g.fillStyle = "#ffffff";
   g.fill();
   archMask = new THREE.CanvasTexture(canvas);
   return archMask;
+}
+
+let frameGeometry: THREE.BufferGeometry | null = null;
+/** The doorway's modelled frame, built once and shared by every doorway. Draw it in alloy (alloy.ts). */
+export function archFrameGeometry(): THREE.BufferGeometry {
+  if (!frameGeometry) {
+    const b = new MeshBuilder().at();
+    addArchFrame(b);
+    frameGeometry = b.geometry();
+  }
+  return frameGeometry;
+}
+
+/**
+ * What fills a doorway when there is no picture of the other side: a field of
+ * light, deeper towards the middle, with cells that kindle and fade and a slow
+ * band that rises through it. It is also the surface a visitor aims at.
+ */
+function veilMaterial(color: THREE.Color): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 }, uColor: { value: color }, uAim: { value: 0 }, uSize: { value: new THREE.Vector2(PORTAL_WIDTH, PORTAL_HEIGHT) }, uSpring: { value: SPRING } },
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+    fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uAim; uniform vec2 uSize; uniform float uSpring; varying vec2 vUv;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      // Distance to the nearest edge of a honeycomb, and which cell this is.
+      vec3 comb(vec2 p){
+        vec2 r = vec2(1.0, 1.7320508);
+        vec2 a = mod(p, r) - r * 0.5;
+        vec2 b = mod(p - r * 0.5, r) - r * 0.5;
+        vec2 g = dot(a, a) < dot(b, b) ? a : b;
+        float edge = 0.5 - max(abs(g.x), dot(abs(g), normalize(r)));
+        return vec3(edge, p - g);
+      }
+      void main(){
+        vec2 p = vec2((vUv.x - 0.5) * uSize.x, vUv.y * uSize.y);
+        float half_ = uSize.x * 0.5;
+        float d = p.y < uSpring ? half_ - abs(p.x) : half_ - length(p - vec2(0.0, uSpring));
+        if (d < 0.0) discard;
+        vec2 mid = vec2(0.0, uSize.y * 0.52);
+        float deep = 1.0 - smoothstep(0.0, 1.15, length((p - mid) * vec2(1.0, 0.72)));
+        vec3 c = mix(vec3(0.004, 0.007, 0.012), uColor * 0.2, deep);
+        // The honeycomb: faint lines, and a cell here and there lit for a while.
+        vec3 h = comb(p * 9.0 + vec2(0.0, uTime * 0.12));
+        float cell = hash(h.yz);
+        float lit = smoothstep(0.86, 1.0, sin(uTime * (0.35 + cell * 0.6) + cell * 40.0) * 0.5 + 0.5) * step(0.7, cell);
+        c += uColor * (smoothstep(0.045, 0.0, h.x) * (0.1 + 0.2 * deep) + lit * 0.32 * smoothstep(0.0, 0.2, h.x));
+        // A band of light rising, and the glow at the heart of it.
+        float band = smoothstep(0.16, 0.0, abs(fract(p.y * 0.36 - uTime * 0.07) - 0.5) - 0.02);
+        c += uColor * band * 0.12;
+        c += (uColor * 0.85 + 0.25) * pow(deep, 3.0) * (0.36 + 0.4 * uAim);
+        // Darker towards the frame, so it reads as set back into it.
+        c *= 0.45 + 0.55 * smoothstep(0.0, 0.22, d);
+        c *= 1.0 + uAim * 0.5;
+        gl_FragColor = vec4(c, 1.0);
+        #include <colorspace_fragment>
+      }`,
+  });
+}
+
+/**
+ * The light a doorway gives off: a soft glow round its arch and a pool on the
+ * floor in front and behind. Drawn, since nothing here is lit by lights.
+ */
+function gateGlow(color: THREE.Color): { group: THREE.Group; material: THREE.ShaderMaterial } {
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    uniforms: { uColor: { value: color }, uAim: { value: 0 }, uSpring: { value: SPRING }, uRadius: { value: PORTAL_WIDTH / 2 + 0.09 } },
+    vertexShader: "attribute float floor; varying vec2 vAt; varying float vFloor; void main(){ vAt = position.xy; vFloor = floor; vec3 p = floor > 0.5 ? vec3(position.x, 0.014, position.y) : position; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }",
+    fragmentShader: `uniform vec3 uColor; uniform float uAim; uniform float uSpring; uniform float uRadius; varying vec2 vAt; varying float vFloor;
+      void main(){
+        float a;
+        if (vFloor > 0.5) {
+          // On the floor: brightest under the opening, gone a couple of metres out.
+          vec2 q = vAt / vec2(1.7, 2.4);
+          a = pow(max(1.0 - dot(q, q), 0.0), 2.0) * 0.2;
+        } else {
+          float d = vAt.y < uSpring ? abs(abs(vAt.x) - uRadius) : abs(length(vAt - vec2(0.0, uSpring)) - uRadius);
+          a = (exp(-d * 5.0) * 0.16 + exp(-d * 18.0) * 0.2) * smoothstep(-0.02, 0.5, vAt.y);
+        }
+        gl_FragColor = vec4(uColor, a * (0.8 + 0.6 * uAim));
+        #include <colorspace_fragment>
+      }`,
+  });
+  const group = new THREE.Group();
+  const [w, h] = [PORTAL_WIDTH + 2.6, PORTAL_HEIGHT + 1.7];
+  for (const z of [0.125, -0.125]) {
+    const sheet = new THREE.PlaneGeometry(w, h);
+    sheet.translate(0, h / 2 - 0.2, z);
+    sheet.setAttribute("floor", new THREE.Float32BufferAttribute([0, 0, 0, 0], 1));
+    group.add(new THREE.Mesh(sheet, material));
+  }
+  const pool = new THREE.PlaneGeometry(3.4, 4.8);
+  pool.setAttribute("floor", new THREE.Float32BufferAttribute([1, 1, 1, 1], 1));
+  const onFloor = new THREE.Mesh(pool, material);
+  onFloor.frustumCulled = false; // its corners are moved to the floor in the shader
+  group.add(onFloor);
+  return { group, material };
 }
 
 /**
@@ -83,39 +182,15 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
   const color = new THREE.Color(opts.color ?? 0x4cc9f0);
   const textColor = opts.textColor ?? "#f2f3f6";
   const group = new THREE.Group();
-  // One unlit surface draws the doorway: its outline, and a quiet view through
-  // it for when there is no preview. Unlit, so it shows in a dark scene too.
-  const surface = new THREE.ShaderMaterial({
-    side: THREE.DoubleSide,
-    uniforms: { uTime: { value: 0 }, uColor: { value: color }, uAim: { value: 0 }, uSize: { value: new THREE.Vector2(PORTAL_WIDTH, PORTAL_HEIGHT) }, uSpring: { value: SPRING } },
-    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-    fragmentShader: `uniform float uTime; uniform vec3 uColor; uniform float uAim; uniform vec2 uSize; uniform float uSpring; varying vec2 vUv;
-      void main(){
-        vec2 p = vec2((vUv.x - 0.5) * uSize.x, vUv.y * uSize.y);
-        float half_ = uSize.x * 0.5;
-        float d = p.y < uSpring ? half_ - abs(p.x) : half_ - length(p - vec2(0.0, uSpring));
-        if (d < 0.0) discard;
-        float horizon = uSize.y * 0.34;
-        vec3 dusk = uColor * 0.10 + vec3(0.015, 0.015, 0.04);
-        vec3 sky = mix(uColor * 0.62 + vec3(0.06), dusk, smoothstep(horizon, uSize.y, p.y));
-        vec2 sun = vec2(0.12 * sin(uTime * 0.25), horizon + 0.42);
-        float glow = exp(-5.0 * length(p - sun));
-        sky += (uColor * 0.7 + vec3(0.35)) * glow;
-        vec3 ground = uColor * 0.07 + vec3(0.02);
-        float path = 1.0 - smoothstep(0.0, 0.03, abs(p.x) - (0.06 + (horizon - p.y) * 0.5));
-        ground += uColor * 0.22 * path;
-        vec3 view = (p.y > horizon ? sky : ground) * (1.0 + uAim * 0.35);
-        float frame = 1.0 - smoothstep(0.04, 0.05, d);
-        gl_FragColor = vec4(mix(view, mix(vec3(0.95, 0.955, 0.965), uColor, uAim), frame), 1.0);
-      }`,
-  });
+  const alloy = createAlloy(color, { gloss: 0.75 });
+  const frame = new THREE.Mesh(archFrameGeometry(), alloy);
+  const veil = veilMaterial(color);
   const plane = new THREE.PlaneGeometry(PORTAL_WIDTH, PORTAL_HEIGHT);
-  const target = new THREE.Mesh(plane, surface);
+  const target = new THREE.Mesh(plane, veil);
   target.name = "portal";
   target.position.y = PORTAL_HEIGHT / 2;
-  const sill = new THREE.Mesh(new THREE.BoxGeometry(PORTAL_WIDTH + 0.1, 0.06, 0.24), new THREE.MeshBasicMaterial({ color: 0xf2f3f6 }));
-  sill.position.y = 0.03;
-  group.add(target, sill);
+  const glow = gateGlow(color);
+  group.add(frame, target, glow.group);
 
   let sign: THREE.Sprite | null = null;
   const setLabel = (label: string) => {
@@ -125,11 +200,12 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
       sign.material.dispose();
     }
     sign = textSprite(`${label}\n${addressLine(destination)}`, textColor, 2.2);
-    sign.position.set(0, PORTAL_HEIGHT + 0.45, 0);
+    sign.position.set(0, PORTAL_HEIGHT + 0.72, 0);
     group.add(sign);
   };
   setLabel(opts.label ?? "Portal");
 
+  let aim = 0;
   const gate: PortalGate = {
     group,
     target,
@@ -138,14 +214,17 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
     setLabel,
     showThrough(pano) {
       const through = createPortalWindow(plane, pano, { mask: archMaskTexture() });
-      through.position.z = 0.004; // just in front of the surface, which stays as the frame, the fallback and the target
+      through.position.z = 0.004; // just in front of the veil, which stays as the fallback and the target
       target.add(through);
       return through;
     },
     update(t, dt) {
-      surface.uniforms.uTime!.value = t;
-      const glow = surface.uniforms.uAim!;
-      glow.value += (gate.aimed - (glow.value as number)) * Math.min(1, dt * 12);
+      aim += (gate.aimed - aim) * Math.min(1, dt * 12);
+      veil.uniforms.uTime!.value = t;
+      veil.uniforms.uAim!.value = aim;
+      glow.material.uniforms.uAim!.value = aim;
+      alloy.tick(t);
+      alloy.aim(aim);
     },
   };
   return gate;
@@ -155,9 +234,9 @@ export interface HomeOptions {
   textColor?: string;
   /** Relay hints written into portal destinations, so an Airlock can find the worlds. */
   relays?: string[];
-  /** Add a soft overall light and a key light, for things of your own that need them. The home's own blocks don't. Default true. */
+  /** Add a soft overall light and a key light, for things of your own that need them. The home's own models don't. Default true. */
   lights?: boolean;
-  /** Draw the ground: the grid to the horizon and the skyline. Default true. Pass false to stand the home on a ground of your own. */
+  /** Draw the sky, the ground and the skyline. Default true. Pass false to stand the home in a place of your own. */
   environment?: boolean;
 }
 
@@ -204,60 +283,63 @@ async function hangPicture(url: string, sha256: string, picture: THREE.Mesh, max
   }
 }
 
-/** The room's walls. The floor is the environment's grid. */
-function buildRoom(layout: Layout, blocks: Blocks, group: THREE.Group): void {
-  const accent = new THREE.Color(layout.room.accent);
-  // A shade up from the ground, so a wall reads as standing on it. (Colours here are in linear light, where a little white goes a long way.)
-  const wall = new THREE.Color(layout.room.color).multiplyScalar(1.7).lerp(accent, 0.012);
-  blocks.at([0, 0, 0]);
-  if (layout.room.template === "open") {
-    // A ring of light on the floor, marking the middle of an open place.
-    const edge = new THREE.Mesh(new THREE.RingGeometry(11.94, 12, 96), new THREE.MeshBasicMaterial({ color: accent }));
-    edge.rotation.x = -Math.PI / 2;
-    edge.position.y = 0.012;
-    group.add(edge);
-    return;
+let haloTexture: THREE.Texture | null = null;
+/** A soft round glow, to put round something that gives off light. */
+export function createHalo(color: THREE.ColorRepresentation, size: number): THREE.Sprite {
+  if (!haloTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 128;
+    const g = canvas.getContext("2d")!;
+    const fade = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    fade.addColorStop(0, "rgba(255,255,255,0.9)");
+    fade.addColorStop(0.18, "rgba(255,255,255,0.32)");
+    fade.addColorStop(0.5, "rgba(255,255,255,0.07)");
+    fade.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = fade;
+    g.fillRect(0, 0, 128, 128);
+    haloTexture = new THREE.CanvasTexture(canvas);
   }
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.setScalar(size);
+  return halo;
+}
+
+/** The room's walls. The floor is the environment's ground. */
+function buildRoom(layout: Layout, b: MeshBuilder): void {
+  if (layout.room.template !== "hall") return;
   // "hall": three walls, open towards the visitor. The origin sits 5 m in from the open side.
   const W = 16;
   const D = 14;
   const H = 4.5;
   const mid = -D / 2 + 5;
-  blocks.box([W + 0.4, H, 0.2], [0, H / 2, mid - D / 2 - 0.1], { color: wall });
-  blocks.box([0.2, H, D], [-W / 2 - 0.1, H / 2, mid], { color: wall });
-  blocks.box([0.2, H, D], [W / 2 + 0.1, H / 2, mid], { color: wall });
-  // A line of light where the back wall meets the floor.
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(W, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: accent }));
-  strip.position.set(0, 0.03, mid - D / 2 + 0.03);
-  group.add(strip);
+  addWall(b.at([0, 0, mid - D / 2 - 0.1]), W + 0.6, H);
+  addWall(b.at([-W / 2 - 0.1, 0, mid], 90), D, H);
+  addWall(b.at([W / 2 + 0.1, 0, mid], -90), D, H);
 }
 
 /**
- * One built-in item, as blocks. Sizes are on a tenth-of-a-metre lattice, so
- * everything in a home reads as made of the same stuff. Things that aren't
- * blocks (a picture, a sign, a doorway, a lamp's pool of light) are returned
+ * One built-in item, modelled into the home's one mesh. Things that aren't
+ * part of that mesh (a picture, a sign, a doorway, a lamp's glow) are returned
  * as an object to place.
  */
-function buildItem(p: Placement, layout: Layout, blocks: Blocks, opts: HomeOptions, portals: PortalGate[]): THREE.Object3D | null {
+function buildItem(p: Placement, layout: Layout, b: MeshBuilder, soft: THREE.Color, opts: HomeOptions, portals: PortalGate[], index: number): THREE.Object3D | null {
   const accent = new THREE.Color(layout.room.accent);
   const textColor = opts.textColor ?? "#f2f3f6";
   const g = new THREE.Group();
-  blocks.at(p.position, p.rotation);
+  b.at(p.position, p.rotation);
   if (p.source === "published") {
     const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.5, 0.5, 0.5)), new THREE.LineBasicMaterial({ color: accent }));
     box.position.y = 0.25;
     g.add(box);
     return g;
   }
-  // A leaf, a cushion, a tabletop: the room's accent, turned well down.
-  const soft = new THREE.Color(BLOCK).lerp(accent, 0.28);
   switch (p.type) {
     case "frame": {
       const W = 1.2;
       const H = 0.9;
-      blocks.box([W + 0.1, H + 0.1, 0.05], [0, 0, 0]);
-      const picture = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ color: 0x121c26 }));
-      picture.position.z = 0.03;
+      addPictureFrame(b, W, H);
+      const picture = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ color: 0x0d1620 }));
+      picture.position.z = 0.012;
       g.add(picture);
       void hangPicture(p.args[0]!, p.args[1]!, picture, W, H);
       return g;
@@ -276,42 +358,30 @@ function buildItem(p: Placement, layout: Layout, blocks: Blocks, opts: HomeOptio
       g.add(textSprite(wrapText(p.args[0]!, 30), textColor, 2.2));
       return g;
     }
-    case "plant": {
-      blocks.box([0.4, 0.3, 0.4], [0, 0.15, 0]);
-      blocks.box([0.5, 0.5, 0.5], [0, 0.6, 0], { color: soft });
-      blocks.box([0.3, 0.3, 0.3], [0.2, 0.95, 0.1], { color: soft });
-      blocks.box([0.3, 0.3, 0.3], [-0.15, 1.0, -0.1], { color: soft });
-      blocks.box([0.2, 0.2, 0.2], [0.05, 1.25, 0], { color: accent, lit: true });
+    case "plant":
+      addPlant(b, soft, index + 1);
       return null;
-    }
     case "lamp": {
-      blocks.box([0.3, 0.1, 0.3], [0, 0.05, 0]);
-      blocks.box([0.1, 1.4, 0.1], [0, 0.8, 0]);
-      blocks.box([0.3, 0.3, 0.3], [0, 1.65, 0], { color: accent, lit: true });
-      // Nothing here is lit by lights, so a lamp's light is drawn: a pool of it on the floor.
-      const pool = new THREE.Mesh(new THREE.CircleGeometry(2.4, 40), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.1, depthWrite: false }));
-      pool.rotation.x = -Math.PI / 2;
-      pool.position.y = 0.014;
-      g.add(pool);
+      addLamp(b);
+      // Nothing here is lit by lights, so a lamp's light is drawn: a glow round the lantern and a pool on the floor.
+      const halo = createHalo(accent, 1.5);
+      halo.position.y = 1.64;
+      const pool = createHalo(accent, 1);
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(2.6, 40), new THREE.MeshBasicMaterial({ map: pool.material.map, color: accent, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.y = 0.012;
+      g.add(halo, disc);
       return g;
     }
-    case "bench": {
-      blocks.box([1.4, 0.1, 0.5], [0, 0.45, 0], { color: soft });
-      // The back is on the far side, so someone sitting faces +Z like everything else.
-      blocks.box([1.4, 0.4, 0.1], [0, 0.7, -0.2]);
-      blocks.box([0.1, 0.4, 0.4], [-0.6, 0.2, 0]);
-      blocks.box([0.1, 0.4, 0.4], [0.6, 0.2, 0]);
+    case "bench":
+      addBench(b, soft);
       return null;
-    }
-    case "table": {
-      blocks.box([1.2, 0.1, 0.7], [0, 0.7, 0], { color: soft });
-      for (const [x, z] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]] as const) blocks.box([0.1, 0.65, 0.1], [x, 0.325, z]);
+    case "table":
+      addTable(b, soft);
       return null;
-    }
-    case "plinth": {
-      blocks.box([0.6, 1, 0.6], [0, 0.5, 0]);
+    case "plinth":
+      addPlinth(b);
       return null;
-    }
     default:
       return null;
   }
@@ -319,43 +389,64 @@ function buildItem(p: Placement, layout: Layout, blocks: Blocks, opts: HomeOptio
 
 /**
  * Draw a home layout. Positions are metres from the home's origin, which is
- * where the returned group sits. The home stands on the grid, and everything
- * built in is made of blocks: dark, with edges lit in the room's accent.
+ * where the returned group sits. The home stands under its own sky, and
+ * everything built in is modelled metal with seams of light in the room's accent.
  */
 export function createHome(layout: Layout, opts: HomeOptions = {}): Home {
   const group = new THREE.Group();
   group.name = `home:${layout.d}`;
+  const accent = new THREE.Color(layout.room.accent);
+  const ground = new THREE.Color(layout.room.color);
   if (opts.lights !== false) {
-    group.add(new THREE.HemisphereLight(0xffffff, new THREE.Color(layout.room.color), 0.9));
+    group.add(new THREE.HemisphereLight(0xffffff, ground, 0.9));
     const key = new THREE.DirectionalLight(0xffffff, 0.8);
     key.position.set(3, 9, 5);
     group.add(key);
   }
-  const environment = opts.environment === false ? null : createEnvironment(layout.room.accent, { ground: layout.room.color });
+  const environment = opts.environment === false ? null : createEnvironment(accent, { ground });
   if (environment) group.add(environment.group);
-  const blocks = createBlocks(layout.room.accent);
-  buildRoom(layout, blocks, group);
+
+  const b = new MeshBuilder();
+  // What things are made of: a metal a few shades up from the ground. Seats, tabletops and leaves take some of the accent.
+  b.tone = metalTone(ground);
+  const soft = b.tone.clone().lerp(accent, 0.03);
+  buildRoom(layout, b);
+  if (layout.room.template === "open") {
+    // A ring of light on the floor, marking the middle of an open place.
+    const edge = new THREE.Mesh(new THREE.RingGeometry(11.94, 12, 96), new THREE.MeshBasicMaterial({ color: accent }));
+    edge.rotation.x = -Math.PI / 2;
+    edge.position.y = 0.012;
+    group.add(edge);
+  }
   const portals: PortalGate[] = [];
   let markers = 0;
-  for (const p of layout.items) {
-    const object = buildItem(p, layout, blocks, opts, portals);
+  layout.items.forEach((p, i) => {
+    const object = buildItem(p, layout, b, soft, opts, portals, i);
     if (p.source === "published") markers++;
-    if (!object) continue;
+    if (!object) return;
     object.position.set(...p.position);
     object.rotation.y = THREE.MathUtils.degToRad(p.rotation);
     group.add(object);
+  });
+  let alloy: Alloy | null = null;
+  if (b.triangles > 0) {
+    alloy = createAlloy(accent, { ground, gloss: 0.55 });
+    group.add(b.build(alloy));
   }
-  if (blocks.count > 0) group.add(blocks.build());
   return {
     group,
     portals,
     markers,
     update(t, dt) {
       environment?.update(t);
+      alloy?.tick(t);
       for (const gate of portals) gate.update(t, dt);
     },
   };
 }
 
+export { PORTAL_WIDTH, PORTAL_HEIGHT } from "./models.js";
 export { createEnvironment, GROUND, type Environment, type EnvironmentOptions } from "./environment.js";
-export { createBlocks, BLOCK, type Blocks, type BlockOptions } from "./blocks.js";
+export { MeshBuilder, type Paint, type BoxOptions, type Frame, type V3, type P2 } from "./mesh.js";
+export { createAlloy, type Alloy, type AlloyOptions } from "./alloy.js";
+export { addArchFrame, addBench, addCrystal, addGyro, addKnot, addLamp, addPictureFrame, addPlant, addPlinth, addSpiral, addTable, addTree, addWall, bandProfile, loopFrames, metalTone, mouldingPaint, mouldingProfile } from "./models.js";

@@ -12,10 +12,20 @@
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes } from "@nswp/core";
-import { createBlocks, createEnvironment, createPortalGate, PORTAL_HEIGHT, PORTAL_WIDTH, type Blocks } from "nswp-sdk/home";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
+import { createAlloy, createEnvironment, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy } from "nswp-sdk/home";
+import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import { textSprite } from "./text.js";
+
+export interface WorldKit {
+  accent: THREE.Color;
+  /** One builder for everything that stays still. Its tone is this world's metal. */
+  builder: MeshBuilder;
+  /** This world's metal with some of its accent in it: for seats, leaves, things to notice. */
+  soft: THREE.Color;
+  /** A surface to draw a mesh of your own in. It is kept in time with the rest. */
+  alloy(options?: { gloss?: number; sheen?: number }): Alloy;
+}
 
 export interface WorldConfig {
   name: string;
@@ -26,7 +36,12 @@ export interface WorldConfig {
   /** `preview` is the destination's panorama, mirrored on this site at /previews/<sha256>.webp. */
   portal: PortalDestination & { label: string; position: [number, number, number]; preview?: { sha256: string } };
   /** Build what is in this world. `blocks` draws boxes with lit edges, all together; add anything else to the scene. Returns what to do each frame. */
-  decorate(scene: THREE.Scene, accent: THREE.Color, blocks: Blocks): (t: number) => void;
+  /**
+   * Build what stands in this world. Add what stays still to `kit.builder`: it
+   * all becomes one mesh. Things that move are meshes of their own; draw them
+   * in `kit.alloy(...)` so they are lit the same way. Returns what to do each frame.
+   */
+  decorate(scene: THREE.Scene, kit: WorldKit): (t: number) => void;
 }
 
 type TestHooks = {
@@ -37,6 +52,12 @@ type TestHooks = {
   capturePreview?: (width?: number) => Promise<{ base64: string; width: number; height: number; bytes: number }>;
   /** Test aid: put the visitor at a floor position. */
   teleport?: (x: number, z: number) => void;
+  /** Turn the view: degrees to the left of the way in, and degrees up. */
+  face?: (yaw: number, pitch?: number) => void;
+  /** What the last frame cost to draw. */
+  drawn?: () => { calls: number; triangles: number };
+  /** Stand a visitor's figure somewhere, to see how one looks. */
+  figure?: (x: number, z: number, yaw?: number) => void;
   device?: unknown;
   /** Everything a visitor can do here. */
   controls?: Controls;
@@ -99,9 +120,16 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // The ground: the grid every NSWP reference place stands on, in this world's colour.
   const environment = createEnvironment(accent, { ground: cfg.palette.ground });
   scene.add(environment.group);
-  const blocks = createBlocks(accent);
-  const tick = cfg.decorate(scene, accent, blocks);
-  scene.add(blocks.build());
+  const builder = new MeshBuilder();
+  builder.tone = metalTone(cfg.palette.ground);
+  const alloys: Alloy[] = [];
+  const alloy: WorldKit["alloy"] = (options = {}) => {
+    const made = createAlloy(accent, { ground: cfg.palette.ground, gloss: 0.55, ...options });
+    alloys.push(made);
+    return made;
+  };
+  const tick = cfg.decorate(scene, { accent, builder, soft: builder.tone.clone().lerp(accent, 0.03), alloy });
+  scene.add(builder.build(alloy()));
 
   // --- the portal ---------------------------------------------------------
   // The standard doorway: an arch standing on the floor, with its sign above.
@@ -276,6 +304,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     rig.position.x = x - camera.position.x;
     rig.position.z = z - camera.position.z;
   };
+  hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
+  hooks.figure = (x, z, yaw = 0) => {
+    const figure = createFigure(0xff7ab6);
+    figure.group.position.set(x, 1.6, z);
+    figure.group.rotation.y = THREE.MathUtils.degToRad(yaw);
+    scene.add(figure.group);
+  };
+  hooks.face = (yaw, pitch = 0) => {
+    rig.rotation.y = THREE.MathUtils.degToRad(yaw);
+    camera.rotation.x = THREE.MathUtils.degToRad(pitch);
+  };
 
   // Desktop: WASD or arrow keys to walk.
   const keys = new Set<string>();
@@ -321,6 +360,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     lastT = t;
     presence.update(dt);
     environment.update(t);
+    for (const a of alloys) a.tick(t);
     tick(t);
     let hover = 0;
     if (renderer.xr.isPresenting) {

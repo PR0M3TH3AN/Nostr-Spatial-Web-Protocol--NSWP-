@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { encodeNaddr, WORLD_KIND } from "@nswp/core";
+import { addBench, addCrystal, addGyro, addKnot, addLamp, addPlinth, addSpiral, addWall, createHalo, MeshBuilder } from "nswp-sdk/home";
 import previews from "../../previews/index.json";
 import sites from "../../sites.json";
 import { startWorld } from "../../shared/world.js";
@@ -23,27 +24,39 @@ void startWorld({
     position: [0, 0, -3],
     preview: (previews as Record<string, { sha256: string } | undefined>)["world-b"],
   },
-  decorate(scene, accent, blocks) {
-    // A gallery: two walls, and plinths with sculptures drawn in line, slowly turning.
-    const shapes = [new THREE.IcosahedronGeometry(0.38), new THREE.TorusKnotGeometry(0.26, 0.08, 64, 8), new THREE.OctahedronGeometry(0.4), new THREE.DodecahedronGeometry(0.36)];
-    const line = new THREE.LineBasicMaterial({ color: accent });
-    const core = new THREE.MeshBasicMaterial({ color: 0x06101c });
+  decorate(scene, kit) {
+    // A gallery: two long walls, and between them four sculptures on plinths, slowly turning.
+    const room = kit.builder;
+    addWall(room.at([-5.2, 0, 0], 90), 12, 4);
+    addWall(room.at([5.2, 0, 0], -90), 12, 4);
+    addBench(room.at([-4.5, 0, 3.4], 90), kit.soft);
+    addBench(room.at([4.5, 0, 3.4], -90), kit.soft);
+    for (const x of [-4.4, 4.4]) {
+      addLamp(room.at([x, 0, -5]));
+      const halo = createHalo(kit.accent, 1.5);
+      halo.position.set(x, 1.64, -5);
+      scene.add(halo);
+    }
+    // The sculptures are made of something else: a metal whose colour moves as you walk round it.
+    const metal = kit.alloy({ gloss: 1, sheen: 0.6 });
+    const works = [addKnot, addGyro, (m: MeshBuilder) => addCrystal(m, 0.8, 3, [0, -0.4, 0]), addSpiral];
     const pieces: THREE.Object3D[] = [];
     [-3.2, 3.2].forEach((x, side) =>
       [-1, 1.5].forEach((z, row) => {
-        blocks.at([x, 0, z]);
-        blocks.box([0.6, 1, 0.6], [0, 0.5, 0]);
-        blocks.box([0.7, 0.1, 0.7], [0, 1.05, 0], { color: accent, lit: true, bare: true });
-        const shape = shapes[side * 2 + row]!;
-        const art = new THREE.Group();
-        art.add(new THREE.Mesh(shape, core), new THREE.LineSegments(new THREE.WireframeGeometry(shape), line));
+        addPlinth(room.at([x, 0, z]));
+        const piece = new MeshBuilder().at();
+        piece.tone = new THREE.Color(0x1b2733);
+        works[side * 2 + row]!(piece);
+        const art = piece.build(metal);
         art.position.set(x, 1.62, z);
         scene.add(art);
         pieces.push(art);
       }),
     );
-    blocks.at([0, 0, 0]);
-    for (const x of [-5, 5]) blocks.box([0.2, 4, 12], [x, 2, 0], { color: 0x07111f });
-    return (t) => pieces.forEach((p, i) => (p.rotation.y = t * (0.3 + i * 0.1)));
+    return (t) =>
+      pieces.forEach((p, i) => {
+        p.rotation.y = t * (0.22 + i * 0.06);
+        p.position.y = 1.62 + Math.sin(t * 0.6 + i * 1.7) * 0.03;
+      });
   },
 });
