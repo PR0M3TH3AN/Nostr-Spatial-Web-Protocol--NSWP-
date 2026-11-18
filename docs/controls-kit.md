@@ -439,3 +439,36 @@ Every world draws its own copy. A world can change it, or draw something that
 only looks like it. So it is never a trusted surface, and nothing security
 depends on it: a visitor's sure way out of any world is their headset's or
 browser's own controls (spec §3.2, §21.2).
+
+## Sound
+
+```js
+import { createSounds, addSoundControls } from "nswp-sdk/three";
+
+const sounds = createSounds({
+  context: THREE.AudioContext.getContext(),
+  seed: "The Grove",                       // what the place's own music is made from
+  theme: { cues: { step: "sounds/step.ogg", hover: null }, music: "sounds/loop.ogg" },
+});
+addSoundControls(controls, sounds);        // the Sound part of the menu, and the controls made audible
+sounds.play("cross");                      // a cue, by name
+// each frame, with how far the visitor was moved (not how their head swayed):
+sounds.moved(metres);
+```
+
+- **Cues** are a closed list (`CUES`): `step`, `land`, `bump`, `grab`, `drop`,
+  `hover`, `press`, `menuOpen`, `menuClose`, `cross`, `arrive`, `join`,
+  `leave`, `micOn`, `micOff`, `notice`, `error`. Each has a default made in
+  the browser.
+- **A theme** names a file on the world's own site for any cue, or `null` for
+  silence. `music` is a file, `null` for none, or left out for the quiet music
+  the kit makes from `seed`.
+- **Limits.** A cue file is at most 512 KB and three seconds, and is brought
+  down to the loudness of the defaults. Everything passes one limiter.
+- **The visitor's volumes** (effects, music, voices, all off) are in the menu
+  and are kept for the site. Wire voices with
+  `sounds.onChange((l) => presence.setVolume(l.off ? 0 : l.voices))`.
+- **Their own music** is added from their device in the same menu, kept in
+  the browser, and heard by nobody else.
+- **Anything the controls signal** that is a cue's name is played:
+  `controls.signal("join")`. A press and the menu are signalled already.

@@ -522,7 +522,7 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
     controls.addSection({
       id: "sound",
       label: "Sound",
-      icon: "mic",
+      icon: "sound",
       note: () =>
         `${sounds.levels.off ? "All sound is off. " : ""}${
           sounds.music === "none" ? "This place has no music of its own." : sounds.music === "world" ? "This place plays its own music." : "This place's music is made by your browser, from its name."
@@ -550,12 +550,12 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
     on: () => sounds.levels[key] > 0,
     act: () => sounds.setLevels({ [key]: nextLevel(sounds.levels[key]) }),
   });
-  controls.addSection({ id: "sound", label: "Sound", icon: "mic" });
+  controls.addSection({ id: "sound", label: "Sound", icon: "sound" });
   controls.add(
     {
       id: "sound-all",
       section: "sound",
-      icon: () => (sounds.levels.off ? "micOff" : "mic"),
+      icon: () => (sounds.levels.off ? "soundOff" : "sound"),
       on: () => !sounds.levels.off,
       label: () => (sounds.levels.off ? "All sound: off" : "All sound: on"),
       act: () => sounds.setLevels({ off: !sounds.levels.off }),
