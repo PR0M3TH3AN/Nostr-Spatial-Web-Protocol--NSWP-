@@ -89,6 +89,59 @@ to thirty seconds, and saves it to their device. Nothing is sent anywhere.
 A world with a camera of its own can use the pieces directly: `takePicture`,
 `takeSelfie` and `recordClip`.
 
+## Hands in a headset
+
+`createXrInput` is the kit's part for whatever a visitor is holding:
+controllers of any make, or their own tracked hands. It adds to pointing and
+selecting and never replaces it.
+
+```js
+import { createXrInput } from "nswp-sdk/three";
+
+const input = createXrInput({
+  renderer, scene, rig, camera, controls,
+  canStand: (x, z) => insideMyWorld(x, z),
+  stepFrom: (slot) => stepWhere(controllers[slot]),   // the same step a select on the floor makes
+  onMenu: () => xrConsole.setOpen(!xrConsole.open),
+});
+// each frame:           input.update(dt)
+// in your select handler: if (input.claimed(slot)) return;   // that pinch picked something up
+input.grabbable(mesh, { release: "return" });
+```
+
+| A visitor does this | And this happens |
+|---|---|
+| Flicks a stick left or right | Turns 30° at once. Held, it turns once |
+| Pushes a stick forward, points at the floor, lets go | Steps there, as a select would |
+| Pulls a stick back | One step back |
+| Squeezes the grip on a thing, or pinches it with tracked fingers | Picks it up. Lets go, and it stays or goes home |
+| Points at a thing across the room and squeezes | It comes to their hand |
+| Presses B or Y | Opens or closes the console |
+
+- **Any controller.** WebXR gives every tracked controller the same layout, so
+  nothing here knows a make or a model. A wand with a touchpad and no stick
+  uses the touchpad, counted only while it is clicked. With one stick, that
+  stick turns and steps.
+- **Comfortable unless asked.** The defaults turn and move in steps. Under
+  **Moving** a visitor can choose to walk and turn smoothly, change how far a
+  turn goes, swap which hand moves them, and keep or drop the darkened edge
+  that goes with moving smoothly. Their choices are kept in their browser, for
+  that site.
+- **A buzz** in the hand on a turn, a step, a grab and a press, where the
+  controller can. `input.pulse(slot, strength, ms)` sends one.
+- **What is drawn.** A plain controller in the kit's own style, the same for
+  every make, with lights that answer the trigger and the grip; and a tracked
+  hand as its joints. Nothing is downloaded, so no request says which headset
+  someone owns. A world with hands of its own passes `models: false`.
+- **What is drawn never blocks pointing.** The visitor's own controller and
+  fingers are skipped by rays, so they can't be "in the way" of a step.
+- **Held things are local.** What a visitor picks up moves on their screen
+  only. Others in a room don't see it move: rooms carry people, not objects.
+
+The pure part, `actions.ts`, turns a gamepad into intent and has no three.js in
+it: `readPad`, `Locomotion`, `Comfort`. Use it alone in a world that draws and
+moves things its own way.
+
 ## Sharing the screen with a world's own interface
 
 A world with an interface of its own leads, and the kit stays out of its way
@@ -170,7 +223,13 @@ template's checker refuses exactly that.
 - **Controls that aren't buttons:** a compass of where the doors are, a
   slider, a map. The `kind` mechanism is where they go.
 - **A layout a visitor can rearrange.**
-- **Any test on a real headset.** The wrist gesture is tuned by guesswork: it
+- **Things two people can hand each other,** and anything held being seen by
+  the rest of a room.
+- **A hand drawn as a hand.** Tracked hands are shown as their joints.
+- **Controllers drawn as the ones in the visitor's hands.** That needs each
+  make's model served from the world's own site.
+- **Any test on a real headset.** Sticks, grips, hands and the buzz have been
+  driven only in an emulated Quest 3. The wrist gesture is tuned by guesswork: it
   opens when the chosen hand is held within about half a metre of the face,
   near the middle of the view, for a third of a second.
 

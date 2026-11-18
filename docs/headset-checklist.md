@@ -64,7 +64,29 @@ Open each address in the headset's own browser. No account is needed.
 | 4.5 | Select **Turn microphone off**, then **Leave the room** | Stop your voice, then remove your avatar for the other person |
 | 4.6 | Repeat 4.2 with the two devices on different networks (one on mobile data) | Connect. **If it doesn't, that is the known gap: there is no relay fallback yet** |
 
-## 5. Things to notice throughout
+## 5. Sticks, grips and hands: `https://workshop.bitblocks.network/`
+
+Write down which controllers you are holding. Everything here is extra: if a
+line fails, check that pointing and selecting still does the same job.
+
+| # | Do this | It should |
+|---|---|---|
+| 5.1 | Enter VR and look at your hands | Show a controller in each, where your real ones are, pointing the way they point |
+| 5.2 | Pull the trigger, then squeeze the grip | Light a small lamp on the drawn controller for each |
+| 5.3 | Flick the right stick to the right, and hold it there | Turn you once, about a twelfth of a circle, with a short buzz. **Did it turn the way you expected?** |
+| 5.4 | Push the left stick forward, point at the floor, let go | Show the ring while you hold it, and step there when you let go |
+| 5.5 | Pull a stick back | Take one step back, not a slide |
+| 5.6 | Press **B** or **Y** | Open the console. Press again: it closes. **Did any other button do something you didn't expect?** |
+| 5.7 | Open the console, **Moving**, and choose to walk smoothly. Push the left stick | Walk you at a steady pace, with the edge of the view darkened. **How did it feel?** Switch it back |
+| 5.8 | Go to the table by the way in. Put a hand on one of the three things and squeeze the grip | Pick it up, with a buzz. It moves with your hand |
+| 5.9 | Let go | Send it back to the table |
+| 5.10 | From two metres away, point at one and squeeze | Bring it to your hand |
+| 5.11 | Put both controllers down and hold up your hands | Show each hand as its joints, the fingertips lit |
+| 5.12 | Pinch a thing on the table | Pick it up, and not step or select anything |
+| 5.13 | Pinch at the floor, away from the table | Step there |
+| 5.14 | With a controller that has a touchpad and no stick, press the pad at its right edge | Turn you once. Resting a thumb on it should do nothing |
+
+## 6. Things to notice throughout
 
 - Anything too small or too far to read.
 - Anything that needed more than two tries to select.
@@ -84,3 +106,6 @@ Open each address in the headset's own browser. No account is needed.
 | 2.2, 2.6 | The crossing itself, spec §6.5. The largest cost in the whole design, and not yet solved |
 | 4.3 | Whether a microphone can be turned on from inside VR at all on that browser |
 | 4.6 | Phase 4b: a relay fallback for networks that block direct connections |
+| 5.1, 5.2, 5.11 | What is drawn in the hands: `packages/sdk/src/input.ts` |
+| 5.3 to 5.7, 5.14 | How a controller is read and what it means: `packages/sdk/src/actions.ts`, which has tests to add the case to |
+| 5.8 to 5.10, 5.12, 5.13 | Picking up: `grab` in `packages/sdk/src/input.ts` |

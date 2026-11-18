@@ -43,6 +43,16 @@ screen, one click or key.
   work. Nothing needs a particular controller's buttons.
 - The controls are reachable inside the session. The page can't be seen there.
 - Moving is by stepping to a pointed-at spot, a jump and not a slide.
+- **Sticks, grips and buttons are extras, never the only way.** A world may
+  let a stick turn or move the visitor, a grip pick things up, a button open
+  its menu. Anything a visitor must be able to do stays possible with one
+  `select`, for the person with a single button, tracked hands or their gaze.
+- **Nothing slides unless the visitor asked.** Turning and moving are in steps
+  until they choose smooth, and that choice is theirs to keep or undo.
+- **No request says what a visitor is holding.** A world draws controllers and
+  hands itself, or loads their models from its own site. Fetching a
+  controller's model from somewhere else tells that place which headset each
+  visitor owns.
 
 ## How much room it takes
 

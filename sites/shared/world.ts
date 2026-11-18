@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, createXrInput, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -50,6 +50,12 @@ export interface WorldKit {
   halo(at: V3, size?: number): THREE.Sprite;
   /** Leave a note for tests: it shows up in `__nswpTest.state`. */
   note(key: string, value: unknown): void;
+  /**
+   * Make something a visitor in a headset can pick up: with a controller's
+   * grip, or a pinch of tracked fingers. Give the object a `name` to tell it
+   * apart. Nobody needs to pick anything up to get around.
+   */
+  grabbable(object: THREE.Object3D, options?: GrabOptions): void;
 }
 
 export interface WorldHandle {
@@ -88,6 +94,14 @@ type TestHooks = {
   /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
+  /** What the visitor's hands are doing, as the input layer reads them. */
+  input?: () => unknown;
+  /** Where on the floor the hand in a slot points, or null. */
+  pointing?: (slot: number) => number[] | null;
+  /** Which way the visitor has been turned, in degrees. */
+  heading?: () => number;
+  /** Where a named thing is: in the world, and in the space a headset's controllers are placed in. */
+  thing?: (name: string) => { world: number[]; local: number[] } | null;
   /** Capture this world's preview panorama (spec §5.8), as a base64 WebP. */
   capturePreview?: (width?: number) => Promise<{ base64: string; width: number; height: number; bytes: number }>;
   teleport?: (x: number, z: number) => void;
@@ -195,6 +209,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   };
   const head = new THREE.Vector3();
   camera.getWorldPosition(head);
+  // Hands in a headset are set up further down, once there is something to point with.
+  let input: XrInput | null = null;
+  const toHold: [THREE.Object3D, GrabOptions | undefined][] = [];
   const kit: WorldKit = {
     scene,
     accent,
@@ -217,6 +234,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     },
     note(key, value) {
       state[key] = value;
+    },
+    grabbable(object, options) {
+      if (input) input.grabbable(object, options);
+      else toHold.push([object, options]);
     },
   };
   const handle = cfg.build(kit) ?? {};
@@ -422,9 +443,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       ),
     );
     c.addEventListener("select", () => {
+      if (input?.claimed(i)) return; // that pinch picked something up; it wasn't a press
       state.lastSelect = i;
       const door = aimFrom(c); // leaves the ray where this hand points
       const button = xrConsole.pick(raycaster);
+      if (button || door >= 0) input?.pulse(i, 0.5, 30);
       if (button) xrConsole.press(button);
       else if (door >= 0) void go(door);
       else {
@@ -435,6 +458,30 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     rig.add(c);
     controllers.push(c);
   }
+  // Sticks, grips and buttons, for visitors who have them (the kit's input layer). Stepping with a stick is the
+  // same step as pointing at the floor and selecting.
+  input = createXrInput({
+    renderer,
+    scene,
+    rig,
+    camera,
+    canStand,
+    controls,
+    accent,
+    stepFrom: (i) => {
+      aimFrom(controllers[i]!);
+      const spot = floorUnder();
+      if (spot) stepTo(spot);
+    },
+    onMenu: () => xrConsole.setOpen(!xrConsole.open),
+  });
+  for (const [object, options] of toHold) input.grabbable(object, options);
+  hooks.input = () => input!.info();
+  hooks.pointing = (slot) => {
+    aimFrom(controllers[slot]!);
+    const spot = floorUnder();
+    return spot ? [Math.round(spot.x * 100) / 100, Math.round(spot.z * 100) / 100] : null;
+  };
 
   // Walking into a doorway also goes through it.
   const local = new THREE.Vector3();
@@ -493,6 +540,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const at = camera.getWorldPosition(new THREE.Vector3());
     return [Math.round(at.x * 100) / 100, Math.round(at.z * 100) / 100];
   };
+  hooks.heading = () => Math.round(THREE.MathUtils.radToDeg(rig.rotation.y) * 10) / 10;
+  hooks.thing = (name) => {
+    const object = scene.getObjectByName(name);
+    if (!object) return null;
+    const world = object.getWorldPosition(new THREE.Vector3());
+    return { world: world.toArray().map((n) => Math.round(n * 1000) / 1000), local: rig.worldToLocal(world.clone()).toArray() };
+  };
   hooks.drawn = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
   // Stand a figure somewhere, to see how one looks: from a seed, as it is or re-dressed in one of three ways.
   const skins: Record<string, FigureStyle> = {
@@ -543,6 +597,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const t = (performance.now() - startedAt) / 1000;
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
+    input!.update(dt);
     camera.getWorldPosition(head);
     presence.update(dt);
     environment.update(t);

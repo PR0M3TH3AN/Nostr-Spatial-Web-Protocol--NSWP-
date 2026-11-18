@@ -171,6 +171,7 @@ const STANDARD: UiSection[] = [
   { id: "people", label: "People", icon: "people" },
   { id: "camera", label: "Camera", icon: "camera" },
   { id: "view", label: "View", icon: "vr" },
+  { id: "moving", label: "Moving", icon: "step" },
   { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
   { id: "help", label: "Help", icon: "help" },
 ];
