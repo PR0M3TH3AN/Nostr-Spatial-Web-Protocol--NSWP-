@@ -14,15 +14,21 @@ import { fileURLToPath } from "node:url";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import {
+  buildAvatarEvent,
   buildEntryAssertion,
   buildWorldEvent,
   checkDestination,
   decodeArrival,
+  decodeLook,
   decodeNaddr,
   encodeArrival,
   encodeNaddr,
   finalizeEvent,
+  generatedLook,
   getPublicKey,
+  markFor,
+  markGrid,
+  parseAvatarEvent,
   parseManifest,
   parsePortal,
   parseWorldEvent,
@@ -343,6 +349,39 @@ for (const v of portalVectors) {
   expectEqual(`portal/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
 }
 
+// ----------------------------------------------------------------------- looks
+const lookSeeds = [PK1, "0000000000000000000000000000000000000000000000000000000000000000", "guest-7f3a91c2", "g0123456789abcdef01234567", "Alice", "alice"];
+const generatedVectors = lookSeeds.map((seed) => ({ seed, look: generatedLook(seed), grid: markGrid(generatedLook(seed).mark).map((row) => row.map((on) => (on ? "#" : ".")).join("")) }));
+// The same seed in another case is the same person.
+expectEqual("look/case", generatedLook("Alice"), generatedLook("alice"));
+const inlineVectors = [
+  { name: "seed_only", text: '{"s":"guest-7f3a91c2"}', expect: { valid: true, look: generatedLook("guest-7f3a91c2"), warnings: [] as string[] } },
+  { name: "with_choices", text: '{"s":"guest-7f3a91c2","head":"tall","light":"#47F561"}', expect: { valid: true, look: { ...generatedLook("guest-7f3a91c2"), head: "tall", light: "#47f561" }, warnings: [] } },
+  { name: "unknown_values_keep_the_generated_part", text: '{"s":"guest-7f3a91c2","head":"dragon","color":"red","tail":"long"}', expect: { valid: true, look: generatedLook("guest-7f3a91c2"), warnings: ["unknown_value", "unknown_value"] } },
+  { name: "a_mark_is_never_a_choice", text: '{"s":"guest-7f3a91c2","mark":"7fff"}', expect: { valid: true, look: generatedLook("guest-7f3a91c2"), warnings: [] } },
+  { name: "no_seed", text: '{"head":"tall"}', expect: { valid: false, look: null, warnings: [] } },
+  { name: "seed_too_short", text: '{"s":"abc"}', expect: { valid: false, look: null, warnings: [] } },
+  { name: "not_an_object", text: "[]", expect: { valid: false, look: null, warnings: [] } },
+  { name: "too_long", text: `{"s":"guest-7f3a91c2","x":"${"y".repeat(600)}"}`, expect: { valid: false, look: null, warnings: [] } },
+];
+for (const v of inlineVectors) {
+  const r = decodeLook(v.text);
+  expectEqual(`look/${v.name} valid`, r.ok, v.expect.valid);
+  if (r.ok) {
+    expectEqual(`look/${v.name} look`, r.value.look, v.expect.look);
+    expectEqual(`look/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
+  }
+}
+// An avatar event is read against its author's key: copied tags come out with the copier's mark.
+const avatarTags = buildAvatarEvent({ look: { ...generatedLook(PK1), head: "wedge", accessory: "halo" }, createdAt: T0 }).tags;
+const avatarVectors = ["0000000000000000000000000000000000000000000000000000000000000001", PK1].map((pubkey) => {
+  const r = parseAvatarEvent({ kind: 37301, tags: avatarTags, pubkey });
+  if (!r.ok) throw new Error("avatar vector failed to parse");
+  return { pubkey, event: { kind: 37301, created_at: T0, tags: avatarTags, content: "" }, expect: { look: r.value.look } };
+});
+expectEqual("avatar/copied keeps the copier's mark", avatarVectors[0]!.expect.look.mark, markFor(avatarVectors[0]!.pubkey));
+expectEqual("avatar/chosen parts survive", [avatarVectors[0]!.expect.look.head, avatarVectors[0]!.expect.look.accessory], ["wedge", "halo"]);
+
 // --------------------------------------------------------------------- output
 if (failures.length) {
   console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
@@ -355,6 +394,13 @@ const files: Record<string, unknown> = {
   "destinations.json": { description: "Airlock destination checks (spec §6.2). Registrable domains use the Public Suffix List including its private section.", vectors: destinationVectors },
   "assertions.json": { description: "Entry assertions (spec §4.4). Verify with the given `origin`, `now` and already-`seen` event IDs.", testKeys, vectors: assertionVectors },
   "arrivals.json": { description: "Arrival context: the value of #nswp= (spec §4.4). Hostile fields are dropped with warnings, not fatal.", vectors: arrivalVectors },
+  "looks.json": {
+    description:
+      "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys.",
+    generated: generatedVectors,
+    inline: inlineVectors,
+    avatarEvents: avatarVectors,
+  },
   "portals.json": { description: "Portals (spec §6.1) and NIP-19 naddr round-trips.", portals: portalVectors, naddr: naddrVectors },
 };
 

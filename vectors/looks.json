@@ -1,0 +1,458 @@
+{
+  "description": "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys.",
+  "generated": [
+    {
+      "seed": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "look": {
+        "color": "#8e21a1",
+        "accent": "#8f70c2",
+        "light": "#5f47f5",
+        "build": "medium",
+        "head": "tall",
+        "face": "tee",
+        "accessory": "none",
+        "body": "coat",
+        "shoulders": "mantle",
+        "pattern": "yoke",
+        "finish": "matte",
+        "mark": "6187"
+      },
+      "grid": [
+        "#####",
+        ".....",
+        ".###.",
+        ".....",
+        ".###."
+      ]
+    },
+    {
+      "seed": "0000000000000000000000000000000000000000000000000000000000000000",
+      "look": {
+        "color": "#26733b",
+        "accent": "#7a5cd6",
+        "light": "#47f5f4",
+        "build": "slight",
+        "head": "faceted",
+        "face": "wide",
+        "accessory": "fins",
+        "body": "coat",
+        "shoulders": "mantle",
+        "pattern": "stripe",
+        "finish": "gloss",
+        "mark": "0f55"
+      },
+      "grid": [
+        "#.#.#",
+        ".#.#.",
+        "#.#.#",
+        "#####",
+        "....."
+      ]
+    },
+    {
+      "seed": "guest-7f3a91c2",
+      "look": {
+        "color": "#21634f",
+        "accent": "#a13656",
+        "light": "#f5477c",
+        "build": "broad",
+        "head": "wedge",
+        "face": "split",
+        "accessory": "halo",
+        "body": "cloak",
+        "shoulders": "collar",
+        "pattern": "yoke",
+        "finish": "sheen",
+        "mark": "73ba"
+      },
+      "grid": [
+        ".#.#.",
+        "#####",
+        ".###.",
+        "#...#",
+        "#####"
+      ]
+    },
+    {
+      "seed": "g0123456789abcdef01234567",
+      "look": {
+        "color": "#212e63",
+        "accent": "#a1364c",
+        "light": "#47e5f5",
+        "build": "broad",
+        "head": "faceted",
+        "face": "dots",
+        "accessory": "hat",
+        "body": "coat",
+        "shoulders": "mantle",
+        "pattern": "stripe",
+        "finish": "matte",
+        "mark": "76eb"
+      },
+      "grid": [
+        "##.##",
+        "#.#.#",
+        "##.##",
+        "##.##",
+        "#####"
+      ]
+    },
+    {
+      "seed": "Alice",
+      "look": {
+        "color": "#8d901d",
+        "accent": "#b89c7a",
+        "light": "#73f547",
+        "build": "broad",
+        "head": "square",
+        "face": "tee",
+        "accessory": "halo",
+        "body": "robe",
+        "shoulders": "collar",
+        "pattern": "yoke",
+        "finish": "gloss",
+        "mark": "6e90"
+      },
+      "grid": [
+        ".....",
+        ".#.#.",
+        ".#.#.",
+        "#####",
+        ".###."
+      ]
+    },
+    {
+      "seed": "alice",
+      "look": {
+        "color": "#8d901d",
+        "accent": "#b89c7a",
+        "light": "#73f547",
+        "build": "broad",
+        "head": "square",
+        "face": "tee",
+        "accessory": "halo",
+        "body": "robe",
+        "shoulders": "collar",
+        "pattern": "yoke",
+        "finish": "gloss",
+        "mark": "6e90"
+      },
+      "grid": [
+        ".....",
+        ".#.#.",
+        ".#.#.",
+        "#####",
+        ".###."
+      ]
+    }
+  ],
+  "inline": [
+    {
+      "name": "seed_only",
+      "text": "{\"s\":\"guest-7f3a91c2\"}",
+      "expect": {
+        "valid": true,
+        "look": {
+          "color": "#21634f",
+          "accent": "#a13656",
+          "light": "#f5477c",
+          "build": "broad",
+          "head": "wedge",
+          "face": "split",
+          "accessory": "halo",
+          "body": "cloak",
+          "shoulders": "collar",
+          "pattern": "yoke",
+          "finish": "sheen",
+          "mark": "73ba"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "with_choices",
+      "text": "{\"s\":\"guest-7f3a91c2\",\"head\":\"tall\",\"light\":\"#47F561\"}",
+      "expect": {
+        "valid": true,
+        "look": {
+          "color": "#21634f",
+          "accent": "#a13656",
+          "light": "#47f561",
+          "build": "broad",
+          "head": "tall",
+          "face": "split",
+          "accessory": "halo",
+          "body": "cloak",
+          "shoulders": "collar",
+          "pattern": "yoke",
+          "finish": "sheen",
+          "mark": "73ba"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "unknown_values_keep_the_generated_part",
+      "text": "{\"s\":\"guest-7f3a91c2\",\"head\":\"dragon\",\"color\":\"red\",\"tail\":\"long\"}",
+      "expect": {
+        "valid": true,
+        "look": {
+          "color": "#21634f",
+          "accent": "#a13656",
+          "light": "#f5477c",
+          "build": "broad",
+          "head": "wedge",
+          "face": "split",
+          "accessory": "halo",
+          "body": "cloak",
+          "shoulders": "collar",
+          "pattern": "yoke",
+          "finish": "sheen",
+          "mark": "73ba"
+        },
+        "warnings": [
+          "unknown_value",
+          "unknown_value"
+        ]
+      }
+    },
+    {
+      "name": "a_mark_is_never_a_choice",
+      "text": "{\"s\":\"guest-7f3a91c2\",\"mark\":\"7fff\"}",
+      "expect": {
+        "valid": true,
+        "look": {
+          "color": "#21634f",
+          "accent": "#a13656",
+          "light": "#f5477c",
+          "build": "broad",
+          "head": "wedge",
+          "face": "split",
+          "accessory": "halo",
+          "body": "cloak",
+          "shoulders": "collar",
+          "pattern": "yoke",
+          "finish": "sheen",
+          "mark": "73ba"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "no_seed",
+      "text": "{\"head\":\"tall\"}",
+      "expect": {
+        "valid": false,
+        "look": null,
+        "warnings": []
+      }
+    },
+    {
+      "name": "seed_too_short",
+      "text": "{\"s\":\"abc\"}",
+      "expect": {
+        "valid": false,
+        "look": null,
+        "warnings": []
+      }
+    },
+    {
+      "name": "not_an_object",
+      "text": "[]",
+      "expect": {
+        "valid": false,
+        "look": null,
+        "warnings": []
+      }
+    },
+    {
+      "name": "too_long",
+      "text": "{\"s\":\"guest-7f3a91c2\",\"x\":\"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\"}",
+      "expect": {
+        "valid": false,
+        "look": null,
+        "warnings": []
+      }
+    }
+  ],
+  "avatarEvents": [
+    {
+      "pubkey": "0000000000000000000000000000000000000000000000000000000000000001",
+      "event": {
+        "kind": 37301,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "simple",
+            "color",
+            "#8e21a1"
+          ],
+          [
+            "simple",
+            "accent",
+            "#8f70c2"
+          ],
+          [
+            "simple",
+            "light",
+            "#5f47f5"
+          ],
+          [
+            "simple",
+            "build",
+            "medium"
+          ],
+          [
+            "simple",
+            "head",
+            "wedge"
+          ],
+          [
+            "simple",
+            "face",
+            "tee"
+          ],
+          [
+            "simple",
+            "accessory",
+            "halo"
+          ],
+          [
+            "simple",
+            "body",
+            "coat"
+          ],
+          [
+            "simple",
+            "shoulders",
+            "mantle"
+          ],
+          [
+            "simple",
+            "pattern",
+            "yoke"
+          ],
+          [
+            "simple",
+            "finish",
+            "matte"
+          ],
+          [
+            "alt",
+            "Avatar preference"
+          ]
+        ],
+        "content": ""
+      },
+      "expect": {
+        "look": {
+          "color": "#8e21a1",
+          "accent": "#8f70c2",
+          "light": "#5f47f5",
+          "build": "medium",
+          "head": "wedge",
+          "face": "tee",
+          "accessory": "halo",
+          "body": "coat",
+          "shoulders": "mantle",
+          "pattern": "yoke",
+          "finish": "matte",
+          "mark": "3417"
+        }
+      }
+    },
+    {
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "event": {
+        "kind": 37301,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "simple",
+            "color",
+            "#8e21a1"
+          ],
+          [
+            "simple",
+            "accent",
+            "#8f70c2"
+          ],
+          [
+            "simple",
+            "light",
+            "#5f47f5"
+          ],
+          [
+            "simple",
+            "build",
+            "medium"
+          ],
+          [
+            "simple",
+            "head",
+            "wedge"
+          ],
+          [
+            "simple",
+            "face",
+            "tee"
+          ],
+          [
+            "simple",
+            "accessory",
+            "halo"
+          ],
+          [
+            "simple",
+            "body",
+            "coat"
+          ],
+          [
+            "simple",
+            "shoulders",
+            "mantle"
+          ],
+          [
+            "simple",
+            "pattern",
+            "yoke"
+          ],
+          [
+            "simple",
+            "finish",
+            "matte"
+          ],
+          [
+            "alt",
+            "Avatar preference"
+          ]
+        ],
+        "content": ""
+      },
+      "expect": {
+        "look": {
+          "color": "#8e21a1",
+          "accent": "#8f70c2",
+          "light": "#5f47f5",
+          "build": "medium",
+          "head": "wedge",
+          "face": "tee",
+          "accessory": "halo",
+          "body": "coat",
+          "shoulders": "mantle",
+          "pattern": "yoke",
+          "finish": "matte",
+          "mark": "6187"
+        }
+      }
+    }
+  ]
+}

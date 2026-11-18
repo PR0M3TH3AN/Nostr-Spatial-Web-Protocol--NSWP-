@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PR0M3TH3AN/Nostr-Spatial-Web-Protocol--NSWP-/schemas/look.schema.json",
+  "title": "NSWP look, inline",
+  "description": "How a person looks, in the short form that travels in an arrival context and between the members of a room: a seed, and only the parts that differ from what the seed generates. This schema is structural. A part with a value that isn't on its list is not an error: a reader keeps the generated part and carries on. See protocol/05-looks.md.",
+  "type": "object",
+  "required": ["s"],
+  "properties": {
+    "s": { "type": "string", "pattern": "^[0-9a-zA-Z_-]{8,64}$", "description": "The seed: stands in for a key." },
+    "color": { "type": "string" },
+    "accent": { "type": "string" },
+    "light": { "type": "string" },
+    "build": { "type": "string" },
+    "head": { "type": "string" },
+    "face": { "type": "string" },
+    "accessory": { "type": "string" },
+    "body": { "type": "string" },
+    "shoulders": { "type": "string" },
+    "pattern": { "type": "string" },
+    "finish": { "type": "string" }
+  }
+}
