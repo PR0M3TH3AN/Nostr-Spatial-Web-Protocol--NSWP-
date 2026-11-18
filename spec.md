@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.10.0 (concept specification)
+**Version:** 0.10.1 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)

@@ -94,6 +94,15 @@ void startWorld({
       kit.scene.add(piece);
       kit.grabbable(piece, { release: "return" });
     }
+    // And across from them, a panel: the kit's frame for a note, a picture or a video.
+    kit.panel(
+      {
+        kind: "note",
+        title: "A panel",
+        text: "Take this by its bar and hang it where you like: drag it with a mouse, or point and squeeze a controller's grip. It turns to face you.\n\nThe buttons on the bar make it smaller, larger, or put it away.\n\nA panel shows a note, a picture or a video. It can't show another website: no page is allowed to draw one.",
+      },
+      { position: [-2.2, 1.5, 3.2], width: 0.9 },
+    );
     return { canStand: (x, z) => Math.abs(x) < 8.4 && z < 8 && z > -17.9 && !(Math.abs(x - 2.3) < 0.55 && Math.abs(z - 3.4) < 0.8) };
   },
 });
