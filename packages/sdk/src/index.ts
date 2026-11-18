@@ -174,10 +174,19 @@ export interface GoOptions {
   joined?: boolean;
   /** Their microphone is on. Passed only with `joined`, and only kept by a client they have told it may be. */
   mic?: boolean;
+  /**
+   * Named people the visitor blocked here during this visit, by identity key (`travelling().blocked`). Their own
+   * client asks whether to block them everywhere (protocol/02-doors.md, "Blocks that travel").
+   */
+  blocked?: string[];
 }
 
 /** What a visitor's state adds to the link that takes them on. */
-const carried = (opts: GoOptions, immersive: boolean) => ({ immersive, ...(opts.joined ? { joined: true, ...(opts.mic ? { mic: true } : {}) } : {}) });
+const carried = (opts: GoOptions, immersive: boolean) => ({
+  immersive,
+  ...(opts.joined ? { joined: true, ...(opts.mic ? { mic: true } : {}) } : {}),
+  ...(opts.blocked?.length ? { blocked: opts.blocked } : {}),
+});
 
 export const portal = {
   /** Which Airlock `go()` would use right now, or null for the built-in screen. */

@@ -122,6 +122,31 @@ describe("leaving a headset session to cross", () => {
     expect(buildWayUrl("https://lobby.example/go/", { doors: true, joined: true, mic: true })).toBe("https://lobby.example/go/#doors=1&joined=1&mic=1");
   });
 
+  it("carries who was blocked on a link, as keys and nothing else", () => {
+    const a = "ab".repeat(32);
+    const b = "cd".repeat(32);
+    const door = { url: "https://world.example/" };
+    const link = buildAirlockUrl("https://lobby.example/go/", door, { blocked: [a, b, a, "not a key", "AB".repeat(32)] });
+    expect(link).toBe(`https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&blocked=${a},${b}`);
+    expect(parseAirlockFragment(new URL(link).hash)?.blocked).toEqual([a, b]);
+    expect(buildAirlockUrl("https://lobby.example/go/", door, { blocked: [] })).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F");
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&blocked=everyone")?.blocked).toBeUndefined();
+    expect(parseAirlockFragment(`#to=https%3A%2F%2Fworld.example%2F&blocked=${Array.from({ length: 40 }, (_, i) => i.toString(16).padStart(64, "0")).join(",")}`)?.blocked).toHaveLength(16);
+    // A way home may carry it too, and is still a way home.
+    expect(wayWithoutDestination(`#joined=1&blocked=${a}`)).toEqual({ immersive: false, doors: false, joined: true, blocked: [a] });
+    expect(wayWithoutDestination("#blocked=<script>")).toBeNull();
+    expect(buildWayUrl("https://lobby.example/go/", { doors: true, blocked: [b] })).toBe(`https://lobby.example/go/#doors=1&blocked=${b}`);
+  });
+
+  it("reads a visitor's block list in an arrival, whole or not at all", () => {
+    const a = "ab".repeat(32);
+    const r = decodeArrival(encodeArrival({ blocked: [a] }));
+    expect(r.ok && r.value.blocked).toEqual([a]);
+    const bad = decodeArrival(Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", blocked: [a, 7] })).toString("base64url"));
+    expect(bad.ok && bad.value.blocked).toBeUndefined();
+    expect(bad.ok && bad.warnings.map((w) => w.code)).toEqual(["invalid_blocked"]);
+  });
+
   it("reads joined in an arrival, and a microphone only beside it", () => {
     const r = decodeArrival(encodeArrival({ joined: true, mic: true }));
     expect(r.ok && r.value.joined && r.value.mic).toBe(true);

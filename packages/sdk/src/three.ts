@@ -146,6 +146,18 @@ export interface Presence {
   unblock(key: string): void;
   /** Everyone this visitor has blocked: named people, kept on this site, and guests blocked this visit. */
   blocked(): { key: string; name: string; kept: boolean }[];
+  /**
+   * People the visitor has blocked everywhere: their own client's list, as it arrived with them. Nobody on it
+   * is connected to during this visit. It isn't kept here, and isn't undone here: it is their client's.
+   */
+  blockAlso(keys: string[]): void;
+  /** How many people are blocked by the visitor's own client's list. */
+  readonly blockedElsewhere: number;
+  /**
+   * The named people blocked here during this visit, by identity key: what a world reports to the visitor's
+   * client as they leave, so the client can ask whether to block them everywhere.
+   */
+  newlyBlocked(): string[];
   /** Call once per frame with the seconds since the last one. */
   update(dt: number): void;
   /** What this visitor currently sees of each member (for tests and debugging). */
@@ -388,7 +400,11 @@ export function createPresence(d: PresenceOptions): Presence {
   // because a guest's key is new every time and a list of them would promise what it can't do.
   let keptBlocks: Blocked[] = loadBlocked();
   const blockedNow = new Map<string, string>(); // a session key from this visit -> what they were called
-  const blockedKeys = () => [...keptBlocks.map((b) => b.key), ...blockedNow.keys()];
+  /** The visitor's own client's list, for this visit. */
+  const fromClient = new Set<string>();
+  /** Named people blocked here during this visit. */
+  const reported = new Set<string>();
+  const blockedKeys = () => [...new Set([...keptBlocks.map((b) => b.key), ...blockedNow.keys(), ...fromClient])];
   // Whom they have stopped hearing, by session key: it lasts while that person is here.
   const mutedKeys = new Set<string>();
 
@@ -700,12 +716,15 @@ export function createPresence(d: PresenceOptions): Presence {
         // By name: the key behind the name is the same next visit, so this is kept.
         keptBlocks = withBlocked(keptBlocks, { key: gone.identity, name: gone.name });
         storeBlocked(keptBlocks);
+        reported.add(gone.identity);
       } else blockedNow.set(gone.session, gone.name);
       changed();
       return gone.name;
     },
     unblock(key) {
-      session?.unblock(key);
+      reported.delete(key);
+      // Someone on the visitor's own client's list stays blocked: that list is undone there, not here.
+      if (!fromClient.has(key)) session?.unblock(key);
       if (blockedNow.delete(key)) return changed();
       keptBlocks = withoutBlocked(keptBlocks, key);
       storeBlocked(keptBlocks);
@@ -713,6 +732,15 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     blocked() {
       return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];
+    },
+    blockAlso(keys) {
+      for (const k of keys) if (/^[0-9a-f]{64}$/.test(k)) fromClient.add(k);
+    },
+    get blockedElsewhere() {
+      return [...fromClient].filter((k) => !keptBlocks.some((b) => b.key === k)).length;
+    },
+    newlyBlocked() {
+      return [...reported];
     },
     testTone() {
       const ctx = listener.context;
@@ -995,6 +1023,8 @@ export interface Travelling {
   joined: boolean;
   /** Their microphone is on. */
   mic: boolean;
+  /** Named people they blocked here during this visit, for their own client to ask about. */
+  blocked: string[];
 }
 
 /** Where a page keeps whether its visitor was joined, so a refresh doesn't put them out of the room. This tab only. */
@@ -1010,7 +1040,7 @@ export function addRoomControls(
      * The visitor arrived joined: their own client says they were among people where they came from
      * (`arrival.read().context`, its `joined` and `mic`). The open room is joined without asking again.
      */
-    arrived?: { joined?: boolean; mic?: boolean } | null;
+    arrived?: { joined?: boolean; mic?: boolean; blocked?: string[] } | null;
     /**
      * The visitor's panels. With them, a screen someone shares in the room can be watched: it opens on a panel
      * of the watcher's own, which they move, size and put away like any other. Without them nobody here can watch.
@@ -1147,8 +1177,13 @@ export function addRoomControls(
   // Who is blocked is always in sight here, in a room or out of one, with the way to undo it beside each name.
   const blockedNote = () => {
     const n = presence.blocked().length;
-    return n === 0 ? "" : `You have blocked ${n === 1 ? "1 person" : `${n} people`} here: you don't see or hear each other. Unblock anyone below. `;
+    const e = presence.blockedElsewhere;
+    return `${n === 0 ? "" : `You have blocked ${n === 1 ? "1 person" : `${n} people`} here: you don't see or hear each other. Unblock anyone below. `}${
+      e === 0 ? "" : `${e === 1 ? "1 person is" : `${e} people are`} blocked wherever you go: that list is kept by the place you set out from, and is changed there. `
+    }`;
   };
+  // The visitor's own list came with them. Nobody on it is connected to, from the first moment.
+  if (opts.arrived?.blocked?.length) presence.blockAlso(opts.arrived.blocked);
   const recorders = new Set<string>();
   const people = () => {
     const here = presence.session ? presence.people() : [];
@@ -1484,7 +1519,10 @@ export function addRoomControls(
     })();
   }
 
-  return { refresh, travelling: () => ({ joined: !!presence.session && !presence.roomName, mic: !!presence.session && !presence.roomName && presence.micOn }) };
+  return {
+    refresh,
+    travelling: () => ({ joined: !!presence.session && !presence.roomName, mic: !!presence.session && !presence.roomName && presence.micOn, blocked: presence.newlyBlocked() }),
+  };
 }
 
 /**
