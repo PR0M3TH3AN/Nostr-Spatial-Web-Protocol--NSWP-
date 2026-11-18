@@ -1,7 +1,7 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.9.1 (concept specification)
+**Version:** 0.10.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 18, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
@@ -631,6 +631,7 @@ The return address tells the world which client the user came from. That is a sm
 - **Fast path.** The Airlock may skip its confirmation, showing the destination for a moment with a cancel control, only when all of these hold: the destination is a verified world the user has approved before; the publisher hasn't changed; the policy verdict is a clean allow; the remembered identity choice applies; and nothing is being paid. That brings a familiar crossing down to one gesture.
 - **Brief exit from immersion.** The Immersive Web group's navigation proposal (the `sessiongranted` event, experimental in some headset browsers; check current status) could remove the gap later. Clients feature-detect it and fall back to the flow above.
 - A *dedicated* browser could render a trusted Airlock inside an ongoing session. A web app can't.
+- **As built (0.10).** The count is three actions at most in a headset, and each party is held to its own: `protocol/02-doors.md`, "How many actions a crossing takes". A world says `xr=1` as a visitor leaves a headset session, the Airlock passes `immersive` on, and the destination puts the way back in first and alone. The two ends of a crossing share a room, the chamber, which a world draws and which therefore proves nothing: it has nothing in it to press.
 
 ### 6.6 Portal API
 

@@ -345,6 +345,16 @@ const arrivalVectors = [
     value: encodeArrival({ entry: "main-entrance", pass: arrivalPass, sessionKey: bytesToHex(KEY2) }),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_pass"] },
   },
+  {
+    name: "came_from_a_headset",
+    value: encodeArrival({ entry: "main-entrance", immersive: true }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", immersive: true }, warnings: [] },
+  },
+  {
+    name: "immersive_must_be_a_boolean",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", immersive: "yes" })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_immersive"] },
+  },
   { name: "not_base64_json", value: "this-is-not-json", expect: { valid: false, decoded: null, warnings: [] } },
 ];
 for (const v of arrivalVectors) {

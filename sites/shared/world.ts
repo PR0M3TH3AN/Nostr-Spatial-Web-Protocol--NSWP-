@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, createXrInput, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPresence, createXrInput, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -96,6 +96,8 @@ type TestHooks = {
   roomInfo?: () => unknown;
   /** What the visitor's hands are doing, as the input layer reads them. */
   input?: () => unknown;
+  /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
+  crossing?: () => string;
   /** Where on the floor the hand in a slot points, or null. */
   pointing?: (slot: number) => number[] | null;
   /** Which way the visitor has been turned, in degrees. */
@@ -209,6 +211,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   };
   const head = new THREE.Vector3();
   camera.getWorldPosition(head);
+  // Settles when the world is drawn and ready to be walked into.
+  let worldOpened = () => {};
+  const opened = new Promise<void>((resolve) => (worldOpened = resolve));
   // Hands in a headset are set up further down, once there is something to point with.
   let input: XrInput | null = null;
   const toHold: [THREE.Object3D, GrabOptions | undefined][] = [];
@@ -297,8 +302,18 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const g = gates[i];
     if (!g || state.leaving) return;
     state.leaving = true;
+    // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
+    await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
     await portal.go(g.destination, { xrSession: renderer.xr.getSession() });
+  };
+  const goHome = async () => {
+    const back = arrival.returnAirlock();
+    if (!back || state.leaving) return;
+    state.leaving = true;
+    await crossing.leave({ title: "your lobby", address: new URL(back).host });
+    document.body.classList.add("leaving");
+    await portal.home({ xrSession: renderer.xr.getSession() });
   };
   hooks.goThrough = go;
   hooks.goThroughPortal = () => go(0);
@@ -313,7 +328,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     short: "Home",
     // Offered when the visitor came from a lobby that said where to send them back to.
     hidden: () => !arrival.returnAirlock(),
-    act: () => void portal.home({ xrSession: renderer.xr.getSession() }),
+    act: () => void goHome(),
   });
   controls.addSection({
     id: "help",
@@ -328,7 +343,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // ------------------------------------------------------------- moving
   const [midX, midZ] = cfg.middle ?? [0, 0];
   const reach = cfg.reach ?? 14;
-  const canStand = (x: number, z: number) => Math.hypot(x - midX, z - midZ) <= reach && (handle.canStand?.(x, z) ?? true);
+  // Leaving and arriving happen in the kit's chamber: the same small room at both ends of every trip.
+  const crossing = createCrossing({ scene, camera, accent, textColor: cfg.palette.text, motion: () => controls.theme.motion });
+  hooks.crossing = () => crossing.state;
+  const canStand = (x: number, z: number) => crossing.allows(x, z) && Math.hypot(x - midX, z - midZ) <= reach && (handle.canStand?.(x, z) ?? true);
   const headAt = new THREE.Vector3();
   /** Move the visitor's head towards (x, z) in a straight line, stopping at the first place they may not stand. */
   const moveTowards = (x: number, z: number) => {
@@ -582,7 +600,24 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     return { base64: btoa(binary), width, height: width / 2, bytes: bytes.length };
   };
 
-  state.vrSupported = await addViewControls(controls, { renderer, rig, camera, hud, onState: (x) => (state.xr = x) });
+  // Someone who came through an Airlock starts in the chamber, and its doors open when the world is ready. If they
+  // left a headset session to get here, the one thing asked of them is whether to go back into one, and the doors
+  // wait for that, so they are seen to open.
+  let offered = !!context?.immersive;
+  if (context) {
+    camera.updateMatrixWorld(true);
+    crossing.arrive({ title: cfg.title, address: location.host, ready: opened, hold: () => offered });
+  }
+  state.vrSupported = await addViewControls(controls, {
+    renderer,
+    rig,
+    camera,
+    hud,
+    onState: (x) => (state.xr = x),
+    ...(context?.immersive ? { arrived: { title: cfg.title } } : {}),
+    onOffer: (showing) => (offered = showing),
+  });
+  if (!state.vrSupported) offered = false;
 
   addEventListener("resize", () => {
     camera.aspect = innerWidth / innerHeight;
@@ -598,6 +633,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const dt = Math.min(t - lastT, 0.1);
     lastT = t;
     input!.update(dt);
+    crossing.update(t, dt);
     camera.getWorldPosition(head);
     presence.update(dt);
     environment.update(t);
@@ -642,6 +678,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     renderer.render(scene, camera);
   });
   state.ready = true;
+  worldOpened();
 }
 
 function host(url: string): string {

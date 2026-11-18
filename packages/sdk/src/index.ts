@@ -138,6 +138,12 @@ export interface GoOptions {
   xrSession?: XRSession | null;
   /** Override the Airlock choice (tests, dedicated browsers). */
   airlock?: string;
+  /**
+   * The visitor is in a headset session as they leave. Their Airlock passes
+   * it on, so the next place can offer the way back in at once. Left out, it
+   * is taken from whether `xrSession` was given.
+   */
+  immersive?: boolean;
 }
 
 export const portal = {
@@ -152,6 +158,7 @@ export const portal = {
       const chk = checkDestination(dest.url);
       if (!chk.ok) throw new Error(`nswp-sdk: refusing portal destination (${chk.error.code})`);
     }
+    const immersive = opts.immersive ?? !!opts.xrSession;
     if (opts.xrSession) {
       try {
         await opts.xrSession.end();
@@ -165,7 +172,7 @@ export const portal = {
     }
     const airlock = portal.airlockFor(opts);
     if (airlock) {
-      location.assign(buildAirlockUrl(airlock, dest));
+      location.assign(buildAirlockUrl(airlock, dest, { immersive }));
       return;
     }
     showFallback(dest);
@@ -179,6 +186,7 @@ export const portal = {
   async home(opts: GoOptions = {}): Promise<boolean> {
     const airlock = portal.airlockFor(opts);
     if (!airlock) return false;
+    const immersive = opts.immersive ?? !!opts.xrSession;
     if (opts.xrSession) {
       try {
         await opts.xrSession.end();
@@ -186,7 +194,10 @@ export const portal = {
         /* already ended */
       }
     }
-    location.assign(airlock);
+    // An Airlock opened with no destination is the way home. Saying "from a headset" doesn't make it a destination.
+    const home = new URL(airlock);
+    home.hash = immersive ? "xr=1" : "";
+    location.assign(home.href);
     return true;
   },
 };

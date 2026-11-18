@@ -60,14 +60,24 @@ export function parsePortal(input: unknown): Result<Portal> {
   return c.result(portal);
 }
 
+export interface AirlockUrlOptions {
+  /**
+   * The visitor is in a headset session as they leave. The Airlock passes it
+   * on, so the destination can offer the way back into one at once
+   * (protocol/02-doors.md, "How many actions a crossing takes").
+   */
+  immersive?: boolean;
+}
+
 /** `<airlock>#to=<naddr or url>&entry=<id>` (spec §6.2: destinations travel in the fragment). */
-export function buildAirlockUrl(airlock: string, dest: PortalDestination): string {
+export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: AirlockUrlOptions = {}): string {
   const u = new URL(airlock);
   const to = dest.naddr ?? dest.url;
   if (!to) throw new Error("buildAirlockUrl: destination needs an naddr or a url");
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
+  if (opts.immersive) parts.push("xr=1");
   u.hash = parts.join("&");
   return u.href;
 }
@@ -78,6 +88,13 @@ export interface AirlockRequest {
   naddr?: AddressPointer & { raw: string };
   url?: string;
   entryPoint?: string;
+  /** The visitor left a headset session to come here (`xr=1`). */
+  immersive?: boolean;
+}
+
+/** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
+export function fragmentSaysImmersive(hash: string): boolean {
+  return hash.replace(/^#/, "").split("&").includes("xr=1");
 }
 
 /** Parse an Airlock fragment. Returns null when there is no destination. */
@@ -106,5 +123,6 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
   } else req.url = to;
   const entry = params.get("entry");
   if (entry && ENTRY_POINT.test(entry)) req.entryPoint = entry;
+  if (params.get("xr") === "1") req.immersive = true;
   return req;
 }

@@ -34,6 +34,7 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `look` | The visitor's look, inline ([NSWP-05](05-looks.md)). At most 600 characters |
 | `pass` | A pass: the visitor's identity key saying that a session key speaks for them here ([NSWP-10](10-identity.md)) |
 | `sessionKey` | The secret half of that session key: a throwaway made for this trip. A pass and its key travel together or not at all; one without the other is dropped |
+| `immersive` | `true` when the visitor left a headset session to make this trip. The world offers the way back into one before anything else ([NSWP-02](02-doors.md)). It says what they were doing, not who they are |
 | `avatar` | The `naddr` of a published avatar event |
 | `assertion` | An entry assertion, below |
 | `receipts` | Up to 8 events proving the visitor paid for entry |

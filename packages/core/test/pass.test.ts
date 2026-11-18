@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { buildRoomPass, claimsKey, cleanName, decodeArrival, encodeArrival, encodeNpub, finalizeEvent, getPublicKey, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
+import { buildAirlockUrl, buildRoomPass, claimsKey, cleanName, decodeArrival, encodeArrival, encodeNpub, finalizeEvent, fragmentSaysImmersive, getPublicKey, parseAirlockFragment, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
 
 const ME = sha256(utf8ToBytes("pass test identity"));
 const SESSION = sha256(utf8ToBytes("pass test session"));
@@ -78,5 +78,33 @@ describe("a pass in the arrival context", () => {
       expect(r.ok && r.value, JSON.stringify(Object.keys(bad))).toEqual({ v: "nswp/arrival/0.3", entry: "front" });
       expect(r.warnings.map((w) => w.code)).toEqual(["invalid_pass"]);
     }
+  });
+});
+
+describe("leaving a headset session to cross", () => {
+  it("is said to the Airlock in the door's address, and only when true", () => {
+    const door = { url: "https://world.example/" };
+    const from = buildAirlockUrl("https://lobby.example/go/", door, { immersive: true });
+    expect(from).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&xr=1");
+    expect(parseAirlockFragment(new URL(from).hash)).toMatchObject({ url: "https://world.example/", immersive: true });
+    const flat = buildAirlockUrl("https://lobby.example/go/", door);
+    expect(flat).not.toContain("xr=");
+    expect(parseAirlockFragment(new URL(flat).hash)?.immersive).toBeUndefined();
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&xr=yes")?.immersive).toBeUndefined();
+  });
+
+  it("is carried home too, where there is no destination", () => {
+    expect(fragmentSaysImmersive("#xr=1")).toBe(true);
+    expect(fragmentSaysImmersive("#to=x&xr=1")).toBe(true);
+    expect(fragmentSaysImmersive("#to=xr=1")).toBe(false);
+    expect(fragmentSaysImmersive("")).toBe(false);
+  });
+
+  it("reaches the world as one true-or-absent fact", () => {
+    const r = decodeArrival(encodeArrival({ immersive: true }));
+    expect(r.ok && r.value.immersive).toBe(true);
+    const off = decodeArrival(Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", immersive: false })).toString("base64url"));
+    expect(off.ok && off.value).toEqual({ v: "nswp/arrival/0.3" });
+    expect(off.warnings).toEqual([]);
   });
 });

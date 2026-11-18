@@ -26,6 +26,12 @@ export interface Arrival {
   pass?: NostrEvent;
   /** The secret half of the session key the pass names, as 64 hex characters. A throwaway, made for this trip. */
   sessionKey?: string;
+  /**
+   * The visitor left a headset session to make this trip. A world offers the
+   * way back into one before anything else (protocol/02-doors.md). It says
+   * what they were doing, not who they are.
+   */
+  immersive?: true;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -96,6 +102,10 @@ export function decodeArrival(value: string): Result<Arrival> {
       out.pass = json.pass as NostrEvent;
       out.sessionKey = json.sessionKey as string;
     } else c.warn("invalid_pass", "pass", "Ignoring a pass that doesn't come with the session key it names.");
+  }
+  if (json.immersive !== undefined && json.immersive !== false) {
+    if (json.immersive === true) out.immersive = true;
+    else c.warn("invalid_immersive", "immersive", "Ignoring an immersive hint that isn't true or false.");
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {
