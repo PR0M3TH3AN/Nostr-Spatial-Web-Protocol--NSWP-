@@ -52,6 +52,7 @@ export function createAlloy(accent: THREE.ColorRepresentation, opts: AlloyOption
       uSpeed: { value: opts.speed ?? 1 },
       uSheen: { value: opts.sheen ?? 0 },
       uReach: { value: opts.reach ?? 3 },
+      uOpacity: { value: 1 },
     },
     vertexShader: `
       attribute vec3 tone; attribute float glow; attribute float flow;
@@ -68,7 +69,7 @@ export function createAlloy(accent: THREE.ColorRepresentation, opts: AlloyOption
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: `
-      uniform vec3 uAccent; uniform vec3 uGround; uniform float uTime; uniform float uAim; uniform float uGloss; uniform float uSpeed; uniform float uSheen; uniform float uReach;
+      uniform vec3 uAccent; uniform vec3 uGround; uniform float uTime; uniform float uAim; uniform float uGloss; uniform float uSpeed; uniform float uSheen; uniform float uReach; uniform float uOpacity;
       varying vec3 vWorld; varying vec3 vNormal; varying vec3 vTone; varying float vGlow; varying float vFlow;
       ${SKY_GLSL}
       void main(){
@@ -100,10 +101,17 @@ export function createAlloy(accent: THREE.ColorRepresentation, opts: AlloyOption
         // Distance takes it into the ground's colour.
         float far = length(cameraPosition - vWorld);
         c = mix(c, uGround, smoothstep(70.0, 320.0, far) * (1.0 - vGlow * 0.6));
-        gl_FragColor = vec4(c, 1.0);
+        gl_FragColor = vec4(c, uOpacity);
         #include <colorspace_fragment>
       }`,
   }) as Alloy;
+  // `opacity` works as on any material, once `transparent` is set: for things that fade.
+  Object.defineProperty(material, "opacity", {
+    get: () => material.uniforms.uOpacity!.value as number,
+    set: (value: number) => {
+      if (material.uniforms?.uOpacity) material.uniforms.uOpacity.value = value;
+    },
+  });
   material.tick = (t) => {
     material.uniforms.uTime!.value = t;
   };

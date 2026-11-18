@@ -92,7 +92,7 @@ function planSky(seed: number): SkyPlan {
   const up = planet.clone().cross(right).normalize().negate();
   const lean = rand() * Math.PI * 2;
   const band = new THREE.Vector3(Math.cos(lean) * 0.75, 0.62, Math.sin(lean) * 0.75).normalize();
-  return { planet, right, up, size: 0.135 + rand() * 0.03, side, band };
+  return { planet, right, up, size: 0.12 + rand() * 0.03, side, band };
 }
 
 /**
@@ -190,8 +190,8 @@ function createSky(glow: THREE.Color, ground: THREE.Color, seed: number, plan: S
                 float lamp = town * smoothstep(0.32, 0.1, length(fract(g * 5.0) - 0.5)) * (0.6 + 0.4 * sin(uTime * 0.7 + hash(cell) * 40.0));
                 vec3 world = uGround * 0.22;
                 world += uAccent * (line * 0.05 + lamp * 0.3) * (1.0 - lit);
-                world = mix(world, uAccent * 0.5 + uGround, lit * 0.85);
-                world += mix(uAccent, vec3(1.0), 0.35) * line * lit * 0.55;
+                world = mix(world, uAccent * 0.42 + uGround, lit * 0.85);
+                world += mix(uAccent, vec3(1.0), 0.35) * line * lit * 0.32;
                 world += uAccent * pow(r2, 7.0) * (0.05 + 0.5 * lit);
                 float edge = smoothstep(1.0, 1.0 - fwidth(r2) * 1.5, r2);
                 c = mix(c, mix(c, world, haze), edge);
@@ -209,7 +209,7 @@ function createSky(glow: THREE.Color, ground: THREE.Color, seed: number, plan: S
                   shade *= 1.0 - 0.85 * smoothstep(0.06, 0.0, abs(rho - 1.93)); // a gap
                   float behind = dot(P, uLight);
                   float shadow = behind < 0.0 && length(P - uLight * behind) < 1.0 ? 0.1 : 1.0;
-                  c += mix(uAccent, vec3(1.0), 0.2) * shade * inside * shadow * 0.34 * haze;
+                  c += mix(uAccent, vec3(1.0), 0.2) * shade * inside * shadow * 0.24 * haze;
                 }
               }
             }

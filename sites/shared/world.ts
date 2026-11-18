@@ -13,7 +13,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes } from "@nswp/core";
 import { createAlloy, createEnvironment, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy } from "nswp-sdk/home";
-import { addRoomControls, addViewControls, capturePanorama, createConsole, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
+import { addRoomControls, addViewControls, capturePanorama, createConsole, createFigure, createPresence, panoramaTexture, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import { textSprite } from "./text.js";
 
@@ -54,6 +54,8 @@ type TestHooks = {
   teleport?: (x: number, z: number) => void;
   /** Turn the view: degrees to the left of the way in, and degrees up. */
   face?: (yaw: number, pitch?: number) => void;
+  /** Stand a visitor's figure somewhere, to see how one looks. */
+  figure?: (x: number, z: number, yaw?: number) => void;
   device?: unknown;
   /** Everything a visitor can do here. */
   controls?: Controls;
@@ -124,7 +126,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     alloys.push(made);
     return made;
   };
-  const tick = cfg.decorate(scene, { accent, builder, soft: builder.tone.clone().lerp(accent, 0.06), alloy });
+  const tick = cfg.decorate(scene, { accent, builder, soft: builder.tone.clone().lerp(accent, 0.03), alloy });
   scene.add(builder.build(alloy()));
 
   // --- the portal ---------------------------------------------------------
@@ -299,6 +301,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.teleport = (x, z) => {
     rig.position.x = x - camera.position.x;
     rig.position.z = z - camera.position.z;
+  };
+  hooks.figure = (x, z, yaw = 0) => {
+    const figure = createFigure(0xff7ab6);
+    figure.group.position.set(x, 1.6, z);
+    figure.group.rotation.y = THREE.MathUtils.degToRad(yaw);
+    scene.add(figure.group);
   };
   hooks.face = (yaw, pitch = 0) => {
     rig.rotation.y = THREE.MathUtils.degToRad(yaw);

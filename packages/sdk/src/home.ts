@@ -409,7 +409,7 @@ export function createHome(layout: Layout, opts: HomeOptions = {}): Home {
   const b = new MeshBuilder();
   // What things are made of: a metal a few shades up from the ground. Seats, tabletops and leaves take some of the accent.
   b.tone = metalTone(ground);
-  const soft = b.tone.clone().lerp(accent, 0.06);
+  const soft = b.tone.clone().lerp(accent, 0.03);
   buildRoom(layout, b);
   if (layout.room.template === "open") {
     // A ring of light on the floor, marking the middle of an open place.
