@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.9.1
+
+Hands in a headset. No change to any format: this is the SDK, and three lines in what a world owes.
+
+- **An input layer of our own** (`createXrInput`), on the WebXR standard and nothing else. It reads any tracked controller through the layout WebXR already fixes, so nothing knows a make or a model. Sticks turn and step; a grip or a pinch picks things up, near or from across a room; B or Y opens the console; the hand buzzes where it can.
+- **Comfortable unless asked.** Turning and moving are in steps by default. Smooth walking and turning are a visitor's choice under Moving, with a darkened edge to the view, kept in their browser for that site.
+- **Drawn here, downloaded from nowhere.** Controllers are one plain model for every make, and tracked hands are their joints. A request for a controller's model would tell its host which headset each visitor owns.
+- **What a world owes** ([NSWP-09](protocol/09-what-a-world-owes.md)) gains three lines: sticks, grips and buttons are extras and never the only way; nothing slides unless the visitor asked; no request says what a visitor is holding.
+- **Not adopted:** Meta's Immersive Web SDK. Its input manager is good, but it needs three.js swapped for Meta's fork at the root of every world. The door stays open: `actions.ts` is small and separate.
+- **The Workshop** has three things to pick up. The headset checklist has a section for all of this.
+- **Status:** driven in an emulated Quest 3 only: every row of the table in `docs/controls-kit.md`, with controllers and with tracked hands. Not on any real headset. Not deployed.
+
 ## 0.9.0
 
 Who someone is ([NSWP-10](protocol/10-identity.md)). Until now everyone in a room was a guest, and a name or a mark proved nothing.

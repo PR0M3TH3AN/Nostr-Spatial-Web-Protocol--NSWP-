@@ -21,7 +21,7 @@ only proposed.
 [BitBlocks](https://bitblocks.network/) stack. The protocol does not depend on
 either.
 
-Status: spec v0.9.0, an exploratory draft. Worlds, doors, the Airlock,
+Status: spec v0.9.1, an exploratory draft. Worlds, doors, the Airlock,
 previews, looks, lists, a first version of rooms, going by name in a room,
 and home layouts are built. Published items, hosted rooms, and finding worlds
 through the people you follow are design only. Nothing here is an adopted NIP or standard, and every

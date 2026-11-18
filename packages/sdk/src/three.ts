@@ -895,5 +895,7 @@ export async function addViewControls(
 }
 
 export { createFigure, type Figure, type FigureFacts, type FigureStyle } from "./figure.js";
+export { createXrInput, type GrabOptions, type XrInput, type XrInputInfo, type XrInputOptions } from "./input.js";
+export { DEFAULT_COMFORT, readPad, type Comfort, type PadState } from "./actions.js";
 
 export { addCameraControls, canRecord, recordClip, saveFile, takePicture, takeSelfie, type Camera, type CameraOptions, type Capture, type Clip } from "./camera.js";

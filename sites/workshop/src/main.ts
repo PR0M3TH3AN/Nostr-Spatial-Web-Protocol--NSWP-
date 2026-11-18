@@ -2,10 +2,10 @@
  * The Workshop: every part these worlds are built from, set out with its name.
  * It exists for anyone who wants to build a world of their own.
  */
-import type * as THREE from "three";
+import * as THREE from "three";
 import {
   addArchFrame, addBench, addLamp, addPlant, addPlinth, addTable, addTree, addWall,
-  loopFrames, mouldingPaint, mouldingProfile, type MeshBuilder,
+  loopFrames, mouldingPaint, mouldingProfile, MeshBuilder,
 } from "nswp-sdk/home";
 import { startWorld } from "../../shared/world.js";
 
@@ -75,6 +75,25 @@ void startWorld({
     kit.sign("addTree", "A trunk and tiers of leaves, each edged with light.", [5.2, 0.62, -12.6], 1.3);
     addWall(shop.at([0, 0, -18.4]), 10, 3.4);
     kit.sign("addWall", "A run of wall, any length and height, in bays between posts.", [0, 0.62, -15.4], 1.3);
-    return { canStand: (x, z) => Math.abs(x) < 8.4 && z < 8 && z > -17.9 };
+    // By the way in: three things to pick up, for anyone with a controller's grip or tracked fingers.
+    addTable(shop.at([2.3, 0, 3.4], 90), kit.soft);
+    kit.sign("Pick these up", "In a headset, squeeze a controller's grip on one, or pinch it with your fingers. Point and squeeze to take one from where you stand. Let go, and it goes home.", [2.3, 1.75, 3.4], 1.5);
+    const pieces: [name: string, at: number, make: (b: MeshBuilder) => void][] = [
+      ["a block", -0.36, (b) => b.box([0.12, 0.12, 0.12], [0, 0, 0], { bevel: 0.014, panel: { margin: 0.022, depth: 0.008, glow: 0.7 } })],
+      ["a spindle", 0, (b) => b.lathe([[0.0005, -0.09], [0.05, -0.05], [0.022, 0], [0.05, 0.05], [0.0005, 0.09]], [0, 0, 0], 6, (row) => (row === 2 ? { glow: 0.9 } : { shade: 0.9 + (row % 2) * 0.25 }))],
+      ["a ring", 0.36, (b) => b.sweep(mouldingProfile(0.02, 0.026, 0.006, 0.005, 0.005), loopFrames((u) => [Math.cos(u * Math.PI * 2) * 0.07, Math.sin(u * Math.PI * 2) * 0.07, 0], 24), mouldingPaint, { loop: true })],
+    ];
+    for (const [name, at, make] of pieces) {
+      const b = new MeshBuilder().at();
+      b.tone = kit.soft.clone();
+      b.light = kit.accent.clone();
+      make(b);
+      const piece = b.build(kit.alloy({ gloss: 0.75 }));
+      piece.name = name;
+      piece.position.set(2.3, 0.86, 3.4 + at);
+      kit.scene.add(piece);
+      kit.grabbable(piece, { release: "return" });
+    }
+    return { canStand: (x, z) => Math.abs(x) < 8.4 && z < 8 && z > -17.9 && !(Math.abs(x - 2.3) < 0.55 && Math.abs(z - 3.4) < 0.8) };
   },
 });
