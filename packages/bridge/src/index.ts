@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { randomBytes } from "node:crypto";
-import { DEFAULT_RELAYS, decodeNpub, encodeNpub, getPublicKey } from "@nswp/core";
+import { cleanWorldOrigin, DEFAULT_RELAYS, decodeNpub, encodeNpub, getPublicKey } from "@nswp/core";
 import { createBridge } from "./bridge.js";
 import { commandEars, whisperEars, type Ears, type Transcribe } from "./ears.js";
 
@@ -24,6 +24,8 @@ const HELP = `nswp-bridge: a terminal on this computer, opened from your home.
   --voice                 turn what you say in your home into text, here, with Whisper
   --voice-model <name>    which Whisper model: base.en unless told (tiny.en is quicker)
   --transcribe "<cmd>"    or with any command: it is given a .wav file, and prints the words
+  --world <address>       a world you are building: its page may open a terminal here too,
+                          when you bring your terminals to it from your home. Say it once per world
   --allow-for <minutes>   after you say yes once, don't ask again for this long
   --relays <a,b,c>        where to be found (default: the four NSWP uses)
   --home <address>        your home, for the pairing link
@@ -37,6 +39,7 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+const worldsAsked: string[] = [];
 function parse(argv: string[]) {
   const o: Record<string, string | boolean> = {};
   const takes = new Set(["owner", "command", "cwd", "allow-for", "relays", "home", "dir", "voice-model", "transcribe"]);
@@ -45,7 +48,11 @@ function parse(argv: string[]) {
     if (!a.startsWith("--")) fail(`Unexpected "${a}".\n\n${HELP}`);
     const name = a.slice(2);
     if (name === "help" || name === "tmux" || name === "voice") o[name] = true;
-    else if (takes.has(name)) {
+    else if (name === "world") {
+      const value = argv[++i];
+      if (value === undefined) fail("--world needs a world's address.");
+      worldsAsked.push(value);
+    } else if (takes.has(name)) {
       const value = argv[++i];
       if (value === undefined) fail(`--${name} needs a value.`);
       o[name] = value;
@@ -110,6 +117,10 @@ function main() {
   if (!relays.length || relays.some((r) => !/^wss?:\/\//.test(r))) fail("--relays is a list of wss:// addresses, separated by commas.");
   const home = typeof args.home === "string" ? args.home : "https://portal.bitblocks.network/walk/";
 
+  // The worlds whose own pages may ask. Named here, at the computer, each time it is started: never remembered, and
+  // never taken from anything a page sends.
+  const worlds = worldsAsked.map((w) => cleanWorldOrigin(w) ?? fail(`"${w}" can't be a world to bring a terminal to. Give an https address, or one on this computer like http://127.0.0.1:5173.`));
+
   // Speech becomes text on this computer, or not at all.
   const model = typeof args["voice-model"] === "string" ? args["voice-model"] : "base.en";
   if (!/^[a-zA-Z0-9._-]{1,40}$/.test(model)) fail("--voice-model is a Whisper model's name, like base.en or small.");
@@ -165,14 +176,15 @@ function main() {
     cwd,
     allowForSec: allowFor * 60,
     ...(transcribe ? { transcribe } : {}),
+    worlds,
     log: (line) => console.log(`[${stamp()}] ${line}`),
-    ask({ code, open, replaces }) {
+    ask({ code, open, replaces, world }) {
       if (nobody) {
         console.log(`[${stamp()}] A terminal was asked for, and there is nobody here to ask. Run this in a terminal of its own.`);
         return Promise.resolve(false);
       }
       waiting?.(false);
-      process.stdout.write(`\u0007\n[${stamp()}] Your home is asking to open a terminal on this computer.\n        The code is ${code}. It should be the one showing in your home.\n${replaces ? `        ${open} terminals are open, which is as many as there may be. Saying yes closes the one that has been quiet longest.\n` : open ? `        ${open === 1 ? "One terminal is" : `${open} terminals are`} open already. This would be another.\n` : ""}        Open it? Type y and press Enter. Anything else says no: `);
+      process.stdout.write(`\u0007\n[${stamp()}] ${world ? `The world ${world} is asking to open a terminal on this computer.\n        Its page will be able to read and type into it. Say yes only if you just asked for this.` : "Your home is asking to open a terminal on this computer."}\n        The code is ${code}. It should be the one showing ${world ? "on the panel there" : "in your home"}.\n${replaces ? `        ${open} terminals are open, which is as many as there may be. Saying yes closes the one that has been quiet longest.\n` : open ? `        ${open === 1 ? "One terminal is" : `${open} terminals are`} open already. This would be another.\n` : ""}        Open it? Type y and press Enter. Anything else says no: `);
       return new Promise((resolve) => {
         waiting = resolve;
       });
@@ -186,6 +198,7 @@ function main() {
   Answers only    ${encodeNpub(owner)}
   A terminal runs ${args.tmux ? "tmux (lasting terminals: nswp-bridge-1, -2, …)" : typeof args.command === "string" ? args.command : plain[0]}
   Starting in     ${cwd}
+  Worlds          ${worlds.length ? worlds.join(", ") : "none (--world names one you are building)"}
   Voice           ${typeof args.transcribe === "string" ? "heard by your own command, on this computer" : args.voice ? `Whisper (${model}), on this computer. It is loading` : "off (--voice turns it on)"}
   ${allowFor ? `After you say yes once, it opens without asking for ${allowFor} minutes.` : "It asks here before every session."}
 

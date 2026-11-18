@@ -45,10 +45,16 @@ export interface BridgeLinkOptions {
   /** The Bridge's public key, as 64 hex characters. */
   bridge: string;
   relays: string[];
-  /** The owner's signer. It is asked for one thing: the grant. */
-  sign(template: EventTemplate): Promise<NostrEvent>;
+  /** The owner's signer, in their home. It is asked for one thing: the grant. */
+  sign?(template: EventTemplate): Promise<NostrEvent>;
   /** The owner's public key, so a grant signed by anyone else is never sent. */
-  owner: string;
+  owner?: string;
+  /**
+   * Or, in a world the owner is building: the world grant their home signed
+   * for this world, and the throwaway key it names. There is no signer in a
+   * world, and this is used as it is for every connection until it expires.
+   */
+  held?: { grant: NostrEvent; sessionKey: Uint8Array };
   cols: number;
   rows: number;
   onStatus(status: BridgeStatus): void;
@@ -113,19 +119,22 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
 
   void (async () => {
     // A throwaway key for this one connection.
-    const sessionKey = crypto.getRandomValues(new Uint8Array(32));
+    const sessionKey = o.held?.sessionKey ?? crypto.getRandomValues(new Uint8Array(32));
     const session = getPublicKey(sessionKey);
     if (!isPublicKey(o.bridge)) throw new Said("That isn't a computer's key. Forget this computer and add it again from the link its Bridge prints.");
     let grant: NostrEvent;
-    try {
-      grant = await o.sign(buildBridgeGrant({ session, bridge: o.bridge }));
-    } catch {
-      throw new Said("Your key didn't sign the request. Check you are still signed in, then press here to try again.");
+    if (o.held) grant = o.held.grant;
+    else {
+      if (!o.sign || !o.owner) throw new Said("Nothing here can ask your computer.");
+      try {
+        grant = await o.sign(buildBridgeGrant({ session, bridge: o.bridge }));
+      } catch {
+        throw new Said("Your key didn't sign the request. Check you are still signed in, then press here to try again.");
+      }
+      // Send only what was asked for, signed by the one who was asked.
+      if (!verifyEvent(grant) || grant.pubkey !== o.owner || grant.kind !== BRIDGE_GRANT_KIND) throw new Said("Your key didn't sign the request as it was, so it wasn't sent.");
     }
-    // Send only what was asked for, signed by the one who was asked.
-    if (!verifyEvent(grant) || grant.pubkey !== o.owner || grant.kind !== BRIDGE_GRANT_KIND) throw new Said("Your key didn't sign the request as it was, so it wasn't sent.");
     if (over) return;
-    const code = grantCode(grant.id);
 
     pc = new RTCPeerConnection({ iceServers: o.iceServers ?? DEFAULT_ICE });
     const ch = pc.createDataChannel("term", { ordered: true });
@@ -167,6 +176,8 @@ export function openBridgeLink(o: BridgeLinkOptions): BridgeLink {
     if (over) return;
 
     const open = buildBridgeSignal(o.bridge, sessionKey, o.bridge, { t: "open", grant, sdp: pc.localDescription!.sdp });
+    // The four digits: from the grant, or for a world from this very request, because its grant is used many times.
+    const code = grantCode(o.held ? open.id : grant.id);
     const seen = new Set<string>();
     const onNote = (raw: unknown) => {
       const note = openBridgeSignal(raw, sessionKey, o.bridge);

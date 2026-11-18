@@ -204,7 +204,9 @@ How it connects, and why:
   do, with encrypted notes through relays, and then talk directly. This is
   code the SDK already has.
 - **It belongs to the home, never to a world.** No world can see a terminal,
-  learn that one is open, or reach the Bridge.
+  learn that one is open, or reach the Bridge. The one exception is a world
+  its owner is building and has named in their home and at their computer
+  ([`bridge.md`](bridge.md), "A world of your own").
 
 A terminal that runs commands is the most dangerous thing in this document.
 The Bridge starts with nothing shared, lists what it will run, asks on the
