@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+import { MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
 
 describe("the default cues", () => {
   it("has one for everything on the list, each short and quiet", () => {
@@ -40,7 +40,11 @@ describe("a world's own sounds", () => {
 describe("the visitor's volumes", () => {
   it("are theirs, within bounds, with sensible ones to start", () => {
     expect(cleanLevels(null)).toEqual(DEFAULT_LEVELS);
-    expect(cleanLevels({ off: true, effects: 5, music: -1, voices: "loud" })).toEqual({ off: true, effects: 1, music: 0, voices: 1 });
+    expect(cleanLevels({ off: true, effects: 5, music: -1, voices: "loud" })).toEqual({ off: true, effects: 1, music: 0, voices: 1, hearShared: false, shared: 0.7 });
+    // Hearing other people's music is off until the visitor turns it on, and "yes" in a kept file isn't that.
+    expect(DEFAULT_LEVELS.hearShared).toBe(false);
+    expect(cleanLevels({ hearShared: "yes" }).hearShared).toBe(false);
+    expect(cleanLevels({ hearShared: true, shared: 2 })).toMatchObject({ hearShared: true, shared: 1 });
     expect(cleanLevels({ off: "yes" }).off).toBe(false);
   });
 
@@ -102,5 +106,36 @@ describe("the visitor's own songs", () => {
     expect(songRefusal({ type: "audio/mpeg", size: 0, name: "a.mp3" }, 0)).toMatch(/empty/);
     expect(songRefusal({ type: "audio/mpeg", size: SOUND_LIMITS.songBytes + 1, name: "a.mp3" }, 0)).toMatch(/MB/);
     expect(songRefusal({ type: "audio/mpeg", size: 1000, name: "a.mp3" }, SOUND_LIMITS.songs)).toMatch(/at most/);
+  });
+});
+
+describe("music shared by people nearby", () => {
+  const near = [
+    { pubkey: "c", metres: 9 },
+    { pubkey: "a", metres: 3 },
+    { pubkey: "b", metres: 6 },
+    { pubkey: "d", metres: MUSIC_RANGE + 1 },
+  ];
+  it("is heard by nobody who hasn't asked", () => {
+    expect(musicToHear(near, false)).toEqual([]);
+  });
+
+  it("is the nearest few within range, without anyone the visitor stopped hearing", () => {
+    expect(musicToHear(near, true)).toEqual(["a", "b"]);
+    expect(musicToHear(near, true)).toHaveLength(MUSIC_SOURCES);
+    expect(musicToHear([{ pubkey: "a", metres: 3, refused: true }, ...near.slice(0, 1), near[2]!], true)).toEqual(["b", "c"]);
+    expect(musicToHear([{ pubkey: "far", metres: MUSIC_RANGE + 0.1 }, { pubkey: "lost", metres: Number.NaN }], true)).toEqual([]);
+    expect(musicToHear([{ pubkey: "z", metres: 4 }, { pubkey: "y", metres: 4 }], true)).toEqual(["y", "z"]); // a tie breaks the same way for everyone
+  });
+
+  it("fades with distance, to nothing at the edge", () => {
+    expect(musicFade(0)).toBe(1);
+    expect(musicFade(2)).toBe(1);
+    expect(musicFade(MUSIC_RANGE)).toBe(0);
+    expect(musicFade(MUSIC_RANGE + 5)).toBe(0);
+    expect(musicFade(Number.NaN)).toBe(0);
+    const steps = [2, 4, 6, 8, 10, 11.9].map(musicFade);
+    for (let i = 1; i < steps.length; i++) expect(steps[i]!).toBeLessThan(steps[i - 1]!);
+    expect(musicFade(11.9)).toBeLessThan(0.01);
   });
 });

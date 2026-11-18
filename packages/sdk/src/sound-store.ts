@@ -168,9 +168,16 @@ export interface SoundLevels {
   music: number;
   /** Other people's voices. */
   voices: number;
+  /**
+   * Whether to hear music that people nearby are sharing. Off until the
+   * visitor turns it on: nobody's music reaches anyone who didn't ask.
+   */
+  hearShared: boolean;
+  /** How loud other people's music is. */
+  shared: number;
 }
 
-export const DEFAULT_LEVELS: SoundLevels = { off: false, effects: 0.7, music: 0.45, voices: 1 };
+export const DEFAULT_LEVELS: SoundLevels = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7 };
 /** The steps a volume goes through when its control is pressed. */
 export const LEVEL_STEPS = [0, 0.35, 0.7, 1] as const;
 export const LEVEL_WORDS = ["off", "low", "medium", "high"] as const;
@@ -179,7 +186,14 @@ const unit = (v: unknown, fallback: number): number => (typeof v === "number" &&
 
 export function cleanLevels(input: unknown): SoundLevels {
   const i = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-  return { off: i.off === true, effects: unit(i.effects, DEFAULT_LEVELS.effects), music: unit(i.music, DEFAULT_LEVELS.music), voices: unit(i.voices, DEFAULT_LEVELS.voices) };
+  return {
+    off: i.off === true,
+    effects: unit(i.effects, DEFAULT_LEVELS.effects),
+    music: unit(i.music, DEFAULT_LEVELS.music),
+    voices: unit(i.voices, DEFAULT_LEVELS.voices),
+    hearShared: i.hearShared === true,
+    shared: unit(i.shared, DEFAULT_LEVELS.shared),
+  };
 }
 
 /** Which step a volume is nearest, from 0 to 3. */
@@ -194,6 +208,39 @@ export function levelStep(v: number): number {
 /** The next volume up, going round to off after the highest. */
 export function nextLevel(v: number): number {
   return LEVEL_STEPS[(levelStep(v) + 1) % LEVEL_STEPS.length]!;
+}
+
+// ------------------------------------------------------- music shared by people nearby
+
+/** How far someone's shared music carries, in metres. Past it, it isn't asked for and isn't sent. */
+export const MUSIC_RANGE = 12;
+/** How many people's music one visitor hears at once: the nearest. More than this is noise. */
+export const MUSIC_SOURCES = 2;
+/** How much shared music steps back while someone is speaking. */
+export const MUSIC_DUCK = 0.35;
+
+/**
+ * Whose music to listen to: of the people sharing, the nearest few within
+ * range, leaving out anyone the visitor has stopped hearing. Returns their
+ * keys, nearest first.
+ */
+export function musicToHear(sharing: { pubkey: string; metres: number; refused?: boolean }[], hear: boolean): string[] {
+  if (!hear) return [];
+  return sharing
+    .filter((s) => !s.refused && Number.isFinite(s.metres) && s.metres <= MUSIC_RANGE)
+    .sort((a, b) => a.metres - b.metres || a.pubkey.localeCompare(b.pubkey))
+    .slice(0, MUSIC_SOURCES)
+    .map((s) => s.pubkey);
+}
+
+/** How much of someone's music is left at this distance, from 1 beside them to 0 at the edge of its range. */
+export function musicFade(metres: number): number {
+  if (!(metres >= 0)) return 0;
+  const near = 2;
+  if (metres <= near) return 1;
+  if (metres >= MUSIC_RANGE) return 0;
+  const t = (metres - near) / (MUSIC_RANGE - near);
+  return (1 - t) * (1 - t);
 }
 
 // ------------------------------------------------------- the place's own music
