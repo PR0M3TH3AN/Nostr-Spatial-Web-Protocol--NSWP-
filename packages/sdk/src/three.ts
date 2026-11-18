@@ -312,6 +312,18 @@ export function createPresence(d: PresenceOptions): Presence {
     leave();
     roomName = name;
     void listener.context.resume();
+    // Joined without a press (kept from the last world, or through a refresh), a browser holds sound back until the
+    // visitor touches the page. So the first touch lets the others be heard.
+    if (listener.context.state !== "running") {
+      const wake = () => {
+        void listener.context.resume();
+        for (const a of avatars.values()) void a.element?.play().catch(() => {});
+        removeEventListener("pointerdown", wake, true);
+        removeEventListener("keydown", wake, true);
+      };
+      addEventListener("pointerdown", wake, true);
+      addEventListener("keydown", wake, true);
+    }
     const look = typeof d.look === "function" ? d.look() : d.look;
     const identity = typeof d.identity === "function" ? d.identity() : d.identity;
     const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}) });
@@ -697,7 +709,29 @@ export function createPortalWindow(geometry: THREE.BufferGeometry, pano: THREE.T
  * Joining shows a visitor's IP address to the others in the room. The Room
  * section says so before they join, on a flat screen and in a headset.
  */
-export function addRoomControls(controls: Controls, presence: Presence, opts: { search?: string; onState?: (state: Record<string, unknown> | null) => void } = {}): { refresh(): void } {
+export interface Travelling {
+  /** They are in this place's open room. A private room doesn't travel: the next place's open room is other people. */
+  joined: boolean;
+  /** Their microphone is on. */
+  mic: boolean;
+}
+
+/** Where a page keeps whether its visitor was joined, so a refresh doesn't put them out of the room. This tab only. */
+const JOINED_KEY = () => `nswp:joined:${location.pathname}`;
+
+export function addRoomControls(
+  controls: Controls,
+  presence: Presence,
+  opts: {
+    search?: string;
+    onState?: (state: Record<string, unknown> | null) => void;
+    /**
+     * The visitor arrived joined: their own client says they were among people where they came from
+     * (`arrival.read().context`, its `joined` and `mic`). The open room is joined without asking again.
+     */
+    arrived?: { joined?: boolean; mic?: boolean } | null;
+  } = {},
+): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
   let invited = roomNameFromHash(location.hash);
   let busy = false;
@@ -724,6 +758,27 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
     );
     controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
     people();
+    remember();
+  };
+  // What a refresh needs to put the visitor back among the people they were with.
+  const remember = () => {
+    try {
+      if (presence.session) sessionStorage.setItem(JOINED_KEY(), presence.micOn ? "mic" : "joined");
+      else if (!busy) sessionStorage.removeItem(JOINED_KEY());
+    } catch {
+      /* no storage: a refresh leaves the room, as before */
+    }
+  };
+  const microphone = async (): Promise<boolean> => {
+    try {
+      const track = useTone
+        ? presence.testTone()
+        : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0]!;
+      await presence.setMicrophone(track);
+      return true;
+    } catch {
+      return false;
+    }
   };
   // Who else is here: one entry each, in their own colour. Selecting one shows where they are.
   let listed: string[] = [];
@@ -798,16 +853,7 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
       hidden: () => !presence.session,
       act: async () => {
         if (presence.micOn) await presence.setMicrophone(null);
-        else {
-          try {
-            const track = useTone
-              ? presence.testTone()
-              : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0]!;
-            await presence.setMicrophone(track);
-          } catch {
-            tell("The microphone is blocked or unavailable.");
-          }
-        }
+        else if (!(await microphone())) tell("The microphone is blocked or unavailable.");
         refresh();
       },
     },
@@ -835,8 +881,38 @@ export function addRoomControls(controls: Controls, presence: Presence, opts: { 
       },
     },
   );
+  // Staying joined. Two ways a visitor is in the room without pressing Join here: their own client brought them
+  // from a place where they were joined, or this page was refreshed while they were. Either way they are told at
+  // once, and Leave is where Join was.
+  let kept: string | null = null;
+  try {
+    kept = wasRefreshed() ? sessionStorage.getItem(JOINED_KEY()) : null;
+  } catch {
+    /* no storage */
+  }
   refresh();
-  return { refresh };
+  const carried = opts.arrived?.joined ? { mic: !!opts.arrived.mic, from: "there" as const } : kept ? { mic: kept === "mic", from: "refresh" as const } : null;
+  // A private room is entered by its link, never by a hint: arriving joined means the open room, and a visitor
+  // holding an invitation who wasn't in the room is still asked.
+  if (carried && (carried.from === "refresh" || !invited)) {
+    busy = true;
+    void (async () => {
+      try {
+        await presence.join(carried.from === "refresh" ? invited : null);
+        const heard = carried.mic ? await microphone() : false;
+        tell(
+          `You are still in the room${carried.from === "there" ? ", as you were where you came from" : ""}: others here can see you${heard ? " and hear you" : ""}.${carried.mic && !heard ? " Your microphone is off here: the browser didn't allow it." : ""} Leave is where Join was.`,
+        );
+      } catch (err) {
+        tell(`Couldn't stay joined: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        busy = false;
+        refresh();
+      }
+    })();
+  }
+
+  return { refresh, travelling: () => ({ joined: !!presence.session && !presence.roomName, mic: !!presence.session && !presence.roomName && presence.micOn }) };
 }
 
 /**
@@ -977,7 +1053,9 @@ export { createXrInput, type GrabOptions, type XrInput, type XrInputInfo, type X
 export { DEFAULT_COMFORT, readPad, type Comfort, type PadState } from "./actions.js";
 export { addPanelControls, createPanels, type Panel, type PanelContent, type PanelInfo, type Panels, type PanelsOptions } from "./panels.js";
 export { LIBRARY_LIMITS, PANEL_LIMITS, PANEL_LOOKS, type LibraryItem, type PanelLook, type PanelPlace, type PanelRecord, type PanelSource } from "./panel-store.js";
+import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
+export { createStroll, reachOf, TAP_REACH, WALK_SPEED, type Stroll } from "./stroll.js";
 export { browserVoice, computerVoice, createVoice, recordVoice, toPcm16, type Hearing, type Voice, type VoiceSource, type VoiceState } from "./speech.js";
 export { createKeyboard, type AskOptions, type Keyboard, type KeyboardOptions } from "./keyboard.js";
 export { createLibrary, type Library, type LibraryOptions } from "./library.js";

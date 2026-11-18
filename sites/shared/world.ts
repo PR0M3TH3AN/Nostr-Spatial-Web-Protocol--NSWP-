@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, createStroll, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -328,14 +328,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.doors = () => gates.map((g) => ({ label: g.door.label, to: g.door.to, url: g.place.url, position: g.gate.group.position.toArray() }));
 
   // ------------------------------------------------------------- leaving
+  // Whether the visitor is in the room here, and heard: it goes with them, so the next place needn't ask again.
+  let travelling = (): { joined: boolean; mic: boolean } => ({ joined: false, mic: false });
   const go = async (i: number) => {
     const g = gates[i];
     if (!g || state.leaving) return;
     state.leaving = true;
+    stroll.stop();
     // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
     await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
-    await portal.go(g.destination, { xrSession: renderer.xr.getSession() });
+    await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling() });
   };
   const goHome = async () => {
     const back = arrival.returnAirlock();
@@ -343,7 +346,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     state.leaving = true;
     await crossing.leave({ title: "home", address: new URL(back).host });
     document.body.classList.add("leaving");
-    await portal.home({ xrSession: renderer.xr.getSession() });
+    await portal.home({ xrSession: renderer.xr.getSession(), ...travelling() });
   };
   hooks.goThrough = go;
   hooks.goThroughPortal = () => go(0);
@@ -399,6 +402,18 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const raycaster = new THREE.Raycaster();
   raycaster.camera = camera; // signs are sprites, which can't be tested against a ray without it
   const STEP_MAX = 5;
+  // On a flat screen a tap is a walk at the keys' pace, to a spot a few steps off at most (the kit's stroll).
+  const stroll = createStroll({
+    where: () => {
+      camera.getWorldPosition(headAt);
+      return [headAt.x, headAt.z];
+    },
+    canStand,
+    move: (dx, dz) => {
+      rig.position.x += dx;
+      rig.position.z += dz;
+    },
+  });
   const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const spotAt = new THREE.Vector3();
   const floorHit = new THREE.Vector3();
@@ -410,7 +425,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const dz = spotAt.z - headAt.z;
     const far = Math.hypot(dx, dz);
     if (far < 0.3) return null;
-    if (far > STEP_MAX) spotAt.set(headAt.x + (dx / far) * STEP_MAX, 0, headAt.z + (dz / far) * STEP_MAX);
+    const most = renderer.xr.isPresenting ? STEP_MAX : TAP_REACH;
+    if (far > most) spotAt.set(headAt.x + (dx / far) * most, 0, headAt.z + (dz / far) * most);
     return spotAt;
   };
   const reticle = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.28, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false }));
@@ -430,7 +446,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const toFloor = raycaster.ray.origin.distanceTo(floorHit);
     const inTheWay = raycaster.intersectObjects(scene.children, true).find((h) => solid(h.object));
     if (inTheWay && inTheWay.distance < toFloor - 0.05) return;
-    moveTowards(spot.x, spot.z);
+    // In a headset a step is a jump, which is what sits well there. On a flat screen it is a walk, unless the
+    // visitor has asked for less motion: then it is the same short step, taken at once.
+    if (renderer.xr.isPresenting || !controls.theme.motion) moveTowards(spot.x, spot.z);
+    else {
+      camera.getWorldPosition(headAt);
+      stroll.to(...reachOf(headAt.x, headAt.z, spot.x, spot.z));
+    }
     state.steps = ((state.steps as number | undefined) ?? 0) + 1;
   };
   hooks.step = (x, z) => {
@@ -586,6 +608,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
     const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
     if (!forward && !strafe) return;
+    stroll.stop(); // the keys take over from a walk a tap began
     stride.set(strafe, 0, -forward).normalize().multiplyScalar(2.4 * dt).applyAxisAngle(yawAxis, rig.rotation.y);
     // Try the whole step, then each direction alone, so a visitor slides along an edge instead of sticking to it.
     if (canStand(head.x + stride.x, head.z + stride.z)) rig.position.add(stride);
@@ -598,7 +621,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let refreshRoom = () => {};
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
-  ({ refresh: refreshRoom } = addRoomControls(controls, presence, { onState: (room) => (state.room = room) }));
+  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context }));
   hooks.roomInfo = () => presence.info();
   // A camera of the visitor's own: pictures, selfies and clips, saved to their device.
   hooks.camera = addCameraControls(controls, {
@@ -749,6 +772,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       if (through >= 0) void go(through);
     } else {
       walk(dt);
+      stroll.update(dt);
       raycaster.setFromCamera(pointer, camera);
       panelAimed = panels!.pick(raycaster);
       aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);

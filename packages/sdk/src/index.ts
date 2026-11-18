@@ -167,7 +167,17 @@ export interface GoOptions {
    * is taken from whether `xrSession` was given.
    */
   immersive?: boolean;
+  /**
+   * The visitor is in this world's open room as they leave (`addRoomControls(...).travelling()`). Their Airlock
+   * may pass it on, so they stay among people where they arrive (protocol/02-doors.md, "Staying joined").
+   */
+  joined?: boolean;
+  /** Their microphone is on. Passed only with `joined`, and only kept by a client they have told it may be. */
+  mic?: boolean;
 }
+
+/** What a visitor's state adds to the link that takes them on. */
+const carried = (opts: GoOptions, immersive: boolean) => ({ immersive, ...(opts.joined ? { joined: true, ...(opts.mic ? { mic: true } : {}) } : {}) });
 
 export const portal = {
   /** Which Airlock `go()` would use right now, or null for the built-in screen. */
@@ -195,7 +205,7 @@ export const portal = {
     }
     const airlock = portal.airlockFor(opts);
     if (airlock) {
-      location.assign(buildAirlockUrl(airlock, dest, { immersive }));
+      location.assign(buildAirlockUrl(airlock, dest, carried(opts, immersive)));
       return;
     }
     showFallback(dest);
@@ -218,7 +228,7 @@ export const portal = {
       }
     }
     // An Airlock opened with no destination is the way home. Saying "from a headset" doesn't make it a destination.
-    location.assign(buildWayUrl(airlock, { immersive }));
+    location.assign(buildWayUrl(airlock, carried(opts, immersive)));
     return true;
   },
 
@@ -239,7 +249,7 @@ export const portal = {
         /* already ended */
       }
     }
-    location.assign(buildWayUrl(airlock, { immersive, doors: true }));
+    location.assign(buildWayUrl(airlock, { ...carried(opts, immersive), doors: true }));
     return true;
   },
 };

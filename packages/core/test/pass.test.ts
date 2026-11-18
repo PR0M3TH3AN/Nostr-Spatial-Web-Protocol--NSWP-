@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { buildAirlockUrl, buildRoomPass, claimsKey, cleanName, decodeArrival, decodeNpub, isPublicKey, encodeArrival, encodeNpub, finalizeEvent, fragmentSaysImmersive, getPublicKey, parseAirlockFragment, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
+import { buildAirlockUrl, buildRoomPass, buildWayUrl, wayWithoutDestination, claimsKey, cleanName, decodeArrival, decodeNpub, isPublicKey, encodeArrival, encodeNpub, finalizeEvent, fragmentSaysImmersive, getPublicKey, parseAirlockFragment, PASS_LIMITS, shortNpub, verifyRoomPass } from "../src/index.js";
 
 const ME = sha256(utf8ToBytes("pass test identity"));
 const SESSION = sha256(utf8ToBytes("pass test session"));
@@ -105,6 +105,29 @@ describe("leaving a headset session to cross", () => {
     expect(flat).not.toContain("xr=");
     expect(parseAirlockFragment(new URL(flat).hash)?.immersive).toBeUndefined();
     expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&xr=yes")?.immersive).toBeUndefined();
+  });
+
+  it("carries joined and the microphone in a door's link, and the microphone only with joined", () => {
+    const door = { url: "https://world.example/" };
+    const both = buildAirlockUrl("https://lobby.example/go/", door, { immersive: true, joined: true, mic: true });
+    expect(both).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&xr=1&joined=1&mic=1");
+    expect(parseAirlockFragment(new URL(both).hash)).toMatchObject({ immersive: true, joined: true, mic: true });
+    expect(buildAirlockUrl("https://lobby.example/go/", door, { mic: true })).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F");
+    const r = parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&mic=1");
+    expect(r?.joined).toBeUndefined();
+    expect(r?.mic).toBeUndefined();
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&joined=yes&mic=1")?.joined).toBeUndefined();
+    expect(wayWithoutDestination("#joined=1&mic=1")).toEqual({ immersive: false, doors: false, joined: true, mic: true });
+    expect(wayWithoutDestination("#mic=1")).toEqual({ immersive: false, doors: false });
+    expect(buildWayUrl("https://lobby.example/go/", { doors: true, joined: true, mic: true })).toBe("https://lobby.example/go/#doors=1&joined=1&mic=1");
+  });
+
+  it("reads joined in an arrival, and a microphone only beside it", () => {
+    const r = decodeArrival(encodeArrival({ joined: true, mic: true }));
+    expect(r.ok && r.value.joined && r.value.mic).toBe(true);
+    const alone = decodeArrival(Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", mic: true })).toString("base64url"));
+    expect(alone.ok && alone.value.mic).toBeUndefined();
+    expect(alone.ok && alone.warnings.map((w) => w.code)).toEqual(["invalid_mic"]);
   });
 
   it("is carried home too, where there is no destination", () => {

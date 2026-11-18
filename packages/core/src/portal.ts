@@ -68,6 +68,20 @@ export interface AirlockUrlOptions {
    * (protocol/02-doors.md, "How many actions a crossing takes").
    */
   immersive?: boolean;
+  /**
+   * The visitor is in this world's open room as they leave, and would stay
+   * among people where they are going (`joined=1`). It is this world's word,
+   * and a link anyone can write: the visitor's own client decides what to do
+   * with it (protocol/02-doors.md, "Staying joined").
+   */
+  joined?: boolean;
+  /** Their microphone is on as they leave (`mic=1`). Said only with `joined`. */
+  mic?: boolean;
+}
+
+/** The flags a visitor's state travels in: from a headset, in a room, with the microphone on. */
+function stateFlags(opts: AirlockUrlOptions): string[] {
+  return [...(opts.immersive ? ["xr=1"] : []), ...(opts.joined ? ["joined=1"] : []), ...(opts.joined && opts.mic ? ["mic=1"] : [])];
 }
 
 /** `<airlock>#to=<naddr or url>&entry=<id>` (spec §6.2: destinations travel in the fragment). */
@@ -78,7 +92,7 @@ export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: 
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-  if (opts.immersive) parts.push("xr=1");
+  parts.push(...stateFlags(opts));
   u.hash = parts.join("&");
   return u.href;
 }
@@ -91,6 +105,10 @@ export interface AirlockRequest {
   entryPoint?: string;
   /** The visitor left a headset session to come here (`xr=1`). */
   immersive?: boolean;
+  /** The link says they were in the open room where they came from (`joined=1`). A claim, not a fact. */
+  joined?: boolean;
+  /** The link says their microphone was on (`mic=1`). Kept only with `joined`. */
+  mic?: boolean;
 }
 
 /** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
@@ -104,16 +122,17 @@ export function fragmentSaysImmersive(hash: string): boolean {
  * flags such a way may carry. Null for anything else, which is a crossing or
  * a mistake.
  */
-export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean } | null {
+export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true } | null {
   const parts = hash.replace(/^#/, "").split("&").filter(Boolean);
-  if (parts.some((p) => p !== "xr=1" && p !== "doors=1")) return null;
-  return { immersive: parts.includes("xr=1"), doors: parts.includes("doors=1") };
+  if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1")) return null;
+  const joined = parts.includes("joined=1");
+  return { immersive: parts.includes("xr=1"), doors: parts.includes("doors=1"), ...(joined ? { joined: true as const } : {}), ...(joined && parts.includes("mic=1") ? { mic: true as const } : {}) };
 }
 
 /** `<airlock>` opened as the way home, or with `doors` as the way to the visitor's doors (protocol/02-doors.md). */
-export function buildWayUrl(airlock: string, opts: { immersive?: boolean; doors?: boolean } = {}): string {
+export function buildWayUrl(airlock: string, opts: AirlockUrlOptions & { doors?: boolean } = {}): string {
   const u = new URL(airlock);
-  u.hash = [...(opts.doors ? ["doors=1"] : []), ...(opts.immersive ? ["xr=1"] : [])].join("&");
+  u.hash = [...(opts.doors ? ["doors=1"] : []), ...stateFlags(opts)].join("&");
   return u.href;
 }
 
@@ -147,5 +166,9 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
   const entry = params.get("entry");
   if (entry && ENTRY_POINT.test(entry)) req.entryPoint = entry;
   if (params.get("xr") === "1") req.immersive = true;
+  if (params.get("joined") === "1") {
+    req.joined = true;
+    if (params.get("mic") === "1") req.mic = true;
+  }
   return req;
 }
