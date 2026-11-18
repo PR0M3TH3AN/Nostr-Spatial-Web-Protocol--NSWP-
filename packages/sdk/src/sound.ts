@@ -30,7 +30,10 @@ import { fileStore } from "./library.js";
 import {
   ambiencePlan,
   CUES,
+  cleanKit,
   cleanLevels,
+  nextVariant,
+  type KitSounds,
   cleanSongs,
   cleanTheme,
   cueRecipe,
@@ -61,6 +64,12 @@ export interface SoundsOptions {
   seed?: string;
   /** Where the theme's addresses are relative to. Left out, this page. */
   base?: string;
+  /**
+   * Where this site serves the kit's own sound files: a folder holding `sounds.json` (for example "/sounds/kit/").
+   * With it, the defaults are those files: recorded cues, a hum, a piece of music. Without it, or where a file
+   * can't be had, the defaults are the ones made in the browser.
+   */
+  kit?: string;
   /** Keep the visitor's volumes and songs under these names. Left out, the kit's own, for this site. */
   keep?: { levels?: string; songs?: string };
 }
@@ -102,8 +111,10 @@ export interface Sounds {
   readonly jukebox: Jukebox;
   /** Be told when a volume or the jukebox changed. Called once at the start. */
   onChange(fn: (levels: SoundLevels) => void): () => void;
-  /** What the place's music is: the world's file, the kit's own, or none. */
-  readonly music: "world" | "made" | "none";
+  /** What the place's music is: the world's own, the kit's recorded default, the one made in the browser, or none. */
+  readonly music: "world" | "kit" | "made" | "none";
+  /** Whether this place has a hum to hear. */
+  readonly hasHum: boolean;
   /** How loud everything going out is right now, from 0. For tests. */
   loudness(): number;
   dispose(): void;
@@ -157,6 +168,9 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   const placeMusic = ctx.createGain();
   const ownMusic = ctx.createGain();
   for (const g of [effects, placeMusic, ownMusic]) g.connect(master);
+  // The room's hum sits with the place's music, with a switch of its own.
+  const humGain = ctx.createGain();
+  humGain.connect(placeMusic);
 
   const listeners = new Set<(levels: SoundLevels) => void>();
   const changed = () => {
@@ -176,6 +190,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     // The place's music steps back while the visitor's own plays.
     placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
     ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
+    humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
   };
   apply();
 
@@ -218,7 +233,6 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   };
 
   // A world's own files for cues: fetched once, checked, and used from then on. One that can't be used leaves the default.
-  const buffers = new Map<Cue, { buffer: AudioBuffer; gain: number }>();
   /** How loud a cue of a world's own is let be: about what the loudest default is. A quieter file is left alone. */
   const CUE_LOUDNESS = 0.14;
   const loudnessOf = (buffer: AudioBuffer): number => {
@@ -233,38 +247,79 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     }
     return n ? Math.sqrt(sum / n) : 0;
   };
-  for (const [cue, address] of Object.entries(theme.cues) as [Cue, string | null][]) {
-    if (!address) continue;
-    void (async () => {
-      try {
-        const res = await fetch(address);
-        if (!res.ok) return;
-        const bytes = await res.arrayBuffer();
-        if (bytes.byteLength > SOUND_LIMITS.cueBytes) return;
-        const buffer = await ctx.decodeAudioData(bytes);
-        if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return;
-        // A world chooses what a cue sounds like, not how loud it is: a loud file is brought down to the others.
-        const loud = loudnessOf(buffer);
-        buffers.set(cue, { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 });
-      } catch {
-        /* the default stays */
+  const loadCue = async (address: string): Promise<{ buffer: AudioBuffer; gain: number } | null> => {
+    try {
+      const res = await fetch(address);
+      if (!res.ok) return null;
+      const bytes = await res.arrayBuffer();
+      if (bytes.byteLength > SOUND_LIMITS.cueBytes) return null;
+      const buffer = await ctx.decodeAudioData(bytes);
+      if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return null;
+      // Whoever supplies a cue chooses what it sounds like, not how loud it is: a loud file is brought down to the others.
+      const loud = loudnessOf(buffer);
+      return { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 };
+    } catch {
+      return null; // the next default stays
+    }
+  };
+  type Loaded = { buffer: AudioBuffer; gain: number }[];
+  /** The world's own files for each cue, and the kit's. Several for one cue are chosen among each time. */
+  const own = new Map<Cue, Loaded>();
+  const fromKit = new Map<Cue, Loaded>();
+  const loadInto = (into: Map<Cue, Loaded>, files: Partial<Record<Cue, string[] | null>>) => {
+    for (const [cue, addresses] of Object.entries(files) as [Cue, string[] | null][]) {
+      for (const address of addresses ?? []) {
+        void loadCue(address).then((loaded) => {
+          if (loaded) into.set(cue, [...(into.get(cue) ?? []), loaded]);
+        });
       }
-    })();
-  }
+    }
+  };
+
+  // The kit's own files, where this site serves them. What they are is read at once; the files themselves are
+  // fetched at the visitor's first touch, with everything else that makes a sound.
+  let kit: KitSounds = { cues: {} };
+  const kitReady: Promise<void> = o.kit
+    ? (async () => {
+        try {
+          const folder = new URL(o.kit!.endsWith("/") ? o.kit! : `${o.kit}/`, base).href;
+          const res = await fetch(new URL("sounds.json", folder).href);
+          if (!res.ok) return;
+          const playsOgg = new Audio().canPlayType('audio/ogg; codecs="opus"') !== "";
+          kit = cleanKit(await res.json(), folder, playsOgg);
+        } catch {
+          /* no kit files here: the defaults are the made ones */
+        }
+      })()
+    : Promise.resolve();
+  let cuesAsked = false;
+  const loadCues = () => {
+    if (cuesAsked || disposed) return;
+    cuesAsked = true;
+    loadInto(own, theme.cues);
+    void kitReady.then(() => {
+      // Only the cues the world hasn't spoken for.
+      const rest = Object.fromEntries(Object.entries(kit.cues).filter(([cue]) => theme.cues[cue as Cue] === undefined));
+      loadInto(fromKit, rest);
+    });
+  };
 
   const last = new Map<Cue, number>();
+  const lastVariant = new Map<Cue, number>();
   const play = (cue: Cue) => {
     if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
     if (theme.cues[cue] === null) return; // the world wants this one silent
     const now = ctx.currentTime;
     if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
     last.set(cue, now);
-    const own = buffers.get(cue);
-    if (own) {
+    const files = own.get(cue) ?? fromKit.get(cue);
+    if (files?.length) {
+      const which = nextVariant(files.length, lastVariant.get(cue) ?? -1);
+      lastVariant.set(cue, which);
       const src = ctx.createBufferSource();
-      src.buffer = own.buffer;
+      src.buffer = files[which]!.buffer;
       const level = ctx.createGain();
-      level.gain.value = own.gain;
+      level.gain.value = files[which]!.gain;
       src.connect(level);
       level.connect(effects);
       src.start();
@@ -288,26 +343,132 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   };
 
   // ------------------------------------------------------------- the place's music
-  const kind: Sounds["music"] = theme.music === null ? "none" : theme.music ? "world" : "made";
-  let stopMusic: (() => void) | null = null;
-  const startMusic = () => {
-    if (stopMusic || disposed || kind === "none") return;
-    if (kind === "world") {
-      const audio = new Audio(theme.music!);
-      audio.loop = true;
-      const node = ctx.createMediaElementSource(audio);
-      // Under the visitor's music volume, and a little back: it is the room, not the event.
-      const back = ctx.createGain();
-      back.gain.value = 0.6;
-      node.connect(back);
-      back.connect(placeMusic);
-      void audio.play().catch(() => {});
-      stopMusic = () => {
-        audio.pause();
-        node.disconnect();
-      };
-      return;
+  /**
+   * Plays pieces of sound one after another for as long as it is asked to, each fading into the next with the
+   * loudness held level (one gain falls as a cosine while the other rises as a sine). With one piece, it fades
+   * into itself. Each is played as it arrives, not held whole in memory: a minute of music held whole is tens of
+   * megabytes, and a headset or a phone has better uses for them.
+   */
+  const loopPlayer = (tracks: string[], into: AudioNode, opts: { fade?: number; gain?: number; onFail?: () => void } = {}) => {
+    const fade = opts.fade ?? 2;
+    const out = ctx.createGain();
+    out.gain.value = opts.gain ?? 1;
+    out.connect(into);
+    const deck = () => {
+      const audio = new Audio();
+      audio.preload = "auto";
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      ctx.createMediaElementSource(audio).connect(gain);
+      gain.connect(out);
+      return { audio, gain };
+    };
+    const decks = [deck(), deck()];
+    let active = 0;
+    let index = 0;
+    let turning = false;
+    let stopped = false;
+    const curve = (rising: boolean) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(((k / 31) * Math.PI) / 2));
+    const turn = () => {
+      if (turning || stopped) return;
+      turning = true;
+      const from = decks[active]!;
+      const to = decks[1 - active]!;
+      index = (index + 1) % tracks.length;
+      to.audio.src = tracks[index]!;
+      to.audio.currentTime = 0;
+      void to.audio.play().then(
+        () => {
+          const t = ctx.currentTime + 0.02;
+          from.gain.gain.cancelScheduledValues(t);
+          to.gain.gain.cancelScheduledValues(t);
+          from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
+          to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
+          active = 1 - active;
+          setTimeout(() => {
+            from.audio.pause();
+            turning = false;
+          }, (fade + 0.1) * 1000);
+        },
+        () => {
+          turning = false;
+        },
+      );
+    };
+    for (const d of decks) {
+      // Near the end of a piece, the next begins under it.
+      d.audio.addEventListener("timeupdate", () => {
+        if (d !== decks[active] || !Number.isFinite(d.audio.duration)) return;
+        if (d.audio.duration - d.audio.currentTime <= fade + 0.35) turn();
+      });
+      // A piece that ran out before its turn came (a stalled tab) still hands on.
+      d.audio.addEventListener("ended", () => {
+        if (d === decks[active]) turn();
+      });
+      d.audio.addEventListener("error", () => {
+        if (stopped || d !== decks[active] || turning) return;
+        stopped = true;
+        opts.onFail?.();
+      });
     }
+    const first = decks[0]!;
+    first.audio.src = tracks[0]!;
+    void first.audio.play().then(
+      () => first.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.8),
+      () => {},
+    );
+    return {
+      stop() {
+        stopped = true;
+        for (const d of decks) {
+          d.audio.pause();
+          d.audio.removeAttribute("src");
+        }
+        out.disconnect();
+      },
+      /** How many times one piece has handed on to the next. For tests. */
+      get index() {
+        return index;
+      },
+    };
+  };
+
+  let kind: Sounds["music"] = theme.music === null ? "none" : theme.music ? "world" : "made";
+  let stopMusic: (() => void) | null = null;
+  let stopHum: (() => void) | null = null;
+  let humAddress: string | null = null;
+  let musicAsked = false;
+  const startMusic = () => {
+    if (musicAsked || disposed) return;
+    musicAsked = true;
+    loadCues();
+    void kitReady.then(() => {
+      if (disposed) return;
+      // The hum: the world's, or the kit's unless the world said none.
+      humAddress = theme.hum === null ? null : (theme.hum ?? kit.hum ?? null);
+      if (humAddress) stopHum = loopPlayer([humAddress], humGain, { gain: 0.55 }).stop;
+      // The music: the world's, else the kit's recorded piece, else the one made here.
+      const tracks = theme.music === null ? null : (theme.music ?? kit.music ?? null);
+      if (theme.music === undefined && kit.music) kind = "kit";
+      changed();
+      if (theme.music === null) return;
+      if (tracks) {
+        // A piece that can't be played here (a kind of file this browser doesn't know) gives way to the made one.
+        stopMusic = loopPlayer(tracks, placeMusic, {
+          gain: 0.6,
+          onFail: () => {
+            stopMusic?.();
+            kind = "made";
+            stopMusic = madeMusic();
+            changed();
+          },
+        }).stop;
+        return;
+      }
+      stopMusic = madeMusic();
+    });
+  };
+  const madeMusic = (): (() => void) => {
     // The kit's own: held notes that swell and fade, and a single note over them now and then.
     const plan = ambiencePlan(o.seed ?? location.host);
     const bed = ctx.createGain();
@@ -359,7 +520,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       timer = setTimeout(note, (plan.gap[0] + random() * (plan.gap[1] - plan.gap[0])) * 1000);
     };
     timer = setTimeout(note, 1500);
-    stopMusic = () => {
+    return () => {
       clearTimeout(timer);
       for (const n of running) {
         try {
@@ -487,7 +648,12 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       fn(levels);
       return () => listeners.delete(fn);
     },
-    music: kind,
+    get music() {
+      return kind;
+    },
+    get hasHum() {
+      return !!humAddress;
+    },
     loudness() {
       meter.getFloatTimeDomainData(samples);
       return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
@@ -497,6 +663,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       removeEventListener("pointerdown", onTouch, true);
       removeEventListener("keydown", onTouch, true);
       stopMusic?.();
+      stopHum?.();
       juke.audio?.pause();
       if (juke.url) URL.revokeObjectURL(juke.url);
       master.disconnect();
@@ -541,7 +708,13 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
       icon: "sound",
       note: () =>
         `${sounds.levels.off ? "All sound is off. " : ""}${
-          sounds.music === "none" ? "This place has no music of its own." : sounds.music === "world" ? "This place plays its own music." : "This place's music is made by your browser, from its name."
+          sounds.music === "none"
+            ? "This place has no music of its own."
+            : sounds.music === "world"
+              ? "This place plays its own music."
+              : sounds.music === "kit"
+                ? "This place plays the music every world starts with."
+                : "This place's music is made by your browser, from its name."
         } Your own music is kept in this browser, for this site, and only you hear it.`,
     });
     songs.forEach((s, i) =>
@@ -579,6 +752,15 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
     level("sound-effects", "Effects", "effects"),
     level("sound-music", "Music", "music"),
     level("sound-voices", "Voices", "voices"),
+    {
+      id: "sound-hum",
+      section: "sound",
+      icon: "sound",
+      on: () => sounds.levels.hum,
+      hidden: () => !sounds.hasHum,
+      label: () => (sounds.levels.hum ? "The room's hum: on" : "The room's hum: off"),
+      act: () => sounds.setLevels({ hum: !sounds.levels.hum }),
+    },
     {
       id: "juke-add",
       section: "sound",

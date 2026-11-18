@@ -1,6 +1,6 @@
 // Builds the reference sites into sites/<name>/dist as plain static files.
 import { build } from "esbuild";
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,6 +79,19 @@ for (const s of sites) {
   if (world) writeFileSync(join(out, "index.html"), page(world));
   else cpSync(join(dir, "index.html"), join(out, "index.html"));
   if (s.world) {
+    // Sound: the kit's own files, which every world starts with, and this world's own beside them.
+    const sound = /\.(ogg|oga|opus|mp3|m4a|aac|wav|webm|flac|json)$/;
+    const copySounds = (from, to) => {
+      for (const f of readdirSync(from, { withFileTypes: true })) {
+        if (f.isDirectory()) copySounds(join(from, f.name), join(to, f.name));
+        else if (sound.test(f.name)) {
+          mkdirSync(to, { recursive: true });
+          cpSync(join(from, f.name), join(to, f.name));
+        }
+      }
+    };
+    copySounds(join(root, "packages", "sdk", "sounds"), join(out, "sounds", "kit"));
+    if (existsSync(join(dir, "sounds"))) copySounds(join(dir, "sounds"), join(out, "sounds"));
     // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
     mkdirSync(join(out, "previews"), { recursive: true });
     for (const f of readdirSync(join(root, "sites", "previews"))) {
