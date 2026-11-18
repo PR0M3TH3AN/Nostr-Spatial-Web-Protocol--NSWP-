@@ -54,6 +54,7 @@ how everything else refers to the world.
 | `t` | | Topics |
 | `L`, `l` | | Language and other NIP-32 labels |
 | `content-warning` | | NIP-36, with a reason |
+| `audience` | | Who it is for, as its maker says: `kids`, `general` or `adult` |
 | `status` | | `live`, `beta`, `maintenance`, `retired` |
 | `p` | | Co-creators |
 | `a` | | Linked things, such as an access product |
@@ -64,6 +65,29 @@ permissions.
 
 A newer event with the same coordinate replaces the older one. To close a
 world, publish it with `status` `retired`.
+
+### Who it is for
+
+`audience` is the maker's own word about who a world is for.
+
+| Value | Means |
+|---|---|
+| `kids` | Made for children |
+| `general` | Not made for children, and nothing an adult would need warning about |
+| `adult` | Not for anyone under age: what some call NSFW. It also carries `content-warning`, which clients that don't know `audience` already read |
+
+A reader that wants to be careful takes a world as `adult` when it says so,
+and also when it carries `content-warning` and no `audience`: a warning with
+no audience is not a promise that the world suits everyone. A world that
+says nothing is unrated, and what to do with those is the reader's choice.
+
+This keeps honest makers' worlds where they belong. It does nothing about a
+maker who lies, which is what lists are for ([NSWP-08](08-lists.md)): a
+client that must not show adult worlds shows only worlds someone it trusts
+has listed, and drops from those any that say they are adult.
+
+`t` tags are hashtags: lowercase, without the `#`. A client may let a
+visitor find worlds by them, and rank by the ones the visitor likes.
 
 ## The manifest
 

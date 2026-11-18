@@ -39,6 +39,7 @@ import {
   verifyEvent,
   verifyOrigin,
   verifyRoomPass,
+  audienceOf,
   buildBridgeGrant,
   buildWorldGrant,
   verifyWorldGrant,
@@ -102,7 +103,7 @@ const withTags = (f: (tags: string[][]) => string[][]): EventTemplate => {
   return { ...t, tags: f(t.tags) };
 };
 
-type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[] } };
+type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string } };
 const worldCases: Omit<WorldVector, "event"> & { event: unknown }[] = [];
 const goodWorld = sign(buildWorldEvent(baseWorld));
 const tampered = { ...goodWorld, content: "edited after signing" };
@@ -114,6 +115,16 @@ const worldVectors: WorldVector[] = [
     event: sign({ kind: WORLD_KIND, created_at: T0, content: "", tags: [["d", "tiny"], ["title", "Tiny"], ["r", "https://tiny.example/"], ["alt", "Spatial world listing: Tiny"]] }),
     expect: { valid: true, signatureValid: true, errors: [], warnings: [] },
   },
+  // Who a world is for. `audience` in `expect` is how a careful reader takes its word: see `audienceOf`.
+  { name: "for_kids", description: "Made for children, as its maker says.", event: sign(buildWorldEvent({ ...baseWorld, audience: "kids" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "kids" } },
+  { name: "not_for_kids", description: "Not made for children, and nothing an adult would need warning about.", event: sign(buildWorldEvent({ ...baseWorld, audience: "general" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "general" } },
+  { name: "adult", description: "An adult world. It is built with the content warning other clients already read.", event: sign(buildWorldEvent({ ...baseWorld, audience: "adult" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "adult" } },
+  { name: "adult_without_a_warning", description: "Says adult and carries no content warning: read as adult, with a note to its maker.", event: withTags((t) => [...t, ["audience", "adult"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["adult_without_warning"], audience: "adult" } },
+  { name: "warned_and_not_rated", description: "A content warning, and nothing about who it is for. A careful reader takes it as adult: a warning is not a promise that it suits everyone.", event: sign(buildWorldEvent({ ...baseWorld, contentWarning: "flashing lights" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "adult" } },
+  { name: "warned_and_for_everyone", description: "A content warning from a maker who also says who it is for: their word stands, and the warning is shown.", event: sign(buildWorldEvent({ ...baseWorld, contentWarning: "flashing lights", audience: "general" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "general" } },
+  { name: "not_rated", description: "Says nothing about who it is for.", event: goodWorld, expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "unrated" } },
+  { name: "an_audience_nobody_knows", description: "An audience that isn't one of the three is treated as not stated.", event: withTags((t) => [...t, ["audience", "teens"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_audience"], audience: "unrated" } },
+  { name: "for_kids_with_a_warning", description: "For kids, with a content warning. One of the two is wrong; the maker is told, and their word about the audience stands.", event: withTags((t) => [...t, ["audience", "kids"], ["content-warning", "loud"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["kids_with_warning"], audience: "kids" } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",
@@ -195,6 +206,7 @@ for (const v of worldVectors) {
   expectEqual(`world/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
   const sigProvided = typeof v.event === "object" && v.event !== null && "sig" in v.event;
   expectEqual(`world/${v.name} signature`, sigProvided ? verifyEvent(v.event) : null, v.expect.signatureValid);
+  if (v.expect.audience !== undefined && r.ok) expectEqual(`world/${v.name} audience`, audienceOf(r.value), v.expect.audience);
 }
 void worldCases;
 

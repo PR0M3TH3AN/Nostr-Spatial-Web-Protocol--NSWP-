@@ -24,6 +24,13 @@ export const CAPABILITIES = [
   "avatars",
   "entry-assertion",
   "payments", "home"] as const;
+/**
+ * Who a world is for, as its maker says. `kids`: made for children. `general`:
+ * not made for children, and nothing an adult would need warning about.
+ * `adult`: not for anyone under age; what some call NSFW.
+ */
+export const AUDIENCES = ["kids", "general", "adult"] as const;
+export type Audience = (typeof AUDIENCES)[number];
 export const COMFORT = {
   locomotion: ["stationary", "teleport", "smooth", "vehicle"],
   intensity: ["low", "medium", "high"],
