@@ -21,7 +21,8 @@
 import * as THREE from "three";
 import { Terminal } from "@xterm/headless";
 import { openBridgeLink, type BridgeLink, type BridgeStatus } from "./bridge-link.js";
-import type { Panel, Panels } from "./panels.js";
+import type { Panel, PanelLook, PanelPlace, Panels } from "./panels.js";
+import type { V3 } from "./panel-store.js";
 import { forApplication, keyBytes, pasteBytes } from "./term-keys.js";
 import type { EventTemplate, NostrEvent } from "@nswp/core";
 
@@ -53,6 +54,10 @@ export interface TerminalPanelOptions {
   onColumns?(cols: number): void;
   /** The panel was put away, and the connection with it. */
   onClosed?(): void;
+  /** Where to hang it, how see-through it is, and where it is pinned in the view: for a home bringing one back as it was. */
+  place?: Partial<PanelPlace>;
+  look?: Partial<PanelLook>;
+  pin?: V3 | null;
 }
 
 export interface TerminalPanel {
@@ -442,7 +447,7 @@ export function openTerminalPanel(o: TerminalPanelOptions): TerminalPanel {
         o.onClosed?.();
       },
     },
-    { place: { width: 1.3 }, keep: false },
+    { place: { width: 1.3, ...o.place }, keep: false, ...(o.look ? { look: o.look } : {}), ...(o.pin ? { pin: o.pin } : {}) },
   );
   draw();
   connect();
