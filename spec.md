@@ -1,13 +1,18 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.7.4 (concept specification)
+**Version:** 0.7.5 (concept specification)
 **Status:** Exploratory draft / proposed protocol
 **Date:** November 17, 2026
 **Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
 **License recommendation:** CC0 for the protocol (Part I); MIT for BitPortal and the SDK (Part II), matching BitBlocks convention D11
 
 ---
+
+## 0. What changed in 0.7.5
+
+- **One controls kit for every world** (§21.2, `docs/controls-kit.md`). A world lists what a visitor can do once. The SDK draws that list as a HUD on a flat screen and as a console in a headset, on the wrist where a hand is tracked. The template, the reference worlds and BitPortal's room all use it, in place of four hand-written sets of buttons.
+- **A visitor can change how the controls look**, and each site remembers their choice. Whether a look should follow them between worlds is a new open question (Q32).
 
 ## 0. What changed in 0.7.4
 
@@ -1829,7 +1834,7 @@ Rules that keep this list working:
 - **Every world also works without VR**, as inline 3D with tap or click.
 - **Test without hardware** using the IWER emulator: the reference worlds load it with `?xr=emulate`.
 - **Before calling a device supported**, test it on the real device and record the date here. `docs/headset-checklist.md` is the test.
-- **Everything a visitor needs must be reachable inside the session.** An immersive session shows the scene and nothing else: the page's buttons can't be seen or pressed. So the way home, a room's join, leave and microphone controls, and any way to turn or move must exist in the scene, as something to point at and select. The SDK's menu does this (`createWorldMenu` in `nswp-sdk/three`): one small button that keeps low and in front of the visitor and opens a column of large ones. A menu fixed to a wrist would need a tracked hand, which gaze-and-pinch doesn't give.
+- **Everything a visitor needs must be reachable inside the session.** An immersive session shows the scene and nothing else: the page's buttons can't be seen or pressed. So the way home, a room's join, leave and microphone controls, and any way to turn or move must exist in the scene, as something to point at and select. The SDK's controls kit does this (`docs/controls-kit.md`): a world lists its actions once, and the kit draws them as a HUD on a flat screen and as a console in a headset. The console comes up above the wrist where a hand or controller is tracked. A wrist alone would leave out gaze-and-pinch, which tracks no hand, so a small button that keeps low and in front of the visitor opens the same console for everyone.
 - **Nothing may need the visitor to turn their body or walk.** Someone seated on a sofa can do neither. A turn is a button that turns them in one step, and movement is a step to where they point.
 - **A world's menu is the world's.** It is drawn by the world, so it is not a trusted surface and must not be called one. A visitor's sure way out of any world is their headset's own controls.
 
@@ -1948,6 +1953,8 @@ The first version will **not**:
 **Q30 Item budgets:** are 2 MB and 20,000 triangles right, and what is the total for a room where twenty people each carry four items on a standalone headset?
 
 **Q31 The start room:** does one room with two walls hold up once a visitor has many saved places, and is a dozen doors per wall the right limit? Should a returning visitor on a headset be able to skip the room and land on their jump list?
+
+**Q32 A look that travels:** a visitor can change how a world's controls look, and each site remembers its own answer. Should the choice follow them from world to world? Carrying it in the arrival context is simple, but it is one more value sent to every world, and a distinctive set of preferences tells visitors apart (§5.7). Comfort preferences (seated, turning in steps, larger text) raise the same question with more at stake.
 
 ---
 
