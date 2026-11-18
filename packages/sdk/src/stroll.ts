@@ -50,6 +50,8 @@ export function createStroll(o: {
   move(dx: number, dz: number): void;
   /** Metres a second. */
   speed?: number;
+  /** Called when something in the way stopped the walk short. */
+  onBlocked?: () => void;
 }): Stroll {
   const speed = o.speed ?? WALK_SPEED;
   let target: [number, number] | null = null;
@@ -77,6 +79,7 @@ export function createStroll(o: {
       // Stop at the first place they may not stand: a wall, an edge, a chamber's side.
       if (!o.canStand(x + sx, z + sz)) {
         target = null;
+        o.onBlocked?.();
         return;
       }
       o.move(sx, sz);

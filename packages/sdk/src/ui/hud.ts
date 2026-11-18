@@ -316,6 +316,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const setOpen = (next: boolean) => {
     if (open === next) return;
     open = next;
+    controls.signal(open ? "menuOpen" : "menuClose");
     draw();
     if (open) (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
     else (controls.presence === "quiet" ? quiet : menu).focus();

@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, createStroll, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, addSoundControls, createSounds, type SoundTheme, createStroll, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -80,6 +80,11 @@ export interface WorldConfig {
   /** One or two sentences: what this place is for. Shown on the sign where visitors arrive. */
   purpose: string;
   palette: { ground: number; accent: number; text: string };
+  /**
+   * This world's own sounds: a file of its own for any of the kit's cues, or null to silence one, and its own
+   * music or null for none. Whatever it doesn't name keeps the kit's default.
+   */
+  sounds?: SoundTheme;
   /** Positions in metres; yaw in degrees, 0 facing -Z. */
   entryPoints: Record<string, { position: V3; yaw: number }>;
   doors: Door[];
@@ -105,6 +110,8 @@ type TestHooks = {
   input?: () => unknown;
   /** The panels hanging here. */
   panels?: Panels;
+  /** What this place sounds like: cues, its music, and the visitor's own. */
+  sounds?: unknown;
   /** Where a named thing is on the page, in pixels, or null if it is behind the visitor. */
   screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
@@ -215,6 +222,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
   const hud = mountHud(controls);
   hooks.controls = controls;
+  // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
+  // are theirs, kept for this site.
+  const sounds = createSounds({ context: THREE.AudioContext.getContext() as unknown as AudioContext, seed: cfg.title, theme: cfg.sounds ?? null });
+  addSoundControls(controls, sounds);
+  hooks.sounds = sounds;
   if (cfg.quiet) {
     // A game has an interface of its own, and the keyboard is for playing (spec §21.3).
     controls.setPresence("quiet");
@@ -335,6 +347,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (!g || state.leaving) return;
     state.leaving = true;
     stroll.stop();
+    sounds.play("cross");
     // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
     await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
@@ -344,6 +357,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const back = arrival.returnAirlock();
     if (!back || state.leaving) return;
     state.leaving = true;
+    sounds.play("cross");
     await crossing.leave({ title: "home", address: new URL(back).host });
     document.body.classList.add("leaving");
     await portal.home({ xrSession: renderer.xr.getSession(), ...travelling() });
@@ -413,6 +427,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       rig.position.x += dx;
       rig.position.z += dz;
     },
+    onBlocked: () => sounds.bump(),
   });
   const floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const spotAt = new THREE.Vector3();
@@ -614,6 +629,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (canStand(head.x + stride.x, head.z + stride.z)) rig.position.add(stride);
     else if (canStand(head.x + stride.x, head.z)) rig.position.x += stride.x;
     else if (canStand(head.x, head.z + stride.z)) rig.position.z += stride.z;
+    else sounds.bump();
   };
 
   // ------------------------------------------------------------- the room
@@ -623,6 +639,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
   ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels }));
   hooks.roomInfo = () => presence.info();
+  // How loud other people are is the visitor's to set, with the rest of their volumes.
+  sounds.onChange((levels) => presence.setVolume(levels.off ? 0 : levels.voices));
   // A camera of the visitor's own: pictures, selfies and clips, saved to their device.
   hooks.camera = addCameraControls(controls, {
     renderer,
@@ -724,6 +742,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const startedAt = performance.now();
   let lastT = 0;
   let wasBusy = false;
+  const movedFrom = rig.position.clone();
   renderer.setAnimationLoop(() => {
     const t = (performance.now() - startedAt) / 1000;
     const dt = Math.min(t - lastT, 0.1);
@@ -736,6 +755,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     wasBusy = busy;
     crossing.update(t, dt);
     camera.getWorldPosition(head);
+    // Steps are made from how far the visitor was moved, not from how their head sways.
+    if (state.ready) sounds.moved(Math.hypot(rig.position.x - movedFrom.x, rig.position.z - movedFrom.z));
+    movedFrom.copy(rig.position);
     presence.update(dt);
     environment.update(t);
     for (const a of alloys) a.tick(t);
@@ -790,6 +812,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     });
     renderer.render(scene, camera);
   });
+  // Out of a door, if they came through one. A browser may hold this back until their first touch.
+  if (context) sounds.play("arrive");
   state.ready = true;
   worldOpened();
 }

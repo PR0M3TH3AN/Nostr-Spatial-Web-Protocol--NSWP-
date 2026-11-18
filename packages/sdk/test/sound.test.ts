@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import { ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+
+describe("the default cues", () => {
+  it("has one for everything on the list, each short and quiet", () => {
+    for (const cue of CUES) {
+      const parts = cueRecipe(cue);
+      expect(parts.length, cue).toBeGreaterThan(0);
+      expect(recipeLength(parts), cue).toBeLessThanOrEqual(0.8);
+      for (const p of parts) {
+        expect(p.gain, cue).toBeGreaterThan(0);
+        expect(p.gain, cue).toBeLessThanOrEqual(0.35);
+        expect(p.dur, cue).toBeGreaterThan(0);
+        if (p.kind === "tone") expect(p.from, cue).toBeGreaterThan(40);
+      }
+    }
+    expect(recipeLength(cueRecipe("step"))).toBeLessThan(0.1); // heard a thousand times a visit
+  });
+});
+
+describe("a world's own sounds", () => {
+  const base = "https://world.example/play/";
+  it("takes files from the world's own site, silence where it says so, and the default everywhere else", () => {
+    const t = cleanTheme({ cues: { step: "sounds/step.ogg", press: null, cross: "/shared/door.MP3#t=2", hover: 7 }, music: "music/loop.opus" }, base);
+    expect(t.cues).toEqual({ step: "https://world.example/play/sounds/step.ogg", press: null, cross: "https://world.example/shared/door.MP3" });
+    expect(t.music).toBe("https://world.example/play/music/loop.opus");
+    expect(cleanTheme({ music: null }, base).music).toBeNull();
+    expect("music" in cleanTheme({}, base)).toBe(false);
+  });
+
+  it("refuses another site's file, anything that isn't a sound, and a cue that isn't on the list", () => {
+    const t = cleanTheme({ cues: { step: "https://elsewhere.example/step.ogg", land: "//elsewhere.example/land.ogg", bump: "sounds/bump.js", grab: "javascript:alert(1)", drop: "data:audio/wav;base64,AAAA", explode: "boom.ogg" }, music: "https://tracker.example/who-is-here.mp3" }, base);
+    expect(t.cues).toEqual({});
+    expect("music" in t).toBe(false);
+    for (const junk of [null, "x", 5, [], { cues: "all" }]) expect(cleanTheme(junk, base)).toEqual({ cues: {} });
+    expect(cleanTheme({ cues: { step: "a.ogg" } }, "not an address")).toEqual({ cues: {} });
+  });
+});
+
+describe("the visitor's volumes", () => {
+  it("are theirs, within bounds, with sensible ones to start", () => {
+    expect(cleanLevels(null)).toEqual(DEFAULT_LEVELS);
+    expect(cleanLevels({ off: true, effects: 5, music: -1, voices: "loud" })).toEqual({ off: true, effects: 1, music: 0, voices: 1 });
+    expect(cleanLevels({ off: "yes" }).off).toBe(false);
+  });
+
+  it("go round four steps", () => {
+    expect(LEVEL_STEPS.map((s) => levelStep(s))).toEqual([0, 1, 2, 3]);
+    expect(levelStep(0.45)).toBe(1);
+    expect([0, 0.35, 0.7, 1].map(nextLevel)).toEqual([0.35, 0.7, 1, 0]);
+  });
+});
+
+describe("the music a place makes for itself", () => {
+  it("is the same for everyone in a place, and different from place to place", () => {
+    expect(ambiencePlan("The Grove")).toEqual(ambiencePlan("The Grove"));
+    const plans = ["The Grove", "The Gallery", "The Arcade", "The Library", "The Tour", "The Workshop", "The Observatory"].map((n) => JSON.stringify(ambiencePlan(n)));
+    expect(new Set(plans).size).toBe(plans.length);
+  });
+
+  it("stays low, slow and in tune with itself", () => {
+    for (const name of ["a", "b", "The Grove", ""]) {
+      const p = ambiencePlan(name);
+      expect(p.root).toBeGreaterThanOrEqual(90);
+      expect(p.root).toBeLessThanOrEqual(160);
+      expect(p.drones).toHaveLength(4);
+      for (const d of p.drones) {
+        expect(d.swell).toBeGreaterThanOrEqual(11);
+        expect(Math.abs(d.detune)).toBeLessThanOrEqual(7);
+      }
+      expect(p.gap[0]).toBeGreaterThanOrEqual(3.5);
+      expect(p.gap[1]).toBeGreaterThan(p.gap[0]);
+    }
+    const r = seeded("x");
+    const a = [r(), r(), r()];
+    expect(a.every((n) => n >= 0 && n < 1)).toBe(true);
+    expect(new Set(a).size).toBe(3);
+  });
+});
+
+describe("the visitor's own songs", () => {
+  it("are named from their files, with nothing hidden in the name", () => {
+    expect(songTitle("C:\\Music\\My_Song  (live).mp3")).toBe("My Song (live)");
+    expect(songTitle("/home/a/track.01.flac")).toBe("track.01");
+    expect(songTitle(`ok${String.fromCharCode(0x202e)}gpj.exe.ogg`)).toBe("ok gpj.exe");
+    expect(songTitle("")).toBe("A song");
+    expect(songTitle(5)).toBe("A song");
+    expect([...songTitle("x".repeat(300))]).toHaveLength(SOUND_LIMITS.titleChars);
+  });
+
+  it("are kept as a list that trusts nothing it reads back", () => {
+    const read = cleanSongs([{ id: "abcd-1234", title: "One.mp3", size: 10, at: 5 }, { id: "abcd-1234", title: "twice" }, { id: "NO" }, null, { id: "wxyz-9", title: 4, size: -2 }]);
+    expect(read).toEqual([{ id: "abcd-1234", title: "One", size: 10, at: 5 }, { id: "wxyz-9", title: "A song", size: 0, at: 0 }]);
+    expect(cleanSongs("x")).toEqual([]);
+    expect(cleanSongs(Array.from({ length: 200 }, (_, i) => ({ id: `song-${i}` })))).toHaveLength(SOUND_LIMITS.songs);
+  });
+
+  it("takes sound files of a sensible size, and says why not otherwise", () => {
+    expect(songRefusal({ type: "audio/mpeg", size: 1000, name: "a.mp3" }, 0)).toBeNull();
+    expect(songRefusal({ type: "", size: 1000, name: "a.FLAC" }, 0)).toBeNull();
+    expect(songRefusal({ type: "image/png", size: 1000, name: "a.png" }, 0)).toMatch(/isn't a sound/);
+    expect(songRefusal({ type: "audio/mpeg", size: 0, name: "a.mp3" }, 0)).toMatch(/empty/);
+    expect(songRefusal({ type: "audio/mpeg", size: SOUND_LIMITS.songBytes + 1, name: "a.mp3" }, 0)).toMatch(/MB/);
+    expect(songRefusal({ type: "audio/mpeg", size: 1000, name: "a.mp3" }, SOUND_LIMITS.songs)).toMatch(/at most/);
+  });
+});

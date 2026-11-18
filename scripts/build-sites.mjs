@@ -92,6 +92,8 @@ for (const s of sites) {
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
+    // A visitor's own files, played from where the browser keeps them: their music, and video on a panel.
+    "media-src 'self' blob:",
     // Worlds reach Nostr relays (wss) for the room handshake; the Airlock also fetches manifests (https).
     s.world ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
     "base-uri 'none'",

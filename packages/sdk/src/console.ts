@@ -377,6 +377,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
 
   const setOpen = (next: boolean, where: "wrist" | "floating" = "floating") => {
     if (open === next && mount === where) return;
+    if (open !== next) controls.signal(next ? "menuOpen" : "menuClose");
     open = next;
     mount = where;
     placed = false;

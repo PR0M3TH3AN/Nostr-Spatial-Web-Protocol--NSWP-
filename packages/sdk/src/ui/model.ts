@@ -135,6 +135,13 @@ export interface Controls {
   subscribe(fn: () => void): () => void;
   /** Be told when there is something to say. */
   onSay(fn: (text: string) => void): () => void;
+  /**
+   * Say that something happened, by a short name: a control was pressed
+   * (`press`, which `run` says itself), the menu opened, a room was joined.
+   * Nothing is shown. It is for whatever makes the controls heard or felt.
+   */
+  signal(name: string): void;
+  onSignal(fn: (name: string) => void): () => void;
 }
 
 export interface ControlsOptions {
@@ -183,6 +190,7 @@ export function createControls(opts: ControlsOptions): Controls {
   const actions: UiAction[] = [];
   const listeners = new Set<() => void>();
   const sayers = new Set<(text: string) => void>();
+  const signals = new Set<(name: string) => void>();
   let visitor = loadVisitorTheme();
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
@@ -254,6 +262,7 @@ export function createControls(opts: ControlsOptions): Controls {
     run(id) {
       const a = actions.find((x) => x.id === id);
       if (!a || a.hidden?.()) return false;
+      for (const fn of signals) fn("press");
       void Promise.resolve()
         .then(() => a.act())
         .catch(() => {})
@@ -294,6 +303,19 @@ export function createControls(opts: ControlsOptions): Controls {
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
+    },
+    signal(name) {
+      for (const fn of signals) {
+        try {
+          fn(name);
+        } catch {
+          /* a listener's trouble is not the controls' */
+        }
+      }
+    },
+    onSignal(fn) {
+      signals.add(fn);
+      return () => signals.delete(fn);
     },
     onSay(fn) {
       sayers.add(fn);
