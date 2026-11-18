@@ -36,7 +36,7 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&joined=1&mic=1
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&joined=1&mic=1&blocked=<key>,<key>
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
@@ -47,6 +47,10 @@ place offer the way back into one at once.
 leave, and `mic=1`, only beside it, when their microphone is on. They are
 what lets someone stay among people from one world to the next ("Staying
 joined", below).
+
+`blocked` is there only when the visitor blocked someone in this world during
+this visit: the identity keys of the people, as hex, at most sixteen
+("Blocks that travel", below).
 
 ### Which Airlock
 
@@ -71,7 +75,8 @@ A client may let a visitor choose where they start: a world of their own
 doors are two places. An Airlock opened with no destination and `doors=1`
 takes the visitor to their doors: the client's own place, never a world. A
 client with one place for both takes them there either way. `doors=1`,
-`xr=1`, `joined=1` and `mic=1` may come together, and nothing else may.
+`xr=1`, `joined=1`, `mic=1` and `blocked` may come together, and nothing else
+may.
 
 ## What an Airlock does
 
@@ -189,6 +194,33 @@ act on it:
 - **On the way home** nothing is asked, so joined goes along and a microphone
   goes only when the visitor had already said it may.
 
+## Blocks that travel
+
+A visitor who blocks someone in one world expects not to meet them in the
+next. But each world is its own site, and one site can tell another nothing.
+The one thing that goes everywhere a visitor goes is their own client. So a
+block that travels is a list the client keeps.
+
+- **A world reports** who its visitor blocked there, during this visit, on
+  the link it sends them through: `blocked=<key>,<key>`. Identity keys only:
+  people who came by name. A guest is a new key every visit, and no list can
+  follow one.
+- **A report is a link, and anyone can write a link.** One in a message could
+  name a visitor's friends. So a client never adds to its list unseen. It
+  shows who, and adds them only when the visitor says so. It doesn't hurry
+  past that question, and where there is no screen to ask on (the way home)
+  the report waits.
+- **Nobody is ever taken off the list by a link.** That is done in the
+  client, by the visitor.
+- **The client hands the list on** in the arrival context, as `blocked`
+  ([NSWP-03](03-arrival.md)). The world leaves the visitor unconnected to
+  anyone on it, for that visit, and keeps nothing.
+- **The cost, said plainly.** Each world a visitor arrives in learns the keys
+  on their list. A client says so where the list is shown.
+- **What it doesn't do.** It hides two people from each other. The blocked
+  person is still in the room for everyone else: removing someone is for a
+  room's host.
+
 ## The chamber
 
 The two ends of a crossing can be the same place. The reference SDK ships a
@@ -229,7 +261,7 @@ portal.home();
 
 Both say `xr=1` when given the session to end: `portal.go(dest, { xrSession })`.
 
-Both say `joined=1` and `mic=1` when given them:
+Both say `joined=1`, `mic=1` and `blocked` when given them:
 `portal.go(dest, { xrSession, ...room.travelling() })`, where `room` is what
 `addRoomControls` returned.
 

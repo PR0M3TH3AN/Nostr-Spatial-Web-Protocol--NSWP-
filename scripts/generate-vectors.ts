@@ -379,6 +379,21 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_home"] },
   },
   {
+    name: "blocked_people_come_along",
+    value: encodeArrival({ entry: "main-entrance", blocked: ["abababababababababababababababababababababababababababababababab", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"] }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", blocked: ["abababababababababababababababababababababababababababababababab", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"] }, warnings: [] },
+  },
+  {
+    name: "a_block_list_with_anything_but_keys_is_ignored_whole",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", blocked: ["abababababababababababababababababababababababababababababababab", "everyone"] })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_blocked"] },
+  },
+  {
+    name: "a_block_list_too_long_is_ignored_whole",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", blocked: Array.from({ length: 65 }, (_, i) => i.toString(16).padStart(64, "0")) })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_blocked"] },
+  },
+  {
     name: "joined_with_the_microphone_on",
     value: encodeArrival({ entry: "main-entrance", joined: true, mic: true }),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", joined: true, mic: true }, warnings: [] },

@@ -343,7 +343,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   // ------------------------------------------------------------- leaving
   // Whether the visitor is in the room here, and heard: it goes with them, so the next place needn't ask again.
-  let travelling = (): { joined: boolean; mic: boolean } => ({ joined: false, mic: false });
+  let travelling = (): { joined: boolean; mic: boolean; blocked: string[] } => ({ joined: false, mic: false, blocked: [] });
   const go = async (i: number) => {
     const g = gates[i];
     if (!g || state.leaving) return;

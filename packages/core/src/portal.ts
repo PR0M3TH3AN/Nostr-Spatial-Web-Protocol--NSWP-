@@ -1,5 +1,5 @@
 /** Portal objects and Airlock fragments (spec §6.1–§6.3). */
-import { SCHEMAS, WORLD_KIND } from "./constants.js";
+import { SCHEMAS, WORLD_KIND, LIMITS } from "./constants.js";
 import { checkDestination } from "./destination.js";
 import type { Capability } from "./constants.js";
 import { decodeNaddr, type AddressPointer } from "./nip19.js";
@@ -77,7 +77,33 @@ export interface AirlockUrlOptions {
   joined?: boolean;
   /** Their microphone is on as they leave (`mic=1`). Said only with `joined`. */
   mic?: boolean;
+  /**
+   * People the visitor blocked in this world during this visit, by the
+   * identity key behind each name (`blocked=<key>,<key>`). It is this
+   * world's word and a link anyone can write, so the visitor's own client
+   * shows it and asks before a block goes anywhere else
+   * (protocol/02-doors.md, "Blocks that travel").
+   */
+  blocked?: string[];
 }
+
+/** Keys from a list that are keys, once each, up to a limit. */
+export function cleanKeys(input: unknown, limit: number): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  for (const k of input) {
+    if (typeof k !== "string" || !/^[0-9a-f]{64}$/.test(k) || out.includes(k)) continue;
+    out.push(k);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+const blockedFlag = (opts: AirlockUrlOptions): string[] => {
+  const keys = cleanKeys(opts.blocked, LIMITS.maxBlockedOnLink);
+  return keys.length ? [`blocked=${keys.join(",")}`] : [];
+};
+const blockedFrom = (value: string | undefined): string[] => cleanKeys((value ?? "").split(","), LIMITS.maxBlockedOnLink);
 
 /** The flags a visitor's state travels in: from a headset, in a room, with the microphone on. */
 function stateFlags(opts: AirlockUrlOptions): string[] {
@@ -92,7 +118,7 @@ export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: 
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-  parts.push(...stateFlags(opts));
+  parts.push(...stateFlags(opts), ...blockedFlag(opts));
   u.hash = parts.join("&");
   return u.href;
 }
@@ -109,6 +135,8 @@ export interface AirlockRequest {
   joined?: boolean;
   /** The link says their microphone was on (`mic=1`). Kept only with `joined`. */
   mic?: boolean;
+  /** The link says they blocked these people where they came from. A claim: shown and asked about, never applied unseen. */
+  blocked?: string[];
 }
 
 /** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
@@ -122,17 +150,25 @@ export function fragmentSaysImmersive(hash: string): boolean {
  * flags such a way may carry. Null for anything else, which is a crossing or
  * a mistake.
  */
-export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true } | null {
+export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true; blocked?: string[] } | null {
   const parts = hash.replace(/^#/, "").split("&").filter(Boolean);
-  if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1")) return null;
+  const reported = parts.find((p) => /^blocked=[0-9a-f,]+$/.test(p));
+  if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1" && p !== reported)) return null;
   const joined = parts.includes("joined=1");
-  return { immersive: parts.includes("xr=1"), doors: parts.includes("doors=1"), ...(joined ? { joined: true as const } : {}), ...(joined && parts.includes("mic=1") ? { mic: true as const } : {}) };
+  const blocked = blockedFrom(reported?.slice(8));
+  return {
+    immersive: parts.includes("xr=1"),
+    doors: parts.includes("doors=1"),
+    ...(joined ? { joined: true as const } : {}),
+    ...(joined && parts.includes("mic=1") ? { mic: true as const } : {}),
+    ...(blocked.length ? { blocked } : {}),
+  };
 }
 
 /** `<airlock>` opened as the way home, or with `doors` as the way to the visitor's doors (protocol/02-doors.md). */
 export function buildWayUrl(airlock: string, opts: AirlockUrlOptions & { doors?: boolean } = {}): string {
   const u = new URL(airlock);
-  u.hash = [...(opts.doors ? ["doors=1"] : []), ...stateFlags(opts)].join("&");
+  u.hash = [...(opts.doors ? ["doors=1"] : []), ...stateFlags(opts), ...blockedFlag(opts)].join("&");
   return u.href;
 }
 
@@ -170,5 +206,7 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
     req.joined = true;
     if (params.get("mic") === "1") req.mic = true;
   }
+  const blocked = blockedFrom(params.get("blocked"));
+  if (blocked.length) req.blocked = blocked;
   return req;
 }

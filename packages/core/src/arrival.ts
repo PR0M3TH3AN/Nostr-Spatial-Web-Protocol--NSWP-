@@ -51,6 +51,13 @@ export interface Arrival {
    * whether this world may use a microphone at all.
    */
   mic?: true;
+  /**
+   * People the visitor has blocked, by the identity key behind each name:
+   * their own client's list, which goes where they go. A world doesn't
+   * connect them to anyone on it for this visit, and doesn't keep it
+   * (protocol/03-arrival.md, "Blocks that travel").
+   */
+  blocked?: string[];
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -138,6 +145,13 @@ export function decodeArrival(value: string): Result<Arrival> {
     // A microphone with nobody to hear it means nothing, and is never a reason to join.
     if (json.mic === true && out.joined) out.mic = true;
     else c.warn("invalid_mic", "mic", "Ignoring a microphone hint that isn't true, or that comes without joined.");
+  }
+  if (json.blocked !== undefined) {
+    const ok = Array.isArray(json.blocked) && json.blocked.length <= LIMITS.maxBlocked && json.blocked.every((k) => typeof k === "string" && isHex64(k));
+    if (ok) {
+      const keys = [...new Set(json.blocked as string[])];
+      if (keys.length) out.blocked = keys;
+    } else c.warn("invalid_blocked", "blocked", `Ignoring a block list (must be at most ${LIMITS.maxBlocked} keys).`);
   }
   if (json.receipts !== undefined) {
     if (Array.isArray(json.receipts) && json.receipts.length <= LIMITS.maxReceipts && json.receipts.every(hasEventShape)) {
