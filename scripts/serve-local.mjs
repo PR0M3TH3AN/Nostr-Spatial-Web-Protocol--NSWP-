@@ -4,6 +4,7 @@
 //   node scripts/serve-local.mjs --lan                                    other devices on the same network too
 //
 // BitPortal and the world template are served from their own repositories beside this one, if they are built.
+// The Godot example is served if it has been exported (node scripts/build-godot-example.mjs, which needs Godot).
 //
 // What this is not: the real thing joined up. Each world is built for its real address, so a door still leads,
 // through the Airlock, to the deployed site and not to the copy served here. Everything inside one place can be
@@ -22,6 +23,7 @@ const sites = [
   ["BitPortal", join(root, "..", "bitportal", "dist"), "/walk/ is the room, / the list"],
   ...["gallery", "grove", "tour", "arcade", "observatory", "workshop", "library"].map((name) => [`The ${name[0].toUpperCase()}${name.slice(1)}`, join(root, "sites", name, "dist"), ""]),
   ["The world template", join(root, "..", "nswp-world-template", "dist"), ""],
+  ["A world in Godot", join(root, "engines", "godot", "dist"), "about 40 MB to load"],
 ];
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -37,6 +39,7 @@ const types = {
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".txt": "text/plain; charset=utf-8",
+  ".wasm": "application/wasm",
 };
 
 /** The headers a site's own host would send, as its build wrote them down, less the ones that only make sense on https. */

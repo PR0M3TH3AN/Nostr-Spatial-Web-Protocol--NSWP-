@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.4
+
+The Godot addon has been run, and there is a world made with it to look at. Nothing in the protocol changes.
+
+- **An example world in Godot** (`engines/godot/example/`, with a project file beside it): two entry points, a door to the Gallery, the way home and the way into a headset, in one script. `npm run build:godot` exports it for the web and puts the kit's script beside its page; it needs Godot 4 and its web export templates.
+- **The local server** serves it with the other sites, when it has been exported.
+- **The addon needed no changes** to run. Its README now says what was run and what wasn't, and that Godot needs the browser's WebXR Layers for a headset session.
+- **Status (2026-11-18):** run in Godot 4.7.2, exported for the web, in Chrome on a flat screen: an ordinary link stands the visitor at the main entrance; an arrival naming the balcony stands them there, carries how they move, and is taken out of the address; walking into the door leads to their Airlock with where they are going; the way home leads home. With a made-up headset on the page, Enter VR is offered, and a session that can't start says why. **Not tried:** a session in a real headset (the made-up one lacks what Godot needs), a phone, Firefox or Safari.
+
 ## 0.15.3
 
 Worlds in other engines, starting with Godot. Nothing in the protocol changes: it never said how a world is drawn.

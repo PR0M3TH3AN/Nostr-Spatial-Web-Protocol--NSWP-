@@ -57,9 +57,25 @@ addon with an `Nswp` autoload and an `NswpPortal` node. Godot 4 exports to
 the Web and supports headsets in the browser itself, so it is the one engine
 besides Three.js where every part is the engine's own.
 
+There is an example world beside it
+([`engines/godot/example/`](../engines/godot/example/)): two entry points, a
+door, the way home and the way into a headset. `npm run build:godot` exports
+it, given Godot 4 and its web export templates, and
+`node scripts/serve-local.mjs` serves it with the other sites.
+
 **Status (2026-11-18):** the script is tested in a browser, on a bare page
-under a strict content policy. The Godot addon is written and has not been
-run in Godot, which isn't on the machine this was written on.
+under a strict content policy. The addon and its example have been run in
+Godot 4.7.2, exported for the Web, in Chrome on a flat screen: arriving by an
+ordinary link and by an arrival, each entry point, a door through to the
+Airlock, and the way home. With a made-up headset on the page the way in is
+offered; a session itself wasn't started, since Godot needs the browser's
+WebXR Layers and the made-up headset has none. No real headset, phone,
+Firefox or Safari has been tried.
+
+A Godot export is large (about 40 MB, nearly all the engine) and Godot's page
+starts itself with a script written into the page, so it can't be served
+under the reference worlds' strict content policy as it comes. The kit's
+script can; the page Godot writes round it is Godot's.
 
 ## Others
 

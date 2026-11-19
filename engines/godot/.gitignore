@@ -1,0 +1,5 @@
+# Godot
+.godot/
+*.translation
+# The exported site
+/dist/
