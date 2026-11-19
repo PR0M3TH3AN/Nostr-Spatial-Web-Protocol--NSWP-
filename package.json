@@ -16,7 +16,8 @@
     "previews": "node scripts/capture-previews.mjs",
     "deploy:sites": "node scripts/deploy-sites.mjs",
     "build:engine": "node scripts/build-engine.mjs",
-    "engine:check": "node scripts/build-engine.mjs --check"
+    "engine:check": "node scripts/build-engine.mjs --check",
+    "build:godot": "node scripts/build-godot-example.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

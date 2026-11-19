@@ -5,10 +5,16 @@ web: it reads how a visitor arrived, and sends them on through their own
 Airlock. It draws nothing. Your doors, your visitors and your signs are yours
 to draw.
 
-**Status: written, not yet run in Godot.** The script it calls
-(`web/nswp-engine.js`) is tested in a browser. The GDScript here is written
-to Godot 4's documented API and has not been run. Treat it as a first draft
-until that line changes.
+**Status (2026-11-18): run in Godot 4.7.2, exported for the Web, in Chrome
+on a flat screen.** With the example beside this addon: an ordinary link and
+an arrival both stand the visitor at the right entry point, the arrival is
+taken out of the address, walking into a door leads to the visitor's Airlock
+with where they are going, and the way home leads home. With a made-up
+headset on the page, the way into it is offered, and a session that can't
+start says why.
+
+**Not tried:** a real headset (see "A headset" below), a phone, Firefox or
+Safari, and Godot before 4.7.
 
 ## Set up
 
@@ -57,10 +63,32 @@ func _on_home_pressed() -> void:
   come here: offer the way back in before anything else. A browser starts a
   session only on a press, so it has to be a button. Leaving through a door
   ends the session for you.
+  Godot needs the browser's WebXR Layers to start a session. A Quest's
+  browser has them. One that doesn't needs the polyfill Godot's manual names,
+  as a file of your own beside the page: connect `session_failed` and say what
+  it says, as the example does.
 - **How they move, and who they were with.** Set `Nswp.moving`
   (`"casual"` or `"intense"`), `Nswp.joined` and `Nswp.mic` as they change,
   and they go with the visitor to the next world. `Nswp.arrival` has the same
   as they arrived.
+
+## The example
+
+[`../../example/`](../../example/) is a small world that uses all of the
+above: two entry points, a door, the way home and the way into a headset,
+built in one script so that it can be read in one sitting. The project file
+beside it (`engines/godot/project.godot`) opens in Godot 4.
+
+To export it and try it in a browser, from the repository's root:
+
+```
+npm run build:godot
+node scripts/serve-local.mjs
+```
+
+The first needs Godot 4 and its web export templates (`GODOT=/path/to/godot`
+if it isn't on the PATH). The export is about 40 MB, nearly all of it Godot
+itself, and isn't kept in the repository.
 
 ## What a world owes its visitors
 
