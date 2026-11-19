@@ -138,6 +138,98 @@
       }
     },
     {
+      "name": "with_a_picture",
+      "description": "A picture is where the visitor's own profile keeps theirs: an https address, signed with everything else.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ],
+          [
+            "picture",
+            "https://pictures.example/alice.webp"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "316b750a3b14e492498e116dbb5a784bfee94f038264694621113d3e7dace107",
+        "sig": "cfa436b1b623ac7a682adc1d25d7724b2a1e7bc5d89ee38f6dc47cf8bd0855057b503b7b91f7a669ecd75ee7788a61c6459477bd4e887ffec9d334bea0da2173"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice",
+        "picture": "https://pictures.example/alice.webp"
+      }
+    },
+    {
+      "name": "a_picture_that_cannot_be_fetched_is_ignored",
+      "description": "Anything but an https address is no picture at all. The pass still stands.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ],
+          [
+            "picture",
+            "javascript:alert(1)"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "e10d443104143f190e734ed483c860a0a058cb89ccee7242a43e82542d3e49a1",
+        "sig": "e03f036ae9f469ee8ad899e02b06b1762cd385212d065a3f31c50929b8dca716537e957df689077e70cfaab26cc275871d5eb83f1001264b2294d6d8281b404f"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "picture_ignored"
+        ],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice",
+        "picture": ""
+      }
+    },
+    {
       "name": "another_site",
       "description": "A pass made for the museum is worth nothing anywhere else.",
       "event": {

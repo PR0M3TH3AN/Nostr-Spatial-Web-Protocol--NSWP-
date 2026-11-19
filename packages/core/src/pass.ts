@@ -18,6 +18,8 @@ export const PASS_LIMITS = {
   /** How far a reader's clock and a signer's may disagree. */
   skewSec: 120,
   nameChars: 48,
+  /** The longest address a picture may have. */
+  pictureChars: 300,
   /** A pass as JSON, as it travels between the members of a room. */
   chars: 4000,
 } as const;
@@ -36,6 +38,24 @@ export function cleanName(name: string): string {
   return [...cleaned].slice(0, PASS_LIMITS.nameChars).join("").trim();
 }
 
+/**
+ * Where a picture is, as it may be fetched: an `https` address with no
+ * credentials in it, at most 300 characters. Returns "" for anything else.
+ * A picture is fetched from wherever its owner keeps it, so whoever shows one
+ * tells that place their address: a reader shows pictures only to someone
+ * who hasn't said not to (protocol/10-identity.md, "Pictures").
+ */
+export function cleanPicture(url: unknown): string {
+  if (typeof url !== "string" || url.length > PASS_LIMITS.pictureChars) return "";
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || u.username || u.password || !u.hostname.includes(".")) return "";
+    return u.href.length <= PASS_LIMITS.pictureChars ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
 /** A seed that is a public key is a claim to that key. Only a pass makes the claim good. */
 export function claimsKey(seed: string): boolean {
   return /^[0-9a-f]{64}$/i.test(seed);
@@ -48,6 +68,8 @@ export interface RoomPassInput {
   origin: string;
   /** The name to be known by. Cleaned; left out when nothing is left. */
   name?: string;
+  /** Where their picture is: the one in their Nostr profile. Left out unless it is an https address. */
+  picture?: string;
   createdAt?: number;
   ttlSec?: number;
 }
@@ -63,6 +85,8 @@ export function buildRoomPass(input: RoomPassInput): EventTemplate {
   ];
   const name = input.name ? cleanName(input.name) : "";
   if (name) tags.push(["name", name]);
+  const picture = cleanPicture(input.picture);
+  if (picture) tags.push(["picture", picture]);
   return { kind: ROOM_PASS_KIND, created_at: created, tags, content: "" };
 }
 
@@ -80,6 +104,8 @@ export interface VerifiedPass {
   session: string;
   /** The name they chose to be known by, cleaned, or "" for none. */
   name: string;
+  /** Where their picture is, or "" for none. It is theirs because their own key signed it; what is there is not checked. */
+  picture: string;
   expiresAt: number;
   id: string;
 }
@@ -131,5 +157,8 @@ export function verifyRoomPass(event: unknown, opts: VerifyPassOptions): Result<
   const raw = names[0]?.[1] ?? "";
   const name = cleanName(raw);
   if (raw !== name) c.warn("name_cleaned", "tags.name", "The name was tidied before being shown.");
-  return c.result({ pubkey: event.pubkey, session: session ?? "", name, expiresAt, id: event.id });
+  const shown = getTags(event, "picture")[0]?.[1] ?? "";
+  const picture = cleanPicture(shown);
+  if (shown && !picture) c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
+  return c.result({ pubkey: event.pubkey, session: session ?? "", name, picture, expiresAt, id: event.id });
 }

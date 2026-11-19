@@ -3742,6 +3742,8 @@ var NSWP = (() => {
       out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
     if (typeof s.fov === "number" && Number.isFinite(s.fov))
       out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
+    if (typeof s.pictures === "boolean")
+      out.pictures = s.pictures;
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
@@ -4081,12 +4083,26 @@ var NSWP = (() => {
     /** How far a reader's clock and a signer's may disagree. */
     skewSec: 120,
     nameChars: 48,
+    /** The longest address a picture may have. */
+    pictureChars: 300,
     /** A pass as JSON, as it travels between the members of a room. */
     chars: 4e3
   };
   function cleanName(name) {
     const cleaned = name.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ").replace(/\s+/g, " ").trim();
     return [...cleaned].slice(0, PASS_LIMITS.nameChars).join("").trim();
+  }
+  function cleanPicture(url) {
+    if (typeof url !== "string" || url.length > PASS_LIMITS.pictureChars)
+      return "";
+    try {
+      const u = new URL(url);
+      if (u.protocol !== "https:" || u.username || u.password || !u.hostname.includes("."))
+        return "";
+      return u.href.length <= PASS_LIMITS.pictureChars ? u.href : "";
+    } catch {
+      return "";
+    }
   }
   function verifyRoomPass(event, opts) {
     const c = new Collector();
@@ -4145,7 +4161,11 @@ var NSWP = (() => {
     const name = cleanName(raw);
     if (raw !== name)
       c.warn("name_cleaned", "tags.name", "The name was tidied before being shown.");
-    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, expiresAt, id: event.id });
+    const shown = getTags(event, "picture")[0]?.[1] ?? "";
+    const picture = cleanPicture(shown);
+    if (shown && !picture)
+      c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
+    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, expiresAt, id: event.id });
   }
 
   // packages/core/dist/bridge.js

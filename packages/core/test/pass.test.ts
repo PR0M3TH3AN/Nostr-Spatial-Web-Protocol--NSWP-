@@ -203,3 +203,25 @@ describe("leaving a headset session to cross", () => {
     expect(off.warnings).toEqual([]);
   });
 });
+
+describe("a picture on a pass", () => {
+  it("is an https address and nothing else", async () => {
+    const { cleanPicture, PASS_LIMITS: L } = await import("../src/index.js");
+    expect(cleanPicture("https://pictures.example/a.webp")).toBe("https://pictures.example/a.webp");
+    for (const bad of ["http://pictures.example/a.png", "javascript:alert(1)", "data:image/png;base64,AAAA", "https://user:pw@pictures.example/a.png", "https://localhost/a.png", "//pictures.example/a.png", "", 7, null, `https://pictures.example/${"a".repeat(L.pictureChars)}`]) expect(cleanPicture(bad), String(bad).slice(0, 40)).toBe("");
+  });
+  it("is signed with the rest of the pass, and read back only when the pass checks out", async () => {
+    const { cleanPicture } = await import("../src/index.js");
+    void cleanPicture;
+    const secret = new Uint8Array(32).fill(7);
+    const session = getPublicKey(new Uint8Array(32).fill(9));
+    const pass = finalizeEvent(buildRoomPass({ session, origin: "https://museum.example", name: "Alice", picture: "https://pictures.example/alice.webp" }), secret);
+    const checked = verifyRoomPass(pass, { origin: "https://museum.example", session });
+    expect(checked.ok && checked.value.picture).toBe("https://pictures.example/alice.webp");
+    // Changed after signing: the pass, picture and all, is worth nothing.
+    const forged = { ...pass, tags: pass.tags.map((t) => (t[0] === "picture" ? ["picture", "https://evil.example/x.png"] : t)) };
+    expect(verifyRoomPass(forged, { origin: "https://museum.example", session }).ok).toBe(false);
+    // And one that isn't an https address is simply left out.
+    expect(buildRoomPass({ session, origin: "https://museum.example", picture: "http://plain.example/a.png" }).tags.some((t) => t[0] === "picture")).toBe(false);
+  });
+});
