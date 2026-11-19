@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createStroll, dotsBetween, DOUBLE_TAP, reachOf, RUN, TAP_REACH, WALK_SPEED } from "../src/stroll.js";
+import { createStepPace, createStroll, dotsBetween, DOUBLE_TAP, reachOf, RUN, TAP_REACH, TOP_SPEED, WALK_SPEED } from "../src/stroll.js";
+import { RUN_FACTOR, WALK_SPEED as HEADSET_WALK } from "../src/actions.js";
+import { SPRINT } from "../src/fps.js";
 
 const walker = (canStand: (x: number, z: number) => boolean = () => true) => {
   const at: [number, number] = [0, 0];
@@ -154,5 +156,64 @@ describe("the dotted line to where a tap leads", () => {
     expect(w.stroll.target).toEqual([1, -2]);
     w.stroll.stop();
     expect(w.stroll.target).toBeNull();
+  });
+});
+
+describe("the fastest anyone goes", () => {
+  it("is a run, and no way of moving on foot is faster", () => {
+    expect(TOP_SPEED).toBeCloseTo(WALK_SPEED * RUN);
+    // The keys with Shift, the intense way at a desk, and walking smoothly in a headset with the stick pressed in.
+    expect(WALK_SPEED * SPRINT).toBeLessThanOrEqual(TOP_SPEED);
+    expect(HEADSET_WALK * RUN_FACTOR).toBeLessThanOrEqual(TOP_SPEED);
+  });
+
+  it("holds for a tap however fast the taps come", () => {
+    const { at, stroll } = walker();
+    // Ten seconds of tapping as far ahead as a tap reaches, four times a second: running the whole way.
+    for (let i = 0; i < 600; i++) {
+      if (i % 15 === 0) stroll.to(at[0] + TAP_REACH, 0, true);
+      stroll.update(1 / 60);
+    }
+    expect(at[0]).toBeLessThanOrEqual(TOP_SPEED * 10 + 0.01);
+  });
+});
+
+describe("stepping, as a headset moves", () => {
+  it("lands at once and is paid for afterwards: the next step waits as long as running there would have taken", () => {
+    let t = 0;
+    const pace = createStepPace({ now: () => t });
+    expect(pace.ready).toBe(true);
+    expect(pace.take(5)).toBe(true);
+    expect(pace.ready).toBe(false);
+    expect(pace.wait).toBeCloseTo(5 / TOP_SPEED);
+    // Pressing again and again does nothing, and costs nothing.
+    for (t = 100; t < 1100; t += 100) expect(pace.take(5)).toBe(false);
+    t = (5 / TOP_SPEED) * 1000;
+    expect(pace.ready).toBe(true);
+    expect(pace.take(1)).toBe(true);
+    expect(pace.wait).toBeCloseTo(1 / TOP_SPEED);
+  });
+
+  it("covers ground no faster than a run, however fast the presses come", () => {
+    let t = 0;
+    let gone = 0;
+    const pace = createStepPace({ now: () => t });
+    // A minute of pressing twenty times a second for the longest step there is.
+    for (t = 0; t <= 60_000; t += 50) if (pace.take(5)) gone += 5;
+    // One step's head start, and nothing more.
+    expect(gone).toBeLessThanOrEqual(TOP_SPEED * 60 + 5);
+    expect(gone).toBeGreaterThan(TOP_SPEED * 60 * 0.9);
+  });
+
+  it("is ready again almost at once after a short step, and never held up by nonsense", () => {
+    let t = 0;
+    const pace = createStepPace({ now: () => t });
+    expect(pace.take(0.5)).toBe(true);
+    t = 130;
+    expect(pace.take(0.5)).toBe(true);
+    t = 10_000;
+    expect(pace.take(Number.NaN)).toBe(true);
+    expect(pace.take(-3)).toBe(true);
+    expect(pace.ready).toBe(true);
   });
 });

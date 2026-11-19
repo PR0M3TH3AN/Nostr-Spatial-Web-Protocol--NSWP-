@@ -159,6 +159,21 @@ visitor's own key, or readable by anyone outside the room.
 - **Personal space.** The reference client fades a figure out between 0.9 m
   and 0.45 m from the visitor's head, and moves a newcomer who appears within
   1 m to 1.4 m away. A person in a headset is never moved against their will.
+- **Nobody outruns a run.** However a visitor moves (keys, a mouse, a
+  finger on a phone, a headset's sticks or its steps), they cover ground no
+  faster than someone running. The reference kit walks at 2.4 m a second and
+  runs at 1.75 times that, 4.2 m a second, and nothing is faster:
+  - On a flat screen a press on the floor is a walk to that spot, a few
+    metres off at most, on a phone as at a desk. It is never a jump, whether
+    or not the visitor has asked for less motion.
+  - In a headset the casual way to move is a step that lands at once, since
+    a slide there turns stomachs. It is paid for after it is taken: the next
+    step may not land until a runner would have covered the same ground. A
+    reader shows when a press would do nothing.
+  This is each visitor's own page keeping to a pace, for the sake of the
+  others. A room is a mesh with nobody in charge, so nothing stops someone
+  who changes their own page: it is what an honest client does, like saying
+  when it records.
 - **Names.** A guest is shown as `Guest` and the first four hex digits of
   their session key. Only a member whose pass has checked out is shown by a
   name of their own, and their key is one action away

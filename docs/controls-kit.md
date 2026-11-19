@@ -797,7 +797,40 @@ of them.
 | Intense, at a desk | Shift | Space |
 | A touch screen | Two taps on the floor | The Jump control, with the ones always at hand |
 | Intense, in a headset | Press the moving stick in; it lasts until the stick is let go | A or X |
-| Casual, in a headset | Nothing to speed up: they move a step at a time | A or X |
+| Casual, in a headset | Nothing to speed up: they move a step at a time, at the pace of a run | A or X |
+
+### Nobody outruns a run
+
+`TOP_SPEED` is the fastest anyone goes on foot: a run, 4.2 m a second. Every
+way of moving the kit gives keeps to it, so nobody in a room has an edge
+from what they hold or wear ([NSWP-06](../protocol/06-rooms.md), "What a
+client owes the people in a room"). Two things in your own boot code keep it
+true:
+
+- **A press on the floor is always a walk on a flat screen:**
+  `stroll.to(...reachOf(...))`, on a phone as at a desk, whether Motion is on
+  or off. Never move a visitor there at once outside a headset. A phone that
+  asks for less motion used to get an instant step of up to six metres for
+  every tap, and tapping fast was many times a run.
+- **A step in a headset is paced:**
+
+```js
+const pace = createStepPace();
+// a step is asked for, by a press on the floor or a stick let go:
+if (renderer.xr.isPresenting) {
+  if (!pace.take(distance)) return;   // too soon: the last step is still being paid for
+  moveTowards(spot.x, spot.z);
+}
+// each frame: dim the ring on the floor while a press would do nothing
+reticle.material.opacity = pace.ready ? 0.8 : 0.22;
+// and give it to the kit's input layer, so a step backwards with a stick is paced too
+createXrInput({ ..., pace });
+```
+
+A short step is ready again almost at once; the longest waits a little over
+a second. It is your visitors' own pages that keep to this, so it is a
+courtesy every honest world extends, not a guard against someone who has
+changed their own page.
 
 ```js
 import { addJump, RUN } from "nswp-sdk/three";

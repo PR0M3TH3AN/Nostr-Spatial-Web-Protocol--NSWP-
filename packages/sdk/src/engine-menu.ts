@@ -28,7 +28,7 @@ import { DOOR_REACH, PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WI
 import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
-import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, WALK_SPEED } from "./stroll.js";
+import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
@@ -69,6 +69,8 @@ const doors = new Map<string, string>();
 export function kit(): string {
   return JSON.stringify({
     walkSpeed: WALK_SPEED,
+    // The fastest anyone goes on foot: a run. However an engine moves its visitor, never faster than this.
+    topSpeed: TOP_SPEED,
     tapReach: TAP_REACH,
     sprint: SPRINT,
     // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.

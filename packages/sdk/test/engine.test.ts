@@ -16,6 +16,9 @@ describe("what another engine takes from the kit", () => {
     const k = JSON.parse(kit());
     expect(k).toMatchObject({ walkSpeed: WALK_SPEED, tapReach: TAP_REACH, sprint: SPRINT, dragLook: DRAG_LOOK, lookSpeed: LOOK_SPEED, pitchLimit: PITCH_LIMIT, gateWidth: PORTAL_WIDTH, gateHeight: PORTAL_HEIGHT });
     expect(k.gateSpring).toBeCloseTo(PORTAL_HEIGHT - PORTAL_WIDTH / 2, 9);
+    // The fastest anyone goes on foot, for an engine to keep to: a run.
+    expect(k.topSpeed).toBeCloseTo(WALK_SPEED * SPRINT, 9);
+    expect(godot("nswp.gd")).toContain(`"topSpeed": ${k.topSpeed}`);
     expect(k.cues).toEqual([...CUES]);
   });
 
