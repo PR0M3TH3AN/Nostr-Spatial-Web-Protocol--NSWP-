@@ -33,6 +33,7 @@ import {
   cleanKit,
   cleanLevels,
   nextVariant,
+  pieceName,
   stepShape,
   type StepShape,
   type KitSounds,
@@ -115,6 +116,13 @@ export interface Sounds {
   onChange(fn: (levels: SoundLevels) => void): () => void;
   /** What the place's music is: the world's own, the kit's recorded default, the one made in the browser, or none. */
   readonly music: "world" | "kit" | "made" | "none";
+  /**
+   * The piece of the place's music that is playing now, by name (its file's name), and how many pieces the place
+   * has. Null when the place has none, when it is made in the browser, and before any has begun.
+   */
+  readonly piece: { name: string; of: number } | null;
+  /** Go on to the place's next piece now. Returns false when there is only one, or none. */
+  nextPiece(): boolean;
   /** Whether this place has a hum to hear. */
   readonly hasHum: boolean;
   /** How loud everything going out is right now, from 0. For tests. */
@@ -374,7 +382,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
    * into itself. Each is played as it arrives, not held whole in memory: a minute of music held whole is tens of
    * megabytes, and a headset or a phone has better uses for them.
    */
-  const loopPlayer = (tracks: string[], into: AudioNode, opts: { fade?: number; gain?: number; onFail?: () => void } = {}) => {
+  const loopPlayer = (tracks: string[], into: AudioNode, opts: { fade?: number; gain?: number; onFail?: () => void; onTurn?: () => void } = {}) => {
     const fade = opts.fade ?? 2;
     const out = ctx.createGain();
     out.gain.value = opts.gain ?? 1;
@@ -391,6 +399,8 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     const decks = [deck(), deck()];
     let active = 0;
     let index = 0;
+    /** The piece that is heard: it changes when the next has begun, not when it was asked for. */
+    let heard = 0;
     let turning = false;
     let stopped = false;
     const curve = (rising: boolean) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(((k / 31) * Math.PI) / 2));
@@ -410,6 +420,8 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
           from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
           to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
           active = 1 - active;
+          heard = index;
+          opts.onTurn?.();
           setTimeout(() => {
             from.audio.pause();
             turning = false;
@@ -455,11 +467,26 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       get index() {
         return index;
       },
+      /** Where the piece that is heard now is kept. */
+      get now() {
+        return tracks[heard]!;
+      },
+      get count() {
+        return tracks.length;
+      },
+      /** Hand on to the next piece now. */
+      next() {
+        if (tracks.length < 2 || turning || stopped) return false;
+        turn();
+        return true;
+      },
     };
   };
 
   let kind: Sounds["music"] = theme.music === null ? "none" : theme.music ? "world" : "made";
   let stopMusic: (() => void) | null = null;
+  /** The place's recorded music, while it is playing: which piece, and the way on to the next. */
+  let pieces: { readonly now: string; readonly count: number; next(): boolean } | null = null;
   let stopHum: (() => void) | null = null;
   let humAddress: string | null = null;
   let musicAsked = false;
@@ -479,15 +506,20 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       if (theme.music === null) return;
       if (tracks) {
         // A piece that can't be played here (a kind of file this browser doesn't know) gives way to the made one.
-        stopMusic = loopPlayer(tracks, placeMusic, {
+        const player = loopPlayer(tracks, placeMusic, {
           gain: 0.6,
+          onTurn: () => changed(),
           onFail: () => {
             stopMusic?.();
+            pieces = null;
             kind = "made";
             stopMusic = madeMusic();
             changed();
           },
-        }).stop;
+        });
+        pieces = player;
+        stopMusic = player.stop;
+        changed();
         return;
       }
       stopMusic = madeMusic();
@@ -676,6 +708,12 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     get music() {
       return kind;
     },
+    get piece() {
+      return pieces ? { name: pieceName(pieces.now), of: pieces.count } : null;
+    },
+    nextPiece() {
+      return pieces?.next() ?? false;
+    },
     get hasHum() {
       return !!humAddress;
     },
@@ -776,6 +814,24 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
     },
     level("sound-effects", "Effects", "effects"),
     level("sound-music", "Music", "music"),
+    {
+      // What the place is playing, by name, so a visitor can say which piece they mean. Pressing goes on to the next.
+      id: "sound-piece",
+      section: "sound",
+      icon: "note",
+      hidden: () => sounds.music === "none" || sounds.music === "made" || !sounds.piece,
+      label: () => {
+        const p = sounds.piece;
+        if (!p) return "This place's music";
+        return `Playing here: ${p.name}${p.of > 1 ? `. Next of ${p.of}` : ""}`;
+      },
+      act: () => {
+        const p = sounds.piece;
+        if (!p) return;
+        if (sounds.nextPiece()) controls.say(`Going on from ${p.name} to this place's next piece.`);
+        else controls.say(`${p.name} is the only piece this place has. Music: off, above, silences it.`);
+      },
+    },
     level("sound-voices", "Voices", "voices"),
     {
       id: "sound-hum",

@@ -93,9 +93,8 @@ export const DESK_KEY = "nswp:fps";
 export const DESK_WORDS = {
   intense: "Desk controls: intense",
   casual: "Desk controls: casual",
-  nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
+  nowIntense: "Intense: the mouse looks round. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
   nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
-  click: "Click the view to look round. Escape brings up the menu.",
 } as const;
 /**
  * A way of moving that needs a mouse is not offered where there isn't one, or to a visitor who arrived using
@@ -167,7 +166,7 @@ export function createFps(o: FpsOptions): Fps {
   let pitch = 0;
   let weLetGo = false;
   let closedAt = -1;
-  let told = false;
+  let shown = false;
   const looking = () => document.pointerLockElement === o.dom;
   const active = () => enabled && !o.presenting();
 
@@ -193,8 +192,13 @@ export function createFps(o: FpsOptions): Fps {
     document.exitPointerLock();
   };
 
+  // A browser gives a page the pointer only after a press, and a visitor who has just arrived from another world
+  // has pressed nothing here yet. They are still moving the intense way: the mouse looks round at once, over the
+  // view, with the pointer hidden. The pointer itself is taken at their first key or click, without their being
+  // asked for either. So nobody is put back to the casual way by going through a door.
+  const free = (e: MouseEvent) => !looking() && !o.hud?.open && e.target === o.dom && e.buttons === 0;
   const onMove = (e: MouseEvent) => {
-    if (!active() || !looking()) return;
+    if (!active() || !(looking() || free(e))) return;
     const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY);
     o.rig.rotation.y = next.yaw;
     pitch = next.pitch;
@@ -207,7 +211,6 @@ export function createFps(o: FpsOptions): Fps {
     else look();
   };
   const onLock = () => {
-    dot.style.display = looking() ? "block" : "none";
     if (looking()) return;
     for (const k of Object.keys(held) as (keyof Held)[]) held[k] = false;
     // The pointer came back without our asking: the visitor pressed Escape, and Escape is the menu.
@@ -229,6 +232,8 @@ export function createFps(o: FpsOptions): Fps {
       return;
     }
     if (o.hud?.open) return;
+    // Any key is a press as far as a browser is concerned: the pointer is taken now, so nothing need be clicked.
+    if (!looking() && !e.repeat) look();
     const which = heldKey(e.code);
     if (which) {
       held[which] = true;
@@ -282,6 +287,8 @@ export function createFps(o: FpsOptions): Fps {
       pitch = 0;
       o.camera.rotation.x = 0;
       onBlur();
+      dot.style.display = "none";
+      o.dom.style.cursor = "";
     }
     onFullscreen();
   };
@@ -312,13 +319,21 @@ export function createFps(o: FpsOptions): Fps {
     update(dt) {
       if (!active()) {
         if (looking()) letGo();
+        if (shown) {
+          shown = false;
+          dot.style.display = "none";
+          o.dom.style.cursor = "";
+        }
         return false;
       }
-      // Said once, to someone who has it on and hasn't clicked yet: nothing happens until they do.
-      if (!told && !looking() && !o.hud?.open) {
-        told = true;
-        o.controls.say(DESK_WORDS.click);
+      // The middle of the view is what they point with, whether or not the browser has given the pointer over
+      // yet: the dot is there and the pointer's own picture is not, except while the menu needs it.
+      const aiming = !o.hud?.open;
+      if (aiming !== shown) {
+        shown = aiming;
+        dot.style.display = aiming ? "block" : "none";
       }
+      o.dom.style.cursor = aiming ? "none" : "";
       if (o.hud?.open) return true;
       const [dx, dz] = strideOf(held, o.rig.rotation.y, o.speed ?? 2.4, dt);
       if (!dx && !dz) return true;

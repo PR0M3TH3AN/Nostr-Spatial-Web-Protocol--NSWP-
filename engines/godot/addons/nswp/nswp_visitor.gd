@@ -6,8 +6,9 @@ extends CharacterBody3D
 ##
 ## - **Casual.** Click or tap the floor to walk there, a few steps at a time: twice to run.
 ##   Drag to look round. W, A, S, D and the arrows walk too.
-## - **Intense.** Click the view and the mouse looks round. W, A, S, D walk, F uses what is
-##   in the middle of the view, and Escape brings up the menu.
+## - **Intense.** The mouse looks round. W, A, S, D walk, F uses what is in the middle of
+##   the view, and Escape brings up the menu. A visitor who arrives moving this way is
+##   moving this way at once, with nothing to click first.
 ##
 ## Either way, Shift runs and Space jumps. Where there is no keyboard, two taps run and the
 ## menu's Jump control jumps.
@@ -77,6 +78,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	flat_camera.position.y = eye_height
+	_show_pointer()
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
 	Nswp.jump_pressed.connect(jump)
@@ -121,14 +123,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		_casual_input(event)
 
 
+## Moving the intense way, the mouse looks round whether or not the browser has given the page
+## the pointer yet. A browser gives it only after a press, and a visitor who has just come
+## through a door has pressed nothing here: they are not put back to the casual way for that.
+## The pointer is hidden over the view, and taken at their first key or click.
 func _intense_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# The first click takes the pointer; from then on a click uses what is in the middle of the view.
+		# A click uses what is in the middle of the view, and takes the pointer if the page hasn't got it.
 		if looking():
 			_use()
 		else:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif event is InputEventMouseMotion and looking():
+	elif event is InputEventKey and event.pressed and not event.echo and not looking() and event.physical_keycode != KEY_ESCAPE:
+		# Any key is a press as far as a browser is concerned: nothing need be clicked.
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if event.physical_keycode == KEY_F:
+			_use()
+	elif event is InputEventMouseMotion and (looking() or event.button_mask == 0):
 		var speed := float(Nswp.kit.lookSpeed)
 		var limit := float(Nswp.kit.pitchLimit)
 		rotate_y(-event.relative.x * speed)
@@ -259,8 +270,8 @@ func _physics_process(delta: float) -> void:
 			# No further in a frame than is left to go, so they stop on the spot and not past it.
 			var pace := minf(speed, left.length() / maxf(delta, 0.001))
 			wish = Vector3(left.x, 0.0, left.y).normalized() * pace
-	# While the mouse is looking round, what is pointed at is whatever the middle of the view is on.
-	if intense() and looking():
+	# Moving the intense way, what is pointed at is whatever the middle of the view is on.
+	if intense() and not Nswp.menu_open:
 		_point(_under(get_viewport().get_visible_rect().size / 2.0))
 
 	velocity.x = wish.x
@@ -291,9 +302,9 @@ func _on_moving_changed(_moving: String) -> void:
 	_heading = null
 	_pressed = false
 	if not intense():
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_pitch = 0.0
 		flat_camera.rotation.x = 0.0
+	_show_pointer()
 	_point(null)
 
 
@@ -302,6 +313,16 @@ func _on_menu_toggled(open: bool) -> void:
 		# The pointer is needed for the menu.
 		_heading = null
 		_pressed = false
+	_show_pointer()
+
+
+## The pointer's own picture: there moving the casual way and while the menu is up, and not
+## there moving the intense way, where the middle of the view is what points.
+func _show_pointer() -> void:
+	if intense() and not Nswp.menu_open:
+		if not looking():
+			Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 

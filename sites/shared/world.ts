@@ -351,14 +351,20 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Whether the visitor is in the room here, and heard: it goes with them, so the next place needn't ask again.
   let travelling = (): { joined: boolean; mic: boolean; blocked: string[] } => ({ joined: false, mic: false, blocked: [] });
   let movingNow = (): "intense" | "casual" => "casual";
-  const go = async (i: number) => {
+  /**
+   * Through a door. Chosen from where they stand (a click, a trigger, the menu), the crossing's room comes up round
+   * them first, naming where the door says it leads. Walked into, there is nothing to bring up: they are already
+   * going through it, so they go. Either way their Airlock shows the real address next, and the room they step out
+   * of at the other end is the same.
+   */
+  const go = async (i: number, how: "chosen" | "walked" = "chosen") => {
     const g = gates[i];
     if (!g || state.leaving) return;
     state.leaving = true;
+    state.left = how;
     stroll.stop();
     sounds.play("cross");
-    // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
-    await crossing.leave({ title: g.door.label, address: host(g.place.url) });
+    if (how === "chosen") await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
     await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling(), moving: movingNow() });
   };
@@ -833,8 +839,6 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
         }
       }
       xrConsole.aim(button);
-      const through = walkedInto();
-      if (through >= 0) void go(through);
     } else {
       // Game controls have the visitor's movement when they are on, and aim from the middle of the view.
       if (fps!.update(dt)) pointer.set(0, 0);
@@ -845,8 +849,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       raycaster.setFromCamera(pointer, camera);
       panelAimed = panels!.pick(raycaster);
       aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
-      renderer.domElement.style.cursor = aimed >= 0 || panelAimed ? "pointer" : "grab";
+      // Moving the intense way, the pointer's picture is the kit's to hide: the middle of the view is what points.
+      if (!fps!.enabled) renderer.domElement.style.cursor = aimed >= 0 || panelAimed ? "pointer" : "grab";
     }
+    // Walking into a doorway goes through it, on foot or in a headset, with nothing brought up first.
+    const through = state.ready ? walkedInto() : -1;
+    if (through >= 0) void go(through, "walked");
     panels!.aim(panelAimed);
     xrConsole.update(dt, camera, renderer.xr.isPresenting);
     // The console's own button sits where the keyboard comes up, and shows through it: away while typing.
