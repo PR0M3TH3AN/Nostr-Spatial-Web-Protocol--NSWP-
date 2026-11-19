@@ -3685,6 +3685,8 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/settings.js
+  var LOOK_RANGE = [0.25, 3];
+  var FOV_RANGE = [50, 110];
   var SETTINGS_LINK_LIMIT = 400;
   var level = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : void 0;
   function cleanSettings(input) {
@@ -3721,6 +3723,12 @@ var NSWP = (() => {
       out.narrow = s.narrow;
     if (typeof s.full === "boolean")
       out.full = s.full;
+    if (typeof s.intense === "boolean")
+      out.intense = s.intense;
+    if (typeof s.look === "number" && Number.isFinite(s.look))
+      out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
+    if (typeof s.fov === "number" && Number.isFinite(s.fov))
+      out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
@@ -4310,11 +4318,29 @@ var NSWP = (() => {
   // packages/sdk/src/ui/fullscreen.ts
   var resumed = false;
   var waiting = false;
+  var FULL_KEY = "nswp:full";
+  var prefers = false;
+  var keepFull = (on) => {
+    prefers = on;
+    try {
+      if (on) localStorage.setItem(FULL_KEY, "1");
+      else localStorage.removeItem(FULL_KEY);
+    } catch {
+    }
+  };
   function resumeFullscreen(presenting = () => false) {
     if (resumed || typeof document === "undefined") return;
     resumed = true;
-    reportSettings("screen", () => ({ full: !!document.fullscreenElement || waiting }));
-    waiting = arrivedSettings().full === true && document.fullscreenEnabled && !document.fullscreenElement;
+    const came = arrivedSettings().full;
+    let kept = false;
+    try {
+      kept = localStorage.getItem(FULL_KEY) === "1";
+    } catch {
+    }
+    if (came === void 0) prefers = kept;
+    else keepFull(came);
+    reportSettings("screen", () => ({ full: prefers }));
+    waiting = prefers && document.fullscreenEnabled && !document.fullscreenElement;
     if (!waiting) return;
     const presses = ["keydown", "pointerdown", "pointerup", "touchend"];
     const stop = () => {
@@ -4342,17 +4368,23 @@ var NSWP = (() => {
       id: "fullscreen",
       section: "view",
       icon: "size",
-      on: () => !!document.fullscreenElement,
+      on: () => prefers,
       // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
       hidden: () => !document.fullscreenEnabled || presenting(),
-      label: () => document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off",
+      // It says what they prefer, in every world, and whether the screen is filled just now.
+      label: () => !prefers ? "Fullscreen: off" : document.fullscreenElement ? "Fullscreen: on, in every world" : "Fullscreen: on, in every world. Press to fill the screen again",
       act: async () => {
+        const fill = !document.fullscreenElement;
+        if (!fill) keepFull(false);
         try {
-          if (document.fullscreenElement) await document.exitFullscreen();
-          else await document.documentElement.requestFullscreen();
+          if (fill) {
+            await document.documentElement.requestFullscreen();
+            keepFull(true);
+          } else await document.exitFullscreen();
         } catch {
           controls2.say("This browser wouldn't go fullscreen.");
         }
+        controls2.setTarget("");
       }
     };
   }
@@ -4647,6 +4679,94 @@ var NSWP = (() => {
     go2.focus();
   }
 
+  // packages/sdk/src/desk.ts
+  var DESK_PREFS_KEY = "nswp:desk";
+  var LOOK_STEPS = [
+    { value: 0.5, word: "slow" },
+    { value: 0.75, word: "gentle" },
+    { value: 1, word: "normal" },
+    { value: 1.5, word: "quick" },
+    { value: 2, word: "fast" },
+    { value: 3, word: "fastest" }
+  ];
+  var FOV_STEPS = [null, 60, 70, 80, 90, 100, 110];
+  var clampLook = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v)) * 100) / 100 : 1;
+  var clampFov = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v))) : null;
+  var prefs = null;
+  var watchers = /* @__PURE__ */ new Set();
+  var keep = (p) => {
+    try {
+      localStorage.setItem(DESK_PREFS_KEY, JSON.stringify(p));
+    } catch {
+    }
+  };
+  function load() {
+    if (prefs) return prefs;
+    let kept = {};
+    try {
+      kept = JSON.parse(localStorage.getItem(DESK_PREFS_KEY) ?? "{}") ?? {};
+    } catch {
+    }
+    const came = arrivedSettings();
+    prefs = { look: clampLook(came.look ?? kept.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept.fov) };
+    if (came.look !== void 0 || came.fov !== void 0) keep(prefs);
+    reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
+    return prefs;
+  }
+  var change = (next) => {
+    prefs = next;
+    keep(next);
+    for (const w of watchers) w();
+  };
+  var lookScale = () => load().look;
+  var setLookScale = (v) => change({ ...load(), look: clampLook(v) });
+  var visitorFov = () => currentForm() === "desk" ? load().fov : null;
+  var setVisitorFov = (v) => change({ ...load(), fov: v === null ? null : clampFov(v) });
+  function onDeskChange(cb) {
+    watchers.add(cb);
+    return () => void watchers.delete(cb);
+  }
+  var after = (steps, at) => steps[(at + 1) % steps.length];
+  function addDeskControls(controls2, o) {
+    const lookAt = () => {
+      const now = lookScale();
+      let best = 0;
+      LOOK_STEPS.forEach((s, i) => {
+        if (Math.abs(s.value - now) < Math.abs(LOOK_STEPS[best].value - now)) best = i;
+      });
+      return best;
+    };
+    controls2.add(
+      {
+        id: "look-speed",
+        section: "moving",
+        icon: "turn",
+        hidden: o.presenting,
+        label: () => `Look speed: ${LOOK_STEPS[lookAt()].word}`,
+        short: "Look speed",
+        act: () => {
+          setLookScale(after(LOOK_STEPS, lookAt()).value);
+          controls2.say(`Look speed: ${LOOK_STEPS[lookAt()].word}. It is the same in every world.`);
+        }
+      },
+      {
+        id: "fov",
+        section: "view",
+        icon: "size",
+        // A touch screen's view is fitted to its window by the world, and a headset has its own.
+        hidden: () => o.presenting() || currentForm() !== "desk",
+        label: () => load().fov === null ? "Field of view: this world's own" : `Field of view: ${load().fov}\xB0`,
+        short: "View width",
+        act: () => {
+          const at = FOV_STEPS.indexOf(load().fov);
+          setVisitorFov(after(FOV_STEPS, at === -1 ? 0 : at));
+          controls2.say(load().fov === null ? "Field of view: each world's own." : `Field of view: ${load().fov}\xB0, in every world.`);
+        }
+      }
+    );
+    onDeskChange(() => controls2.setTarget(""));
+  }
+
   // packages/sdk/src/stroll.ts
   var WALK_SPEED = 2.4;
   var RUN = 1.75;
@@ -4668,6 +4788,8 @@ var NSWP = (() => {
   var hasMouse = () => startingForm() === "desk";
   function startsIntense(arrived3, key = DESK_KEY) {
     if (!hasMouse()) return false;
+    const prefers2 = arrivedSettings().intense;
+    if (typeof prefers2 === "boolean") return prefers2;
     try {
       return arrived3 || localStorage.getItem(key) === "1";
     } catch {
@@ -6348,12 +6470,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }).finally(changed);
         return true;
       },
-      setTheme(patch, keep2 = false) {
-        if (keep2) {
+      setTheme(patch, keep3 = false) {
+        if (keep3) {
           visitor = { ...visitor, ...patch };
           saveVisitorTheme(visitor);
         }
-        theme = resolveTheme({ ...opts.theme, ...keep2 ? {} : patch }, visitor);
+        theme = resolveTheme({ ...opts.theme, ...keep3 ? {} : patch }, visitor);
         changed();
       },
       view() {
@@ -6399,20 +6521,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return () => sayers.delete(fn);
       }
     };
-    const keep = (patch) => controls2.setTheme(patch, true);
+    const keep2 = (patch) => controls2.setTheme(patch, true);
     controls2.add(
       ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep({ accent: p.accent }) })
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep2({ accent: p.accent }) })
       ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep({ motion: !theme.motion }) },
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep2({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep2({ motion: !theme.motion }) },
       {
         id: "look-wrist",
         section: "look",
         icon: "menu",
         label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
         on: () => theme.wrist !== "off",
-        act: () => keep({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+        act: () => keep2({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
       },
       { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
         visitor = {};
@@ -6448,8 +6570,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       walkSpeed: WALK_SPEED,
       tapReach: TAP_REACH,
       sprint: SPRINT,
-      dragLook: DRAG_LOOK,
-      lookSpeed: LOOK_SPEED,
+      // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.
+      dragLook: DRAG_LOOK * lookScale(),
+      lookSpeed: LOOK_SPEED * lookScale(),
+      // How wide they asked to see at a desk, in degrees top to bottom, or 0 for the world's own.
+      fov: visitorFov() ?? 0,
       pitchLimit: PITCH_LIMIT,
       doubleTap: DOUBLE_TAP,
       jumpHeight: JUMP_HEIGHT,
@@ -6500,6 +6625,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
     const context = arrival.read().context;
     moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
+    if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
     c.add({
       id: "fps",
       section: "moving",
@@ -6539,6 +6665,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       fullscreenAction(c, () => vr.presenting)
     );
+    addDeskControls(c, { presenting: () => vr.presenting });
     document.addEventListener("fullscreenchange", () => c.setTarget(""));
     c.addSection({
       id: "help",

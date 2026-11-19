@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addPanelControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addPanelControls, addRoomControls, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -582,7 +582,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   renderer.domElement.addEventListener("pointerleave", () => pointer.set(2, 2));
   addEventListener("pointermove", (e) => {
     if (dragging && !renderer.xr.isPresenting) {
-      rig.rotation.y += (e.clientX - lastX) * DRAG_LOOK;
+      rig.rotation.y += (e.clientX - lastX) * DRAG_LOOK * lookScale();
       moved += Math.abs(e.clientX - lastX);
       lastX = e.clientX;
     }

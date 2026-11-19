@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildAirlockUrl, buildWayUrl, cleanSettings, decodeArrival, decodeSettings, encodeArrival, encodeSettings, parseAirlockFragment, SETTINGS_LINK_LIMIT, wayWithoutDestination, type TravelSettings } from "../src/index.js";
 
-const mine: TravelSettings = { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true };
+const mine: TravelSettings = { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true, intense: true, look: 1.5, fov: 90 };
 
 describe("settings that travel", () => {
   it("keeps what it knows and is in range, and leaves out the rest", () => {
@@ -48,5 +48,12 @@ describe("settings that travel", () => {
     const odd = decodeArrival(Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", settings: { theme: "dark" } })).toString("base64url"));
     expect(odd.ok && odd.value.settings).toBeUndefined();
     expect(odd.warnings.map((w) => w.code)).toContain("invalid_settings");
+  });
+
+  it("keeps what a visitor prefers at a desk within what a world can do with it", () => {
+    expect(cleanSettings({ intense: true, look: 9, fov: 170 })).toEqual({ intense: true, look: 3, fov: 110 });
+    expect(cleanSettings({ intense: "yes", look: 0, fov: 12.4 })).toEqual({ look: 0.25, fov: 50 });
+    expect(cleanSettings({ look: "fast", fov: null })).toEqual({});
+    expect(cleanSettings({ fov: 84.6 })).toEqual({ fov: 85 });
   });
 });

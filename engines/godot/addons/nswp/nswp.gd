@@ -168,6 +168,10 @@ func _process(_delta: float) -> void:
 			"vr":
 				vr_pressed.emit(bool(event.get("enter", true)))
 			"changed":
+				# The visitor may have changed how fast the view turns or how wide they see: the numbers are read again.
+				var again: Variant = JSON.parse_string(str(_js.kit()))
+				if typeof(again) == TYPE_DICTIONARY:
+					kit.merge(again, true)
 				console_changed.emit()
 			"jump":
 				jump_pressed.emit()

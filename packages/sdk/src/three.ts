@@ -24,6 +24,7 @@ export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { addDeskControls, watchFov } from "./desk.js";
 import { figureAction, identityAction, identityHost, identitySection, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
@@ -1607,6 +1608,8 @@ export async function addViewControls(
      * way), so they come back as they left. The headset session is added here.
      */
     leaving?: (to: { title: string; address: string }) => GoOptions | Promise<GoOptions>;
+    /** False for a world that sets its camera's width itself, and so applies the visitor's own (`watchFov`, `visitorFov`). */
+    fov?: boolean;
   },
 ): Promise<boolean> {
   const xr = navigator.xr;
@@ -1668,6 +1671,10 @@ export async function addViewControls(
     { id: "turn", section: "view", icon: "turn", label: "Turn around", act: () => turnVisitor(d.rig, d.camera, 180) },
     fullscreenAction(controls, presenting),
   );
+  // How fast the view turns under their hand, and how wide they see at a desk: theirs, and the same in every world.
+  addDeskControls(controls, { presenting });
+  // The camera is kept as wide as they asked. A world that fits its own view to the window keeps its own watch.
+  if (d.fov !== false && (d.camera as THREE.PerspectiveCamera).isPerspectiveCamera) watchFov(d.camera as THREE.PerspectiveCamera, { presenting });
   // Who they are here, and the way to sign in: their own client's to ask, so this leaves for it and comes back
   // (ui/identity.ts). A world that has put its own control there keeps it, and a place with no client to go back
   // to (a client's own room, a world opened by itself with no Airlock named) has none.
@@ -1700,7 +1707,8 @@ export { DOOR_REACH } from "./gate-size.js";
 export { addJump, createJump, JUMP_GRAVITY, JUMP_HEIGHT, JUMP_SPEED, type AddJumpOptions, type Jump } from "./jump.js";
 export { viewScale } from "./sign.js";
 export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
-export { fullscreenWaiting, resumeFullscreen } from "./ui/fullscreen.js";
+export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
+export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
 export { figureAction, identityAction, identityHost, identitySection, identityWords, type Leaving } from "./ui/identity.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";

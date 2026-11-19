@@ -94,8 +94,20 @@ func _ready() -> void:
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
 	Nswp.jump_pressed.connect(jump)
+	# How wide the visitor asked to see at a desk, in every world. Left alone, it is this world's own.
+	_own_fov = flat_camera.fov
+	Nswp.console_changed.connect(_apply_fov)
+	_apply_fov()
 	if headset:
 		_setup_headset()
+
+
+var _own_fov := 75.0
+
+
+func _apply_fov() -> void:
+	var asked := float(Nswp.kit.get("fov", 0.0))
+	flat_camera.fov = asked if asked > 0.0 else _own_fov
 
 
 func _exit_tree() -> void:

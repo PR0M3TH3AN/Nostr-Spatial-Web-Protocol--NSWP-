@@ -41,7 +41,10 @@
         "turn": { "enum": [30, 45, 90] },
         "hand": { "enum": ["left", "right"] },
         "narrow": { "type": "boolean" },
-        "full": { "type": "boolean", "description": "They had the world filling their screen." }
+        "full": { "type": "boolean", "description": "They prefer the world filling their screen." },
+        "intense": { "type": "boolean", "description": "They prefer the intense way of moving at a desk." },
+        "look": { "type": "number", "minimum": 0.25, "maximum": 3, "description": "How fast the view turns under a mouse or a finger, 1 being normal." },
+        "fov": { "type": "integer", "minimum": 50, "maximum": 110, "description": "How wide they see at a desk, top to bottom, in degrees." }
       }
     },
     "blocked": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "description": "Identity keys of people the visitor has blocked: their own client's list. The world connects them to nobody on it for this visit, and does not keep it." },

@@ -23,7 +23,9 @@
  * what the visitor finds, and a click on the view takes them in again.
  */
 import type * as THREE from "three";
+import { lookScale } from "./desk.js";
 import { startingForm } from "./form.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 import { RUN } from "./stroll.js";
 import type { Controls } from "./ui/model.js";
 
@@ -104,6 +106,9 @@ export const hasMouse = (): boolean => startingForm() === "desk";
 /** Whether a visitor starts out moving the intense way at a desk: they arrived so, or chose it here before. */
 export function startsIntense(arrived: boolean, key = DESK_KEY): boolean {
   if (!hasMouse()) return false;
+  // Their settings say which they prefer: that is it, either way, in place of what this site remembered.
+  const prefers = arrivedSettings().intense;
+  if (typeof prefers === "boolean") return prefers;
   try {
     return arrived || localStorage.getItem(key) === "1";
   } catch {
@@ -162,6 +167,12 @@ export function createFps(o: FpsOptions): Fps {
   const key = o.keep ?? DESK_KEY;
   const mouse = hasMouse();
   let enabled = startsIntense(o.arrived === true, key);
+  if (mouse) {
+    // What they arrived preferring is kept here too, and what they prefer now goes on with them. Where there is
+    // no mouse nothing is said, so the preference passes through a phone untouched.
+    if (typeof arrivedSettings().intense === "boolean" || o.arrived) keepIntense(enabled, key);
+    reportSettings("moving", () => ({ intense: enabled }));
+  }
   const held: Held = {};
   let pitch = 0;
   let weLetGo = false;
@@ -199,7 +210,7 @@ export function createFps(o: FpsOptions): Fps {
   const free = (e: MouseEvent) => !looking() && !o.hud?.open && e.target === o.dom && e.buttons === 0;
   const onMove = (e: MouseEvent) => {
     if (!active() || !(looking() || free(e))) return;
-    const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY);
+    const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY, LOOK_SPEED * lookScale());
     o.rig.rotation.y = next.yaw;
     pitch = next.pitch;
     o.camera.rotation.x = pitch;
