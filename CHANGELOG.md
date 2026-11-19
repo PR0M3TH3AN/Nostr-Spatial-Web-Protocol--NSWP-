@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.26.3
+
+The posting switch is where a visitor looks for it, before they have signed in to sign.
+
+- **"Post what I write as Nostr notes" is in the Room tab whenever there is a signer to post with,** unlocked or not. It was hidden until the visitor had pressed a separate row under You, and someone in a room, by name, with chat on, was given no hint that anything more was needed. Locked, it reads "sign in at bitlogin.network first", and pressing it opens that window. Once they have said yes there, posting is on: it is what they pressed.
+- **A signer that didn't answer is said so there too,** and on a development server the message names the copy's address and the one thing that helps: opening it once so the browser accepts its certificate.
+- **In the kit:** `RoomNotes` gains `locked`, `unlock`, `host` and `unanswered`; `signer.copy`; `unansweredWords()`.
+
 ## 0.26.2
 
 A visitor can post from their own client's room, where they are already signed in.

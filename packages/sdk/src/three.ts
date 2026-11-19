@@ -28,7 +28,7 @@ import { loadPicture, onPicturesChange, setShowsPictures, showsPictures } from "
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
-import { figureAction, identityAction, identityHost, identitySection, signerAction, worldSigner, type Leaving } from "./ui/identity.js";
+import { figureAction, identityAction, identityHost, identitySection, signerAction, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
@@ -1236,6 +1236,14 @@ export interface RoomNotes {
   sign(note: { kind: number; content: string; tags: string[][] }): Promise<NostrEvent | null>;
   /** Be told when `ready()` may have changed. */
   onChange?(fn: () => void): unknown;
+  /** A signer is there and the visitor hasn't unlocked it for this place: posting is offered, and leads there first. */
+  locked?(): boolean;
+  /** Start unlocking it, from a press. False if nothing could be opened. */
+  unlock?(): boolean;
+  /** Where that happens, as an address to name, or null. */
+  host?(): string | null;
+  /** A signer was named and didn't answer: then what to say about it. Null when that isn't so. */
+  unanswered?(): string | null;
 }
 
 export function addRoomControls(
@@ -1769,7 +1777,18 @@ export function addRoomControls(
   // unless the visitor has unlocked their signer here AND turned this on. Then each line they write is also a
   // public Nostr note, signed by their own client's signer and sent to relays from here. Off at every visit.
   let postsNotes = false;
-  const notes: RoomNotes = opts.notes ?? { ready: () => worldSigner().state === "unlocked", sign: (n) => worldSigner().sign(n), onChange: (fn) => worldSigner().onChange(fn) };
+  const notes: RoomNotes = opts.notes ?? {
+    ready: () => worldSigner().state === "unlocked",
+    sign: (n) => worldSigner().sign(n),
+    onChange: (fn) => worldSigner().onChange(fn),
+    locked: () => worldSigner().state === "locked",
+    unlock: () => worldSigner().unlock(),
+    host: () => worldSigner().host,
+    unanswered: () => (worldSigner().unanswered ? unansweredWords(worldSigner()) : null),
+  };
+  /** They pressed the posting row while the signer was locked: once it is unlocked, posting is what they asked for. */
+  let wantsNotes = false;
+  const POSTING_ON = "Each line you write here is now also posted to Nostr as a public note, signed as you. Anyone can read it, anywhere, and it can't be taken back.";
   const postNote = async (text: string) => {
     const words = cleanChat(text);
     const signed = await notes.sign({ kind: 1, content: words, tags: [] }).catch(() => null);
@@ -1782,6 +1801,11 @@ export function addRoomControls(
   };
   notes.onChange?.(() => {
     if (!notes.ready()) postsNotes = false;
+    else if (wantsNotes) {
+      wantsNotes = false;
+      postsNotes = true;
+      tell(POSTING_ON);
+    }
     refresh();
   });
 
@@ -1811,16 +1835,31 @@ export function addRoomControls(
       id: "room-chat-notes",
       section: "room",
       icon: "key",
-      label: () => (postsNotes ? "Post what I write as Nostr notes: on" : "Post what I write as Nostr notes: off"),
-      on: () => postsNotes,
-      // Only for someone who has unlocked their signer for this world, in a room, with chat on.
-      hidden: () => !presence.session || !showsChat() || !notes.ready(),
+      // It is here whenever there is a signer to post with, unlocked or not: a row that isn't there can't be
+      // found. Locked, it says what comes first, and pressing it starts that.
+      label: () => {
+        if (notes.ready()) return postsNotes ? "Post what I write as Nostr notes: on" : "Post what I write as Nostr notes: off";
+        const host = notes.host?.() ?? "your signer";
+        return notes.unanswered?.() ? `Posting as Nostr notes isn't available: ${host} didn't answer` : `Post what I write as Nostr notes: sign in at ${host} first`;
+      },
+      on: () => notes.ready() && postsNotes,
+      // In a room, with chat on, and with a signer that is ready, or could be, or was named and didn't answer.
+      hidden: () => !presence.session || !showsChat() || !(notes.ready() || notes.locked?.() || notes.unanswered?.()),
       act: () => {
-        postsNotes = !postsNotes;
+        if (notes.ready()) {
+          postsNotes = !postsNotes;
+          return tell(postsNotes ? POSTING_ON : "What you write stays in the room again.");
+        }
+        const why = notes.unanswered?.();
+        if (why) return tell(why);
+        const host = notes.host?.() ?? "your signer";
+        // A headset draws nothing but the world, so no window can open in one.
+        if (presence.presenting) return tell(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+        wantsNotes = !!notes.unlock?.();
         tell(
-          postsNotes
-            ? "Each line you write here is now also posted to Nostr as a public note, signed as you. Anyone can read it, anywhere, and it can't be taken back."
-            : "What you write stays in the room again.",
+          wantsNotes
+            ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then what you write here is posted as notes.`
+            : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`,
         );
       },
     },
