@@ -100,6 +100,9 @@ func _ready() -> void:
 
   In a session the visitor stands where they are: moving about in a headset
   isn't in this addon yet.
+- **The form they are in.** `Nswp.arrival.form` is `"touch"` or `"desk"`:
+  how they were using the last world, where this device can do the same.
+  Lay your own interface out by it. It goes on with them through a door.
 - **Who they were with.** Set `Nswp.joined` and `Nswp.mic` as they change,
   if your world has rooms of its own, and they go with the visitor to the
   next world. `Nswp.arrival` has the same as they arrived.
@@ -113,6 +116,7 @@ Everything above is a default.
 | The door's look | Use `NswpPortal` (an `Area3D` that goes through, with nothing drawn) and draw your own. Say on it where it leads: `Nswp.read_address(url).domain` is the part to show. |
 | The sounds | Pass your own to `Nswp.menu(title, accent, {"sounds": {...}})`, as in any world's settings ([`docs/controls-kit.md`](../../../../docs/controls-kit.md), "Sound"). A cue you don't name stays the default. |
 | How visitors move | Write your own. Put it in the group `visitor`, tell `Nswp.moved(metres)` how far it walked each frame so steps are heard, and read `Nswp.moving`, `Nswp.menu_open` and `Nswp.kit` so it agrees with the menu. |
+| How much room the menu takes | `Nswp.set_presence("quiet")` for one small mark in a corner, or `"hidden"` for nothing at all, when your game has an interface of its own. `Nswp.claim_keys(true)` takes every key for your game. The visitor can still bring the menu up with the key left of 1, or two fingers held still: that gesture is theirs in every world ([NSWP-11](../../../../protocol/11-the-visitors-console.md)), so never use it for anything else. Watch `Nswp.menu_toggled` and leave their input alone while it is up. |
 | The menu | Leave `Nswp.menu()` out and draw your own. You then owe the visitor the way home yourself (`Nswp.home()`), wherever they can reach it. |
 
 The numbers a visitor's body knows are in `Nswp.kit`: walking pace, how far
