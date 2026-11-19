@@ -125,6 +125,11 @@ another world's link.
 | | `airlock` | Where to send them back through | No |
 | | `home` | This world is where they start | No |
 
+A visitor's client may also keep their settings with their profile, so
+another device starts from them (BitPortal does, sealed, when asked). That
+is between a visitor and their client. A world never reads it: the arrival
+is the only place a world learns anything about its visitor.
+
 The top five are preferences: a false one has changed a setting. The rest
 are things a visitor decides, and a world acts on them only as they arrive
 in the arrival context, never as a link says them.

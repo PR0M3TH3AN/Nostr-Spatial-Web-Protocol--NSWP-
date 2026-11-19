@@ -209,6 +209,15 @@ people's music are not settings, and travel under rules of their own or not
 at all ([NSWP-02](02-doors.md)). A world's colours don't travel either:
 those belong to each place.
 
+**Between devices is the client's business.** What goes through a door is
+the settings a visitor has now. A client may also keep them with the
+visitor's profile, so that a second device starts from them: BitPortal does,
+when the visitor asks, as one note on their relays that only their own key
+can open (NIP-78 application data, sealed with NIP-44). A world never reads
+such a note, and has no reason to: it couldn't open it, and a world asking
+relays about its visitors would be a way to follow them. A world is told a
+visitor's settings one way only, by their client, as they arrive.
+
 How a visitor moves (`moving`) and the form they are in (`form`) are
 settings of the same kind. They have fields of their own because a world
 needs them before anything else is set up.

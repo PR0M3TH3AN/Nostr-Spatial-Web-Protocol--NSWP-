@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.5
+
+Settings between devices, and whose business that is.
+
+- **[NSWP-11](protocol/11-the-visitors-console.md), "Settings that travel":** what goes through a door is the settings a visitor has now. Keeping them with the visitor's profile, so that another device starts from them, is the client's business and never a world's. A world never reads such a note: it couldn't open it, and a world asking relays about its visitors would be a way to follow them. The arrival stays the only place a world learns anything about its visitor.
+- **In BitPortal:** a signed-in visitor can turn on "Keep my settings with my profile". One note on their relays (NIP-78, kind 30078), sealed with NIP-44 to their own key by BitLogin, fetched behind the browser's own copy, with the newer of each section kept. Where they have been, per-device consents, computers and files never go in it. Off until they turn it on.
+- **Status (2026-11-18):** not deployed. Tried with throwaway keys and no relay: unit tests, and in Chrome with a stand-in key and a shelf in the tab's own storage, where a wiped browser got its settings, volumes, way of moving and a saved door back and nothing was sent to a relay. **Not tried:** a real sign-in, two real devices, a real relay.
+
 ## 0.17.4
 
 The visitor's things in a world's own interface, and a filled screen back at the first press.
