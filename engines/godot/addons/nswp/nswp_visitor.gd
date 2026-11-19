@@ -4,8 +4,9 @@ extends CharacterBody3D
 ##
 ## Two ways, and the visitor chooses between them in the menu, as in any other world:
 ##
-## - **Casual.** Click or tap the floor to walk there, a few steps at a time: twice to run.
-##   Drag to look round. W, A, S, D and the arrows walk too.
+## - **Casual.** Click or tap the floor to walk there, a few metres at a time: twice to run.
+##   A ring shows where a press would take them, and a dotted line the way there, for them
+##   alone. Drag to look round. W, A, S, D and the arrows walk too.
 ## - **Intense.** The mouse looks round. W, A, S, D walk, F uses what is in the middle of
 ##   the view, and Escape brings up the menu. A visitor who arrives moving this way is
 ##   moving this way at once, with nothing to click first.
@@ -15,7 +16,9 @@ extends CharacterBody3D
 ##
 ## The speeds, the reach of a tap and how far a mouse turns the view are the kit's own
 ## (`Nswp.kit`), so it feels the same here as anywhere. Steps and bumps are heard through the
-## kit's sounds. Pointing at an `NswpGate` lights it and says where it leads.
+## kit's sounds. Pointing at an `NswpGate` from within ten feet lights it and says where it
+## leads; moving the casual way a press then goes through it, and moving the intense way it
+## is walked into. From further off a door does nothing, so nobody leaves by a stray click.
 ##
 ## It carries two cameras: an ordinary one, and an `XRCamera3D` for a headset, which it
 ## starts when the visitor asks for it in the menu.
@@ -35,6 +38,9 @@ signal headset_failed(why: String)
 @export var reach: float = 12.0
 ## Start a headset session when the visitor asks for one in the menu.
 @export var headset: bool = true
+## The colour of the marks on the floor: where a press would take them, and the way there.
+## Only this visitor sees them.
+@export var accent: Color = Color("4cc9f0")
 
 var flat_camera: Camera3D
 var headset_camera: XRCamera3D
@@ -47,6 +53,11 @@ var _pressed: bool = false
 var _dragged: float = 0.0
 ## Where a tap is taking them, or null.
 var _heading: Variant = null
+## Where a press would take them, under the pointer, or null.
+var _hover: Variant = null
+var _ring: MeshInstance3D
+var _dot: MeshInstance3D
+var _line: MultiMeshInstance3D
 ## Whether they are running there: two taps close together, and every tap after while they still are.
 var _running: bool = false
 var _tapped_at: int = -100000
@@ -78,6 +89,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	flat_camera.position.y = eye_height
+	_make_marks()
 	_show_pointer()
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
@@ -164,11 +176,34 @@ func _casual_input(event: InputEvent) -> void:
 			_dragged += absf(event.relative.x) + absf(event.relative.y)
 			rotate_y(event.relative.x * float(Nswp.kit.get("dragLook", 0.005)))
 		else:
-			_point(_under(event.position))
+			var hit := _ray(event.position)
+			_point(null if hit.is_empty() else hit.collider)
+			# A ring on the floor where a press would take them. A finger has nothing to hover
+			# with: the mouse a touch stands in for doesn't count.
+			_hover = null
+			if event.device != InputEvent.DEVICE_ID_EMULATION and not hit.is_empty() and not (hit.collider is NswpPortal) and hit.normal.y >= 0.6:
+				_hover = _within_a_press(hit.position)
 
 
-## A tap or a click, moving the casual way: a door is gone to, and the floor is walked on, no
-## further than a few steps at a time.
+## Where a press on `spot` would take them: there, or as far towards it as one press reaches.
+func _within_a_press(spot: Vector3) -> Vector2:
+	var from := global_position
+	var away := Vector2(spot.x - from.x, spot.z - from.z)
+	var most := float(Nswp.kit.tapReach)
+	if away.length() > most:
+		away = away.normalized() * most
+	return Vector2(from.x + away.x, from.z + away.y)
+
+
+## Whether a door is near enough to choose from where they stand: within ten feet, as in
+## every world. Further off it is not lit, and a press on it is a few steps towards it.
+func _in_reach(door: Node3D) -> bool:
+	var away := door.global_position - global_position
+	return Vector2(away.x, away.z).length() <= float(Nswp.kit.doorReach)
+
+
+## A tap or a click, moving the casual way. A door within reach is gone through. A door too
+## far off, and the floor, are walked towards, no further than one press reaches.
 func _tap(at: Vector2) -> void:
 	var hit := _ray(at)
 	if hit.is_empty():
@@ -177,6 +212,9 @@ func _tap(at: Vector2) -> void:
 	_point(what)
 	var spot: Vector3 = hit.position
 	if what is NswpPortal:
+		if _in_reach(what as Node3D):
+			(what as NswpPortal).enter()
+			return
 		spot = (what as Node3D).global_position
 	elif hit.normal.y < 0.6:
 		# A wall, not somewhere to stand.
@@ -185,19 +223,14 @@ func _tap(at: Vector2) -> void:
 	var now := Time.get_ticks_msec()
 	_running = now - _tapped_at <= int(Nswp.kit.doubleTap) or (_heading != null and _running)
 	_tapped_at = now
-	var from := global_position
-	var away := Vector2(spot.x - from.x, spot.z - from.z)
-	var most := float(Nswp.kit.tapReach)
-	if away.length() > most:
-		away = away.normalized() * most
-	_heading = Vector2(from.x + away.x, from.z + away.y)
+	_heading = _within_a_press(spot)
+	_hover = null
 
 
+## F, or a click, moving the intense way. A door is not gone through this way: moving the
+## intense way, a doorway is walked into.
 func _use() -> void:
-	var what := _under(get_viewport().get_visible_rect().size / 2.0)
-	used.emit(what)
-	if what is NswpPortal:
-		(what as NswpPortal).enter()
+	used.emit(_under(get_viewport().get_visible_rect().size / 2.0))
 
 
 func _ray(at: Vector2) -> Dictionary:
@@ -219,6 +252,9 @@ func _under(at: Vector2) -> Object:
 ## Say what is pointed at. A door lights up, and the card beside the controls says where it
 ## leads: the same card, the same size, wherever the door is.
 func _point(what: Object) -> void:
+	# A door too far off to choose is not something pointed at.
+	if what is NswpPortal and not _in_reach(what as Node3D):
+		what = null
 	if what == _aimed:
 		return
 	if is_instance_valid(_aimed) and _aimed is NswpGate:
@@ -229,11 +265,94 @@ func _point(what: Object) -> void:
 		if door is NswpGate:
 			(door as NswpGate).aimed = true
 		var where := (door as NswpGate).address_line() if door is NswpGate else str(Nswp.read_address(door.url).domain)
-		var how := "Press F, or walk in, to go." if intense() else "Walk in to go."
+		var how := "Walk in to go." if intense() else "Click, or walk in, to go."
 		Nswp.play("hover")
 		Nswp.target(door.label if door.label != "" else "A door", PackedStringArray([where, "%s Your Airlock shows the real address first, and asks." % how]))
 	else:
 		Nswp.target("")
+
+
+# ------------------------------------------------------------------------ marks on the floor
+
+## Marks for a visitor moving the casual way on a flat screen: a ring where a press would
+## take them, a dot where they are going, and a dotted line from their feet to it. They are
+## drawn here, for this visitor, and are nothing anyone else is told about.
+func _make_marks() -> void:
+	var paint := StandardMaterial3D.new()
+	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	paint.albedo_color = Color(accent, 0.85)
+	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	paint.no_depth_test = true
+	paint.render_priority = 5
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.26
+	ring.outer_radius = 0.34
+	ring.rings = 48
+	ring.ring_segments = 4
+	_ring = _mark(ring, paint)
+	_ring.scale = Vector3(1.0, 0.02, 1.0)
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.14
+	disc.bottom_radius = 0.14
+	disc.height = 0.004
+	_dot = _mark(disc, paint)
+	var small := CylinderMesh.new()
+	small.top_radius = 0.07
+	small.bottom_radius = 0.07
+	small.height = 0.004
+	small.radial_segments = 14
+	small.material = paint
+	var many := MultiMesh.new()
+	many.transform_format = MultiMesh.TRANSFORM_3D
+	many.mesh = small
+	many.instance_count = 40
+	many.visible_instance_count = 0
+	_line = MultiMeshInstance3D.new()
+	_line.multimesh = many
+	_line.top_level = true
+	_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_line)
+	_line.global_transform = Transform3D.IDENTITY
+
+
+func _mark(mesh: Mesh, paint: Material) -> MeshInstance3D:
+	var mark := MeshInstance3D.new()
+	mark.mesh = mesh
+	mark.material_override = paint
+	mark.top_level = true
+	mark.visible = false
+	mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mark)
+	return mark
+
+
+func _draw_marks() -> void:
+	var casual := not intense() and not _presenting and not Nswp.menu_open
+	var floor_y := global_position.y + 0.02
+	_ring.visible = casual and _hover != null and not _pressed
+	if _ring.visible:
+		var ring_at: Vector2 = _hover
+		_ring.global_position = Vector3(ring_at.x, floor_y, ring_at.y)
+	_dot.visible = casual and _heading != null
+	var shown := 0
+	if _dot.visible:
+		var to: Vector2 = _heading
+		_dot.global_position = Vector3(to.x, floor_y, to.y)
+		# Evenly spaced, counted back from where they are going, so the dots stay put as they walk along them.
+		var from := Vector2(global_position.x, global_position.z)
+		var far := from.distance_to(to)
+		var d := far - 0.3
+		while d >= 0.45 and shown < _line.multimesh.instance_count:
+			var at := from.lerp(to, d / far)
+			_line.multimesh.set_instance_transform(shown, Transform3D(Basis.IDENTITY, Vector3(at.x, floor_y, at.y)))
+			shown += 1
+			d -= 0.4
+	_line.multimesh.visible_instance_count = shown
+
+
+## What is marked on the floor now. For tests.
+func marks() -> Dictionary:
+	return {"ring": _ring.visible, "dot": _dot.visible, "dots": _line.multimesh.visible_instance_count}
 
 
 # ------------------------------------------------------------------------ walking
@@ -285,6 +404,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor() and not _was_on_floor:
 		Nswp.play("land")
 	_was_on_floor = is_on_floor()
+	_draw_marks()
 
 	var went := Vector2(global_position.x - before.x, global_position.z - before.z).length()
 	if wish != Vector3.ZERO:

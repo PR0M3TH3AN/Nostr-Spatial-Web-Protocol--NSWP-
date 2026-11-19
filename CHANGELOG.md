@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.1
+
+Marks on the floor for a casual walk, and a door that answers only from near it.
+
+- **Where a press would take you.** Moving the casual way on a flat screen, a ring on the floor follows the pointer, on the spot a press would walk to. Once pressed, a dot marks where the visitor is headed and a dotted line runs from their feet to it. They are drawn for that visitor alone: nobody else in the room is told anything about them. A finger has nothing to hover with, so a touch screen has the dot and the line and no ring.
+- **A door answers from within ten feet** (`DOOR_REACH`). Nearer than that it lights when pointed at, and a press goes through it. From further off it is not lit, and a press on it is a walk towards it, so a stray click on a door across the room no longer starts a crossing. Walking into a doorway always goes through. The menu still lists every door.
+- **Moving the intense way, a doorway is walked into.** F and a click no longer go through a door; they still press panels and buttons.
+- **A press reaches six metres, where it reached three** (`TAP_REACH`). Standing up and looking level, the floor nearer than about 2.8 metres is below the bottom of the screen, so at three metres the dot and nearly all of the line could not be seen. It is still a walk at the keys' pace, and it is shown before it is taken.
+- **The reference worlds, BitPortal's room, the world template and the Godot addon** all have these.
+- **Status (2026-11-18):** not deployed. In Chrome on the local server, in the Gallery: the ring sat where the pointer was and no further than six metres; a click showed the dot and seven dots of line, and the visitor arrived on the dot with the marks gone; moving the intense way there were no marks; on an emulated touch screen, a tap showed the dot and the line and no ring. Five metres from a door it was not lit and a press walked to two metres from it; there it lit, said where it led, and a press went through. Moving the intense way, F and a click on it did nothing and walking in went through. The same in the Godot example. **Not tried:** a headset, a real phone.
+
 ## 0.17.0
 
 Settings that travel. A protocol change: one new flag on a link (`set=`) and one new field in the arrival context (`settings`), in [NSWP-11](protocol/11-the-visitors-console.md).
