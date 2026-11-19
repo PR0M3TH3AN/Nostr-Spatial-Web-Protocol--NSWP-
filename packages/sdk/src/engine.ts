@@ -28,12 +28,12 @@
  * visitors), which need more than text to pass through.
  */
 import { checkDestination, type PortalDestination } from "@nswp/core";
-import { arrival as arrivals, configure, portal, type GoOptions } from "./index.js";
+import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, door, events, headset, kit, menu, moved, play, say, target } from "./engine-menu.js";
+export { bump, check, claim, door, events, headset, kit, menu, moved, play, presence, say, target } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 2;
+export const VERSION = 3;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {
@@ -60,6 +60,10 @@ function stateOf(text: unknown): GoOptions {
  * address, as it must be: an arrival is for this visit and not for whoever
  * the address is shared with next.
  *
+ * `form` is how to lay things out for them on a flat screen: "touch" or
+ * "desk". It is how they were in the place they came from, where this device
+ * can do the same, and otherwise what the device is.
+ *
  * `arrived` is false for someone who came by an ordinary link, and every
  * other field then has its plain value. `name` and `pubkey` are filled only
  * when they came by name and their pass checks out for this site; otherwise
@@ -76,6 +80,7 @@ export function arrival(): string {
     joined: context?.joined === true,
     mic: context?.mic === true,
     moving: context?.moving ?? "casual",
+    form: startingForm(),
     blocked: context?.blocked ?? [],
     look: arrivals.look() ?? "",
     guest: !who,

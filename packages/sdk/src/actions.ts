@@ -13,6 +13,7 @@
  * Sticks, grips and buttons are a faster way for people who have them.
  */
 import { RUN } from "./stroll.js";
+import { createHeldButton } from "./ui/summon.js";
 
 export interface PadButton {
   pressed: boolean;
@@ -185,6 +186,8 @@ export interface Intent {
   menu: boolean;
   /** The jump button (A or X) went down. */
   jump: boolean;
+  /** The menu button has been held for a moment: the visitor is summoning their controls (ui/summon.ts). */
+  summon: boolean;
   /** They are running: walking smoothly, having pressed the moving stick in. */
   running: boolean;
   /** 0 to 1: how much of the view's edge to darken. */
@@ -226,11 +229,12 @@ export class Locomotion {
   private readonly backward = new Set<number>();
   private menuDown = false;
   private jumpDown = false;
+  private readonly heldMenu = createHeldButton();
   /** Running, once the moving stick is pressed in, until that stick comes back to rest. */
   private running = false;
 
   frame(dt: number, pads: HeldPad[], comfort: Comfort): Intent {
-    const intent: Intent = { turn: 0, walk: [0, 0], stepFrom: [], aiming: [], menu: false, jump: false, running: false, narrow: 0 };
+    const intent: Intent = { turn: 0, walk: [0, 0], stepFrom: [], aiming: [], menu: false, jump: false, summon: false, running: false, narrow: 0 };
     let pushed = false;
     const roles = stickRoles(pads, comfort.moveHand);
     const seen = new Set<number>();
@@ -289,6 +293,8 @@ export class Locomotion {
     const menu = pads.some((p) => p.pad.secondary);
     intent.menu = menu && !this.menuDown;
     this.menuDown = menu;
+    // Held, it is the summons: it brings the visitor's controls up whatever the world does with a press.
+    intent.summon = this.heldMenu(menu, dt);
     // One jump for one press, from either hand, however they are moving.
     const jump = pads.some((p) => p.pad.primary);
     intent.jump = jump && !this.jumpDown;

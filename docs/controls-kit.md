@@ -359,7 +359,20 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
 |---|---|---|
 | `"full"` | Name, hotbar, Menu | Menu button low in front, and the wrist |
 | `"quiet"` | One mark in the chosen corner; it opens the same sheet | The wrist. The Menu button, smaller, only where no hand is tracked |
-| `"hidden"` | Nothing | Nothing, until the world calls `xrConsole.setOpen(true)` or `hud.setOpen(true)` |
+| `"hidden"` | Nothing | Nothing, until the visitor summons it or the world calls `xrConsole.setOpen(true)` or `hud.setOpen(true)` |
+
+- **The summons.** At every level, and whatever the world has done with the
+  keys, the visitor can bring the controls up with the one gesture that is
+  theirs in every world ([NSWP-11](../protocol/11-the-visitors-console.md)):
+  the key left of 1 at a desk, two fingers held still on a touch screen, B
+  or Y held in a headset. `mountHud` listens for the first two before your
+  page hears anything, so you can't take them by accident; give
+  `createXrInput` an `onSummon: () => xrConsole.setOpen(true)` for the
+  third. Never bind any of them to something of your own.
+- **Coming and going.** The sheet is drawn over everything while it is up.
+  `controls.onSignal` says `menuOpen` and `menuClose`: pause, or stop reading
+  keys, in between. When it goes, whatever had the keys has them back, and
+  at `"hidden"` nothing at all is left on screen.
 
 - **Where it sits.** `controls.setCorner("bottom-right")` moves the quiet mark.
   `hud.bounds()` returns the rectangle of every visible part, to lay your own
@@ -375,10 +388,16 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
   their buttons, call `controls.run(id)` when one is pressed, and
   `controls.subscribe()` to hear of changes. `addViewControls` and
   `addRoomControls` still fill the list for you.
-- **The duty that comes with hiding it.** A world that hides the kit must put
-  the same things within one action somewhere of its own: the way home,
-  leaving VR, the room and the microphone, turning and stepping, and its
-  address. A visitor counts on finding them in every world.
+- **Hiding it.** A world that hides the kit needn't put the visitor's things
+  in menus of its own, since they can summon it. A good pause menu still
+  offers the way home. The one case where the duty stands is a headset with
+  tracked hands and no controllers, which has no summons for a hidden
+  console yet: there, offer the way home, leaving VR, the room and the
+  microphone, and turning and stepping somewhere of your own.
+- **The form a visitor arrives in.** `startingForm()` is `"touch"` or
+  `"desk"`: how they were in the place they came from, where this device
+  can do the same, and otherwise what the device is. Lay your own interface
+  out by it. The kit carries it on through a door for you.
 
 ## The look
 

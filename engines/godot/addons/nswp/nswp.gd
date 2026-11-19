@@ -62,6 +62,8 @@ const MAIN_ENTRANCE := "main-entrance"
 ##   to their doors (`doors()`) and leave the way home out.
 ## - `joined`, `mic`: they were among people where they came from, and heard.
 ## - `moving`: "casual" or "intense", how they were moving, on the device they are on.
+## - `form`: "touch" or "desk": how to lay things out for them on a flat screen. It is how
+##   they were where they came from, where this device can do the same.
 ## - `blocked`: keys of people they have blocked everywhere. Connect them to nobody on it.
 ## - `look`: how they chose to be seen, or "" if they came plain.
 ## - `guest`, `name`, `pubkey`: who they chose to be. A name is filled only when their pass
@@ -75,6 +77,7 @@ var arrival: Dictionary = {
 	"joined": false,
 	"mic": false,
 	"moving": "casual",
+	"form": "desk",
 	"blocked": [],
 	"look": "",
 	"guest": true,
@@ -249,6 +252,22 @@ func target(name_of_it: String, detail: PackedStringArray = PackedStringArray())
 func headset(supported: bool, presenting: bool) -> void:
 	if _menu:
 		_js.headset(JSON.stringify({"supported": supported, "presenting": presenting}))
+
+
+## How much of the screen the kit's controls take: "full", "quiet" (one small mark in a
+## corner) or "hidden" (nothing at all). For a world with an interface of its own, which
+## leads. Whatever you choose, the visitor can still bring the controls up with the summons,
+## which is theirs in every world: the key left of 1, or two fingers held still. Watch
+## `menu_toggled`, and leave their input alone while the controls are up.
+func set_presence(level: String) -> void:
+	if _menu:
+		_js.presence(level)
+
+
+## Take every key for your own game, or give them back. The summons still works.
+func claim_keys(claimed: bool) -> void:
+	if _menu:
+		_js.claim("1" if claimed else "0")
 
 
 ## List a door in the menu, so it can be gone through from there as well as by walking in.

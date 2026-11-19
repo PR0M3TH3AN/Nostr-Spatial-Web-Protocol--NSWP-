@@ -93,7 +93,21 @@ export interface AirlockUrlOptions {
    * moves").
    */
   moving?: "intense";
+  /**
+   * What the visitor is using a flat screen with as they leave (`form=touch`
+   * or `form=desk`): their fingers, or a mouse and keys. The place they
+   * arrive starts them the same way, where their device can do both. A
+   * headset session is `immersive`, and this says what they fall back to out
+   * of it. A preference and nothing more (protocol/11-the-visitors-console.md,
+   * "The same form on the other side"). Not sent on the way home: a
+   * visitor's own client knows their device.
+   */
+  form?: Form;
 }
+
+/** How a visitor is using a flat screen: with their fingers, or with a mouse and keys. */
+export type Form = "touch" | "desk";
+export const isForm = (v: unknown): v is Form => v === "touch" || v === "desk";
 
 /** Keys from a list that are keys, once each, up to a limit. */
 export function cleanKeys(input: unknown, limit: number): string[] {
@@ -126,7 +140,7 @@ export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: 
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-  parts.push(...stateFlags(opts), ...blockedFlag(opts));
+  parts.push(...stateFlags(opts), ...(isForm(opts.form) ? [`form=${opts.form}`] : []), ...blockedFlag(opts));
   u.hash = parts.join("&");
   return u.href;
 }
@@ -147,6 +161,8 @@ export interface AirlockRequest {
   blocked?: string[];
   /** The link says they were moving the intense way (`moving=intense`). */
   moving?: "intense";
+  /** The link says what they were using a flat screen with (`form=touch` or `form=desk`). */
+  form?: Form;
 }
 
 /** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
@@ -220,5 +236,7 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
   const blocked = blockedFrom(params.get("blocked"));
   if (blocked.length) req.blocked = blocked;
   if (params.get("moving") === "intense") req.moving = "intense";
+  const form = params.get("form");
+  if (isForm(form)) req.form = form;
   return req;
 }

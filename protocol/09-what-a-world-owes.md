@@ -26,6 +26,16 @@ much of its own as it likes. It may not leave one out, or bury one more than a
 single deliberate action deep. In a headset that is one `select`; on a flat
 screen, one click or key.
 
+**And they can always reach those things the same way.** One gesture on each
+kind of device brings the visitor's console up over whatever a world is
+showing, and no world takes that gesture for itself: the key left of 1 at a
+desk, two fingers held still on a touch screen, B or Y held in a headset
+([NSWP-11](11-the-visitors-console.md)).
+
+**They arrive in the form they left in:** laid out for touch if they were
+using touch, for a mouse and keys if they were at a desk, and offered the
+way back into a headset if they left one ([NSWP-11](11-the-visitors-console.md)).
+
 A world that says it can be someone's home ([NSWP-07](07-homes.md)) owes one
 thing more: wherever it offers the way home, it offers the way to the
 visitor's doors.
@@ -70,7 +80,9 @@ to, at three levels the world chooses and can change from moment to moment:
 |---|---|---|---|
 | Full | The world's name, a row of things always at hand, and a menu | A Menu button low in front, and a console above the wrist | A world with no interface of its own |
 | Quiet | One small mark in a corner the world picks | The wrist only | A world with its own interface, or any world during play |
-| Hidden | Nothing | Nothing | A world that draws the list in menus of its own |
+| Hidden | Nothing | Nothing | A world whose own interface fills the screen |
+
+At every level the visitor can summon it ([NSWP-11](11-the-visitors-console.md)).
 
 ## Levels of support
 

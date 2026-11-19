@@ -384,6 +384,21 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", moving: "intense" }, warnings: [] },
   },
   {
+    name: "on_a_touch_screen",
+    value: encodeArrival({ entry: "main-entrance", form: "touch" }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", form: "touch" }, warnings: [] },
+  },
+  {
+    name: "at_a_desk_and_moving_the_intense_way",
+    value: encodeArrival({ entry: "main-entrance", form: "desk", moving: "intense" }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", moving: "intense", form: "desk" }, warnings: [] },
+  },
+  {
+    name: "a_form_nobody_knows_is_ignored",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", form: "hologram" })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_form"] },
+  },
+  {
     name: "moving_the_casual_way_is_the_same_as_saying_nothing",
     value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", moving: "casual" })).toString("base64url"),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: [] },

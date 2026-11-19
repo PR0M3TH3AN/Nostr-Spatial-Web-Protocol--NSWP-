@@ -1801,13 +1801,17 @@ A world may put these anywhere: in its own pause menu, on a wall, on a wrist. It
 |---|---|---|---|
 | Full | The world's name, a row of the things always at hand, and a menu | A small Menu button low in front, and a console above the wrist | A world with no interface of its own |
 | Quiet | One small mark in a corner the world picks; everything else opens from it | The wrist. The Menu button only where no hand is tracked | A world with its own interface, or any world during play |
-| Hidden | Nothing | Nothing | A world that draws the list in menus of its own, or a moment that shouldn't be interrupted |
+| Hidden | Nothing | Nothing | A world whose own interface fills the screen, or a moment that shouldn't be interrupted |
 
-A hidden console opens only when the world opens it. So a world that hides it takes on the duty above: it must put those things within one action somewhere of its own.
+**The summons.** A hidden console is hidden from the screen, not from the visitor. One gesture on each kind of device is theirs in every world and brings the console up over whatever the world is showing, at any level, whatever the world has done with the keys: the key left of 1 at a desk, two fingers held still on a touch screen, B or Y held in a headset. No world uses it for anything of its own. Putting the console away again leaves nothing behind: at the hidden level the screen is as it was, whatever had the keys has them back, and nothing in the world was pressed. The reasoning is that a world deciding what is on its screen and a visitor reaching their own controls are different rights, and neither should cost the other. `protocol/11-the-visitors-console.md` is the document.
+
+With the summons, a world that hides the console no longer takes on the duty of putting those things in menus of its own. The exception is a headset used with tracked hands and no controllers, where a hidden console has no summons yet: there the duty stands.
+
+**The same form on the other side.** A visitor is on a touch screen, at a desk, or in a headset, and a door doesn't change which. A headset already travels (`xr=1`, `immersive`). The other two now do too (`form=touch` or `form=desk`), for the devices that can be either, as a preference a world follows where the device can.
 
 **Sharing the space.** The world says where the kit may sit, and the kit says what it covers, so the world can lay its own interface out around it. The kit never moves into space it wasn't given.
 
-**Sharing the input.** A world may change or switch off the keys the kit answers to, and may claim every key for itself during play. Two things stay: the kit's own mark can still be pressed, and a menu the kit has opened can always be closed. In a headset the console never opens on its own: raising a wrist to look at it is the visitor asking.
+**Sharing the input.** A world may change or switch off the keys the kit answers to, and may claim every key for itself during play. Three things stay: the summons, the kit's own mark where it is showing, and that a menu the kit has opened can always be closed. In a headset the console never opens on its own: raising a wrist to look at it is the visitor asking.
 
 **One menu, not two.** A world's own actions go into the same list as the traveller's, in sections of their own. A visitor then learns one menu per world, with the same things in the same places at the top of it.
 

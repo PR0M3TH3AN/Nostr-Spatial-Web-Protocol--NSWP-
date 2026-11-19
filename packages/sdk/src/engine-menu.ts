@@ -187,7 +187,7 @@ export function menu(options?: string): string {
     icon: "help",
     note:
       words(o.help, 600) ||
-      "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out.",
+      "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out.",
   });
 
   // The menu opening and closing: the engine stops moving the visitor, and lets the pointer go.
@@ -270,6 +270,27 @@ export function headset(state: string): void {
   vr.presenting = s.presenting === true;
   hud?.setHidden(vr.presenting);
   controls?.setTarget("");
+}
+
+/**
+ * How much of the screen the controls take: "full", "quiet" (one small mark
+ * in a corner) or "hidden" (nothing at all). For a world with an interface
+ * of its own, which leads. Whatever is chosen, the visitor can still bring
+ * the controls up with the summons, which is theirs in every world: the key
+ * left of 1, or two fingers held still (protocol/11-the-visitors-console.md).
+ * The engine hears `menu` events as they come and go, and should stop
+ * taking the visitor's input while they are up.
+ */
+export function presence(level: string): void {
+  if (level === "full" || level === "quiet" || level === "hidden") controls?.setPresence(level);
+}
+
+/**
+ * Take every key for the world ("1" or "true"), or give them back. While
+ * claimed, the menu answers to none of its own keys. The summons still works.
+ */
+export function claim(on: unknown): void {
+  controls?.claimInput(on === true || on === "true" || on === "1" || on === 1);
 }
 
 /**

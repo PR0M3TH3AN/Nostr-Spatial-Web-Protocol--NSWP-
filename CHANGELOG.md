@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.16.0
+
+The visitor's console over a world's own interface, and arriving in the form you left in. Both are now part of the protocol: [NSWP-11](protocol/11-the-visitors-console.md).
+
+- **The summons.** A world with an interface of its own could already put the traveller's controls away altogether. A visitor then had no way to bring them back unless the world offered one. Now one gesture on each kind of device is the visitor's in every world, and brings their console up over whatever the world is showing, at any level, whatever the world has done with the keys: the key left of 1 at a desk, two fingers held still on a touch screen, B or Y held in a headset. No world uses it for anything of its own.
+- **Coming and going leaves nothing behind.** The console is drawn over everything while it is up. The world is told (`menuOpen`, `menuClose`). When it goes, a hidden console leaves the screen exactly as it was, whatever had the keys has them back (the world's own menu, if that was open), and the world never heard the key.
+- **Hidden means hidden, and no longer means out of reach.** So a world that hides the console no longer has to rebuild the visitor's things in menus of its own. The one case where that duty stands is a headset with tracked hands and no controllers, which has no summons for a hidden console yet.
+- **The same form on the other side** (`form=touch` or `form=desk` on a door's link, `form` in the arrival context). A visitor on a touch screen arrives laid out for touch, and one at a desk for a mouse and keys. Most devices can only be one, and a world worked that out already; this is for the ones that can be both. A world follows it where the device can and ignores it otherwise. Headset to headset was already carried (`xr=1`, `immersive`). It is not sent on the way home.
+- **In the kit:** `mountHud` listens for the summons before the page hears anything (`ui/summon.ts`); `createXrInput` takes `onSummon`; `startingForm()` and `currentForm()` (`form.ts`) say what form a visitor is in, and the kit carries it through a door. The engine script has `NSWP.presence()` and `NSWP.claim()`, and Godot `Nswp.set_presence()` and `Nswp.claim_keys()`.
+- **The menu comes up on Travel,** where the way home is, until the visitor picks another section. It was coming up on Look.
+- **What this is not:** a layer above a world. A web page can't draw over another site, so the console is still drawn by the world's own page, and a world built some other way keeps this only by choosing to. A client that is there whatever a world does has to be the browser (`browser/spec.md`).
+- **Status (2026-11-18):** not deployed. In Chrome on the local server, in a world that had hidden the console and claimed every key, with a menu of its own open and focused: the world's own menu key did nothing to ours; the key left of 1 brought the console up and put it away; the world heard neither press; nothing of ours was on screen before or after; and the world's menu had the keys again. On an emulated touch screen, two fingers held brought it up and put it away, and a pinch did not. A visitor told `touch` at a desk with no touch screen stayed at a desk, and one who used touch left with `form=touch`. **Not tried:** a headset (the held button is tested as arithmetic), a real phone, and a real device that is both touch and desk (that choice is tested as arithmetic too).
+
 ## 0.15.6
 
 Footsteps that sound like footsteps, and running and jumping however a visitor moves. Nothing in the protocol changes.
