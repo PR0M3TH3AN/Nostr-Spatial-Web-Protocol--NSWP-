@@ -1,6 +1,6 @@
 # NSWP-10: Who someone is
 
-**Status:** Passes, names in rooms, the proven mark and signing in from inside a world are implemented; profile cards beyond a name, hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
+**Status:** Passes, names in rooms, the proven mark, signing in from inside a world and being signed in everywhere are implemented; profile cards beyond a name, hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
 
 A world is someone else's website. It must never hold a visitor's key, and it
 doesn't need to: what it needs is to know, when the visitor wants it known,
@@ -14,10 +14,12 @@ without the key ever leaving the visitor's own client.
    something this protocol has no use for ([NSWP-09](09-what-a-world-owes.md)).
    What a world may do is offer the way to the visitor's own client, which
    asks ("Signing in from inside a world", below).
-2. **Going by name is a choice made on each trip,** in the visitor's own
-   client: at the Airlock, or on its sign-in page when they asked to sign in
-   from inside a world. It never happens without their having chosen it, and
-   never for a site that hasn't adopted the protocol.
+2. **Going by name is the visitor's choice, made in their own client and
+   kept by it.** A client may take signing in as that choice for every world,
+   if it says so plainly where they sign in and lets them go as a guest
+   whenever they like ("Signed in everywhere", below). It never happens for
+   a site that hasn't proved it is who it says, or hasn't adopted the
+   protocol.
 3. **A guest is a full visitor.** Nothing here is needed to walk around, to
    join a room, or to be seen.
 4. **A name is shown only when it is proved.** Nobody is called anything on
@@ -160,10 +162,37 @@ protocol:
   client's sign-in page, which is a page of its own and says so.
 - **Only for a verified world.** A pass names the visitor's key for good, so
   it goes only to a site that has proved it is the one its announcement says.
-- **The choice is remembered** once it has worked. Until a visitor has
-  chosen "by name" themselves, it is never what they are sent as.
+- **The choice is the visitor's and it stands.** In the reference client,
+  someone signed in goes by name until they say otherwise ("Signed in
+  everywhere", below). Someone who isn't signed in is never sent by name.
 - **A new session key every trip.** Two passes can't be linked by their
   session keys, only by the identity that signed them.
+
+## Signed in everywhere
+
+A visitor signs in once, in their own client, and is signed in wherever they
+go. No world has a sign-in of its own, so there is nothing to sign in to one
+by one: the client hands each world a pass as they arrive
+("The pass", above), and the next world another.
+
+A client that does this:
+
+- **Says so where they sign in,** with what it gives away: each world they
+  visit that has proved who it is learns their public key, and so do the
+  people in any room they join there.
+- **Gives the way out beside it.** One switch, in the visitor's own client,
+  to go to worlds as a guest while staying signed in. And the choice at the
+  Airlock for any one trip.
+- **Still never sends a pass to a site that hasn't proved it is who it
+  says,** or that hasn't adopted the protocol. Signed in everywhere means
+  everywhere that can be trusted with a name.
+- **Still makes a new session key for every trip.**
+- **Never takes it from a link.** Nothing a world or a link says makes
+  someone signed in, or by name.
+
+The reference client does this. Going by name is the default for someone
+signed in; "Go to worlds as myself" is a tick on the sign-in page, on until
+they untick it; and choosing "a guest" at the Airlock unticks it.
 
 ## Signing in from inside a world
 
@@ -184,9 +213,13 @@ way to the visitor's own client, and back.
    manifest lists for its address, and the address. The visitor's state goes
    on the link as it does through any door (`xr=1`, `joined=1`, `form`,
    `set` and the rest), so they come back as they left.
-3. **Their client asks them, in its own way, on its own page.** To sign in,
+3. **Their client asks them, in its own way, in its own place.** To sign in,
    to make a profile, to switch to another, or to go back as a guest. The
-   world sees none of it.
+   world sees none of it. That place may be somewhere to stand, reached by
+   the crossing's room like any other ([NSWP-02](02-doors.md), "The
+   chamber"), so that the visitor is never dropped from a world onto a page.
+   What they type is still typed into the client's own page, under its own
+   address.
 4. **Their client takes them back through the door,** checked as any door is
    checked. If they chose to go by name and the site has proved it is who it
    says, they arrive with a pass. The world reads it as it reads any arrival.
@@ -216,7 +249,11 @@ A client with no sign-in of its own ignores `who=1` and takes the visitor
 back through the door.
 
 In the reference client, the Airlock sends a `who=1` door to its sign-in
-page. The page offers "Back to *the world*, by name" to someone signed in,
+page, which is drawn as a place: the client's own ground and sky, the
+crossing's room opening as the visitor arrives and closing as they leave,
+and BitLogin on a panel in front of them. In a headset the panel is seen on
+the headset's flat screen: an immersive session can't show a page, and no
+client can change that. The page offers "Back to *the world*, by name" to someone signed in,
 with what that gives away written under it, and "Go back as a guest" to
 anyone. The Airlock then goes straight through to a place the visitor knows,
 or shows its whole screen if anything about the door needs to be seen. If

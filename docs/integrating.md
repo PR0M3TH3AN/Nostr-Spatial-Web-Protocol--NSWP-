@@ -59,6 +59,16 @@ wall), press the same control: `controls.run("identity")`, `NSWP.run("identity")
 ([NSWP-10](../protocol/10-identity.md), "Signing in from inside a world").
 When they come back, `arrival.identity()` has who they are.
 
+**They sign in once, not once per world.** A visitor signed in to their own
+client arrives at every world that has proved who it is already signed in:
+the pass comes with them. Your world never has a sign-in of its own to keep
+in step with anyone else's. Read `arrival.identity()` and you have it.
+
+**Their look is the same.** "Change how you look" is beside "Sign in", and
+works the same way: it leaves for their own client and comes back. Draw
+their look your own way if your world has a style, but never edit it or send
+one back ([NSWP-05](../protocol/05-looks.md), "Changing a look").
+
 The protocol itself names no sign-in. Another client may use another signer.
 What every client and every world share is the pass.
 

@@ -362,6 +362,24 @@ inside a world").
 
 A world never draws the sign-in itself, in a panel or anywhere else.
 
+"Change how you look" is added beside it (`figureAction`, `controls.run("figure")`,
+`portal.changeLook()`), and leaves and comes back the same way. Pass
+`leaving` as a function that brings your crossing's room up first, and both
+leave by it, as through any door:
+
+```js
+leaving: async (to) => { await crossing.leave(to); return { ...travelling(), moving }; }
+```
+
+### One order everywhere
+
+`controls.view()` puts the things every place has in one order, whatever
+order your code added them in (`STANDARD_ORDER`): home, doors, the headset,
+the room, the microphone, jump. So the taskbar and its number keys are the
+same in every world. Your own controls follow in the order you added them.
+Sections have a standard order too, and "Sound" and "Display" are part of
+it. `hud.setOpen(true, "sound")` brings the menu up on a section by name.
+
 ## Sharing the screen with a world's own interface
 
 A world with an interface of its own leads, and the kit stays out of its way

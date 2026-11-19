@@ -81,6 +81,26 @@ always do, in the same order in every world, and then the world's own
 additions in sections of their own. A world may add to it. It may not take
 one of the visitor's things out.
 
+**The same order in every world.** The things every place has stand in one
+order wherever a world's code happened to add them, so the taskbar reads the
+same everywhere and a number key does the same thing everywhere:
+
+1. the way home (or, for the visitor whose home this world is, the way to
+   their doors: [NSWP-07](07-homes.md));
+2. into a headset, where there is one;
+3. joining the room here, then the microphone;
+4. jumping, where there is no key for it.
+
+A world's own things come after, in the order it added them. A client's own
+place has no way home, being home: its doors stand first there. The sections
+are in one order too: Travel, You, Room, People, Camera, Panels, View,
+Moving, Sound, Display, Help, and then a world's own. "Display" is how the
+controls themselves look; how the *visitor* looks is under "You".
+
+Not every world has every thing: one with no room has no Join, and a device
+with no headset has no VR. What a world has is in the same place as
+everywhere else.
+
 A world that hides the console no longer has to put those things in menus of
 its own, since the visitor can summon the console. It may still do so, and a
 good pause menu will. The one place the duty still stands is a headset used
@@ -122,6 +142,7 @@ The things a visitor has, by the names a world presses them by:
 |---|---|
 | `home` | Takes them home (or to their doors, in a world that is their home) |
 | `identity` | Says who they are here, and leaves for their own client to sign in, switch profile or go on as a guest. Then brings them back |
+| `figure` | Leaves for their own client to change how they look, and brings them back wearing it ([NSWP-05](05-looks.md), "Changing a look") |
 | `vr` | Into a headset session, or out of one |
 | `fullscreen` | Fills their screen, or gives it back |
 | `fps`, `move-style` | Casual or intense, at a desk and in a headset |

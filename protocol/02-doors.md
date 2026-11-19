@@ -36,7 +36,7 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&who=1&xr=1&moving=intense&joined=1&mic=1&form=touch&set=<settings>&blocked=<key>,<key>
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&who=1|look&xr=1&moving=intense&joined=1&mic=1&form=touch&set=<settings>&blocked=<key>,<key>
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
@@ -45,12 +45,13 @@ place offer the way back into one at once.
 
 `who=1` is there only on a door a world makes back to itself, when its
 visitor has asked to say who they are: to sign in, to switch to another
-profile, or to go on as a guest. Their client shows them its own way of doing
-that, and then takes them back through the door as it would through any
-other. It is a request and nothing more: it signs nobody in and sends nobody
-by name ([NSWP-10](10-identity.md), "Signing in from inside a world"). A
-client with no sign-in of its own takes no notice of it. It is never sent on
-the way home.
+profile, or to go on as a guest. `who=look` is the same, when they have asked
+to change how they look. Their client shows them its own place for that, and
+then takes them back through the door as it would through any other. It is a
+request and nothing more: it signs nobody in, sends nobody by name and
+changes no look ([NSWP-10](10-identity.md), "Signing in from inside a
+world"; [NSWP-05](05-looks.md), "Changing a look"). A client with no such
+place takes no notice of it. It is never sent on the way home.
 
 `joined=1` is there only when the visitor is in the world's open room as they
 leave, and `mic=1`, only beside it, when their microphone is on. They are
