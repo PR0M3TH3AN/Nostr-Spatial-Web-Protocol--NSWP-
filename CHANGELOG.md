@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.30.1
+
+- **The reference client sends no pass on arrival.** BitLogin's signer makes passes on its live site now, so BitPortal's Airlock names the visitor's signer and nothing else about them: a world's site learns nothing about a visitor until they sign in there. (The change is BitPortal's; the protocol's text now says so.)
+- **A signer has ten seconds to give its first answer** before the menu calls it silent, from seven. BitLogin's checks the visitor's relays before answering when it hasn't for days, which can take five.
+
 ## 0.30.0
 
 Nobody outruns a run, whatever they hold or wear.

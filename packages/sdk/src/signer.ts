@@ -145,12 +145,16 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let disposed = false;
   /** A signer someone named, as against one only looked for beside an Airlock that may have none. */
   const named = !!opts.at || !!signerAt(opts.under);
-  /** It has had the time a signer takes to load and answer. */
+  /**
+   * It has had the time a signer takes to load and answer. A signer that checks something before its first
+   * answer (BitLogin's asks the visitor's relays whether this world was taken back, when it hasn't for days)
+   * can take five seconds over it: ten is allowed before it is called silent.
+   */
   let waited = false;
   setTimeout(() => {
     waited = true;
     if (state === "none") changed();
-  }, 7000);
+  }, 10_000);
   /** Whether the signer has answered at all. Until it has, it is asked again a few times. */
   let answered = false;
   const firstAnswer = new Set<() => void>();
