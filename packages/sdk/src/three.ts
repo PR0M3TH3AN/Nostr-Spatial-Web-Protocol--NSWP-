@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, queryRelays, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, writeRelaysFor, type NostrEvent, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -1276,7 +1276,11 @@ export function addRoomControls(
     sounds?: Sounds | null;
     /** False where this world wants no shared music: a concert, a library. Its visitors' own music still plays for them. */
     sharedMusic?: boolean;
-    /** The relays a post the visitor sends out goes to, and their earlier posts are read from. Left out, the kit's own list. */
+    /**
+     * The usual relays: where the visitor's own relay list is looked for, and where a post goes when they have
+     * published none (or too thin a one). Left out, the kit's own list. A post goes to the relays the visitor
+     * says they write to (NIP-65), and their earlier posts are read from the same.
+     */
     noteRelays?: string[];
     /**
      * What signs a post when the visitor sends one out. Left out, the page's own signer: the hidden one
@@ -1794,7 +1798,22 @@ export function addRoomControls(
     pubkey: () => worldSigner().pubkey,
     who: () => hereAs()?.name || worldSigner().name,
   };
-  const noteRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
+  const usualRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
+  /**
+   * Where this visitor's posts go and are read from: the relays they say they write to, in their own relay list
+   * (NIP-65, kind 10002), looked for on the usual relays. Asked for when they open their feed or send a post,
+   * and kept for ten minutes. Like their posts, it is their own key's, asked of a relay only then.
+   */
+  let relaysKept: { key: string; at: number; found: Promise<{ relays: string[]; own: number }> } | null = null;
+  const relaysFor = (key: string | null | undefined): Promise<{ relays: string[]; own: number }> => {
+    if (!key) return Promise.resolve(writeRelaysFor(null, usualRelays()));
+    if (relaysKept && relaysKept.key === key && Date.now() - relaysKept.at < 600_000) return relaysKept.found;
+    const found = queryRelays(usualRelays(), { kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, 2500)
+      .then((got) => writeRelaysFor(readRelayList(got.events, key), usualRelays()))
+      .catch(() => writeRelaysFor(null, usualRelays()));
+    relaysKept = { key, at: Date.now(), found };
+    return found;
+  };
   /** They pressed the row while signed out: once they are signed in, their feed is what they asked for. */
   let wantsFeed = false;
   const postNote = async (words: string): Promise<{ ok: boolean; said: string }> => {
@@ -1802,9 +1821,13 @@ export function addRoomControls(
     // Whatever signed it, what is sent on is checked first: a real signature, on a note, saying what was written.
     const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words ? signed : null;
     if (!note) return { ok: false, said: "That wasn't sent: your sign-in said no." };
-    const sent = await publishEvent(noteRelays(), note).catch(() => null);
+    const to = await relaysFor(note.pubkey);
+    const sent = await publishEvent(to.relays, note).catch(() => null);
     const kept = sent ? Object.values(sent.relays).filter((said) => said === "ok").length : 0;
-    return kept ? { ok: true, said: `Sent out, to ${kept === 1 ? "1 relay" : `${kept} relays`}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+    // Whose relays they were is said: their own list's, or the usual ones for someone who has published none.
+    const n = to.relays.length;
+    const where = to.own === n ? `${kept} of your ${n} relays` : to.own ? `${kept} of ${n} relays: yours, and the usual ones because your own list is short` : `${kept} of the ${n} usual relays: you have published no relay list of your own`;
+    return kept ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
   };
   /**
    * The visitor's own posts, asked of the relays their posts go to. This is the one thing a world asks a relay
@@ -1813,7 +1836,8 @@ export function addRoomControls(
   const loadPosts = async (): Promise<FeedSource[] | null> => {
     const key = notes.pubkey?.();
     if (!key) return [];
-    const got = await queryRelays(noteRelays(), { kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, 5000);
+    const from = await relaysFor(key);
+    const got = await queryRelays(from.relays, { kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, 5000);
     if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
     // Their posts, and not their replies to other people: out of its thread a reply reads as nonsense.
     return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));

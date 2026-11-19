@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.29.0
+
+A post goes to the relays its writer says they write to.
+
+- **"Send out a post" follows the visitor's own relay list (NIP-65).** The kit sent every post to its own fixed four relays, whoever wrote it. Now it looks up the writer's newest kind 10002 list when they open their feed or send a post, sends to the relays they write to (six at most), and reads their earlier posts from the same. A list with fewer than two is filled out from the usual relays to four in all; someone with no list gets the usual ones. The feed says which it was: "Sent out, to 2 of your 2 relays", or that the usual ones were used and why. (NIP-65 is a person's own signed relay list. NIP-66, relay monitors, is not used: a list is its owner's say, and what a monitor says is nobody's.)
+- **Only an address on the open web is dialled:** `wss`, a real host name, no credentials. Plain `ws`, a bare machine name and a number for a machine are dropped from a list.
+- **`noteRelays` now names the usual relays:** where the list is looked for, and the fallback. BitPortal passes the visitor's own settings there, so its home room follows their relay list too.
+- **In core:** `readRelayList()`, `writeRelaysFor()`, `cleanRelayUrl()`, `RELAY_LIST_KIND`.
+
 ## 0.28.3
 
 - **A sign-in that lasts for this visit only is said so.** A signer may say `remembered: false` in `state`: it will be locked again the next time the world's page is loaded (the visitor left "remember" unticked in its window, or keeps a lock on their sign-in). The menu then says so under You, and that it is chosen in the signer's window, so being asked again is no surprise. `signer.remembered` in the kit. A signer that doesn't say is treated as before.

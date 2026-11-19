@@ -536,12 +536,19 @@ nobody takes one for the other.
 - **It says how a post is marked.** A world's signer marks every note with
   the world that asked ("Signing from a world"). The window says so where
   the visitor writes: "Each post is marked as sent from" and the site.
-- **Their earlier posts are asked of a relay when they open the window,** and
-  not before. This is the one thing a world asks a relay about a person, and
-  the person is the visitor, in their own browser, asking to see their own
-  posts on the relays their next post goes to. A world still never asks a
-  relay about anyone else ("Pictures", "Who someone is"). Replies are left
-  out: out of its thread a reply reads as nonsense.
+- **A post goes to the relays its writer says they write to.** That is
+  their own relay list (NIP-65: kind 10002, `r` tags, a tag with no marker
+  or marked `write`), the newest one, looked for on the reader's usual
+  relays. Only `wss` addresses on the open web are used, six at most. A list
+  with fewer than two is filled out from the usual relays, to four in all,
+  and someone who has published no list gets the usual ones. The window says
+  which it was, and how many took the post.
+- **Their earlier posts are read from the same relays, when they open the
+  window,** and not before. Their posts and their relay list are the two
+  things a world asks a relay about a person, and the person is the visitor,
+  in their own browser, asking to see and to send their own posts. A world
+  still never asks a relay about anyone else ("Pictures", "Who someone
+  is"). Replies are left out: out of its thread a reply reads as nonsense.
 - **A post is shown as plain words.** An address in it is text: nothing is
   fetched, and nothing opens. It is cut to 420 characters and one line.
 - **It needs no room.** It is there whenever the visitor has a signer; signed
