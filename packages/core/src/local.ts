@@ -12,8 +12,16 @@
  * Nothing else changes. What a door says, what an Airlock checks and shows,
  * and what an announcement is signed over are all still the real address.
  * And a deployed site never asks for a map at all: only a page that is itself
- * on a local address, over plain http, does. So the same build that was tried
- * locally goes live with every link leading to the real place.
+ * on a local address does. So the same build that was tried locally goes live
+ * with every link leading to the real place.
+ *
+ * "Local" is about the host, not about http or https. A development server
+ * may serve its copies over https with a certificate made on that machine, so
+ * that a phone or a headset on the same network is given what a browser
+ * gives only to a secure page: its cryptography, a microphone, a headset
+ * session. What makes a page local is that its host is `localhost` or an
+ * address only this machine or this network can reach. No real site is ever
+ * at one.
  */
 
 /** Where a development server publishes its map. */
@@ -57,9 +65,9 @@ function originOf(text: unknown, most = 300): URL | null {
 
 /**
  * A map as a server gave it, with everything doubtful left out: each real
- * address must be an https origin, and each local copy an http origin on a
- * host that is local. So a map can only ever lead to this machine or this
- * network, never out to some third place.
+ * address must be an https origin, and each local copy an http or https
+ * origin on a host that is local. So a map can only ever lead to this machine
+ * or this network, never out to some third place.
  */
 export function cleanLocalMap(input: unknown): LocalMap {
   const out = new Map<string, string>();
@@ -70,7 +78,7 @@ export function cleanLocalMap(input: unknown): LocalMap {
     const to = originOf(local);
     if (!from || !to) continue;
     if (from.protocol !== "https:" || isLocalHost(from.hostname)) continue;
-    if (to.protocol !== "http:" || !isLocalHost(to.hostname)) continue;
+    if ((to.protocol !== "http:" && to.protocol !== "https:") || !isLocalHost(to.hostname)) continue;
     out.set(from.origin, to.origin);
   }
   return out;
@@ -96,10 +104,10 @@ export function mapFromLocal(url: string, map: LocalMap): string {
 const NONE: LocalMap = new Map();
 let loading: Promise<LocalMap> | undefined;
 
-/** Whether this page is one that may follow a map: on a local host, over plain http. */
+/** Whether this page is one that may follow a map: on a local host, over http or https. */
 export function onLocalHost(): boolean {
   try {
-    return typeof location !== "undefined" && location.protocol === "http:" && isLocalHost(location.hostname);
+    return typeof location !== "undefined" && (location.protocol === "http:" || location.protocol === "https:") && isLocalHost(location.hostname);
   } catch {
     return false;
   }

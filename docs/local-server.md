@@ -9,7 +9,8 @@ reference worlds on 4301 to 4307, the world template on 4308, and the Godot
 example on 4309 if it has been exported (`npm run build:godot`). BitPortal
 and the template are served from their own repositories beside this one, if
 they are built. Add `--lan` to reach them from another device on the same
-network.
+network, and `--https` so that device can sign in, use a microphone and enter
+VR (below).
 
 ## Links lead to the copies served here
 
@@ -44,12 +45,13 @@ kit's doors, the way home and BitPortal's Airlock all do.
 
 Three limits keep this from mattering anywhere else:
 
-- **Only a page on a local address asks for a map.** That means plain `http`
-  on `localhost`, a loopback address, or a private network address. A
-  deployed site is on `https` and never asks.
-- **A map can only lead to a local address.** Each entry must go from an
-  `https` origin to an `http` origin on a local host. Anything else in the
-  map is ignored.
+- **Only a page on a local address asks for a map.** That means a page whose
+  host is `localhost`, a loopback address, or a private network address,
+  over `http` or `https`. A deployed site is at a name, never at one of
+  those, and never asks.
+- **A map can only lead to a local address.** Each entry must go from a real
+  `https` origin to an `http` or `https` origin on a local host. Anything
+  else in the map is ignored.
 - **Only the last step is changed.** What a door says, what an Airlock checks
   and shows, and what an announcement is signed over are all still the real
   address. The Airlock says so on its card: "Development server: you will be
@@ -61,9 +63,41 @@ and is shown as unverified, as it would be for anyone.
 
 ## What a local address can't do
 
-From another device (`--lan`) the address isn't a secure one, so a browser
-withholds the microphone and a headset session there. On the machine itself,
-`localhost` counts as secure and both work.
+On the machine itself, `localhost` counts as a secure address and
+everything works.
+
+From another device (`--lan`), plain `http://192.168…` is not a secure
+address, and a browser withholds three things there: its cryptography, the
+microphone, and a headset session. Without the first, nobody can sign in:
+BitLogin finds the account and can't open it, and says "Account not found or
+credentials incorrect" for a correct name and password.
+
+### https, for a phone or a headset
+
+```bash
+node scripts/serve-local.mjs --lan --https
+```
+
+Each port then answers `https` as well as `http`: `https://192.168…:4300`.
+Links between the sites lead to the `https` copies.
+
+- **The certificate is made on your machine,** the first time, with
+  `openssl`, and kept in `~/.config/nswp/dev-https/`, outside every
+  repository. It is for `localhost` and your machine's own local addresses
+  and nothing else, it can't vouch for any other certificate, and it is made
+  again when it is about to run out or your address changes.
+- **Each device warns about it the first time,** because nobody vouches for
+  it but your machine. The server prints the certificate's fingerprint:
+  check the one the device shows is the same, and accept. That is you
+  trusting your own computer.
+- **After that the page is a secure one:** signing in, the microphone and VR
+  all work.
+- **Passkeys don't.** A browser refuses a passkey on a page whose
+  certificate it was told to accept. Use a deployed site, or `localhost`,
+  for those.
+
+Never use this certificate, or this server, for anything but your own
+network.
 
 A pass that says who you are is made for the place it is shown at, so on a
 development server it is made for the local copy.
