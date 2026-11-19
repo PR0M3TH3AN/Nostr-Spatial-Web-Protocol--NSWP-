@@ -28,6 +28,7 @@ import { cleanComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, ty
 import { createAlloy, type Alloy } from "./alloy.js";
 import { MeshBuilder } from "./mesh.js";
 import { turnVisitor } from "./turn.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls } from "./ui/model.js";
 
 export interface GrabOptions {
@@ -152,7 +153,11 @@ const VIGNETTE_FRAG = `uniform float uAmount; varying float vFar; void main(){ g
 export function createXrInput(opts: XrInputOptions): XrInput {
   const { renderer, rig, camera } = opts;
   const accent = new THREE.Color(opts.accent ?? 0xffb65c);
-  let comfort = loadComfort();
+  // How they had their hands set where they came from, in place of what this site remembered (settings.ts).
+  const came = arrivedSettings();
+  let comfort: Comfort = { ...loadComfort(), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}) };
+  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined) saveComfort(comfort);
+  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow }));
   const loco = new Locomotion();
   const listeners: [THREE.Object3D, string, (e: never) => void][] = [];
   const listen = (target: THREE.Object3D, type: string, fn: (e: never) => void) => {

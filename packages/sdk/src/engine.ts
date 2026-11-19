@@ -64,6 +64,10 @@ function stateOf(text: unknown): GoOptions {
  * "desk". It is how they were in the place they came from, where this device
  * can do the same, and otherwise what the device is.
  *
+ * `settings` is what they had set where they came from (volumes, text size
+ * and the rest). The menu and the sounds here begin from them already; an
+ * engine with an interface of its own may read them too.
+ *
  * `arrived` is false for someone who came by an ordinary link, and every
  * other field then has its plain value. `name` and `pubkey` are filled only
  * when they came by name and their pass checks out for this site; otherwise
@@ -81,6 +85,7 @@ export function arrival(): string {
     mic: context?.mic === true,
     moving: context?.moving ?? "casual",
     form: startingForm(),
+    settings: context?.settings ?? {},
     blocked: context?.blocked ?? [],
     look: arrivals.look() ?? "",
     guest: !who,

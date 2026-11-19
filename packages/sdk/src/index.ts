@@ -26,6 +26,9 @@ import {
 } from "@nswp/core";
 
 import { arriveAs, currentForm, type Form } from "./form.js";
+import { arriveWith, currentSettings } from "./settings.js";
+
+export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
 
 export type { Arrival, PortalDestination } from "@nswp/core";
 export { currentForm, startingForm, type Form } from "./form.js";
@@ -78,6 +81,8 @@ export const arrival = {
     cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
     // The form they were in where they came from: this place starts them the same way, where the device can.
     arriveAs(cached.context?.form);
+    // And the settings they had there: each part of the kit begins from them (settings.ts).
+    arriveWith(cached.context?.settings);
     // Arriving any way but home ends being at home, for this tab.
     try {
       if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
@@ -205,6 +210,8 @@ const carried = (opts: GoOptions, immersive: boolean) => ({
   ...(opts.blocked?.length ? { blocked: opts.blocked } : {}),
   ...(opts.moving === "intense" ? { moving: "intense" as const } : {}),
   form: opts.form ?? currentForm(),
+  // Their settings as they are now, so the next place needn't be set up again.
+  settings: currentSettings(),
 });
 
 export const portal = {

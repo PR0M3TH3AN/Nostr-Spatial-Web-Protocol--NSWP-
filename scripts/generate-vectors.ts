@@ -384,6 +384,25 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", moving: "intense" }, warnings: [] },
   },
   {
+    name: "with_settings_that_travel",
+    value: encodeArrival({ entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true } }),
+    expect: {
+      valid: true,
+      decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true } },
+      warnings: [],
+    },
+  },
+  {
+    name: "settings_keep_what_is_known_and_in_range",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", settings: { sound: { music: 7, effects: -2, voices: "loud", bass: 1 }, text: 9, wrist: "ankle", turn: 60, full: "yes", theme: "dark" } })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { sound: { effects: 0, music: 1 }, text: 1.5 } }, warnings: [] },
+  },
+  {
+    name: "settings_with_nothing_readable_are_ignored",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", settings: { theme: "dark" } })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_settings"] },
+  },
+  {
     name: "on_a_touch_screen",
     value: encodeArrival({ entry: "main-entrance", form: "touch" }),
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", form: "touch" }, warnings: [] },

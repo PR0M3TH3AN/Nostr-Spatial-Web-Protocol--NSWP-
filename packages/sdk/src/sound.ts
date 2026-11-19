@@ -54,6 +54,7 @@ import {
   type SoundLevels,
   type SoundTheme,
 } from "./sound-store.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls } from "./ui/model.js";
 
 export { CUES, type Cue, type Song, type SoundLevels, type SoundTheme } from "./sound-store.js";
@@ -157,9 +158,14 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       /* it lasts for this visit */
     }
   };
-  let levels = cleanLevels(read(levelsKey));
+  // The volumes they arrived with, if they came through a door, in place of what this site remembered: a visitor
+  // who turned the music down in the last world doesn't have to do it again here (settings.ts).
+  const came = arrivedSettings().sound;
+  let levels = cleanLevels({ ...(read(levelsKey) as object | null), ...came });
   let songs = cleanSongs(read(songsKey));
   let disposed = false;
+  if (came) write(levelsKey, levels);
+  const stopReporting = reportSettings("sound", () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }));
 
   // Everything goes out through one limiter: a world's file can be as loud as it likes going in.
   const master = ctx.createGain();
@@ -722,6 +728,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
     },
     dispose() {
+      stopReporting();
       disposed = true;
       removeEventListener("pointerdown", onTouch, true);
       removeEventListener("keydown", onTouch, true);

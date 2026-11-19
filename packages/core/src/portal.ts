@@ -4,6 +4,7 @@ import { checkDestination } from "./destination.js";
 import type { Capability } from "./constants.js";
 import { decodeNaddr, type AddressPointer } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
+import { decodeSettings, encodeSettings, hasSettings, type TravelSettings } from "./settings.js";
 
 export interface PortalDestination {
   naddr?: string;
@@ -103,6 +104,15 @@ export interface AirlockUrlOptions {
    * visitor's own client knows their device.
    */
   form?: Form;
+  /**
+   * The visitor's settings as they leave (`set=<settings>`): their volumes,
+   * the size of their text, whether things move, their hands in a headset,
+   * whether their screen was filled. The place they arrive starts from them,
+   * so nothing has to be set again. Preferences and nothing more
+   * (protocol/11-the-visitors-console.md, "Settings that travel"). Sent on
+   * the way home too: what they changed in a world comes home with them.
+   */
+  settings?: TravelSettings;
 }
 
 /** How a visitor is using a flat screen: with their fingers, or with a mouse and keys. */
@@ -127,6 +137,12 @@ const blockedFlag = (opts: AirlockUrlOptions): string[] => {
 };
 const blockedFrom = (value: string | undefined): string[] => cleanKeys((value ?? "").split(","), LIMITS.maxBlockedOnLink);
 
+/** The visitor's settings as a flag, when there are any. */
+const settingsFlag = (opts: AirlockUrlOptions): string[] => {
+  const text = encodeSettings(opts.settings);
+  return text ? [`set=${text}`] : [];
+};
+
 /** The flags a visitor's state travels in: from a headset, in a room, with the microphone on. */
 function stateFlags(opts: AirlockUrlOptions): string[] {
   return [...(opts.immersive ? ["xr=1"] : []), ...(opts.moving === "intense" ? ["moving=intense"] : []), ...(opts.joined ? ["joined=1"] : []), ...(opts.joined && opts.mic ? ["mic=1"] : [])];
@@ -140,7 +156,7 @@ export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: 
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-  parts.push(...stateFlags(opts), ...(isForm(opts.form) ? [`form=${opts.form}`] : []), ...blockedFlag(opts));
+  parts.push(...stateFlags(opts), ...(isForm(opts.form) ? [`form=${opts.form}`] : []), ...settingsFlag(opts), ...blockedFlag(opts));
   u.hash = parts.join("&");
   return u.href;
 }
@@ -163,6 +179,8 @@ export interface AirlockRequest {
   moving?: "intense";
   /** The link says what they were using a flat screen with (`form=touch` or `form=desk`). */
   form?: Form;
+  /** The link says what their settings were (`set=`). Preferences, with everything unknown already left out. */
+  settings?: TravelSettings;
 }
 
 /** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
@@ -176,10 +194,12 @@ export function fragmentSaysImmersive(hash: string): boolean {
  * flags such a way may carry. Null for anything else, which is a crossing or
  * a mistake.
  */
-export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true; blocked?: string[]; moving?: "intense" } | null {
+export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true; blocked?: string[]; moving?: "intense"; settings?: TravelSettings } | null {
   const parts = hash.replace(/^#/, "").split("&").filter(Boolean);
   const reported = parts.find((p) => /^blocked=[0-9a-f,]+$/.test(p));
-  if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1" && p !== "moving=intense" && p !== reported)) return null;
+  const set = parts.find((p) => /^set=[A-Za-z0-9_-]{1,400}$/.test(p));
+  if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1" && p !== "moving=intense" && p !== reported && p !== set)) return null;
+  const settings = set ? decodeSettings(set.slice(4)) : {};
   const joined = parts.includes("joined=1");
   const blocked = blockedFrom(reported?.slice(8));
   return {
@@ -189,13 +209,14 @@ export function wayWithoutDestination(hash: string): { immersive: boolean; doors
     ...(joined && parts.includes("mic=1") ? { mic: true as const } : {}),
     ...(blocked.length ? { blocked } : {}),
     ...(parts.includes("moving=intense") ? { moving: "intense" as const } : {}),
+    ...(hasSettings(settings) ? { settings } : {}),
   };
 }
 
 /** `<airlock>` opened as the way home, or with `doors` as the way to the visitor's doors (protocol/02-doors.md). */
 export function buildWayUrl(airlock: string, opts: AirlockUrlOptions & { doors?: boolean } = {}): string {
   const u = new URL(airlock);
-  u.hash = [...(opts.doors ? ["doors=1"] : []), ...stateFlags(opts), ...blockedFlag(opts)].join("&");
+  u.hash = [...(opts.doors ? ["doors=1"] : []), ...stateFlags(opts), ...settingsFlag(opts), ...blockedFlag(opts)].join("&");
   return u.href;
 }
 
@@ -238,5 +259,7 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
   if (params.get("moving") === "intense") req.moving = "intense";
   const form = params.get("form");
   if (isForm(form)) req.form = form;
+  const settings = decodeSettings(params.get("set"));
+  if (hasSettings(settings)) req.settings = settings;
   return req;
 }

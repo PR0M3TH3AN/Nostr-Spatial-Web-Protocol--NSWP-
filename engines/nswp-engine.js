@@ -3508,6 +3508,61 @@ var NSWP = (() => {
     }
   }
 
+  // packages/core/dist/settings.js
+  var SETTINGS_LINK_LIMIT = 400;
+  var level = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : void 0;
+  function cleanSettings(input) {
+    const out = {};
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      return out;
+    const s = input;
+    if (s.sound && typeof s.sound === "object" && !Array.isArray(s.sound)) {
+      const from = s.sound;
+      const sound = {};
+      if (typeof from.off === "boolean")
+        sound.off = from.off;
+      for (const k of ["effects", "music", "voices"]) {
+        const v = level(from[k]);
+        if (v !== void 0)
+          sound[k] = v;
+      }
+      if (typeof from.hum === "boolean")
+        sound.hum = from.hum;
+      if (Object.keys(sound).length)
+        out.sound = sound;
+    }
+    if (typeof s.text === "number" && Number.isFinite(s.text))
+      out.text = Math.round(Math.min(1.5, Math.max(0.85, s.text)) * 100) / 100;
+    if (typeof s.motion === "boolean")
+      out.motion = s.motion;
+    if (s.wrist === "left" || s.wrist === "right" || s.wrist === "off")
+      out.wrist = s.wrist;
+    if (s.turn === 30 || s.turn === 45 || s.turn === 90)
+      out.turn = s.turn;
+    if (s.hand === "left" || s.hand === "right")
+      out.hand = s.hand;
+    if (typeof s.narrow === "boolean")
+      out.narrow = s.narrow;
+    if (typeof s.full === "boolean")
+      out.full = s.full;
+    return out;
+  }
+  var hasSettings = (s) => !!s && Object.keys(s).length > 0;
+  var toBase64Url = (text) => {
+    const bytes = new TextEncoder().encode(text);
+    let bin = "";
+    for (const b of bytes)
+      bin += String.fromCharCode(b);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+  function encodeSettings(settings) {
+    const clean2 = cleanSettings(settings);
+    if (!hasSettings(clean2))
+      return "";
+    const text = toBase64Url(JSON.stringify(clean2));
+    return text.length <= SETTINGS_LINK_LIMIT ? text : "";
+  }
+
   // packages/core/dist/avatar.js
   var LOOK_PARTS = {
     build: ["medium", "slight", "broad"],
@@ -3707,6 +3762,13 @@ var NSWP = (() => {
       else
         c.warn("invalid_moving", "moving", `Ignoring a way of moving that isn't "casual" or "intense".`);
     }
+    if (json.settings !== void 0) {
+      const settings = cleanSettings(json.settings);
+      if (hasSettings(settings))
+        out.settings = settings;
+      else
+        c.warn("invalid_settings", "settings", "Ignoring settings with nothing readable in them.");
+    }
     if (json.form !== void 0) {
       if (json.form === "touch" || json.form === "desk")
         out.form = json.form;
@@ -3768,6 +3830,10 @@ var NSWP = (() => {
     const keys = cleanKeys(opts.blocked, LIMITS.maxBlockedOnLink);
     return keys.length ? [`blocked=${keys.join(",")}`] : [];
   };
+  var settingsFlag = (opts) => {
+    const text = encodeSettings(opts.settings);
+    return text ? [`set=${text}`] : [];
+  };
   function stateFlags(opts) {
     return [...opts.immersive ? ["xr=1"] : [], ...opts.moving === "intense" ? ["moving=intense"] : [], ...opts.joined ? ["joined=1"] : [], ...opts.joined && opts.mic ? ["mic=1"] : []];
   }
@@ -3776,18 +3842,18 @@ var NSWP = (() => {
     const to = dest.naddr ?? dest.url;
     if (!to)
       throw new Error("buildAirlockUrl: destination needs an naddr or a url");
-    const parts = [`to=${encodeURIComponent(to)}`];
+    const parts2 = [`to=${encodeURIComponent(to)}`];
     if (dest.naddr && dest.url)
-      parts.push(`url=${encodeURIComponent(dest.url)}`);
+      parts2.push(`url=${encodeURIComponent(dest.url)}`);
     if (dest.entryPoint)
-      parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-    parts.push(...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...blockedFlag(opts));
-    u.hash = parts.join("&");
+      parts2.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
+    parts2.push(...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
+    u.hash = parts2.join("&");
     return u.href;
   }
   function buildWayUrl(airlock, opts = {}) {
     const u = new URL(airlock);
-    u.hash = [...opts.doors ? ["doors=1"] : [], ...stateFlags(opts), ...blockedFlag(opts)].join("&");
+    u.hash = [...opts.doors ? ["doors=1"] : [], ...stateFlags(opts), ...settingsFlag(opts), ...blockedFlag(opts)].join("&");
     return u.href;
   }
 
@@ -4022,6 +4088,34 @@ var NSWP = (() => {
     );
   }
 
+  // packages/sdk/src/settings.ts
+  var arrived2 = {};
+  var parts = /* @__PURE__ */ new Map();
+  function arriveWith(settings) {
+    arrived2 = cleanSettings(settings);
+  }
+  function arrivedSettings() {
+    return arrived2;
+  }
+  function reportSettings(part, now) {
+    parts.set(part, now);
+    return () => {
+      if (parts.get(part) === now) parts.delete(part);
+    };
+  }
+  function currentSettings() {
+    let out = { ...arrived2 };
+    for (const now of parts.values()) {
+      let said = {};
+      try {
+        said = cleanSettings(now());
+      } catch {
+      }
+      out = { ...out, ...said, ...said.sound || out.sound ? { sound: { ...out.sound, ...said.sound } } : {} };
+    }
+    return cleanSettings(out);
+  }
+
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
   var LOOK_KEY = "nswp:look";
@@ -4062,6 +4156,7 @@ var NSWP = (() => {
       const r = decodeArrival(raw);
       cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
       arriveAs(cached.context?.form);
+      arriveWith(cached.context?.settings);
       try {
         if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
         else if (cached.context) session()?.removeItem(HOME_KEY);
@@ -4144,7 +4239,9 @@ var NSWP = (() => {
     ...opts.joined ? { joined: true, ...opts.mic ? { mic: true } : {} } : {},
     ...opts.blocked?.length ? { blocked: opts.blocked } : {},
     ...opts.moving === "intense" ? { moving: "intense" } : {},
-    form: opts.form ?? currentForm()
+    form: opts.form ?? currentForm(),
+    // Their settings as they are now, so the next place needn't be set up again.
+    settings: currentSettings()
   });
   var portal = {
     /** Which Airlock `go()` would use right now, or null for the built-in screen. */
@@ -4273,12 +4370,12 @@ var NSWP = (() => {
     nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps."
   };
   var hasMouse = () => startingForm() === "desk";
-  function startsIntense(arrived2, key = DESK_KEY) {
+  function startsIntense(arrived3, key = DESK_KEY) {
     if (!hasMouse()) return false;
     try {
-      return arrived2 || localStorage.getItem(key) === "1";
+      return arrived3 || localStorage.getItem(key) === "1";
     } catch {
-      return arrived2;
+      return arrived3;
     }
   }
   function keepIntense(on, key = DESK_KEY) {
@@ -4621,9 +4718,12 @@ var NSWP = (() => {
       } catch {
       }
     };
-    let levels = cleanLevels(read4(levelsKey));
+    const came = arrivedSettings().sound;
+    let levels = cleanLevels({ ...read4(levelsKey), ...came });
     let songs = cleanSongs(read4(songsKey));
     let disposed = false;
+    if (came) write(levelsKey, levels);
+    const stopReporting = reportSettings("sound", () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }));
     const master = ctx.createGain();
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -14;
@@ -4765,15 +4865,15 @@ var NSWP = (() => {
       soft.type = "lowpass";
       soft.frequency.value = shape.cutoff;
       soft.Q.value = 0.5;
-      const level = ctx.createGain();
-      level.gain.value = shape.gain;
-      soft.connect(level);
+      const level2 = ctx.createGain();
+      level2.gain.value = shape.gain;
+      soft.connect(level2);
       if (typeof ctx.createStereoPanner === "function") {
         const side = ctx.createStereoPanner();
         side.pan.value = shape.pan;
-        level.connect(side);
+        level2.connect(side);
         side.connect(effects);
-      } else level.connect(effects);
+      } else level2.connect(effects);
       return soft;
     };
     const play2 = (cue) => {
@@ -4791,10 +4891,10 @@ var NSWP = (() => {
         const src = ctx.createBufferSource();
         src.buffer = files2[which].buffer;
         if (shape) src.playbackRate.value = shape.rate;
-        const level = ctx.createGain();
-        level.gain.value = files2[which].gain;
-        src.connect(level);
-        level.connect(out);
+        const level2 = ctx.createGain();
+        level2.gain.value = files2[which].gain;
+        src.connect(level2);
+        level2.connect(out);
         src.start();
         return;
       }
@@ -5138,6 +5238,7 @@ var NSWP = (() => {
         return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
       },
       dispose() {
+        stopReporting();
         disposed = true;
         removeEventListener("pointerdown", onTouch, true);
         removeEventListener("keydown", onTouch, true);
@@ -5194,7 +5295,7 @@ var NSWP = (() => {
         })
       );
     };
-    const level = (id, name, key) => ({
+    const level2 = (id, name, key) => ({
       id,
       section: "sound",
       label: () => `${name}: ${word(sounds2.levels[key])}`,
@@ -5211,8 +5312,8 @@ var NSWP = (() => {
         label: () => sounds2.levels.off ? "All sound: off" : "All sound: on",
         act: () => sounds2.setLevels({ off: !sounds2.levels.off })
       },
-      level("sound-effects", "Effects", "effects"),
-      level("sound-music", "Music", "music"),
+      level2("sound-effects", "Effects", "effects"),
+      level2("sound-music", "Music", "music"),
       {
         // What the place is playing, by name, so a visitor can say which piece they mean. Pressing goes on to the next.
         id: "sound-piece",
@@ -5231,7 +5332,7 @@ var NSWP = (() => {
           else controls2.say(`${p.name} is the only piece this place has. Music: off, above, silences it.`);
         }
       },
-      level("sound-voices", "Voices", "voices"),
+      level2("sound-voices", "Voices", "voices"),
       {
         id: "sound-hum",
         section: "sound",
@@ -5298,7 +5399,29 @@ var NSWP = (() => {
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
   // packages/sdk/src/ui/fullscreen.ts
+  var resumed = false;
+  function resumeFullscreen(presenting) {
+    if (resumed || typeof document === "undefined") return;
+    resumed = true;
+    reportSettings("screen", () => ({ full: !!document.fullscreenElement || waiting }));
+    let waiting = arrivedSettings().full === true && document.fullscreenEnabled && !document.fullscreenElement;
+    if (!waiting) return;
+    const stop = () => {
+      waiting = false;
+      removeEventListener("keydown", onPress, true);
+      removeEventListener("pointerup", onPress, true);
+    };
+    const onPress = (e) => {
+      if (e.code === "Escape" || presenting()) return;
+      stop();
+      if (!document.fullscreenElement) void document.documentElement.requestFullscreen().catch(() => {
+      });
+    };
+    addEventListener("keydown", onPress, true);
+    addEventListener("pointerup", onPress, true);
+  }
   function fullscreenAction(controls2, presenting) {
+    resumeFullscreen(presenting);
     return {
       id: "fullscreen",
       section: "view",
@@ -5844,6 +5967,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const sayers = /* @__PURE__ */ new Set();
     const signals = /* @__PURE__ */ new Set();
     let visitor = loadVisitorTheme();
+    const came = arrivedSettings();
+    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
+    if (Object.keys(brought).length) {
+      visitor = { ...visitor, ...brought };
+      saveVisitorTheme(visitor);
+    }
+    reportSettings("look", () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }));
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
@@ -6164,8 +6294,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     hud?.setHidden(vr.presenting);
     controls?.setTarget("");
   }
-  function presence(level) {
-    if (level === "full" || level === "quiet" || level === "hidden") controls?.setPresence(level);
+  function presence(level2) {
+    if (level2 === "full" || level2 === "quiet" || level2 === "hidden") controls?.setPresence(level2);
   }
   function claim(on) {
     controls?.claimInput(on === true || on === "true" || on === "1" || on === 1);
@@ -6216,6 +6346,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       mic: context?.mic === true,
       moving: context?.moving ?? "casual",
       form: startingForm(),
+      settings: context?.settings ?? {},
       blocked: context?.blocked ?? [],
       look: arrival.look() ?? "",
       guest: !who,
