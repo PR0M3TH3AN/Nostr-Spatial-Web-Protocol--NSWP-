@@ -27,13 +27,15 @@
  * crossing's room. What it doesn't get here yet: rooms (voices and other
  * visitors), which need more than text to pass through.
  */
-import { checkDestination, type PortalDestination } from "@nswp/core";
+import { checkDestination, KIT_VERSION, type PortalDestination } from "@nswp/core";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
 export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 6;
+export const VERSION = 7;
+/** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
+export const KIT = KIT_VERSION;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {

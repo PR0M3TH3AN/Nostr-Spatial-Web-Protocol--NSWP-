@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const { KIT_VERSION } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // Every world in sites.json, and the reference Airlock. Pass names to build only those.
 const only = process.argv.slice(2);
@@ -37,6 +38,8 @@ const page = (world) => `<!doctype html>
 /** What the site says about itself (spec §5.3): which key may announce it, and where it is. */
 const manifest = (world) => ({
   schema: "nswp/manifest/0.3",
+  // Which kit this build is, so a visitor's client can tell how old a world's controls are without loading it.
+  kit: KIT_VERSION,
   listing: "allow",
   publishers: { [config.publisher]: { worlds: [world.d] } },
   worlds: {

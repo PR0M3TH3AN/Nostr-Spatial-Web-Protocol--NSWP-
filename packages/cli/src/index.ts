@@ -41,6 +41,8 @@ import {
   type Issue,
   type ListInput,
   type WorldInput,
+  kitAge,
+  KIT_VERSION,
 } from "@nswp/core";
 
 const argv = process.argv.slice(2);
@@ -118,6 +120,12 @@ async function check(url: string): Promise<number> {
       failed = true;
     }
     if (m.manifest.listing === "deny") out(`  ${WARN} listing: deny — this origin opts out of third-party listings.`);
+    // Which kit the site was built with, beside the one this tool is. Never a fault: an older kit still works.
+    const age = kitAge(m.manifest.kit);
+    report.kit = { site: m.manifest.kit ?? null, tool: KIT_VERSION, age };
+    if (age === "unknown") out(`  ${WARN} The manifest doesn't say which kit the site was built with ("kit"). A visitor's client can't tell how old its controls are.`);
+    else if (age === "older") out(`  ${WARN} Built with kit ${m.manifest.kit}; this tool is ${KIT_VERSION}. It still works. Update it to get what has been added since.`);
+    else out(`  ${OK} Built with kit ${m.manifest.kit}.`);
   }
   // No manifest is normal for a site that hasn't adopted NSWP: it can be
   // listed, just never verified. Anything else wrong with a manifest is a fault.

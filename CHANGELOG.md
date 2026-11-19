@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.21.0
+
+Keeping worlds up to date, without a script they all load.
+
+- **[NSWP-01](protocol/01-worlds.md), "Which kit a world was built with":** a manifest may say `kit`, the version of the kit the site was built with. A client may tell a visitor that a world's controls are older than its own, and that is all: it is never a warning, never changes whether a door opens, and never stops a crossing. A world that is behind is not a world that is broken.
+- **The kit has a version** (`KIT_VERSION`, the spec's own, kept the same as this file's newest heading by a test). The reference worlds' and the template's builds write it into the manifest; the kit writes it on the page as it reads the arrival; `nswp check` says a site's beside the tool's own; the probe reads which kit is really running; the engine script has `NSWP.KIT`.
+- **Updating is one step, and can be none.** The template has `npm run update`, which takes the newest kit and plumbing from the template's own repository and leaves the world's own files alone, and `npm run update -- --check` to ask without changing anything. A scheduled job opens a pull request when a newer kit is out, for the owner to read and merge ([keeping-up.md](docs/keeping-up.md)).
+- **In BitPortal:** the Airlock says, under "More about this place", when a world was built with an older kit than BitPortal knows, or doesn't say. It changes nothing else.
+- **What was not built, on purpose:** a copy of the kit that every world loads live from one address. Whoever controlled that address would control every world at once, an owner would have no say in what ran on their own site, and one outage would take every world's controls with it. What must always be current (signing in, a look, the Airlock, lists) is in the visitor's client already, so worlds get the newest of it the day the client does.
+- **Status (2026-11-19):** not deployed.
+
 ## 0.20.0
 
 What a visitor prefers, in every world.

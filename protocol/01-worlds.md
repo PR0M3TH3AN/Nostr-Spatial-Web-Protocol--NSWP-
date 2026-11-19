@@ -106,7 +106,8 @@ A JSON file at exactly `https://<origin>/.well-known/nswp.json`.
       "airlock": "https://portal.bitblocks.network/go/"
     }
   },
-  "relays": ["wss://relay.example"]
+  "relays": ["wss://relay.example"],
+  "kit": "0.21.0"
 }
 ```
 
@@ -126,6 +127,42 @@ works.
 
 `airlock` is where the world sends visitors who arrived without a return
 address ([NSWP-02](02-doors.md)). `relays` hints where the world's events live.
+
+### Which kit a world was built with
+
+`kit` is the version of the kit the site was built with: three numbers, as
+in `"0.21.0"`. It is optional, and it is the site's own word.
+
+A world carries its own copy of the kit: the console, how a visitor moves,
+the sounds, the crossing's room. Nothing loads it from anywhere else as the
+world runs, so no outside party can change what runs in a world, and a world
+goes on working whatever happens to anyone else's servers. The cost is that
+a world's copy grows old. `kit` is how that is seen:
+
+- **A client may tell the visitor** that a world's controls are older than
+  the ones it knows. That is all it may do with it. It is never a warning,
+  never changes whether a door opens or a site is verified, and never stops
+  a crossing: a world that is behind is not a world that is broken.
+- **Old worlds stay open.** A reader keeps what it knows and ignores the
+  rest ([NSWP-03](03-arrival.md), [NSWP-11](11-the-visitors-console.md)).
+  A newer setting or flag an old world doesn't know passes it by.
+- **What must always be current is not in a world at all.** Signing in, a
+  visitor's look, the Airlock, their lists and their settings between
+  devices are their client's ([NSWP-10](10-identity.md),
+  [NSWP-05](05-looks.md)). A world gets the newest of those the day the
+  client does.
+- **A world's owner is told, and updating is one step.** `nswp check` says
+  which kit a site says it has beside the tool's own. The template has
+  `npm run update`, and a scheduled job that opens a pull request when a
+  newer kit is out, for the owner to read and merge
+  ([keeping-up.md](../docs/keeping-up.md)).
+
+A script that every world loads live from one address would keep every world
+current with no step at all. It is not how this works, on purpose: whoever
+controlled that address would control every world at once, each world's
+owner would have no say in what ran on their own site, and one outage would
+take every world's controls with it. A world must never need anyone else's
+server to be a world.
 
 ## Verified
 

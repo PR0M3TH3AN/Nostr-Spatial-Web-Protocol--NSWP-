@@ -23,6 +23,7 @@ var NSWP = (() => {
   // packages/sdk/src/engine.ts
   var engine_exports = {};
   __export(engine_exports, {
+    KIT: () => KIT,
     VERSION: () => VERSION,
     arrival: () => arrival2,
     bump: () => bump,
@@ -57,6 +58,11 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
+  var KIT_VERSION = "0.21.0";
+  function parseKitVersion(v) {
+    const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  }
   var MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"];
   var PREVIEW_LIMITS = {
     pano: { width: 4096, height: 2048, bytes: 2 * 1024 * 1024 },
@@ -3673,7 +3679,14 @@ var NSWP = (() => {
         for (const r of input.relays)
           isWssUrl(r) ? relays.push(r) : c.warn("invalid_relay", "relays", `Ignoring relay "${r}" (not wss).`);
     }
-    return c.result({ schema: typeof schema === "string" ? schema : SCHEMAS.manifest, listing, publishers, worlds, relays });
+    let kit2;
+    if (input.kit !== void 0) {
+      if (parseKitVersion(input.kit))
+        kit2 = input.kit;
+      else
+        c.warn("invalid_field", "kit", 'kit must be a version such as "0.21.0"; ignoring it.');
+    }
+    return c.result({ schema: typeof schema === "string" ? schema : SCHEMAS.manifest, listing, publishers, worlds, relays, ...kit2 ? { kit: kit2 } : {} });
   }
   function doorFor(manifest, url) {
     const here = normalizeUrl(url);
@@ -4418,6 +4431,10 @@ var NSWP = (() => {
      */
     read() {
       if (cached) return cached;
+      try {
+        document.documentElement.dataset.nswpKit = KIT_VERSION;
+      } catch {
+      }
       void localMap();
       const raw = arrivalParam(location.hash);
       if (!raw) {
@@ -6775,7 +6792,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 6;
+  var VERSION = 7;
+  var KIT = KIT_VERSION;
   var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
