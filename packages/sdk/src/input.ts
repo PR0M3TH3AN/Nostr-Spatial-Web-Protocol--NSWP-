@@ -63,6 +63,11 @@ export interface XrInputOptions {
    * a stick doesn't step, and pointing and selecting still does.
    */
   stepFrom?: (slot: number) => void;
+  /**
+   * The pace of stepping (stroll.ts), shared with the world's own steps: a step backwards with the stick is
+   * taken only when it allows, so stepping back is no faster than any other way of going.
+   */
+  pace?: { take(metres: number): boolean };
   /** The menu button (B or Y) went down. */
   onMenu?: () => void;
   /**
@@ -453,7 +458,10 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         turnVisitor(rig, camera, intent.turn);
         if (comfort.turn === "steps") for (const p of pads) if (Math.abs(p.pad.stick[0]) > 0.5) pulse(p.index, 0.2, 12);
       }
-      if (intent.walk[0] !== 0 || intent.walk[1] !== 0) walk(intent.walk[0], intent.walk[1]);
+      // Stepping, what is walked is one step backwards, landing at once: paced like any other step. Walking smoothly
+      // is already no faster than a run.
+      const stepped = comfort.move === "steps";
+      if ((intent.walk[0] !== 0 || intent.walk[1] !== 0) && (!stepped || !opts.pace || opts.pace.take(Math.hypot(intent.walk[0], intent.walk[1])))) walk(intent.walk[0], intent.walk[1]);
       for (const slot of intent.stepFrom) {
         opts.stepFrom?.(slot);
         pulse(slot, 0.35, 20);

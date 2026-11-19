@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.29.0";
+  var KIT_VERSION = "0.30.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -5002,6 +5002,7 @@ var NSWP = (() => {
   // packages/sdk/src/stroll.ts
   var WALK_SPEED = 2.4;
   var RUN = 1.75;
+  var TOP_SPEED = WALK_SPEED * RUN;
   var DOUBLE_TAP = 400;
   var TAP_REACH = 6;
   var DRAG_LOOK = 5e-3;
@@ -7670,6 +7671,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function kit() {
     return JSON.stringify({
       walkSpeed: WALK_SPEED,
+      // The fastest anyone goes on foot: a run. However an engine moves its visitor, never faster than this.
+      topSpeed: TOP_SPEED,
       tapReach: TAP_REACH,
       sprint: SPRINT,
       // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.

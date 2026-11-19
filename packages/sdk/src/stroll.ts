@@ -24,6 +24,11 @@
 export const WALK_SPEED = 2.4;
 /** How much faster a run is than a walk, however it is asked for: Shift, two taps, or a stick pressed in. */
 export const RUN = 1.75;
+/**
+ * The fastest anyone goes on foot, in metres a second: a run. Nobody in a room covers ground faster than this,
+ * whatever they hold or wear: keys, a mouse, a finger on a phone, or a headset's sticks and steps.
+ */
+export const TOP_SPEED = WALK_SPEED * RUN;
 /** Two taps within this many milliseconds are a run. */
 export const DOUBLE_TAP = 400;
 /**
@@ -65,6 +70,48 @@ export function dotsBetween(fromX: number, fromZ: number, toX: number, toZ: numb
   // Counted back from where they are going, so the dots stay put on the floor as the visitor walks along them.
   for (let d = far - short; d >= clear && out.length < most; d -= gap) out.push([fromX + (dx / far) * d, fromZ + (dz / far) * d]);
   return out;
+}
+
+/**
+ * The pace of stepping. In a headset the casual way to move is a step that lands at once, because a slide there
+ * turns stomachs. Left unpaced, a press is a jump of five metres and a visitor who presses fast enough outruns
+ * everybody. So each step is paid for after it is taken: the next may not land until someone running would have
+ * covered the same ground. A short step is ready again almost at once; a long one takes about a second.
+ *
+ *   const pace = createStepPace();
+ *   // a step of `far` metres is asked for:
+ *   if (pace.take(far)) moveThere();
+ *   // each frame, to show whether a press would do anything:
+ *   reticle.material.opacity = pace.ready ? 0.8 : 0.25;
+ */
+export interface StepPace {
+  /** Take a step of this many metres, if one may be taken now. False, and nothing is spent, if it is too soon. */
+  take(metres: number): boolean;
+  /** Whether a step may be taken now. */
+  readonly ready: boolean;
+  /** Seconds until one may. 0 when ready. */
+  readonly wait: number;
+}
+
+export function createStepPace(o: { speed?: number; now?: () => number } = {}): StepPace {
+  const speed = o.speed && o.speed > 0 ? o.speed : TOP_SPEED;
+  const now = o.now ?? (() => performance.now());
+  let readyAt = -Infinity;
+  return {
+    take(metres) {
+      const t = now();
+      if (t < readyAt) return false;
+      const far = Number.isFinite(metres) ? Math.max(0, metres) : 0;
+      readyAt = t + (far / speed) * 1000;
+      return true;
+    },
+    get ready() {
+      return now() >= readyAt;
+    },
+    get wait() {
+      return Math.max(0, (readyAt - now()) / 1000);
+    },
+  };
 }
 
 export interface Stroll {

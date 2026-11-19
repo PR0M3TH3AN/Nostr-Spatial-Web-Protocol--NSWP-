@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.30.0
+
+Nobody outruns a run, whatever they hold or wear.
+
+- **A press on the floor is always a walk on a flat screen.** With Motion off, each tap or click was an instant step of up to six metres, and nothing limited how fast they came. Many phones turn Motion off by themselves, from the device's own setting, so a phone could cross a place far faster than anyone walking: measured in a reference world, about 58 metres a second by tapping, against a run of 4.2. Now it is the same walk on a phone as at a desk, with Motion on or off: 2.4 metres a second, or a run for two taps.
+- **A step in a headset is paced.** Moving the casual way in a headset is a step that lands at once, which is right for comfort and was also unlimited: about 7.4 metres a second by pressing fast. Each step is now paid for after it is taken, so the next can't land until a runner would have covered the same ground. A short step is ready again almost at once, the longest in a little over a second, and the ring on the floor is dim while a press would do nothing. A step backwards with a stick is paced too.
+- **In the kit:** `TOP_SPEED` (4.2 m a second), `createStepPace()`, `createXrInput({ pace })`; an engine is told `topSpeed`. The reference worlds, and the boot code a world is built from, use them. A world with boot code of its own changes two lines: see "Nobody outruns a run" in the kit guide.
+- **What this is not:** a guard against someone who changes their own page. A room has nobody in charge, so the pace is each honest visitor's page keeping to it (NSWP-06).
+
 ## 0.29.0
 
 A post goes to the relays its writer says they write to.
