@@ -80,6 +80,28 @@ describe("local copies", () => {
     expect(fetched.mock.calls[0]![0]).toBe("/.well-known/nswp-local.json");
   });
 
+  it("still follows a map that is slow to come, and doesn't wait for one that never does", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("location", { protocol: "http:", hostname: "localhost" });
+      // A page busy starting up hears back late: the map is still used once it is there.
+      let answer: (v: unknown) => void = () => {};
+      vi.stubGlobal("fetch", vi.fn(() => new Promise((done) => (answer = done))));
+      void localMap();
+      await vi.advanceTimersByTimeAsync(5000);
+      answer({ ok: true, json: async () => ({ "https://gallery.bitblocks.network": "http://localhost:4301" }) });
+      expect(await toLocal("https://gallery.bitblocks.network/")).toBe("http://localhost:4301/");
+      // A server that never answers: a door gives up after a moment and leads to the real place.
+      setLocalMap(undefined);
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+      const going = toLocal("https://gallery.bitblocks.network/");
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(await going).toBe("https://gallery.bitblocks.network/");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("has no map where the server has none, or answers with something else", async () => {
     vi.stubGlobal("location", { protocol: "http:", hostname: "localhost" });
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => ({}) })));

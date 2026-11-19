@@ -3884,6 +3884,7 @@ var NSWP = (() => {
 
   // packages/core/dist/local.js
   var LOCAL_MAP_PATH = "/.well-known/nswp-local.json";
+  var LOCAL_MAP_WAIT = 2e3;
   var LOCAL_MAP_LIMIT = 64;
   function isLocalHost(hostname) {
     const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
@@ -3948,21 +3949,23 @@ var NSWP = (() => {
     if (!onLocalHost() || typeof fetch !== "function")
       return loading = Promise.resolve(NONE);
     loading = (async () => {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 1500);
       try {
-        const res = await fetch(LOCAL_MAP_PATH, { cache: "no-store", credentials: "omit", signal: ctl.signal });
+        const res = await fetch(LOCAL_MAP_PATH, { cache: "no-store", credentials: "omit" });
         return res.ok ? cleanLocalMap(await res.json()) : NONE;
       } catch {
         return NONE;
-      } finally {
-        clearTimeout(timer);
       }
     })();
     return loading;
   }
+  function mapSoon() {
+    const asked = localMap();
+    if (!onLocalHost())
+      return asked;
+    return Promise.race([asked, new Promise((done) => setTimeout(() => done(NONE), LOCAL_MAP_WAIT))]);
+  }
   async function toLocal(url) {
-    return mapToLocal(url, await localMap());
+    return mapToLocal(url, await mapSoon());
   }
 
   // packages/sdk/src/index.ts

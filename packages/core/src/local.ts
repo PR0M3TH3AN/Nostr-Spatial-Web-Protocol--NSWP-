@@ -18,6 +18,8 @@
 
 /** Where a development server publishes its map. */
 export const LOCAL_MAP_PATH = "/.well-known/nswp-local.json";
+/** How long a door waits for a map that hasn't come, in milliseconds. */
+export const LOCAL_MAP_WAIT = 2000;
 /** The most entries a map may have. */
 export const LOCAL_MAP_LIMIT = 64;
 
@@ -100,35 +102,43 @@ export function onLocalHost(): boolean {
 
 /**
  * This page's map: empty anywhere but on a local host, and empty there too
- * unless its server publishes one. Asked for once, and never for long: a
- * server that doesn't answer in a moment has none.
+ * unless its server publishes one. Asked for once, as early as anything calls
+ * this, so that it is there by the time a door is taken.
  */
 export function localMap(): Promise<LocalMap> {
   if (loading) return loading;
   if (!onLocalHost() || typeof fetch !== "function") return (loading = Promise.resolve(NONE));
   loading = (async () => {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 1500);
     try {
-      const res = await fetch(LOCAL_MAP_PATH, { cache: "no-store", credentials: "omit", signal: ctl.signal });
+      const res = await fetch(LOCAL_MAP_PATH, { cache: "no-store", credentials: "omit" });
       return res.ok ? cleanLocalMap(await res.json()) : NONE;
     } catch {
       return NONE;
-    } finally {
-      clearTimeout(timer);
     }
   })();
   return loading;
 }
 
+/**
+ * The map, or none if it hasn't come within a moment of being needed. The
+ * wait is counted from now and not from when the page asked: a page that is
+ * busy starting a 3D engine may be a while hearing back, and a visitor at a
+ * door must not be kept there by a server that never answers.
+ */
+function mapSoon(): Promise<LocalMap> {
+  const asked = localMap();
+  if (!onLocalHost()) return asked;
+  return Promise.race([asked, new Promise<LocalMap>((done) => setTimeout(() => done(NONE), LOCAL_MAP_WAIT))]);
+}
+
 /** Where to really send the browser for `url`: its local copy on a development server, itself everywhere else. */
 export async function toLocal(url: string): Promise<string> {
-  return mapToLocal(url, await localMap());
+  return mapToLocal(url, await mapSoon());
 }
 
 /** What a local copy's address stands for: the real one. Everywhere else, the address itself. */
 export async function fromLocal(url: string): Promise<string> {
-  return mapFromLocal(url, await localMap());
+  return mapFromLocal(url, await mapSoon());
 }
 
 /** For tests: forget what was loaded, or say what the map is. */
