@@ -6,7 +6,10 @@ npm run build && node scripts/serve-local.mjs
 
 Each built site is served on a port of its own: BitPortal on 4300, the
 reference worlds on 4301 to 4307, the world template on 4308, and the Godot
-example on 4309 if it has been exported (`npm run build:godot`). BitPortal
+example on 4309 if it has been exported (`npm run build:godot`). A flat
+demo of signing in by the window is on 4310 if it has been built
+(`node docs/plans/signin-demo/build.mjs`, see
+[its notes](plans/signin-demo/README.md)). BitPortal
 and the template are served from their own repositories beside this one, if
 they are built. Add `--lan` to reach them from another device on the same
 network, and `--https` so that device can sign in, use a microphone and enter

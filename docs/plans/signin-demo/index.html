@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Notebook: a demo of signing in by the window</title>
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<header>
+  <p class="name">Notebook</p>
+  <p class="who" id="who" role="status">Looking for your sign-in address.</p>
+</header>
+
+<main>
+  <section id="out" hidden>
+    <h1>Sign in to write</h1>
+    <p>This is a plain website, standing in for an app like bitvid or bitunlock. It has no sign-in box of its own.</p>
+    <p>Press the button and a small window opens at your sign-in address (<span class="at" data-host></span>). You sign in <em>there</em>, if you aren't already, and say whether this site may sign notes as you. Your password is never typed on this page, and this page never holds your key.</p>
+    <button id="sign-in" class="primary" type="button">Sign in with BitLogin</button>
+    <p class="small" id="blocked" hidden>Your browser didn't let the window open. Allow pop-ups for this address and press the button again.</p>
+  </section>
+
+  <section id="in" hidden>
+    <h1>Write a note</h1>
+    <p>Signed in as <strong id="name"></strong> <span class="at" id="npub"></span>. This page knows that much, and nothing else about you.</p>
+    <label for="words">Your note</label>
+    <textarea id="words" rows="4" maxlength="2000">Written at a plain website, signed by a signer it can't see into.</textarea>
+    <div class="row">
+      <button id="sign" class="primary" type="button">Sign this note</button>
+      <button id="forbidden" type="button">Ask for something it may not</button>
+      <button id="sign-out" type="button">Sign out of this site</button>
+    </div>
+    <p class="small">Signing is all that happens here. Nothing is sent to a relay, so nothing is published.</p>
+
+    <div id="result" hidden>
+      <h2 id="result-title"></h2>
+      <p id="result-says"></p>
+      <pre id="result-note" tabindex="0"></pre>
+    </div>
+  </section>
+
+  <section id="none" hidden>
+    <h1>No sign-in address answered</h1>
+    <p>This demo asks the BitPortal copy on this same machine, at <span class="at" data-host></span>. It didn't answer. Start the local sites, open that address once so your browser accepts its certificate, and reload this page.</p>
+    <p class="small">This page must be opened at an <code>https</code> address.</p>
+  </section>
+
+  <section class="how">
+    <h2>What is happening</h2>
+    <ol>
+      <li>This page embeds a hidden signer from your sign-in address. It can ask the signer things. It can't read it.</li>
+      <li>The window is your sign-in address's own page. It finds its own signer inside this page, shows you this page's address as your browser reports it, and waits for Allow.</li>
+      <li>On Allow, BitLogin moves a key that can only sign from the window to the signer, without it passing through either page.</li>
+      <li>The signer then signs notes and reactions for this site, marks each with this site's address, and refuses everything else. Closing this page ends it.</li>
+    </ol>
+  </section>
+</main>
+<script type="module" src="demo.js"></script>
+</body>
+</html>
