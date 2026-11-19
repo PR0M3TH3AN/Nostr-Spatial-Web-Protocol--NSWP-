@@ -9,10 +9,12 @@ import {
   checkDestination,
   DEFAULT_RELAYS,
   fetchManifest,
+  fromLocal,
   latestAddressable,
   parseAirlockFragment,
   parseWorldEvent,
   queryRelays,
+  toLocal,
   verifyOrigin,
   WORLD_KIND,
   type Issue,
@@ -258,7 +260,7 @@ async function render(): Promise<void> {
   }
 
   const go = el("button", { class: "primary", id: "continue" }, `Continue to ${a.domain}`) as HTMLButtonElement;
-  const leave = () => {
+  const leave = async () => {
     if (verified && approvalKey) {
       // Ticked remembers this world; unticking an earlier approval forgets it.
       const next = { ...readJson<Record<string, boolean>>(APPROVED, {}) };
@@ -275,9 +277,11 @@ async function render(): Promise<void> {
     }
     // A visitor who left a headset session is offered the way back into one first, at the other end.
     const immersive = parseAirlockFragment(location.hash)?.immersive;
-    location.assign(buildArrivalUrl(target, { ...(entry ? { entry } : {}), airlock: SELF, ...(immersive ? { immersive: true as const } : {}) }));
+    // On a development server the visitor goes to the local copy, and this Airlock gives its real address as the way back (core, local.ts).
+    const arrival = buildArrivalUrl(target, { ...(entry ? { entry } : {}), airlock: await fromLocal(SELF), ...(immersive ? { immersive: true as const } : {}) });
+    location.assign(await toLocal(arrival));
   };
-  go.addEventListener("click", leave);
+  go.addEventListener("click", () => void leave());
   card.append(el("div", { class: "actions" }, backButton(), go));
 
   const timing = el("p", { class: "muted small" }, `Checked in ${Math.round(performance.now() - started)} ms`);

@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.5
+
+Links that lead to the local copies on a development server, and the kit's own menu, sounds, doorway and movement for a world made in Godot. Nothing in the protocol changes.
+
+- **Links on a development server.** A site is built for its real address and stays that way, so what is tried is what gets deployed. While it is served from a developer's machine, the server publishes a map, real address to local copy (`/.well-known/nswp-local.json`), and a page follows it when it sends the browser on: a door in the local Gallery leads to the local Airlock, and on to the local Grove. Once deployed, a page asks for no map and every link is the real address. Nothing is switched. See [docs/local-server.md](docs/local-server.md).
+- **Three limits on that** (`packages/core/src/local.ts`): only a page that is itself on a local address over plain http asks for a map; a map can only lead to a local address; and only the last step changes, so what a door says, what an Airlock checks and what an announcement is signed over are still the real address. The Airlock says on its card when it is sending a visitor to a copy.
+- **The engine script carries the kit's menu and sounds** (`packages/sdk/src/engine-menu.ts`): the same menu, drawn by the page over an engine's canvas, and the same sounds, at the volumes the visitor set. An engine asks each frame what the visitor chose (`NSWP.events()`), and says how far they walked so their steps are heard. `NSWP.kit()` gives the numbers every world shares.
+- **Godot gets the defaults.** `NswpGate` is the standard doorway: its frame is the kit's own model, written out as a mesh by the kit's modelling code, and its metal, its field of light and its glow are the kit's shaders written for Godot. `NswpVisitor` moves the casual way or the intense way at the kit's speeds. `Nswp.menu()` puts the menu and sounds on. Each can be replaced: `NswpPortal` is still a door with nothing drawn.
+- **Shared, so they can't drift:** the doorway's size (`gate-size.ts`), the fullscreen control (`ui/fullscreen.ts`), the words on the desk control (`fps.ts`) and how far a drag turns the view (`DRAG_LOOK`) are each in one place that both the Three.js kit and the engine script read. A test fails if the numbers written into the Godot addon stop matching.
+- **`npm run engine:check`** now covers the doorway's mesh and the sound files copied into the addon, as well as the script.
+- **Status (2026-11-18):** not deployed. On the local server, in Chrome: from the Gallery, a door led through the local Airlock to the local Grove, and the way home to the local BitPortal, on this machine's address and on its network address; the Godot example's door did the same. The Godot example was tried with a mouse and keyboard: the menu, a door lit and described when pointed at, a click on the floor walking exactly the kit's reach, a drag turning the view, the mouse looking round, a run with Shift, and the menu opening when the pointer is taken back. A tap on an emulated touch screen walked the same reach. **Not tried:** a real phone, a real headset, Firefox, Safari, a pass by name on a development server. Nobody has listened to the sounds in Godot. **Not in the Godot addon:** moving in a headset, the crossing's room, the view through a door, other people.
+
 ## 0.15.4
 
 The Godot addon has been run, and there is a world made with it to look at. Nothing in the protocol changes.

@@ -17,6 +17,7 @@ import { checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portal
 import { createAlloy, type Alloy } from "./alloy.js";
 import { createEnvironment } from "./environment.js";
 import { MeshBuilder } from "./mesh.js";
+import { PORTAL_SIGN_HEIGHT, PORTAL_SPRING as SPRING } from "./gate-size.js";
 import { addArchFrame, addBench, addLamp, addPictureFrame, addPlant, addPlinth, addTable, addWall, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH } from "./models.js";
 import { createPortalWindow, textSprite } from "./three.js";
 
@@ -48,8 +49,6 @@ function addressLine(dest: PortalDestination): string {
   return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid address";
 }
 
-/** Where the doorway's straight sides end and its round top begins. */
-const SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
 
 let archMask: THREE.Texture | null = null;
 /** The doorway's opening as a cut-out, for a preview to be seen through. */
@@ -200,7 +199,7 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
       sign.material.dispose();
     }
     sign = textSprite(`${label}\n${addressLine(destination)}`, textColor, 2.2);
-    sign.position.set(0, PORTAL_HEIGHT + 0.72, 0);
+    sign.position.set(0, PORTAL_SIGN_HEIGHT, 0);
     group.add(sign);
   };
   setLabel(opts.label ?? "Portal");

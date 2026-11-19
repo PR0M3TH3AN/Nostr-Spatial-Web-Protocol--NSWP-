@@ -158,8 +158,10 @@ npm run build && node scripts/serve-local.mjs
 
 Each built site is served on a port of its own (BitPortal and the world
 template too, from their repositories beside this one, if they are built).
-Add `--lan` to reach them from another device on the same network. A door
-still leads to the deployed sites: each world is built for its real address.
+Add `--lan` to reach them from another device on the same network. Links
+between the sites lead to the copies served there, and to the real addresses
+once deployed, with nothing to switch:
+[docs/local-server.md](docs/local-server.md).
 
 ### Deploying the sites
 
