@@ -138,16 +138,18 @@ describe("leaving a headset session to cross", () => {
     expect(buildWayUrl("https://lobby.example/go/", { doors: true, blocked: [b] })).toBe(`https://lobby.example/go/#doors=1&blocked=${b}`);
   });
 
-  it("carries game controls on a link and in an arrival, as a preference", () => {
+  it("carries the intense way of moving on a link and in an arrival, as a preference", () => {
     const door = { url: "https://world.example/" };
-    const link = buildAirlockUrl("https://lobby.example/go/", door, { fps: true, joined: true });
-    expect(link).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&fps=1&joined=1");
-    expect(parseAirlockFragment(new URL(link).hash)).toMatchObject({ fps: true, joined: true });
-    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&fps=yes")?.fps).toBeUndefined();
-    expect(wayWithoutDestination("#fps=1")).toEqual({ immersive: false, doors: false, fps: true });
-    expect(buildWayUrl("https://lobby.example/go/", { doors: true, fps: true })).toBe("https://lobby.example/go/#doors=1&fps=1");
-    const r = decodeArrival(encodeArrival({ fps: true }));
-    expect(r.ok && r.value.fps).toBe(true);
+    const link = buildAirlockUrl("https://lobby.example/go/", door, { moving: "intense", joined: true });
+    expect(link).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&moving=intense&joined=1");
+    expect(parseAirlockFragment(new URL(link).hash)).toMatchObject({ moving: "intense", joined: true });
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&moving=flying")?.moving).toBeUndefined();
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&moving=casual")?.moving).toBeUndefined();
+    expect(wayWithoutDestination("#moving=intense")).toEqual({ immersive: false, doors: false, moving: "intense" });
+    expect(wayWithoutDestination("#moving=flying")).toBeNull();
+    expect(buildWayUrl("https://lobby.example/go/", { doors: true, moving: "intense" })).toBe("https://lobby.example/go/#doors=1&moving=intense");
+    const r = decodeArrival(encodeArrival({ moving: "intense" }));
+    expect(r.ok && r.value.moving).toBe("intense");
   });
 
   it("reads a visitor's block list in an arrival, whole or not at all", () => {

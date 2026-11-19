@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.1
+
+The two ways of moving have one pair of names, at a desk and in a headset: casual and intense.
+
+- **"Game controls (FPS)" is now "Desk controls: casual / intense".** Nothing about them changed but the name.
+- **A headset has the same switch:** "Headset controls: casual / intense". Casual is stepping, turning a notch at a time, with the view narrowed while moving, as it was. Intense is one stick walking and the other turning, smoothly, with the whole view. Until now those were four separate settings; they still are, underneath, for fine tuning.
+- **Each device keeps its own.** Choosing intense at a desk never makes a headset slide. Smooth movement in a headset makes some people ill, and that choice is made in the headset.
+- **The preference that travels is `moving=intense`,** on the link and in the arrival, in place of the `fps` flag 0.15.0 gave it for a few hours. Nothing had shipped with the old name. It applies to the device the visitor arrives on.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome and an emulated headset: both switches, the headset one setting and unsetting smooth walking, smooth turning and the narrowed view; arriving from a headset intense in the headset and casual at the desk, and the other way round.
+
 ## 0.15.0
 
 Game controls on a desk, and fullscreen.
@@ -10,7 +20,7 @@ Game controls on a desk, and fullscreen.
 - **Offered where there is a mouse.** Not on a phone, and it stands down in a headset.
 - **Escape is the menu** because a browser takes the pointer back on Escape whatever a page wants. Closing the menu goes back to looking, and where the browser won't allow that yet, a click does.
 - **Fullscreen,** in the menu under View. In fullscreen, where the browser allows it, one press of Escape is the menu and holding it leaves.
-- **It travels** ([NSWP-02](protocol/02-doors.md), [NSWP-03](protocol/03-arrival.md)): `fps=1` on the link and `fps` in the arrival context, so a visitor who chose game controls in one world has them in the next. A preference only: nothing is asked.
+- **It travels** ([NSWP-02](protocol/02-doors.md), [NSWP-03](protocol/03-arrival.md)), so a visitor who chose it in one world has it in the next. A preference only: nothing is asked. (Its name on the wire changed in 0.15.1, before anything shipped.)
 - **The kit:** `createFps`, with `lookAfter`, `strideOf` and `heldKey` for anyone building their own. The reference worlds, the template and BitPortal's room use it.
 - **Not in it:** jumping and crouching (the kit has neither), moving a panel by its bar while the mouse is looking (bring up the menu first), and changing the keys.
 - **Status (2026-11-18):** built, not deployed. Tried in Chrome on one machine, in the Gallery, the template and BitPortal's room: off to begin with; turned on and kept; the first click taking the pointer; the mouse turning the view; W and S walking, Shift running at about one and three-quarter times the pace, and standing still with nothing held; Escape opening the menu with the pointer back, and a click looking again; F going through the door in the middle of the view; arriving with it on when the visitor's client says so; fullscreen on from the menu; and the ordinary way of moving still working when it is off. Not tried by a person with a real mouse, where how fast the view turns is the thing to judge.

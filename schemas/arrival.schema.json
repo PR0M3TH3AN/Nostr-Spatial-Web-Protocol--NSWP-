@@ -19,7 +19,7 @@
     "home": { "type": "boolean", "description": "True when this world is where the visitor starts, and their own client has brought them home." },
     "joined": { "type": "boolean", "description": "True when the visitor was in a room where they came from and stays among people here: the world joins its open room without asking again." },
     "mic": { "type": "boolean", "description": "True when their microphone was on and they have told their client it may stay on as they travel. Read only with joined." },
-    "fps": { "type": "boolean", "description": "True when the visitor was moving with game controls (mouse look, keys) where they came from. A world that has such controls starts in them." },
+    "moving": { "enum": ["casual", "intense"], "description": "How the visitor was moving where they came from. Intense: at a desk, the mouse looks and keys walk; in a headset, they walk and turn smoothly. A world that offers the two ways starts them in this one. Left out means casual." },
     "blocked": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "description": "Identity keys of people the visitor has blocked: their own client's list. The world connects them to nobody on it for this visit, and does not keep it." },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }

@@ -349,6 +349,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // ------------------------------------------------------------- leaving
   // Whether the visitor is in the room here, and heard: it goes with them, so the next place needn't ask again.
   let travelling = (): { joined: boolean; mic: boolean; blocked: string[] } => ({ joined: false, mic: false, blocked: [] });
+  let movingNow = (): "intense" | "casual" => "casual";
   const go = async (i: number) => {
     const g = gates[i];
     if (!g || state.leaving) return;
@@ -358,7 +359,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
     await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
-    await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling(), fps: !!fps?.enabled });
+    await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling(), moving: movingNow() });
   };
   const goHome = async () => {
     const back = arrival.returnAirlock();
@@ -367,7 +368,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     sounds.play("cross");
     await crossing.leave({ title: "home", address: new URL(back).host });
     document.body.classList.add("leaving");
-    await portal.home({ xrSession: renderer.xr.getSession(), ...travelling(), fps: !!fps?.enabled });
+    await portal.home({ xrSession: renderer.xr.getSession(), ...travelling(), moving: movingNow() });
   };
   hooks.goThrough = go;
   hooks.goThroughPortal = () => go(0);
@@ -498,6 +499,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // clicks and drags below stand down.
   let fps: Fps | null = null;
   const gameControls = () => !!fps?.enabled && !renderer.xr.isPresenting;
+  /** Which of the two ways the visitor is moving now, on the device they are using: it goes with them through a door. */
+  movingNow = () => ((renderer.xr.isPresenting ? input?.intense : fps?.enabled) ? "intense" : "casual");
   /** Use what the middle of the view points at: a panel, or a door. */
   const use = () => {
     pointer.set(0, 0);
@@ -507,7 +510,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
     if (door >= 0) void go(door);
   };
-  fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: !!context?.fps });
+  fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: context?.moving === "intense" && !context.immersive });
   hooks.fps = fps;
   renderer.domElement.addEventListener("pointerdown", (e) => {
     if (gameControls()) return;
@@ -597,6 +600,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     camera,
     canStand,
     controls,
+    // They left a headset moving the intense way: the same here.
+    arrivedIntense: context?.moving === "intense" && !!context.immersive,
     accent,
     stepFrom: (i) => {
       aimFrom(controllers[i]!);
