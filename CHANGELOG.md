@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.0
+
+Game controls on a desk, and fullscreen.
+
+- **Two ways to move on a desk.** The one there was stays, and is what a visitor gets: click where you want to stand, drag to look round. The new one is for people who play games: the mouse looks, W A S D walk, Shift runs, F uses what is in the middle of the view (a click does too), and Escape brings up the menu. It is turned on in the menu, under Moving, and kept for the site.
+- **Offered where there is a mouse.** Not on a phone, and it stands down in a headset.
+- **Escape is the menu** because a browser takes the pointer back on Escape whatever a page wants. Closing the menu goes back to looking, and where the browser won't allow that yet, a click does.
+- **Fullscreen,** in the menu under View. In fullscreen, where the browser allows it, one press of Escape is the menu and holding it leaves.
+- **It travels** ([NSWP-02](protocol/02-doors.md), [NSWP-03](protocol/03-arrival.md)): `fps=1` on the link and `fps` in the arrival context, so a visitor who chose game controls in one world has them in the next. A preference only: nothing is asked.
+- **The kit:** `createFps`, with `lookAfter`, `strideOf` and `heldKey` for anyone building their own. The reference worlds, the template and BitPortal's room use it.
+- **Not in it:** jumping and crouching (the kit has neither), moving a panel by its bar while the mouse is looking (bring up the menu first), and changing the keys.
+- **Status (2026-11-18):** built, not deployed. Tried in Chrome on one machine, in the Gallery, the template and BitPortal's room: off to begin with; turned on and kept; the first click taking the pointer; the mouse turning the view; W and S walking, Shift running at about one and three-quarter times the pace, and standing still with nothing held; Escape opening the menu with the pointer back, and a click looking again; F going through the door in the middle of the view; arriving with it on when the visitor's client says so; fullscreen on from the menu; and the ordinary way of moving still working when it is off. Not tried by a person with a real mouse, where how fast the view turns is the thing to judge.
+
 ## 0.14.2
 
 A second piece of music for every place.

@@ -481,3 +481,28 @@ sounds.moved(metres);
   are given the sounds: `addRoomControls(controls, presence, { sounds })`. A
   visitor offers what their jukebox is playing, and others hear it only if
   they turned that on, by distance. `sharedMusic: false` leaves it out.
+
+## Game controls on a desk
+
+```js
+import { createFps } from "nswp-sdk/three";
+
+const fps = createFps({
+  dom: renderer.domElement, camera, rig, controls, hud,
+  canStand: (x, z) => insideMyWorld(x, z),
+  presenting: () => renderer.xr.isPresenting,
+  onUse: () => useWhatTheMiddleOfTheViewPointsAt(),
+  arrived: !!arrival.read().context?.fps,   // their own client says they had them on
+});
+// each frame, in place of your own keys:      if (!fps.update(dt)) walkWithKeys(dt);
+// in your own click and drag handlers:        if (fps.enabled) return;
+// when sending the visitor on:                portal.go(dest, { fps: fps.enabled })
+```
+
+- The visitor turns them on in the menu, under Moving. They are kept for the
+  site, and offered only where there is a mouse.
+- The mouse looks (the first click takes the pointer), W A S D and the arrows
+  walk, Shift runs, F or a click uses, Escape brings up the menu.
+- While they are on, aim from the middle of the view: set your pointer to
+  (0, 0) when `fps.update` returns true.
+- `addViewControls` adds Fullscreen to the menu.
