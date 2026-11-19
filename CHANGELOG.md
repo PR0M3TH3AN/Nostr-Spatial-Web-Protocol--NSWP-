@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.28.2
+
+- **A pass is counted apart from notes:** two a minute and ten an hour for one world, beside three notes a minute and twenty an hour. Counted with notes, signing in used one of the minute's three, and a visitor's third post in their first minute was refused with nothing to say why. Decided by the owner on 2026-11-19. The signer enforces it; `SIGN_LIMITS.passBurst` and `passHourly` are the numbers. Nothing in the kit's behaviour changes.
+
 ## 0.28.1
 
 - **A signer that gives no pass is asked once.** The kit asked again every ten minutes after a refusal or no answer, and each asking counts against what the signer lets that world have signed. Now it asks again only when the visitor signs in afresh or the page is loaded again. A pass that was held and ran out is still asked for anew. (Asked for by BitLogin's signer, whose refusal means "stay a guest".)

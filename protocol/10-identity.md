@@ -414,7 +414,8 @@ why.
   wrote. So a note signed from a world says which world asked.
 - **Limits:** 8,000 characters, 60 tags; three notes a minute and twenty
   an hour for one world: the pace of a person. A world the visitor allowed
-  still can't pour notes out under their name. A pass counts as a note.
+  still can't pour notes out under their name. A pass is counted apart, so
+  signing in doesn't use up a post: two a minute and ten an hour.
 - **How long it lasts is the signer's to say,** and it says so in `until`.
   The visitor locking it ends it at once. A signer may remember that a
   world was allowed, so the visitor isn't asked again each time its page is
@@ -494,8 +495,8 @@ vouched for them first. So the signer can make the pass.
 - **`sign` still refuses a pass.** Kind 27300 stays on the list a world can
   never have signed. A world can't write a pass and have it signed: it can
   only ask for the one the signer would write.
-- **It is for a world the visitor allowed,** and counts against that world's
-  limit as a note does.
+- **It is for a world the visitor allowed,** and has an allowance of its
+  own for that world, apart from notes ("Signing from a world", "Limits").
 - **What comes back is checked as any pass is** ("Checking a pass"), and
   then for whose it is: signed by the key the signer says it holds, for
   this site, naming the session that was asked for. Anything else is dropped

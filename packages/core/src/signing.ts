@@ -33,6 +33,12 @@ export const SIGN_LIMITS = {
   perMs: 60_000,
   /** And no more than this many in an hour. */
   hourly: 20,
+  /**
+   * A pass is counted apart from notes, so signing in doesn't use up a post: no more than this many passes for
+   * one world in `perMs`, and in an hour. A reader asks once per sign-in and once when a pass runs out.
+   */
+  passBurst: 2,
+  passHourly: 10,
 } as const;
 
 /**

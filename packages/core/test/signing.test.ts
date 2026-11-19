@@ -124,6 +124,11 @@ describe("how fast a world may have notes signed", () => {
     expect(SIGN_LIMITS.perMs).toBe(60_000);
     expect(SIGN_LIMITS.hourly).toBe(20);
   });
+
+  it("counts a pass apart from notes, so signing in doesn't use up a post", () => {
+    expect(SIGN_LIMITS.passBurst).toBe(2);
+    expect(SIGN_LIMITS.passHourly).toBe(10);
+  });
 });
 
 describe("what a world and the signer say to each other", () => {
