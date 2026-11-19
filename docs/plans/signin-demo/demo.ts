@@ -40,7 +40,8 @@ function draw(): void {
   if (state === "unlocked" && signer.pubkey) {
     const name = signer.name ?? shortNpub(signer.pubkey);
     $("name").textContent = name;
-    $("npub").textContent = shortNpub(signer.pubkey);
+    // With no name, the short key is the name: it isn't said twice.
+    $("npub").textContent = signer.name ? shortNpub(signer.pubkey) : "";
     $("npub").title = encodeNpub(signer.pubkey);
     $("who").textContent = `Signed in as ${name}`;
   } else {

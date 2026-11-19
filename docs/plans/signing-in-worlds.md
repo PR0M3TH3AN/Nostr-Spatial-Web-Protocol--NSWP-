@@ -216,6 +216,54 @@ Until then nothing changes for those apps: they keep the widget, on pages
 that are the owner's own. A flat demo of the sign-in half is in
 [`signin-demo/`](signin-demo/).
 
+## Where the sign-in address should be
+
+The first build put the signer and the window in BitPortal, because a
+world's visitor arrives from BitPortal. The owner's view, on trying it
+(2026-11-19): "I think it should be bitlogin. As the central auth for any
+bitlogin system including bitportal."
+
+That is the better place, for three reasons:
+
+- **The page that holds a key should be the smallest there is.** BitPortal
+  is a large application: a 3D engine, relays, other people's names and
+  pictures. Every part of it is somewhere a fault could be. BitLogin's own
+  site does one thing.
+- **One address is one identity.** A passkey belongs to the address it was
+  made at. One sign-in address means one passkey, one sign-in for a device,
+  and the same person in every app.
+- **BitPortal stops being special.** It asks, like any app.
+
+What follows from it:
+
+1. **The signer and the window move to BitLogin's site.** They were
+   written to: BitLogin's `docs/sign-in-window.md` describes them as a
+   deployment's own pages. BitPortal's copies are a first version, tried
+   and working, and are not shipped.
+2. **BitPortal becomes an app that asks.** It signs passes, a sealed
+   settings note and the announcements of worlds, none of which a world may
+   have signed. So it needs what every app needs ("Apps that aren't
+   worlds", above), and keeps its own sign-in until that exists.
+3. **A world finds the signer through its visitor's client,** which today
+   means "beside the Airlock". With the signer at BitLogin, the client says
+   where it is. How (a field in the arrival, or a fixed place the client
+   answers at) is decided when it is built.
+4. **BitPortal's sign-in room stops taking a password.** If one address
+   takes it, no other may. From a world, typing a password becomes a flat
+   page of BitLogin's, on a headset's flat panel too; the way to sign in
+   without leaving a world is a passkey, or a phone that approves. This
+   goes against the owner's earlier wish for sign-in to be a place in the
+   world, and is theirs to weigh.
+
+Still to decide:
+
+| | Decision | Recommendation |
+|---|---|---|
+| A | The address, for good. Every passkey made there is bound to it: changing it later orphans them all | A domain of its own, kept for nothing else. Beside the apps on `bitblocks.network` a browser counts them as one site, and walls less between them |
+| B | Whether it is the only sign-in address, or the default | The default. Anyone can serve BitLogin's static site themselves, and an app lets a person name their own. One address for everyone is one thing to fail, and one thing to attack |
+| C | BitLogin's site stops being a demo. Two of its pages change what they allow (its tests pin today's headers), and it becomes what every account depends on | Yes, with the review BitLogin's own documents ask for before it holds more |
+| D | Point 4 above | Accept it. A password typed in one known place is the point of all this |
+
 ## What was tried
 
 The window (piece 3), with two small sites standing in for a client and a
