@@ -51,6 +51,11 @@ export interface TravelSettings {
    * that place the visitor's address, so this is theirs to turn off. Left out, pictures are shown.
    */
   pictures?: boolean;
+  /**
+   * Whether they see what other people write in a room, and may write there themselves. Left out, they do.
+   * Turned off, nothing anyone writes is shown to them, and nobody is told.
+   */
+  chat?: boolean;
 }
 
 /** The slowest and fastest the view may be set to turn, and the narrowest and widest it may be set to see. */
@@ -89,6 +94,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.look === "number" && Number.isFinite(s.look)) out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
   if (typeof s.fov === "number" && Number.isFinite(s.fov)) out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
+  if (typeof s.chat === "boolean") out.chat = s.chat;
   return out;
 }
 

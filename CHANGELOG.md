@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.23.0
+
+Speech bubbles and a chat panel: the people in a room can write to each other.
+
+- **[NSWP-06](protocol/06-rooms.md), "Words":** a new message on a room's channel, `say:<id>:<words>`. It goes straight from one browser to the others, as a pose does: no relay sees it, nothing signs it, and nobody keeps it. A line carries no name: who wrote it is whoever holds the connection it arrived on, shown by the name the room already knows them by. A reader makes it one line of plain text, drops what reorders or hides text, cuts it to 240 characters, and takes no more than five from one member in ten seconds. An older client ignores the message, as it ignores anything it doesn't know.
+- **Over their head:** what someone writes is drawn in a bubble over their name (and their picture) for a few seconds, longer for more words.
+- **A chat panel, the same in every world.** On a desk it is at the right-hand side of the screen; on a phone, across the bottom. Put away, the newest lines pass by for a few seconds. **Enter or T** opens it to write in, Enter sends, and Enter on an empty line or Escape puts it away. Nothing typed in it walks anybody anywhere. In a headset it is a panel of the visitor's own, pinned beside them, whose one button puts up the keyboard with its Speak key. `Chat` is on the taskbar once a room is joined, with a count of what hasn't been read.
+- **Seeing chat is the reader's to turn off** (`room-chat-show`, "Written chat"). It is a setting that travels, `chat`, so off stays off in the next world. Nobody is told.
+- **In the kit:** `session.say()` and the `said` event, `controls.chat`, `hud.setChatOpen()`, `controls.setKeys({ chat })`, `createPresence({ bubbles: false })`, `showsChat()`, and in the library `cleanChat`, `buildSay`, `parseSay`, `createChatGate`, `CHAT_LIMITS`.
+- **What this is not:** notes on Nostr. Nothing is published or signed with the visitor's key, and nobody outside the room can read it. Writing and reading notes from inside a world needs the visitor's key to sign, which a world is never given, so it waits on in-game signing (`docs/plans/in-game-identity.md`).
+- **Not built:** a sound when someone writes (no sound is added without the owner having heard it), links in a line, history for someone who joins late, chat in the engine script and the Godot addon.
+- **Status (2026-11-19):** not deployed. On the local server in Chrome, with throwaway identities: two visitors wrote to each other with a real keyboard, each saw the other's line over their head and in the panel, markup arrived as text, the sixth line in ten seconds was refused, chat turned off showed nothing, and leaving forgot every line. A phone-sized window showed the panel across the bottom. In a made-up headset (IWER) the panel opened pinned, the keyboard came up from its button, and what was typed reached the other visitor. **Not tried:** a real phone's on-screen keyboard, a real headset, the Speak key, two people on different networks.
+
 ## 0.22.0
 
 Nostr names and pictures, first class.

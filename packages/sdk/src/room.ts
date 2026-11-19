@@ -12,7 +12,12 @@
 import { schnorr } from "@noble/curves/secp256k1.js";
 import {
   buildHello,
+  buildSay,
   buildSignal,
+  CHAT_LIMITS,
+  createChatGate,
+  parseSay,
+  type ChatGate,
   DEFAULT_RELAYS,
   getPublicKey,
   guestColor,
@@ -107,7 +112,21 @@ interface Events {
   music: (member: Member, stream: MediaStream) => void;
   /** The line a member's screen arrives on. It carries pictures only while they share and this visitor watches. */
   video: (member: Member, stream: MediaStream) => void;
+  /**
+   * Someone wrote a few words to the room (protocol/06-rooms.md, "Words"): another member, or this visitor
+   * themselves (`member` is then `self`). The words are tidied and safe to show as text. Nothing keeps them.
+   */
+  said: (member: Member, line: SaidLine) => void;
   status: (status: RoomStatus) => void;
+}
+
+/** A few words someone wrote to the room. */
+export interface SaidLine {
+  /** Tells this line from any other of theirs. */
+  id: string;
+  text: string;
+  /** When it was read here, in milliseconds. A line carries no time of its own. */
+  at: number;
 }
 
 interface Peer {
@@ -133,6 +152,8 @@ interface Peer {
   shown?: string;
   /** How many passes of theirs have failed. Past a few, they are not checked any more. */
   refused: number;
+  /** What they have written lately, counted: a repeat is taken once, and nobody floods the room. */
+  words: ChatGate;
   /** When their pass stops, in seconds. */
   passUntil?: number;
   pose?: RTCDataChannel;
@@ -197,6 +218,7 @@ export class RoomSession {
     tune: new Set(),
     music: new Set(),
     audio: new Set(),
+    said: new Set(),
     status: new Set(),
   };
   private readonly look: string | null;
@@ -219,6 +241,8 @@ export class RoomSession {
   private readonly watched = new Set<string>();
   private watchTimer: ReturnType<typeof setInterval> | undefined;
   private mic: MediaStreamTrack | null = null;
+  /** This visitor's own words, counted as everyone's are. */
+  private readonly words = createChatGate();
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
 
@@ -425,6 +449,7 @@ export class RoomSession {
       member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
       pc,
       refused: 0,
+      words: createChatGate(),
       open: false,
       lastSeen: Date.now(),
       startedAt: Date.now(),
@@ -490,6 +515,12 @@ export class RoomSession {
             this.redraw(peer);
           }
         } else if (e.data.startsWith("id:")) this.checkPass(peer, e.data.slice(3));
+        else if (e.data.startsWith("say:")) {
+          // A few words to the room. Each is sent several times; the first is taken, and no more than a few in a while.
+          const line = parseSay(e.data);
+          const now = Date.now();
+          if (line && peer.words.take(line.id, now)) this.emit("said", peer.member, { ...line, at: now });
+        }
         // Anything else is a message from a newer client, and is not for us.
         return;
       }
@@ -883,6 +914,24 @@ export class RoomSession {
   }
 
   /** Send your pose to everyone. Call 10–20 times a second, from a timer rather than the render loop. */
+  /**
+   * Write a few words to the room. They go straight to each member, as poses do: no relay sees them and nothing
+   * keeps them. They are sent a few times over, because the channel doesn't try again, and each reader takes the
+   * first. Returns "said" (and `said` fires here too, with `self`), "nothing" if there was nothing to say, or
+   * "slow" if this visitor has said too much in a short while: nothing is sent then.
+   */
+  say(text: string): "said" | "nothing" | "slow" {
+    const word = buildSay(text);
+    const line = word ? parseSay(word) : null;
+    if (!word || !line || this.closed) return "nothing";
+    const now = Date.now();
+    if (!this.words.take(line.id, now)) return "slow";
+    this.tellAll(word);
+    for (let i = 1; i < CHAT_LIMITS.repeats; i++) setTimeout(() => !this.closed && this.tellAll(word), i * CHAT_LIMITS.repeatGapMs);
+    this.emit("said", this.self, { ...line, at: now });
+    return "said";
+  }
+
   sendPose(pose: Pose): void {
     if (this.closed) return;
     let packet: ArrayBuffer | undefined;

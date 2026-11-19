@@ -13,6 +13,7 @@
  * adding to this list. Nothing about either renderer has to change.
  */
 import { arrivedSettings, reportSettings } from "../settings.js";
+import { createUiChat, type ChatView, type UiChat } from "./chat.js";
 import type { IconName } from "./icons.js";
 import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRESETS, type UiTheme } from "./theme.js";
 
@@ -92,6 +93,8 @@ export interface UiKeys {
   menu: string | null;
   /** Whether 1 to 6 press the hotbar. */
   hotbar: boolean;
+  /** The key that opens the chat panel to write in, or null for none. Enter does too, while this is a key. */
+  chat: string | null;
 }
 
 export interface UiView {
@@ -106,6 +109,8 @@ export interface UiView {
   sections: UiSectionView[];
   hotbar: UiItemView[];
   theme: UiTheme;
+  /** What the people in the room have written (ui/chat.ts). */
+  chat: ChatView;
 }
 
 export interface Controls {
@@ -153,6 +158,8 @@ export interface Controls {
    */
   signal(name: string): void;
   onSignal(fn: (name: string) => void): () => void;
+  /** What the people in the room write to each other (ui/chat.ts). The room fills it; every renderer draws it. */
+  readonly chat: UiChat;
 }
 
 export interface ControlsOptions {
@@ -177,6 +184,7 @@ function cleanKeys(now: UiKeys, k: Partial<UiKeys> | undefined): UiKeys {
   const out = { ...now };
   if (k && (k.menu === null || (typeof k.menu === "string" && k.menu.length === 1))) out.menu = k.menu === null ? null : k.menu.toLowerCase();
   if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+  if (k && (k.chat === null || (typeof k.chat === "string" && k.chat.length === 1))) out.chat = k.chat === null ? null : k.chat.toLowerCase();
   return out;
 }
 
@@ -206,10 +214,10 @@ const STANDARD: UiSection[] = [
  * The order of the things every place has, wherever in a world's code they
  * were added. So the taskbar reads the same in every world, and the same
  * number key does the same thing: the way home is first, then the visitor's
- * doors, the headset, the room, and jumping. A world's own things come after,
+ * doors, the headset, the room and its chat, and jumping. A world's own things come after,
  * in the order it added them.
  */
-export const STANDARD_ORDER: readonly string[] = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "jump"];
+export const STANDARD_ORDER: readonly string[] = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
 const rank = (id: string): number => {
   const i = STANDARD_ORDER.indexOf(id);
   return i === -1 ? STANDARD_ORDER.length : i;
@@ -243,11 +251,12 @@ export function createControls(opts: ControlsOptions): Controls {
   let detail: string[] = [];
   let presence: Presence = PRESENCES.includes(opts.presence as Presence) ? (opts.presence as Presence) : "full";
   let corner: Corner = CORNERS.includes(opts.corner as Corner) ? (opts.corner as Corner) : "top-left";
-  let keys = cleanKeys({ menu: "m", hotbar: true }, opts.keys);
+  let keys = cleanKeys({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
   let claimed = false;
   const changed = () => {
     for (const fn of listeners) fn();
   };
+  const chat = createUiChat(changed);
 
   function addSection(s: UiSection): void {
     const i = sections.findIndex((x) => x.id === s.id);
@@ -348,7 +357,8 @@ export function createControls(opts: ControlsOptions): Controls {
         theme,
         presence,
         corner,
-        keys: claimed ? { menu: null, hotbar: false } : keys,
+        keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
+        chat: chat.view(),
       };
     },
     subscribe(fn) {
@@ -372,6 +382,7 @@ export function createControls(opts: ControlsOptions): Controls {
       sayers.add(fn);
       return () => sayers.delete(fn);
     },
+    chat,
   };
 
   // The Look section comes with the kit, so every world lets a visitor change it the same way.

@@ -97,6 +97,53 @@ ignored, which is how new ones can be added.
 | `id:<a pass, as JSON>` | "This is who I am" ([NSWP-10](10-identity.md)). At most 4,000 characters, said as often as a look. It counts only if it checks out for this site and names the session key the member is speaking with. A member who never says it is a guest |
 | `rec:1` | "I am recording what I see." Said every 2 seconds while true. It holds for 6 seconds, so a lost message can't leave it stuck on |
 | `rec:0` | "I have stopped." Said twice |
+| `say:<id>:<words>` | A few written words to the room. See "Words", below |
+
+## Words
+
+A member may write a few words to the room: `say:`, eight hex digits that
+tell this line from their others, a colon, and the words.
+
+```text
+say:0a1b2c3d:Hello, room: how are you?
+```
+
+- **It goes where a pose goes, and nowhere else.** Straight from one browser
+  to each of the others, on the connection the room already has. No relay
+  sees it, nothing signs it, and nobody keeps it: a reader holds the lines in
+  memory while they are in the room and forgets them on leaving. Someone who
+  joins later is not shown what was written before.
+- **Who wrote it is whoever holds the connection it arrived on.** A line
+  carries no name. A reader shows the member's name as the room already
+  knows it: `Guest` and four digits, or the name off a pass that checked
+  out. Nothing in a line can make it look like someone else's.
+- **The channel doesn't try again,** so a line is sent three times, 180
+  milliseconds apart, and a reader takes the first: one with an id it has
+  already had from that member is dropped. A reader remembers the last 32
+  ids from each member.
+- **It is words and nothing else.** A reader makes it one line, drops
+  control characters and the invisible ones that reorder or hide text (the
+  joiner inside an emoji stays), and cuts it to 240 characters, whatever was
+  sent. It is shown as text: never as markup, never as a link that opens
+  itself, never fetched from.
+- **Nobody floods a room.** A reader takes no more than five lines from one
+  member in ten seconds and drops the rest unseen. An honest client holds
+  itself to the same and tells its own visitor to wait.
+- **Seeing it is the reader's to turn off.** With chat off, nothing anyone
+  writes is shown to them, they write nothing, and nobody is told. It is a
+  preference that goes with them from world to world
+  ([NSWP-11](11-the-visitors-console.md): `chat`).
+- **Blocking someone ends it too:** the connection to them is closed, so
+  nothing they write arrives.
+
+The reference client draws a line over the head of whoever wrote it for a
+few seconds (four, and a little more for each character, to twelve at most),
+and lists the lines in a panel: at the side of a flat screen, and on a panel
+of the visitor's own in a headset, where the keyboard that comes up has a
+Speak key wherever speech can be turned into words.
+
+What this is not: notes on Nostr. Nothing here is published, signed by the
+visitor's own key, or readable by anyone outside the room.
 
 ## What a client owes the people in a room
 
@@ -122,7 +169,12 @@ ignored, which is how new ones can be added.
   more than a handful of people, moving between worlds together, and
   moderation: §9.3 to §9.10.
 - **Sound in recordings,** which deserves more than a light.
+- **Words that outlast a room:** notes on Nostr, written and read from
+  inside a world. That needs the visitor's own key to sign, which a world is
+  never given, so it waits on signing from inside a world
+  ([`docs/plans/in-game-identity.md`](../docs/plans/in-game-identity.md)).
 
 There is no schema or vector file for these messages yet: the tests in
-`room.test.ts` cover the handshake and the pose packet. Background and
+`room.test.ts` cover the handshake and the pose packet, and `chat.test.ts`
+what a written line may be. Background and
 reasoning: [`spec.md`](../spec.md) §9.
