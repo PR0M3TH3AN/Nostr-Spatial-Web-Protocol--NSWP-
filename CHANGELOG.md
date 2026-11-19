@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.28.1
+
+- **A signer that gives no pass is asked once.** The kit asked again every ten minutes after a refusal or no answer, and each asking counts against what the signer lets that world have signed. Now it asks again only when the visitor signs in afresh or the page is loaded again. A pass that was held and ran out is still asked for anew. (Asked for by BitLogin's signer, whose refusal means "stay a guest".)
+
 ## 0.28.0
 
 The signer can make the pass, a world's signing limit is the pace of a person, and the feed says how a post is marked.

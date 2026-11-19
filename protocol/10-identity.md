@@ -502,7 +502,9 @@ vouched for them first. So the signer can make the pass.
   and the visitor is a guest.
 - **A reader asks when it has no pass for the signed-in key:** on signing
   in, and again once a pass has run out. A pass the visitor's client sent
-  for the same key is used as it is.
+  for the same key is used as it is. A reader that was refused, or got no
+  answer, doesn't ask again until the visitor signs in afresh or the page is
+  loaded again: a refusal means "a guest", not "try later".
 - **A signer that makes none says nothing,** and nothing breaks: the reader
   stops waiting, and the visitor is a guest in a room who can still sign.
 - **The `state` reply's `name`, `picture` and `about`** are for the

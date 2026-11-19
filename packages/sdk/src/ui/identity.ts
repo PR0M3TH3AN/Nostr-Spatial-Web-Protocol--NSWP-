@@ -53,7 +53,11 @@ export function onHereAs(fn: () => void): () => void {
 }
 
 let seeking: Promise<void> | null = null;
-/** When a pass may next be asked for. A signer that makes none isn't asked over and over. */
+/**
+ * When a pass may next be asked for. A signer that gave none (it makes none, or it said no) isn't asked again
+ * until the visitor signs in afresh or the page is loaded again: each asking counts against what the signer
+ * lets this world have signed.
+ */
 let seekAfter = 0;
 /**
  * A pass from the signer (protocol/10-identity.md, "A pass from the signer"). Signed in here with no pass for
@@ -76,7 +80,7 @@ export function seekPass(): Promise<void> {
       // Signed out, or in as someone else, while it was on its way: it is nobody's now.
       if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
         for (const fn of [...hereWatchers]) fn();
-      } else if (!pass) seekAfter = Date.now() + 10 * 60_000;
+      } else if (!pass) seekAfter = Infinity;
     })
     .catch(() => {})
     .finally(() => {
@@ -205,7 +209,8 @@ export function worldSigner(): WorldSigner {
   // Where their own client said it is; or beside that client's Airlock.
   if (shared) return shared;
   const signer = (shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() }));
-  // Signed in with no pass for that key: one is asked for. And again, each minute, once one has run out.
+  // Signed in with no pass for that key: one is asked for. And once more when one that was held has run out,
+  // which the minute's look notices. A refusal is not asked about again (seekPass).
   signer.onChange(() => {
     if (signer.state !== "unlocked") seekAfter = 0;
     void seekPass();
