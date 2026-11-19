@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createStroll, DOUBLE_TAP, reachOf, RUN, TAP_REACH, WALK_SPEED } from "../src/stroll.js";
+import { createStroll, dotsBetween, DOUBLE_TAP, reachOf, RUN, TAP_REACH, WALK_SPEED } from "../src/stroll.js";
 
 const walker = (canStand: (x: number, z: number) => boolean = () => true) => {
   const at: [number, number] = [0, 0];
@@ -116,5 +116,43 @@ describe("running to a spot", () => {
     expect(w.stroll.running).toBe(true);
     for (let i = 0; i < 20; i++) w.stroll.update(0.1);
     expect(w.at[1]).toBeCloseTo(-1, 2);
+  });
+});
+
+describe("the dotted line to where a tap leads", () => {
+  it("runs from a little way out from the visitor's feet to just short of where they are going", () => {
+    const dots = dotsBetween(0, 0, 0, -3);
+    expect(dots.length).toBeGreaterThan(5);
+    for (const [x, z] of dots) {
+      expect(x).toBeCloseTo(0, 9);
+      expect(z).toBeLessThanOrEqual(-0.45 + 1e-9);
+      expect(z).toBeGreaterThanOrEqual(-2.7 - 1e-9);
+    }
+    // Evenly spaced.
+    const gaps = dots.slice(1).map((d, i) => Math.abs(d[1] - dots[i]![1]));
+    for (const g of gaps) expect(g).toBeCloseTo(0.4, 9);
+  });
+
+  it("keeps its dots where they are on the floor as the visitor walks along it", () => {
+    const before = dotsBetween(0, 0, 0, -3).map(([, z]) => z.toFixed(3));
+    const after = dotsBetween(0, -0.8, 0, -3).map(([, z]) => z.toFixed(3));
+    for (const z of after) expect(before).toContain(z);
+    expect(after.length).toBeLessThan(before.length);
+  });
+
+  it("is nothing when they are nearly there, and never more than it is told", () => {
+    expect(dotsBetween(0, 0, 0, -0.5)).toEqual([]);
+    expect(dotsBetween(1, 1, 1, 1)).toEqual([]);
+    expect(dotsBetween(0, 0, 0, Number.NaN)).toEqual([]);
+    expect(dotsBetween(0, 0, 0, -500, { most: 12 })).toHaveLength(12);
+  });
+
+  it("is told where a tap is taking them", () => {
+    const w = walker();
+    expect(w.stroll.target).toBeNull();
+    w.stroll.to(1, -2);
+    expect(w.stroll.target).toEqual([1, -2]);
+    w.stroll.stop();
+    expect(w.stroll.target).toBeNull();
   });
 });

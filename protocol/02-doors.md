@@ -284,6 +284,10 @@ draws it, so a dishonest world can draw it any way it likes. So:
 - It never delays a departure. The reference one is shut in about half a
   second, and the visitor leaves even if it fails to draw.
 - It is skipped for someone who has asked for less motion.
+- A door is **chosen from near it**: in the reference SDK, within ten feet.
+  Further off, a door doesn't answer to being pointed at or pressed, so a
+  stray click across a room is not a crossing. Walking into a doorway always
+  goes through, and moving the intense way it is the only way through one.
 - It comes up for a door **chosen from where the visitor stands**: a click, a
   trigger, the menu. A visitor who **walks into** a doorway is already going
   through it, so nothing is brought up round them and they go at once. Either

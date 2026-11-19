@@ -29,6 +29,7 @@ func _ready() -> void:
 
 	_visitor = NswpVisitor.new()
 	_visitor.name = "Visitor"
+	_visitor.accent = ACCENT
 	_visitor.headset_failed.connect(func(why: String) -> void: _say("A headset session couldn't start: %s" % why))
 	add_child(_visitor)
 	# Where they asked to arrive, or the main entrance.
@@ -148,6 +149,7 @@ func _report() -> void:
 		"said": _said,
 		"entry": str(Nswp.arrival.get("entry", "")),
 		"moving": Nswp.moving,
+		"marks": _visitor.marks(),
 		"form": str(Nswp.arrival.get("form", "")),
 		"menu_open": Nswp.menu_open,
 		"looking": _visitor.looking(),

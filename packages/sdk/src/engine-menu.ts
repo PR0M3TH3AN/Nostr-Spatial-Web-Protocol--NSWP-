@@ -24,7 +24,7 @@
  */
 import { checkDestination } from "@nswp/core";
 import { DESK_WORDS, hasMouse, keepIntense, LOOK_SPEED, PITCH_LIMIT, SPRINT, startsIntense } from "./fps.js";
-import { PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WIDTH } from "./gate-size.js";
+import { DOOR_REACH, PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WIDTH } from "./gate-size.js";
 import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
@@ -77,6 +77,7 @@ export function kit(): string {
     gateHeight: PORTAL_HEIGHT,
     gateSpring: PORTAL_SPRING,
     gateSignHeight: PORTAL_SIGN_HEIGHT,
+    doorReach: DOOR_REACH,
     cues: CUES,
   });
 }

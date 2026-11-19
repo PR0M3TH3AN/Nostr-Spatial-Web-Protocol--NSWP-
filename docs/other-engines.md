@@ -145,6 +145,10 @@ on a flat screen, with a mouse and keyboard:
   opens the menu.
 - The summons: with the controls hidden, the key left of 1 brought them up
   over the canvas and put them away, and Godot never saw the key.
+- Marks on the floor moving the casual way (a ring where a press would lead,
+  a dot and a dotted line once pressed), and the reach of a door: nine
+  metres off it was not lit and a press walked towards it; at three it lit
+  and a press went through.
 - Running and jumping, both ways: Shift runs at 4.3 metres a second against
   2.4 walking, two clicks on the floor run there, and Space jumps 0.45 m.
 - Arriving by an ordinary link and by an arrival, each entry point, a door

@@ -551,6 +551,38 @@ const fps = createFps({
   (0, 0) when `fps.update` returns true.
 - `addViewControls` adds Fullscreen to the menu.
 
+### Marks on the floor, and the reach of a door
+
+Moving the casual way on a flat screen, a visitor is shown where a press
+would take them before they press, and the way there once they have:
+
+```js
+import { createFloorMarks, DOOR_REACH } from "nswp-sdk/three";
+
+const marks = createFloorMarks(accent);
+scene.add(marks.group);
+// each frame, on a flat screen, moving the casual way:
+marks.update({ hover: spotAPressWouldLeadTo, from: [head.x, head.z], to: stroll.target, t });
+// in a headset, or moving the intense way:
+marks.update({ hover: null, from: [head.x, head.z], to: null, t });
+```
+
+- **A ring** under the pointer, on the spot a press would walk them to. It
+  is never further off than one press reaches (`TAP_REACH`, six metres), so
+  it also shows how far that is. A finger has nothing to hover with, so on a
+  touch screen there is no ring.
+- **A dot** where they are headed, once they have pressed, and **a dotted
+  line** from their feet to it.
+- **Only they see them.** Nothing about them is sent to anyone else.
+- **A door is chosen from within `DOOR_REACH`** of it, ten feet, and no
+  further. Nearer than that it lights when pointed at, and a press goes
+  through. From further off it is not lit, and a press on it is a few steps
+  towards it, so nobody crosses to another world by a stray click on a door
+  at the far end of the room. The menu still lists every door, for someone
+  who means to go from where they stand.
+- **Moving the intense way, a doorway is walked into.** F and a click use
+  panels and buttons, never a door.
+
 ### Running and jumping, however they move
 
 A visitor can run and jump in every way of moving, and it is the same run

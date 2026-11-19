@@ -79,9 +79,13 @@ func _ready() -> void:
   a cue by name; `Nswp.say("...")` shows a few words.
 - **Doors.** An `NswpGate` is the standard doorway: set its `url`, `label`
   and `accent`. It makes its own shape to walk into, lists itself in the
-  menu, and lights when a visitor points at it. Walking in goes through.
+  menu, and lights when a visitor points at it from within ten feet. Moving
+  the casual way, a press then goes through; moving the intense way, it is
+  walked into. Walking in always goes through. From further off a door
+  does nothing, so nobody leaves by a stray click.
 - **Moving.** An `NswpVisitor` moves the casual way (click or tap the floor
-  to walk there, drag to look) or the intense way (the mouse looks round,
+  to walk there, with a ring where a press would lead and a dotted line the
+  way there, drawn for them alone; drag to look) or the intense way (the mouse looks round,
   W, A, S, D walk, F uses, Escape is the menu), as the visitor chooses in
   the menu. Either way Shift runs and Space jumps; where there is no
   keyboard, two taps run and the menu's Jump control jumps. It is in the

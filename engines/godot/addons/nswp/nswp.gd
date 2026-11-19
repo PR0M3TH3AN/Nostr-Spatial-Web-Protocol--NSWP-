@@ -106,7 +106,7 @@ var has_mouse: bool = true
 ## same numbers, for the editor. Lengths are metres, angles radians, speeds per second.
 var kit: Dictionary = {
 	"walkSpeed": 2.4,
-	"tapReach": 3.0,
+	"tapReach": 6.0,
 	"sprint": 1.75,
 	"dragLook": 0.005,
 	"lookSpeed": 0.0022,
@@ -118,6 +118,7 @@ var kit: Dictionary = {
 	"gateHeight": 2.1,
 	"gateSpring": 1.35,
 	"gateSignHeight": 2.82,
+	"doorReach": 3.05,
 	"cues": [],
 }
 
