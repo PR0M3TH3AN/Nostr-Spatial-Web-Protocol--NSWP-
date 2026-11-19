@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.26.1
+
+One address on a development server, and a menu that says when a signer doesn't answer.
+
+- **The development server has one address for each site** with `--lan --https`: `https` at the machine's address on the network, the same from every device. Plain `http`, `localhost` and `127.0.0.1` are sent on to it. Two addresses for one site were two sites to a browser: signed in at one and not the other, a room at one that a phone at the other never joined, and at plain `http` no signer at all, with nothing to say why.
+- **A signer that was named and doesn't answer is said so.** Where a visitor's client named a signer and it can't be loaded (unreachable, or kept out by the browser), the menu's row reads "Signing isn't available: bitlogin.network didn't answer", and pressing it says what that means. Before, the row was simply not there. Where no signer was named, there is still no row.
+- **In the kit:** `signer.unanswered`.
+
 ## 0.26.0
 
 A visitor's signer is where their client says it is, and BitPortal says BitLogin.

@@ -108,13 +108,23 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     section: "you",
     icon: "key",
     // Locked, it says whose window will open, before anything is pressed: an address to recognise.
-    label: () => (signer.state === "unlocked" ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on` : `Sign in to sign notes${signer.host ? `, at ${signer.host}` : ""}`),
+    label: () =>
+      signer.state === "unlocked"
+        ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on`
+        : signer.unanswered
+          ? `Signing isn't available: ${signer.host ?? "your signer"} didn't answer`
+          : `Sign in to sign notes${signer.host ? `, at ${signer.host}` : ""}`,
     short: () => (signer.state === "unlocked" ? "Signing" : "Sign"),
     on: () => signer.state === "unlocked",
-    hidden: () => signer.state === "none",
+    // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
+    // a row that isn't there can't be asked about.
+    hidden: () => signer.state === "none" && !signer.unanswered,
     act: () => {
       if (signer.state === "unlocked") return signer.lock();
       const host = signer.host ?? "your own client";
+      if (signer.unanswered) {
+        return controls.say(`This world asked ${host} for your signer and got no answer. It may be unreachable from here, or your browser may have kept it out. Reloading the page tries again. Nothing is wrong with your sign-in.`);
+      }
       // A headset draws nothing but the world, so no window of the client's can open in one.
       if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in to sign, and come back in.`);
       if (signer.unlock()) controls.say(`A window from ${host} has opened. Say yes there, and you can sign notes here.`);

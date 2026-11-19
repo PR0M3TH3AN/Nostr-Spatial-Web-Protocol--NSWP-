@@ -85,7 +85,16 @@ credentials incorrect" for a correct name and password.
 node scripts/serve-local.mjs --lan --https
 ```
 
-Each port then answers `https` as well as `http`: `https://192.168…:4300`.
+Each site then has **one address**, the same from every device, the machine
+itself included: `https://192.168…:4300` and so on. Anything else (plain
+`http`, `localhost`, `127.0.0.1`) is sent on to it.
+
+One address, because to a browser two addresses for one site are two sites.
+Signed in at `localhost` is not signed in at `192.168…`. A room joined at
+one is not the room at the other, so a phone and the desk beside it never
+met. And at a plain `http` address a world can't embed a signer at all. One
+address behaves the way the real one will.
+
 Links between the sites lead to the `https` copies.
 
 - **The certificate is made on your machine,** the first time, with
@@ -100,8 +109,11 @@ Links between the sites lead to the `https` copies.
 - **After that the page is a secure one:** signing in, the microphone and VR
   all work.
 - **Passkeys don't.** A browser refuses a passkey on a page whose
-  certificate it was told to accept. Use a deployed site, or `localhost`,
-  for those.
+  certificate it was told to accept. Use a deployed site for those, or run
+  the server without `--https`, where `localhost` is the address.
+- **A firewall must let each port through.** Twelve of them from the first:
+  the last two are the flat sign-in demo and BitLogin's own site, which
+  every world asks for its visitor's signer.
 
 Never use this certificate, or this server, for anything but your own
 network.

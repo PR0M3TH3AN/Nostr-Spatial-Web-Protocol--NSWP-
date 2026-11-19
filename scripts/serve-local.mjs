@@ -2,7 +2,7 @@
 //
 //   node scripts/build-sites.mjs && node scripts/serve-local.mjs          this machine only
 //   node scripts/serve-local.mjs --lan                                    other devices on the same network too
-//   node scripts/serve-local.mjs --lan --https                            and over https too, on the same ports
+//   node scripts/serve-local.mjs --lan --https                            at ONE address each: https, on this network
 //
 // BitPortal and the world template are served from their own repositories beside this one, if they are built.
 // The Godot example is served if it has been exported (node scripts/build-godot-example.mjs, which needs Godot).
@@ -15,7 +15,10 @@
 // for no map, and every link is the real address.
 //
 // From another device (--lan), plain http is not a secure address: a browser withholds its cryptography (so nobody
-// can sign in), the microphone and a headset session. With --https each port answers https as well as http, with a
+// can sign in), the microphone and a headset session. With --https each site has one address, the same from every
+// device, this machine included: https at this machine's address on the network. A request for anything else
+// (plain http, localhost, 127.0.0.1) is sent on to it. To a browser two addresses for one site are two sites, with
+// a sign-in and a room each; one address is how the real site will be. It is answered with a
 // certificate made on this machine and kept in ~/.config/nswp/dev-https/, outside every repository. Nobody vouches
 // for that certificate but this machine, so each device shows a warning the first time, and whoever is holding it
 // accepts it: that is them trusting their own computer. After that the page is a secure one. A browser still
@@ -162,7 +165,15 @@ for (const { name, dist, note, headers, port: here, built } of served) {
     continue;
   }
   const extra = headersOf(dist, headers);
+  // With --lan --https there is one address for each site, and it is the one every device on the network uses:
+  // https at this machine's network address. Anything else (plain http, localhost, 127.0.0.1) is sent on to it.
+  // Two addresses for one site were two different sites to a browser: a different sign-in, a different room, and
+  // on plain http no signing at all. One address behaves the way the real one will.
+  const only = tls && address ? `https://${address}:${here}` : null;
   const answer = (req, res) => {
+    if (only && (!req.socket.encrypted || String(req.headers.host ?? "").toLowerCase() !== `${address}:${here}`)) {
+      return res.writeHead(308, { location: `${only}${req.url ?? "/"}`, "cache-control": "no-store" }).end(`This site is at ${only} on this network.\n`);
+    }
     let path;
     try {
       path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -206,14 +217,14 @@ for (const { name, dist, note, headers, port: here, built } of served) {
     }).listen(here, listenOn);
   } else plain.listen(here, listenOn);
   const elsewhere = address ? `   ${tls ? "https" : "http"}://${address}:${here}/` : "";
-  console.log(`  ${name.padEnd(20)} http://localhost:${here}/${elsewhere}${note ? `   (${note})` : ""}`);
+  console.log(only ? `  ${name.padEnd(20)} ${only}/${note ? `   (${note})` : ""}` : `  ${name.padEnd(20)} http://localhost:${here}/${elsewhere}${note ? `   (${note})` : ""}`);
 }
 console.log(`\n${lan ? "Serving to this network." : "Serving to this machine only (add --lan for other devices)."} Links between these sites lead to the copies here; anything else leads to the real site.`);
 if (tls) {
   console.log(`\nhttps is answered on the same ports, with a certificate ${tls.made ? "just made" : "made earlier"} on this machine (${tls.dir}, good until ${tls.until}).`);
   console.log("Another device will warn about it the first time. Before accepting, check the fingerprint it shows is this one:");
   console.log(`  ${tls.fingerprint}`);
-  console.log("On this machine, http://localhost needs no certificate and is already a secure address.");
+  console.log(address ? "Those are the only addresses: http, localhost and 127.0.0.1 are sent on to them, on this machine too." : "On this machine, http://localhost needs no certificate and is already a secure address.");
 } else if (lan) {
   console.log("\nOver plain http another device can look but not sign in, use a microphone or enter VR. Add --https for those.");
 }

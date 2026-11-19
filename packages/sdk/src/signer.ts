@@ -29,6 +29,12 @@ export interface WorldSigner {
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
   /**
+   * True when a signer was named for this visitor (in the arrival, or
+   * outright) and has had time to answer, and hasn't: it couldn't be
+   * loaded, or the browser kept it out. Then there is something to say.
+   */
+  readonly unanswered: boolean;
+  /**
    * Open the client's window, where the visitor unlocks it for this world.
    * Call it from a press: a browser opens a window for nothing else. False
    * if there is no signer, or no window could be opened.
@@ -67,6 +73,7 @@ const NONE: WorldSigner = {
   pubkey: null,
   name: null,
   host: null,
+  unanswered: false,
   unlock: () => false,
   lock() {},
   sign: async () => null,
@@ -101,6 +108,14 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let windowAt = "";
   let frame: HTMLIFrameElement | null = null;
   let disposed = false;
+  /** A signer someone named, as against one only looked for beside an Airlock that may have none. */
+  const named = !!opts.at || !!signerAt(opts.under);
+  /** It has had the time a signer takes to load and answer. */
+  let waited = false;
+  setTimeout(() => {
+    waited = true;
+    if (state === "none") changed();
+  }, 7000);
   /** Whether the signer has answered at all. Until it has, it is asked again a few times. */
   let answered = false;
   let n = 0;
@@ -181,6 +196,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     get name() {
       return name;
+    },
+    get unanswered() {
+      return named && waited && state === "none" && !disposed;
     },
     // The signer's real address, never a development server's copy of it: it is what the visitor should recognise.
     get host() {
