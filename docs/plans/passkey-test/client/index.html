@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Passkey test: the client's own page</title>
+<link rel="stylesheet" href="style.css">
+<h1>Passkey test</h1>
+<p class="where">Page 1 of 2: the client's own page (this stands in for BitPortal)</p>
+<p>This makes one test passkey on this device, for this test address only. It signs you in to nothing and sends nothing anywhere. You can delete the passkey afterwards in your device's passkey settings: it is called <strong>NSWP passkey test</strong>.</p>
+<ol>
+  <li><button id="make">1. Make a test passkey</button></li>
+  <li><button id="use">2. Use it here</button></li>
+  <li>Then go to <a id="world" href="#">page 2: the world</a></li>
+</ol>
+<h2>Results</h2>
+<textarea id="log" readonly rows="12"></textarea>
+<p><button id="copy">Copy results</button> <span id="copied"></span></p>
+<script src="shared.js"></script>
+<script src="page.js"></script>
+</html>
