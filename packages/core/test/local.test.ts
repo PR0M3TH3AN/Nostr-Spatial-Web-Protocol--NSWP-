@@ -12,7 +12,7 @@ describe("local copies", () => {
     for (const h of ["gallery.bitblocks.network", "localhost.example.com", "172.32.0.1", "172.15.0.1", "192.169.1.1", "8.8.8.8", "1.2.3", "999.168.1.1", "192.168.1.256", ""]) expect(isLocalHost(h), h).toBe(false);
   });
 
-  it("keeps only what leads from a real https address to a local http one", () => {
+  it("keeps only what leads from a real https address to a local one", () => {
     const map = cleanLocalMap({
       "https://gallery.bitblocks.network": "http://localhost:4301",
       "https://grove.bitblocks.network/": "http://192.168.68.84:4302/",
@@ -20,7 +20,9 @@ describe("local copies", () => {
       "http://plain.example": "http://localhost:1",
       "https://elsewhere.example": "https://evil.example",
       "https://out.example": "http://evil.example",
-      "https://secure-local.example": "https://localhost:8443",
+      // A local copy may be served over https, with a certificate made on that machine.
+      "https://secure-local.example": "https://192.168.68.84:4303",
+      "https://not-a-web-address.example": "ftp://localhost:21",
       "https://localhost": "http://localhost:2",
       "https://user:pw@creds.example": "http://localhost:3",
       "not an address": "http://localhost:4",
@@ -29,6 +31,7 @@ describe("local copies", () => {
     expect([...map]).toEqual([
       ["https://gallery.bitblocks.network", "http://localhost:4301"],
       ["https://grove.bitblocks.network", "http://192.168.68.84:4302"],
+      ["https://secure-local.example", "https://192.168.68.84:4303"],
     ]);
     expect(cleanLocalMap(null).size).toBe(0);
     expect(cleanLocalMap(["https://a.example"]).size).toBe(0);
@@ -61,15 +64,31 @@ describe("local copies", () => {
     expect(fetched).not.toHaveBeenCalled();
   });
 
-  it("asks for no map on a local host served over https, or on a page that only looks local", async () => {
+  it("asks for no map on a page that only looks local, whatever it is served over", async () => {
     const fetched = vi.fn();
     vi.stubGlobal("fetch", fetched);
-    vi.stubGlobal("location", { protocol: "https:", hostname: "localhost" });
-    expect((await localMap()).size).toBe(0);
-    setLocalMap(undefined);
-    vi.stubGlobal("location", { protocol: "http:", hostname: "localhost.example.com" });
-    expect((await localMap()).size).toBe(0);
+    for (const location of [
+      { protocol: "http:", hostname: "localhost.example.com" },
+      { protocol: "https:", hostname: "localhost.example.com" },
+      { protocol: "https:", hostname: "192-168-68-84.example.com" },
+      { protocol: "https:", hostname: "100.121.92.77" },
+      { protocol: "file:", hostname: "localhost" },
+    ]) {
+      setLocalMap(undefined);
+      vi.stubGlobal("location", location);
+      expect((await localMap()).size, JSON.stringify(location)).toBe(0);
+    }
     expect(fetched).not.toHaveBeenCalled();
+  });
+
+  it("follows a map on a local host served over https, to https copies", async () => {
+    const fetched = vi.fn(async () => ({ ok: true, json: async () => ({ "https://gallery.bitblocks.network": "https://192.168.68.84:4301", "https://out.example": "https://evil.example" }) }));
+    vi.stubGlobal("fetch", fetched);
+    vi.stubGlobal("location", { protocol: "https:", hostname: "192.168.68.84" });
+    expect(await toLocal("https://gallery.bitblocks.network/walk/#back")).toBe("https://192.168.68.84:4301/walk/#back");
+    expect(await toLocal("https://out.example/")).toBe("https://out.example/");
+    expect(await fromLocal("https://192.168.68.84:4301/x")).toBe("https://gallery.bitblocks.network/x");
+    expect(fetched).toHaveBeenCalledTimes(1);
   });
 
   it("reads the map its own server publishes when the page is on a local host", async () => {

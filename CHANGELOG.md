@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.21.1
+
+A phone or a headset on the same network can sign in and enter VR on a development server.
+
+- **The development server answers https** (`node scripts/serve-local.mjs --lan --https`), on the same ports as http, with a certificate made on that machine and kept outside every repository. From another device, plain `http://192.168…` is not a secure address, so a browser withholds its cryptography, the microphone and a headset session: nobody could sign in there, and BitLogin reported it as "Account not found or credentials incorrect".
+- **Local copies may be https.** A page asks for the map of local copies when its host is local, over http or https, and a map may lead to an https copy on a local host. What makes a page local is its host: `localhost`, a loopback address, or a private network address. No real site is at one. Nothing else about the three limits changes ([local-server.md](docs/local-server.md)).
+- **Each device warns about the certificate once,** and whoever holds it accepts it after checking the fingerprint the server prints. Passkeys still don't work on such a page: a browser refuses them where it was told to accept a certificate.
+- **Status (2026-11-19):** tried on this machine only, in Chrome and Brave with the certificate accepted. **Not tried:** a real phone or headset.
+
 ## 0.21.0
 
 Keeping worlds up to date, without a script they all load.
