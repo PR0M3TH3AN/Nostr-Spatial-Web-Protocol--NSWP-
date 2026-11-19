@@ -105,7 +105,12 @@ export function addJump(controls: Controls, o: AddJumpOptions): Jump {
     const t = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
     return !!t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
   };
-  const ours = (e: KeyboardEvent) => e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e) && !o.hud?.open && !o.presenting() && !o.busy?.();
+  // A world that has claimed every key for itself (`controls.claimInput`) has claimed this one too.
+  const claimed = () => {
+    const keys = controls.view().keys;
+    return keys.menu === null && !keys.hotbar;
+  };
+  const ours = (e: KeyboardEvent) => e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e) && !o.hud?.open && !o.presenting() && !o.busy?.() && !claimed();
   const onKey = (e: KeyboardEvent) => {
     if (!ours(e)) return;
     // Space also presses whatever button was last used, and scrolls a page. Here it is a jump and nothing else.
