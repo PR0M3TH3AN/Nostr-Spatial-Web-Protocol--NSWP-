@@ -4356,7 +4356,7 @@ var NSWP = (() => {
   var WALK_SPEED = 2.4;
   var RUN = 1.75;
   var DOUBLE_TAP = 400;
-  var TAP_REACH = 3;
+  var TAP_REACH = 6;
   var DRAG_LOOK = 5e-3;
 
   // packages/sdk/src/fps.ts
@@ -4392,6 +4392,7 @@ var NSWP = (() => {
   var PORTAL_HEIGHT = 2.1;
   var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
   var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
+  var DOOR_REACH = 3.05;
 
   // packages/sdk/src/panel-store.ts
   var PANEL_LIMITS = {
@@ -6161,6 +6162,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       gateHeight: PORTAL_HEIGHT,
       gateSpring: PORTAL_SPRING,
       gateSignHeight: PORTAL_SIGN_HEIGHT,
+      doorReach: DOOR_REACH,
       cues: CUES
     });
   }

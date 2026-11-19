@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createStroll, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -102,6 +102,7 @@ export interface WorldConfig {
 }
 
 type TestHooks = {
+  marks?: () => { ring: [number, number] | null; dot: [number, number] | null; dots: number };
   jump?: { jump(): boolean; readonly height: number; readonly airborne: boolean };
   state: Record<string, unknown>;
   doors(): { label: string; to: string; url: string; position: number[] }[];
@@ -472,11 +473,18 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === environment.group) return false;
     return true;
   };
-  const stepTo = (spot: THREE.Vector3) => {
-    // Pointing at a thing is not pointing at the floor behind it.
+  /** Whether the ray reaches the floor it was last pointed at: pointing at a thing is not pointing at the floor behind it. */
+  const floorIsClear = () => {
     const toFloor = raycaster.ray.origin.distanceTo(floorHit);
     const inTheWay = raycaster.intersectObjects(scene.children, true).find((h) => solid(h.object));
-    if (inTheWay && inTheWay.distance < toFloor - 0.05) return;
+    return !(inTheWay && inTheWay.distance < toFloor - 0.05);
+  };
+  // Where a press would take them, where they are going and the way there: drawn for this visitor and nobody else.
+  const marks = createFloorMarks(accent);
+  scene.add(marks.group);
+  hooks.marks = () => marks.info();
+  const stepTo = (spot: THREE.Vector3) => {
+    if (!floorIsClear()) return;
     // In a headset a step is a jump, which is what sits well there. On a flat screen it is a walk, unless the
     // visitor has asked for less motion: then it is the same short step, taken at once.
     if (renderer.xr.isPresenting || !controls.theme.motion) moveTowards(spot.x, spot.z);
@@ -495,7 +503,24 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   // ------------------------------------------------------------- input
   const targets = gates.map((g) => g.gate.target);
-  const doorAt = (object: THREE.Object3D | undefined) => gates.findIndex((g) => g.gate.target === object);
+  /** Which door a pointed-at thing is, whether or not it is near enough to choose. */
+  const anyDoorAt = (object: THREE.Object3D | undefined) => gates.findIndex((g) => g.gate.target === object);
+  const gateAt = new THREE.Vector3();
+  /** How far the visitor is from a door, over the floor. */
+  const doorFar = (i: number) => {
+    camera.getWorldPosition(headAt);
+    gates[i]!.gate.group.getWorldPosition(gateAt);
+    return Math.hypot(gateAt.x - headAt.x, gateAt.z - headAt.z);
+  };
+  /**
+   * Which door a pointed-at thing is, if it is near enough to choose from where they stand: within ten feet. A door
+   * across the place is not lit and can't be gone through by a press, so nobody leaves by a stray click on one.
+   * Walking into a doorway goes through whatever this says.
+   */
+  const doorAt = (object: THREE.Object3D | undefined) => {
+    const i = anyDoorAt(object);
+    return i >= 0 && doorFar(i) <= DOOR_REACH ? i : -1;
+  };
   const pointer = new THREE.Vector2(2, 2);
   let dragging = false;
   let lastX = 0;
@@ -515,8 +540,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
     if (onPanel) return void panels!.press(onPanel);
-    const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
-    if (door >= 0) void go(door);
+    // Moving the intense way, a door is gone through by walking into it and no other way.
   };
   fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: context?.moving === "intense" && !context.immersive });
   hooks.fps = fps;
@@ -542,13 +566,20 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
     if (onPanel) return void panels!.press(onPanel);
-    const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
-    if (door >= 0) void go(door);
-    else {
+    const any = anyDoorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+    if (any >= 0 && doorFar(any) <= DOOR_REACH) void go(any);
+    else if (any >= 0) {
+      // A door too far off to choose: a press on it is a few steps towards it, like a press on the floor in front of it.
+      gates[any]!.gate.group.getWorldPosition(gateAt);
+      camera.getWorldPosition(headAt);
+      if (controls.theme.motion) stroll.to(...reachOf(headAt.x, headAt.z, gateAt.x, gateAt.z));
+      else moveTowards(...reachOf(headAt.x, headAt.z, gateAt.x, gateAt.z));
+    } else {
       const spot = floorUnder();
       if (spot) stepTo(spot);
     }
   });
+  renderer.domElement.addEventListener("pointerleave", () => pointer.set(2, 2));
   addEventListener("pointermove", (e) => {
     if (dragging && !renderer.xr.isPresenting) {
       rig.rotation.y += (e.clientX - lastX) * DRAG_LOOK;
@@ -784,6 +815,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let lastT = 0;
   let wasBusy = false;
   const movedFrom = rig.position.clone();
+  let hoverKept: [number, number] | null = null;
+  let hoverTick = 0;
   // A jump, the same however they are moving: Space, the Jump control where there is no keyboard, A or X in a headset.
   const floorY = rig.position.y;
   const jump = addJump(controls, { presenting: () => renderer.xr.isPresenting, sounds, hud, busy: () => !!panels?.keyboard.open });
@@ -814,6 +847,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     handle.update?.(t, dt);
     let aimed = -1;
     let panelAimed: string | null = null;
+    let hover: [number, number] | null = null;
+    let going: readonly [number, number] | null = null;
     reticle.visible = false;
     if (renderer.xr.isPresenting) {
       let button: string | null = null;
@@ -851,7 +886,19 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
       // Moving the intense way, the pointer's picture is the kit's to hide: the middle of the view is what points.
       if (!fps!.enabled) renderer.domElement.style.cursor = aimed >= 0 || panelAimed ? "pointer" : "grab";
+      // The casual way, with a pointer that hovers: a ring on the floor where a press would take them. With a finger
+      // there is nothing to hover with, so only where they are going is marked.
+      const mayHover = !fps!.enabled && !dragging && !panelAimed && aimed < 0 && Math.abs(pointer.x) <= 1 && Math.abs(pointer.y) <= 1 && currentForm() !== "touch";
+      if (!mayHover) hoverKept = null;
+      else if (hoverTick++ % 3 === 0) {
+        // Looked for every third frame: finding what is in the way means looking at everything in the place.
+        const spot = floorUnder();
+        hoverKept = spot && floorIsClear() && canStand(spot.x, spot.z) ? [spot.x, spot.z] : null;
+      }
+      hover = hoverKept;
+      going = fps!.enabled ? null : stroll.target;
     }
+    marks.update({ hover, from: [head.x, head.z], to: going, t });
     // Walking into a doorway goes through it, on foot or in a headset, with nothing brought up first.
     const through = state.ready ? walkedInto() : -1;
     if (through >= 0) void go(through, "walked");
