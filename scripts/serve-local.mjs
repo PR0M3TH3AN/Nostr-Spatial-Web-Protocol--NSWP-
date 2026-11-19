@@ -54,7 +54,7 @@ const sites = [
   // Not a world: a plain website that signs in by the window, to try what that is like (docs/plans/signin-demo).
   ["Notebook, a flat demo of signing in", join(root, "docs", "plans", "signin-demo", "dist"), "needs https; build it with node docs/plans/signin-demo/build.mjs", ""],
   // BitLogin's own site: the sign-in address Notebook asks. Its headers are written beside its packages, not in its build.
-  ["BitLogin's own site", join(root, "..", "bitlogin", "packages", "demo", "dist"), "the sign-in address; build it with npm run build:demo in bitlogin", "", join(root, "..", "bitlogin", "vercel.json")],
+  ["BitLogin's own site", join(root, "..", "bitlogin", "packages", "demo", "dist"), "the sign-in address; build it with npm run build:demo in bitlogin", "https://bitlogin.network", join(root, "..", "bitlogin", "vercel.json")],
 ];
 const types = {
   ".html": "text/html; charset=utf-8",

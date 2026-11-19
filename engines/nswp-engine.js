@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.25.0";
+  var KIT_VERSION = "0.26.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -3897,6 +3897,12 @@ var NSWP = (() => {
       else
         c.warn("url_not_https", "airlock", "Ignoring a non-https return Airlock.");
     }
+    if (json.signer !== void 0) {
+      if (isHttpsUrl(json.signer) && json.signer.length <= 300)
+        out.signer = json.signer;
+      else
+        c.warn("url_not_https", "signer", "Ignoring a signer address that isn't a usable https address.");
+    }
     if (json.assertion !== void 0) {
       if (hasEventShape(json.assertion))
         out.assertion = json.assertion;
@@ -4487,6 +4493,7 @@ var NSWP = (() => {
 
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
+  var SIGNER_KEY = "nswp:signer";
   var LOOK_KEY = "nswp:look";
   var PASS_KEY = "nswp:pass";
   var HOME_KEY = "nswp:at-home";
@@ -4539,6 +4546,13 @@ var NSWP = (() => {
       if (cached.context?.airlock) {
         try {
           session()?.setItem(RETURN_KEY, cached.context.airlock);
+        } catch {
+        }
+      }
+      if (cached.context) {
+        try {
+          if (cached.context.signer) session()?.setItem(SIGNER_KEY, cached.context.signer);
+          else session()?.removeItem(SIGNER_KEY);
         } catch {
         }
       }
@@ -4598,6 +4612,17 @@ var NSWP = (() => {
         return session()?.getItem(HOME_KEY) === "1";
       } catch {
         return false;
+      }
+    },
+    /**
+     * Where the visitor's client said their signer is, or undefined: then it
+     * is beside the Airlock (protocol/10-identity.md, "Signing from a world").
+     */
+    signer() {
+      try {
+        return session()?.getItem(SIGNER_KEY) ?? void 0;
+      } catch {
+        return void 0;
       }
     },
     returnAirlock() {

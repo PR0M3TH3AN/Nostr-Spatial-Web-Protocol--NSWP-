@@ -260,9 +260,10 @@ BitLogin"):** the signer and the window are pages of BitLogin's own site,
 merged and live at `https://bitlogin.network/signer/` and `/connect/`. Its own browser test
 makes a throwaway account, opens the window from a site on another origin,
 and has a note signed. The flat demo ([`signin-demo/`](signin-demo/)) asks
-BitLogin's site now. Worlds still ask BitPortal's unshipped copy: how a
-world finds a signer that isn't beside its visitor's Airlock is point 3
-above, and is not built.
+BitLogin's site now. And worlds do too (kit 0.26.0): point 3 above was
+settled as a field in the arrival, `signer`, which BitPortal's Airlock
+sets to `https://bitlogin.network/`. BitPortal's own copies of the signer
+and the window were never shipped, and its pages stay unembeddable.
 
 Still to decide:
 

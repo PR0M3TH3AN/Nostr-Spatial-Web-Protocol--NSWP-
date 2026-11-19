@@ -84,7 +84,8 @@ export function identityAction(controls: Controls, leaving: Leaving = () => ({})
 let shared: WorldSigner | null = null;
 /** This page's one signer, from the visitor's own client (signer.ts). "none" when they came through no client. */
 export function worldSigner(): WorldSigner {
-  shared ??= createWorldSigner({ airlock: portal.airlockFor() });
+  // Where their own client said it is; or beside that client's Airlock.
+  shared ??= createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() });
   return shared;
 }
 
@@ -106,7 +107,8 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     id: "signer",
     section: "you",
     icon: "key",
-    label: () => (signer.state === "unlocked" ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on` : "Sign in to sign notes"),
+    // Locked, it says whose window will open, before anything is pressed: an address to recognise.
+    label: () => (signer.state === "unlocked" ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on` : `Sign in to sign notes${signer.host ? `, at ${signer.host}` : ""}`),
     short: () => (signer.state === "unlocked" ? "Signing" : "Sign"),
     on: () => signer.state === "unlocked",
     hidden: () => signer.state === "none",

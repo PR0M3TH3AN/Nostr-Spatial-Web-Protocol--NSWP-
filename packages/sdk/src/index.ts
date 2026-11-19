@@ -43,6 +43,8 @@ export type { Pose, Transform } from "@nswp/core";
 export { dropBrought, somethingBrought, takeBrought, watchBrought, type Brought } from "./bring.js";
 
 const RETURN_KEY = "nswp:return-airlock";
+/** Where the visitor's client said their signer is, kept for the tab like the way back. */
+const SIGNER_KEY = "nswp:signer";
 const LOOK_KEY = "nswp:look";
 const PASS_KEY = "nswp:pass";
 const HOME_KEY = "nswp:at-home";
@@ -111,6 +113,15 @@ export const arrival = {
         /* storage may be unavailable */
       }
     }
+    // Where their signer is goes with the client that said so: a new arrival that names none forgets the last one's.
+    if (cached.context) {
+      try {
+        if (cached.context.signer) session()?.setItem(SIGNER_KEY, cached.context.signer);
+        else session()?.removeItem(SIGNER_KEY);
+      } catch {
+        /* storage may be unavailable */
+      }
+    }
     // Arriving through an Airlock says how to be seen on this visit: with a look, or plain.
     if (cached.context) {
       try {
@@ -173,6 +184,18 @@ export const arrival = {
       return session()?.getItem(HOME_KEY) === "1";
     } catch {
       return false;
+    }
+  },
+
+  /**
+   * Where the visitor's client said their signer is, or undefined: then it
+   * is beside the Airlock (protocol/10-identity.md, "Signing from a world").
+   */
+  signer(): string | undefined {
+    try {
+      return session()?.getItem(SIGNER_KEY) ?? undefined;
+    } catch {
+      return undefined;
     }
   },
 

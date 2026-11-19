@@ -10,6 +10,7 @@
     "v": { "type": "string", "pattern": "^nswp/arrival/" },
     "entry": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$" },
     "airlock": { "type": "string", "pattern": "^https://" },
+    "signer": { "type": "string", "pattern": "^https://", "maxLength": 300, "description": "Where the visitor's signer is: its signer/ and connect/ pages are under this address. Left out, beside the Airlock." },
     "assertion": { "$ref": "entry-assertion.schema.json" },
     "avatar": { "type": "string", "pattern": "^naddr1" },
     "look": { "type": "string", "maxLength": 600 },

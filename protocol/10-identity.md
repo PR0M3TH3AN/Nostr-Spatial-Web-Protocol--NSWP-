@@ -332,11 +332,34 @@ A pass lets a world know its visitor by name. It doesn't let them sign
 anything as themselves: a Nostr note is theirs only if their own key signed
 it, and a world is never given that key. So a world asks.
 
-**The signer.** A client that offers signing serves two pages beside its
-Airlock: for an Airlock at `https://client.example/go/`, a signer at
-`/signer/` and a window at `/connect/`. A world embeds the signer as a
-hidden frame. It has no interface. The world can't read it or script it,
-and nothing is ever typed into it.
+**The signer.** A client that offers signing has two pages: a signer and a
+sign-in window. A world embeds the signer as a hidden frame. It has no
+interface. The world can't read it or script it, and nothing is ever typed
+into it.
+
+**Where it is, is the client's to say.** A client names it in the arrival
+(`signer`, [NSWP-03](03-arrival.md)): an `https` address, with the signer at
+`signer/` and the window at `connect/` under it. A client that names none
+keeps them beside its Airlock: for an Airlock at
+`https://client.example/go/`, at `/signer/` and `/connect/`.
+
+So the signer need not be the client's own. One place that does nothing but
+sign in is a smaller thing to trust than a whole client, and one address is
+one sign-in for every client and site that uses it. The reference client
+names BitLogin's own site, `https://bitlogin.network/`.
+
+An arrival is something anyone can write, so a link can name a signer of
+its own making, as it can an Airlock. What that gains is little, and a
+world keeps it so:
+
+- **A world says whose window will open, before it is pressed:** "Sign in
+  to sign notes, at *that address*". It is the address the client named,
+  never a development server's copy of it.
+- **A signer the visitor never signed in at can sign nothing as them.** A
+  world checks what comes back against the key the signer said it holds,
+  and a stranger's signer holds a stranger's key.
+- **The window is where a password could be asked for,** and its address
+  bar is what the visitor reads. A world never draws one itself.
 
 **It starts locked, in every world.** A browser walls off what a site
 stores when that site is embedded in another, and a signer never uses what
@@ -409,9 +432,10 @@ crossing's room, which brings back a pass and not a signer. **Built: the
 window.** The rest are in
 [`docs/plans/signing-in-worlds.md`](../docs/plans/signing-in-worlds.md).
 
-In the reference client the signer runs BitLogin, and the key moves from
-the window's crypto worker to the signer's without passing through either
-page (BitLogin's `docs/sign-in-window.md`).
+The reference signer is BitLogin's own site. The key moves from the
+window's crypto worker to the signer's without passing through either page,
+and the signer remembers a world the visitor allowed (BitLogin's
+`docs/sign-in-window.md`).
 
 ## In code
 

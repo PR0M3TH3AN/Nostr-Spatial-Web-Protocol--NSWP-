@@ -144,6 +144,27 @@ export function signerAddresses(airlock: string | null | undefined): { origin: s
   }
 }
 
+/**
+ * Where a signer and its sign-in window are, for a client that keeps them
+ * somewhere of their own and says where in the arrival (`signer`): at
+ * `signer/` and `connect/` under that address. Null for anything that isn't
+ * an https address.
+ */
+export function signerAt(base: string | null | undefined): { origin: string; signer: string; window: string } | null {
+  if (!base || base.length > 300) return null;
+  try {
+    const at = new URL(base);
+    if (at.protocol !== "https:" || at.username || at.password) return null;
+    // A base names a place, not a page: "https://sign.example" and "https://sign.example/" are the same place.
+    if (!at.pathname.endsWith("/")) at.pathname += "/";
+    at.search = "";
+    at.hash = "";
+    return { origin: at.origin, signer: new URL("signer/", at).href, window: new URL("connect/", at).href };
+  } catch {
+    return null;
+  }
+}
+
 // ---- What a world and the signer say to each other. Every message is `{ nswp: "nswp-signer", v: 1, t, ... }`.
 
 /** From a world: "what state are you in?", "sign this", or "lock": the visitor's own way to end it from the world's menu. */

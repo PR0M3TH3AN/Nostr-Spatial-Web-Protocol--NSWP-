@@ -13,6 +13,10 @@ import {
   SIGN_LIMITS,
   signClass,
   signerAddresses,
+  signerAt,
+  buildArrivalUrl,
+  decodeArrival,
+  arrivalParam,
   signerMessage,
   WORLD_TAG,
 } from "../src/index.js";
@@ -156,5 +160,29 @@ describe("what the client's window and its signer say to each other", () => {
     expect(readHandoffMessage(handoffMessage({ t: "grant", nonce: "n1", world: WORLD, sealed: { senderPublicKey: key, payload: "y".repeat(4001) } }))).toBeNull();
     expect(readHandoffMessage({ ...handoffMessage({ t: "hello", nonce: "n1" }), nswp: "nswp-signer" })).toBeNull();
     expect(readHandoffMessage(signerMessage({ t: "state", id: "a" }))).toBeNull();
+  });
+});
+
+describe("a signer the client names in the arrival", () => {
+  it("is at signer/ and connect/ under the address given", () => {
+    expect(signerAt("https://bitlogin.network/")).toEqual({ origin: "https://bitlogin.network", signer: "https://bitlogin.network/signer/", window: "https://bitlogin.network/connect/" });
+    expect(signerAt("https://bitlogin.network")).toMatchObject({ signer: "https://bitlogin.network/signer/" });
+    expect(signerAt("https://sign.example/id?x=1#y")).toMatchObject({ signer: "https://sign.example/id/signer/", window: "https://sign.example/id/connect/" });
+  });
+
+  it("is nowhere for anything but an https address", () => {
+    for (const not of ["http://sign.example/", "javascript:alert(1)", "https://user:pw@sign.example/", "", null, undefined, "nonsense", `https://sign.example/${"a".repeat(400)}`]) expect(signerAt(not)).toBeNull();
+  });
+
+  it("travels in an arrival, and anything else in its place is dropped", () => {
+    const made = buildArrivalUrl("https://museum.example/", { airlock: "https://client.example/go/", signer: "https://bitlogin.network/" });
+    const read = decodeArrival(arrivalParam(new URL(made).hash)!);
+    expect(read.ok && read.value.signer).toBe("https://bitlogin.network/");
+    for (const bad of ["http://plain.example/", "javascript:alert(1)", 7, `https://x.example/${"a".repeat(400)}`]) {
+      const forged = Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", airlock: "https://client.example/go/", signer: bad })).toString("base64url");
+      const r = decodeArrival(forged);
+      expect(r.ok && r.value.signer).toBeUndefined();
+      expect(r.ok && r.value.airlock).toBe("https://client.example/go/");
+    }
   });
 });
