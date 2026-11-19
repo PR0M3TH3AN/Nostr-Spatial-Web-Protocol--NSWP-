@@ -33,6 +33,7 @@ engine can pass to a page:
 | `NSWP.go(destination, state)` | Through a door. `destination` is JSON with `url`, and `naddr` and `entryPoint` if the door has them. Returns `""`, or one word for why not. |
 | `NSWP.home(state)` | To their own start. False if there is no way there. |
 | `NSWP.doors(state)` | To their doors, for a world that is someone's home. |
+| `NSWP.signIn(state)` | To their own client, to say who they are: sign in, switch profile, or go on as a guest. It brings them back here, by name if they chose that. The menu offers it under "You" and sends an `identity` event when it is pressed; call this then, or from a button of your own. A world never draws a sign-in itself ([NSWP-10](../protocol/10-identity.md)). False if they came through no client. |
 
 `state` is JSON saying how they are leaving: `immersive`, `joined`, `mic`,
 `moving`, `blocked`. The engine ends a headset session itself before `go`.

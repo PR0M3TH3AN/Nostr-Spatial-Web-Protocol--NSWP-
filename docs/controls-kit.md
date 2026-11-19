@@ -342,6 +342,26 @@ await addViewControls(controls, { renderer, rig, camera, hud,
 - It is scenery: it asks nothing, claims nothing and has nothing to press.
   [NSWP-02](../protocol/02-doors.md) says why.
 
+## Who the visitor is, and signing in
+
+`addViewControls` adds a control under "You" that says who the visitor is
+here and offers the way to change it: "You are a guest here. Sign in", or
+"Here as Alice. Switch profile, or go as a guest". A world writes nothing
+for it. Pressed, it leaves for the visitor's own client (`portal.signIn()`),
+which asks them on its own page and brings them back to this world, by name
+if they chose that ([NSWP-10](../protocol/10-identity.md), "Signing in from
+inside a world").
+
+- Pass `leaving` to `addViewControls` to send their state along, so they
+  come back as they left: `leaving: () => ({ ...travelling(), moving })`.
+- To put the button somewhere of your own, press the same one:
+  `controls.run("identity")`. `identityWords()` has its words, and
+  `identityHost()` the host it leads to.
+- It is absent when there is no Airlock to go back to.
+- When they come back, `arrival.identity()` has their name and key, checked.
+
+A world never draws the sign-in itself, in a panel or anywhere else.
+
 ## Sharing the screen with a world's own interface
 
 A world with an interface of its own leads, and the kit stays out of its way

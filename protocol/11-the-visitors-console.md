@@ -111,13 +111,17 @@ button, not a copy of it:
   some of it elsewhere takes nothing out of it.
 - **It never looks like an Airlock or a sign-in.** Those are the visitor's
   client's own pages and no world draws them
-  ([NSWP-09](09-what-a-world-owes.md)).
+  ([NSWP-09](09-what-a-world-owes.md)). A world may draw the button that
+  *leads* to the sign-in, wherever it likes: `identity`, below. Pressed, it
+  leaves for the visitor's own client and comes back
+  ([NSWP-10](10-identity.md), "Signing in from inside a world").
 
 The things a visitor has, by the names a world presses them by:
 
 | Name | What it does |
 |---|---|
 | `home` | Takes them home (or to their doors, in a world that is their home) |
+| `identity` | Says who they are here, and leaves for their own client to sign in, switch profile or go on as a guest. Then brings them back |
 | `vr` | Into a headset session, or out of one |
 | `fullscreen` | Fills their screen, or gives it back |
 | `fps`, `move-style` | Casual or intense, at a desk and in a headset |

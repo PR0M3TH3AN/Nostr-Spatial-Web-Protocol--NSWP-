@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.18.0
+
+Signing in from inside a world.
+
+- **[NSWP-10](protocol/10-identity.md), "Signing in from inside a world":** a visitor no longer has to go home to sign in. Every world's console has a control under "You" that says who they are there ("You are a guest here. Sign in", or "Here as Alice. Switch profile, or go as a guest"). Pressing it leaves for the visitor's own client, which asks them on its own page, and brings them back to the same world: by name if they chose that, as a guest if not. A world still never shows a sign-in and never holds a key. The control is a door, and that is all it is.
+- **[NSWP-02](protocol/02-doors.md):** a new flag on a door, `who=1`, which a world puts on a door back to itself. It is a request and nothing more: it signs nobody in, sends nobody by name and skips no check. A client with no sign-in ignores it.
+- **A world's own door** is the announcement its manifest lists for its address (`doorFor` in the core, `portal.here()` in the kit), so the visitor's client can check it like any other and hand over a pass.
+- **In the kit:** `portal.signIn()`, and the control comes with `addViewControls`, so a world built with the kit or the template has it with no code. The console has a standard "You" section, second after Travel. **For other engines:** `NSWP.signIn(state)` and an `identity` event (engine script version 5); `Nswp.sign_in()` in Godot. A world may draw the button anywhere in its own interface: `identity` in [NSWP-11](protocol/11-the-visitors-console.md)'s table.
+- **In BitPortal:** the Airlock sends a `who=1` door to the sign-in page, keeping the door for the tab. The page offers "Back to *the world*, by name", with what going by name gives away written under it, and "Go back as a guest". The way back leads only to BitPortal's own Airlock, which checks the door. Asking for a name that can't be given (the site hasn't proved who it is) stops at the Airlock and says so.
+- **The sign-in page's profile box** was half the page's width with BitLogin's small text inside it. It now takes the page's width when signed in, and BitLogin's element is scaled as one piece to match the page's text.
+- **What this does not do:** put the sign-in inside a world. The page changes to the client's and back. That is deliberate: a sign-in drawn inside a world is what a phishing world would draw, and a visitor's real protection is the address of the page they type into.
+- **Status (2026-11-19):** not deployed. On the local server in Chrome: from a world's menu to the sign-in page and back to the same world as a guest; and by name with the Airlock's throwaway test identity, where the world's control then read "Here as Test visitor". A link with `who=1` to a site nobody announced showed the sign-in page and then the Airlock's whole screen. **Not tried:** a real BitLogin sign-in in this flow, a headset, a phone, Godot in a browser (the script and the addon were built, and the Godot example was not re-exported).
+
 ## 0.17.5
 
 Settings between devices, and whose business that is.

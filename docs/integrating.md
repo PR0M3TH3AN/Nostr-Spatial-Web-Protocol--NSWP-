@@ -47,6 +47,18 @@ world may replace, restyle or stand in for, because it isn't in a world at
 all: it is on one page of BitPortal's own, and nowhere else. A visitor may
 also stay anonymous, and a world treats a guest as a full visitor.
 
+**A visitor can still sign in from inside your world.** The console has a
+control for it under "You": "You are a guest here. Sign in". Pressing it
+leaves for the visitor's own client, which asks them on its own page and
+brings them back to your world, by name if they chose that. A world built
+with the kit, the template or the engine script has it without a line of
+code. To put the button somewhere of your own (a pause menu, a sign on a
+wall), press the same control: `controls.run("identity")`, `NSWP.run("identity")`,
+`Nswp.run("identity")`, or call `portal.signIn()`, `NSWP.signIn()`,
+`Nswp.sign_in()`. What you may not do is draw the sign-in itself
+([NSWP-10](../protocol/10-identity.md), "Signing in from inside a world").
+When they come back, `arrival.identity()` has who they are.
+
 The protocol itself names no sign-in. Another client may use another signer.
 What every client and every world share is the pass.
 
