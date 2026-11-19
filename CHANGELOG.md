@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.20.0
+
+What a visitor prefers, in every world.
+
+- **[NSWP-11](protocol/11-the-visitors-console.md), "Settings that travel":** a filled screen and the intense way of moving are now standing preferences, not a record of what the visitor last did. `full` means "prefers a filled screen" and a new `intense` means "prefers the intense way at a desk". Every world they enter starts that way. Pressing Escape, or being on a phone for a while, changes nothing: only their own hand on the control does. Before, `full` was whether the screen happened to be filled as they left, so leaving fullscreen for a moment in one world left the next one unfilled.
+- **Two new settings for a flat screen:** `look`, how fast the view turns under a mouse or a finger (0.25 to 3 times the world's own), and `fov`, how wide they see at a desk (50 to 110 degrees; left out, each world's own). Both have a control in every world's console (`look-speed` under Moving, `fov` under View), travel with the visitor, and are the same everywhere.
+- **In the kit:** `desk.ts` (`lookScale`, `visitorFov`, `watchFov`, `addDeskControls`, `onDeskChange`); `prefersFullscreen()`; `addViewControls` adds the controls and keeps the camera to the visitor's width. **For other engines:** `NSWP.kit()` gives `lookSpeed` and `dragLook` already scaled and `fov`, read again on a `changed` event; the Godot visitor follows them.
+- **In BitPortal:** Settings has "In every world": fill the screen, move the intense way at a desk, how fast the view turns, how wide you see. The Airlock starts from what the browser keeps for the visitor, so a door opened from the front page takes their preferences along. With "Keep my settings with my profile" on, they are in that note.
+- **Status (2026-11-19):** not deployed. On the local server in Chrome: preferences set once in Settings; two worlds in turn each started the intense way and filled the screen at the first key, the second after fullscreen had been left with the browser's own exit in the first; then fullscreen and intense turned off and the speed and width changed in a world's menu, and the room at home started that way and kept it. The Godot example, arriving with preferences, started the intense way with its speed doubled and its width at 90°, and followed both as they were changed in its menu. **Not tried:** a real mouse by hand (whether "fast" feels right), Firefox, Safari.
+
 ## 0.19.0
 
 One coherent "you": signed in everywhere, one look everywhere, and the same menu everywhere.

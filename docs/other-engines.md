@@ -36,6 +36,13 @@ engine can pass to a page:
 | `NSWP.changeLook(state)` | To their own client, to change how they look, and back here wearing it. The menu offers it under "You" and sends a `figure` event when it is pressed. A world never edits a look. |
 | `NSWP.signIn(state)` | To their own client, to say who they are: sign in, switch profile, or go on as a guest. It brings them back here, by name if they chose that. The menu offers it under "You" and sends an `identity` event when it is pressed; call this then, or from a button of your own. A world never draws a sign-in itself ([NSWP-10](../protocol/10-identity.md)). False if they came through no client. |
 
+`NSWP.kit()` has two numbers the visitor sets for themselves, and they are
+the same in every world: `lookSpeed` and `dragLook` are already scaled by
+how fast they like the view to turn, and `fov` is how wide they asked to see
+at a desk, in degrees top to bottom (0 for your world's own). Read `kit()`
+again when a `changed` event comes. The menu has the controls for both. The
+Godot addon's visitor does this for you.
+
 `state` is JSON saying how they are leaving: `immersive`, `joined`, `mic`,
 `moving`, `blocked`. The engine ends a headset session itself before `go`.
 

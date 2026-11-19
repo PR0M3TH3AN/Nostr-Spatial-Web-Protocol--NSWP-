@@ -90,6 +90,11 @@ func _ready() -> void:
   the menu. Either way Shift runs and Space jumps; where there is no
   keyboard, two taps run and the menu's Jump control jumps. It is in the
   group `visitor`.
+- **What they prefer, in every world.** A filled screen, the intense way at
+  a desk, how fast the view turns and how wide they see are the visitor's
+  own, set once and brought with them. An `NswpVisitor` starts from them and
+  follows them as they change (`Nswp.kit.lookSpeed`, `Nswp.kit.fov`, read
+  again on `console_changed`). A visitor of your own reads the same numbers.
 - **The way home.** The menu offers it. `Nswp.home()` does it from your own
   code. If `Nswp.arrival.home` is true, this world is their home, and the
   menu offers their doors instead.

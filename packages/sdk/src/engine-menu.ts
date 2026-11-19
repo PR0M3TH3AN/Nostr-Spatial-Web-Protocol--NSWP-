@@ -30,6 +30,8 @@ import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type Sound
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
 import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, WALK_SPEED } from "./stroll.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { addDeskControls, lookScale, visitorFov } from "./desk.js";
+import { reportSettings } from "./settings.js";
 import { identityHost, identitySection, identityWords } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
@@ -58,7 +60,8 @@ const vr = { supported: false, presenting: false };
 const doors = new Map<string, string>();
 
 /**
- * The numbers every world shares, as JSON: how fast a visitor walks, how far
+ * The numbers every world shares, and the two a visitor sets for themselves
+ * (how fast the view turns, how wide they see), as JSON: how fast a visitor walks, how far
  * a tap takes them, how a drag and a mouse turn the view, and the size of the standard
  * doorway. An engine reads them here so that they are the kit's and not a
  * copy that drifts. Lengths are metres, angles radians, speeds per second.
@@ -68,8 +71,11 @@ export function kit(): string {
     walkSpeed: WALK_SPEED,
     tapReach: TAP_REACH,
     sprint: SPRINT,
-    dragLook: DRAG_LOOK,
-    lookSpeed: LOOK_SPEED,
+    // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.
+    dragLook: DRAG_LOOK * lookScale(),
+    lookSpeed: LOOK_SPEED * lookScale(),
+    // How wide they asked to see at a desk, in degrees top to bottom, or 0 for the world's own.
+    fov: visitorFov() ?? 0,
     pitchLimit: PITCH_LIMIT,
     doubleTap: DOUBLE_TAP,
     jumpHeight: JUMP_HEIGHT,
@@ -150,6 +156,8 @@ export function menu(options?: string): string {
   // How they move at a desk. The same control, the same words and the same memory as in a Three.js world (fps.ts).
   const context = arrival.read().context;
   moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
+  // What they prefer goes on with them through the next door. Where there is no mouse nothing is said about it.
+  if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
   c.add({
     id: "fps",
     section: "moving",
@@ -192,6 +200,8 @@ export function menu(options?: string): string {
     },
     fullscreenAction(c, () => vr.presenting),
   );
+  // How fast the view turns and how wide they see: the engine reads both from `kit()` when a `changed` event comes.
+  addDeskControls(c, { presenting: () => vr.presenting });
   document.addEventListener("fullscreenchange", () => c.setTarget(""));
   c.addSection({
     id: "help",

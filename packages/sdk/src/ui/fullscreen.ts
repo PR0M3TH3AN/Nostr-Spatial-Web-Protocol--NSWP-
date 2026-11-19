@@ -7,9 +7,28 @@ import type { Controls, UiAction } from "./model.js";
 
 let resumed = false;
 let waiting = false;
+/** Where the preference is kept, for this site. */
+export const FULL_KEY = "nswp:full";
 /**
- * A visitor who had the world filling their screen has it filling their
- * screen again, as early as a browser allows.
+ * Whether the visitor prefers a filled screen. It is what they chose with the
+ * control, not how the screen happens to be: pressing Escape for a moment in
+ * one world doesn't change what they prefer in the next.
+ */
+let prefers = false;
+const keepFull = (on: boolean): void => {
+  prefers = on;
+  try {
+    if (on) localStorage.setItem(FULL_KEY, "1");
+    else localStorage.removeItem(FULL_KEY);
+  } catch {
+    /* it lasts for this visit */
+  }
+};
+export const prefersFullscreen = (): boolean => prefers;
+
+/**
+ * A visitor who prefers the world filling their screen has it filling their
+ * screen, as early as a browser allows.
  *
  * A browser gives up fullscreen whenever the page changes, and fills the
  * screen again only on a press: nothing a page does can change either. So
@@ -17,8 +36,9 @@ let waiting = false;
  * arrived, before the place is built or anything is drawn, and it takes the
  * very first press of any kind: a key, a click, a touch, and a key that was
  * already held down as they walked through the door. It keeps trying until
- * the screen is filled. Leaving fullscreen with the browser's own key is
- * them saying otherwise, and holds from then on.
+ * the screen is filled. Leaving fullscreen with the browser's own key holds
+ * for the rest of this visit, and changes nothing about what they prefer:
+ * the next world fills the screen again. Only the control turns it off.
  *
  * `arrival.read()` calls it. A client's own page calls it itself, after
  * saying what the visitor arrived with (`arriveWith`).
@@ -26,8 +46,18 @@ let waiting = false;
 export function resumeFullscreen(presenting: () => boolean = () => false): void {
   if (resumed || typeof document === "undefined") return;
   resumed = true;
-  reportSettings("screen", () => ({ full: !!document.fullscreenElement || waiting }));
-  waiting = arrivedSettings().full === true && document.fullscreenEnabled && !document.fullscreenElement;
+  // What they arrived with comes first: it is what they prefer now, wherever they said so.
+  const came = arrivedSettings().full;
+  let kept = false;
+  try {
+    kept = localStorage.getItem(FULL_KEY) === "1";
+  } catch {
+    /* nothing kept */
+  }
+  if (came === undefined) prefers = kept;
+  else keepFull(came);
+  reportSettings("screen", () => ({ full: prefers }));
+  waiting = prefers && document.fullscreenEnabled && !document.fullscreenElement;
   if (!waiting) return;
   const presses = ["keydown", "pointerdown", "pointerup", "touchend"] as const;
   const stop = () => {
@@ -62,17 +92,25 @@ export function fullscreenAction(controls: Controls, presenting: () => boolean):
     id: "fullscreen",
     section: "view",
     icon: "size",
-    on: () => !!document.fullscreenElement,
+    on: () => prefers,
     // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
     hidden: () => !document.fullscreenEnabled || presenting(),
-    label: () => (document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off"),
+    // It says what they prefer, in every world, and whether the screen is filled just now.
+    label: () => (!prefers ? "Fullscreen: off" : document.fullscreenElement ? "Fullscreen: on, in every world" : "Fullscreen: on, in every world. Press to fill the screen again"),
     act: async () => {
+      // Preferred, and not filled just now (they pressed Escape, or have only just arrived): fill it. Otherwise
+      // this is them changing what they prefer.
+      const fill = !document.fullscreenElement;
+      if (!fill) keepFull(false);
       try {
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else await document.documentElement.requestFullscreen();
+        if (fill) {
+          await document.documentElement.requestFullscreen();
+          keepFull(true);
+        } else await document.exitFullscreen();
       } catch {
         controls.say("This browser wouldn't go fullscreen.");
       }
+      controls.setTarget("");
     },
   };
 }
