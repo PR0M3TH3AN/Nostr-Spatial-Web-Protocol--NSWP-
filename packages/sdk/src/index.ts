@@ -174,6 +174,21 @@ export const arrival = {
     }
   },
 
+  /**
+   * Keep a pass made for this site after arriving: the one the visitor's signer made when they signed in here
+   * (protocol/10-identity.md, "A pass from the signer"). It is checked as an arrival's is, and kept the same way,
+   * for this tab. False if it doesn't check out.
+   */
+  keepIdentity(pass: NostrEvent, sessionKey: string): boolean {
+    try {
+      if (!/^[0-9a-f]{64}$/.test(sessionKey) || !verifyRoomPass(pass, { origin: location.origin }).ok) return false;
+      session()?.setItem(PASS_KEY, JSON.stringify({ pass, sessionKey }));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   /** The Airlock this visitor came from, for this tab's session only. */
   /**
    * Whether this world is where the visitor starts: their own client brought

@@ -29,7 +29,7 @@ import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
-import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, signerAction, signerNamed, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
+import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
@@ -1836,13 +1836,14 @@ export function addRoomControls(
       controls.feed.detach();
       return closeFeedPanel();
     }
-    controls.feed.attach({ who: notes.who?.() || (key ? shortNpub(key) : "you"), send: postNote, load: loadPosts });
+    // A world's signer marks each note with the world that asked. A client signing in its own room marks nothing.
+    controls.feed.attach({ who: () => notes.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? "" : location.host, send: postNote, load: loadPosts });
   };
   /** The feed in a headset: the same posts, on a panel of the visitor's own. Where to write is at the top. */
   const drawFeedPanel = () => {
     if (!feedPanel) return;
     const view = controls.feed.view();
-    const stamp = `${view.version}:${Math.floor(Date.now() / 60000)}`;
+    const stamp = `${view.version}:${Math.floor(Date.now() / 60000)}:${view.lead}`;
     if (stamp === feedPanel.drawn) return;
     feedPanel.drawn = stamp;
     const t = controls.theme;
@@ -1856,7 +1857,8 @@ export function addRoomControls(
     g.font = "30px system-ui, sans-serif";
     g.fillStyle = t.ink;
     g.globalAlpha = 0.72;
-    wrapWords(`Public, like a tweet: anyone can read what you send out here, as ${view.who}, and it can't be taken back.`, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, 34 + r * 38));
+    g.font = "27px system-ui, sans-serif";
+    wrapWords(view.lead, measure, CHAT_W - 56, 4).forEach((row, r) => g.fillText(row, 28, 24 + r * 33));
     g.globalAlpha = 1;
     // The one button: it puts the keyboard up.
     g.strokeStyle = t.accent;
@@ -1979,7 +1981,14 @@ export function addRoomControls(
       refresh();
     }
   };
-  if (signerNamed()) worldSigner().onChange(() => void asWhoTheyAre());
+  if (signerNamed()) {
+    worldSigner().onChange(() => void asWhoTheyAre());
+    // A pass from the signer arrives a moment after signing in: then the room sees them by name.
+    onHereAs(() => {
+      void asWhoTheyAre();
+      refresh();
+    });
+  }
 
   controls.add(
     {
@@ -2400,7 +2409,7 @@ export { arrivedSettings, arriveWith, currentSettings, reportSettings, type Trav
 export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
 export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsPictures } from "./picture.js";
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
-export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, signerAction, signerNamed, worldSigner, youCard, type Leaving } from "./ui/identity.js";
+export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";

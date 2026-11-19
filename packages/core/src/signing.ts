@@ -14,6 +14,8 @@
  */
 import type { EventTemplate, NostrEvent } from "./event.js";
 import { cleanLine } from "./chat.js";
+import { isHex64 } from "./event.js";
+import { cleanAbout, cleanPicture } from "./pass.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -26,11 +28,11 @@ export const SIGN_LIMITS = {
   tagChars: 400,
   /** How long an unlocked signer stays unlocked for a world, at most. Closing the world's page ends it sooner. */
   grantSec: 4 * 3600,
-  /** No more than this many notes for one world in `perMs`. */
-  burst: 6,
+  /** No more than this many notes for one world in `perMs`: the pace of a person, not of a script. */
+  burst: 3,
   perMs: 60_000,
   /** And no more than this many in an hour. */
-  hourly: 60,
+  hourly: 20,
 } as const;
 
 /**
@@ -168,7 +170,15 @@ export function signerAt(base: string | null | undefined): { origin: string; sig
 // ---- What a world and the signer say to each other. Every message is `{ nswp: "nswp-signer", v: 1, t, ... }`.
 
 /** From a world: "what state are you in?", "sign this", or "lock": the visitor's own way to end it from the world's menu. */
-export type SignerRequest = { t: "state"; id: string } | { t: "lock"; id: string } | { t: "sign"; id: string; event: { kind: number; content: string; tags: string[][] } };
+export type SignerRequest =
+  | { t: "state"; id: string }
+  | { t: "lock"; id: string }
+  | { t: "sign"; id: string; event: { kind: number; content: string; tags: string[][] } }
+  /**
+   * A room pass for this world, for the session key named (protocol/10-identity.md, "A pass from the signer").
+   * The world gives the session's public key and nothing else: the signer writes the rest.
+   */
+  | { t: "pass"; id: string; session: string };
 
 /**
  * From the signer. `ready` is said once, unasked, when it has loaded. `state`
@@ -177,7 +187,7 @@ export type SignerRequest = { t: "state"; id: string } | { t: "lock"; id: string
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; until?: number }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number }
   | { t: "signed"; id: string; event: NostrEvent }
   | { t: "refused"; id: string };
 
@@ -197,6 +207,7 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "state") return { t: "state", id: d.id };
   if (d.t === "lock") return { t: "lock", id: d.id };
   if (d.t === "sign" && d.event && typeof d.event === "object") return { t: "sign", id: d.id, event: d.event as { kind: number; content: string; tags: string[][] } };
+  if (d.t === "pass" && isHex64(d.session)) return { t: "pass", id: d.id, session: d.session };
   return null;
 }
 
@@ -213,6 +224,9 @@ export function readSignerReply(data: unknown): SignerReply | null {
       unlocked: d.unlocked && !!pubkey,
       ...(pubkey ? { pubkey } : {}),
       ...(typeof d.name === "string" && cleanLine(d.name, 48) ? { name: cleanLine(d.name, 48) } : {}),
+      // Their own picture and words, as their sign-in address read them from their profile: cleaned as a pass's are.
+      ...(pubkey && cleanPicture(d.picture) ? { picture: cleanPicture(d.picture) } : {}),
+      ...(pubkey && cleanAbout(d.about) ? { about: cleanAbout(d.about) } : {}),
       ...(typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}),
     };
   }

@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, WORLD_TAG, type NostrEvent } from "@nswp/core";
+import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -26,6 +26,10 @@ export interface WorldSigner {
   readonly pubkey: string | null;
   /** What the client calls them, once unlocked, or null. Their own choice of name, not a fact. */
   readonly name: string | null;
+  /** Where their picture is, as their sign-in address read it from their own profile, or null. For their own card. */
+  readonly picture: string | null;
+  /** What they wrote about themselves there, or null. Their own words. */
+  readonly about: string | null;
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
   /**
@@ -50,6 +54,12 @@ export interface WorldSigner {
   lock(): void;
   /** Ask for a note to be signed. Null if it is locked, or it refused, or what came back wasn't what was asked. */
   sign(note: { kind: number; content: string; tags?: string[][] }): Promise<NostrEvent | null>;
+  /**
+   * Ask for a room pass for this world, for the session key whose public key is given
+   * (protocol/10-identity.md, "A pass from the signer"). Null if it is locked, or it refused, or it is a signer
+   * that makes none, or what came back isn't a pass by the key it holds, for this site and that session.
+   */
+  pass(session: string): Promise<NostrEvent | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
   /**
@@ -83,12 +93,15 @@ const NONE: WorldSigner = {
   state: "none",
   pubkey: null,
   name: null,
+  picture: null,
+  about: null,
   host: null,
   unanswered: false,
   copy: null,
   unlock: () => false,
   lock() {},
   sign: async () => null,
+  pass: async () => null,
   onChange: () => () => {},
   whenAnswered: async () => {},
   dispose() {},
@@ -112,10 +125,12 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   if (!real || typeof document === "undefined") return NONE;
   const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
   const watchers = new Set<() => void>();
-  const pending = new Map<string, { asked: { kind: number; content: string; tags: string[][] }; done: (e: NostrEvent | null) => void; timer: ReturnType<typeof setTimeout> }>();
+  const pending = new Map<string, { asked?: { kind: number; content: string; tags: string[][] }; session?: string; done: (e: NostrEvent | null) => void; timer: ReturnType<typeof setTimeout> }>();
   let state: SignerState = "none";
   let pubkey: string | null = null;
   let name: string | null = null;
+  let picture: string | null = null;
+  let about: string | null = null;
   // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
   let origin = "";
   let windowAt = "";
@@ -153,6 +168,8 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       state = reply.unlocked ? "unlocked" : "locked";
       pubkey = reply.unlocked ? (reply.pubkey ?? null) : null;
       name = reply.unlocked ? (reply.name ?? null) : null;
+      picture = reply.unlocked ? (reply.picture ?? null) : null;
+      about = reply.unlocked ? (reply.about ?? null) : null;
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -164,6 +181,13 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     // What comes back is checked like anything else that arrives: a real signature, by the key it said it holds,
     // on the note that was asked for, marked for this world.
     const signed = reply.event;
+    // A pass is checked as a pass from anyone is, and then for whose it is: the key this signer holds, for this
+    // site, speaking for the session that was named. Its name and picture are its holder's own to say.
+    if (waiting.session) {
+      const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting.session });
+      return waiting.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
+    }
+    if (!waiting.asked) return waiting.done(null);
     const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
     waiting.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting.asked, signed) ? signed : null);
   };
@@ -212,6 +236,12 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     get name() {
       return name;
     },
+    get picture() {
+      return picture;
+    },
+    get about() {
+      return about;
+    },
     get unanswered() {
       return named && waited && state === "none" && !disposed;
     },
@@ -251,6 +281,19 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
         }, 8000);
         pending.set(id, { asked, done, timer });
         tell({ t: "sign", id, event: asked });
+      });
+    },
+    pass(session) {
+      if (state !== "unlocked" || !frame) return Promise.resolve(null);
+      const id = `p${++n}`;
+      return new Promise((done) => {
+        // A signer that makes no passes says nothing at all to this: then there is none.
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          done(null);
+        }, 8000);
+        pending.set(id, { session, done, timer });
+        tell({ t: "pass", id, session });
       });
     },
     onChange(fn) {

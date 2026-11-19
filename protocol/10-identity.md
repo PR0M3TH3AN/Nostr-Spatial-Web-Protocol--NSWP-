@@ -390,8 +390,9 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 
 | From the world | The signer answers |
 |---|---|
-| `state` | `state`: `unlocked`, and once unlocked `pubkey`, `name`, `until`. Said again, unasked, whenever it changes |
+| `state` | `state`: `unlocked`, and once unlocked `pubkey`, `name`, `picture`, `about`, `until`. Said again, unasked, whenever it changes |
 | `sign`, with `event`: `kind`, `content`, `tags` | `signed`, with the whole signed note; or `refused` |
+| `pass`, with `session`: a session public key | `signed`, with a room pass the signer wrote; or `refused` ("A pass from the signer", below) |
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
 
 A world asks `state` once the frame has loaded, and again a few times: the
@@ -411,9 +412,9 @@ why.
 - **The note is the signer's to finish.** It sets the time itself, and adds
   `["nswp:world", "<the world's origin>"]`, dropping any such tag the world
   wrote. So a note signed from a world says which world asked.
-- **Limits:** 8,000 characters, 60 tags; six notes a minute and sixty an
-  hour for one world. A world the visitor allowed still can't pour notes
-  out under their name.
+- **Limits:** 8,000 characters, 60 tags; three notes a minute and twenty
+  an hour for one world: the pace of a person. A world the visitor allowed
+  still can't pour notes out under their name. A pass counts as a note.
 - **How long it lasts is the signer's to say,** and it says so in `until`.
   The visitor locking it ends it at once. A signer may remember that a
   world was allowed, so the visitor isn't asked again each time its page is
@@ -460,9 +461,10 @@ hasn't signed in there.
   waits a moment for that before it joins a room (the reference kit: up to
   two and a half seconds), so someone who signed in there last week is by
   name from the first join, with nothing pressed.
-- **Unlocked for a key the pass isn't for,** or with no pass at all, the
-  visitor can sign as that key and is still a guest in a room: nobody has
-  vouched for a name. A reader says so.
+- **Unlocked for a key the pass isn't for,** or with no pass at all, a
+  reader asks the signer for one ("A pass from the signer", below). A signer
+  that makes none leaves the visitor a guest in a room, able to sign: nobody
+  has vouched for a name, and a reader says so.
 - **A client's own pages are not a world it sent someone to.** There the
   visitor is signed in already, the client's own way.
 - **A client that names no signer** is as before: its pass is its word.
@@ -476,6 +478,39 @@ The reference kit shows it as one row under You, "Sign in, at
 bitlogin.network" or "Signed in as Alice. Sign out here", under a card with
 their picture, their name and their key. The older row ("Here as Alice.
 Switch profile, or go as a guest") is not shown where a signer is named.
+
+## A pass from the signer
+
+A visitor who signs in at a world shouldn't need their client to have
+vouched for them first. So the signer can make the pass.
+
+- **A world asks with a session key and nothing else:** `pass`, with
+  `session`, the public key of a session key the world's page made. The
+  signer writes every other word of the pass itself: the site, from the
+  address the browser reports, as for anything else it is asked; when it
+  ends, four hours at most; and the name, the picture and the few words,
+  from that key's own signed profile, read at the sign-in address and never
+  by the world.
+- **`sign` still refuses a pass.** Kind 27300 stays on the list a world can
+  never have signed. A world can't write a pass and have it signed: it can
+  only ask for the one the signer would write.
+- **It is for a world the visitor allowed,** and counts against that world's
+  limit as a note does.
+- **What comes back is checked as any pass is** ("Checking a pass"), and
+  then for whose it is: signed by the key the signer says it holds, for
+  this site, naming the session that was asked for. Anything else is dropped
+  and the visitor is a guest.
+- **A reader asks when it has no pass for the signed-in key:** on signing
+  in, and again once a pass has run out. A pass the visitor's client sent
+  for the same key is used as it is.
+- **A signer that makes none says nothing,** and nothing breaks: the reader
+  stops waiting, and the visitor is a guest in a room who can still sign.
+- **The `state` reply's `name`, `picture` and `about`** are for the
+  visitor's own card. What a room sees comes off the pass.
+
+With this a client need not send a pass on arrival at all, and a world then
+learns nothing about a visitor until they say yes there. The reference
+client still sends one, until its sign-in address makes passes.
 
 ## Posting from a world
 
@@ -493,6 +528,9 @@ nobody takes one for the other.
   signed by their signer ("Signing from a world"), checked, and sent from the
   page to relays. Nothing said in the room is ever posted, and nothing posted
   is said in the room.
+- **It says how a post is marked.** A world's signer marks every note with
+  the world that asked ("Signing from a world"). The window says so where
+  the visitor writes: "Each post is marked as sent from" and the site.
 - **Their earlier posts are asked of a relay when they open the window,** and
   not before. This is the one thing a world asks a relay about a person, and
   the person is the visitor, in their own browser, asking to see their own
@@ -536,10 +574,10 @@ above, for a world that draws its own rooms.
 - **A pass for one room,** naming a room event, once rooms have them; and
   **hosted rooms** that check passes at the door (spec §9.1 to §9.5).
 - **Going as another identity** than the one signed in.
-- **A pass made by the signer.** Someone who signs in at a world as a key
-  their client didn't send a pass for can post, and is a guest in a room
-  ("One sign-in"). A signer that signs a pass for the world that asks, with
-  the name and picture from that key's profile, would close that.
+- **A client that sends no pass on arrival** where it names a signer that
+  makes them, so a world learns nothing until the visitor signs in there
+  ("A pass from the signer"). The reference client waits on BitLogin's
+  signer making passes on its live site.
 - **Carrying the visitor's mute list,** so a world can leave out the people
   they have muted.
 - **Proof for a world's server.** The entry assertion in

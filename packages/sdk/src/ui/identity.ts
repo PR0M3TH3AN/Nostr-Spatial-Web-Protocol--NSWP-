@@ -12,7 +12,7 @@
  * It is there only for a visitor who came through a client: with no Airlock
  * to go back to, there is nobody to ask.
  */
-import { encodeNpub, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
+import { encodeNpub, getPublicKey, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
 import { arrival, portal, type GoOptions } from "../index.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
@@ -45,16 +45,62 @@ export function hereAs(): ReturnType<typeof arrival.identity> {
   return signer.state === "unlocked" && signer.pubkey === who.pubkey ? who : undefined;
 }
 
+const hereWatchers = new Set<() => void>();
+/** Be told when who the visitor is here may have changed: a pass arrived from their signer. Returns how to stop. */
+export function onHereAs(fn: () => void): () => void {
+  hereWatchers.add(fn);
+  return () => void hereWatchers.delete(fn);
+}
+
+let seeking: Promise<void> | null = null;
+/** When a pass may next be asked for. A signer that makes none isn't asked over and over. */
+let seekAfter = 0;
+/**
+ * A pass from the signer (protocol/10-identity.md, "A pass from the signer"). Signed in here with no pass for
+ * that key (their client sent none, or one for someone else, or it ran out), the signer is asked for one: for a
+ * session key made here, for this site. What comes back is checked and kept as an arrival's pass is. A signer
+ * that makes none never answers, and the visitor stays a guest.
+ */
+export function seekPass(): Promise<void> {
+  if (seeking) return seeking;
+  if (!signerNamed()) return Promise.resolve();
+  const signer = worldSigner();
+  const key = signer.state === "unlocked" ? signer.pubkey : null;
+  if (!key || arrival.identity()?.pubkey === key || Date.now() < seekAfter) return Promise.resolve();
+  seekAfter = Date.now() + 60_000;
+  const secret = crypto.getRandomValues(new Uint8Array(32));
+  const sessionKey = [...secret].map((b) => b.toString(16).padStart(2, "0")).join("");
+  seeking = signer
+    .pass(getPublicKey(secret))
+    .then((pass) => {
+      // Signed out, or in as someone else, while it was on its way: it is nobody's now.
+      if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
+        for (const fn of [...hereWatchers]) fn();
+      } else if (!pass) seekAfter = Date.now() + 10 * 60_000;
+    })
+    .catch(() => {})
+    .finally(() => {
+      seeking = null;
+    });
+  return seeking;
+}
+
+const soon = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
+
 /**
  * The same question for a room about to be joined, with a moment's wait for a signer that hasn't spoken yet:
  * one that remembers this world says so just after the page loads, and a room joined before that would be
- * joined as a guest.
+ * joined as a guest. Signed in with no pass for that key, the signer is asked for one, and waited on briefly.
  */
-export async function byName<T extends { pass: NostrEvent }>(identity: T | undefined): Promise<T | undefined> {
-  if (!identity || !signerNamed()) return identity;
+export async function byName(identity: { pass: NostrEvent; sessionKey: string } | undefined): Promise<{ pass: NostrEvent; sessionKey: string } | undefined> {
+  if (!signerNamed()) return identity;
   const signer = worldSigner();
   await signer.whenAnswered(2500);
-  return signer.state === "unlocked" && signer.pubkey === identity.pass.pubkey ? identity : undefined;
+  if (signer.state !== "unlocked" || !signer.pubkey) return undefined;
+  if (identity && signer.pubkey === identity.pass.pubkey) return identity;
+  await Promise.race([seekPass(), soon(3000)]);
+  const who = arrival.identity();
+  return who && who.pubkey === signer.pubkey ? { pass: who.pass, sessionKey: who.sessionKey } : undefined;
 }
 
 /** The words for who a visitor is here, for a world that draws this itself. */
@@ -74,9 +120,10 @@ export function youCard(): UiCard | null {
     const npub = encodeNpub(who.pubkey);
     return { title: who.name || shortNpub(who.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who.pubkey), copy: npub, text: who.about ?? "", picture: who.picture ?? "", color: "", now: [] };
   }
-  // Unlocked, with no pass for that key: they can post as it, and the room has nobody's word for a name.
+  // Unlocked, with no pass for that key (a signer that makes none): they can post as it, and the room has nobody's
+  // word for a name. What their sign-in address says of them is shown to them alone.
   if (signer?.state === "unlocked" && signer.pubkey) {
-    return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: "", picture: "", color: "", now: [] };
+    return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: signer.about ?? "", picture: signer.picture ?? "", color: "", now: [] };
   }
   return null;
 }
@@ -156,8 +203,15 @@ let shared: WorldSigner | null = null;
 /** This page's one signer, from the visitor's own client (signer.ts). "none" when they came through no client. */
 export function worldSigner(): WorldSigner {
   // Where their own client said it is; or beside that client's Airlock.
-  shared ??= createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() });
-  return shared;
+  if (shared) return shared;
+  const signer = (shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() }));
+  // Signed in with no pass for that key: one is asked for. And again, each minute, once one has run out.
+  signer.onChange(() => {
+    if (signer.state !== "unlocked") seekAfter = 0;
+    void seekPass();
+  });
+  if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 60_000);
+  return signer;
 }
 
 /**
@@ -171,17 +225,22 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
   const short = () => shortNpub(signer.pubkey ?? "");
   signer.onChange(() => {
     if (signer.state === "unlocked" && was !== "unlocked") {
-      const who = hereAs();
-      controls.say(
-        who
-          ? `You are signed in here as ${who.name || short()}. People in a room see your name and picture, and you can send out posts. Signing out is under You.`
-          : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: your name comes with you from ${identityHost() ?? "your own client"}, when you are signed in there as the same person.`,
-      );
+      // A pass may be on its way from the signer: what is said waits a moment for it.
+      void Promise.race([seekPass(), soon(4000)]).then(() => {
+        if (signer.state !== "unlocked") return;
+        const who = hereAs();
+        controls.say(
+          who
+            ? `You are signed in here as ${who.name || short()}. People in a room see your name and picture, and you can send out posts. Signing out is under You.`
+            : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: ${signer.host ?? "your sign-in address"} gave no pass with your name on it.`,
+        );
+      });
     }
     if (signer.state === "locked" && was === "unlocked") controls.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
     was = signer.state;
     controls.signal("signer");
   });
+  onHereAs(() => controls.signal("signer"));
   return {
     id: "signer",
     section: "you",

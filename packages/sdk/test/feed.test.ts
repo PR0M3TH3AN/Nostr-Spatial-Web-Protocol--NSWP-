@@ -14,6 +14,21 @@ describe("my public feed (protocol/10-identity.md, Posting from a world)", () =>
     expect(feed.view().ready).toBe(false);
   });
 
+  it("says where they write that it is public, as whom, and how a post is marked", () => {
+    const feed = createUiFeed(() => {});
+    let name = "npub1abc…wxyz";
+    feed.attach({ who: () => name, marked: "workshop.example", send: async () => ({ ok: true, said: "" }) });
+    expect(feed.view().lead).toMatch(/anyone can read/);
+    expect(feed.view().lead).toMatch(/as npub1abc…wxyz/);
+    expect(feed.view().lead).toMatch(/marked as sent from workshop\.example\./);
+    // A name that arrives late is used from then on.
+    name = "Ada";
+    expect(feed.view().who).toBe("Ada");
+    // A client signing in its own room marks nothing, and says nothing of it.
+    feed.attach({ who: "Ada", send: async () => ({ ok: true, said: "" }) });
+    expect(feed.view().lead).not.toMatch(/marked/);
+  });
+
   it("asks for their posts only when they open it, and not again within the minute", async () => {
     let asked = 0;
     let clock = 1_000_000;

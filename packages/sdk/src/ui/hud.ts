@@ -420,7 +420,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     chatNewest = newest;
     const showing = chatState === "open" ? dockTab : "room";
     // "5 min ago" is worked out again each minute.
-    const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? Math.floor(Date.now() / 60000) : 0]);
+    const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? [Math.floor(Date.now() / 60000), f.lead] : 0]);
     if (now === chatDrawn) return;
     chatDrawn = now;
     chat.dataset.state = chatState;
@@ -442,7 +442,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     chatField.setAttribute("aria-label", words);
     chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
     if (showing === "feed") {
-      feedLead.textContent = `Public, like a tweet: anyone can read what you send out here, as ${f.who}, and it can't be taken back.`;
+      feedLead.textContent = f.lead;
       feedSaid.textContent = f.said;
       const nowSec = Math.floor(Date.now() / 1000);
       // Every word is set as text. A post may hold an address: it is shown as words, and nothing is fetched or opened.

@@ -422,7 +422,11 @@ name and key. Until then they are a guest in a room, whatever pass they
 arrived with, and the older "Here as Alice" row is not shown. `hereAs()` is
 who they are now; `signerNamed()` says whether this applies; `youCard()` is
 the card. `createPresence({ identity: () => arrival.identity() })` is still
-what you write: the kit holds the pass until they are signed in.
+what you write: the kit holds the pass until they are signed in. Signed in
+with no pass for that key, the kit asks their signer for one
+(`signer.pass(session)`, "A pass from the signer"), checks it, and keeps it
+where `arrival.identity()` finds it; `onHereAs(fn)` says when who they are
+here has changed.
 
 ```js
 const signer = worldSigner();        // the page's one signer: where the visitor's client said, or beside its Airlock
@@ -439,7 +443,7 @@ if (note) await publishEvent(relays, note);                               // sen
   load: nothing is asked again.
 - A note (kind 1) and a reaction (kind 7) are signed once the visitor has
   allowed your world. Everything else is refused, and a refusal never says
-  why. Six a minute, sixty an hour.
+  why. Three a minute, twenty an hour.
 - What comes back carries `["nswp:world", "<your origin>"]`, put there by
   the signer. `sign()` returns only a note that checks out.
 - `signer.unlock()` must be called from a press: a browser opens a window
