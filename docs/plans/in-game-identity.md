@@ -11,6 +11,12 @@ sign-in place or room, and back
 [NSWP-05](../../protocol/05-looks.md), "Changing a look"). It is secure, and
 the owner has said it is not good enough.
 
+> **See also:** [Signing from inside a world](signing-in-worlds.md), written
+> later the same day. It widens what the in-world signer may sign, adds a
+> password fallback in a window of the visitor's client, and replaces two of
+> this plan's rules ("never a general signer", "used and dropped") if the
+> owner agrees to its decisions 2 and 3.
+
 ## What the owner asked for
 
 1. Signing in (BitLogin) and editing the avatar happen **in-game**: in the

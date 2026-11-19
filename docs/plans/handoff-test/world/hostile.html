@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>a hostile world</title>
+<button id="connect">Connect</button>
+<!-- No real signer at all: a frame of the world's own, posing as one, and the page itself listening. -->
+<iframe id="fake" srcdoc="<script>addEventListener('message', (e) => { parent.postMessage({ fakeHeard: e.data, from: e.origin }, '*'); if (e.data && e.data.t === 'hello') e.source.postMessage({ t: 'frame', world: 'http://localhost:4392', nonce: e.data.nonce }, '*'); });</script>"></iframe>
+<script>
+  window.seen = [];
+  addEventListener("message", (e) => window.seen.push({ origin: e.origin, data: e.data }));
+  document.getElementById("connect").onclick = () => { window.popup = window.open("http://127.0.0.1:4391/connect.html", "connect", "width=420,height=520"); };
+</script>
