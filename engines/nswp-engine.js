@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.26.3";
+  var KIT_VERSION = "0.27.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4112,6 +4112,8 @@ var NSWP = (() => {
   var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
 
   // packages/core/dist/signing.js
+  var SIGNER_PROTOCOL = "nswp-signer";
+  var SIGNER_VERSION = 1;
   var SIGN_LIMITS = {
     /** The longest a note's content may be, in characters. */
     contentChars: 8e3,
@@ -4126,6 +4128,85 @@ var NSWP = (() => {
     /** And no more than this many in an hour. */
     hourly: 60
   };
+  var WORLD_TAG = "nswp:world";
+  function cleanOrigin(input) {
+    if (typeof input !== "string" || input.length > 300)
+      return "";
+    try {
+      const u = new URL(input);
+      return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
+    } catch {
+      return "";
+    }
+  }
+  function isWhatWasAsked(asked, signed) {
+    if (signed.kind !== asked.kind || signed.content !== asked.content)
+      return false;
+    const mine = asked.tags.filter((t) => t[0] !== WORLD_TAG);
+    const theirs = signed.tags.filter((t) => t[0] !== WORLD_TAG);
+    return JSON.stringify(mine) === JSON.stringify(theirs);
+  }
+  function signerAddresses(airlock) {
+    if (!airlock)
+      return null;
+    try {
+      const base = new URL(airlock);
+      if (base.protocol !== "https:")
+        return null;
+      return { origin: base.origin, signer: new URL("../signer/", base).href, window: new URL("../connect/", base).href };
+    } catch {
+      return null;
+    }
+  }
+  function signerAt(base) {
+    if (!base || base.length > 300)
+      return null;
+    try {
+      const at = new URL(base);
+      if (at.protocol !== "https:" || at.username || at.password)
+        return null;
+      if (!at.pathname.endsWith("/"))
+        at.pathname += "/";
+      at.search = "";
+      at.hash = "";
+      return { origin: at.origin, signer: new URL("signer/", at).href, window: new URL("connect/", at).href };
+    } catch {
+      return null;
+    }
+  }
+  var ID = /^[0-9a-z-]{1,40}$/i;
+  var wrapped = (data) => {
+    if (!data || typeof data !== "object")
+      return null;
+    const d = data;
+    return d.nswp === SIGNER_PROTOCOL && d.v === SIGNER_VERSION && typeof d.t === "string" ? d : null;
+  };
+  var signerMessage = (message) => ({ nswp: SIGNER_PROTOCOL, v: SIGNER_VERSION, ...message });
+  function readSignerReply(data) {
+    const d = wrapped(data);
+    if (!d)
+      return null;
+    if (d.t === "ready")
+      return { t: "ready" };
+    if (d.t === "state" && typeof d.unlocked === "boolean") {
+      const pubkey = typeof d.pubkey === "string" && /^[0-9a-f]{64}$/.test(d.pubkey) ? d.pubkey : void 0;
+      return {
+        t: "state",
+        ...typeof d.id === "string" && ID.test(d.id) ? { id: d.id } : {},
+        unlocked: d.unlocked && !!pubkey,
+        ...pubkey ? { pubkey } : {},
+        ...typeof d.name === "string" && cleanLine(d.name, 48) ? { name: cleanLine(d.name, 48) } : {},
+        ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}
+      };
+    }
+    if (typeof d.id !== "string" || !ID.test(d.id))
+      return null;
+    if (d.t === "refused")
+      return { t: "refused", id: d.id };
+    if (d.t === "signed" && d.event && typeof d.event === "object")
+      return { t: "signed", id: d.id, event: d.event };
+    return null;
+  }
 
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {
@@ -4596,7 +4677,8 @@ var NSWP = (() => {
           session()?.removeItem(PASS_KEY);
           return void 0;
         }
-        return { pubkey: checked.value.pubkey, name: checked.value.name, pass: kept.pass, sessionKey: kept.sessionKey };
+        const { pubkey, name, picture, about } = checked.value;
+        return { pubkey, name, ...picture ? { picture } : {}, ...about ? { about } : {}, pass: kept.pass, sessionKey: kept.sessionKey };
       } catch {
         return void 0;
       }
@@ -5957,11 +6039,227 @@ var NSWP = (() => {
   var JUMP_GRAVITY = 9.8;
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
+  // packages/sdk/src/signer.ts
+  var NONE2 = {
+    state: "none",
+    pubkey: null,
+    name: null,
+    host: null,
+    unanswered: false,
+    copy: null,
+    unlock: () => false,
+    lock() {
+    },
+    sign: async () => null,
+    onChange: () => () => {
+    },
+    whenAnswered: async () => {
+    },
+    dispose() {
+    }
+  };
+  function namedAddresses(at) {
+    try {
+      const signer = new URL(at.signer);
+      const win = new URL(at.window);
+      if (signer.protocol !== "https:" || win.origin !== signer.origin) return null;
+      return { origin: signer.origin, signer: signer.href, window: win.href };
+    } catch {
+      return null;
+    }
+  }
+  function createWorldSigner(opts) {
+    const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
+    if (!real || typeof document === "undefined") return NONE2;
+    const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
+    const watchers3 = /* @__PURE__ */ new Set();
+    const pending = /* @__PURE__ */ new Map();
+    let state = "none";
+    let pubkey = null;
+    let name = null;
+    let origin = "";
+    let windowAt = "";
+    let frame = null;
+    let disposed = false;
+    const named = !!opts.at || !!signerAt(opts.under);
+    let waited = false;
+    setTimeout(() => {
+      waited = true;
+      if (state === "none") changed();
+    }, 7e3);
+    let answered = false;
+    const firstAnswer = /* @__PURE__ */ new Set();
+    let n = 0;
+    const changed = () => {
+      for (const fn of watchers3) fn();
+    };
+    const tell2 = (message) => frame?.contentWindow?.postMessage(signerMessage(message), origin);
+    const onMessage = (e) => {
+      if (!frame || e.source !== frame.contentWindow || e.origin !== origin) return;
+      const reply = readSignerReply(e.data);
+      if (!reply) return;
+      if (reply.t === "ready") {
+        if (state === "none") state = "locked";
+        tell2({ t: "state", id: `s${++n}` });
+        return changed();
+      }
+      if (reply.t === "state") {
+        answered = true;
+        state = reply.unlocked ? "unlocked" : "locked";
+        pubkey = reply.unlocked ? reply.pubkey ?? null : null;
+        name = reply.unlocked ? reply.name ?? null : null;
+        for (const go2 of [...firstAnswer]) go2();
+        return changed();
+      }
+      const waiting2 = pending.get(reply.id);
+      if (!waiting2) return;
+      pending.delete(reply.id);
+      clearTimeout(waiting2.timer);
+      if (reply.t === "refused") return waiting2.done(null);
+      const signed = reply.event;
+      const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+      waiting2.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting2.asked, signed) ? signed : null);
+    };
+    void (async () => {
+      try {
+        const there = opts.at ? async (address) => address : toLocal;
+        const signerUrl = await there(real.signer);
+        windowAt = await there(real.window);
+        origin = new URL(signerUrl).origin;
+        if (disposed) return;
+        frame = document.createElement("iframe");
+        frame.title = "Signer";
+        frame.setAttribute("aria-hidden", "true");
+        frame.tabIndex = -1;
+        frame.setAttribute("allow", "");
+        frame.referrerPolicy = "no-referrer";
+        frame.style.cssText = "position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;visibility:hidden;pointer-events:none";
+        addEventListener("message", onMessage);
+        frame.addEventListener("load", () => {
+          for (const after2 of [0, 400, 1200, 3e3]) {
+            setTimeout(() => {
+              if (!answered && !disposed) tell2({ t: "state", id: `s${++n}` });
+            }, after2);
+          }
+        });
+        frame.src = signerUrl;
+        document.body.append(frame);
+      } catch {
+      }
+    })();
+    return {
+      get state() {
+        return state;
+      },
+      get pubkey() {
+        return pubkey;
+      },
+      get name() {
+        return name;
+      },
+      get unanswered() {
+        return named && waited && state === "none" && !disposed;
+      },
+      get copy() {
+        return origin && origin !== real.origin ? origin : null;
+      },
+      // The signer's real address, never a development server's copy of it: it is what the visitor should recognise.
+      get host() {
+        try {
+          return new URL(real.origin).host;
+        } catch {
+          return null;
+        }
+      },
+      unlock() {
+        if (state === "none" || !windowAt) return false;
+        try {
+          const opened = window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
+          return !!opened;
+        } catch {
+          return false;
+        }
+      },
+      lock() {
+        if (state === "unlocked") tell2({ t: "lock", id: `l${++n}` });
+      },
+      sign(note) {
+        if (state !== "unlocked" || !frame) return Promise.resolve(null);
+        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+        const id = `q${++n}`;
+        return new Promise((done) => {
+          const timer = setTimeout(() => {
+            pending.delete(id);
+            done(null);
+          }, 8e3);
+          pending.set(id, { asked, done, timer });
+          tell2({ t: "sign", id, event: asked });
+        });
+      },
+      onChange(fn) {
+        watchers3.add(fn);
+        return () => void watchers3.delete(fn);
+      },
+      whenAnswered(ms) {
+        if (answered || disposed) return Promise.resolve();
+        return new Promise((done) => {
+          const go2 = () => {
+            clearTimeout(timer);
+            firstAnswer.delete(go2);
+            done();
+          };
+          const timer = setTimeout(go2, ms);
+          firstAnswer.add(go2);
+        });
+      },
+      dispose() {
+        disposed = true;
+        for (const go2 of [...firstAnswer]) go2();
+        removeEventListener("message", onMessage);
+        frame?.remove();
+        frame = null;
+        for (const w of pending.values()) {
+          clearTimeout(w.timer);
+          w.done(null);
+        }
+        pending.clear();
+        state = "none";
+      }
+    };
+  }
+
   // packages/sdk/src/ui/identity.ts
-  function identityWords() {
+  function signerNamed() {
+    if (!signerAt(arrival.signer())) return false;
+    try {
+      const airlock = portal.airlockFor();
+      if (airlock && new URL(airlock).origin === location.origin) return false;
+    } catch {
+    }
+    return true;
+  }
+  function hereAs() {
     const who = arrival.identity();
+    if (!who || !signerNamed()) return who;
+    const signer = worldSigner();
+    return signer.state === "unlocked" && signer.pubkey === who.pubkey ? who : void 0;
+  }
+  function identityWords() {
+    const who = hereAs();
     const name = who ? who.name || shortNpub(who.pubkey) : "";
     return who ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
+  }
+  function youCard() {
+    const who = hereAs();
+    const signer = signerNamed() ? worldSigner() : null;
+    if (who) {
+      const npub = encodeNpub(who.pubkey);
+      return { title: who.name || shortNpub(who.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who.pubkey), copy: npub, text: who.about ?? "", picture: who.picture ?? "", color: "", now: [] };
+    }
+    if (signer?.state === "unlocked" && signer.pubkey) {
+      return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: "", picture: "", color: "", now: [] };
+    }
+    return null;
   }
   function identityHost() {
     const airlock = portal.airlockFor();
@@ -5975,11 +6273,22 @@ var NSWP = (() => {
     id: "you",
     label: "You",
     icon: "you",
+    card: youCard,
     note: () => {
       const host = identityHost();
-      return host ? `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.` : "";
+      if (!host) return "";
+      if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
+      const at = worldSigner().host ?? "your sign-in address";
+      const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
+      if (worldSigner().state === "unlocked") return `You are signed in here by ${at}. Signing out here makes you a guest in this world, and nowhere else. ${look}`;
+      return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
     }
   });
+  var shared = null;
+  function worldSigner() {
+    shared ?? (shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() }));
+    return shared;
+  }
 
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
@@ -6103,6 +6412,97 @@ var NSWP = (() => {
       loaded.set(url, asked);
     }
     return asked;
+  }
+
+  // packages/sdk/src/ui/feed.ts
+  var FEED_LIMITS = { shown: 420, kept: 30 };
+  function createUiFeed(changed, now = () => Date.now()) {
+    let opts = null;
+    let posts = [];
+    let loading2 = false;
+    let said = "";
+    let version = 0;
+    let count = 0;
+    let asked = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    const sort = () => {
+      posts.sort((a, b) => b.at - a.at);
+      const kept = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
+      posts = kept;
+    };
+    return {
+      attach(next) {
+        opts = next;
+        posts = [];
+        loading2 = false;
+        said = "";
+        asked = 0;
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        posts = [];
+        loading2 = false;
+        said = "";
+        bump2();
+      },
+      opened() {
+        const mine = opts;
+        if (!mine?.load || loading2 || asked && now() - asked < 6e4) return;
+        asked = now();
+        loading2 = true;
+        bump2();
+        void mine.load().catch(() => null).then((got) => {
+          if (opts !== mine) return;
+          loading2 = false;
+          if (!got) said = "Your earlier posts couldn't be fetched just now.";
+          else {
+            const seen = new Set(posts.map((p) => p.key));
+            for (const p of got) {
+              const text = cleanLine(p.text, FEED_LIMITS.shown);
+              if (!text || seen.has(p.id) || !Number.isFinite(p.at)) continue;
+              seen.add(p.id);
+              posts.push({ key: p.id, text, at: p.at, state: "out" });
+            }
+            sort();
+          }
+          bump2();
+        });
+      },
+      send(text) {
+        const mine = opts;
+        if (!mine) return "There is nothing to post with: sign in first.";
+        const words2 = cleanChat(text);
+        if (!words2) return null;
+        const post = { key: `new-${++count}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        posts.unshift(post);
+        said = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          post.state = how.ok ? "out" : "failed";
+          said = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        return { ready: !!opts, title: "My public feed", who: opts?.who ?? "", posts, loading: loading2, said, limit: CHAT_LIMITS.chars, version };
+      }
+    };
+  }
+  function ago(at, nowSec) {
+    const s = Math.max(0, nowSec - at);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+    const days = Math.floor(s / 86400);
+    if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
+    return new Date(at * 1e3).toISOString().slice(0, 10);
   }
 
   // packages/sdk/src/ui/summon.ts
@@ -6258,6 +6658,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
   display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
 .chat[data-state="closed"] { display: none; }
+.chat [hidden] { display: none !important; }
 .chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
 .chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
 .chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -6281,7 +6682,25 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
 .chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
 .chat .hint:empty { display: none; }
-.chat[data-state="peek"] :is(header, form, .hint, .empty) { display: none; }
+.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; }
+.chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
+.chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
+.chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
+.chat .said { padding: 0 12px 8px; }
+.chat .said:empty { display: none; }
+/* The feed reads the other way up from the chat: where to write is at the top, and the newest post under it. */
+.chat[data-tab="feed"] form { order: 1; border-top: 0; flex-wrap: wrap; }
+.chat[data-tab="feed"] form input { flex: 1 1 100%; min-height: 38px; }
+.chat[data-tab="feed"] form button { margin-left: auto; min-height: 34px; font-weight: 650; }
+.chat[data-tab="feed"] :is(.hint, .said) { order: 2; }
+.chat[data-tab="feed"] :is(ol, .empty) { order: 3; border-top: 1px solid rgba(var(--accent), .22); }
+.chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
+.chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
+.chat li.post:last-child { border-bottom: 0; }
+.chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
+.chat li.post.failed small { color: rgb(var(--warn)); }
+.chat li.post.sending { opacity: .7; }
+.chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
 .chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
 .chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
   background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
@@ -6430,13 +6849,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const close = el("button", { class: "close", type: "button" }, "Close");
     const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
     const chatTitle = el("b");
-    const chatClose = el("button", { type: "button", "aria-label": "Put the chat away" }, icon("close"));
+    const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
+    const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
+    const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabFeed);
+    const feedLead = el("p", { class: "lead" });
+    const feedSaid = el("p", { class: "said", role: "status" });
+    const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
     const chatLines = el("ol", { "aria-live": "polite" });
-    const chatEmpty = el("p", { class: "empty" }, "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.");
+    const ROOM_EMPTY = "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.";
+    const chatEmpty = el("p", { class: "empty" }, ROOM_EMPTY);
     const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
     const chatHint = el("p", { class: "hint", role: "status" });
-    const chatForm = el("form", {}, chatField, el("button", { type: "submit" }, "Send"));
-    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatClose), chatEmpty, chatLines, chatHint, chatForm));
+    const chatSend = el("button", { type: "submit" }, "Send");
+    const chatForm = el("form", {}, chatField, chatSend);
+    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
     root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
@@ -6460,8 +6886,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
       copyKey?.addEventListener("click", () => {
         void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
-          () => controls2.say("Their key is copied, in full."),
-          () => controls2.say(`Their key: ${card.copy}`)
+          () => controls2.say("The key is copied, in full."),
+          () => controls2.say(`The key: ${card.copy}`)
         );
       });
       return el(
@@ -6475,6 +6901,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       );
     };
     let chatState = "closed";
+    let dockTab = "room";
     let chatDrawn = "";
     let chatNewest = "";
     let peekTimer;
@@ -6496,16 +6923,46 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const drawChat = (view2) => {
       const c = view2.chat;
-      if (!c.ready && chatState !== "closed") setChatState("closed");
+      const f = view2.feed;
+      if (chatState === "open" && !(dockTab === "feed" ? f.ready : c.ready)) {
+        if (dockTab === "feed" ? c.ready : f.ready) dockTab = dockTab === "feed" ? "room" : "feed";
+        else setChatState("closed");
+      }
+      if (chatState === "peek" && !c.ready) setChatState("closed");
       const newest = c.lines[c.lines.length - 1]?.key ?? "";
       if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
       chatNewest = newest;
-      const now = JSON.stringify([chatState, c.version, c.ready]);
+      const showing = chatState === "open" ? dockTab : "room";
+      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? Math.floor(Date.now() / 6e4) : 0]);
       if (now === chatDrawn) return;
       chatDrawn = now;
       chat.dataset.state = chatState;
-      chatTitle.textContent = c.title;
-      chatField.maxLength = c.limit;
+      chat.dataset.tab = showing;
+      chat.setAttribute("aria-label", showing === "feed" ? f.title : "Room chat");
+      const both = c.ready && f.ready;
+      chatTabs.hidden = !both;
+      chatTitle.hidden = both;
+      chatTitle.textContent = showing === "feed" ? f.title : c.title;
+      tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
+      tabRoom.setAttribute("aria-selected", String(showing === "room"));
+      tabFeed.setAttribute("aria-selected", String(showing === "feed"));
+      feedLead.hidden = showing !== "feed";
+      feedSaid.hidden = showing !== "feed";
+      chatField.maxLength = showing === "feed" ? f.limit : c.limit;
+      const words2 = showing === "feed" ? "Write a post" : "Write to the room";
+      chatField.placeholder = words2;
+      chatField.setAttribute("aria-label", words2);
+      chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
+      if (showing === "feed") {
+        feedLead.textContent = `Public, like a tweet: anyone can read what you send out here, as ${f.who}, and it can't be taken back.`;
+        feedSaid.textContent = f.said;
+        const nowSec = Math.floor(Date.now() / 1e3);
+        chatLines.replaceChildren(...f.posts.map((p) => el("li", { class: `post ${p.state}` }, p.text, el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : ago(p.at, nowSec)))));
+        chatEmpty.textContent = f.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
+        chatEmpty.hidden = f.posts.length > 0;
+        chatLines.hidden = f.posts.length === 0;
+        return;
+      }
       const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
       const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
       chatLines.replaceChildren(
@@ -6515,25 +6972,35 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return li;
         })
       );
+      chatEmpty.textContent = ROOM_EMPTY;
       chatEmpty.hidden = lines.length > 0;
       chatLines.hidden = lines.length === 0;
       if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
       if (chatState === "open") controls2.chat.seen();
     };
-    const setChatOpen = (next) => {
-      if (next === (chatState === "open")) return;
+    const setChatOpen = (next, tab) => {
       if (next) {
-        if (!controls2.chat.view().ready || host.hidden || controls2.view().presence === "hidden") return;
-        if (open2) setOpen(false);
-        chatCameFrom = focused();
-        setChatState("open");
+        const c = controls2.chat.view();
+        const f = controls2.feed.view();
+        const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : "feed");
+        if (!(want === "feed" ? f.ready : c.ready) || host.hidden || controls2.view().presence === "hidden") return;
+        const was = chatState === "open";
+        if (was && want === dockTab) return;
+        dockTab = want;
+        if (want === "feed") controls2.feed.opened();
         chatHint.textContent = "";
+        if (!was) {
+          if (open2) setOpen(false);
+          chatCameFrom = focused();
+          setChatState("open");
+        }
         draw();
-        chatLines.scrollTop = chatLines.scrollHeight;
+        chatLines.scrollTop = want === "feed" ? 0 : chatLines.scrollHeight;
         chatField.focus({ preventScroll: true });
-        controls2.signal("chatOpen");
+        controls2.signal(want === "feed" ? "feedOpen" : "chatOpen");
         return;
       }
+      if (chatState !== "open") return;
       setChatState("closed");
       draw();
       controls2.signal("chatClose");
@@ -6544,13 +7011,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     let chatCameFrom = null;
     chatClose.addEventListener("click", () => setChatOpen(false));
+    tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
+    tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
     chatForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const text = chatField.value;
       if (!text.trim()) return setChatOpen(false);
-      const trouble = controls2.chat.send(text);
+      const trouble = dockTab === "feed" ? controls2.feed.send(text) : controls2.chat.send(text);
       chatHint.textContent = trouble ?? "";
       if (!trouble) chatField.value = "";
+      if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
       chatField.focus({ preventScroll: true });
     });
     chatField.addEventListener("keydown", (e) => {
@@ -6735,7 +7205,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const stop = controls2.subscribe(draw);
     const stopAsking = controls2.onSignal((name) => {
       if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
-      if (name === "toggle:chat" && !host.hidden) setChatOpen(chatState !== "open");
+      if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
+      if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
     });
     const tick = setInterval(draw, 400);
     host.classList.add("arriving");
@@ -6749,6 +7220,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setOpen,
       get chatOpen() {
         return chatState === "open";
+      },
+      get chatTab() {
+        return dockTab;
       },
       setChatOpen,
       bounds() {
@@ -6934,6 +7408,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       for (const fn of listeners) fn();
     };
     const chat = createUiChat(changed);
+    const feed = createUiFeed(changed);
     function addSection(s) {
       const i = sections.findIndex((x) => x.id === s.id);
       if (i === -1) sections.push({ ...s });
@@ -7029,7 +7504,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           presence: presence2,
           corner,
           keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
-          chat: chat.view()
+          chat: chat.view(),
+          feed: feed.view()
         };
       },
       subscribe(fn) {
@@ -7052,7 +7528,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         sayers.add(fn);
         return () => sayers.delete(fn);
       },
-      chat
+      chat,
+      feed
     };
     const keep4 = (patch) => controls2.setTheme(patch, true);
     controls2.add(

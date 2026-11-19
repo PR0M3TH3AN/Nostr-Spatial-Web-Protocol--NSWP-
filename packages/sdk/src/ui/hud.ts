@@ -22,6 +22,7 @@
  */
 import { ICONS, type IconName } from "./icons.js";
 import { loadPicture } from "../picture.js";
+import { ago } from "./feed.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./model.js";
 import { createHoldWatch, SUMMON_KEY } from "./summon.js";
 import { rgb } from "./theme.js";
@@ -34,8 +35,14 @@ export interface Hud {
   setOpen(open: boolean, at?: string): void;
   /** Whether the chat panel is open to write in. */
   readonly chatOpen: boolean;
-  /** Open the chat panel to write in, or put it away. It opens only where there is a room to write to. */
-  setChatOpen(open: boolean): void;
+  /** Which of its two sides the panel is on: what the room writes, or the visitor's own public feed. */
+  readonly chatTab: "room" | "feed";
+  /**
+   * Open the panel to write in, or put it away. `tab` says which side: the room's chat, which opens only where
+   * there is a room to write to, or "feed", the visitor's own public posts, which opens only once something
+   * signs for them. Left out, the side it was on.
+   */
+  setChatOpen(open: boolean, tab?: "room" | "feed"): void;
   /** How much of the top and bottom of the window the HUD covers, in pixels. For placing a scene's picture clear of it. Nothing when it is quiet or hidden. */
   cover(): { top: number; bottom: number };
   /** Where each visible part of the HUD is, so a world can lay its own interface out around it. */
@@ -117,6 +124,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
   display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
 .chat[data-state="closed"] { display: none; }
+.chat [hidden] { display: none !important; }
 .chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
 .chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
 .chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -140,7 +148,25 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
 .chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
 .chat .hint:empty { display: none; }
-.chat[data-state="peek"] :is(header, form, .hint, .empty) { display: none; }
+.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; }
+.chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
+.chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
+.chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
+.chat .said { padding: 0 12px 8px; }
+.chat .said:empty { display: none; }
+/* The feed reads the other way up from the chat: where to write is at the top, and the newest post under it. */
+.chat[data-tab="feed"] form { order: 1; border-top: 0; flex-wrap: wrap; }
+.chat[data-tab="feed"] form input { flex: 1 1 100%; min-height: 38px; }
+.chat[data-tab="feed"] form button { margin-left: auto; min-height: 34px; font-weight: 650; }
+.chat[data-tab="feed"] :is(.hint, .said) { order: 2; }
+.chat[data-tab="feed"] :is(ol, .empty) { order: 3; border-top: 1px solid rgba(var(--accent), .22); }
+.chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
+.chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
+.chat li.post:last-child { border-bottom: 0; }
+.chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
+.chat li.post.failed small { color: rgb(var(--warn)); }
+.chat li.post.sending { opacity: .7; }
+.chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
 .chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
 .chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
   background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
@@ -298,13 +324,20 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
-  const chatClose = el("button", { type: "button", "aria-label": "Put the chat away" }, icon("close"));
+  const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
+  const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
+  const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabFeed);
+  const feedLead = el("p", { class: "lead" });
+  const feedSaid = el("p", { class: "said", role: "status" });
+  const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
   const chatLines = el("ol", { "aria-live": "polite" });
-  const chatEmpty = el("p", { class: "empty" }, "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.");
+  const ROOM_EMPTY = "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.";
+  const chatEmpty = el("p", { class: "empty" }, ROOM_EMPTY);
   const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
   const chatHint = el("p", { class: "hint", role: "status" });
-  const chatForm = el("form", {}, chatField, el("button", { type: "submit" }, "Send"));
-  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatClose), chatEmpty, chatLines, chatHint, chatForm));
+  const chatSend = el("button", { type: "submit" }, "Send");
+  const chatForm = el("form", {}, chatField, chatSend);
+  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
   root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, says, chat, sheet, el("div", { class: "low" }, target, hotbar));
   (opts.parent ?? document.body).append(host);
 
@@ -334,8 +367,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
     copyKey?.addEventListener("click", () => {
       void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
-        () => controls.say("Their key is copied, in full."),
-        () => controls.say(`Their key: ${card.copy}`),
+        () => controls.say("The key is copied, in full."),
+        () => controls.say(`The key: ${card.copy}`),
       );
     });
     return el(
@@ -351,6 +384,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
 
   // ---- the chat panel. "closed" shows nothing, "peek" the newest lines for a few seconds, "open" all of it.
   let chatState: "closed" | "peek" | "open" = "closed";
+  /** Which side of it is up while it is open: what the room writes, or the visitor's own public feed. */
+  let dockTab: "room" | "feed" = "room";
   let chatDrawn = "";
   let chatNewest = "";
   let peekTimer: ReturnType<typeof setTimeout> | undefined;
@@ -372,18 +407,51 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   };
   const drawChat = (view: UiView) => {
     const c = view.chat;
-    // Nowhere to write: the panel is put away, whatever it was.
-    if (!c.ready && chatState !== "closed") setChatState("closed");
+    const f = view.feed;
+    // The side that is up has gone (the room was left, or they signed out): the other one, or nothing.
+    if (chatState === "open" && !(dockTab === "feed" ? f.ready : c.ready)) {
+      if (dockTab === "feed" ? c.ready : f.ready) dockTab = dockTab === "feed" ? "room" : "feed";
+      else setChatState("closed");
+    }
+    if (chatState === "peek" && !c.ready) setChatState("closed");
     // Something new was written while it was put away: it passes by, where it will be when the panel opens.
     const newest = c.lines[c.lines.length - 1]?.key ?? "";
     if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1]!.mine) setChatState("peek");
     chatNewest = newest;
-    const now = JSON.stringify([chatState, c.version, c.ready]);
+    const showing = chatState === "open" ? dockTab : "room";
+    // "5 min ago" is worked out again each minute.
+    const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? Math.floor(Date.now() / 60000) : 0]);
     if (now === chatDrawn) return;
     chatDrawn = now;
     chat.dataset.state = chatState;
-    chatTitle.textContent = c.title;
-    chatField.maxLength = c.limit;
+    chat.dataset.tab = showing;
+    chat.setAttribute("aria-label", showing === "feed" ? f.title : "Room chat");
+    // Both sides are there: two tabs. One: its name.
+    const both = c.ready && f.ready;
+    chatTabs.hidden = !both;
+    chatTitle.hidden = both;
+    chatTitle.textContent = showing === "feed" ? f.title : c.title;
+    tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
+    tabRoom.setAttribute("aria-selected", String(showing === "room"));
+    tabFeed.setAttribute("aria-selected", String(showing === "feed"));
+    feedLead.hidden = showing !== "feed";
+    feedSaid.hidden = showing !== "feed";
+    chatField.maxLength = showing === "feed" ? f.limit : c.limit;
+    const words = showing === "feed" ? "Write a post" : "Write to the room";
+    chatField.placeholder = words;
+    chatField.setAttribute("aria-label", words);
+    chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
+    if (showing === "feed") {
+      feedLead.textContent = `Public, like a tweet: anyone can read what you send out here, as ${f.who}, and it can't be taken back.`;
+      feedSaid.textContent = f.said;
+      const nowSec = Math.floor(Date.now() / 1000);
+      // Every word is set as text. A post may hold an address: it is shown as words, and nothing is fetched or opened.
+      chatLines.replaceChildren(...f.posts.map((p) => el("li", { class: `post ${p.state}` }, p.text, el("small", {}, p.state === "sending" ? "Sending…" : p.state === "failed" ? "Not sent" : ago(p.at, nowSec)))));
+      chatEmpty.textContent = f.loading ? "Fetching your posts…" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
+      chatEmpty.hidden = f.posts.length > 0;
+      chatLines.hidden = f.posts.length === 0;
+      return;
+    }
     const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
     const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
     chatLines.replaceChildren(
@@ -394,26 +462,37 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
         return li;
       }),
     );
+    chatEmpty.textContent = ROOM_EMPTY;
     chatEmpty.hidden = lines.length > 0;
     chatLines.hidden = lines.length === 0;
     if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
     if (chatState === "open") controls.chat.seen();
   };
-  const setChatOpen = (next: boolean) => {
-    if (next === (chatState === "open")) return;
+  const setChatOpen = (next: boolean, tab?: "room" | "feed") => {
     if (next) {
-      if (!controls.chat.view().ready || host.hidden || controls.view().presence === "hidden") return;
-      // One thing at a time over the world: the menu goes away for the chat, and the chat for the menu.
-      if (open) setOpen(false);
-      chatCameFrom = focused();
-      setChatState("open");
+      const c = controls.chat.view();
+      const f = controls.feed.view();
+      const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : "feed");
+      if (!(want === "feed" ? f.ready : c.ready) || host.hidden || controls.view().presence === "hidden") return;
+      const was = chatState === "open";
+      if (was && want === dockTab) return;
+      dockTab = want;
+      // Their posts are asked for when they ask to see them, and not before.
+      if (want === "feed") controls.feed.opened();
       chatHint.textContent = "";
+      if (!was) {
+        // One thing at a time over the world: the menu goes away for the chat, and the chat for the menu.
+        if (open) setOpen(false);
+        chatCameFrom = focused();
+        setChatState("open");
+      }
       draw();
-      chatLines.scrollTop = chatLines.scrollHeight;
+      chatLines.scrollTop = want === "feed" ? 0 : chatLines.scrollHeight;
       chatField.focus({ preventScroll: true });
-      controls.signal("chatOpen");
+      controls.signal(want === "feed" ? "feedOpen" : "chatOpen");
       return;
     }
+    if (chatState !== "open") return;
     setChatState("closed");
     draw();
     controls.signal("chatClose");
@@ -424,14 +503,17 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   };
   let chatCameFrom: HTMLElement | null = null;
   chatClose.addEventListener("click", () => setChatOpen(false));
+  tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
+  tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
   chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const text = chatField.value;
     // Enter on an empty line puts the panel away, as it does in a game.
     if (!text.trim()) return setChatOpen(false);
-    const trouble = controls.chat.send(text);
+    const trouble = dockTab === "feed" ? controls.feed.send(text) : controls.chat.send(text);
     chatHint.textContent = trouble ?? "";
     if (!trouble) chatField.value = "";
+    if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
     chatField.focus({ preventScroll: true });
   });
   // What is typed here is for the room, not for the world: no key pressed in the field walks anybody anywhere or
@@ -643,7 +725,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.
   const stopAsking = controls.onSignal((name) => {
     if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
-    if (name === "toggle:chat" && !host.hidden) setChatOpen(chatState !== "open");
+    if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
+    if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
   });
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);
@@ -660,6 +743,9 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     setOpen,
     get chatOpen() {
       return chatState === "open";
+    },
+    get chatTab() {
+      return dockTab;
     },
     setChatOpen,
     bounds() {

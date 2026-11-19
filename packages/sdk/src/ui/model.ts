@@ -14,6 +14,7 @@
  */
 import { arrivedSettings, reportSettings } from "../settings.js";
 import { createUiChat, type ChatView, type UiChat } from "./chat.js";
+import { createUiFeed, type FeedView, type UiFeed } from "./feed.js";
 import type { IconName } from "./icons.js";
 import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRESETS, type UiTheme } from "./theme.js";
 
@@ -140,6 +141,8 @@ export interface UiView {
   theme: UiTheme;
   /** What the people in the room have written (ui/chat.ts). */
   chat: ChatView;
+  /** The visitor's own public posts, and the place to send out another (ui/feed.ts). */
+  feed: FeedView;
 }
 
 export interface Controls {
@@ -189,6 +192,8 @@ export interface Controls {
   onSignal(fn: (name: string) => void): () => void;
   /** What the people in the room write to each other (ui/chat.ts). The room fills it; every renderer draws it. */
   readonly chat: UiChat;
+  /** The visitor's own public posts (ui/feed.ts). The room fills it once something signs for them; every renderer draws it. */
+  readonly feed: UiFeed;
 }
 
 export interface ControlsOptions {
@@ -286,6 +291,7 @@ export function createControls(opts: ControlsOptions): Controls {
     for (const fn of listeners) fn();
   };
   const chat = createUiChat(changed);
+  const feed = createUiFeed(changed);
 
   function addSection(s: UiSection): void {
     const i = sections.findIndex((x) => x.id === s.id);
@@ -388,6 +394,7 @@ export function createControls(opts: ControlsOptions): Controls {
         corner,
         keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
         chat: chat.view(),
+        feed: feed.view(),
       };
     },
     subscribe(fn) {
@@ -412,6 +419,7 @@ export function createControls(opts: ControlsOptions): Controls {
       return () => sayers.delete(fn);
     },
     chat,
+    feed,
   };
 
   // The Look section comes with the kit, so every world lets a visitor change it the same way.

@@ -256,6 +256,9 @@ A client that does this:
 - **Never takes it from a link.** Nothing a world or a link says makes
   someone signed in, or by name.
 
+Where the client names a signer, the pass it hands over counts in a world
+once the visitor has signed in there ("One sign-in", below).
+
 The reference client does this. Going by name is the default for someone
 signed in; "Go to worlds as myself" is a tick on the sign-in page, on until
 they untick it; and choosing "a guest" at the Airlock unticks it.
@@ -437,6 +440,70 @@ window's crypto worker to the signer's without passing through either page,
 and the signer remembers a world the visitor allowed (BitLogin's
 `docs/sign-in-window.md`).
 
+## One sign-in
+
+Where a visitor's client names a signer, there is one sign-in in a world, and
+it is that one. A world never says "you are here as Alice" to someone who
+hasn't signed in there.
+
+- **A pass counts once the signer is unlocked for that world, as the same
+  person.** The client still hands the pass over on arrival. A reader holds
+  it, and joins a room by name only while the signer is unlocked there and
+  the key it reports is the key that signed the pass. Until then the visitor
+  is a guest: to the room, and in everything the world says about them.
+- **The name, the picture and the few words still come off the pass.**
+  Nothing new is asked of anybody to show who is signed in.
+- **Signing in or out in a world changes who the room sees.** A pass can't be
+  shown late or taken back, so a reader leaves the room and joins it again:
+  by name after signing in, as a guest after signing out.
+- **A signer that remembers a world says so as the page loads.** A reader
+  waits a moment for that before it joins a room (the reference kit: up to
+  two and a half seconds), so someone who signed in there last week is by
+  name from the first join, with nothing pressed.
+- **Unlocked for a key the pass isn't for,** or with no pass at all, the
+  visitor can sign as that key and is still a guest in a room: nobody has
+  vouched for a name. A reader says so.
+- **A client's own pages are not a world it sent someone to.** There the
+  visitor is signed in already, the client's own way.
+- **A client that names no signer** is as before: its pass is its word.
+
+What this costs: the first time in each world, one press and one yes in the
+sign-in window, where "Signed in everywhere" asked for nothing. What it buys:
+one meaning of "signed in", shown one way, and nothing said to a room that
+the visitor's sign-in address didn't agree to for that world.
+
+The reference kit shows it as one row under You, "Sign in, at
+bitlogin.network" or "Signed in as Alice. Sign out here", under a card with
+their picture, their name and their key. The older row ("Here as Alice.
+Switch profile, or go as a guest") is not shown where a signer is named.
+
+## Posting from a world
+
+What is written to a room stays in the room ([NSWP-06](06-rooms.md),
+"Words"). A post is another thing, and a reader keeps the two apart so that
+nobody takes one for the other.
+
+- **It has a window of its own, named for what it is.** The reference kit
+  calls it "My public feed": the visitor's own posts, newest first, with the
+  place to write above them and one button, "Send out a post". It says, where
+  they write, that anyone can read what is sent and that it can't be taken
+  back. On a flat screen it is the other side of the panel the room's chat is
+  on; in a headset, a panel of its own.
+- **A post is a plain note:** kind 1, the words they wrote and no tags,
+  signed by their signer ("Signing from a world"), checked, and sent from the
+  page to relays. Nothing said in the room is ever posted, and nothing posted
+  is said in the room.
+- **Their earlier posts are asked of a relay when they open the window,** and
+  not before. This is the one thing a world asks a relay about a person, and
+  the person is the visitor, in their own browser, asking to see their own
+  posts on the relays their next post goes to. A world still never asks a
+  relay about anyone else ("Pictures", "Who someone is"). Replies are left
+  out: out of its thread a reply reads as nonsense.
+- **A post is shown as plain words.** An address in it is text: nothing is
+  fetched, and nothing opens. It is cut to 420 characters and one line.
+- **It needs no room.** It is there whenever the visitor has a signer; signed
+  out, the row says where they sign in first, and pressing it leads there.
+
 ## In code
 
 ```js
@@ -469,6 +536,10 @@ above, for a world that draws its own rooms.
 - **A pass for one room,** naming a room event, once rooms have them; and
   **hosted rooms** that check passes at the door (spec §9.1 to §9.5).
 - **Going as another identity** than the one signed in.
+- **A pass made by the signer.** Someone who signs in at a world as a key
+  their client didn't send a pass for can post, and is a guest in a room
+  ("One sign-in"). A signer that signs a pass for the world that asks, with
+  the name and picture from that key's profile, would close that.
 - **Carrying the visitor's mute list,** so a world can leave out the people
   they have muted.
 - **Proof for a world's server.** The entry assertion in
