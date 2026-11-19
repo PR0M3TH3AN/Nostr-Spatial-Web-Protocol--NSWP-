@@ -39,6 +39,8 @@ signal menu_toggled(open: bool)
 ## The visitor pressed Enter VR (true) or Leave VR (false) in the menu. A browser starts a
 ## headset session only on a press, and this is one: start it now.
 signal vr_pressed(enter: bool)
+## The visitor pressed Jump in the menu: the way to ask where there is no keyboard.
+signal jump_pressed
 ## The visitor chose a door from the menu's list (`add_door`). It has been gone through already
 ## if it has an `enter()` of its own.
 signal door_chosen(id: String)
@@ -106,6 +108,9 @@ var kit: Dictionary = {
 	"dragLook": 0.005,
 	"lookSpeed": 0.0022,
 	"pitchLimit": 1.4835298641951802,
+	"doubleTap": 400,
+	"jumpHeight": 0.45,
+	"jumpGravity": 9.8,
 	"gateWidth": 1.5,
 	"gateHeight": 2.1,
 	"gateSpring": 1.35,
@@ -155,6 +160,8 @@ func _process(_delta: float) -> void:
 				menu_toggled.emit(menu_open)
 			"vr":
 				vr_pressed.emit(bool(event.get("enter", true)))
+			"jump":
+				jump_pressed.emit()
 			"home":
 				home()
 			"doors":

@@ -12,6 +12,7 @@
  * do is done by pointing and selecting (protocol/09-what-a-world-owes.md).
  * Sticks, grips and buttons are a faster way for people who have them.
  */
+import { RUN } from "./stroll.js";
 
 export interface PadButton {
   pressed: boolean;
@@ -39,9 +40,11 @@ export interface PadState {
   primary: boolean;
   /** The upper one: B or Y. */
   secondary: boolean;
+  /** The stick itself, pressed in. */
+  press: boolean;
 }
 
-export const NO_PAD: PadState = { stick: [0, 0], from: "none", trigger: 0, squeeze: 0, primary: false, secondary: false };
+export const NO_PAD: PadState = { stick: [0, 0], from: "none", trigger: 0, squeeze: 0, primary: false, secondary: false, press: false };
 
 /** A stick near its middle reads as still, and the rest of its travel is stretched to fill the range. */
 export function deadzone(x: number, y: number, inner = 0.2): [number, number] {
@@ -90,7 +93,8 @@ export function readPad(pad: PadLike | null | undefined): PadState {
       from = "touchpad";
     } else if (!hasStick) from = "touchpad";
   }
-  return { stick, from, trigger: value(0), squeeze: value(1), primary: !!button(4)?.pressed, secondary: !!button(5)?.pressed };
+  // A stick pressed in is button 3. A touchpad is pressed whenever it is in use at all, so it never counts as this.
+  return { stick, from, trigger: value(0), squeeze: value(1), primary: !!button(4)?.pressed, secondary: !!button(5)?.pressed, press: from === "thumbstick" && !!button(3)?.pressed };
 }
 
 // ------------------------------------------------------------------- comfort
@@ -179,12 +183,18 @@ export interface Intent {
   aiming: number[];
   /** The menu button went down. */
   menu: boolean;
+  /** The jump button (A or X) went down. */
+  jump: boolean;
+  /** They are running: walking smoothly, having pressed the moving stick in. */
+  running: boolean;
   /** 0 to 1: how much of the view's edge to darken. */
   narrow: number;
 }
 
 /** Metres a second, walking smoothly. A brisk walk: faster reads as sliding. */
 export const WALK_SPEED = 1.8;
+/** How much faster a run is, in a headset as anywhere (stroll.ts). Asked for by pressing the moving stick in. */
+export const RUN_FACTOR = RUN;
 /** Degrees a second, turning smoothly. */
 export const TURN_SPEED = 110;
 /** One stick pulled back, in step mode: a step backwards of this many metres. */
@@ -215,9 +225,13 @@ export class Locomotion {
   private readonly forward = new Set<number>();
   private readonly backward = new Set<number>();
   private menuDown = false;
+  private jumpDown = false;
+  /** Running, once the moving stick is pressed in, until that stick comes back to rest. */
+  private running = false;
 
   frame(dt: number, pads: HeldPad[], comfort: Comfort): Intent {
-    const intent: Intent = { turn: 0, walk: [0, 0], stepFrom: [], aiming: [], menu: false, narrow: 0 };
+    const intent: Intent = { turn: 0, walk: [0, 0], stepFrom: [], aiming: [], menu: false, jump: false, running: false, narrow: 0 };
+    let pushed = false;
     const roles = stickRoles(pads, comfort.moveHand);
     const seen = new Set<number>();
     let sliding = false;
@@ -246,8 +260,11 @@ export class Locomotion {
       if (comfort.move === "smooth" && role !== "turn") {
         const strafe = role === "both" ? 0 : x;
         if (strafe !== 0 || y !== 0) {
+          pushed = true;
+          // The stick pressed in while it is pushed starts a run, which lasts until the stick is let go.
+          if (p.pad.press) this.running = true;
           // Never faster on a diagonal than straight ahead.
-          const pace = (WALK_SPEED * dt) / Math.max(1, Math.hypot(strafe, y));
+          const pace = (WALK_SPEED * (this.running ? RUN_FACTOR : 1) * dt) / Math.max(1, Math.hypot(strafe, y));
           intent.walk[0] += strafe * pace;
           intent.walk[1] += y * pace;
           sliding = true;
@@ -267,9 +284,15 @@ export class Locomotion {
     // A controller that went away takes its held stick with it: nothing fires when it comes back.
     for (const set of [this.turned, this.forward, this.backward]) for (const i of set) if (!seen.has(i) || !roles.has(i)) set.delete(i);
 
+    if (!pushed) this.running = false;
+    intent.running = this.running;
     const menu = pads.some((p) => p.pad.secondary);
     intent.menu = menu && !this.menuDown;
     this.menuDown = menu;
+    // One jump for one press, from either hand, however they are moving.
+    const jump = pads.some((p) => p.pad.primary);
+    intent.jump = jump && !this.jumpDown;
+    this.jumpDown = jump;
     intent.narrow = sliding && comfort.narrow ? 1 : 0;
     return intent;
   }

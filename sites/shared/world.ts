@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, createStroll, DRAG_LOOK, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createStroll, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -102,6 +102,7 @@ export interface WorldConfig {
 }
 
 type TestHooks = {
+  jump?: { jump(): boolean; readonly height: number; readonly airborne: boolean };
   state: Record<string, unknown>;
   doors(): { label: string; to: string; url: string; position: number[] }[];
   goThrough(i: number): Promise<void>;
@@ -390,7 +391,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     id: "help",
     label: "Help",
     icon: "help",
-    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D, or point at the floor and select to step there. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
+    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D, or point at the floor and select to step there: twice to run. Shift runs and Space jumps. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
   });
   const xrConsole: XrConsole = createConsole(controls, { renderer, rig });
   scene.add(xrConsole.group);
@@ -610,6 +611,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       if (spot) stepTo(spot);
     },
     onMenu: () => xrConsole.setOpen(!xrConsole.open),
+    onJump: () => void jump.jump(),
   });
   for (const [object, options] of toHold) input.grabbable(object, options);
   hooks.input = () => input!.info();
@@ -653,7 +655,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
     if (!forward && !strafe) return;
     stroll.stop(); // the keys take over from a walk a tap began
-    stride.set(strafe, 0, -forward).normalize().multiplyScalar(2.4 * dt).applyAxisAngle(yawAxis, rig.rotation.y);
+    // Shift runs, moving the casual way as it does the intense way.
+    const pace = 2.4 * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? RUN : 1);
+    stride.set(strafe, 0, -forward).normalize().multiplyScalar(pace * dt).applyAxisAngle(yawAxis, rig.rotation.y);
     // Try the whole step, then each direction alone, so a visitor slides along an edge instead of sticking to it.
     if (canStand(head.x + stride.x, head.z + stride.z)) rig.position.add(stride);
     else if (canStand(head.x + stride.x, head.z)) rig.position.x += stride.x;
@@ -772,6 +776,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let lastT = 0;
   let wasBusy = false;
   const movedFrom = rig.position.clone();
+  // A jump, the same however they are moving: Space, the Jump control where there is no keyboard, A or X in a headset.
+  const floorY = rig.position.y;
+  const jump = addJump(controls, { presenting: () => renderer.xr.isPresenting, sounds, hud, busy: () => !!panels?.keyboard.open });
+  hooks.jump = jump;
   renderer.setAnimationLoop(() => {
     const t = (performance.now() - startedAt) / 1000;
     const dt = Math.min(t - lastT, 0.1);
@@ -785,8 +793,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     crossing.update(t, dt);
     camera.getWorldPosition(head);
     // Steps are made from how far the visitor was moved, not from how their head sways.
-    if (state.ready) sounds.moved(Math.hypot(rig.position.x - movedFrom.x, rig.position.z - movedFrom.z));
+    // And not while they are in the air.
+    if (state.ready && !jump.airborne) sounds.moved(Math.hypot(rig.position.x - movedFrom.x, rig.position.z - movedFrom.z));
     movedFrom.copy(rig.position);
+    rig.position.y = floorY + jump.update(dt);
     // Shut in the crossing's room, nobody else is in it with the visitor, wherever they happen to be standing.
     presence.setHidden(crossing.state !== "none");
     presence.update(dt);

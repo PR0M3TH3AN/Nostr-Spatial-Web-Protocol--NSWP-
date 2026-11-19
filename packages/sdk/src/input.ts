@@ -64,6 +64,8 @@ export interface XrInputOptions {
   stepFrom?: (slot: number) => void;
   /** The menu button (B or Y) went down. */
   onMenu?: () => void;
+  /** The jump button (A or X) went down. Give it the world's jump: `() => jump.jump()` (jump.ts). */
+  onJump?: () => void;
   /** The light on the controllers and hands. */
   accent?: THREE.ColorRepresentation;
   /** Give the visitor their choices under "Moving" in the controls. */
@@ -447,6 +449,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         pulse(slot, 0.35, 20);
       }
       if (intent.menu) opts.onMenu?.();
+      if (intent.jump) opts.onJump?.();
       aiming = intent.aiming;
       // Close in fast and open slowly: it is the closing that helps.
       narrow += (intent.narrow - narrow) * Math.min(1, dt * (intent.narrow > narrow ? 12 : 3));

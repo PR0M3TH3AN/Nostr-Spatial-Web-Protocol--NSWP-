@@ -1,6 +1,6 @@
 /** Reading any controller into intent. No headset is involved: it is arithmetic. */
 import { describe, expect, it } from "vitest";
-import { BACK_STEP, cleanComfort, deadzone, DEFAULT_COMFORT, Locomotion, NO_PAD, readPad, stickRoles, TURN_SPEED, WALK_SPEED, type Comfort, type HeldPad, type PadState } from "../src/actions.js";
+import { BACK_STEP, cleanComfort, deadzone, DEFAULT_COMFORT, Locomotion, NO_PAD, readPad, RUN_FACTOR, stickRoles, TURN_SPEED, WALK_SPEED, type Comfort, type HeldPad, type PadState } from "../src/actions.js";
 
 const b = (value = 0) => ({ pressed: value > 0.5, touched: value > 0, value });
 /** A controller with a thumbstick, laid out as WebXR says: Quest, Pico, Index, Reverb. */
@@ -144,5 +144,56 @@ describe("what is read back from storage", () => {
   it("keeps only what it knows", () => {
     expect(cleanComfort({ move: "smooth", turn: "spin", turnStep: 60, narrow: "yes", moveHand: "right", extra: 1 })).toEqual({ move: "smooth", moveHand: "right" });
     expect(cleanComfort(null)).toEqual({});
+  });
+});
+
+describe("jumping and running in a headset", () => {
+  const moving = (left: [number, number], more: Partial<PadState> = {}): HeldPad[] => [
+    { index: 0, hand: "left", pad: pad(left, more) },
+    { index: 1, hand: "right", pad: pad([0, 0]) },
+  ];
+
+  it("jumps once for one press of A or X, from either hand, however they are moving", () => {
+    for (const comfort of [steps, smooth]) {
+      const l = new Locomotion();
+      expect(l.frame(0.016, both([0, 0], [0, 0]), comfort).jump).toBe(false);
+      expect(l.frame(0.016, both([0, 0], [0, 0], { primary: true }), comfort).jump).toBe(true);
+      // Held: no second jump until it is let go and pressed again.
+      expect(l.frame(0.016, both([0, 0], [0, 0], { primary: true }), comfort).jump).toBe(false);
+      expect(l.frame(0.016, both([0, 0], [0, 0]), comfort).jump).toBe(false);
+      expect(l.frame(0.016, moving([0, 0], { primary: true }), comfort).jump).toBe(true);
+    }
+  });
+
+  it("runs once the moving stick is pressed in, until that stick is let go", () => {
+    const l = new Locomotion();
+    const walked = l.frame(0.5, moving([0, 1]), smooth);
+    expect(walked.running).toBe(false);
+    expect(walked.walk[1]).toBeCloseTo(WALK_SPEED * 0.5);
+    const ran = l.frame(0.5, moving([0, 1], { press: true }), smooth);
+    expect(ran.running).toBe(true);
+    expect(ran.walk[1]).toBeCloseTo(WALK_SPEED * RUN_FACTOR * 0.5);
+    // The press is let go but the stick is still pushed: still running.
+    expect(l.frame(0.5, moving([0, 1]), smooth).walk[1]).toBeCloseTo(WALK_SPEED * RUN_FACTOR * 0.5);
+    // The stick comes back to rest: the run is over, and the next push is a walk.
+    expect(l.frame(0.5, moving([0, 0]), smooth).running).toBe(false);
+    expect(l.frame(0.5, moving([0, 1]), smooth).walk[1]).toBeCloseTo(WALK_SPEED * 0.5);
+  });
+
+  it("doesn't run for a stick pressed in while standing still, or for the turning stick", () => {
+    const l = new Locomotion();
+    expect(l.frame(0.5, moving([0, 0], { press: true }), smooth).running).toBe(false);
+    const turning: HeldPad[] = [
+      { index: 0, hand: "left", pad: pad([0, 1]) },
+      { index: 1, hand: "right", pad: pad([0, 0], { press: true }) },
+    ];
+    expect(l.frame(0.5, turning, smooth).running).toBe(false);
+  });
+
+  it("reads a pressed-in stick, and never a touchpad, as the way to run", () => {
+    const b = (pressed: boolean) => ({ pressed, touched: pressed, value: pressed ? 1 : 0 });
+    expect(readPad({ axes: [0, 0, 0, -1], buttons: [b(false), b(false), undefined, b(true), b(false), b(false)] }).press).toBe(true);
+    expect(readPad({ axes: [0, 0, 0, -1], buttons: [b(false), b(false), undefined, b(false), b(true), b(false)] })).toMatchObject({ press: false, primary: true });
+    expect(readPad({ axes: [0, -1], buttons: [b(false), b(false), b(true)] }).press).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanKit, nextVariant, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+import { cleanKit, nextVariant, stepShape, STEP_LEVEL, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
 
 describe("the default cues", () => {
   it("has one for everything on the list, each short and quiet", () => {
@@ -171,5 +171,40 @@ describe("music shared by people nearby", () => {
     const steps = [2, 4, 6, 8, 10, 11.9].map(musicFade);
     for (let i = 1; i < steps.length; i++) expect(steps[i]!).toBeLessThan(steps[i - 1]!);
     expect(musicFade(11.9)).toBeLessThan(0.01);
+  });
+});
+
+describe("footsteps", () => {
+  it("are quieter than any other cue, each within a narrow range of the others", () => {
+    const random = seeded("steps");
+    const steps = Array.from({ length: 400 }, (_, i) => stepShape(i, random));
+    expect(STEP_LEVEL).toBeLessThan(0.6);
+    for (const s of steps) {
+      expect(s.gain).toBeGreaterThanOrEqual(STEP_LEVEL * 0.6 - 1e-9);
+      expect(s.gain).toBeLessThanOrEqual(STEP_LEVEL + 1e-9);
+      // Never so far off that it stops being the same shoe on the same floor: under two semitones either way.
+      expect(Math.abs(12 * Math.log2(s.rate))).toBeLessThan(2);
+      expect(s.cutoff).toBeGreaterThanOrEqual(1600);
+      expect(s.cutoff).toBeLessThanOrEqual(5000);
+      expect(Math.abs(s.pan)).toBeLessThan(0.2);
+    }
+  });
+
+  it("are never the same twice running, and fall on one foot and then the other", () => {
+    const random = seeded("steps again");
+    const steps = Array.from({ length: 200 }, (_, i) => stepShape(i, random));
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i]!.rate).not.toBe(steps[i - 1]!.rate);
+      expect(steps[i]!.gain).not.toBe(steps[i - 1]!.gain);
+      expect(Math.sign(steps[i]!.pan)).toBe(-Math.sign(steps[i - 1]!.pan));
+    }
+    // They really do vary: the highest step is well over a semitone above the lowest, and the lightest well under the heaviest.
+    const rates = steps.map((s) => s.rate);
+    expect(12 * Math.log2(Math.max(...rates) / Math.min(...rates))).toBeGreaterThan(2);
+    const gains = steps.map((s) => s.gain);
+    expect(Math.min(...gains) / Math.max(...gains)).toBeLessThan(0.7);
+    // One foot is a touch lower than the other, on the whole.
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(mean(rates.filter((_, i) => i % 2 === 1))).toBeGreaterThan(mean(rates.filter((_, i) => i % 2 === 0)));
   });
 });

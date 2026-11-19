@@ -219,6 +219,44 @@ export function cleanKit(input: unknown, folder: string, playsOgg: boolean): Kit
   return out;
 }
 
+/**
+ * How one footstep differs from the last. No two real steps sound alike: the
+ * weight on each foot differs, and so does what is under it. And a step is a
+ * quiet thing, heard a thousand times a visit, so it sits well under every
+ * other cue.
+ */
+export interface StepShape {
+  /** How loud, as a share of what any other cue is. */
+  gain: number;
+  /** How fast it is played: above 1 is higher and shorter, below is lower and longer. */
+  rate: number;
+  /** Where its brightness is cut off, in hertz: a lower number is a softer tread. */
+  cutoff: number;
+  /** Which side it is on, from -1 (left) to 1: a little to the side of the foot that made it. */
+  pan: number;
+}
+
+/** How loud the loudest step is, beside any other cue. */
+export const STEP_LEVEL = 0.45;
+
+/**
+ * The shape of the step a foot makes: `foot` counts steps, so even ones are
+ * the left foot and odd ones the right. The two feet differ a little and
+ * steadily, and every step differs a little more by chance.
+ */
+export function stepShape(foot: number, random: () => number = Math.random): StepShape {
+  const right = Math.abs(Math.trunc(foot)) % 2 === 1;
+  const side = right ? 1 : -1;
+  return {
+    // Between a little over half and all of the step's level: a light tread now and then.
+    gain: STEP_LEVEL * (0.6 + 0.4 * random()),
+    // One foot falls a touch lower than the other, and each step is up to a semitone and a half either way.
+    rate: (1 + side * 0.025) * Math.pow(2, (random() * 2 - 1) * (1.5 / 12)),
+    cutoff: 1600 + random() * 3400,
+    pan: side * (0.08 + random() * 0.1),
+  };
+}
+
 /** Which of several to play next: any but the one just played, so nothing is heard twice running. */
 export function nextVariant(count: number, last: number, random: () => number = Math.random): number {
   if (count <= 1) return 0;

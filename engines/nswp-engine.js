@@ -4197,16 +4197,23 @@ var NSWP = (() => {
     go2.focus();
   }
 
+  // packages/sdk/src/stroll.ts
+  var WALK_SPEED = 2.4;
+  var RUN = 1.75;
+  var DOUBLE_TAP = 400;
+  var TAP_REACH = 3;
+  var DRAG_LOOK = 5e-3;
+
   // packages/sdk/src/fps.ts
   var LOOK_SPEED = 22e-4;
   var PITCH_LIMIT = 85 * Math.PI / 180;
-  var SPRINT = 1.75;
+  var SPRINT = RUN;
   var DESK_KEY = "nswp:fps";
   var DESK_WORDS = {
     intense: "Desk controls: intense",
     casual: "Desk controls: casual",
-    nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu.",
-    nowCasual: "Casual: click where you want to stand, and drag to look round.",
+    nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
+    nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
     click: "Click the view to look round. Escape brings up the menu."
   };
   var hasMouse = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
@@ -4416,6 +4423,19 @@ var NSWP = (() => {
     if (h) out.hum = h;
     return out;
   }
+  var STEP_LEVEL = 0.45;
+  function stepShape(foot, random = Math.random) {
+    const right = Math.abs(Math.trunc(foot)) % 2 === 1;
+    const side = right ? 1 : -1;
+    return {
+      // Between a little over half and all of the step's level: a light tread now and then.
+      gain: STEP_LEVEL * (0.6 + 0.4 * random()),
+      // One foot falls a touch lower than the other, and each step is up to a semitone and a half either way.
+      rate: (1 + side * 0.025) * Math.pow(2, (random() * 2 - 1) * (1.5 / 12)),
+      cutoff: 1600 + random() * 3400,
+      pan: side * (0.08 + random() * 0.1)
+    };
+  }
   function nextVariant(count, last, random = Math.random) {
     if (count <= 1) return 0;
     if (last < 0 || last >= count) return Math.min(count - 1, Math.floor(random() * count));
@@ -4584,18 +4604,18 @@ var NSWP = (() => {
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       return noiseBuffer;
     };
-    const playPart = (p, when) => {
+    const playPart = (p, when, to = effects, rate = 1) => {
       const start2 = when + p.at;
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0, start2);
       gain.gain.linearRampToValueAtTime(p.gain, start2 + Math.min(6e-3, p.dur / 3));
       gain.gain.exponentialRampToValueAtTime(8e-4, start2 + p.dur);
-      gain.connect(effects);
+      gain.connect(to);
       if (p.kind === "tone") {
         const osc = ctx.createOscillator();
         osc.type = p.wave;
-        osc.frequency.setValueAtTime(p.from, start2);
-        if (p.to !== void 0) osc.frequency.exponentialRampToValueAtTime(p.to, start2 + p.dur);
+        osc.frequency.setValueAtTime(p.from * rate, start2);
+        if (p.to !== void 0) osc.frequency.exponentialRampToValueAtTime(p.to * rate, start2 + p.dur);
         osc.connect(gain);
         osc.start(start2);
         osc.stop(start2 + p.dur + 0.02);
@@ -4604,7 +4624,7 @@ var NSWP = (() => {
         src.buffer = noise2();
         const band = ctx.createBiquadFilter();
         band.type = "bandpass";
-        band.frequency.value = p.band;
+        band.frequency.value = p.band * rate;
         band.Q.value = 1.1;
         src.connect(band);
         band.connect(gain);
@@ -4673,26 +4693,46 @@ var NSWP = (() => {
     };
     const last = /* @__PURE__ */ new Map();
     const lastVariant = /* @__PURE__ */ new Map();
+    let foot = 0;
+    const shaped = (shape) => {
+      const soft = ctx.createBiquadFilter();
+      soft.type = "lowpass";
+      soft.frequency.value = shape.cutoff;
+      soft.Q.value = 0.5;
+      const level = ctx.createGain();
+      level.gain.value = shape.gain;
+      soft.connect(level);
+      if (typeof ctx.createStereoPanner === "function") {
+        const side = ctx.createStereoPanner();
+        side.pan.value = shape.pan;
+        level.connect(side);
+        side.connect(effects);
+      } else level.connect(effects);
+      return soft;
+    };
     const play2 = (cue) => {
       if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
       if (theme.cues[cue] === null) return;
       const now = ctx.currentTime;
       if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
       last.set(cue, now);
+      const shape = cue === "step" ? stepShape(foot++) : null;
+      const out = shape ? shaped(shape) : effects;
       const files2 = own.get(cue) ?? fromKit.get(cue);
       if (files2?.length) {
         const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
         lastVariant.set(cue, which);
         const src = ctx.createBufferSource();
         src.buffer = files2[which].buffer;
+        if (shape) src.playbackRate.value = shape.rate;
         const level = ctx.createGain();
         level.gain.value = files2[which].gain;
         src.connect(level);
-        level.connect(effects);
+        level.connect(out);
         src.start();
         return;
       }
-      for (const part of cueRecipe(cue)) playPart(part, now + 5e-3);
+      for (const part of cueRecipe(cue)) playPart(part, now + 5e-3, out, shape?.rate ?? 1);
     };
     let walked = 0;
     const moved2 = (metres) => {
@@ -5140,10 +5180,10 @@ var NSWP = (() => {
     return { refresh };
   }
 
-  // packages/sdk/src/stroll.ts
-  var WALK_SPEED = 2.4;
-  var TAP_REACH = 3;
-  var DRAG_LOOK = 5e-3;
+  // packages/sdk/src/jump.ts
+  var JUMP_HEIGHT = 0.45;
+  var JUMP_GRAVITY = 9.8;
+  var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
   // packages/sdk/src/ui/fullscreen.ts
   function fullscreenAction(controls2, presenting) {
@@ -5799,6 +5839,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       dragLook: DRAG_LOOK,
       lookSpeed: LOOK_SPEED,
       pitchLimit: PITCH_LIMIT,
+      doubleTap: DOUBLE_TAP,
+      jumpHeight: JUMP_HEIGHT,
+      jumpGravity: JUMP_GRAVITY,
       gateWidth: PORTAL_WIDTH,
       gateHeight: PORTAL_HEIGHT,
       gateSpring: PORTAL_SPRING,
@@ -5851,6 +5894,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         c.say(moving === "intense" ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
       }
     });
+    c.add({
+      id: "jump",
+      section: "moving",
+      icon: "step",
+      label: "Jump",
+      short: "Jump",
+      hotbar: !hasMouse(),
+      hidden: () => vr.presenting,
+      act: () => tell({ type: "jump" })
+    });
     c.add(
       {
         id: "vr",
@@ -5871,7 +5924,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       id: "help",
       label: "Help",
       icon: "help",
-      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
+      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
     });
     let closedAt = -1;
     c.onSignal((name) => {
