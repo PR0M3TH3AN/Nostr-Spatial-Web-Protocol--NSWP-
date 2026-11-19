@@ -112,6 +112,9 @@ for (const s of sites) {
     "media-src 'self' blob:",
     // Worlds reach Nostr relays (wss) for the room handshake; the Airlock also fetches manifests (https).
     s.world ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
+    // A world embeds one thing from elsewhere: its visitor's own client's signer, which it can't read
+    // (protocol/10-identity.md, "Signing from a world"). Which client that is, is the visitor's choice.
+    ...(s.world ? ["frame-src 'self' https:"] : []),
     "base-uri 'none'",
     "form-action 'none'",
     s.world ? "frame-ancestors 'self'" : "frame-ancestors 'none'",

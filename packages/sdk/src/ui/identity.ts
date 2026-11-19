@@ -14,6 +14,7 @@
  */
 import { shortNpub } from "@nswp/core";
 import { arrival, portal, type GoOptions } from "../index.js";
+import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiSection } from "./model.js";
 
 /** The words for who a visitor is here, for a world that draws this itself. */
@@ -77,6 +78,46 @@ export function identityAction(controls: Controls, leaving: Leaving = () => ({})
     short: () => identityWords().short,
     hidden: () => portal.airlockFor() === null,
     act: () => leave(controls, "identity", leaving),
+  };
+}
+
+let shared: WorldSigner | null = null;
+/** This page's one signer, from the visitor's own client (signer.ts). "none" when they came through no client. */
+export function worldSigner(): WorldSigner {
+  shared ??= createWorldSigner({ airlock: portal.airlockFor() });
+  return shared;
+}
+
+/**
+ * The control that unlocks the visitor's signer for this world, and locks it
+ * again (protocol/10-identity.md, "Signing from a world"). Unlocking opens a
+ * window of their own client, where they say yes. Nothing is typed here.
+ */
+export function signerAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
+  const signer = worldSigner();
+  let was = signer.state;
+  signer.onChange(() => {
+    if (signer.state === "unlocked" && was !== "unlocked") controls.say(`You can sign notes here as ${signer.name ?? shortNpub(signer.pubkey ?? "")}. It ends when you leave this world, or when you turn it off under You.`);
+    if (signer.state === "locked" && was === "unlocked") controls.say("Nothing more can be signed as you here.");
+    was = signer.state;
+    controls.signal("signer");
+  });
+  return {
+    id: "signer",
+    section: "you",
+    icon: "key",
+    label: () => (signer.state === "unlocked" ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on` : "Sign in to sign notes"),
+    short: () => (signer.state === "unlocked" ? "Signing" : "Sign"),
+    on: () => signer.state === "unlocked",
+    hidden: () => signer.state === "none",
+    act: () => {
+      if (signer.state === "unlocked") return signer.lock();
+      const host = signer.host ?? "your own client";
+      // A headset draws nothing but the world, so no window of the client's can open in one.
+      if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in to sign, and come back in.`);
+      if (signer.unlock()) controls.say(`A window from ${host} has opened. Say yes there, and you can sign notes here.`);
+      else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+    },
   };
 }
 

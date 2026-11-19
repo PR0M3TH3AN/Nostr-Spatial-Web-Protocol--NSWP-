@@ -2,6 +2,21 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.25.0
+
+Signing from inside a world: a visitor can post a Nostr note as themselves, and the world never holds their key.
+
+- **[NSWP-10](protocol/10-identity.md), "Signing from a world":** a client that offers signing serves a hidden signer and a sign-in window beside its Airlock. A world embeds the signer and asks it. It starts locked in every world. The visitor unlocks it for one world in the client's own window, which shows that world's address as the browser reported it; then the signer signs notes and reactions for that world until its page closes, four hours at most. Everything else is refused, and a refusal never says why.
+- **Nothing secret is typed into a world.** A world's page can read whatever is typed on it, so the password stays in the client's window, which the world can't read. Decided by the owner on 2026-11-19, with the rest of [`docs/plans/signing-in-worlds.md`](docs/plans/signing-in-worlds.md).
+- **Every note signed for a world says so:** the signer adds `["nswp:world", "<origin>"]`, sets the time itself, and signs at most six a minute and sixty an hour for one world.
+- **In every world's menu:** "Sign in to sign notes", under You. In the room's chat, once unlocked: "Post what I write as Nostr notes", off at every visit.
+- **In the kit:** `worldSigner()`, `createWorldSigner()`, `signerAction()`; in the library `signClass`, `prepareForWorld`, `signerAddresses`, `createSignGate`, and the two message formats. A world's security policy gains `frame-src 'self' https:`.
+- **In BitPortal:** the signer page (`/signer/`) and the window (`/connect/`). The signer is the one page another site may embed; every other page still may not be. The key moves from the window to the signer inside BitLogin's crypto workers, and what arrives can only sign.
+- **In BitLogin:** a signer hand-off (`docs/sign-in-window.md`). On a branch of its own: BitLogin's site is deployed when it is merged, so that waits for the owner.
+- **The development server** sends each page the headers its build wrote for it, where it sent one set to all.
+- **Not built:** a passkey, a browser extension or a phone as the way to unlock; the offer of a passkey after a password sign-in (BitLogin can't add one to an existing account yet); anything asked for every time (a profile, a follow list); payments; signing from a headset; the engine script and the Godot addon.
+- **Status (2026-11-19):** not deployed, and BitPortal's part is not merged. Tried in Chrome on the local server, with a world on one site and BitPortal on another, the walls between sites' storage on, a throwaway identity, and stand-ins for every relay: the signer refused while locked; the window showed the world's address and offered Allow; the world could read neither the signer nor the window; a note was signed, marked for the world, and came out of the chat; a profile, a follow list, a private message, a pass and application data were refused; the seventh note in a minute was refused; locking from the menu ended it. **Not tried:** a real BitLogin account (automation never signs in to one), Firefox and Safari with BitPortal's own pages, a phone, a real relay.
+
 ## 0.24.0
 
 Profile cards, and a sound when someone writes.

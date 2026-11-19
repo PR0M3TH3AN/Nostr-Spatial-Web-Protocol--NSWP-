@@ -326,6 +326,84 @@ or shows its whole screen if anything about the door needs to be seen. If
 they asked to go by name and can't (the site hasn't proved it is who it
 says), the screen is shown and says so.
 
+## Signing from a world
+
+A pass lets a world know its visitor by name. It doesn't let them sign
+anything as themselves: a Nostr note is theirs only if their own key signed
+it, and a world is never given that key. So a world asks.
+
+**The signer.** A client that offers signing serves two pages beside its
+Airlock: for an Airlock at `https://client.example/go/`, a signer at
+`/signer/` and a window at `/connect/`. A world embeds the signer as a
+hidden frame. It has no interface. The world can't read it or script it,
+and nothing is ever typed into it.
+
+**It starts locked, in every world.** A browser walls off what a site
+stores when that site is embedded in another, and a signer never uses what
+it could reach anyway. Unlocking it for one world is the visitor's doing,
+in the client's own window:
+
+1. The world opens the window from a press. It is a window of its own, with
+   an address bar, and the world can't read it.
+2. If the visitor isn't signed in at their client, they sign in there.
+3. The window says hello to every frame of the page that opened it,
+   addressed to the client's own origin. Only the client's own signer can
+   hear that. The signer answers with the world it is embedded in, **as the
+   browser reported it**, and a throwaway key.
+4. The window shows that address and what the world may do, and waits.
+5. On Allow, it hands the signer a key that can only sign, sealed to the
+   throwaway key, and closes.
+
+A world posing as the signer hears nothing, so the window finds no signer
+and offers no Allow. A world can open a look-alike window on an address of
+its own: the address bar tells them apart, and a password manager fills a
+password in only at the address it was saved for.
+
+**What a world says to the signer**, as messages between the two pages,
+each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
+
+| From the world | The signer answers |
+|---|---|
+| `state` | `state`: `unlocked`, and once unlocked `pubkey`, `name`, `until`. Said again, unasked, whenever it changes |
+| `sign`, with `event`: `kind`, `content`, `tags` | `signed`, with the whole signed note; or `refused` |
+| `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
+
+The signer says `ready` once when it has loaded. A refusal never says why.
+
+**What it signs for a world**, by kind:
+
+| | Kinds | When |
+|---|---|---|
+| Ordinary | A note (1), a reaction (7) | Once the visitor has allowed that world |
+| Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | Only with their say each time, on a surface their client draws. **Not built: refused** |
+| Never | Private messages and their wrappings (4, 13, 14, 15, 1059, 1060), passes and room signals (27300, 27301), proofs of identity to a relay or a server (22242, 27235), wallet and remote-signer traffic (13194, 23194, 23195, 24133), application data (30078) | Refused, whatever anyone says |
+
+- **The note is the signer's to finish.** It sets the time itself, and adds
+  `["nswp:world", "<the world's origin>"]`, dropping any such tag the world
+  wrote. So a note signed from a world says which world asked.
+- **Limits:** 8,000 characters, 60 tags; six notes a minute and sixty an
+  hour for one world. A world the visitor allowed still can't pour notes
+  out under their name.
+- **It ends** when the world's page closes, when the visitor locks it, or
+  after four hours. The key is held in memory and never stored.
+- **A world checks what comes back** like anything else that arrives: a
+  real signature, by the key the signer said it holds, on the note that was
+  asked for, marked for this world.
+- **The world sends the note to relays itself.** The signer reaches no
+  network.
+
+**Ways to unlock, the most seamless first.** Already unlocked for this
+world; the visitor's passkey, without leaving the world; a signer of their
+own (a browser extension, a phone that approves); their password in the
+client's window; and, where no window can open (a headset), the trip by the
+crossing's room, which brings back a pass and not a signer. **Built: the
+window.** The rest are in
+[`docs/plans/signing-in-worlds.md`](../docs/plans/signing-in-worlds.md).
+
+In the reference client the signer runs BitLogin, and the key moves from
+the window's crypto worker to the signer's without passing through either
+page (BitLogin's `docs/sign-in-window.md`).
+
 ## In code
 
 ```js

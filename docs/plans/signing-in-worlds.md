@@ -1,6 +1,7 @@
 # Signing from inside a world: the plan
 
-**Status:** a plan, written on 2026-11-19. Nothing here is built. It extends
+**Status:** partly built, the same day it was written. See "What is built"
+at the end. Written as a plan on 2026-11-19, when nothing here was built. It extends
 [the in-game identity plan](in-game-identity.md), which covers signing in
 and changing a look; this one covers what comes after: signing notes, and
 later spending. One part of it has been tried in browsers (the window, see
@@ -299,6 +300,36 @@ Reading the session code closely is the first step of the work.
   client drew. The default budget is nothing.
 - A world that can't embed the signer or open the window falls back to the
   trip by the crossing's room. Nothing is ever worse than today.
+
+## What is built (2026-11-19)
+
+The owner said yes to all six decisions. Built since, and tried end to end
+on the local server (kit 0.25.0, [the changelog](../../CHANGELOG.md)):
+
+- The signer and the window in BitPortal, the kit's embed, `worldSigner()`,
+  "Sign in to sign notes" in every world's menu, and the chat's "Post what
+  I write as Nostr notes".
+- BitLogin's hand-off, worker to worker, to a session that can only sign.
+
+Where the build differs from the plan above:
+
+- **Permissions live in the client's signer page, not in BitLogin.**
+  BitLogin's part is the floor under them: a handed-over session can sign
+  and nothing else. The first list is two kinds: a note and a reaction.
+  Zap requests wait for budgets.
+- **The offer of a passkey isn't shown.** BitLogin can't add a passkey to
+  an existing account yet, and a message offering what can't be done would
+  be wrong. It waits on decision 5's work in BitLogin.
+- **The window never gives Allow the keys unasked,** and ignores a press in
+  its first second: a key meant for the world must not land on it.
+- **A world on the same site as the client** (the reference worlds, beside
+  BitPortal) is not walled off by the browser. The signer treats it like
+  any other: it never uses what the browser keeps for the client.
+- **BitLogin's change is on a branch, unmerged:** merging BitLogin deploys
+  its site, which is the owner's to say. BitPortal's part waits on it.
+
+Not built: ways 2 and 3 (passkey; extension, phone), "careful" kinds,
+payments, a headset, the engine script and the Godot addon.
 
 ## Open questions
 

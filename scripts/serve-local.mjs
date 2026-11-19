@@ -69,13 +69,22 @@ const types = {
   ".wasm": "application/wasm",
 };
 
-/** The headers a site's own host would send, as its build wrote them down, less the ones that only make sense on https. */
+/**
+ * The headers a site's own host would send, as its build wrote them down, less the ones that only make sense on
+ * https, and less caching (nothing is cached here). A build may say different things for different pages: one page
+ * of BitPortal may be embedded by a world and no other may. So each rule is kept with the paths it is for, and every
+ * rule that fits a request is applied, a later one over an earlier.
+ */
 function headersOf(dist) {
   try {
-    const all = JSON.parse(readFileSync(join(dist, "vercel.json"), "utf8")).headers?.find((h) => h.source === "/(.*)")?.headers ?? [];
-    return Object.fromEntries(all.filter((h) => !/strict-transport|upgrade-insecure/i.test(`${h.key} ${h.value}`)).map((h) => [h.key, h.value]));
+    const rules = JSON.parse(readFileSync(join(dist, "vercel.json"), "utf8")).headers ?? [];
+    const kept = rules.map((rule) => ({
+      fits: new RegExp(`^${rule.source}$`),
+      headers: Object.fromEntries((rule.headers ?? []).filter((h) => !/strict-transport|upgrade-insecure|cache-control/i.test(`${h.key} ${h.value}`)).map((h) => [h.key, h.value])),
+    }));
+    return (path) => Object.assign({}, ...kept.filter((rule) => rule.fits.test(path)).map((rule) => rule.headers));
   } catch {
-    return {};
+    return () => ({});
   }
 }
 
@@ -160,7 +169,7 @@ for (const { name, dist, note, port: here, built } of served) {
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file)) return res.writeHead(404, { "content-type": "text/plain" }).end("Not found");
     const body = readFileSync(file);
-    const head = { ...extra, "content-type": types[extname(file)] ?? "application/octet-stream", "accept-ranges": "bytes", "cache-control": "no-store" };
+    const head = { ...extra(new URL(req.url, "http://x").pathname), "content-type": types[extname(file)] ?? "application/octet-stream", "accept-ranges": "bytes", "cache-control": "no-store" };
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? "");
     if (range) {
       const from = Number(range[1]);

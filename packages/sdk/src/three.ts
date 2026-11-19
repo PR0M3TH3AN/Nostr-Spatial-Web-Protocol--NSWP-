@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, encodeNpub, shortNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, cleanChat, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, shortNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -28,7 +28,7 @@ import { loadPicture, onPicturesChange, setShowsPictures, showsPictures } from "
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
-import { figureAction, identityAction, identityHost, identitySection, type Leaving } from "./ui/identity.js";
+import { figureAction, identityAction, identityHost, identitySection, signerAction, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
@@ -1251,6 +1251,8 @@ export function addRoomControls(
     sounds?: Sounds | null;
     /** False where this world wants no shared music: a concert, a library. Its visitors' own music still plays for them. */
     sharedMusic?: boolean;
+    /** The relays a note the visitor posts from the chat goes to. Left out, the kit's own list. */
+    noteRelays?: string[];
   } = {},
 ): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
@@ -1718,7 +1720,8 @@ export function addRoomControls(
       (text) => {
         const how = s.say(text);
         if (how === "slow") return "That is a lot at once. Wait a moment, then send it again.";
-        if (how === "said" && s.members.length === 0) controls.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
+        if (how === "said" && postsNotes && worldSigner().state === "unlocked") void postNote(text);
+        else if (how === "said" && s.members.length === 0) controls.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
         return null;
       },
       { title: presence.roomName ? "Private room chat" : "Room chat" },
@@ -1746,6 +1749,21 @@ export function addRoomControls(
     if (!showsChat()) closeChatPanel();
     refresh();
   });
+  // ---- Notes (protocol/10-identity.md, "Signing from a world"). What is written in a room stays in the room,
+  // unless the visitor has unlocked their signer here AND turned this on. Then each line they write is also a
+  // public Nostr note, signed by their own client's signer and sent to relays from here. Off at every visit.
+  let postsNotes = false;
+  const postNote = async (text: string) => {
+    const note = await worldSigner().sign({ kind: 1, content: cleanChat(text), tags: [] });
+    if (!note) return void controls.chat.add({ note: true, text: "That wasn't posted as a note: your signer said no." });
+    const sent = await publishEvent(opts.noteRelays ?? DEFAULT_RELAYS, note).catch(() => null);
+    const kept = sent ? Object.values(sent.relays).filter((said) => said === "ok").length : 0;
+    controls.chat.add({ note: true, text: kept ? `Posted as a note, to ${kept === 1 ? "1 relay" : `${kept} relays`}.` : "Signed, but no relay took it. It wasn't posted." });
+  };
+  worldSigner().onChange(() => {
+    if (worldSigner().state !== "unlocked") postsNotes = false;
+    refresh();
+  });
 
   controls.add(
     {
@@ -1767,6 +1785,23 @@ export function addRoomControls(
         // In a headset it is a panel in the world; on a screen, a panel at the side of it.
         if (presence.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
         controls.signal("toggle:chat");
+      },
+    },
+    {
+      id: "room-chat-notes",
+      section: "room",
+      icon: "key",
+      label: () => (postsNotes ? "Post what I write as Nostr notes: on" : "Post what I write as Nostr notes: off"),
+      on: () => postsNotes,
+      // Only for someone who has unlocked their signer for this world, in a room, with chat on.
+      hidden: () => !presence.session || !showsChat() || worldSigner().state !== "unlocked",
+      act: () => {
+        postsNotes = !postsNotes;
+        tell(
+          postsNotes
+            ? "Each line you write here is now also posted to Nostr as a public note, signed as you. Anyone can read it, anywhere, and it can't be taken back."
+            : "What you write stays in the room again.",
+        );
       },
     },
     {
@@ -2109,7 +2144,7 @@ export async function addViewControls(
   if (!controls.has("identity") && identityHost()) {
     const leaving: Leaving = async (to) => ({ ...(await d.leaving?.(to)), xrSession: d.renderer.xr.getSession() });
     controls.addSection(identitySection());
-    controls.add(figureAction(controls, leaving), identityAction(controls, leaving));
+    controls.add(figureAction(controls, leaving), identityAction(controls, leaving), signerAction(controls, { presenting: () => d.renderer.xr.isPresenting }));
   }
   // Leaving fullscreen with the browser's own key changes what the control should say.
   document.addEventListener("fullscreenchange", () => controls.setTarget(""));
@@ -2138,7 +2173,8 @@ export { arrivedSettings, arriveWith, currentSettings, reportSettings, type Trav
 export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
 export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsPictures } from "./picture.js";
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
-export { figureAction, identityAction, identityHost, identitySection, identityWords, type Leaving } from "./ui/identity.js";
+export { figureAction, identityAction, identityHost, identitySection, identityWords, signerAction, worldSigner, type Leaving } from "./ui/identity.js";
+export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
 export { addSoundControls, createSounds, CUES, type Cue, type Jukebox, type Song, type SoundLevels, type Sounds, type SoundsOptions, type SoundTheme } from "./sound.js";
