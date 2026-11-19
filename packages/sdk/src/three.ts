@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { decodeLook, encodeNpub, shortNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { decodeLook, encodeNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -1277,13 +1277,13 @@ export function addRoomControls(
     // A name is not unique and a mark can be matched, so the key behind a name is one action away, in full.
     controls.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
   };
-  // A picture over someone's head is a button, and pressing it is choosing them. Who they are is said beside the
-  // controls, where anything pointed at is, with the way to what can be done about them.
+  // A picture over someone's head is a button, and pressing it is choosing them.
   presence.onPerson((pubkey) => {
     const m = presence.people().find((x) => x.pubkey === pubkey);
     if (!m) return;
     choose(m);
-    controls.setTarget(m.name, [m.identity ? shortNpub(m.identity) : "A guest", "Their own key signed this name and picture for this visit.", "Open the menu and choose People to mute their voice or their music, or to block them."]);
+    // And what can be done about them is put in front of the visitor: the menu, on People.
+    controls.signal("show:people");
   });
   // Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world.
   controls.add({

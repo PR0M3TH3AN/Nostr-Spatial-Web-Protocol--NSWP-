@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.22.0
+
+Nostr names and pictures, first class.
+
+- **[NSWP-10](protocol/10-identity.md), "Pictures":** a pass may say where the visitor's picture is (`picture`, an `https` address): the one in their Nostr profile, put there by their own client and signed with everything else. A reader shows it over their name as a small round badge. It is a button: choosing it chooses the person and puts what can be done about them in front of the visitor. A guest has none, and a world never asks a relay about its visitors.
+- **Seeing pictures is the viewer's to turn off.** A picture is fetched from wherever its owner keeps it, which tells that place the viewer's address, as reading Nostr anywhere does. `pictures` is a setting that travels ([NSWP-11](protocol/11-the-visitors-console.md)), on unless they turned it off, with a switch under People in every world.
+- **In the kit:** `Member.picture`, `presence.personAt()` and `pressAt()`, `loadPicture()` (https only, nothing sent with the request, a size limit, redrawn small), `showsPictures()`, and `controls.signal("show:<section>")` to bring the menu up on a section. The reference worlds and the template press a picture like anything else pointed at.
+- **In BitPortal:** people are shown by the name they chose on Nostr, never by a string of hex: the visitor themselves on every page, and whoever signed a list or announced a world, with the short form of their key beside the name where which key it is matters. Profiles are kept in the browser and asked for again in the background. The visitor's own picture is on the sign-in page and beside their name. Their own room signs a pass for itself, so people sharing it see each other's names and pictures. Settings has the pictures switch.
+- **Fixed in BitPortal:** the Airlock's line saying how a visitor was going read "as a guest" for someone going by name, until they touched the choice.
+- **A limit:** a picture shows only if the place that holds it lets a web page read it. Most Nostr picture hosts do. One that doesn't is not shown, and nothing can be done about that from a page.
+- **Not built yet:** speech bubbles, a chat panel, profiles beyond a name and a picture. This is the ground they stand on.
+- **Status (2026-11-19):** not deployed. On the local server in Chrome, with the Airlock's throwaway test identity and one of a world's own images standing in for a picture: a guest saw the named visitor's name and picture over their figure, pressing the picture chose them and listed mute and block, and the switch turned pictures off. **Not tried:** a real profile picture from a real host, two real people, a headset.
+
 ## 0.21.1
 
 A phone or a headset on the same network can sign in and enter VR on a development server.

@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.21.1";
+  var KIT_VERSION = "0.22.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6343,6 +6343,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setTimeout(() => line.remove(), 4200);
     });
     const stop = controls2.subscribe(draw);
+    const stopAsking = controls2.onSignal((name) => {
+      if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
+    });
     const tick = setInterval(draw, 400);
     host.classList.add("arriving");
     setTimeout(() => host.classList.remove("arriving"), 1200);
@@ -6370,6 +6373,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       remove() {
         clearInterval(tick);
         stop();
+        stopAsking();
         stopSay();
         removeEventListener("keydown", onKey);
         removeEventListener("keydown", onSummonKey, listening);

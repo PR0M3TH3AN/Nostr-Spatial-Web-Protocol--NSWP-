@@ -51,7 +51,8 @@ It says: "at this site, until this time, the session key speaks for me."
 | `nswp:session` | The session public key, 64 hex characters. Never the identity key itself |
 | `nswp:origin` | The origin of the world the visitor is going to |
 | `expiration` | When the pass stops. 4 hours after `created_at` by default, 12 at most |
-| `name` | Optional. What the visitor chose to be called: one line, at most 48 characters |
+| `name` | Optional. What the visitor chose to be called: one line, at most 48 characters. A client that knows their Nostr profile uses the name in it |
+| `picture` | Optional. Where their picture is: an `https` address, at most 300 characters. The one in their Nostr profile ("Pictures", below) |
 
 The client hands the world two things in the arrival context
 ([NSWP-03](03-arrival.md)): `pass`, the signed event, and `sessionKey`, the
@@ -100,6 +101,37 @@ to show to anyone.
   is fifteen bits ([NSWP-05](05-looks.md)). What proves is the pass. What
   identifies is the key. So a reader that shows a name makes the key behind it
   one action away, in full.
+
+## Pictures
+
+Nostr is where people already have a name and a face. A visitor who goes by
+name brings both.
+
+- **A picture comes from a pass and from nowhere else.** The visitor's own
+  client reads it from their Nostr profile (kind 0, `picture`) and puts its
+  address on the pass. Their identity key signs the pass, so the picture is
+  theirs: nobody is given a face on someone else's say-so. A guest has none.
+- **Only an `https` address is a picture.** Anything else is ignored, and
+  the pass still stands. A world never asks a relay about its visitors to
+  find one: it would be a way to follow them, and the pass already says.
+- **A reader shows it with the name,** as a small round badge over it. It is
+  also a button: choosing the picture chooses the person, as choosing them
+  from a list does, and puts what can be done about them (their key, muting,
+  blocking) in front of the visitor.
+- **What is fetched is not trusted.** Nothing of the visitor's is sent with
+  the request, there is a limit on its size, and it is only ever drawn,
+  redrawn small. A picture that can't be read by a page (the place that
+  holds it doesn't allow it) is simply not shown.
+- **Showing pictures costs the viewer something, and is theirs to turn
+  off.** A picture is fetched from wherever its owner keeps it, so that
+  place learns the address of everyone who is shown it. Someone can put
+  their picture on a server of their own for exactly that. It is the same
+  as reading Nostr in any client, and a visitor who would rather not has one
+  switch, which goes with them from world to world (`pictures`,
+  [NSWP-11](11-the-visitors-console.md), "Settings that travel"). Off,
+  nothing is fetched.
+- **A picture proves nothing.** Like a name, anyone can use any picture.
+  What proves is the pass, and what identifies is the key.
 
 ## The mark
 
