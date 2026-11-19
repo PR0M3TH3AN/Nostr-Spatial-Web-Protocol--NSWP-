@@ -6119,7 +6119,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return at;
     };
     let cameFrom = null;
-    const setOpen = (next) => {
+    const setOpen = (next, at) => {
+      if (next && at) {
+        section = at;
+        chose = true;
+        if (open2) return void draw();
+      }
       if (open2 === next) return;
       if (next) {
         cameFrom = focused();
@@ -6231,6 +6236,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "travel", label: "Travel", icon: "door" },
     // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
     { id: "you", label: "You", icon: "you" },
+    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+    { id: "figure", label: "Your look", icon: "look" },
     { id: "room", label: "Room", icon: "room" },
     { id: "people", label: "People", icon: "people" },
     { id: "camera", label: "Camera", icon: "camera" },

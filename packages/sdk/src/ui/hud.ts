@@ -24,7 +24,8 @@ export interface Hud {
   /** The element on the page. */
   element: HTMLElement;
   readonly open: boolean;
-  setOpen(open: boolean): void;
+  /** Bring the menu up or put it away. `at` names the section to bring it up on. */
+  setOpen(open: boolean, at?: string): void;
   /** How much of the top and bottom of the window the HUD covers, in pixels. For placing a scene's picture clear of it. Nothing when it is quiet or hidden. */
   cover(): { top: number; bottom: number };
   /** Where each visible part of the HUD is, so a world can lay its own interface out around it. */
@@ -336,7 +337,13 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   };
   /** What had the keys when the menu came up: they go back to it when the menu goes away. */
   let cameFrom: HTMLElement | null = null;
-  const setOpen = (next: boolean) => {
+  const setOpen = (next: boolean, at?: string) => {
+    // Asked for by name: that section, whether the menu is up already or not.
+    if (next && at) {
+      section = at;
+      chose = true;
+      if (open) return void draw();
+    }
     if (open === next) return;
     if (next) {
       cameFrom = focused();
