@@ -75,6 +75,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .low { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px; }
 .target { max-width: min(92vw, 640px); padding: 6px 14px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .target:empty { visibility: hidden; }
+/* What is pointed at, with a few lines about it: a small card, always this size, never in the way of the thing itself. */
+.target.card { max-width: min(92vw, 460px); padding: 10px 16px; border-radius: 14px; white-space: normal; text-align: left; display: grid; gap: 3px; }
+.target.card b { font-weight: 650; }
+.target.card span { opacity: 0.86; font-size: 0.93em; line-height: 1.35; }
+.target.card span:last-child { opacity: 1; color: rgb(var(--accent)); }
 .hotbar { pointer-events: auto; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 12px 14px 8px; border-radius: 20px 20px 10px 10px; }
 .key { position: relative; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
 /* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
@@ -247,7 +252,13 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (key && view.keys.menu) key.textContent = view.keys.menu.toUpperCase();
     title.textContent = view.title;
     address.textContent = view.address;
-    if (target.textContent !== view.target) target.textContent = view.target;
+    const shown = [view.target, ...view.detail].join("\n");
+    if (target.dataset.shown !== shown) {
+      target.dataset.shown = shown;
+      target.classList.toggle("card", view.detail.length > 0);
+      if (view.detail.length) target.replaceChildren(el("b", {}, view.target), ...view.detail.map((line) => el("span", {}, line)));
+      else target.textContent = view.target;
+    }
 
     if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
     // Rebuilding the buttons would drop the keyboard's place among them, so only do it when something they show has changed.
