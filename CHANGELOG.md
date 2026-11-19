@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.30.2
+
+- **The menu's tabs say when there are more.** A world with many sections has more tabs than fit, and the strip scrolled sideways with no bar and no sign of it. An arrow now stands at whichever end has more, over a fade, and pressing it slides the strip; a mouse's wheel over the strip moves along it; and choosing a section brings its tab into sight.
+- **`npm run kits`** lists every site with the kit it was built with, and marks any that differ from this repo's: the public sites, or with `--local` the development server's copies. A world says its kit in its manifest; BitPortal in `/version.json`.
+
 ## 0.30.1
 
 - **The reference client sends no pass on arrival.** BitLogin's signer makes passes on its live site now, so BitPortal's Airlock names the visitor's signer and nothing else about them: a world's site learns nothing about a visitor until they sign in there. (The change is BitPortal's; the protocol's text now says so.)

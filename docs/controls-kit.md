@@ -643,6 +643,20 @@ Loading the kit live from one address into every world would mean one site's
 code running inside all of them, able to read how each visitor arrived. The
 template's checker refuses exactly that.
 
+So what keeps them together is knowing when they aren't. Every world says
+the kit it was built with, in its manifest (`"kit"`), and BitPortal says its
+own in `/version.json`. One command sets them side by side:
+
+```
+npm run kits              # the public sites
+npm run kits -- --local   # the copies on the development server
+```
+
+It lists each site with its kit, marks any that differ from this repo's, and
+exits 1 if any do. Run it before a deploy to see what is behind, and after
+one to see that it took. A portal on a newer kit than the worlds it sends
+people to is the case to avoid: deploy them in one sitting.
+
 ## Not built
 
 - **A look that follows the visitor from world to world.** Today each site

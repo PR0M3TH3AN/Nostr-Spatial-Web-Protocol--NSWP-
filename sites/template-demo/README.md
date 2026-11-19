@@ -33,4 +33,9 @@ as published): clone the template at that commit, copy this folder's
 `world.json`, `signed/` and `previews/` into the clone, run `npm run build`,
 and deploy `dist/`. Its announcement is published.
 
+On 2026-11-19 it was deployed again from template commit `5c7e9b9` (kit
+0.30.1), by that second way: this folder's `world.json`, `signed/` and
+`previews/` in a fresh clone, `npm run check`, and `dist/` deployed. Nothing
+was signed again.
+
 It is not built by `npm run build` here and has no code of its own.
