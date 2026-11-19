@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.3
+
+Worlds in other engines, starting with Godot. Nothing in the protocol changes: it never said how a world is drawn.
+
+- **`engines/nswp-engine.js`:** what makes a website a world, as one script with no rendering in it: how the visitor arrived, a door out, the way home. Text in and text out, since that is what any engine can pass to a page. It runs under the same strict content policy as the reference worlds.
+- **A Godot addon** (`engines/godot/addons/nswp/`): an `Nswp` autoload (`arrival`, `place()`, `go()`, `home()`, `doors()`) and an `NswpPortal` node for a door. It ends a headset session before a crossing and carries how the visitor moves.
+- **[docs/other-engines.md](docs/other-engines.md)** says what any engine has to do, and what it draws for itself.
+- **Not in it:** rooms (other visitors and their voices), and Unity or Unreal.
+- **Status (2026-11-18):** the script is built and tried in Chrome on a bare page: an ordinary link, a full arrival read and taken out of the address, a pass for this site giving a name and one for another site giving none, doors refused with a word for why, and `go`, `home` and `doors` each leading to the right Airlock address. **The Godot addon is written and has not been run:** Godot isn't on the machine this was written on.
+
 ## 0.15.2
 
 Signs that are the right size wherever you stand, a crossing that nothing pokes into, and a way to try builds on your own machine.
