@@ -14,7 +14,9 @@
     "nswp": "tsx packages/cli/src/index.ts",
     "bridge": "tsx packages/bridge/src/index.ts",
     "previews": "node scripts/capture-previews.mjs",
-    "deploy:sites": "node scripts/deploy-sites.mjs"
+    "deploy:sites": "node scripts/deploy-sites.mjs",
+    "build:engine": "node scripts/build-engine.mjs",
+    "engine:check": "node scripts/build-engine.mjs --check"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
