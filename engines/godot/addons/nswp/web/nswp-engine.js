@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.23.0";
+  var KIT_VERSION = "0.24.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4094,15 +4094,16 @@ var NSWP = (() => {
     [65529, 65531]
   ];
   var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
-  function cleanChat(text) {
+  function cleanLine(text, chars) {
     if (typeof text !== "string")
       return "";
     let out = "";
-    for (const ch of text.slice(0, CHAT_LIMITS.chars * 8).normalize("NFC"))
+    for (const ch of text.slice(0, chars * 8).normalize("NFC"))
       out += unseen(ch.codePointAt(0)) ? " " : ch;
     out = out.replace(/\s+/g, " ").trim();
-    return [...out].slice(0, CHAT_LIMITS.chars).join("").trim();
+    return [...out].slice(0, chars).join("").trim();
   }
+  var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
 
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {
@@ -4124,6 +4125,8 @@ var NSWP = (() => {
     nameChars: 48,
     /** The longest address a picture may have. */
     pictureChars: 300,
+    /** The most a pass says about its holder, in their own words. */
+    aboutChars: 280,
     /** A pass as JSON, as it travels between the members of a room. */
     chars: 4e3
   };
@@ -4143,6 +4146,7 @@ var NSWP = (() => {
       return "";
     }
   }
+  var cleanAbout = (about) => cleanLine(about, PASS_LIMITS.aboutChars);
   function verifyRoomPass(event, opts) {
     const c = new Collector();
     if (!verifyEvent(event)) {
@@ -4200,11 +4204,15 @@ var NSWP = (() => {
     const name = cleanName(raw);
     if (raw !== name)
       c.warn("name_cleaned", "tags.name", "The name was tidied before being shown.");
-    const shown2 = getTags(event, "picture")[0]?.[1] ?? "";
-    const picture = cleanPicture(shown2);
-    if (shown2 && !picture)
+    const shown3 = getTags(event, "picture")[0]?.[1] ?? "";
+    const picture = cleanPicture(shown3);
+    if (shown3 && !picture)
       c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
-    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, expiresAt, id: event.id });
+    const told = getTags(event, "about")[0]?.[1] ?? "";
+    const about = cleanAbout(told);
+    if (told !== about)
+      c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
+    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, about, expiresAt, id: event.id });
   }
 
   // packages/core/dist/bridge.js
@@ -4949,6 +4957,8 @@ var NSWP = (() => {
     "micOff",
     "notice",
     // the kit has something to say
+    "chat",
+    // someone in the room wrote something: heard from where they stand
     "error"
   ];
   var tone = (from, to, at, dur, gain, wave = "sine") => ({
@@ -4978,6 +4988,9 @@ var NSWP = (() => {
     micOn: [tone(600, 900, 0, 0.08, 0.14)],
     micOff: [tone(900, 600, 0, 0.08, 0.14)],
     notice: [tone(1046.5, void 0, 0, 0.08, 0.09), tone(1318.5, void 0, 0.08, 0.12, 0.08)],
+    // Two soft syllables, low and falling at the end, with a breath in front: somebody said something. It is two
+    // octaves under the kit's own notice, which is high, clean and rises, so the two are never taken for each other.
+    chat: [noise(1900, 0, 0.03, 0.06), tone(360, 440, 5e-3, 0.07, 0.15, "triangle"), tone(330, 262, 0.1, 0.11, 0.13, "triangle")],
     error: [tone(220, void 0, 0, 0.11, 0.13, "square"), tone(185, void 0, 0.14, 0.14, 0.13, "square")]
   };
   function cueRecipe(cue) {
@@ -5082,6 +5095,16 @@ var NSWP = (() => {
     return name.slice(0, 60) || "a piece with no name";
   }
   var STEP_LEVEL = 0.45;
+  var HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 };
+  function heardFrom(place) {
+    const d = Number.isFinite(place.distance) ? Math.max(0, place.distance) : HEARD.far;
+    const beyond = Math.max(0, d - HEARD.near);
+    const gain = Math.max(HEARD.floor, 1 / (1 + (beyond / HEARD.fall) ** 2));
+    const along = Math.min(1, beyond / (HEARD.far - HEARD.near));
+    const cutoff = Math.round(7e3 * (1100 / 7e3) ** along);
+    const side = Number.isFinite(place.pan) ? Math.max(-1, Math.min(1, place.pan)) : 0;
+    return { gain: Math.round(gain * 1e3) / 1e3, cutoff, pan: Math.round(side * 0.8 * 100) / 100, rate: 1 };
+  }
   function stepShape(foot, random = Math.random) {
     const right = Math.abs(Math.trunc(foot)) % 2 === 1;
     const side = right ? 1 : -1;
@@ -5191,7 +5214,7 @@ var NSWP = (() => {
   }
 
   // packages/sdk/src/sound.ts
-  var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25 };
+  var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
   var STRIDE = 0.75;
   var JUMP = 1.2;
   function createSounds(o = {}) {
@@ -5325,8 +5348,8 @@ var NSWP = (() => {
     const loadInto = (into, files2) => {
       for (const [cue, addresses] of Object.entries(files2)) {
         for (const address of addresses ?? []) {
-          void loadCue(address).then((loaded) => {
-            if (loaded) into.set(cue, [...into.get(cue) ?? [], loaded]);
+          void loadCue(address).then((loaded2) => {
+            if (loaded2) into.set(cue, [...into.get(cue) ?? [], loaded2]);
           });
         }
       }
@@ -5371,13 +5394,13 @@ var NSWP = (() => {
       } else level2.connect(effects);
       return soft;
     };
-    const play2 = (cue) => {
+    const play2 = (cue, from) => {
       if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
       if (theme.cues[cue] === null) return;
       const now = ctx.currentTime;
       if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
       last.set(cue, now);
-      const shape = cue === "step" ? stepShape(foot++) : null;
+      const shape = cue === "step" ? stepShape(foot++) : from ? heardFrom(from) : null;
       const out = shape ? shaped(shape) : effects;
       const files2 = own.get(cue) ?? fromKit.get(cue);
       if (files2?.length) {
@@ -5954,6 +5977,92 @@ var NSWP = (() => {
     people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
   };
 
+  // packages/sdk/src/picture.ts
+  var PICTURES_KEY = "nswp:pictures";
+  var PICTURE_LIMITS = { bytes: 3e6, size: 128, waitMs: 9e3 };
+  var shown = null;
+  function showsPictures() {
+    if (shown !== null) return shown;
+    const came = arrivedSettings().pictures;
+    let kept = null;
+    try {
+      kept = localStorage.getItem(PICTURES_KEY);
+    } catch {
+    }
+    shown = came ?? kept !== "0";
+    if (came !== void 0) keep2(shown);
+    reportSettings("pictures", () => ({ pictures: showsPictures() }));
+    return shown;
+  }
+  var keep2 = (on) => {
+    try {
+      if (on) localStorage.removeItem(PICTURES_KEY);
+      else localStorage.setItem(PICTURES_KEY, "0");
+    } catch {
+    }
+  };
+  function badge(image, width, height) {
+    const size = PICTURE_LIMITS.size;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext("2d");
+    g.beginPath();
+    g.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
+    g.closePath();
+    g.clip();
+    const side = Math.min(width, height);
+    g.drawImage(image, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
+    return canvas;
+  }
+  async function byFetch(url) {
+    const res = await fetch(url, { mode: "cors", credentials: "omit", referrerPolicy: "no-referrer", redirect: "follow", signal: AbortSignal.timeout(PICTURE_LIMITS.waitMs) });
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "";
+    if (!/^image\/(png|jpeg|webp|gif|avif)\b/i.test(type)) return null;
+    if (Number(res.headers.get("content-length") ?? 0) > PICTURE_LIMITS.bytes) return null;
+    const blob = await res.blob();
+    if (blob.size > PICTURE_LIMITS.bytes) return null;
+    const bitmap = await createImageBitmap(blob);
+    try {
+      return badge(bitmap, bitmap.width, bitmap.height);
+    } finally {
+      bitmap.close();
+    }
+  }
+  function byImage(url) {
+    return new Promise((done) => {
+      const img = new Image();
+      const timer = setTimeout(() => done(null), PICTURE_LIMITS.waitMs);
+      img.crossOrigin = "anonymous";
+      img.referrerPolicy = "no-referrer";
+      img.decoding = "async";
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          done(img.naturalWidth > 0 && img.naturalWidth <= 8192 && img.naturalHeight <= 8192 ? badge(img, img.naturalWidth, img.naturalHeight) : null);
+        } catch {
+          done(null);
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        done(null);
+      };
+      img.src = url;
+    });
+  }
+  var loaded = /* @__PURE__ */ new Map();
+  function loadPicture(address) {
+    const url = cleanPicture(address);
+    if (!url || !showsPictures() || typeof document === "undefined") return Promise.resolve(null);
+    let asked = loaded.get(url);
+    if (!asked) {
+      asked = byFetch(url).catch(() => null).then((got) => got ?? byImage(url)).catch(() => null);
+      loaded.set(url, asked);
+    }
+    return asked;
+  }
+
   // packages/sdk/src/ui/summon.ts
   var SUMMON_KEY = "Backquote";
   var SUMMON_HOLD = 600;
@@ -6169,6 +6278,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
 .row.warn { color: rgb(var(--warn)); }
 .row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
+/* Who a section is about: a face, a name, how they are known, and what they say of themselves, set apart as theirs. */
+.card { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: center; padding: 12px; border-radius: 16px 16px 8px 8px;
+  border: 1px solid rgba(var(--accent), .45); background: rgba(var(--accent), .07); }
+.card .face { grid-row: span 2; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
+.card .face canvas { width: 100%; height: 100%; display: block; }
+.card h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.card .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
+.card .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
+.card .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
+.card .keyline button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
+.card .keyline button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.card blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
+.card .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
+
 .note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
 .note:empty { display: none; }
 .foot { display: flex; justify-content: flex-end; padding: 0 12px 12px; }
@@ -6278,6 +6402,36 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let chose = false;
     let drawn = "";
     const press = (item) => controls2.run(item.id);
+    const drawCard = (card) => {
+      const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
+      if (card.color) face.style.setProperty("--c", card.color);
+      if (card.picture) {
+        void loadPicture(card.picture).then((drawn2) => {
+          if (!drawn2 || !face.isConnected) return;
+          const copy = document.createElement("canvas");
+          copy.width = drawn2.width;
+          copy.height = drawn2.height;
+          copy.getContext("2d")?.drawImage(drawn2, 0, 0);
+          face.replaceChildren(copy);
+        });
+      }
+      const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
+      copyKey?.addEventListener("click", () => {
+        void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
+          () => controls2.say("Their key is copied, in full."),
+          () => controls2.say(`Their key: ${card.copy}`)
+        );
+      });
+      return el(
+        "div",
+        { class: "card", role: "group", "aria-label": `About ${card.title}` },
+        face,
+        el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag)),
+        el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey),
+        card.text && el("blockquote", {}, card.text),
+        card.now.length > 0 && el("p", { class: "now" }, card.now.join(", "))
+      );
+    };
     let chatState = "closed";
     let chatDrawn = "";
     let chatNewest = "";
@@ -6391,9 +6545,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
       title.textContent = view2.title;
       address.textContent = view2.address;
-      const shown2 = [view2.target, ...view2.detail].join("\n");
-      if (target2.dataset.shown !== shown2) {
-        target2.dataset.shown = shown2;
+      const shown3 = [view2.target, ...view2.detail].join("\n");
+      if (target2.dataset.shown !== shown3) {
+        target2.dataset.shown = shown3;
         target2.classList.toggle("card", view2.detail.length > 0);
         if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line) => el("span", {}, line)));
         else target2.textContent = view2.target;
@@ -6440,6 +6594,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       };
       const swatches = (current?.items ?? []).filter((i) => i.kind === "swatch");
       rows.replaceChildren(
+        current?.card ? drawCard(current.card) : "",
         swatches.length ? el("div", { class: "swatches" }, ...swatches.map(drawSwatch)) : "",
         ...(current?.items ?? []).filter((i) => i.kind !== "swatch").map((item) => {
           const b = el(
@@ -6454,7 +6609,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return b;
         })
       );
-      rows.hidden = !current?.items.length;
+      rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
       sheet.hidden = !open2;
       menu2.setAttribute("aria-expanded", String(open2));
@@ -6538,7 +6693,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const stop = controls2.subscribe(draw);
     const stopAsking = controls2.onSignal((name) => {
       if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
-      if (name === "chat" && !host.hidden) setChatOpen(chatState !== "open");
+      if (name === "toggle:chat" && !host.hidden) setChatOpen(chatState !== "open");
     });
     const tick = setInterval(draw, 400);
     host.classList.add("arriving");
@@ -6592,22 +6747,22 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
   // packages/sdk/src/ui/chat.ts
   var CHAT_KEY = "nswp:chat";
-  var shown = null;
+  var shown2 = null;
   var watchers2 = /* @__PURE__ */ new Set();
   function showsChat() {
-    if (shown !== null) return shown;
+    if (shown2 !== null) return shown2;
     const came = arrivedSettings().chat;
     let kept = null;
     try {
       kept = localStorage.getItem(CHAT_KEY);
     } catch {
     }
-    shown = came ?? kept !== "0";
-    if (came !== void 0) keep2(shown);
+    shown2 = came ?? kept !== "0";
+    if (came !== void 0) keep3(shown2);
     reportSettings("chat", () => ({ chat: showsChat() }));
-    return shown;
+    return shown2;
   }
-  var keep2 = (on) => {
+  var keep3 = (on) => {
     try {
       if (on) localStorage.removeItem(CHAT_KEY);
       else localStorage.setItem(CHAT_KEY, "0");
@@ -6804,12 +6959,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }).finally(changed);
         return true;
       },
-      setTheme(patch, keep4 = false) {
-        if (keep4) {
+      setTheme(patch, keep5 = false) {
+        if (keep5) {
           visitor = { ...visitor, ...patch };
           saveVisitorTheme(visitor);
         }
-        theme = resolveTheme({ ...opts.theme, ...keep4 ? {} : patch }, visitor);
+        theme = resolveTheme({ ...opts.theme, ...keep5 ? {} : patch }, visitor);
         changed();
       },
       view() {
@@ -6826,7 +6981,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           address: opts.address ?? "",
           target: target2,
           detail,
-          sections: [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) })).filter((s) => s.items.length > 0 || s.note),
+          sections: [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) })).filter((s) => s.items.length > 0 || s.note || s.card),
           hotbar: bar.map(item),
           theme,
           presence: presence2,
@@ -6857,20 +7012,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       chat
     };
-    const keep3 = (patch) => controls2.setTheme(patch, true);
+    const keep4 = (patch) => controls2.setTheme(patch, true);
     controls2.add(
       ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep3({ accent: p.accent }) })
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep4({ accent: p.accent }) })
       ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep3({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep3({ motion: !theme.motion }) },
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep4({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep4({ motion: !theme.motion }) },
       {
         id: "look-wrist",
         section: "look",
         icon: "menu",
         label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
         on: () => theme.wrist !== "off",
-        act: () => keep3({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+        act: () => keep4({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
       },
       { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
         visitor = {};

@@ -35,6 +35,8 @@ import {
   nextVariant,
   pieceName,
   stepShape,
+  heardFrom,
+  type SoundPlace,
   type StepShape,
   type KitSounds,
   cleanSongs,
@@ -57,7 +59,7 @@ import {
 import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls } from "./ui/model.js";
 
-export { CUES, type Cue, type Song, type SoundLevels, type SoundTheme } from "./sound-store.js";
+export { CUES, type Cue, type Song, type SoundLevels, type SoundPlace, type SoundTheme } from "./sound-store.js";
 
 export interface SoundsOptions {
   /** The page's sound context, if it has one already (three.js keeps one: `THREE.AudioContext.getContext()`). */
@@ -99,8 +101,11 @@ export interface Jukebox {
 }
 
 export interface Sounds {
-  /** Play a cue: the world's, the default, or nothing if it is silenced or the visitor has effects off. */
-  play(cue: Cue): void;
+  /**
+   * Play a cue: the world's, the default, or nothing if it is silenced or the visitor has effects off. With
+   * `from`, it is heard from where somebody stands: quieter and duller the further off, and to their side.
+   */
+  play(cue: Cue, from?: SoundPlace): void;
   /**
    * Tell it how far the visitor was moved this frame, in metres: it makes
    * the steps. A long way at once is a jump, and lands. Give it what moved
@@ -132,7 +137,7 @@ export interface Sounds {
 }
 
 /** The least time between two of the same cue, in seconds: so held keys and busy frames don't make a buzz. */
-const GAP: Partial<Record<Cue, number>> = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25 };
+const GAP: Partial<Record<Cue, number>> = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
 /** How far a visitor walks between steps, in metres. */
 const STRIDE = 0.75;
 /** Being moved further than this in one frame is a jump. */
@@ -341,14 +346,15 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     } else level.connect(effects);
     return soft;
   };
-  const play = (cue: Cue) => {
+  const play = (cue: Cue, from?: SoundPlace) => {
     if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
     if (theme.cues[cue] === null) return; // the world wants this one silent
     const now = ctx.currentTime;
     if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
     last.set(cue, now);
     // A footstep is quieter than any other cue, and no two are alike (sound-store.ts, stepShape).
-    const shape = cue === "step" ? stepShape(foot++) : null;
+    // And one made by somebody is heard from where they stand (heardFrom).
+    const shape = cue === "step" ? stepShape(foot++) : from ? heardFrom(from) : null;
     const out = shape ? shaped(shape) : effects;
     const files = own.get(cue) ?? fromKit.get(cue);
     if (files?.length) {

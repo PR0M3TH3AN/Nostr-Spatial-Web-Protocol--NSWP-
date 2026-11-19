@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.24.0
+
+Profile cards, and a sound when someone writes.
+
+- **[NSWP-10](protocol/10-identity.md), "Who someone is":** choosing a person, from People or by the picture over their head, shows a card about them: their picture, their name, whether they came by name or as a guest, the short form of their key with the whole of it to copy, and what they wrote about themselves. Muting and blocking are beside it. It is the same card in the menu on a desk or a phone and on the console in a headset.
+- **A pass may carry `about`:** the start of what the visitor wrote about themselves in their Nostr profile, put there by their own client and signed with the rest. One line of plain text, 280 characters at most, cleaned again by whoever reads it. It is their own words and is drawn as a quotation, never as a fact: anyone can write anything about themselves. A world still never asks a relay about a visitor.
+- **A sound when someone writes** (`chat`), made in the browser like the other defaults: two soft low syllables, two octaves under the kit's own notice. It is heard from where the writer stands: quieter and duller the further off, to the side they are on, and never silent. It follows the visitor's effects volume, a world can replace or silence it, and it isn't played while they have written chat off. No sound file was added.
+- **In the kit:** `Member.about`, a `card` on any section of the menu (`UiCard`), `presence.whereIs()`, `sounds.play(cue, { distance, pan })`, `heardFrom()`, and in the library `cleanAbout`, `cleanLine`. The signal that opens the chat panel is now `toggle:chat`, since `chat` is a cue.
+- **In BitPortal:** a profile's `about` is read with its name and picture, and goes on the pass of someone going by name.
+- **Not built:** a web address or a NIP-05 name on a card (a NIP-05 name on a pass would be the holder's own claim; checking one tells the domain who is looking), following or messaging from a card, cards on BitPortal's own pages.
+
 ## 0.23.0
 
 Speech bubbles and a chat panel: the people in a room can write to each other.

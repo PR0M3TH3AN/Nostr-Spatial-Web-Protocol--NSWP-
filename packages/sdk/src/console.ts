@@ -28,6 +28,7 @@
  */
 import * as THREE from "three";
 import { ICONS, type IconName } from "./ui/icons.js";
+import { loadPicture } from "./picture.js";
 import type { Controls, UiItemView, UiView } from "./ui/model.js";
 import { rgb } from "./ui/theme.js";
 
@@ -43,7 +44,7 @@ export interface XrConsole {
   /** Call every frame. `presenting` is whether a headset session is running. */
   update(dt: number, camera: THREE.Camera, presenting: boolean): void;
   /** What it shows right now, in words. For tests. */
-  describe(): { showing: boolean; open: boolean; mount: "wrist" | "floating"; section: string; sections: string[]; buttons: string[]; note: string };
+  describe(): { showing: boolean; open: boolean; mount: "wrist" | "floating"; section: string; sections: string[]; buttons: string[]; note: string; card: string };
   /** Press the thing with these words: a button, a section, "Menu" or "Close". For tests. */
   pressLabelled(label: string): boolean;
 }
@@ -197,6 +198,21 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     openerTexture.needsUpdate = true;
   };
 
+  /** Pictures for the card at the head of a section, by where each is: fetched once, the kit's way, and only drawn. */
+  const faces = new Map<string, HTMLCanvasElement | null>();
+  const faceOf = (address: string): HTMLCanvasElement | null => {
+    if (!faces.has(address)) {
+      faces.set(address, null);
+      void loadPicture(address).then((drawn) => {
+        if (!drawn) return;
+        faces.set(address, drawn);
+        painted = ""; // drawn again, with the picture in it
+        if (group.visible) paint();
+      });
+    }
+    return faces.get(address) ?? null;
+  };
+
   /** Draw the whole console: header, sections down the left, the open section's buttons, its note. */
   const paint = () => {
     const view: UiView = controls.view();
@@ -299,13 +315,77 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     const noteH = noteLines.length ? noteLines.length * 32 + 20 : 0;
     const left = 284;
     const areaW = W - left - 30;
+
+    // Who the section is about, at its head: a face, a name, how they are known, and what they say of themselves.
+    const card = current?.card ?? null;
+    const cardH = card ? (card.text ? 162 : 112) : 0;
+    if (card) {
+      const y = 138;
+      g.beginPath();
+      g.roundRect(left, y, areaW, cardH - 12, [22, 22, 8, 8]);
+      g.fillStyle = `rgba(${A}, 0.08)`;
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = `rgba(${A}, 0.5)`;
+      g.stroke();
+      const face = card.picture ? faceOf(card.picture) : null;
+      const cx = left + 58;
+      const cy = y + 50;
+      g.save();
+      g.beginPath();
+      g.arc(cx, cy, 36, 0, Math.PI * 2);
+      g.closePath();
+      g.fillStyle = card.color || `rgba(${I}, 0.25)`;
+      g.fill();
+      if (face) {
+        g.clip();
+        g.drawImage(face, cx - 36, cy - 36, 72, 72);
+      } else {
+        g.fillStyle = t.glass;
+        g.font = `700 ${Math.round(40 * k)}px ${SANS}`;
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText([...card.title][0]?.toUpperCase() ?? "", cx, cy + 2);
+        g.textAlign = "left";
+        g.textBaseline = "alphabetic";
+      }
+      g.restore();
+      const tx = left + 116;
+      g.font = `650 ${Math.round(32 * k)}px ${SANS}`;
+      g.fillStyle = t.ink;
+      const name = fit(g, card.title, areaW - 300);
+      g.fillText(name, tx, y + 43);
+      if (card.tag) {
+        const nameW = g.measureText(name).width;
+        g.font = `500 ${Math.round(21 * k)}px ${SANS}`;
+        const tagW = g.measureText(card.tag).width + 26;
+        g.beginPath();
+        g.roundRect(tx + nameW + 16, y + 17, tagW, 34, 17);
+        g.lineWidth = 2;
+        g.strokeStyle = card.proven ? `rgba(${A}, 0.9)` : `rgba(${I}, 0.35)`;
+        g.stroke();
+        g.fillStyle = card.proven ? t.accent : `rgba(${I}, 0.8)`;
+        g.fillText(card.tag, tx + nameW + 29, y + 41);
+      }
+      g.font = `400 ${Math.round(22 * k)}px ${card.copy ? MONO : SANS}`;
+      g.fillStyle = `rgba(${I}, 0.7)`;
+      g.fillText(fit(g, [card.sub, ...card.now].join("   "), areaW - 140), tx, y + 78);
+      if (card.text) {
+        g.fillStyle = `rgba(${A}, 0.7)`;
+        g.fillRect(left + 20, y + 96, 3, 48);
+        g.font = `400 ${Math.round(22 * k)}px ${SANS}`;
+        g.fillStyle = `rgba(${I}, 0.9)`;
+        wrap(g, card.text, areaW - 60, 2).forEach((line, i) => g.fillText(line, left + 34, y + 114 + i * 26));
+      }
+    }
+
     const cols = items.length > 8 ? 3 : 2;
     const rowsN = Math.max(1, Math.ceil(items.length / cols));
     const cellW = (areaW - (cols - 1) * 14) / cols;
-    const cellH = Math.min(96, (H - 150 - noteH - (rowsN - 1) * 12) / rowsN);
+    const cellH = Math.min(96, (H - 150 - noteH - cardH - (rowsN - 1) * 12) / rowsN);
     items.forEach((item, i) => {
       const x = left + (i % cols) * (cellW + 14);
-      const y = 138 + Math.floor(i / cols) * (cellH + 12);
+      const y = 138 + cardH + Math.floor(i / cols) * (cellH + 12);
       const tone = item.tone === "warn" ? rgb(t.warn) : A;
       button({ id: `act:${item.id}`, x, y, w: cellW, h: cellH, label: item.label }, (hot) => {
         g.beginPath();
@@ -524,6 +604,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         sections: open ? view.sections.map((s) => s.label) : [],
         buttons: open ? (current?.items.map((i) => i.label) ?? []) : opener.visible ? ["Menu"] : [],
         note: open ? (current?.note ?? "") : "",
+        card: open ? (current?.card?.title ?? "") : "",
       };
     },
     pressLabelled(label) {

@@ -582,7 +582,7 @@ const goodPass = sign(buildRoomPass({ session: PK3, origin: `${MUSEUM}/world`, n
 const rawPass = (tags: string[][], kind = 27300): NostrEvent => sign({ kind, created_at: T0, tags, content: "" });
 const passTags = (over: Record<string, string | null> = {}): string[][] =>
   Object.entries({ "nswp:session": PK3, "nswp:origin": MUSEUM, expiration: String(T0 + 4 * 3600), ...over }).flatMap(([k, v]) => (v === null ? [] : [[k, v]]));
-type PassVector = { name: string; description: string; event: unknown; origin: string; now: number; session?: string; expect: { valid: boolean; errors: string[]; warnings: string[]; pubkey?: string; name?: string; picture?: string } };
+type PassVector = { name: string; description: string; event: unknown; origin: string; now: number; session?: string; expect: { valid: boolean; errors: string[]; warnings: string[]; pubkey?: string; name?: string; picture?: string; about?: string } };
 const passVectors: PassVector[] = [
   { name: "valid", description: "Key 1 says the session key speaks for it at the museum, for four hours.", event: goodPass, origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "Alice" } },
   { name: "valid_without_a_name", description: "A name is optional. Without one a reader shows the key.", event: sign(buildRoomPass({ session: PK3, origin: MUSEUM, createdAt: T0 })), origin: MUSEUM, now: T0 + 60, session: PK3, expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "" } },
@@ -613,6 +613,24 @@ const passVectors: PassVector[] = [
     session: PK3,
     expect: { valid: true, errors: [], warnings: ["picture_ignored"], pubkey: PK1, name: "Alice", picture: "" },
   },
+  {
+    name: "with_a_few_words_about_them",
+    description: "What they wrote about themselves in their profile: their own words, signed with everything else.",
+    event: sign(buildRoomPass({ session: PK3, origin: MUSEUM, name: "Alice", about: "Keeper of the east wing. Ask me about the clocks.", createdAt: T0 })),
+    origin: MUSEUM,
+    now: T0 + 60,
+    session: PK3,
+    expect: { valid: true, errors: [], warnings: [], pubkey: PK1, name: "Alice", about: "Keeper of the east wing. Ask me about the clocks." },
+  },
+  {
+    name: "what_they_wrote_is_tidied",
+    description: "Line breaks, something that would reverse the text, and more than 280 characters: tidied and cut short, not refused.",
+    event: rawPass([...passTags(), ["name", "Alice"], ["about", `Hello\n\nthere ${String.fromCodePoint(0x202e)}friend ${"y".repeat(400)}`]]),
+    origin: MUSEUM,
+    now: T0 + 60,
+    session: PK3,
+    expect: { valid: true, errors: [], warnings: ["about_cleaned"], pubkey: PK1, name: "Alice", about: `Hello there friend ${"y".repeat(261)}` },
+  },
   { name: "another_site", description: "A pass made for the museum is worth nothing anywhere else.", event: goodPass, origin: "https://other.example", now: T0 + 60, session: PK3, expect: { valid: false, errors: ["origin_mismatch"], warnings: [] } },
   { name: "another_session_key", description: "A member showing someone else's pass: it names a session key they aren't using.", event: goodPass, origin: MUSEUM, now: T0 + 60, session: PK2, expect: { valid: false, errors: ["session_mismatch"], warnings: [] } },
   { name: "expired", description: "Five hours on.", event: goodPass, origin: MUSEUM, now: T0 + 5 * 3600, session: PK3, expect: { valid: false, errors: ["pass_expired"], warnings: [] } },
@@ -630,6 +648,7 @@ for (const v of passVectors) {
   expectEqual(`pass/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
   if (r.ok) expectEqual(`pass/${v.name} who`, [r.value.pubkey, r.value.name], [v.expect.pubkey, v.expect.name]);
   if (r.ok && v.expect.picture !== undefined) expectEqual(`pass/${v.name} picture`, r.value.picture, v.expect.picture);
+  if (r.ok && v.expect.about !== undefined) expectEqual(`pass/${v.name} about`, r.value.about, v.expect.about);
 }
 
 // ---------------------------------------------------------------------- grants

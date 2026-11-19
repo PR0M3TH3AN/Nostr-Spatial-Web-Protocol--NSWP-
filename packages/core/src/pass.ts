@@ -8,6 +8,7 @@
  * key. Anyone who checks the pass knows which identity is behind the session
  * key, and the identity key itself never leaves the client.
  */
+import { cleanLine } from "./chat.js";
 import { getTags, isHex64, nowSeconds, verifyEvent, type EventTemplate } from "./event.js";
 import { Collector, type Result } from "./result.js";
 import { ROOM_PASS_KIND } from "./room.js";
@@ -20,6 +21,8 @@ export const PASS_LIMITS = {
   nameChars: 48,
   /** The longest address a picture may have. */
   pictureChars: 300,
+  /** The most a pass says about its holder, in their own words. */
+  aboutChars: 280,
   /** A pass as JSON, as it travels between the members of a room. */
   chars: 4000,
 } as const;
@@ -56,6 +59,14 @@ export function cleanPicture(url: unknown): string {
   }
 }
 
+/**
+ * A few words someone wrote about themselves, as they may be shown: one line
+ * of plain text, nothing invisible that reorders or hides it, at most 280
+ * characters. Returns "" when nothing is left. It is their own say about
+ * themselves and nothing more: a reader shows it as theirs, never as a fact.
+ */
+export const cleanAbout = (about: unknown): string => cleanLine(about, PASS_LIMITS.aboutChars);
+
 /** A seed that is a public key is a claim to that key. Only a pass makes the claim good. */
 export function claimsKey(seed: string): boolean {
   return /^[0-9a-f]{64}$/i.test(seed);
@@ -70,6 +81,8 @@ export interface RoomPassInput {
   name?: string;
   /** Where their picture is: the one in their Nostr profile. Left out unless it is an https address. */
   picture?: string;
+  /** A few words about themselves, from their Nostr profile. Cleaned and cut short; left out when nothing is left. */
+  about?: string;
   createdAt?: number;
   ttlSec?: number;
 }
@@ -87,6 +100,8 @@ export function buildRoomPass(input: RoomPassInput): EventTemplate {
   if (name) tags.push(["name", name]);
   const picture = cleanPicture(input.picture);
   if (picture) tags.push(["picture", picture]);
+  const about = cleanAbout(input.about);
+  if (about) tags.push(["about", about]);
   return { kind: ROOM_PASS_KIND, created_at: created, tags, content: "" };
 }
 
@@ -106,6 +121,8 @@ export interface VerifiedPass {
   name: string;
   /** Where their picture is, or "" for none. It is theirs because their own key signed it; what is there is not checked. */
   picture: string;
+  /** What they wrote about themselves, cleaned, or "" for none. Their own words, not a fact. */
+  about: string;
   expiresAt: number;
   id: string;
 }
@@ -160,5 +177,8 @@ export function verifyRoomPass(event: unknown, opts: VerifyPassOptions): Result<
   const shown = getTags(event, "picture")[0]?.[1] ?? "";
   const picture = cleanPicture(shown);
   if (shown && !picture) c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
-  return c.result({ pubkey: event.pubkey, session: session ?? "", name, picture, expiresAt, id: event.id });
+  const told = getTags(event, "about")[0]?.[1] ?? "";
+  const about = cleanAbout(told);
+  if (told !== about) c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
+  return c.result({ pubkey: event.pubkey, session: session ?? "", name, picture, about, expiresAt, id: event.id });
 }
