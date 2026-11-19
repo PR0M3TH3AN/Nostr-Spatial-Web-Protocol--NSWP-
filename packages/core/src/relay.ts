@@ -19,6 +19,75 @@ export interface Filter {
 // announcements. relay.damus.io refused WebSocket upgrades from our test network.
 export const DEFAULT_RELAYS = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"];
 
+/** A person's own relay list (NIP-65): the relays they say they write to and read from. */
+export const RELAY_LIST_KIND = 10002;
+
+export interface RelayList {
+  /** Where they publish: where their notes are sent, and where to look for them. */
+  write: string[];
+  /** Where they read: where a note that mentions them is sent. */
+  read: string[];
+}
+
+/**
+ * A relay's address as it may be connected to: `wss`, a real host name, no
+ * credentials, at most 200 characters. "" for anything else. A list is
+ * someone's own say, and still only an address on the open web is dialled:
+ * never plain `ws`, a bare machine name, or a number for a machine.
+ */
+export function cleanRelayUrl(url: unknown): string {
+  if (typeof url !== "string" || url.length > 200) return "";
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname;
+    if (u.protocol !== "wss:" || u.username || u.password) return "";
+    if (!host.includes(".") || host.startsWith("[") || /^[0-9.]+$/.test(host) || /\.(local|localhost|internal|lan|home)$/i.test(host)) return "";
+    u.hash = "";
+    return u.href.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Read someone's relay list out of what relays returned: their newest kind
+ * 10002 event, its `r` tags, cleaned, with no relay twice and at most `max`
+ * of each. A tag with no marker is both. Null when they have published none.
+ * The events are taken as already checked (`queryRelays` checks every
+ * signature); whose they are is checked here.
+ */
+export function readRelayList(events: NostrEvent[], pubkey: string, max = 8): RelayList | null {
+  const latest = events.filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === pubkey).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+  if (!latest) return null;
+  const write: string[] = [];
+  const read: string[] = [];
+  for (const t of latest.tags) {
+    if (t[0] !== "r") continue;
+    const url = cleanRelayUrl(t[1]);
+    if (!url) continue;
+    if ((t[2] === undefined || t[2] === "" || t[2] === "write") && !write.includes(url) && write.length < max) write.push(url);
+    if ((t[2] === undefined || t[2] === "" || t[2] === "read") && !read.includes(url) && read.length < max) read.push(url);
+  }
+  return { write, read };
+}
+
+/**
+ * Where one of someone's notes is sent, and where theirs are looked for
+ * (NIP-65): the relays they write to. A list too thin to count on (fewer
+ * than two) is filled out from `fallback`, to four in all; with no list, it
+ * is `fallback`. `own` says how many of them are the person's own.
+ */
+export function writeRelaysFor(list: RelayList | null, fallback: string[]): { relays: string[]; own: number } {
+  const own = (list?.write ?? []).slice(0, 6);
+  if (own.length >= 2) return { relays: own, own: own.length };
+  const relays = [...own];
+  for (const url of fallback) {
+    if (relays.length >= 4) break;
+    if (!relays.includes(url)) relays.push(url);
+  }
+  return { relays, own: own.length };
+}
+
 export interface QueryResult {
   events: NostrEvent[];
   /** Per relay: "eose", "timeout", or an error message. */

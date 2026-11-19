@@ -456,9 +456,11 @@ if (note) await publishEvent(relays, note);                               // sen
   newest first, and the place to write another. It is the other side of the
   panel the chat is on (`controls.signal("toggle:feed")`,
   `hud.setChatOpen(true, "feed")`), and a panel of its own in a headset.
-  Nothing said to the room is posted. Pass
-  `addRoomControls(..., { noteRelays })` to say where posts go and are read
-  from. `controls.feed.view()` has `{ ready, title, who, posts, loading,
+  Nothing said to the room is posted. A post goes to the relays the visitor
+  says they write to, in their own relay list (NIP-65), and their earlier
+  posts are read from the same. `addRoomControls(..., { noteRelays })`
+  names the usual relays: where that list is looked for, and where a post
+  goes for someone who has published none. `controls.feed.view()` has `{ ready, title, who, posts, loading,
   said }` if you draw it yourself.
 - A world has nothing more to do. `{ notes }` is for a visitor's own client,
   in a room of its own where they are already signed in: it gives a signer
