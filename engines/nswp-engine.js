@@ -42,17 +42,21 @@ var NSWP = (() => {
     presence: () => presence,
     run: () => run,
     say: () => say,
+    signIn: () => signIn,
     start: () => start,
     target: () => target,
     view: () => view
   });
 
   // packages/core/dist/constants.js
+  var WORLD_KIND = 37300;
   var SCHEMAS = {
     manifest: "nswp/manifest/0.3",
     portal: "nswp/portal/0.3",
     arrival: "nswp/arrival/0.3"
   };
+  var WELL_KNOWN_PATH = "/.well-known/nswp.json";
+  var MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"];
   var PREVIEW_LIMITS = {
     pano: { width: 4096, height: 2048, bytes: 2 * 1024 * 1024 },
     flat: { width: 1920, height: 1080, bytes: 500 * 1024 }
@@ -2574,6 +2578,32 @@ var NSWP = (() => {
   // packages/core/dist/nip19.js
   var BECH32_LIMIT = 5e3;
   var decoder = new TextDecoder();
+  function encodeNaddr(p) {
+    if (!isHex64(p.pubkey))
+      throw new NswpError("invalid_pubkey", "pubkey must be 64 lowercase hex characters");
+    if (!Number.isInteger(p.kind) || p.kind < 0 || p.kind > 4294967295)
+      throw new NswpError("invalid_kind", "kind out of range");
+    const parts2 = [];
+    const tlv = (type, value) => {
+      if (value.length > 255)
+        throw new NswpError("tlv_too_long", `TLV value for type ${type} exceeds 255 bytes`);
+      parts2.push(Uint8Array.of(type, value.length), value);
+    };
+    tlv(0, utf8ToBytes(p.identifier));
+    for (const r of p.relays ?? [])
+      tlv(1, utf8ToBytes(r));
+    tlv(2, hexToBytes(p.pubkey));
+    const kind = new Uint8Array(4);
+    new DataView(kind.buffer).setUint32(0, p.kind, false);
+    tlv(3, kind);
+    const bytes = new Uint8Array(parts2.reduce((n, a) => n + a.length, 0));
+    let off = 0;
+    for (const a of parts2) {
+      bytes.set(a, off);
+      off += a.length;
+    }
+    return bech32.encode("naddr", bech32.toWords(bytes), BECH32_LIMIT);
+  }
   function decodeNaddr(s) {
     let decoded;
     try {
@@ -2608,6 +2638,13 @@ var NSWP = (() => {
       throw new NswpError("naddr_invalid", "naddr is missing identifier, author or kind");
     }
     return relays.length ? { kind, pubkey, identifier, relays } : { kind, pubkey, identifier };
+  }
+  function encodeNpub(pubkey) {
+    return bech32.encode("npub", bech32.toWords(hexToBytes(pubkey)), BECH32_LIMIT);
+  }
+  function shortNpub(pubkey) {
+    const npub = encodeNpub(pubkey);
+    return `${npub.slice(0, 10)}\u2026${npub.slice(-4)}`;
   }
 
   // node_modules/tldts-core/dist/es6/src/domain.js
@@ -3510,6 +3547,141 @@ var NSWP = (() => {
       return false;
     }
   }
+  function isWssUrl(v) {
+    if (typeof v !== "string")
+      return false;
+    try {
+      return new URL(v).protocol === "wss:";
+    } catch {
+      return false;
+    }
+  }
+  function normalizeUrl(v) {
+    try {
+      return new URL(v).href;
+    } catch {
+      return null;
+    }
+  }
+
+  // packages/core/dist/manifest.js
+  var stringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "string");
+  var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
+  function parseManifest(input, opts = {}) {
+    const c = new Collector();
+    if (opts.byteLength !== void 0 && opts.byteLength > LIMITS.manifestBytes) {
+      c.error("manifest_too_large", "", `Manifests are limited to ${LIMITS.manifestBytes} bytes.`);
+    }
+    if (!isPlainObject(input)) {
+      c.error("not_an_object", "", "The manifest must be a JSON object.");
+      return c.result(null);
+    }
+    const schema = input.schema;
+    if (typeof schema !== "string" || !schema.startsWith("nswp/manifest/")) {
+      c.error("schema_mismatch", "schema", `schema must be "${SCHEMAS.manifest}".`);
+    } else if (schema !== SCHEMAS.manifest) {
+      c.warn("schema_version", "schema", `Manifest declares ${schema}; this library implements ${SCHEMAS.manifest}.`);
+    }
+    let listing = "allow";
+    if (input.listing !== void 0) {
+      if (input.listing === "allow" || input.listing === "deny")
+        listing = input.listing;
+      else
+        c.warn("unknown_value", "listing", 'listing must be "allow" or "deny"; treating as "allow".');
+    }
+    const publishers = {};
+    if (!isPlainObject(input.publishers)) {
+      c.error("missing_field", "publishers", "publishers must be an object keyed by hex pubkey.");
+    } else {
+      for (const [pk, v] of Object.entries(input.publishers)) {
+        if (!isHex64(pk)) {
+          c.error("invalid_pubkey", `publishers.${pk}`, "Publisher keys must be 64 lowercase hex characters.");
+          continue;
+        }
+        if (!isPlainObject(v) || !stringArray(v.worlds)) {
+          c.error("invalid_field", `publishers.${pk}.worlds`, "Each publisher needs a worlds array of world IDs.");
+          continue;
+        }
+        publishers[pk] = { worlds: v.worlds };
+      }
+    }
+    const worlds = {};
+    if (!isPlainObject(input.worlds)) {
+      c.error("missing_field", "worlds", "worlds must be an object keyed by world ID.");
+    } else {
+      for (const [id, raw] of Object.entries(input.worlds)) {
+        const p = `worlds.${id}`;
+        if (!isPlainObject(raw) || !isPlainObject(raw.entry) || !isHttpsUrl(raw.entry.url)) {
+          c.error("invalid_entry", `${p}.entry.url`, "Each world needs entry.url as an https URL.");
+          continue;
+        }
+        const modes = stringArray(raw.entry.modes) ? raw.entry.modes : [];
+        for (const m of modes)
+          if (!MODES.includes(m))
+            c.warn("unknown_value", `${p}.entry.modes`, `Unknown mode "${m}".`);
+        const w = {
+          entry: { url: normalizeUrl(raw.entry.url), modes },
+          entryPoints: [],
+          capabilities: stringArray(raw.capabilities) ? raw.capabilities : []
+        };
+        if (raw.entry_points !== void 0) {
+          if (!stringArray(raw.entry_points))
+            c.warn("invalid_field", `${p}.entry_points`, "entry_points must be an array of strings.");
+          else {
+            for (const ep of raw.entry_points) {
+              if (ENTRY_POINT.test(ep))
+                w.entryPoints.push(ep);
+              else
+                c.warn("invalid_entry_point", `${p}.entry_points`, `Entry point "${ep}" may only use letters, digits, ".", "_" and "-".`);
+            }
+          }
+        }
+        if (isPlainObject(raw.avatar)) {
+          const a = raw.avatar;
+          w.avatar = { formats: stringArray(a.formats) ? a.formats : [] };
+          if (typeof a.max_file_size_mb === "number")
+            w.avatar.maxFileSizeMb = a.max_file_size_mb;
+          if (typeof a.max_triangles === "number")
+            w.avatar.maxTriangles = a.max_triangles;
+        }
+        if (raw.multiplayer !== void 0) {
+          if (isPlainObject(raw.multiplayer) && isWssUrl(raw.multiplayer.endpoint)) {
+            w.multiplayer = { endpoint: raw.multiplayer.endpoint };
+            if (typeof raw.multiplayer.auth === "string")
+              w.multiplayer.auth = raw.multiplayer.auth;
+          } else
+            c.warn("invalid_field", `${p}.multiplayer.endpoint`, "multiplayer.endpoint must be a wss URL; ignored.");
+        }
+        if (isPlainObject(raw.budgets) && typeof raw.budgets.initial_download_mb === "number") {
+          w.budgets = { initialDownloadMb: raw.budgets.initial_download_mb };
+        }
+        if (raw.airlock !== void 0) {
+          if (isHttpsUrl(raw.airlock))
+            w.airlock = raw.airlock;
+          else
+            c.warn("url_not_https", `${p}.airlock`, "airlock must be an https URL; ignored.");
+        }
+        worlds[id] = w;
+      }
+    }
+    const relays = [];
+    if (input.relays !== void 0) {
+      if (!stringArray(input.relays))
+        c.warn("invalid_field", "relays", "relays must be an array of wss URLs.");
+      else
+        for (const r of input.relays)
+          isWssUrl(r) ? relays.push(r) : c.warn("invalid_relay", "relays", `Ignoring relay "${r}" (not wss).`);
+    }
+    return c.result({ schema: typeof schema === "string" ? schema : SCHEMAS.manifest, listing, publishers, worlds, relays });
+  }
+  function doorFor(manifest, url) {
+    const here = normalizeUrl(url);
+    const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id].entry.url) === here);
+    const publishers = d === void 0 ? [] : Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
+    if (d === void 0 || publishers.length !== 1)
+      return { url };
+    return { naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: publishers[0], identifier: d, relays: manifest.relays.slice(0, 2) }), url };
+  }
 
   // packages/core/dist/settings.js
   var SETTINGS_LINK_LIMIT = 400;
@@ -3659,7 +3831,7 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/arrival.js
-  var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
+  var ENTRY_POINT2 = /^[A-Za-z0-9._-]{1,128}$/;
   var decoder2 = new TextDecoder();
   function encodeArrival(a) {
     const body = { v: a.v ?? SCHEMAS.arrival, ...a };
@@ -3688,7 +3860,7 @@ var NSWP = (() => {
     else
       out.v = json.v;
     if (json.entry !== void 0) {
-      if (typeof json.entry === "string" && ENTRY_POINT.test(json.entry))
+      if (typeof json.entry === "string" && ENTRY_POINT2.test(json.entry))
         out.entry = json.entry;
       else
         c.warn("invalid_entry_point", "entry", "Ignoring an invalid entry point.");
@@ -3850,7 +4022,7 @@ var NSWP = (() => {
       parts2.push(`url=${encodeURIComponent(dest.url)}`);
     if (dest.entryPoint)
       parts2.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-    parts2.push(...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
+    parts2.push(...opts.who ? ["who=1"] : [], ...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
     u.hash = parts2.join("&");
     return u.href;
   }
@@ -4013,6 +4185,17 @@ var NSWP = (() => {
     const to = u && map.get(u.origin);
     return to ? `${to}${url.slice(u.origin.length)}` : url;
   }
+  function mapFromLocal(url, map) {
+    if (!map.size)
+      return url;
+    const u = originOf(url, FOLLOWED_MOST);
+    if (!u)
+      return url;
+    for (const [real, local] of map)
+      if (local === u.origin)
+        return `${real}${url.slice(u.origin.length)}`;
+    return url;
+  }
   var NONE = /* @__PURE__ */ new Map();
   var loading;
   function onLocalHost() {
@@ -4045,6 +4228,9 @@ var NSWP = (() => {
   }
   async function toLocal(url) {
     return mapToLocal(url, await mapSoon());
+  }
+  async function fromLocal(url) {
+    return mapFromLocal(url, await mapSoon());
   }
 
   // packages/sdk/src/form.ts
@@ -4343,6 +4529,45 @@ var NSWP = (() => {
         }
       }
       location.assign(await toLocal(buildWayUrl(airlock, carried(opts, immersive))));
+      return true;
+    },
+    /**
+     * This world's own door: the announcement its manifest lists for this page,
+     * and its address. It is what sends a visitor back here through their own
+     * client, which checks it like any other door. With no manifest, or none
+     * that names this page, the door is the address alone.
+     */
+    async here() {
+      const url = await fromLocal(new URL(location.pathname, location.origin).href);
+      try {
+        const res = await fetch(WELL_KNOWN_PATH, { signal: AbortSignal.timeout(2500), credentials: "omit" });
+        const parsed = res.ok ? parseManifest(await res.json()) : null;
+        if (parsed?.ok) return doorFor(parsed.value, url);
+      } catch {
+      }
+      return { url };
+    },
+    /**
+     * The visitor asked to say who they are: to sign in, switch to another
+     * profile, or go on as a guest. A world never asks that itself
+     * (protocol/09-what-a-world-owes.md), so this leaves for their own client
+     * with a door back here and the request (`who=1`). Their client asks them
+     * in its own way and brings them back, by name if they chose that
+     * (protocol/10-identity.md, "Signing in from inside a world"). Returns
+     * false, and does nothing, when they came through no client.
+     */
+    async signIn(opts = {}) {
+      const airlock = portal.airlockFor(opts);
+      if (!airlock) return false;
+      const immersive = opts.immersive ?? !!opts.xrSession;
+      const here = await portal.here();
+      if (opts.xrSession) {
+        try {
+          await opts.xrSession.end();
+        } catch {
+        }
+      }
+      location.assign(await toLocal(buildAirlockUrl(airlock, here, { ...carried(opts, immersive), who: true })));
       return true;
     },
     /**
@@ -5454,6 +5679,30 @@ var NSWP = (() => {
   var JUMP_GRAVITY = 9.8;
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
+  // packages/sdk/src/ui/identity.ts
+  function identityWords() {
+    const who = arrival.identity();
+    const name = who ? who.name || shortNpub(who.pubkey) : "";
+    return who ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
+  }
+  function identityHost() {
+    const airlock = portal.airlockFor();
+    try {
+      return airlock ? new URL(airlock).host : null;
+    } catch {
+      return null;
+    }
+  }
+  var identitySection = () => ({
+    id: "you",
+    label: "You",
+    icon: "you",
+    note: () => {
+      const host = identityHost();
+      return host ? `Who you are is asked and kept by ${host}, the place you set out from, and never by this world. Signing in takes you there and brings you back here.` : "";
+    }
+  });
+
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
     home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
@@ -5485,6 +5734,7 @@ var NSWP = (() => {
     /** A loudspeaker, sounding and crossed out. */
     sound: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9a4.500 4.500 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11",
     soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
+    you: "M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5ZM5 20.5a7 7 0 0 1 14 0",
     people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
   };
 
@@ -5963,6 +6213,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var read = (t) => typeof t === "function" ? t() : t ?? "";
   var STANDARD = [
     { id: "travel", label: "Travel", icon: "door" },
+    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
+    { id: "you", label: "You", icon: "you" },
     { id: "room", label: "Room", icon: "room" },
     { id: "people", label: "People", icon: "people" },
     { id: "camera", label: "Camera", icon: "camera" },
@@ -6014,6 +6266,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }
         changed();
       },
+      has: (id) => actions.some((x) => x.id === id),
       remove(id) {
         const i = actions.findIndex((x) => x.id === id);
         if (i !== -1) actions.splice(i, 1);
@@ -6206,6 +6459,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       hidden: () => portal.airlockFor() === null,
       act: () => tell({ type: atHome ? "doors" : "home" })
     });
+    if (identityHost()) {
+      c.addSection(identitySection());
+      c.add({
+        id: "identity",
+        section: "you",
+        icon: "you",
+        label: () => identityWords().label,
+        short: () => identityWords().short,
+        act: () => tell({ type: "identity" })
+      });
+    }
     const context = arrival.read().context;
     moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
     c.add({
@@ -6356,7 +6620,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 4;
+  var VERSION = 5;
   var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
@@ -6420,6 +6684,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function home(state) {
     if (portal.airlockFor() === null) return false;
     void portal.home(stateOf(state));
+    return true;
+  }
+  function signIn(state) {
+    if (portal.airlockFor() === null) return false;
+    void portal.signIn(stateOf(state));
     return true;
   }
   function doors2(state) {

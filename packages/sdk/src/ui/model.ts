@@ -111,6 +111,8 @@ export interface Controls {
   readonly theme: UiTheme;
   add(...actions: UiAction[]): void;
   remove(id: string): void;
+  /** Whether there is a control with this id, showing or not. */
+  has(id: string): boolean;
   addSection(section: UiSection): void;
   /**
    * Say what the visitor is pointing at, or "" for nothing. `detail` is a
@@ -182,6 +184,8 @@ const read = (t: Text | undefined): string => (typeof t === "function" ? t() : (
 /** The sections every world has, in the order they are shown. */
 const STANDARD: UiSection[] = [
   { id: "travel", label: "Travel", icon: "door" },
+  // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
+  { id: "you", label: "You", icon: "you" },
   { id: "room", label: "Room", icon: "room" },
   { id: "people", label: "People", icon: "people" },
   { id: "camera", label: "Camera", icon: "camera" },
@@ -239,6 +243,7 @@ export function createControls(opts: ControlsOptions): Controls {
       }
       changed();
     },
+    has: (id) => actions.some((x) => x.id === id),
     remove(id) {
       const i = actions.findIndex((x) => x.id === id);
       if (i !== -1) actions.splice(i, 1);

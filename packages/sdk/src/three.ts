@@ -24,6 +24,8 @@ export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { identityAction, identityHost, identitySection } from "./ui/identity.js";
+import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
 import { LEVEL_WORDS, levelStep, nextLevel } from "./sound-store.js";
@@ -1600,6 +1602,11 @@ export async function addViewControls(
     arrived?: { title: string };
     /** The offer above has gone up, or been answered. */
     onOffer?: (showing: boolean) => void;
+    /**
+     * The visitor's state as they leave to say who they are (in a room, their microphone on, moving the intense
+     * way), so they come back as they left. The headset session is added here.
+     */
+    leaving?: () => GoOptions;
   },
 ): Promise<boolean> {
   const xr = navigator.xr;
@@ -1661,6 +1668,13 @@ export async function addViewControls(
     { id: "turn", section: "view", icon: "turn", label: "Turn around", act: () => turnVisitor(d.rig, d.camera, 180) },
     fullscreenAction(controls, presenting),
   );
+  // Who they are here, and the way to sign in: their own client's to ask, so this leaves for it and comes back
+  // (ui/identity.ts). A world that has put its own control there keeps it, and a place with no client to go back
+  // to (a client's own room, a world opened by itself with no Airlock named) has none.
+  if (!controls.has("identity") && identityHost()) {
+    controls.addSection(identitySection());
+    controls.add(identityAction(controls, () => ({ ...d.leaving?.(), xrSession: d.renderer.xr.getSession() })));
+  }
   // Leaving fullscreen with the browser's own key changes what the control should say.
   document.addEventListener("fullscreenchange", () => controls.setTarget(""));
   controls.addSection({
@@ -1686,6 +1700,7 @@ export { addJump, createJump, JUMP_GRAVITY, JUMP_HEIGHT, JUMP_SPEED, type AddJum
 export { viewScale } from "./sign.js";
 export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
 export { fullscreenWaiting, resumeFullscreen } from "./ui/fullscreen.js";
+export { identityAction, identityHost, identitySection, identityWords } from "./ui/identity.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
 export { addSoundControls, createSounds, CUES, type Cue, type Jukebox, type Song, type SoundLevels, type Sounds, type SoundsOptions, type SoundTheme } from "./sound.js";

@@ -33,7 +33,7 @@ import { arrival as arrivals, configure, portal, startingForm, type GoOptions } 
 export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 4;
+export const VERSION = 5;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {
@@ -71,7 +71,8 @@ function stateOf(text: unknown): GoOptions {
  * `arrived` is false for someone who came by an ordinary link, and every
  * other field then has its plain value. `name` and `pubkey` are filled only
  * when they came by name and their pass checks out for this site; otherwise
- * `guest` is true. `canGoHome` says whether `home()` would lead anywhere.
+ * `guest` is true. `canGoHome` says whether `home()` would lead anywhere, and
+ * `signIn()` with it: both go to the visitor's own client.
  */
 export function arrival(): string {
   const { context, warnings } = arrivals.read();
@@ -136,6 +137,20 @@ export function go(destination: string, state?: string): string {
 export function home(state?: string): boolean {
   if (portal.airlockFor() === null) return false;
   void portal.home(stateOf(state));
+  return true;
+}
+
+/**
+ * The visitor asked to say who they are: to sign in, switch to another
+ * profile, or go on as a guest. A world never asks that itself, so this
+ * leaves for their own client, which asks them in its own way and brings them
+ * back here, by name if they chose that. The menu offers it; call this from a
+ * button of your own if you draw one. Returns false, and does nothing, when
+ * they came through no client.
+ */
+export function signIn(state?: string): boolean {
+  if (portal.airlockFor() === null) return false;
+  void portal.signIn(stateOf(state));
   return true;
 }
 

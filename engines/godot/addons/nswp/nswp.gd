@@ -175,6 +175,8 @@ func _process(_delta: float) -> void:
 				home()
 			"doors":
 				doors()
+			"identity":
+				sign_in()
 			"door":
 				var id := str(event.get("id", ""))
 				door_chosen.emit(id)
@@ -394,6 +396,20 @@ func doors() -> bool:
 	var state := _state()
 	_leave_headset()
 	return bool(_js.doors(JSON.stringify(state)))
+
+
+## The visitor asked to say who they are: to sign in, switch to another profile, or go on as
+## a guest. A world never asks that itself and never holds a key, so this leaves for their own
+## client, which asks them in its own way and brings them back here: by name if they chose
+## that (`arrival.name`, `arrival.pubkey`), as a guest if not. The menu offers it for you, under
+## "You"; call this from a button of your own if you draw one. Returns false if they came
+## through no client.
+func sign_in() -> bool:
+	if _js == null or not bool(arrival.get("canGoHome", false)):
+		return false
+	var state := _state()
+	_leave_headset()
+	return bool(_js.signIn(JSON.stringify(state)))
 
 
 ## Whether the visitor is in a headset session now.
