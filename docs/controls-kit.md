@@ -404,6 +404,26 @@ anywhere. The visitor's switch is `people-pictures`; `showsPictures()` reads
 it, and `loadPicture(address)` fetches one the safe way for anything you
 draw yourself.
 
+### Who someone is
+
+Choosing someone, from People or by the picture over their head, puts a card
+at the head of the People section: their picture, name, whether they came by
+name, their key, and what they wrote about themselves. `addRoomControls`
+does it. On a flat screen it is in the menu; in a headset, on the console.
+
+A section of your own can have a card too:
+
+```js
+controls.addSection({ id: "shop", label: "Shop", card: () => ({
+  title: "The keeper", tag: "", proven: false, sub: "Open until six", copy: "",
+  text: "", picture: "", color: "#ffb65c", now: [],
+}) });
+```
+
+Every field is plain text. `text` is drawn as a quotation: for a person it
+is what they say about themselves, and never the world's word for it.
+`picture` is fetched with `loadPicture` and nothing else.
+
 ### What people write
 
 Join a room and there is written chat, with nothing to add: `addRoomControls`
@@ -424,10 +444,17 @@ and listed in a panel.
 ```js
 controls.chat.view();              // { ready, title, lines, unread, limit, version }
 controls.chat.send("Hello");       // says it; returns a few words if it couldn't be said
+controls.signal("toggle:chat");    // open the panel, or put it away
+presence.whereIs(pubkey);          // { distance, pan }: where someone is from the visitor's head
 controls.setKeys({ chat: null });  // your world needs T and Enter for itself
 createPresence({ ..., bubbles: false }); // you draw what people write your own way
 presence.session.on("said", (member, line) => {}); // every line, the visitor's own included
 ```
+
+A line that arrives is heard as well: the `chat` cue, played from where its
+writer stands (`sounds.play("chat", { distance, pan })`). It is quieter and
+duller the further off they are, never silent, and nothing like the kit's
+`notice`. A theme can give `chat` a file of its own, or `null` for none.
 
 A line is plain text, already cleaned: draw it as text and as nothing else.
 Never make a link in one open by itself, and never fetch anything a line
@@ -595,8 +622,9 @@ sounds.moved(metres);
 
 - **Cues** are a closed list (`CUES`): `step`, `land`, `bump`, `grab`, `drop`,
   `hover`, `press`, `menuOpen`, `menuClose`, `cross`, `arrive`, `join`,
-  `leave`, `micOn`, `micOff`, `notice`, `error`. Each has a default made in
-  the browser.
+  `leave`, `micOn`, `micOff`, `notice`, `chat`, `error`. Each has a default
+  made in the browser. `play(cue, { distance, pan })` plays one from where
+  somebody stands: `chat` is, when someone writes.
 - **The kit's own files.** Serve `packages/sdk/sounds/` from your site and
   pass its address: `createSounds({ kit: "/sounds/kit/" })`. The defaults are
   then recorded: seventeen cues, a room's hum, a piece of music. Without it,

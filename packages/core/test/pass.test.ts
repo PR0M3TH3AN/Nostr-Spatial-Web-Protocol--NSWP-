@@ -225,3 +225,30 @@ describe("a picture on a pass", () => {
     expect(buildRoomPass({ session, origin: "https://museum.example", picture: "http://plain.example/a.png" }).tags.some((t) => t[0] === "picture")).toBe(false);
   });
 });
+
+describe("a few words about themselves on a pass", () => {
+  it("is their own, signed with the rest, and plain text by the time it is read", async () => {
+    const { cleanAbout } = await import("../src/index.js");
+    const secret = new Uint8Array(32).fill(7);
+    const session = getPublicKey(new Uint8Array(32).fill(9));
+    const origin = "https://museum.example";
+    const pass = finalizeEvent(buildRoomPass({ session, origin, name: "Alice", about: "  Keeper of the east wing.\nAsk me about the clocks.  " }), secret);
+    const checked = verifyRoomPass(pass, { origin, session });
+    expect(checked.ok && checked.value.about).toBe("Keeper of the east wing. Ask me about the clocks.");
+    // Changed after signing: the whole pass is worth nothing.
+    const forged = { ...pass, tags: pass.tags.map((t) => (t[0] === "about" ? ["about", "An official of this museum."] : t)) };
+    expect(verifyRoomPass(forged, { origin, session }).ok).toBe(false);
+    // Nothing to say is left out, and so is anything that isn't words.
+    expect(buildRoomPass({ session, origin, about: "   " }).tags.some((t) => t[0] === "about")).toBe(false);
+    expect(buildRoomPass({ session, origin, about: 7 as never }).tags.some((t) => t[0] === "about")).toBe(false);
+    expect(verifyRoomPass(finalizeEvent(buildRoomPass({ session, origin }), secret), { origin, session })).toMatchObject({ ok: true, value: { about: "" } });
+    // Long, or with something that would reverse it: cut short and tidied, by whoever reads it as well.
+    const sly = `nice ${String.fromCodePoint(0x202e)}person ${"z".repeat(600)}`;
+    expect([...cleanAbout(sly)]).toHaveLength(PASS_LIMITS.aboutChars);
+    expect(cleanAbout(sly).startsWith("nice person zzz")).toBe(true);
+    const raw = finalizeEvent({ kind: 27300, created_at: pass.created_at, tags: [...pass.tags.filter((t) => t[0] !== "about"), ["about", sly]], content: "" }, secret);
+    const read = verifyRoomPass(raw, { origin, session });
+    expect(read.ok && [...read.value.about]).toHaveLength(PASS_LIMITS.aboutChars);
+    expect(read.warnings.map((w) => w.code)).toContain("about_cleaned");
+  });
+});

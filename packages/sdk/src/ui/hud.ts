@@ -21,7 +21,8 @@
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
  */
 import { ICONS, type IconName } from "./icons.js";
-import type { Controls, UiItemView, UiView } from "./model.js";
+import { loadPicture } from "../picture.js";
+import type { Controls, UiCard, UiItemView, UiView } from "./model.js";
 import { createHoldWatch, SUMMON_KEY } from "./summon.js";
 import { rgb } from "./theme.js";
 
@@ -178,6 +179,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
 .row.warn { color: rgb(var(--warn)); }
 .row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
+/* Who a section is about: a face, a name, how they are known, and what they say of themselves, set apart as theirs. */
+.card { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: center; padding: 12px; border-radius: 16px 16px 8px 8px;
+  border: 1px solid rgba(var(--accent), .45); background: rgba(var(--accent), .07); }
+.card .face { grid-row: span 2; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
+.card .face canvas { width: 100%; height: 100%; display: block; }
+.card h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.card .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
+.card .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
+.card .key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
+.card .key button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
+.card .key button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.card blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
+.card .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
+
 .note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
 .note:empty { display: none; }
 .foot { display: flex; justify-content: flex-end; padding: 0 12px 12px; }
@@ -299,6 +315,39 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   let drawn = "";
 
   const press = (item: UiItemView) => controls.run(item.id);
+
+  /** The card at the head of a section. Every word is set as text; the picture is fetched the kit's way and drawn. */
+  const drawCard = (card: UiCard): HTMLElement => {
+    const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
+    if (card.color) face.style.setProperty("--c", card.color);
+    if (card.picture) {
+      void loadPicture(card.picture).then((drawn) => {
+        if (!drawn || !face.isConnected) return;
+        // A copy of its own: a canvas can be in one place only, and the same picture is over their head too.
+        const copy = document.createElement("canvas");
+        copy.width = drawn.width;
+        copy.height = drawn.height;
+        copy.getContext("2d")?.drawImage(drawn, 0, 0);
+        face.replaceChildren(copy);
+      });
+    }
+    const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
+    copyKey?.addEventListener("click", () => {
+      void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
+        () => controls.say("Their key is copied, in full."),
+        () => controls.say(`Their key: ${card.copy}`),
+      );
+    });
+    return el(
+      "div",
+      { class: "card", role: "group", "aria-label": `About ${card.title}` },
+      face,
+      el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag)),
+      el("div", { class: "key" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey),
+      card.text && el("blockquote", {}, card.text),
+      card.now.length > 0 && el("p", { class: "now" }, card.now.join(", ")),
+    );
+  };
 
   // ---- the chat panel. "closed" shows nothing, "peek" the newest lines for a few seconds, "open" all of it.
   let chatState: "closed" | "peek" | "open" = "closed";
@@ -478,6 +527,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     };
     const swatches = (current?.items ?? []).filter((i) => i.kind === "swatch");
     rows.replaceChildren(
+      current?.card ? drawCard(current.card) : "",
       swatches.length ? el("div", { class: "swatches" }, ...swatches.map(drawSwatch)) : "",
       ...(current?.items ?? []).filter((i) => i.kind !== "swatch").map((item) => {
         const b = el(
@@ -492,7 +542,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
         return b;
       }),
     );
-    rows.hidden = !current?.items.length;
+    rows.hidden = !current?.items.length && !current?.card;
     note.textContent = current?.note ?? "";
     sheet.hidden = !open;
     menu.setAttribute("aria-expanded", String(open));
@@ -593,7 +643,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.
   const stopAsking = controls.onSignal((name) => {
     if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
-    if (name === "chat" && !host.hidden) setChatOpen(chatState !== "open");
+    if (name === "toggle:chat" && !host.hidden) setChatOpen(chatState !== "open");
   });
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);

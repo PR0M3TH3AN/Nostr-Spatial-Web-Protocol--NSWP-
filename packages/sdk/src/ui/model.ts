@@ -47,10 +47,38 @@ export interface UiAction {
   color?: Text;
 }
 
+/**
+ * A card at the head of a section: who, or what, the section is about just
+ * now. The People section shows whoever was chosen. Every word on it is
+ * plain text, and what a person wrote about themselves is shown as theirs.
+ */
+export interface UiCard {
+  /** Their name. */
+  title: string;
+  /** A word for how they are known here: "By name", "Guest". */
+  tag: string;
+  /** Whether that word is one to trust a little more: a name their own client vouched for. */
+  proven: boolean;
+  /** One line under the name: the short form of their key, or that nobody vouched for them. */
+  sub: string;
+  /** Their key in full, to copy, or "". */
+  copy: string;
+  /** What they wrote about themselves, or "". Their own words, not a fact. */
+  text: string;
+  /** Where their picture is (for `loadPicture`), or "". */
+  picture: string;
+  /** A colour that stands for them where there is no picture, as CSS. */
+  color: string;
+  /** What is so about them now: recording, sharing their screen. */
+  now: string[];
+}
+
 export interface UiSection {
   id: string;
   label: string;
   icon?: IconName;
+  /** A card at the head of the section, or null for none. Asked each time the section is drawn. */
+  card?: () => UiCard | null;
   /** A few lines shown with the section: what a visitor should know before using it. */
   note?: Text;
 }
@@ -72,6 +100,7 @@ export interface UiSectionView {
   label: string;
   icon: IconName | null;
   note: string;
+  card: UiCard | null;
   items: UiItemView[];
 }
 /** Everything a renderer needs to draw, with every word already worked out. */
@@ -351,8 +380,8 @@ export function createControls(opts: ControlsOptions): Controls {
         target,
         detail,
         sections: [...sections, ...extra]
-          .map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) }))
-          .filter((s) => s.items.length > 0 || s.note),
+          .map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) }))
+          .filter((s) => s.items.length > 0 || s.note || s.card),
         hotbar: bar.map(item),
         theme,
         presence,

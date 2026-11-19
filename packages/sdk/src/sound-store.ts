@@ -31,6 +31,7 @@ export const CUES = [
   "micOn",
   "micOff",
   "notice", // the kit has something to say
+  "chat", // someone in the room wrote something: heard from where they stand
   "error",
 ] as const;
 export type Cue = (typeof CUES)[number];
@@ -74,6 +75,9 @@ const RECIPES: Record<Cue, CuePart[]> = {
   micOn: [tone(600, 900, 0, 0.08, 0.14)],
   micOff: [tone(900, 600, 0, 0.08, 0.14)],
   notice: [tone(1046.5, undefined, 0, 0.08, 0.09), tone(1318.5, undefined, 0.08, 0.12, 0.08)],
+  // Two soft syllables, low and falling at the end, with a breath in front: somebody said something. It is two
+  // octaves under the kit's own notice, which is high, clean and rises, so the two are never taken for each other.
+  chat: [noise(1900, 0, 0.03, 0.06), tone(360, 440, 0.005, 0.07, 0.15, "triangle"), tone(330, 262, 0.1, 0.11, 0.13, "triangle")],
   error: [tone(220, undefined, 0, 0.11, 0.13, "square"), tone(185, undefined, 0.14, 0.14, 0.13, "square")],
 };
 
@@ -260,6 +264,30 @@ export const STEP_LEVEL = 0.45;
  * the left foot and odd ones the right. The two feet differ a little and
  * steadily, and every step differs a little more by chance.
  */
+/** Where a sound made by somebody comes from: how far off they are, in metres, and how far to one side (-1 left, 1 right). */
+export interface SoundPlace {
+  distance: number;
+  pan?: number;
+}
+/** Within `near` metres a sound is as written. By `far` it is as dull as it gets. It is never quieter than `floor`. */
+export const HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 } as const;
+/**
+ * How a sound made by somebody is heard from where they stand: quieter and
+ * duller the further off, and to the side they are on. It never goes silent,
+ * because what it says (someone wrote something) is true however far they
+ * are; distance says where, not whether.
+ */
+export function heardFrom(place: SoundPlace): StepShape {
+  const d = Number.isFinite(place.distance) ? Math.max(0, place.distance) : HEARD.far;
+  const beyond = Math.max(0, d - HEARD.near);
+  const gain = Math.max(HEARD.floor, 1 / (1 + (beyond / HEARD.fall) ** 2));
+  const along = Math.min(1, beyond / (HEARD.far - HEARD.near));
+  // From bright to dull, evenly by ear: 7000 Hz close by, 1100 Hz far off.
+  const cutoff = Math.round(7000 * (1100 / 7000) ** along);
+  const side = Number.isFinite(place.pan) ? Math.max(-1, Math.min(1, place.pan!)) : 0;
+  return { gain: Math.round(gain * 1000) / 1000, cutoff, pan: Math.round(side * 0.8 * 100) / 100, rate: 1 };
+}
+
 export function stepShape(foot: number, random: () => number = Math.random): StepShape {
   const right = Math.abs(Math.trunc(foot)) % 2 === 1;
   const side = right ? 1 : -1;

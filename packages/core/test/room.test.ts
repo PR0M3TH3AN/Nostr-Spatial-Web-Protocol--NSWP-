@@ -89,7 +89,7 @@ describe("room handshake", () => {
     const offer = buildSignal(topic, TEST_KEY_1, PK2, { t: "answer", sdp: "v=0" }, T0);
     expect(openSignal(offer, TEST_KEY_2, roomTopic("https://world.example/", "other"), T0)).toBeNull();
     expect(openSignal(offer, TEST_KEY_2, topic, T0 + 120)).toBeNull();
-    expect(openSignal({ ...offer, content: offer.content.replace(/.$/, "A") }, TEST_KEY_2, topic, T0)).toBeNull();
+    expect(openSignal({ ...offer, content: offer.content.replace(/.$/, (c) => (c === "A" ? "B" : "A")) }, TEST_KEY_2, topic, T0)).toBeNull();
     const junk = finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: T0, tags: [["x", topic]], content: JSON.stringify({ t: "offer", sdp: "public offer" }) }, TEST_KEY_1);
     expect(openSignal(junk, TEST_KEY_2, topic, T0)).toBeNull(); // an offer must be addressed and encrypted
     const huge = buildSignal(topic, TEST_KEY_1, PK2, { t: "offer", sdp: "x".repeat(20001) }, T0);

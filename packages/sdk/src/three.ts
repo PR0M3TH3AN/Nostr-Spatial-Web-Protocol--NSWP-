@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, encodeNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, decodeLook, encodeNpub, shortNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -115,6 +115,11 @@ export interface Presence {
    * asks this wherever it asks what a pointer is on. The ray's `camera` must be set, as for any sprite.
    */
   personAt(raycaster: THREE.Raycaster): string | null;
+  /**
+   * Where someone is from the visitor's own head: how far in metres, and how far to one side (-1 is hard left, 1
+   * hard right). For a sound they made. Null for someone not drawn yet.
+   */
+  whereIs(pubkey: string): { distance: number; pan: number } | null;
   /** Press whoever's picture the ray is on, as choosing them from the People list does. True if someone was. */
   pressAt(raycaster: THREE.Raycaster): boolean;
   /** What pressing a picture does. The room's controls set it. */
@@ -812,6 +817,18 @@ export function createPresence(d: PresenceOptions): Presence {
       const hit = raycaster.intersectObjects(badges, false)[0];
       return hit ? String(hit.object.userData.person) : null;
     },
+    whereIs(pubkey) {
+      const a = avatars.get(pubkey);
+      if (!a?.target) return null;
+      d.camera.getWorldPosition(v);
+      const to = new THREE.Vector3().fromArray(a.target.head.position).sub(v);
+      const distance = to.length();
+      if (distance < 0.001) return { distance: 0, pan: 0 };
+      // How far to the right of where the visitor is facing. Someone very close is in the middle, whichever way they stand.
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(d.camera.getWorldQuaternion(q));
+      const pan = THREE.MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
+      return { distance: Math.round(distance * 100) / 100, pan: Math.round(pan * 100) / 100 };
+    },
     pressAt(raycaster) {
       const who = this.personAt(raycaster);
       if (who) onPerson(who);
@@ -1415,8 +1432,32 @@ export function addRoomControls(
           ? "Join the room to see who else is here."
           : here.length === 0
             ? "Nobody else is here yet."
-            : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one to see where they are, and to mute their voice or their music, or block them.`
+            : here.some((m) => m.pubkey === chosen)
+              ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told."
+              : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one, or press the picture over their head, to see who they are, and to mute their voice or their music, or block them.`
         }`,
+      // Whoever was chosen, at the head of the section: who they are here, and what they say of themselves.
+      card: () => {
+        const who = here.find((m) => m.pubkey === chosen);
+        if (!who) return null;
+        return {
+          title: who.name,
+          tag: who.guest ? "Guest" : "By name",
+          proven: !who.guest,
+          // A name is not unique and a picture can be copied: the key behind them is what tells two people apart.
+          sub: who.identity ? shortNpub(who.identity) : "Nobody has vouched for who they are.",
+          copy: who.identity ? encodeNpub(who.identity) : "",
+          text: who.guest ? "" : (who.about ?? ""),
+          picture: !who.guest && showsPictures() ? (who.picture ?? "") : "",
+          color: who.look.light,
+          now: [
+            ...(who.recording ? ["Recording what they see"] : []),
+            ...(who.sharing ? ["Sharing their screen"] : []),
+            ...(who.music ? ["Sharing music"] : []),
+            ...(presence.isMuted(who.pubkey) ? ["You have muted their voice"] : []),
+          ],
+        };
+      },
     });
     here.forEach((m, i) =>
       controls.add({
@@ -1686,7 +1727,11 @@ export function addRoomControls(
       s.on("said", (m, line) => {
         const mine = m.pubkey === s.self.pubkey;
         controls.chat.add({ id: line.id, who: m.name, text: line.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
-        if (!mine) controls.signal("heard");
+        if (mine || !showsChat()) return;
+        controls.signal("heard");
+        // Heard as well as seen, from where they stand: nearer is louder and brighter, and it is on their side.
+        const where = presence.whereIs(m.pubkey);
+        opts.sounds?.play("chat", where ?? { distance: 3 });
       }),
       // Who comes and goes is said in the chat too. A moment is waited for a name: a pass is shown just after arriving.
       s.on("member", (m) => {
@@ -1721,7 +1766,7 @@ export function addRoomControls(
       act: () => {
         // In a headset it is a panel in the world; on a screen, a panel at the side of it.
         if (presence.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
-        controls.signal("chat");
+        controls.signal("toggle:chat");
       },
     },
     {

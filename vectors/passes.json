@@ -230,6 +230,98 @@
       }
     },
     {
+      "name": "with_a_few_words_about_them",
+      "description": "What they wrote about themselves in their profile: their own words, signed with everything else.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ],
+          [
+            "about",
+            "Keeper of the east wing. Ask me about the clocks."
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "148b320a7a12d869f3f81364c7e6b742eebdc980f4585fd70f6eadd8be020e8c",
+        "sig": "22ac901a29bf1e54669236dd0da2938a4ac507faff8fddc977d9540a1e1c0007f28cec39df22d775513d4c531e5dfe573af8e2396a201de74d488d6b446b541c"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice",
+        "about": "Keeper of the east wing. Ask me about the clocks."
+      }
+    },
+    {
+      "name": "what_they_wrote_is_tidied",
+      "description": "Line breaks, something that would reverse the text, and more than 280 characters: tidied and cut short, not refused.",
+      "event": {
+        "kind": 27300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "nswp:session",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "nswp:origin",
+            "https://museum.example"
+          ],
+          [
+            "expiration",
+            "1794445200"
+          ],
+          [
+            "name",
+            "Alice"
+          ],
+          [
+            "about",
+            "Hello\n\nthere \u202efriend yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "1bcf30a874093ea508e76e2ef5dd24af72ea7984a18697c6afeb1f560158a8ed",
+        "sig": "33d1180f07fc0390ef2e7189fdf963309aab6a5a479620af3aac2e8435a221c074080ef6b9813d5ce895df47f36aa5b80976d27402829bbf4d0dda125940822d"
+      },
+      "origin": "https://museum.example",
+      "now": 1794430860,
+      "session": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "about_cleaned"
+        ],
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "name": "Alice",
+        "about": "Hello there friend yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      }
+    },
+    {
       "name": "another_site",
       "description": "A pass made for the museum is worth nothing anywhere else.",
       "event": {

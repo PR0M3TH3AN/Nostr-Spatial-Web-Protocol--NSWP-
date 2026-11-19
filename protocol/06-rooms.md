@@ -136,8 +136,11 @@ say:0a1b2c3d:Hello, room: how are you?
 - **Blocking someone ends it too:** the connection to them is closed, so
   nothing they write arrives.
 
-The reference client draws a line over the head of whoever wrote it for a
-few seconds (four, and a little more for each character, to twelve at most),
+The reference client makes a soft sound when a line arrives, heard from
+where its writer stands: quieter and duller the further off they are, and to
+the side they are on. It is never silent, since the line is there to read
+however far away they are. It draws the line over the head of whoever wrote
+it for a few seconds (four, and a little more for each character, to twelve at most),
 and lists the lines in a panel: at the side of a flat screen, and on a panel
 of the visitor's own in a headset, where the keyboard that comes up has a
 Speak key wherever speech can be turned into words.

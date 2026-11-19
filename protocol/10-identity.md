@@ -53,6 +53,7 @@ It says: "at this site, until this time, the session key speaks for me."
 | `expiration` | When the pass stops. 4 hours after `created_at` by default, 12 at most |
 | `name` | Optional. What the visitor chose to be called: one line, at most 48 characters. A client that knows their Nostr profile uses the name in it |
 | `picture` | Optional. Where their picture is: an `https` address, at most 300 characters. The one in their Nostr profile ("Pictures", below) |
+| `about` | Optional. A few words they wrote about themselves: one line of plain text, at most 280 characters. The start of the `about` in their Nostr profile ("Who someone is", below) |
 
 The client hands the world two things in the arrival context
 ([NSWP-03](03-arrival.md)): `pass`, the signed event, and `sessionKey`, the
@@ -132,6 +133,39 @@ name brings both.
   nothing is fetched.
 - **A picture proves nothing.** Like a name, anyone can use any picture.
   What proves is the pass, and what identifies is the key.
+
+## Who someone is
+
+Choosing a person (from the list of people, or by the picture over their
+head) shows a card about them: their picture, their name, how they are known
+here, the short form of their key with the whole of it one press away, and
+what they wrote about themselves.
+
+- **Everything on it comes off their pass.** A world never asks a relay
+  about a visitor to fill a card in: that would be a way to follow them. So
+  a card says what the person's own client chose to bring, and nothing else.
+  A guest's card has a name the room made up, and says that nobody has
+  vouched for who they are.
+- **`about` is their own words, and is shown as theirs.** Their key signed
+  it, so nobody put it there for them; and that is all the signature says.
+  Anyone can write anything about themselves, a title or an office
+  included. A reader sets it apart as a quotation, never as a fact about
+  them, and never beside anything that reads as the world's or the client's
+  own word.
+- **It is plain text.** A reader makes it one line, drops what reorders or
+  hides text, and cuts it to 280 characters, whatever was signed. Nothing in
+  it is a link that opens, a picture that loads, or an address that is
+  fetched.
+- **The key is what tells two people apart.** A name is not unique and a
+  picture can be copied. The card shows the short form of the key, and
+  gives the whole of it to copy.
+- **What can be done about them is beside it:** muting their voice or their
+  music, blocking them. Those are the viewer's alone, and nobody is told.
+
+Not on a pass, and so not on a card: a web address, a NIP-05 name, who they
+follow. A NIP-05 name on a pass would be the holder's own claim and nothing
+more, since the pass is theirs; checking one means asking the domain it
+names, which tells that domain who is looking.
 
 ## The mark
 

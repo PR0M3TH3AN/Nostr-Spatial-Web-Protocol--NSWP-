@@ -53,6 +53,8 @@ export interface Member {
   name: string;
   /** Where a proven member's picture is, as their pass says. Never there for a guest. */
   picture?: string;
+  /** What a proven member wrote about themselves, as their pass says. Their own words. Never there for a guest. */
+  about?: string;
   color: number;
   /** How they look (spec §4.2). What their session key generates, until they say otherwise. */
   look: Look;
@@ -272,7 +274,7 @@ export class RoomSession {
     const mine = opts.look ? decodeLook(opts.look) : null;
     this.look = mine?.ok ? opts.look! : null;
     this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
-    if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...(proven.picture ? { picture: proven.picture } : {}) });
+    if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...(proven.picture ? { picture: proven.picture } : {}), ...(proven.about ? { about: proven.about } : {}) });
     this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
     this.topic = roomTopic(world, this.name);
@@ -580,6 +582,8 @@ export class RoomSession {
     Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
     if (checked.value.picture) peer.member.picture = checked.value.picture;
     else delete peer.member.picture;
+    if (checked.value.about) peer.member.about = checked.value.about;
+    else delete peer.member.about;
     this.emit("identity", peer.member);
     this.redraw(peer);
   }
@@ -592,6 +596,7 @@ export class RoomSession {
       delete peer.shown;
       delete peer.member.identity;
       delete peer.member.picture;
+      delete peer.member.about;
       Object.assign(peer.member, { guest: true, name: guestName(peer.member.pubkey) });
       this.emit("identity", peer.member);
       this.redraw(peer);
@@ -600,6 +605,7 @@ export class RoomSession {
       this.pass = null;
       delete this.self.identity;
       delete this.self.picture;
+      delete this.self.about;
       Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
       const mine = this.look ? decodeLook(this.look) : null;
       this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);

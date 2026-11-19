@@ -42,18 +42,21 @@ const UNSEEN: readonly (readonly [number, number])[] = [
 const unseen = (code: number): boolean => UNSEEN.some(([from, to]) => code >= from && code <= to);
 
 /**
- * Something said, as it may be shown: one line, nothing invisible that
- * reorders or hides text, no doubled spaces, at most `CHAT_LIMITS.chars`
- * characters. Returns "" when nothing is left, or for anything not a string.
+ * Somebody else's words, as they may be shown: one line, nothing invisible
+ * that reorders or hides text, no doubled spaces, at most `chars` characters.
+ * Returns "" when nothing is left, or for anything not a string.
  */
-export function cleanChat(text: unknown): string {
+export function cleanLine(text: unknown, chars: number): string {
   if (typeof text !== "string") return "";
   let out = "";
   // Read no further than could matter: a megabyte of spaces isn't walked through.
-  for (const ch of text.slice(0, CHAT_LIMITS.chars * 8).normalize("NFC")) out += unseen(ch.codePointAt(0)!) ? " " : ch;
+  for (const ch of text.slice(0, chars * 8).normalize("NFC")) out += unseen(ch.codePointAt(0)!) ? " " : ch;
   out = out.replace(/\s+/g, " ").trim();
-  return [...out].slice(0, CHAT_LIMITS.chars).join("").trim();
+  return [...out].slice(0, chars).join("").trim();
 }
+
+/** Something said in a room, as it may be shown: `cleanLine`, to `CHAT_LIMITS.chars`. */
+export const cleanChat = (text: unknown): string => cleanLine(text, CHAT_LIMITS.chars);
 
 /** A new id for a line: eight hex digits, random. It only tells a repeat from a new line. */
 export function chatId(): string {
