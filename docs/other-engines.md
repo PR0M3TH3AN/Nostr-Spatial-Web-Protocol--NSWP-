@@ -64,7 +64,8 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 
 The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter
-VR or Leave VR), `home`, `doors` and `door`.
+VR or Leave VR), `jump` (they pressed Jump, which is how it is asked for
+where there is no keyboard), `home`, `doors` and `door`.
 
 The sound files go beside the page, in a folder the engine names (`kit`).
 Without them the sounds are the ones the kit makes in the browser.
@@ -119,8 +120,10 @@ on a flat screen, with a mouse and keyboard:
   leads.
 - Moving the casual way: a click on the floor walks no further than the
   kit's reach, and a drag turns the view.
-- Moving the intense way: the mouse looks round, Shift runs, and taking the
-  pointer back opens the menu.
+- Moving the intense way: the mouse looks round, and taking the pointer back
+  opens the menu.
+- Running and jumping, both ways: Shift runs at 4.3 metres a second against
+  2.4 walking, two clicks on the floor run there, and Space jumps 0.45 m.
 - Arriving by an ordinary link and by an arrival, each entry point, a door
   through to the Airlock, and the way home.
 

@@ -4,10 +4,13 @@ extends CharacterBody3D
 ##
 ## Two ways, and the visitor chooses between them in the menu, as in any other world:
 ##
-## - **Casual.** Click or tap the floor to walk there, a few steps at a time. Drag to look
-##   round. W, A, S, D and the arrows walk too.
-## - **Intense.** Click the view and the mouse looks round. W, A, S, D walk, Shift runs, F
-##   uses what is in the middle of the view, and Escape brings up the menu.
+## - **Casual.** Click or tap the floor to walk there, a few steps at a time: twice to run.
+##   Drag to look round. W, A, S, D and the arrows walk too.
+## - **Intense.** Click the view and the mouse looks round. W, A, S, D walk, F uses what is
+##   in the middle of the view, and Escape brings up the menu.
+##
+## Either way, Shift runs and Space jumps. Where there is no keyboard, two taps run and the
+## menu's Jump control jumps.
 ##
 ## The speeds, the reach of a tap and how far a mouse turns the view are the kit's own
 ## (`Nswp.kit`), so it feels the same here as anywhere. Steps and bumps are heard through the
@@ -37,13 +40,16 @@ var headset_camera: XRCamera3D
 
 ## How far a pointer may move between press and release and still be a click, in pixels.
 const CLICK_SLOP := 6.0
-const GRAVITY := 9.8
 
 var _pitch: float = 0.0
 var _pressed: bool = false
 var _dragged: float = 0.0
 ## Where a tap is taking them, or null.
 var _heading: Variant = null
+## Whether they are running there: two taps close together, and every tap after while they still are.
+var _running: bool = false
+var _tapped_at: int = -100000
+var _was_on_floor: bool = true
 var _aimed: Object = null
 var _xr: XRInterface = null
 var _presenting: bool = false
@@ -73,6 +79,7 @@ func _ready() -> void:
 	flat_camera.position.y = eye_height
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
+	Nswp.jump_pressed.connect(jump)
 	if headset:
 		_setup_headset()
 
@@ -87,6 +94,14 @@ func intense() -> bool:
 	return Nswp.moving == "intense" and Nswp.has_mouse and not _presenting
 
 
+## Leave the floor: the same small jump as in every world. Does nothing in the air.
+func jump() -> void:
+	if not is_on_floor() or _presenting:
+		return
+	velocity.y = sqrt(2.0 * float(Nswp.kit.jumpGravity) * float(Nswp.kit.jumpHeight))
+	Nswp.play("step")
+
+
 ## Whether the mouse is looking round now.
 func looking() -> bool:
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -96,6 +111,9 @@ func looking() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Nswp.menu_open or _presenting:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
+		jump()
 		return
 	if intense():
 		_intense_input(event)
@@ -152,6 +170,10 @@ func _tap(at: Vector2) -> void:
 	elif hit.normal.y < 0.6:
 		# A wall, not somewhere to stand.
 		return
+	# Two taps close together are a run, and so is each tap after while they are still running.
+	var now := Time.get_ticks_msec()
+	_running = now - _tapped_at <= int(Nswp.kit.doubleTap) or (_heading != null and _running)
+	_tapped_at = now
 	var from := global_position
 	var away := Vector2(spot.x - from.x, spot.z - from.z)
 	var most := float(Nswp.kit.tapReach)
@@ -218,9 +240,11 @@ func _physics_process(delta: float) -> void:
 	if keys != Vector2.ZERO:
 		# A key takes over from a tap.
 		_heading = null
+		_running = false
 		if keys.length() > 1.0:
 			keys = keys.normalized()
-		if intense() and Input.is_physical_key_pressed(KEY_SHIFT):
+		# Shift runs, however they are moving.
+		if Input.is_physical_key_pressed(KEY_SHIFT):
 			speed *= float(Nswp.kit.sprint)
 		wish = (transform.basis * Vector3(keys.x, 0.0, keys.y)) * speed
 	elif _heading != null and not Nswp.menu_open:
@@ -228,7 +252,10 @@ func _physics_process(delta: float) -> void:
 		var left := Vector2(to.x - before.x, to.y - before.z)
 		if left.length() < 0.02:
 			_heading = null
+			_running = false
 		else:
+			if _running:
+				speed *= float(Nswp.kit.sprint)
 			# No further in a frame than is left to go, so they stop on the spot and not past it.
 			var pace := minf(speed, left.length() / maxf(delta, 0.001))
 			wish = Vector3(left.x, 0.0, left.y).normalized() * pace
@@ -238,15 +265,25 @@ func _physics_process(delta: float) -> void:
 
 	velocity.x = wish.x
 	velocity.z = wish.z
-	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	# On the floor they stay on it, unless they have just jumped. In the air they are pulled back down.
+	if not is_on_floor():
+		velocity.y -= float(Nswp.kit.jumpGravity) * delta
+	elif velocity.y < 0.0:
+		velocity.y = 0.0
 	move_and_slide()
+	if is_on_floor() and not _was_on_floor:
+		Nswp.play("land")
+	_was_on_floor = is_on_floor()
 
 	var went := Vector2(global_position.x - before.x, global_position.z - before.z).length()
 	if wish != Vector3.ZERO:
-		Nswp.moved(went)
+		# Steps are heard on the floor, not in the air.
+		if is_on_floor():
+			Nswp.moved(went)
 		# Something was in the way: a tap ends there, and it is heard.
 		if is_on_wall() and went < wish.length() * delta * 0.3:
 			_heading = null
+			_running = false
 			Nswp.bump()
 
 

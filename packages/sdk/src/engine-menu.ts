@@ -27,7 +27,8 @@ import { DESK_WORDS, hasMouse, keepIntense, LOOK_SPEED, PITCH_LIMIT, SPRINT, sta
 import { PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WIDTH } from "./gate-size.js";
 import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
-import { DRAG_LOOK, TAP_REACH, WALK_SPEED } from "./stroll.js";
+import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
+import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, WALK_SPEED } from "./stroll.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
@@ -69,6 +70,9 @@ export function kit(): string {
     dragLook: DRAG_LOOK,
     lookSpeed: LOOK_SPEED,
     pitchLimit: PITCH_LIMIT,
+    doubleTap: DOUBLE_TAP,
+    jumpHeight: JUMP_HEIGHT,
+    jumpGravity: JUMP_GRAVITY,
     gateWidth: PORTAL_WIDTH,
     gateHeight: PORTAL_HEIGHT,
     gateSpring: PORTAL_SPRING,
@@ -149,6 +153,18 @@ export function menu(options?: string): string {
     },
   });
 
+  // A jump. The engine does the jumping, and hears Space itself: this is the way to ask where there is no keyboard.
+  c.add({
+    id: "jump",
+    section: "moving",
+    icon: "step",
+    label: "Jump",
+    short: "Jump",
+    hotbar: !hasMouse(),
+    hidden: () => vr.presenting,
+    act: () => tell({ type: "jump" }),
+  });
+
   c.add(
     {
       id: "vr",
@@ -171,7 +187,7 @@ export function menu(options?: string): string {
     icon: "help",
     note:
       words(o.help, 600) ||
-      "Drag to look around. Walk with W, A, S, D, or click the floor to step there. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out.",
+      "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out.",
   });
 
   // The menu opening and closing: the engine stops moving the visitor, and lets the pointer go.

@@ -25,7 +25,7 @@ var _said: String = ""
 func _ready() -> void:
 	_build_place()
 	# The kit's menu and sounds. The way home, how to move, fullscreen and the volumes are in it.
-	Nswp.menu("A world in Godot", ACCENT, {"help": "A small world made in Godot with the NSWP addon. Drag to look around. Walk with W, A, S, D, or click the floor to step there. Walk into the doorway to go to the Gallery: your own Airlock shows where it really leads, and asks, before you go."})
+	Nswp.menu("A world in Godot", ACCENT, {"help": "A small world made in Godot with the NSWP addon. Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into the doorway to go to the Gallery: your own Airlock shows where it really leads, and asks, before you go."})
 
 	_visitor = NswpVisitor.new()
 	_visitor.name = "Visitor"
@@ -142,6 +142,7 @@ func _report() -> void:
 		"ready": true,
 		"live": Nswp.is_live(),
 		"at": [snappedf(_visitor.global_position.x, 0.01), snappedf(_visitor.global_position.z, 0.01)],
+		"height": snappedf(_visitor.global_position.y, 0.001),
 		"yaw": snappedf(_visitor.rotation.y, 0.001),
 		"pitch": snappedf(eyes.rotation.x, 0.001),
 		"said": _said,

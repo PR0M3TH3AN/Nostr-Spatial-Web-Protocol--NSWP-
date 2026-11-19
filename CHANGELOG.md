@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.6
+
+Footsteps that sound like footsteps, and running and jumping however a visitor moves. Nothing in the protocol changes.
+
+- **Footsteps.** Each was the same recording at the same loudness, a thousand times a visit. Now a step is under half as loud as any other cue, and no two are alike: each is up to a semitone and a half higher or lower, lighter or heavier, softer or brighter, and a touch to the side of the foot that made it. One foot falls a little lower than the other. It is done as each is played (`stepShape` in `sound-store.ts`), so no sound file was added or changed, and a world's own step gets the same.
+- **Running, in every way of moving.** It was Shift, moving the intense way at a desk, and nothing else. Now: Shift with the keys moving the casual way too; two clicks or two taps on the floor run there (`createStroll` does this itself); and in a headset, walking smoothly, pressing the moving stick in runs until the stick is let go. One number for all of them (`RUN`).
+- **Jumping** (`jump.ts`, `addJump`): the same small jump everywhere. Space at a desk, a Jump control kept at hand where there is no keyboard, and A or X in a headset. It takes the same time at any frame rate, changes nothing about where a visitor may stand, and no step is heard in the air.
+- **The reference worlds, BitPortal's room, the world template and the Godot addon** all have both. BitPortal's room and the template now walk at the kit's pace with the keys (they were a little slower).
+- **A headset moving the casual way has no run:** it moves a step at a time, so there is nothing to speed up. It has the jump.
+- **Status (2026-11-18):** not deployed. On the local server in Chrome, in the Gallery, BitPortal's room, the template and the Godot example: the ten or so steps of a short walk all differed, over about three semitones, at between 0.28 and 0.43 of a cue's level; Shift ran faster than a walk moving both ways; two taps ran and one walked; Space lifted the visitor 0.45 m and put them down, and didn't open the menu. In Godot: 2.4 m/s walking, 4.3 running, and the Jump control at hand on an emulated touch screen. **Not tried:** a headset (the stick and the A button are tested as arithmetic only), a real phone. **Nobody has heard the steps:** the numbers say they differ and are quieter, not that they sound right.
+
 ## 0.15.5
 
 Links that lead to the local copies on a development server, and the kit's own menu, sounds, doorway and movement for a world made in Godot. Nothing in the protocol changes.

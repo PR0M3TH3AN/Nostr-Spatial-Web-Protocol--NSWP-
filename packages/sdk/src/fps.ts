@@ -23,6 +23,7 @@
  * what the visitor finds, and a click on the view takes them in again.
  */
 import type * as THREE from "three";
+import { RUN } from "./stroll.js";
 import type { Controls } from "./ui/model.js";
 
 /** Radians of turn for each pixel the mouse moves. */
@@ -30,7 +31,7 @@ export const LOOK_SPEED = 0.0022;
 /** How far up or down a visitor can look: a little short of straight up, so the view never flips. */
 export const PITCH_LIMIT = (85 * Math.PI) / 180;
 /** Running is this many times walking. */
-export const SPRINT = 1.75;
+export const SPRINT = RUN;
 
 /** Where a visitor is looking after the mouse moved by (dx, dy) pixels. Yaw turns left for a move left; pitch is held within its limit. */
 export function lookAfter(yaw: number, pitch: number, dx: number, dy: number, speed = LOOK_SPEED): { yaw: number; pitch: number } {
@@ -91,8 +92,8 @@ export const DESK_KEY = "nswp:fps";
 export const DESK_WORDS = {
   intense: "Desk controls: intense",
   casual: "Desk controls: casual",
-  nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu.",
-  nowCasual: "Casual: click where you want to stand, and drag to look round.",
+  nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
+  nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
   click: "Click the view to look round. Escape brings up the menu.",
 } as const;
 /** A way of moving that needs a mouse is not offered where there isn't one. */

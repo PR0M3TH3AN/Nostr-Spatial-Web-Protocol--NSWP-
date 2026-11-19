@@ -33,6 +33,8 @@ import {
   cleanKit,
   cleanLevels,
   nextVariant,
+  stepShape,
+  type StepShape,
   type KitSounds,
   cleanSongs,
   cleanTheme,
@@ -203,18 +205,19 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     return noiseBuffer;
   };
-  const playPart = (p: CuePart, when: number) => {
+  /** `to` is where it is heard through, and `rate` how much higher or lower than written it is played. */
+  const playPart = (p: CuePart, when: number, to: AudioNode = effects, rate = 1) => {
     const start = when + p.at;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(p.gain, start + Math.min(0.006, p.dur / 3));
     gain.gain.exponentialRampToValueAtTime(0.0008, start + p.dur);
-    gain.connect(effects);
+    gain.connect(to);
     if (p.kind === "tone") {
       const osc = ctx.createOscillator();
       osc.type = p.wave;
-      osc.frequency.setValueAtTime(p.from, start);
-      if (p.to !== undefined) osc.frequency.exponentialRampToValueAtTime(p.to, start + p.dur);
+      osc.frequency.setValueAtTime(p.from * rate, start);
+      if (p.to !== undefined) osc.frequency.exponentialRampToValueAtTime(p.to * rate, start + p.dur);
       osc.connect(gain);
       osc.start(start);
       osc.stop(start + p.dur + 0.02);
@@ -223,7 +226,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       src.buffer = noise();
       const band = ctx.createBiquadFilter();
       band.type = "bandpass";
-      band.frequency.value = p.band;
+      band.frequency.value = p.band * rate;
       band.Q.value = 1.1;
       src.connect(band);
       band.connect(gain);
@@ -306,26 +309,48 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
 
   const last = new Map<Cue, number>();
   const lastVariant = new Map<Cue, number>();
+  let foot = 0;
+  /** Somewhere for one step to be heard through: softened, turned down and set a little to one side. */
+  const shaped = (shape: StepShape): AudioNode => {
+    const soft = ctx.createBiquadFilter();
+    soft.type = "lowpass";
+    soft.frequency.value = shape.cutoff;
+    soft.Q.value = 0.5;
+    const level = ctx.createGain();
+    level.gain.value = shape.gain;
+    soft.connect(level);
+    if (typeof ctx.createStereoPanner === "function") {
+      const side = ctx.createStereoPanner();
+      side.pan.value = shape.pan;
+      level.connect(side);
+      side.connect(effects);
+    } else level.connect(effects);
+    return soft;
+  };
   const play = (cue: Cue) => {
     if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
     if (theme.cues[cue] === null) return; // the world wants this one silent
     const now = ctx.currentTime;
     if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
     last.set(cue, now);
+    // A footstep is quieter than any other cue, and no two are alike (sound-store.ts, stepShape).
+    const shape = cue === "step" ? stepShape(foot++) : null;
+    const out = shape ? shaped(shape) : effects;
     const files = own.get(cue) ?? fromKit.get(cue);
     if (files?.length) {
       const which = nextVariant(files.length, lastVariant.get(cue) ?? -1);
       lastVariant.set(cue, which);
       const src = ctx.createBufferSource();
       src.buffer = files[which]!.buffer;
+      if (shape) src.playbackRate.value = shape.rate;
       const level = ctx.createGain();
       level.gain.value = files[which]!.gain;
       src.connect(level);
-      level.connect(effects);
+      level.connect(out);
       src.start();
       return;
     }
-    for (const part of cueRecipe(cue)) playPart(part, now + 0.005);
+    for (const part of cueRecipe(cue)) playPart(part, now + 0.005, out, shape?.rate ?? 1);
   };
 
   let walked = 0;

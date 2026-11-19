@@ -470,6 +470,11 @@ sounds.moved(metres);
   theme leaves out keeps the default.
 - **Limits.** A cue file is at most 512 KB and three seconds, and is brought
   down to the loudness of the defaults. Everything passes one limiter.
+- **Footsteps** are quieter than any other cue (under half as loud), and no
+  two are alike: each is a little higher or lower, lighter or heavier, softer
+  or brighter than the last, and a touch to the side of the foot that made
+  it. This is done as each is played (`stepShape`), to the kit's step and to
+  a world's own alike, so one step file is enough. None is heard in the air.
 - **The visitor's volumes** (effects, music, voices, all off) are in the menu
   and are kept for the site. Wire voices with
   `sounds.onChange((l) => presence.setVolume(l.off ? 0 : l.voices))`.
@@ -507,6 +512,39 @@ const fps = createFps({
 - While they are on, aim from the middle of the view: set your pointer to
   (0, 0) when `fps.update` returns true.
 - `addViewControls` adds Fullscreen to the menu.
+
+### Running and jumping, however they move
+
+A visitor can run and jump in every way of moving, and it is the same run
+(`RUN`, 1.75 times a walk) and the same jump (`JUMP_HEIGHT`, 0.45 m) in all
+of them.
+
+| Moving | Run | Jump |
+|---|---|---|
+| Casual, at a desk | Shift with the keys, or two clicks on the floor | Space |
+| Intense, at a desk | Shift | Space |
+| A touch screen | Two taps on the floor | The Jump control, with the ones always at hand |
+| Intense, in a headset | Press the moving stick in; it lasts until the stick is let go | A or X |
+| Casual, in a headset | Nothing to speed up: they move a step at a time | A or X |
+
+```js
+import { addJump, RUN } from "nswp-sdk/three";
+
+const jump = addJump(controls, { presenting: () => renderer.xr.isPresenting, sounds, hud });
+createXrInput({ ..., onJump: () => jump.jump() });
+// each frame:
+rig.position.y = floorY + jump.update(dt);
+if (!jump.airborne) sounds.moved(metresWalked);
+// in your own key walking:  pace = WALK_SPEED * (shiftHeld ? RUN : 1)
+```
+
+- `createStroll` runs by itself: `stroll.to(x, z)` asked twice within
+  `DOUBLE_TAP` milliseconds is a run, and so is each tap after while they
+  are still running. `stroll.to(x, z, true)` runs at once.
+- A jump changes nothing about where a visitor may stand. They come down
+  where the floor is.
+- Space stands down while the menu is open, while the visitor is typing, and
+  while a world has claimed the keys (`controls.claimInput`).
 
 ## Signs
 

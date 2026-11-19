@@ -19,7 +19,8 @@ addon:
   how to move and fullscreen, and the kit's sound files are loaded;
 - the standard doorway lights when pointed at, and a card says where it
   leads;
-- moving the casual way and the intense way both work at the kit's speeds;
+- moving the casual way and the intense way both work at the kit's speeds,
+  with running and jumping in each;
 - walking into a door leads to the visitor's Airlock with where they are
   going, and the way home leads home.
 
@@ -81,8 +82,10 @@ func _ready() -> void:
   menu, and lights when a visitor points at it. Walking in goes through.
 - **Moving.** An `NswpVisitor` moves the casual way (click or tap the floor
   to walk there, drag to look) or the intense way (the mouse looks round,
-  W, A, S, D walk, Shift runs, F uses, Escape is the menu), as the visitor
-  chooses in the menu. It is in the group `visitor`.
+  W, A, S, D walk, F uses, Escape is the menu), as the visitor chooses in
+  the menu. Either way Shift runs and Space jumps; where there is no
+  keyboard, two taps run and the menu's Jump control jumps. It is in the
+  group `visitor`.
 - **The way home.** The menu offers it. `Nswp.home()` does it from your own
   code. If `Nswp.arrival.home` is true, this world is their home, and the
   menu offers their doors instead.
