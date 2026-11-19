@@ -219,6 +219,67 @@
       }
     },
     {
+      "name": "with_settings_that_travel",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InNvdW5kIjp7Im9mZiI6ZmFsc2UsImVmZmVjdHMiOjAuNywibXVzaWMiOjAsInZvaWNlcyI6MSwiaHVtIjp0cnVlfSwidGV4dCI6MS4xNSwibW90aW9uIjpmYWxzZSwid3Jpc3QiOiJyaWdodCIsInR1cm4iOjQ1LCJoYW5kIjoicmlnaHQiLCJuYXJyb3ciOnRydWUsImZ1bGwiOnRydWV9fQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "settings": {
+            "sound": {
+              "off": false,
+              "effects": 0.7,
+              "music": 0,
+              "voices": 1,
+              "hum": true
+            },
+            "text": 1.15,
+            "motion": false,
+            "wrist": "right",
+            "turn": 45,
+            "hand": "right",
+            "narrow": true,
+            "full": true
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "settings_keep_what_is_known_and_in_range",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InNvdW5kIjp7Im11c2ljIjo3LCJlZmZlY3RzIjotMiwidm9pY2VzIjoibG91ZCIsImJhc3MiOjF9LCJ0ZXh0Ijo5LCJ3cmlzdCI6ImFua2xlIiwidHVybiI6NjAsImZ1bGwiOiJ5ZXMiLCJ0aGVtZSI6ImRhcmsifX0",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "settings": {
+            "sound": {
+              "effects": 0,
+              "music": 1
+            },
+            "text": 1.5
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "settings_with_nothing_readable_are_ignored",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InRoZW1lIjoiZGFyayJ9fQ",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": [
+          "invalid_settings"
+        ]
+      }
+    },
+    {
       "name": "on_a_touch_screen",
       "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImZvcm0iOiJ0b3VjaCJ9",
       "expect": {

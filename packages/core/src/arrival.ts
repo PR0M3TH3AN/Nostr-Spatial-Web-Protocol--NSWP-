@@ -1,4 +1,5 @@
 /** Arrival context and entry assertions (spec §4.4). */
+import { cleanSettings, hasSettings, type TravelSettings } from "./settings.js";
 import { base64urlnopad } from "@scure/base";
 import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils.js";
 import { ENTRY_ASSERTION_KIND, LIMITS, SCHEMAS } from "./constants.js";
@@ -75,6 +76,15 @@ export interface Arrival {
    * A headset session is `immersive`.
    */
   form?: "touch" | "desk";
+  /**
+   * The visitor's settings where they came from: their volumes, the size of
+   * their text, whether things move, their hands in a headset, whether their
+   * screen was filled. A world starts from them, so nothing has to be set
+   * again, and they are the visitor's to change the moment they arrive.
+   * Anything unknown or out of range has been left out. Preferences and
+   * nothing more (protocol/11-the-visitors-console.md).
+   */
+  settings?: TravelSettings;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -166,6 +176,11 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.moving !== undefined && json.moving !== "casual") {
     if (json.moving === "intense") out.moving = "intense";
     else c.warn("invalid_moving", "moving", "Ignoring a way of moving that isn't \"casual\" or \"intense\".");
+  }
+  if (json.settings !== undefined) {
+    const settings = cleanSettings(json.settings);
+    if (hasSettings(settings)) out.settings = settings;
+    else c.warn("invalid_settings", "settings", "Ignoring settings with nothing readable in them.");
   }
   if (json.form !== undefined) {
     if (json.form === "touch" || json.form === "desk") out.form = json.form;

@@ -21,6 +21,29 @@
     "mic": { "type": "boolean", "description": "True when their microphone was on and they have told their client it may stay on as they travel. Read only with joined." },
     "moving": { "enum": ["casual", "intense"], "description": "How the visitor was moving where they came from. Intense: at a desk, the mouse looks and keys walk; in a headset, they walk and turn smoothly. A world that offers the two ways starts them in this one. Left out means casual." },
     "form": { "enum": ["touch", "desk"], "description": "What the visitor was using a flat screen with where they came from: their fingers, or a mouse and keys. A world starts them the same way where their device can do both. A preference." },
+    "settings": {
+      "type": "object",
+      "description": "The visitor's settings where they came from. A world starts from them. Preferences: a reader keeps what it knows and is in range, and ignores the rest.",
+      "properties": {
+        "sound": {
+          "type": "object",
+          "properties": {
+            "off": { "type": "boolean" },
+            "effects": { "type": "number", "minimum": 0, "maximum": 1 },
+            "music": { "type": "number", "minimum": 0, "maximum": 1 },
+            "voices": { "type": "number", "minimum": 0, "maximum": 1 },
+            "hum": { "type": "boolean" }
+          }
+        },
+        "text": { "type": "number", "description": "The size of text and controls, 1 being normal." },
+        "motion": { "type": "boolean" },
+        "wrist": { "enum": ["left", "right", "off"] },
+        "turn": { "enum": [30, 45, 90] },
+        "hand": { "enum": ["left", "right"] },
+        "narrow": { "type": "boolean" },
+        "full": { "type": "boolean", "description": "They had the world filling their screen." }
+      }
+    },
     "blocked": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "description": "Identity keys of people the visitor has blocked: their own client's list. The world connects them to nobody on it for this visit, and does not keep it." },
     "receipts": { "type": "array", "maxItems": 8, "items": { "type": "object" } }
   }

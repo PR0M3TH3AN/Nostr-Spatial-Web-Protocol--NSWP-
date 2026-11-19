@@ -12,6 +12,7 @@
  * Adding a button, a section, or a whole new kind of control later means
  * adding to this list. Nothing about either renderer has to change.
  */
+import { arrivedSettings, reportSettings } from "../settings.js";
 import type { IconName } from "./icons.js";
 import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRESETS, type UiTheme } from "./theme.js";
 
@@ -199,6 +200,16 @@ export function createControls(opts: ControlsOptions): Controls {
   const sayers = new Set<(text: string) => void>();
   const signals = new Set<(name: string) => void>();
   let visitor = loadVisitorTheme();
+  // What they arrived with, if they came through a door, in place of what this site remembered: the size of their
+  // text, whether things move, which wrist. The colours stay the world's (settings.ts).
+  const came = arrivedSettings();
+  const brought: Partial<UiTheme> = { ...(came.text !== undefined ? { scale: came.text } : {}), ...(came.motion !== undefined ? { motion: came.motion } : {}), ...(came.wrist !== undefined ? { wrist: came.wrist } : {}) };
+  if (Object.keys(brought).length) {
+    visitor = { ...visitor, ...brought };
+    saveVisitorTheme(visitor);
+  }
+  // Only what they chose themselves goes on with them. A world's own setting, or a device's, is not theirs to carry.
+  reportSettings("look", () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }));
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
   let detail: string[] = [];

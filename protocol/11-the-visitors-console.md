@@ -1,6 +1,6 @@
 # NSWP-11: The visitor's console
 
-**Status:** Implemented in the reference SDK for a desk, a touch screen and a controller in a headset; tracked hands with a hidden console are proposed · **Code:** SDK [`ui/summon.ts`](../packages/sdk/src/ui/summon.ts), [`ui/hud.ts`](../packages/sdk/src/ui/hud.ts), [`form.ts`](../packages/sdk/src/form.ts), [`engine-menu.ts`](../packages/sdk/src/engine-menu.ts) · **Guides:** [`controls-kit.md`](../docs/controls-kit.md), [`other-engines.md`](../docs/other-engines.md)
+**Status:** Implemented in the reference SDK for a desk, a touch screen and a controller in a headset, with the settings that travel; tracked hands with a hidden console are proposed · **Code:** SDK [`ui/summon.ts`](../packages/sdk/src/ui/summon.ts), [`ui/hud.ts`](../packages/sdk/src/ui/hud.ts), [`form.ts`](../packages/sdk/src/form.ts), [`settings.ts`](../packages/sdk/src/settings.ts), [`engine-menu.ts`](../packages/sdk/src/engine-menu.ts) · **Guides:** [`controls-kit.md`](../docs/controls-kit.md), [`other-engines.md`](../docs/other-engines.md)
 
 A visitor carries a few things from world to world: the way home, how they
 move, how loud things are, who they have muted, the way out of a headset.
@@ -121,6 +121,45 @@ start another. So headset to headset costs one press on arriving, and no
 more. That is the web's rule, not this protocol's. Where a browser offers to
 carry a session across (the `sessiongranted` proposal), the reference SDK
 takes it and nothing is asked.
+
+## Settings that travel
+
+Each world is a different website, and a website can only remember what a
+visitor chose on that site. So someone who turned the music down, made the
+text larger or filled their screen had to do it again in every world. A few
+settings now go with them instead, the same way the form they are in does:
+
+| Setting | In the link and the arrival | |
+|---|---|---|
+| Their volumes | `sound`: `off`, `effects`, `music`, `voices` (each 0 to 1), `hum` | |
+| The size of text and controls | `text`: 0.85 to 1.5 | |
+| Whether things move as they open and close | `motion` | |
+| Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving) | |
+| Their screen filled | `full` | Taken up again at their first key or press on arriving, since a browser fills the screen only on a press |
+
+- **A world says** `set=<settings>` on the link, for what the visitor has
+  now: the settings as JSON, base64url, at most 400 characters.
+- **The visitor's client passes them on** as `settings` in the arrival
+  context ([NSWP-03](03-arrival.md)).
+- **The world they arrive in starts from them,** in place of whatever that
+  site remembered, and keeps them for next time.
+- **They go home too.** On the way home the link carries them, and the
+  visitor's own client starts from them. What was changed in a world is not
+  forgotten on leaving it.
+- **A reader keeps what it knows and is in range, and ignores the rest.**
+  So a setting added later doesn't break an older world.
+
+**They are preferences and nothing more.** A link that says them falsely
+has turned a volume down or made some text larger, and the visitor changes
+it back. So nothing is asked about them, and nothing that would need asking
+is ever one of them: a microphone, who is blocked, and hearing other
+people's music are not settings, and travel under rules of their own or not
+at all ([NSWP-02](02-doors.md)). A world's colours don't travel either:
+those belong to each place.
+
+How a visitor moves (`moving`) and the form they are in (`form`) are
+settings of the same kind. They have fields of their own because a world
+needs them before anything else is set up.
 
 ## Who draws it
 

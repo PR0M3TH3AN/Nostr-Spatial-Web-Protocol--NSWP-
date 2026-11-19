@@ -36,7 +36,7 @@ and says plainly what is built and what is only proposed.
 | [08 Lists and finding worlds](08-lists.md) | Lists anyone can publish and follow; worlds nobody has listed | Implemented, in part | 30004 |
 | [09 What a world owes a visitor](09-what-a-world-owes.md) | The few things that are the same everywhere | Implemented | |
 | [10 Who someone is](10-identity.md) | Going by name without a world ever holding a key: passes, names, the proven mark | Implemented, in part | 27300 |
-| [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; and arriving in the form they left in | Implemented, in part | |
+| [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; arriving in the form they left in; and the settings that go with them | Implemented, in part | |
 
 ## What "status" means
 

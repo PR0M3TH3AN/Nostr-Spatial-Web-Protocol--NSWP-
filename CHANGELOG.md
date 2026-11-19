@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.0
+
+Settings that travel. A protocol change: one new flag on a link (`set=`) and one new field in the arrival context (`settings`), in [NSWP-11](protocol/11-the-visitors-console.md).
+
+- **The problem.** Each world is a different website, and a website can only remember what a visitor chose on that site. So someone who turned the music down, made the text larger or filled their screen had to do it again in every world.
+- **What travels now:** their volumes (all off, effects, music, voices, the room's hum), the size of text and controls, whether things move, their hands in a headset (which wrist, which stick, how far a turn goes, the view narrowed), and whether their screen was filled. A world says them on the link; the visitor's client passes them on; the world they arrive in starts from them in place of what it remembered. They go home too, so what was changed in a world is not forgotten on leaving it.
+- **A screen that was filled is filled again** at the visitor's first key or press on arriving. A browser gives up fullscreen whenever the page changes and fills the screen only on a press, so that is as soon as it can be.
+- **What never travels this way:** anything that would need asking about. A microphone, who is blocked and hearing other people's music keep their own rules. A world's colours stay the world's.
+- **They are preferences.** A forged link has turned a volume down. Nothing is asked, nothing is shown, and a reader keeps what it knows and is in range and ignores the rest.
+- **In the kit** (`settings.ts`): each part that holds a setting begins from `arrivedSettings()` and reports what the visitor has now; `arrival.read()` and `portal.go()` do the rest. Nothing for a world to do.
+- **Fixed on the way:** on a development server, an arrival longer than 300 characters was not followed to its local copy and went to the real site. A long arrival is the normal case once it carries settings or a pass.
+- **Status (2026-11-18):** not deployed. On the local server in Chrome: music off, effects low, larger text, less motion and a filled screen, set in the Gallery; the Grove began with all of them, and filled the screen again at the first key; a volume changed in the Grove was there in BitPortal's room on coming home, with the rest. The Godot example began from settings it arrived with (music off, larger text, the screen filled at the first key) and sent them on through its door. **Not tried:** a headset (its hands travel, untested), Firefox, Safari.
+
 ## 0.16.1
 
 Arriving as you left, walking straight through a door, and knowing what is playing.
