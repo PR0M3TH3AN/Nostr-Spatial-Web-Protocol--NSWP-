@@ -318,7 +318,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
 
     // Who the section is about, at its head: a face, a name, how they are known, and what they say of themselves.
     const card = current?.card ?? null;
-    const cardH = card ? (card.text ? 176 : 118) : 0;
+    const cardH = card ? (card.text ? 162 : 112) : 0;
     if (card) {
       const y = 138;
       g.beginPath();
@@ -330,16 +330,16 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       g.stroke();
       const face = card.picture ? faceOf(card.picture) : null;
       const cx = left + 58;
-      const cy = y + 53;
+      const cy = y + 50;
       g.save();
       g.beginPath();
-      g.arc(cx, cy, 38, 0, Math.PI * 2);
+      g.arc(cx, cy, 36, 0, Math.PI * 2);
       g.closePath();
       g.fillStyle = card.color || `rgba(${I}, 0.25)`;
       g.fill();
       if (face) {
         g.clip();
-        g.drawImage(face, cx - 38, cy - 38, 76, 76);
+        g.drawImage(face, cx - 36, cy - 36, 72, 72);
       } else {
         g.fillStyle = t.glass;
         g.font = `700 ${Math.round(40 * k)}px ${SANS}`;
@@ -354,28 +354,28 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       g.font = `650 ${Math.round(32 * k)}px ${SANS}`;
       g.fillStyle = t.ink;
       const name = fit(g, card.title, areaW - 300);
-      g.fillText(name, tx, y + 46);
+      g.fillText(name, tx, y + 43);
       if (card.tag) {
         const nameW = g.measureText(name).width;
         g.font = `500 ${Math.round(21 * k)}px ${SANS}`;
         const tagW = g.measureText(card.tag).width + 26;
         g.beginPath();
-        g.roundRect(tx + nameW + 16, y + 20, tagW, 34, 17);
+        g.roundRect(tx + nameW + 16, y + 17, tagW, 34, 17);
         g.lineWidth = 2;
         g.strokeStyle = card.proven ? `rgba(${A}, 0.9)` : `rgba(${I}, 0.35)`;
         g.stroke();
         g.fillStyle = card.proven ? t.accent : `rgba(${I}, 0.8)`;
-        g.fillText(card.tag, tx + nameW + 29, y + 44);
+        g.fillText(card.tag, tx + nameW + 29, y + 41);
       }
       g.font = `400 ${Math.round(22 * k)}px ${card.copy ? MONO : SANS}`;
       g.fillStyle = `rgba(${I}, 0.7)`;
-      g.fillText(fit(g, [card.sub, ...card.now].join("   "), areaW - 140), tx, y + 82);
+      g.fillText(fit(g, [card.sub, ...card.now].join("   "), areaW - 140), tx, y + 78);
       if (card.text) {
         g.fillStyle = `rgba(${A}, 0.7)`;
-        g.fillRect(left + 20, y + 102, 3, 52);
+        g.fillRect(left + 20, y + 96, 3, 48);
         g.font = `400 ${Math.round(22 * k)}px ${SANS}`;
         g.fillStyle = `rgba(${I}, 0.9)`;
-        wrap(g, card.text, areaW - 60, 2).forEach((line, i) => g.fillText(line, left + 34, y + 122 + i * 28));
+        wrap(g, card.text, areaW - 60, 2).forEach((line, i) => g.fillText(line, left + 34, y + 114 + i * 26));
       }
     }
 

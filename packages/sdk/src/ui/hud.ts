@@ -188,9 +188,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .card h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
 .card .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
 .card .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
-.card .key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
-.card .key button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
-.card .key button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.card .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
+.card .keyline button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
+.card .keyline button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
 .card blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
 .card .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
 
@@ -343,7 +343,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       { class: "card", role: "group", "aria-label": `About ${card.title}` },
       face,
       el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag)),
-      el("div", { class: "key" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey),
+      el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey),
       card.text && el("blockquote", {}, card.text),
       card.now.length > 0 && el("p", { class: "now" }, card.now.join(", ")),
     );
