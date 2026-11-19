@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.3
+
+An Airlock that is only seen when there is something to see.
+
+- **[NSWP-02](protocol/02-doors.md), "How many actions a crossing takes":** an Airlock goes straight through to a place the visitor knows. Its question is for somewhere new; asked at every door, it teaches people to press Continue without reading. "Knows" is narrow and every part has to hold: the site proves it is who it says, this time as before; the client's host lists it; the visitor has been through the Airlock to it before, with the same publisher; and nothing has changed, is warned about, or is waiting for an answer. If one fails, the whole screen is shown and they are asked.
+- **In BitPortal:** on by default, and a switch in Settings ("Go straight through doors to places I've been before"). The first crossing to any world still stops and shows the real address. Later ones show where the visitor is going, with a Stop button, for the second or so the door takes to check, and then go. "Stop here" while it is checking, "Always stop here for this world", and the switch each bring the whole screen back.
+- **Status (2026-11-18):** not deployed. On the local server in Chrome: the first crossing asked; the second went through in about a second with nothing pressed; from a room with a microphone on, joined went along and the microphone did not; Stop while checking, "always stop" for the world, the switch turned off, and a publisher that wasn't the one it had been each brought the whole screen back. **Not tried:** a headset, where it matters most.
+
 ## 0.17.2
 
 One page for everything a world has to do and everything it may replace, and a probe that tries a world for itself.

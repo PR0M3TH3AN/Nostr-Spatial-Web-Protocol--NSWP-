@@ -143,7 +143,7 @@ can do is ask for nothing more.
 | Step | Whose page | Asks for |
 |---|---|---|
 | Leave | The world | One action: selecting a door, or walking through it |
-| Confirm | The visitor's Airlock | One. None for a verified world they approved before |
+| Confirm | The visitor's Airlock | One, the first time. None for a place they know |
 | Arrive | The destination | One, to go back into the headset. None on a flat screen, and none where the browser carries the session over |
 
 So a crossing in a headset is three actions at most, two to a familiar world,
@@ -161,8 +161,19 @@ and one where the browser allows it. Each party keeps its own count down:
   way the visitor chose last time, and none of it needs a second action.
 - Passes `immersive` on in the arrival context ([NSWP-03](03-arrival.md)) when
   it was told `xr=1`.
-- Skips its question, with a moment to cancel, for a verified world the
-  visitor has approved before.
+- Goes straight through to a place the visitor knows. The question is for
+  somewhere new. Stopping someone at a door they have been through before
+  teaches them to press Continue without reading, which is the opposite of
+  what the question is for. "Knows" is narrow, and every part of it has to
+  hold: the site proves it is who it says, this time as before; the client's
+  host lists it; the visitor has been through the Airlock to it before, with
+  the same publisher; nothing has changed, nothing is warned about, nothing
+  is waiting for an answer, and it suits their device. If one fails, the
+  whole screen is shown and they are asked.
+- Still shows where they are going on the way through, with a way to stop,
+  and lets them say "always stop for this world" or "stop at every door".
+- On the way through, joined goes along and a microphone only if they had
+  already said it may, as on the way home ("Staying joined", below).
 
 **A world, as the visitor arrives**
 
