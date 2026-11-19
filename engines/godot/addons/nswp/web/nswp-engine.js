@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.22.0";
+  var KIT_VERSION = "0.23.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -3744,6 +3744,8 @@ var NSWP = (() => {
       out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
     if (typeof s.pictures === "boolean")
       out.pictures = s.pictures;
+    if (typeof s.chat === "boolean")
+      out.chat = s.chat;
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
@@ -4065,6 +4067,43 @@ var NSWP = (() => {
   var POSE_FLOATS = 22;
   var POSE_BYTES = POSE_FLOATS * 4;
 
+  // packages/core/dist/chat.js
+  var CHAT_LIMITS = {
+    /** The most characters in one thing said. Longer is cut, by the one saying it and again by the one reading. */
+    chars: 240,
+    /** A line is sent this many times, because the channel doesn't try again; a reader takes the first. */
+    repeats: 3,
+    repeatGapMs: 180,
+    /** No more than `burst` lines from one member in `perMs`. The rest are dropped, unseen. */
+    burst: 5,
+    perMs: 1e4,
+    /** How many lines a reader keeps for the visit. */
+    kept: 100,
+    /** How many ids are remembered for each member, to know a repeat from a new line. */
+    remembered: 32
+  };
+  var UNSEEN = [
+    [0, 31],
+    [127, 159],
+    [8203, 8204],
+    // 0x200d joins the parts of one emoji, and stays.
+    [8206, 8207],
+    [8232, 8239],
+    [8288, 8303],
+    [65279, 65279],
+    [65529, 65531]
+  ];
+  var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
+  function cleanChat(text) {
+    if (typeof text !== "string")
+      return "";
+    let out = "";
+    for (const ch of text.slice(0, CHAT_LIMITS.chars * 8).normalize("NFC"))
+      out += unseen(ch.codePointAt(0)) ? " " : ch;
+    out = out.replace(/\s+/g, " ").trim();
+    return [...out].slice(0, CHAT_LIMITS.chars).join("").trim();
+  }
+
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {
     placements: 64,
@@ -4161,9 +4200,9 @@ var NSWP = (() => {
     const name = cleanName(raw);
     if (raw !== name)
       c.warn("name_cleaned", "tags.name", "The name was tidied before being shown.");
-    const shown = getTags(event, "picture")[0]?.[1] ?? "";
-    const picture = cleanPicture(shown);
-    if (shown && !picture)
+    const shown2 = getTags(event, "picture")[0]?.[1] ?? "";
+    const picture = cleanPicture(shown2);
+    if (shown2 && !picture)
       c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
     return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, expiresAt, id: event.id });
   }
@@ -5910,6 +5949,8 @@ var NSWP = (() => {
     sound: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9a4.500 4.500 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11",
     soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
     you: "M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5ZM5 20.5a7 7 0 0 1 14 0",
+    close: "M6 6l12 12M18 6 6 18",
+    chat: "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM8 10h8M8 13h5",
     people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
   };
 
@@ -6061,6 +6102,42 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
 
+/* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
+.chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
+  display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
+.chat[data-state="closed"] { display: none; }
+.chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
+.chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
+.chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
+.chat header b { flex: 1; font-weight: 650; }
+.chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
+.chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
+.chat header svg { width: 1.2em; height: 1.2em; }
+.chat ol { list-style: none; margin: 0; padding: 10px 14px; display: grid; gap: 7px; align-content: end; overflow-y: auto; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; overflow-wrap: anywhere; }
+.chat li b { font-weight: 650; margin-right: .45em; color: var(--who, rgb(var(--accent))); }
+.chat li.mine b { color: rgba(var(--ink), .62); }
+.chat li.aside { color: rgba(var(--ink), .6); font-size: .93em; }
+.chat .empty { margin: 0; padding: 14px; color: rgba(var(--ink), .7); }
+.chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(var(--accent), .22); }
+.chat input { flex: 1; min-width: 0; font: inherit; font-size: max(16px, 1em); color: rgb(var(--ink)); background: rgba(var(--ink), .07);
+  border: 1px solid rgba(var(--ink), .22); border-radius: 9px; padding: 8px 10px; outline: none; }
+.chat input::placeholder { color: rgba(var(--ink), .5); }
+.chat input:focus { border-color: rgb(var(--accent)); }
+.chat form button { padding: 0 13px; border-radius: 9px; background: rgba(var(--accent), .18); border: 1px solid rgba(var(--accent), .7); }
+.chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
+.chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
+.chat .hint:empty { display: none; }
+.chat[data-state="peek"] :is(header, form, .hint, .empty) { display: none; }
+.chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
+.chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
+  background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
+.chat[data-state="peek"].going { opacity: 0; transition: opacity .6s; }
+:host([data-presence="hidden"]) .chat { display: none; }
+:host(:not([data-presence="full"])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
+
 /* ---- the sheet: everything else, by section */
 .sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
   width: min(480px, calc(100vw - 20px)); max-height: min(62vh, 560px); display: flex; flex-direction: column; pointer-events: auto;
@@ -6117,6 +6194,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 /* ---- one moment of motion: things arrive. Nothing loops. */
 @keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes chat-in { from { opacity: 0; transform: translateX(8px); } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 @keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
 :host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
@@ -6136,7 +6214,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   .key .name { font-size: .76em; }
   .sheet { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
   .says { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px * var(--s)); }
+  /* The chat is across the bottom, over the hotbar's shoulder, and no taller than half the screen. */
+  .chat { left: 8px; right: 8px; width: auto; top: auto; max-height: 46vh; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
+  .chat[data-state="peek"] { max-height: 30vh; }
 }
+/* A keyboard on the glass covers the bottom of the page: the place to write stands on top of it. */
+:host(.keys-up) .chat[data-state="open"] { top: auto; bottom: calc(var(--kb, 0px) + 8px); max-height: calc(100vh - var(--kb, 0px) - 24px); }
 @media (hover: none) { kbd { display: none; } }
 `;
   function icon(name) {
@@ -6180,13 +6263,117 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const note = el("p", { class: "note" });
     const close = el("button", { class: "close", type: "button" }, "Close");
     const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, sheet, el("div", { class: "low" }, target2, hotbar));
+    const chatTitle = el("b");
+    const chatClose = el("button", { type: "button", "aria-label": "Put the chat away" }, icon("close"));
+    const chatLines = el("ol", { "aria-live": "polite" });
+    const chatEmpty = el("p", { class: "empty" }, "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.");
+    const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
+    const chatHint = el("p", { class: "hint", role: "status" });
+    const chatForm = el("form", {}, chatField, el("button", { type: "submit" }, "Send"));
+    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatClose), chatEmpty, chatLines, chatHint, chatForm));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
     let chose = false;
     let drawn = "";
     const press = (item) => controls2.run(item.id);
+    let chatState = "closed";
+    let chatDrawn = "";
+    let chatNewest = "";
+    let peekTimer;
+    let goingTimer;
+    const PEEK_LINES = 4;
+    const PEEK_MS = 9e3;
+    const setChatState = (next) => {
+      clearTimeout(peekTimer);
+      clearTimeout(goingTimer);
+      chat.classList.remove("going");
+      chatState = next;
+      if (next === "peek") {
+        goingTimer = setTimeout(() => chat.classList.add("going"), PEEK_MS - 700);
+        peekTimer = setTimeout(() => {
+          if (chatState === "peek") setChatState("closed");
+          draw();
+        }, PEEK_MS);
+      }
+    };
+    const drawChat = (view2) => {
+      const c = view2.chat;
+      if (!c.ready && chatState !== "closed") setChatState("closed");
+      const newest = c.lines[c.lines.length - 1]?.key ?? "";
+      if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
+      chatNewest = newest;
+      const now = JSON.stringify([chatState, c.version, c.ready]);
+      if (now === chatDrawn) return;
+      chatDrawn = now;
+      chat.dataset.state = chatState;
+      chatTitle.textContent = c.title;
+      chatField.maxLength = c.limit;
+      const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
+      const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+      chatLines.replaceChildren(
+        ...lines.map((line) => {
+          const li = el("li", { class: line.note ? "aside" : line.mine ? "mine" : "" }, !line.note && el("b", {}, line.mine ? "You" : line.who), line.note ? "" : " ", line.text);
+          if (line.color && !line.mine) li.style.setProperty("--who", line.color);
+          return li;
+        })
+      );
+      chatEmpty.hidden = lines.length > 0;
+      chatLines.hidden = lines.length === 0;
+      if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
+      if (chatState === "open") controls2.chat.seen();
+    };
+    const setChatOpen = (next) => {
+      if (next === (chatState === "open")) return;
+      if (next) {
+        if (!controls2.chat.view().ready || host.hidden || controls2.view().presence === "hidden") return;
+        if (open2) setOpen(false);
+        chatCameFrom = focused();
+        setChatState("open");
+        chatHint.textContent = "";
+        draw();
+        chatLines.scrollTop = chatLines.scrollHeight;
+        chatField.focus({ preventScroll: true });
+        controls2.signal("chatOpen");
+        return;
+      }
+      setChatState("closed");
+      draw();
+      controls2.signal("chatClose");
+      const back = chatCameFrom;
+      chatCameFrom = null;
+      if (back?.isConnected && back !== document.body && !chat.contains(back) && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+      else focused()?.blur();
+    };
+    let chatCameFrom = null;
+    chatClose.addEventListener("click", () => setChatOpen(false));
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = chatField.value;
+      if (!text.trim()) return setChatOpen(false);
+      const trouble = controls2.chat.send(text);
+      chatHint.textContent = trouble ?? "";
+      if (!trouble) chatField.value = "";
+      chatField.focus({ preventScroll: true });
+    });
+    chatField.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setChatOpen(false);
+      }
+    });
+    chatField.addEventListener("keypress", (e) => e.stopPropagation());
+    const vv = typeof visualViewport === "undefined" ? null : visualViewport;
+    const onViewport = () => {
+      if (!vv) return;
+      const covered = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+      host.classList.toggle("keys-up", covered > 80 && chatState === "open");
+      host.style.setProperty("--kb", `${covered}px`);
+    };
+    vv?.addEventListener("resize", onViewport);
+    vv?.addEventListener("scroll", onViewport);
     const draw = () => {
       const view2 = controls2.view();
       const t = view2.theme;
@@ -6204,13 +6391,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
       title.textContent = view2.title;
       address.textContent = view2.address;
-      const shown = [view2.target, ...view2.detail].join("\n");
-      if (target2.dataset.shown !== shown) {
-        target2.dataset.shown = shown;
+      const shown2 = [view2.target, ...view2.detail].join("\n");
+      if (target2.dataset.shown !== shown2) {
+        target2.dataset.shown = shown2;
         target2.classList.toggle("card", view2.detail.length > 0);
         if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line) => el("span", {}, line)));
         else target2.textContent = view2.target;
       }
+      drawChat(view2);
       if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
       const now = JSON.stringify([view2.hotbar, view2.sections, section, open2, view2.presence]);
       if (now === drawn) return;
@@ -6286,6 +6474,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       if (open2 === next) return;
       if (next) {
+        if (chatState === "open") setChatOpen(false);
         cameFrom = focused();
         if (!chose) section = "";
       }
@@ -6308,6 +6497,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (e.key === "Escape" && open2) return setOpen(false);
       const view2 = controls2.view();
       if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
+      if (view2.keys.chat && view2.chat.ready && view2.presence !== "hidden" && !open2 && !e.repeat && (e.key.toLowerCase() === view2.keys.chat || e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A")) {
+        e.preventDefault();
+        return setChatOpen(true);
+      }
       if (!view2.keys.hotbar || view2.presence !== "full") return;
       const item = view2.hotbar.find((i) => i.key === e.key);
       if (item) press(item);
@@ -6345,6 +6538,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const stop = controls2.subscribe(draw);
     const stopAsking = controls2.onSignal((name) => {
       if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
+      if (name === "chat" && !host.hidden) setChatOpen(chatState !== "open");
     });
     const tick = setInterval(draw, 400);
     host.classList.add("arriving");
@@ -6356,9 +6550,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return open2;
       },
       setOpen,
+      get chatOpen() {
+        return chatState === "open";
+      },
+      setChatOpen,
       bounds() {
         if (host.hidden) return [];
-        return [id, menu2, quiet, hotbar, target2, sheet].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
+        return [id, menu2, quiet, hotbar, target2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
       },
       cover() {
         if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
@@ -6368,10 +6566,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       setHidden(hidden) {
         host.hidden = hidden;
-        if (hidden) setOpen(false);
+        if (hidden) {
+          setOpen(false);
+          setChatOpen(false);
+        }
       },
       remove() {
         clearInterval(tick);
+        clearTimeout(peekTimer);
+        clearTimeout(goingTimer);
+        vv?.removeEventListener("resize", onViewport);
+        vv?.removeEventListener("scroll", onViewport);
         stop();
         stopAsking();
         stopSay();
@@ -6385,6 +6590,92 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
   }
 
+  // packages/sdk/src/ui/chat.ts
+  var CHAT_KEY = "nswp:chat";
+  var shown = null;
+  var watchers2 = /* @__PURE__ */ new Set();
+  function showsChat() {
+    if (shown !== null) return shown;
+    const came = arrivedSettings().chat;
+    let kept = null;
+    try {
+      kept = localStorage.getItem(CHAT_KEY);
+    } catch {
+    }
+    shown = came ?? kept !== "0";
+    if (came !== void 0) keep2(shown);
+    reportSettings("chat", () => ({ chat: showsChat() }));
+    return shown;
+  }
+  var keep2 = (on) => {
+    try {
+      if (on) localStorage.removeItem(CHAT_KEY);
+      else localStorage.setItem(CHAT_KEY, "0");
+    } catch {
+    }
+  };
+  function onChatChange(cb) {
+    watchers2.add(cb);
+    return () => void watchers2.delete(cb);
+  }
+  function createUiChat(changed) {
+    let send = null;
+    let title = "Room chat";
+    let lines = [];
+    let unread = 0;
+    let version = 0;
+    let count = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    onChatChange(() => {
+      if (!showsChat()) {
+        lines = [];
+        unread = 0;
+      }
+      bump2();
+    });
+    return {
+      attach(fn, opts = {}) {
+        send = fn;
+        title = opts.title ?? "Room chat";
+        lines = [];
+        unread = 0;
+        bump2();
+      },
+      detach() {
+        if (!send && !lines.length) return;
+        send = null;
+        lines = [];
+        unread = 0;
+        bump2();
+      },
+      add(line) {
+        if (!send || !showsChat()) return;
+        const text = cleanChat(line.text);
+        if (!text) return;
+        lines.push({ key: `${line.id ?? "n"}-${++count}`, who: line.note ? "" : cleanChat(line.who ?? "").slice(0, 48), text, mine: !!line.mine, note: !!line.note, color: line.color ?? "", at: Date.now() });
+        if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
+        if (!line.mine && !line.note) unread++;
+        bump2();
+      },
+      send(text) {
+        if (!send || !showsChat()) return "There is nobody to write to: join the room first.";
+        if (!cleanChat(text)) return null;
+        return send(text) ?? null;
+      },
+      seen() {
+        if (!unread) return;
+        unread = 0;
+        bump2();
+      },
+      view() {
+        return { ready: !!send && showsChat(), title, lines, unread, limit: CHAT_LIMITS.chars, version };
+      }
+    };
+  }
+
   // packages/sdk/src/ui/model.ts
   var PRESENCES = ["full", "quiet", "hidden"];
   var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
@@ -6392,6 +6683,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const out = { ...now };
     if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
     if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
     return out;
   }
   var read = (t) => typeof t === "function" ? t() : t ?? "";
@@ -6413,7 +6705,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
     { id: "help", label: "Help", icon: "help" }
   ];
-  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "jump"];
+  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
   var rank = (id) => {
     const i = STANDARD_ORDER.indexOf(id);
     return i === -1 ? STANDARD_ORDER.length : i;
@@ -6439,11 +6731,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let detail = [];
     let presence2 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
     let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
-    let keys = cleanKeys2({ menu: "m", hotbar: true }, opts.keys);
+    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
     let claimed = false;
     const changed = () => {
       for (const fn of listeners) fn();
     };
+    const chat = createUiChat(changed);
     function addSection(s) {
       const i = sections.findIndex((x) => x.id === s.id);
       if (i === -1) sections.push({ ...s });
@@ -6511,12 +6804,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }).finally(changed);
         return true;
       },
-      setTheme(patch, keep3 = false) {
-        if (keep3) {
+      setTheme(patch, keep4 = false) {
+        if (keep4) {
           visitor = { ...visitor, ...patch };
           saveVisitorTheme(visitor);
         }
-        theme = resolveTheme({ ...opts.theme, ...keep3 ? {} : patch }, visitor);
+        theme = resolveTheme({ ...opts.theme, ...keep4 ? {} : patch }, visitor);
         changed();
       },
       view() {
@@ -6538,7 +6831,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           theme,
           presence: presence2,
           corner,
-          keys: claimed ? { menu: null, hotbar: false } : keys
+          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
+          chat: chat.view()
         };
       },
       subscribe(fn) {
@@ -6560,22 +6854,23 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       onSay(fn) {
         sayers.add(fn);
         return () => sayers.delete(fn);
-      }
+      },
+      chat
     };
-    const keep2 = (patch) => controls2.setTheme(patch, true);
+    const keep3 = (patch) => controls2.setTheme(patch, true);
     controls2.add(
       ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep2({ accent: p.accent }) })
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep3({ accent: p.accent }) })
       ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep2({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep2({ motion: !theme.motion }) },
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep3({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep3({ motion: !theme.motion }) },
       {
         id: "look-wrist",
         section: "look",
         icon: "menu",
         label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
         on: () => theme.wrist !== "off",
-        act: () => keep2({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+        act: () => keep3({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
       },
       { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
         visitor = {};

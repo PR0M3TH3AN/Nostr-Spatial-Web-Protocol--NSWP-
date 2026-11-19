@@ -404,11 +404,41 @@ anywhere. The visitor's switch is `people-pictures`; `showsPictures()` reads
 it, and `loadPicture(address)` fetches one the safe way for anything you
 draw yourself.
 
+### What people write
+
+Join a room and there is written chat, with nothing to add: `addRoomControls`
+wires it. A line someone writes is drawn over their head for a few seconds,
+and listed in a panel.
+
+- **On a flat screen** the panel is at the right-hand side (across the
+  bottom on a phone). Put away, the newest lines pass by for a few seconds.
+  Enter or T opens it to write in; Enter sends; Enter on an empty line, or
+  Escape, puts it away. No key pressed in its field reaches your world.
+- **In a headset** it is a panel of the visitor's own, pinned beside them
+  until they move it. Its one button puts the kit's keyboard up, with its
+  Speak key.
+- **The control** is `room-chat`, on the taskbar once a room is joined, with
+  a count of what hasn't been read. `room-chat-show` is the visitor's switch;
+  `showsChat()` reads it.
+
+```js
+controls.chat.view();              // { ready, title, lines, unread, limit, version }
+controls.chat.send("Hello");       // says it; returns a few words if it couldn't be said
+controls.setKeys({ chat: null });  // your world needs T and Enter for itself
+createPresence({ ..., bubbles: false }); // you draw what people write your own way
+presence.session.on("said", (member, line) => {}); // every line, the visitor's own included
+```
+
+A line is plain text, already cleaned: draw it as text and as nothing else.
+Never make a link in one open by itself, and never fetch anything a line
+names. What the rules are, and why, is in
+[NSWP-06](../protocol/06-rooms.md), "Words".
+
 ### One order everywhere
 
 `controls.view()` puts the things every place has in one order, whatever
 order your code added them in (`STANDARD_ORDER`): home, doors, the headset,
-the room, the microphone, jump. So the taskbar and its number keys are the
+the room, the microphone, chat, jump. So the taskbar and its number keys are the
 same in every world. Your own controls follow in the order you added them.
 Sections have a standard order too, and "Sound" and "Display" are part of
 it. `hud.setOpen(true, "sound")` brings the menu up on a section by name.

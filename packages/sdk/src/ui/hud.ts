@@ -10,7 +10,12 @@
  * and a screen reader can name, styled the same in every world because no
  * world's stylesheet reaches in.
  *
- * Keys: 1 to 6 press the hotbar, M opens the menu, Escape closes it. A world
+ * What the people in a room write to each other is a panel at the side
+ * (ui/chat.ts): a few lines that come and go while it is put away, and a
+ * list with a place to write when it is open.
+ *
+ * Keys: 1 to 6 press the hotbar, M opens the menu, Escape closes it, and
+ * Enter or T opens the chat to write in. A world
  * can change or switch off those keys, and can make the whole HUD quiet (one
  * small mark in a corner) or hidden, so that it never competes with an
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
@@ -26,6 +31,10 @@ export interface Hud {
   readonly open: boolean;
   /** Bring the menu up or put it away. `at` names the section to bring it up on. */
   setOpen(open: boolean, at?: string): void;
+  /** Whether the chat panel is open to write in. */
+  readonly chatOpen: boolean;
+  /** Open the chat panel to write in, or put it away. It opens only where there is a room to write to. */
+  setChatOpen(open: boolean): void;
   /** How much of the top and bottom of the window the HUD covers, in pixels. For placing a scene's picture clear of it. Nothing when it is quiet or hidden. */
   cover(): { top: number; bottom: number };
   /** Where each visible part of the HUD is, so a world can lay its own interface out around it. */
@@ -102,6 +111,42 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
 
+/* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
+.chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
+  display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
+.chat[data-state="closed"] { display: none; }
+.chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
+.chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
+.chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
+.chat header b { flex: 1; font-weight: 650; }
+.chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
+.chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
+.chat header svg { width: 1.2em; height: 1.2em; }
+.chat ol { list-style: none; margin: 0; padding: 10px 14px; display: grid; gap: 7px; align-content: end; overflow-y: auto; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; overflow-wrap: anywhere; }
+.chat li b { font-weight: 650; margin-right: .45em; color: var(--who, rgb(var(--accent))); }
+.chat li.mine b { color: rgba(var(--ink), .62); }
+.chat li.aside { color: rgba(var(--ink), .6); font-size: .93em; }
+.chat .empty { margin: 0; padding: 14px; color: rgba(var(--ink), .7); }
+.chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(var(--accent), .22); }
+.chat input { flex: 1; min-width: 0; font: inherit; font-size: max(16px, 1em); color: rgb(var(--ink)); background: rgba(var(--ink), .07);
+  border: 1px solid rgba(var(--ink), .22); border-radius: 9px; padding: 8px 10px; outline: none; }
+.chat input::placeholder { color: rgba(var(--ink), .5); }
+.chat input:focus { border-color: rgb(var(--accent)); }
+.chat form button { padding: 0 13px; border-radius: 9px; background: rgba(var(--accent), .18); border: 1px solid rgba(var(--accent), .7); }
+.chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
+.chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
+.chat .hint:empty { display: none; }
+.chat[data-state="peek"] :is(header, form, .hint, .empty) { display: none; }
+.chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
+.chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
+  background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
+.chat[data-state="peek"].going { opacity: 0; transition: opacity .6s; }
+:host([data-presence="hidden"]) .chat { display: none; }
+:host(:not([data-presence="full"])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
+
 /* ---- the sheet: everything else, by section */
 .sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
   width: min(480px, calc(100vw - 20px)); max-height: min(62vh, 560px); display: flex; flex-direction: column; pointer-events: auto;
@@ -158,6 +203,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 /* ---- one moment of motion: things arrive. Nothing loops. */
 @keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes chat-in { from { opacity: 0; transform: translateX(8px); } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
 @keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
 :host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
@@ -177,7 +223,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   .key .name { font-size: .76em; }
   .sheet { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
   .says { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px * var(--s)); }
+  /* The chat is across the bottom, over the hotbar's shoulder, and no taller than half the screen. */
+  .chat { left: 8px; right: 8px; width: auto; top: auto; max-height: 46vh; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
+  .chat[data-state="peek"] { max-height: 30vh; }
 }
+/* A keyboard on the glass covers the bottom of the page: the place to write stands on top of it. */
+:host(.keys-up) .chat[data-state="open"] { top: auto; bottom: calc(var(--kb, 0px) + 8px); max-height: calc(100vh - var(--kb, 0px) - 24px); }
 @media (hover: none) { kbd { display: none; } }
 `;
 
@@ -228,7 +279,17 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const note = el("p", { class: "note" });
   const close = el("button", { class: "close", type: "button" }, "Close");
   const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
-  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, says, sheet, el("div", { class: "low" }, target, hotbar));
+  // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
+  // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
+  const chatTitle = el("b");
+  const chatClose = el("button", { type: "button", "aria-label": "Put the chat away" }, icon("close"));
+  const chatLines = el("ol", { "aria-live": "polite" });
+  const chatEmpty = el("p", { class: "empty" }, "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.");
+  const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
+  const chatHint = el("p", { class: "hint", role: "status" });
+  const chatForm = el("form", {}, chatField, el("button", { type: "submit" }, "Send"));
+  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatClose), chatEmpty, chatLines, chatHint, chatForm));
+  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, says, chat, sheet, el("div", { class: "low" }, target, hotbar));
   (opts.parent ?? document.body).append(host);
 
   let open = false;
@@ -238,6 +299,113 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   let drawn = "";
 
   const press = (item: UiItemView) => controls.run(item.id);
+
+  // ---- the chat panel. "closed" shows nothing, "peek" the newest lines for a few seconds, "open" all of it.
+  let chatState: "closed" | "peek" | "open" = "closed";
+  let chatDrawn = "";
+  let chatNewest = "";
+  let peekTimer: ReturnType<typeof setTimeout> | undefined;
+  let goingTimer: ReturnType<typeof setTimeout> | undefined;
+  const PEEK_LINES = 4;
+  const PEEK_MS = 9000;
+  const setChatState = (next: "closed" | "peek" | "open") => {
+    clearTimeout(peekTimer);
+    clearTimeout(goingTimer);
+    chat.classList.remove("going");
+    chatState = next;
+    if (next === "peek") {
+      goingTimer = setTimeout(() => chat.classList.add("going"), PEEK_MS - 700);
+      peekTimer = setTimeout(() => {
+        if (chatState === "peek") setChatState("closed");
+        draw();
+      }, PEEK_MS);
+    }
+  };
+  const drawChat = (view: UiView) => {
+    const c = view.chat;
+    // Nowhere to write: the panel is put away, whatever it was.
+    if (!c.ready && chatState !== "closed") setChatState("closed");
+    // Something new was written while it was put away: it passes by, where it will be when the panel opens.
+    const newest = c.lines[c.lines.length - 1]?.key ?? "";
+    if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1]!.mine) setChatState("peek");
+    chatNewest = newest;
+    const now = JSON.stringify([chatState, c.version, c.ready]);
+    if (now === chatDrawn) return;
+    chatDrawn = now;
+    chat.dataset.state = chatState;
+    chatTitle.textContent = c.title;
+    chatField.maxLength = c.limit;
+    const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
+    const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+    chatLines.replaceChildren(
+      ...lines.map((line) => {
+        // A space between the name and the words, for whoever hears the line read out: the gap seen is a margin.
+        const li = el("li", { class: line.note ? "aside" : line.mine ? "mine" : "" }, !line.note && el("b", {}, line.mine ? "You" : line.who), line.note ? "" : " ", line.text);
+        if (line.color && !line.mine) li.style.setProperty("--who", line.color);
+        return li;
+      }),
+    );
+    chatEmpty.hidden = lines.length > 0;
+    chatLines.hidden = lines.length === 0;
+    if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
+    if (chatState === "open") controls.chat.seen();
+  };
+  const setChatOpen = (next: boolean) => {
+    if (next === (chatState === "open")) return;
+    if (next) {
+      if (!controls.chat.view().ready || host.hidden || controls.view().presence === "hidden") return;
+      // One thing at a time over the world: the menu goes away for the chat, and the chat for the menu.
+      if (open) setOpen(false);
+      chatCameFrom = focused();
+      setChatState("open");
+      chatHint.textContent = "";
+      draw();
+      chatLines.scrollTop = chatLines.scrollHeight;
+      chatField.focus({ preventScroll: true });
+      controls.signal("chatOpen");
+      return;
+    }
+    setChatState("closed");
+    draw();
+    controls.signal("chatClose");
+    const back = chatCameFrom;
+    chatCameFrom = null;
+    if (back?.isConnected && back !== document.body && !chat.contains(back) && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+    else focused()?.blur();
+  };
+  let chatCameFrom: HTMLElement | null = null;
+  chatClose.addEventListener("click", () => setChatOpen(false));
+  chatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = chatField.value;
+    // Enter on an empty line puts the panel away, as it does in a game.
+    if (!text.trim()) return setChatOpen(false);
+    const trouble = controls.chat.send(text);
+    chatHint.textContent = trouble ?? "";
+    if (!trouble) chatField.value = "";
+    chatField.focus({ preventScroll: true });
+  });
+  // What is typed here is for the room, not for the world: no key pressed in the field walks anybody anywhere or
+  // opens anything. Letting go of a key is still heard, so one held on the way in doesn't stay held.
+  chatField.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setChatOpen(false);
+    }
+  });
+  chatField.addEventListener("keypress", (e) => e.stopPropagation());
+  // A keyboard on the glass (a phone's) covers the bottom of the page without telling the layout. The window that
+  // can still be seen says where it ends, and the panel stands on that.
+  const vv = typeof visualViewport === "undefined" ? null : visualViewport;
+  const onViewport = () => {
+    if (!vv) return;
+    const covered = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+    host.classList.toggle("keys-up", covered > 80 && chatState === "open");
+    host.style.setProperty("--kb", `${covered}px`);
+  };
+  vv?.addEventListener("resize", onViewport);
+  vv?.addEventListener("scroll", onViewport);
 
   const draw = () => {
     const view: UiView = controls.view();
@@ -263,6 +431,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       if (view.detail.length) target.replaceChildren(el("b", {}, view.target), ...view.detail.map((line) => el("span", {}, line)));
       else target.textContent = view.target;
     }
+
+    drawChat(view);
 
     if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
     // Rebuilding the buttons would drop the keyboard's place among them, so only do it when something they show has changed.
@@ -346,6 +516,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     }
     if (open === next) return;
     if (next) {
+      if (chatState === "open") setChatOpen(false);
       cameFrom = focused();
       // Sections fill in as a world starts up, so "the first" is asked for again each time it comes up.
       if (!chose) section = "";
@@ -373,6 +544,12 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (e.key === "Escape" && open) return setOpen(false);
     const view = controls.view();
     if (view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
+    // Enter, or the chat key, opens the chat to write in. Enter on a button is that button's, and is left alone.
+    if (view.keys.chat && view.chat.ready && view.presence !== "hidden" && !open && !e.repeat && (e.key.toLowerCase() === view.keys.chat || (e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A"))) {
+      // Or the letter that opened it would be the first thing written.
+      e.preventDefault();
+      return setChatOpen(true);
+    }
     if (!view.keys.hotbar || view.presence !== "full") return;
     const item = view.hotbar.find((i) => i.key === e.key);
     if (item) press(item);
@@ -416,6 +593,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.
   const stopAsking = controls.onSignal((name) => {
     if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
+    if (name === "chat" && !host.hidden) setChatOpen(chatState !== "open");
   });
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);
@@ -430,9 +608,13 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       return open;
     },
     setOpen,
+    get chatOpen() {
+      return chatState === "open";
+    },
+    setChatOpen,
     bounds() {
       if (host.hidden) return [];
-      return [id, menu, quiet, hotbar, target, sheet]
+      return [id, menu, quiet, hotbar, target, sheet, ...(chatState === "open" ? [chat] : [])]
         .map((e) => e.getBoundingClientRect())
         .filter((r) => r.width > 0 && r.height > 0)
         .map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
@@ -445,10 +627,17 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     },
     setHidden(hidden) {
       host.hidden = hidden;
-      if (hidden) setOpen(false);
+      if (hidden) {
+        setOpen(false);
+        setChatOpen(false);
+      }
     },
     remove() {
       clearInterval(tick);
+      clearTimeout(peekTimer);
+      clearTimeout(goingTimer);
+      vv?.removeEventListener("resize", onViewport);
+      vv?.removeEventListener("scroll", onViewport);
       stop();
       stopAsking();
       stopSay();
