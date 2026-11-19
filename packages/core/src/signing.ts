@@ -193,7 +193,7 @@ export type SignerRequest =
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean }
   | { t: "signed"; id: string; event: NostrEvent }
   | { t: "refused"; id: string };
 
@@ -234,6 +234,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
       ...(pubkey && cleanPicture(d.picture) ? { picture: cleanPicture(d.picture) } : {}),
       ...(pubkey && cleanAbout(d.about) ? { about: cleanAbout(d.about) } : {}),
       ...(typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}),
+      // Whether the signer will still be unlocked for this world on their next visit, where it says.
+      ...(pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {}),
     };
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;

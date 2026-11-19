@@ -159,6 +159,15 @@ describe("what a world and the signer say to each other", () => {
     expect(readSignerReply({ nswp: "nswp-signer", v: 1, t: "state", unlocked: false, picture: "https://pics.example/a.png", about: "words" })).toEqual({ t: "state", unlocked: false });
   });
 
+  it("reads whether the signer will remember this world, only from one that is unlocked", () => {
+    const pubkey = "ab".repeat(32);
+    expect(readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey, remembered: false }))).toEqual({ t: "state", unlocked: true, pubkey, remembered: false });
+    expect(readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey, remembered: true }))).toEqual({ t: "state", unlocked: true, pubkey, remembered: true });
+    expect(readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey }))).toEqual({ t: "state", unlocked: true, pubkey });
+    expect(readSignerReply({ nswp: "nswp-signer", v: 1, t: "state", unlocked: true, pubkey, remembered: "yes" })).toEqual({ t: "state", unlocked: true, pubkey });
+    expect(readSignerReply({ nswp: "nswp-signer", v: 1, t: "state", unlocked: false, remembered: true })).toEqual({ t: "state", unlocked: false });
+  });
+
   it("never reads a signer as unlocked without saying whose key it holds", () => {
     expect(readSignerReply(signerMessage({ t: "state", unlocked: true }))).toEqual({ t: "state", unlocked: false });
     expect(readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey: "not-a-key" }))).toEqual({ t: "state", unlocked: false });

@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.28.2";
+  var KIT_VERSION = "0.28.3";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4304,7 +4304,9 @@ var NSWP = (() => {
         // Their own picture and words, as their sign-in address read them from their profile: cleaned as a pass's are.
         ...pubkey && cleanPicture(d.picture) ? { picture: cleanPicture(d.picture) } : {},
         ...pubkey && cleanAbout(d.about) ? { about: cleanAbout(d.about) } : {},
-        ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}
+        ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {},
+        // Whether the signer will still be unlocked for this world on their next visit, where it says.
+        ...pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {}
       };
     }
     if (typeof d.id !== "string" || !ID.test(d.id))
@@ -6069,6 +6071,7 @@ var NSWP = (() => {
     name: null,
     picture: null,
     about: null,
+    remembered: null,
     host: null,
     unanswered: false,
     copy: null,
@@ -6105,6 +6108,7 @@ var NSWP = (() => {
     let name = null;
     let picture = null;
     let about = null;
+    let remembered = null;
     let origin = "";
     let windowAt = "";
     let frame = null;
@@ -6138,6 +6142,7 @@ var NSWP = (() => {
         name = reply.unlocked ? reply.name ?? null : null;
         picture = reply.unlocked ? reply.picture ?? null : null;
         about = reply.unlocked ? reply.about ?? null : null;
+        remembered = reply.unlocked ? reply.remembered ?? null : null;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -6197,6 +6202,9 @@ var NSWP = (() => {
       },
       get about() {
         return about;
+      },
+      get remembered() {
+        return remembered;
       },
       get unanswered() {
         return named && waited && state === "none" && !disposed;
@@ -6355,7 +6363,8 @@ var NSWP = (() => {
       if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
       const at = worldSigner().host ?? "your sign-in address";
       const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
-      if (worldSigner().state === "unlocked") return `You are signed in here by ${at}. Signing out here makes you a guest in this world, and nowhere else. ${look}`;
+      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. To stay signed in here, sign out, sign in again, and tick "remember" in its window.` : "";
+      if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
       return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
     }
   });
