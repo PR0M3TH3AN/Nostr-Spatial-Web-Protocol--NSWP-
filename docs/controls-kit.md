@@ -437,6 +437,10 @@ if (note) await publishEvent(relays, note);                               // sen
 - In the room's chat, **Post what I write as Nostr notes** appears once the
   signer is unlocked. It is off at every visit. Pass
   `addRoomControls(..., { noteRelays })` to say where those notes go.
+- A world has nothing more to do. `{ notes }` is for a visitor's own client,
+  in a room of its own where they are already signed in: it gives a signer
+  of its own in place of the world signer. A world never passes one: it has
+  no key to sign with, and must not acquire one.
 - Your site's security policy must let the client be embedded:
   `frame-src 'self' https:`.
 
