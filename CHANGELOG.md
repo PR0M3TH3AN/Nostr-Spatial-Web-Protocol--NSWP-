@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.14.2
+
+A second piece of music for every place.
+
+- **Twelve more pieces the owner picked** are in: one for each reference world and for the default (`music-2.ogg`, `music/default-2.ogg`), and four for BitPortal's room. Each place now plays two in turn, and the room eight.
+- **They were made with YuE2,** a music model, on the owner's own machine. The agent that made them reported the model's terms for redistributing output as unclear, and they were left out of 0.14.1 for that reason. The owner settled it on 2026-11-18 ("YuE2 is clear for us to use. Ship them"), and the kit's sounds README records that.
+- **Two to listen to:** the Observatory's second piece has one sharp sound at about 62 seconds, and the Workshop's has five between 57 and 84 seconds, which may be the plucks it was asked for. Measured, not judged by ear.
+- **Status (2026-11-18):** built, not deployed.
+
 ## 0.14.1
 
 The sounds are recorded now. The owner chose them by ear.
