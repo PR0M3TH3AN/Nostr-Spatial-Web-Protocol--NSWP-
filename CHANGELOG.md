@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.16.1
+
+Arriving as you left, walking straight through a door, and knowing what is playing.
+
+- **Intense stays intense through a door.** A visitor moving the intense way arrived in the next world with the grabbing-hand pointer of the casual way, and had to click before the mouse would look again. A browser hands a page the pointer only after a press, and they had pressed nothing there yet. Now the mouse looks round at once, by its own movement over the view, with the pointer's picture hidden and the dot in the middle; the pointer itself is taken at their first key or click, with nothing asked. Walking with the keys never needed the click, and now takes the pointer too.
+- **Walking into a doorway goes through it.** The crossing's room came up round a visitor however they took a door. It still does for a door chosen from where they stand (a click, a trigger, the menu). A visitor who walks into a doorway is already going through it: nothing is brought up, and they go at once. They arrive standing in the room at the other end either way. In the reference worlds, walking into a doorway on a flat screen now goes through it at all; it only did in a headset.
+- **What is playing.** The Sound section names the piece of the place's music that is playing, by its file's name ("Playing here: room-e. Next of 8"), and pressing it goes on to the next. "Music: off" still silences it.
+- **Godot's visitor** arrives moving the intense way with nothing to click, the same.
+- **Status (2026-11-18):** not deployed. In Chrome on the local server, arriving in the Gallery, BitPortal's room and the Godot example moving the intense way, with nothing pressed: the pointer's picture was hidden, the mouse turned the view (200 pixels, 25 degrees), and the first key took the pointer. In the Gallery, a door chosen brought the room up, and a doorway walked into led to the Airlock with the room never coming up. The Sound section read "Playing here: music. Next of 2" in the Gallery and "room-b. Next of 8" in BitPortal's room, and pressing it went on to the next. **Not tried:** a headset, Firefox, Safari (which may be stricter about taking the pointer on a key).
+
 ## 0.16.0
 
 The visitor's console over a world's own interface, and arriving in the form you left in. Both are now part of the protocol: [NSWP-11](protocol/11-the-visitors-console.md).

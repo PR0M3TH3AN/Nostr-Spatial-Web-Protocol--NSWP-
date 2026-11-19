@@ -220,8 +220,12 @@ it again at every door.
   that way, on the device they are using.
 - **The visitor's client passes it on** as `moving` in the arrival context
   ([NSWP-03](03-arrival.md)).
-- **A world that offers the two ways starts them in it,** for the device they
-  arrive on: in a headset if they left one (`immersive`), at a desk
+- **A world that offers the two ways starts them in it, with nothing to
+  press first.** A browser hands a page the pointer only after a press, and
+  a visitor who has just arrived has pressed nothing. That is no reason to
+  put them back to the casual way: the mouse looks round at once, and the
+  pointer is taken at their first key or click without their being asked.
+- **It is for the device they arrive on:** in a headset if they left one (`immersive`), at a desk
   otherwise. Choosing intense at a desk never makes a headset slide: that is
   a different choice, and one that makes some people ill.
 - **It is a preference and nothing more.** It gives a world nothing, takes
@@ -274,6 +278,11 @@ draws it, so a dishonest world can draw it any way it likes. So:
 - It never delays a departure. The reference one is shut in about half a
   second, and the visitor leaves even if it fails to draw.
 - It is skipped for someone who has asked for less motion.
+- It comes up for a door **chosen from where the visitor stands**: a click, a
+  trigger, the menu. A visitor who **walks into** a doorway is already going
+  through it, so nothing is brought up round them and they go at once. Either
+  way they arrive standing in the room at the other end, and its doors open
+  onto the new world.
 
 A world may draw a chamber of its own, or none. `createCrossing` in
 `nswp-sdk/three` is the reference one.
