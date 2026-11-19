@@ -31,6 +31,7 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `v` | The format's version |
 | `entry` | Which entry point to arrive at: 1 to 128 of `A-Z a-z 0-9 . _ -` |
 | `airlock` | Where to send the visitor's next door, and the way home ([NSWP-02](02-doors.md)). `https` |
+| `signer` | Where the visitor's signer is: an `https` address, at most 300 characters. Its `signer/` and `connect/` pages are under it ([NSWP-10](10-identity.md), "Signing from a world"). Said by a client that keeps its signer somewhere other than beside its Airlock. Left out, it is beside the Airlock |
 | `look` | The visitor's look, inline ([NSWP-05](05-looks.md)). At most 600 characters |
 | `pass` | A pass: the visitor's identity key saying that a session key speaks for them here ([NSWP-10](10-identity.md)) |
 | `sessionKey` | The secret half of that session key: a throwaway made for this trip. A pass and its key travel together or not at all; one without the other is dropped |

@@ -10,8 +10,10 @@ example on 4309 if it has been exported (`npm run build:godot`). A flat
 demo of signing in by the window is on 4310 if it has been built
 (`node docs/plans/signin-demo/build.mjs`, see
 [its notes](plans/signin-demo/README.md)). BitLogin's own site, the
-sign-in address that demo asks, is on 4311 if it has been built
-(`npm run build:demo` in the bitlogin checkout). BitPortal
+sign-in address that demo and every world ask, is on 4311 if it has been
+built (`npm run build:demo` in the bitlogin checkout). It is the local copy
+of `https://bitlogin.network`, so a world that is told its visitor's signer
+is there asks the copy. BitPortal
 and the template are served from their own repositories beside this one, if
 they are built. Add `--lan` to reach them from another device on the same
 network, and `--https` so that device can sign in, use a microphone and enter

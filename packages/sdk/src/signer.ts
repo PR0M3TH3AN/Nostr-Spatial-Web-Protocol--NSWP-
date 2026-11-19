@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerMessage, toLocal, verifyEvent, WORLD_TAG, type NostrEvent } from "@nswp/core";
+import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, WORLD_TAG, type NostrEvent } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -46,6 +46,12 @@ export interface WorldSigner {
 export interface WorldSignerOptions {
   /** The visitor's Airlock: usually `portal.airlockFor()`. The signer is beside it. */
   airlock?: string | null | undefined;
+  /**
+   * Or where the visitor's client said their signer is: usually
+   * `arrival.signer()`. Its `signer/` and `connect/` pages are under that
+   * address. Given, it is used in place of the Airlock's.
+   */
+  under?: string | null | undefined;
   /**
    * Or the signer and its window, named outright: for a site that isn't a
    * world, whose visitor arrived from no client. Both must be https
@@ -82,7 +88,7 @@ function namedAddresses(at: { signer: string; window: string }): { origin: strin
 
 /** A signer for this page, from the visitor's client. With no client, or off a browser, one that is always "none". */
 export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
-  const real = opts.at ? namedAddresses(opts.at) : signerAddresses(opts.airlock);
+  const real = opts.at ? namedAddresses(opts.at) : (signerAt(opts.under) ?? signerAddresses(opts.airlock));
   if (!real || typeof document === "undefined") return NONE;
   const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
   const watchers = new Set<() => void>();
@@ -134,9 +140,12 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
 
   void (async () => {
     try {
-      const signerAt = await toLocal(real.signer);
-      windowAt = await toLocal(real.window);
-      origin = new URL(signerAt).origin;
+      // A client's own addresses are followed to their copies on a development server. One named outright is used
+      // as it is: whoever named it meant that one.
+      const there = opts.at ? async (address: string) => address : toLocal;
+      const signerUrl = await there(real.signer);
+      windowAt = await there(real.window);
+      origin = new URL(signerUrl).origin;
       if (disposed) return;
       frame = document.createElement("iframe");
       frame.title = "Signer";
@@ -156,7 +165,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
           }, after);
         }
       });
-      frame.src = signerAt;
+      frame.src = signerUrl;
       document.body.append(frame);
     } catch {
       /* no signer: it stays "none" */
@@ -173,6 +182,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     get name() {
       return name;
     },
+    // The signer's real address, never a development server's copy of it: it is what the visitor should recognise.
     get host() {
       try {
         return new URL(real.origin).host;

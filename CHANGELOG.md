@@ -2,6 +2,20 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.26.0
+
+A visitor's signer is where their client says it is, and BitPortal says BitLogin.
+
+- **[NSWP-03](protocol/03-arrival.md), [NSWP-10](protocol/10-identity.md):** an arrival may name the visitor's signer (`signer`, an `https` address with `signer/` and `connect/` under it). A client that names none keeps its signer beside its Airlock, as in 0.25.0. So the place a password is typed can be one small site that does nothing else, shared by every client and site that uses it.
+- **The control says whose window will open:** "Sign in to sign notes, at bitlogin.network". An arrival is something anyone can write, so the address is shown before it is pressed.
+- **In the kit:** `arrival.signer()`, `createWorldSigner({ under })`, and in the library `signerAt()`. A signer named outright (`at`) is used as it is; a client's own is followed to its copy on a development server.
+- **In BitPortal:** its Airlock names `https://bitlogin.network/` in every arrival (its `INSTANCE.signer`). BitPortal has no signer of its own, and no page of it may be embedded by another site: the first version's two pages were never shipped.
+- **In BitLogin** (its own repository, live at `bitlogin.network` since 2026-11-19): the signer, the sign-in window, and remembering a site for thirty days.
+- **The development server** serves BitLogin's own site as the copy of `https://bitlogin.network`.
+- **Still two sign-ins.** BitPortal itself is signed in to on its own page, with BitLogin's widget, as before: it needs more signed than a world may ask for (passes, a sealed settings note, announcements). Signing from a world is a second sign-in, at BitLogin's site. They become one when BitLogin can give an application its own permissions.
+- **Not built:** a headset (no window can open in one), the engine script and the Godot addon, anything but a note and a reaction.
+- **Status (2026-11-19):** BitLogin's part is deployed. BitPortal and the worlds are not. On the local server, through BitPortal's Airlock into a world: the arrival named BitLogin, the menu said so, the signer answered from BitLogin's copy, and its window asked for a sign-in on BitLogin's own page. **Not tried:** signing in (automation never does), so a note signed from a world through BitLogin's live site is the owner's to try.
+
 ## 0.25.0
 
 Signing from inside a world: a visitor can post a Nostr note as themselves, and the world never holds their key.

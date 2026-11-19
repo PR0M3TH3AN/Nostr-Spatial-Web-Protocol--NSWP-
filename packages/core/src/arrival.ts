@@ -14,6 +14,13 @@ export interface Arrival {
   entry?: string;
   /** Return address for outbound portals (spec §6.3). */
   airlock?: string;
+  /**
+   * Where the visitor's signer is (protocol/10-identity.md, "Signing from a
+   * world"): the https address its `signer/` and `connect/` pages are
+   * under. Said by their own client, which may keep its signer somewhere
+   * other than beside its Airlock. Left out, it is beside the Airlock.
+   */
+  signer?: string;
   assertion?: NostrEvent;
   avatar?: string;
   /** The visitor's look, inline (spec §4.2): for someone who hasn't published an avatar. */
@@ -123,6 +130,10 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.airlock !== undefined) {
     if (isHttpsUrl(json.airlock)) out.airlock = json.airlock;
     else c.warn("url_not_https", "airlock", "Ignoring a non-https return Airlock.");
+  }
+  if (json.signer !== undefined) {
+    if (isHttpsUrl(json.signer) && json.signer.length <= 300) out.signer = json.signer;
+    else c.warn("url_not_https", "signer", "Ignoring a signer address that isn't a usable https address.");
   }
   if (json.assertion !== undefined) {
     if (hasEventShape(json.assertion)) out.assertion = json.assertion;
