@@ -390,7 +390,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 
 | From the world | The signer answers |
 |---|---|
-| `state` | `state`: `unlocked`, and once unlocked `pubkey`, `name`, `picture`, `about`, `until`. Said again, unasked, whenever it changes |
+| `state` | `state`: `unlocked`, and once unlocked `pubkey`, `name`, `picture`, `about`, `until`, `remembered`. Said again, unasked, whenever it changes |
 | `sign`, with `event`: `kind`, `content`, `tags` | `signed`, with the whole signed note; or `refused` |
 | `pass`, with `session`: a session public key | `signed`, with a room pass the signer wrote; or `refused` ("A pass from the signer", below) |
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
@@ -422,7 +422,9 @@ why.
   loaded: BitLogin's does, for thirty days on that device, keeping what it
   needs encrypted in storage the world can't read, and counting signatures
   across page loads. A signer that remembers nothing ends when the page
-  does.
+  does. It may say which, in `remembered`: false means this visit only,
+  and a reader tells the visitor so, so that being asked again is no
+  surprise.
 - **A world checks what comes back** like anything else that arrives: a
   real signature, by the key the signer said it holds, on the note that was
   asked for, marked for this world.

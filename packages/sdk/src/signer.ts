@@ -30,6 +30,11 @@ export interface WorldSigner {
   readonly picture: string | null;
   /** What they wrote about themselves there, or null. Their own words. */
   readonly about: string | null;
+  /**
+   * Whether the signer will still be unlocked for this world the next time its page is loaded: true, false, or
+   * null where it is locked or doesn't say. False means this visit only: the visitor is asked again next time.
+   */
+  readonly remembered: boolean | null;
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
   /**
@@ -95,6 +100,7 @@ const NONE: WorldSigner = {
   name: null,
   picture: null,
   about: null,
+  remembered: null,
   host: null,
   unanswered: false,
   copy: null,
@@ -131,6 +137,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let name: string | null = null;
   let picture: string | null = null;
   let about: string | null = null;
+  let remembered: boolean | null = null;
   // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
   let origin = "";
   let windowAt = "";
@@ -170,6 +177,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       name = reply.unlocked ? (reply.name ?? null) : null;
       picture = reply.unlocked ? (reply.picture ?? null) : null;
       about = reply.unlocked ? (reply.about ?? null) : null;
+      remembered = reply.unlocked ? (reply.remembered ?? null) : null;
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -241,6 +249,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     get about() {
       return about;
+    },
+    get remembered() {
+      return remembered;
     },
     get unanswered() {
       return named && waited && state === "none" && !disposed;

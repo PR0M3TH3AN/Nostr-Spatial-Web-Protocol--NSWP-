@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.28.3
+
+- **A sign-in that lasts for this visit only is said so.** A signer may say `remembered: false` in `state`: it will be locked again the next time the world's page is loaded (the visitor left "remember" unticked in its window, or keeps a lock on their sign-in). The menu then says so under You, and that it is chosen in the signer's window, so being asked again is no surprise. `signer.remembered` in the kit. A signer that doesn't say is treated as before.
+
 ## 0.28.2
 
 - **A pass is counted apart from notes:** two a minute and ten an hour for one world, beside three notes a minute and twenty an hour. Counted with notes, signing in used one of the minute's three, and a visitor's third post in their first minute was refused with nothing to say why. Decided by the owner on 2026-11-19. The signer enforces it; `SIGN_LIMITS.passBurst` and `passHourly` are the numbers. Nothing in the kit's behaviour changes.
