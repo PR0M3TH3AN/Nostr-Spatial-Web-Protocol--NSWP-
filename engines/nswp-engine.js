@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.28.0";
+  var KIT_VERSION = "0.28.1";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6306,7 +6306,7 @@ var NSWP = (() => {
     seeking = signer.pass(getPublicKey(secret)).then((pass) => {
       if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
         for (const fn of [...hereWatchers]) fn();
-      } else if (!pass) seekAfter = Date.now() + 10 * 6e4;
+      } else if (!pass) seekAfter = Infinity;
     }).catch(() => {
     }).finally(() => {
       seeking = null;
