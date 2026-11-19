@@ -379,14 +379,19 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_home"] },
   },
   {
-    name: "moving_with_game_controls",
-    value: encodeArrival({ entry: "main-entrance", fps: true }),
-    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", fps: true }, warnings: [] },
+    name: "moving_the_intense_way",
+    value: encodeArrival({ entry: "main-entrance", moving: "intense" }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", moving: "intense" }, warnings: [] },
   },
   {
-    name: "game_controls_must_be_a_boolean",
-    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", fps: "yes" })).toString("base64url"),
-    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_fps"] },
+    name: "moving_the_casual_way_is_the_same_as_saying_nothing",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", moving: "casual" })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: [] },
+  },
+  {
+    name: "a_way_of_moving_nobody_knows_is_ignored",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", moving: "flying" })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance" }, warnings: ["invalid_moving"] },
   },
   {
     name: "blocked_people_come_along",

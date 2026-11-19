@@ -482,7 +482,7 @@ sounds.moved(metres);
   visitor offers what their jukebox is playing, and others hear it only if
   they turned that on, by distance. `sharedMusic: false` leaves it out.
 
-## Game controls on a desk
+## Casual and intense: the two ways of moving
 
 ```js
 import { createFps } from "nswp-sdk/three";
@@ -492,15 +492,16 @@ const fps = createFps({
   canStand: (x, z) => insideMyWorld(x, z),
   presenting: () => renderer.xr.isPresenting,
   onUse: () => useWhatTheMiddleOfTheViewPointsAt(),
-  arrived: !!arrival.read().context?.fps,   // their own client says they had them on
+  arrived: context?.moving === "intense" && !context.immersive,   // their own client says so, for a desk
 });
 // each frame, in place of your own keys:      if (!fps.update(dt)) walkWithKeys(dt);
 // in your own click and drag handlers:        if (fps.enabled) return;
-// when sending the visitor on:                portal.go(dest, { fps: fps.enabled })
+// when sending the visitor on:                portal.go(dest, { moving: (presenting ? input.intense : fps.enabled) ? "intense" : "casual" })
 ```
 
-- The visitor turns them on in the menu, under Moving. They are kept for the
-  site, and offered only where there is a mouse.
+- The menu, under Moving, has "Desk controls: casual / intense" (this) and
+  "Headset controls: casual / intense" (`createXrInput`, which takes
+  `arrivedIntense` the same way). Each is kept for the site, by itself.
 - The mouse looks (the first click takes the pointer), W A S D and the arrows
   walk, Shift runs, F or a click uses, Escape brings up the menu.
 - While they are on, aim from the middle of the view: set your pointer to

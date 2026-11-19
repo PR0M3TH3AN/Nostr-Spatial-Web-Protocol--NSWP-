@@ -24,7 +24,7 @@
  *   input.grabbable(mesh);
  */
 import * as THREE from "three";
-import { cleanComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState } from "./actions.js";
+import { cleanComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, CASUAL_COMFORT, INTENSE_COMFORT, isIntense } from "./actions.js";
 import { createAlloy, type Alloy } from "./alloy.js";
 import { MeshBuilder } from "./mesh.js";
 import { turnVisitor } from "./turn.js";
@@ -49,6 +49,11 @@ export interface XrInputOptions {
   /** The object that moves the visitor around; the camera is inside it. */
   rig: THREE.Object3D;
   camera: THREE.Camera;
+  /**
+   * The visitor arrived from a headset moving the intense way (their own client says so): they move that way
+   * here too. A preference, and theirs to change.
+   */
+  arrivedIntense?: boolean;
   /** May the visitor's head be at (x, z)? Walking stops where this says no. Left out, anywhere. */
   canStand?: (x: number, z: number) => boolean;
   /**
@@ -83,6 +88,8 @@ export interface XrInputInfo {
 
 export interface XrInput {
   readonly comfort: Comfort;
+  /** Whether the visitor moves the intense way in a headset: walking and turning smoothly. */
+  readonly intense: boolean;
   /** Change how the visitor moves. `keep` remembers it as their choice, for this site. */
   setComfort(patch: Partial<Comfort>, keep?: boolean): void;
   /** Call once per frame with the seconds since the last one. */
@@ -346,6 +353,8 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     comfort = { ...comfort, ...cleanComfort(patch) };
     if (keep) saveComfort(comfort);
   };
+  // They were moving the intense way in a headset where they came from: the same here, kept as their choice.
+  if (opts.arrivedIntense && !isIntense(comfort)) setComfort(INTENSE_COMFORT, true);
   if (opts.controls) {
     const controls = opts.controls;
     let headset = false;
@@ -367,6 +376,26 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       controls.addSection({ id: "moving", label: "Moving", icon: "step", note });
     };
     controls.add(
+      {
+        // One switch for the two ways of moving in a headset. The settings under it are what it sets, and can
+        // each be changed afterwards.
+        id: "move-style",
+        section: "moving",
+        icon: "motion",
+        hidden,
+        on: () => isIntense(comfort),
+        label: () => (isIntense(comfort) ? "Headset controls: intense" : "Headset controls: casual"),
+        short: "Style",
+        act: () => {
+          const intense = !isIntense(comfort);
+          change(intense ? INTENSE_COMFORT : CASUAL_COMFORT);
+          controls.say(
+            intense
+              ? "Intense: one stick walks, the other turns, smoothly, with the whole view. If it makes you feel unwell, go back to casual."
+              : "Casual: point at the floor to step there, and turn a notch at a time. The comfortable way.",
+          );
+        },
+      },
       { id: "move-mode", section: "moving", icon: "step", hidden, on: () => comfort.move === "smooth", label: () => (comfort.move === "steps" ? "Moving in steps. Walk smoothly instead" : "Walking smoothly. Move in steps instead"), short: "Walk", act: () => change({ move: comfort.move === "steps" ? "smooth" : "steps" }) },
       {
         id: "turn-mode",
@@ -457,6 +486,9 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   return {
     get comfort() {
       return comfort;
+    },
+    get intense() {
+      return isIntense(comfort);
     },
     setComfort,
     update,

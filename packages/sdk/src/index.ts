@@ -179,8 +179,8 @@ export interface GoOptions {
    * client asks whether to block them everywhere (protocol/02-doors.md, "Blocks that travel").
    */
   blocked?: string[];
-  /** The visitor is moving with game controls here (`fps.enabled`), and would go on doing so where they arrive. */
-  fps?: boolean;
+  /** The visitor is moving the intense way here (`fps.enabled` at a desk, `input.intense` in a headset), and would go on doing so where they arrive. */
+  moving?: "intense" | "casual";
 }
 
 /** What a visitor's state adds to the link that takes them on. */
@@ -188,7 +188,7 @@ const carried = (opts: GoOptions, immersive: boolean) => ({
   immersive,
   ...(opts.joined ? { joined: true, ...(opts.mic ? { mic: true } : {}) } : {}),
   ...(opts.blocked?.length ? { blocked: opts.blocked } : {}),
-  ...(opts.fps ? { fps: true } : {}),
+  ...(opts.moving === "intense" ? { moving: "intense" as const } : {}),
 });
 
 export const portal = {

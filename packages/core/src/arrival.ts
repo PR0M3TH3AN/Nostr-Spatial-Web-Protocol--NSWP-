@@ -59,11 +59,13 @@ export interface Arrival {
    */
   blocked?: string[];
   /**
-   * The visitor was moving with game controls where they came from (the
-   * mouse looks, keys walk). A world that has such controls starts in them.
-   * A preference, and theirs to change the moment they arrive.
+   * How the visitor was moving where they came from, when it was the
+   * intense way: at a desk, the mouse looks and keys walk; in a headset,
+   * they walk and turn smoothly. A world that offers the two ways starts
+   * them in this one. A preference, and theirs to change the moment they
+   * arrive. Left out, the casual way.
    */
-  fps?: true;
+  moving?: "intense";
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -152,9 +154,9 @@ export function decodeArrival(value: string): Result<Arrival> {
     if (json.mic === true && out.joined) out.mic = true;
     else c.warn("invalid_mic", "mic", "Ignoring a microphone hint that isn't true, or that comes without joined.");
   }
-  if (json.fps !== undefined && json.fps !== false) {
-    if (json.fps === true) out.fps = true;
-    else c.warn("invalid_fps", "fps", "Ignoring a game-controls hint that isn't true or false.");
+  if (json.moving !== undefined && json.moving !== "casual") {
+    if (json.moving === "intense") out.moving = "intense";
+    else c.warn("invalid_moving", "moving", "Ignoring a way of moving that isn't \"casual\" or \"intense\".");
   }
   if (json.blocked !== undefined) {
     const ok = Array.isArray(json.blocked) && json.blocked.length <= LIMITS.maxBlocked && json.blocked.every((k) => typeof k === "string" && isHex64(k));

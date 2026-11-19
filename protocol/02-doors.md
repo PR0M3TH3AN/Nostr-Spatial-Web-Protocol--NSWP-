@@ -36,7 +36,7 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&fps=1&joined=1&mic=1&blocked=<key>,<key>
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&moving=intense&joined=1&mic=1&blocked=<key>,<key>
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
@@ -48,9 +48,9 @@ leave, and `mic=1`, only beside it, when their microphone is on. They are
 what lets someone stay among people from one world to the next ("Staying
 joined", below).
 
-`fps=1` is there when the visitor is moving with game controls (the mouse
-looks, keys walk), so that they needn't turn them on again in every world
-("How a visitor moves", below).
+`moving=intense` is there when the visitor has chosen the intense way of
+moving, so that they needn't choose it again in every world ("How a visitor
+moves", below).
 
 `blocked` is there only when the visitor blocked someone in this world during
 this visit: the identity keys of the people, as hex, at most sixteen
@@ -79,8 +79,8 @@ A client may let a visitor choose where they start: a world of their own
 doors are two places. An Airlock opened with no destination and `doors=1`
 takes the visitor to their doors: the client's own place, never a world. A
 client with one place for both takes them there either way. `doors=1`,
-`xr=1`, `fps=1`, `joined=1`, `mic=1` and `blocked` may come together, and
-nothing else may.
+`xr=1`, `moving=intense`, `joined=1`, `mic=1` and `blocked` may come
+together, and nothing else may.
 
 ## What an Airlock does
 
@@ -200,17 +200,25 @@ act on it:
 
 ## How a visitor moves
 
-On a desk there are two ways to move, and people are firmly of one kind or
-the other. Someone who has never played a game clicks where they want to
-stand. Someone who has wants the mouse to look and the keys to walk. Having
-chosen once, nobody wants to choose again at every door.
+There are two ways to move, and people are firmly of one kind or the other.
+The menu calls them the same thing wherever the visitor is:
 
-- **A world says** `fps=1` on the link when its visitor is using game
-  controls.
-- **The visitor's client passes it on** as `fps` in the arrival context
+| | Casual | Intense |
+|---|---|---|
+| At a desk | Click where you want to stand, drag to look round | The mouse looks, keys walk and run, a key uses what is in front of you |
+| In a headset | Point at the floor to step there, turn a notch at a time, the view narrowed while moving | One stick walks and the other turns, smoothly, with the whole view |
+
+Casual is what a visitor gets. Having chosen intense, nobody wants to choose
+it again at every door.
+
+- **A world says** `moving=intense` on the link when its visitor is moving
+  that way, on the device they are using.
+- **The visitor's client passes it on** as `moving` in the arrival context
   ([NSWP-03](03-arrival.md)).
-- **A world that has such controls starts in them.** One that doesn't
-  ignores it.
+- **A world that offers the two ways starts them in it,** for the device they
+  arrive on: in a headset if they left one (`immersive`), at a desk
+  otherwise. Choosing intense at a desk never makes a headset slide: that is
+  a different choice, and one that makes some people ill.
 - **It is a preference and nothing more.** It gives a world nothing, takes
   nothing from the visitor, and is theirs to change the moment they arrive.
   A link that says it falsely has changed a setting. So, unlike a

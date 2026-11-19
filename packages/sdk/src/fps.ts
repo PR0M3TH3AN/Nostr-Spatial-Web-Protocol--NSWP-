@@ -1,11 +1,13 @@
 /**
- * First-person controls for a desk: the way games have taught hands to move.
+ * The intense way of moving at a desk: the way games have taught hands to move.
  *
- * The kit's ordinary way of moving on a flat screen is made for someone who
- * has never played anything: click where you want to stand, drag to look
- * round. This is the other way, for people who have: the mouse looks, W A S
+ * There are two ways to move, on a desk and in a headset, and the menu calls
+ * them the same things in both: casual and intense. Casual at a desk is made
+ * for someone who has never played anything: click where you want to stand,
+ * drag to look round. Intense is for people who have: the mouse looks, W A S
  * D walk, Shift runs, F uses what is in front of you, and Escape brings up
- * the menu. A visitor turns it on in the menu, under Moving, and it is kept.
+ * the menu. A visitor chooses in the menu, under Moving, and it is kept. (In
+ * a headset the two are stepping and walking smoothly: see input.ts.)
  *
  * It needs a mouse or a trackpad, so it isn't offered on a phone, and it
  * stands down in a headset, where hands already do all of this.
@@ -266,13 +268,13 @@ export function createFps(o: FpsOptions): Fps {
     on: () => enabled,
     // No mouse, no mouse look. And not in a headset, where it has no meaning.
     hidden: () => !hasMouse || o.presenting(),
-    label: () => (enabled ? "Game controls (FPS): on" : "Game controls (FPS): off"),
+    label: () => (enabled ? "Desk controls: intense" : "Desk controls: casual"),
     act: () => {
       setEnabled(!enabled);
       o.controls.say(
         enabled
-          ? "Game controls are on. Click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu."
-          : "Game controls are off. Click where you want to stand, and drag to look round.",
+          ? "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu."
+          : "Casual: click where you want to stand, and drag to look round.",
       );
     },
   });

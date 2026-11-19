@@ -206,21 +206,33 @@
       }
     },
     {
-      "name": "moving_with_game_controls",
-      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImZwcyI6dHJ1ZX0",
+      "name": "moving_the_intense_way",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsIm1vdmluZyI6ImludGVuc2UifQ",
       "expect": {
         "valid": true,
         "decoded": {
           "v": "nswp/arrival/0.3",
           "entry": "main-entrance",
-          "fps": true
+          "moving": "intense"
         },
         "warnings": []
       }
     },
     {
-      "name": "game_controls_must_be_a_boolean",
-      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsImZwcyI6InllcyJ9",
+      "name": "moving_the_casual_way_is_the_same_as_saying_nothing",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsIm1vdmluZyI6ImNhc3VhbCJ9",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "a_way_of_moving_nobody_knows_is_ignored",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsIm1vdmluZyI6ImZseWluZyJ9",
       "expect": {
         "valid": true,
         "decoded": {
@@ -228,7 +240,7 @@
           "entry": "main-entrance"
         },
         "warnings": [
-          "invalid_fps"
+          "invalid_moving"
         ]
       }
     },
