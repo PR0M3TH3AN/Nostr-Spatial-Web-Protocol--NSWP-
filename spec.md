@@ -1780,6 +1780,8 @@ A world has an interface of its own: a score, a toolbar, a pause menu, an art di
 
 **There is no layer above a world.** While a visitor is in a world, only that world's page is running. A client such as BitPortal is not there, and a web page can't draw over another site's immersive session (§3). So "the traveller's controls" are not something a client lays over a world. They are a small set of things every world agrees to offer, drawn by the world itself.
 
+**Signing in is reached from the controls, and never drawn by a world.** The controls say who the visitor is here and offer the way to their own client to change it; the client asks on its own page and brings them back (`protocol/10-identity.md`, "Signing in from inside a world").
+
 **The principle: the world leads.** The traveller's controls stay out of the way of what the world is doing, and are never more than one deliberate action away.
 
 **What every world offers.** This is a list of things a visitor can do, not of how they look:

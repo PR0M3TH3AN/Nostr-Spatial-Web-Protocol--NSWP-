@@ -15,10 +15,14 @@ import {
   buildWayUrl,
   checkDestination,
   decodeArrival,
+  doorFor,
+  fromLocal,
   localMap,
+  parseManifest,
   stripArrivalParam,
   toLocal,
   verifyRoomPass,
+  WELL_KNOWN_PATH,
   type Arrival,
   type Issue,
   type NostrEvent,
@@ -268,6 +272,50 @@ export const portal = {
     }
     // An Airlock opened with no destination is the way home. Saying "from a headset" doesn't make it a destination.
     location.assign(await toLocal(buildWayUrl(airlock, carried(opts, immersive))));
+    return true;
+  },
+
+  /**
+   * This world's own door: the announcement its manifest lists for this page,
+   * and its address. It is what sends a visitor back here through their own
+   * client, which checks it like any other door. With no manifest, or none
+   * that names this page, the door is the address alone.
+   */
+  async here(): Promise<PortalDestination> {
+    // On a development server this page is a local copy: the door is the real place's.
+    const url = await fromLocal(new URL(location.pathname, location.origin).href);
+    try {
+      const res = await fetch(WELL_KNOWN_PATH, { signal: AbortSignal.timeout(2500), credentials: "omit" });
+      const parsed = res.ok ? parseManifest(await res.json()) : null;
+      if (parsed?.ok) return doorFor(parsed.value, url);
+    } catch {
+      /* the address alone will do */
+    }
+    return { url };
+  },
+
+  /**
+   * The visitor asked to say who they are: to sign in, switch to another
+   * profile, or go on as a guest. A world never asks that itself
+   * (protocol/09-what-a-world-owes.md), so this leaves for their own client
+   * with a door back here and the request (`who=1`). Their client asks them
+   * in its own way and brings them back, by name if they chose that
+   * (protocol/10-identity.md, "Signing in from inside a world"). Returns
+   * false, and does nothing, when they came through no client.
+   */
+  async signIn(opts: GoOptions = {}): Promise<boolean> {
+    const airlock = portal.airlockFor(opts);
+    if (!airlock) return false;
+    const immersive = opts.immersive ?? !!opts.xrSession;
+    const here = await portal.here();
+    if (opts.xrSession) {
+      try {
+        await opts.xrSession.end();
+      } catch {
+        /* already ended */
+      }
+    }
+    location.assign(await toLocal(buildAirlockUrl(airlock, here, { ...carried(opts, immersive), who: true })));
     return true;
   },
 

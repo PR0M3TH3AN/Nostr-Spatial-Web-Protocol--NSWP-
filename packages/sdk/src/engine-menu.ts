@@ -30,6 +30,7 @@ import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type Sound
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
 import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, WALK_SPEED } from "./stroll.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { identityHost, identitySection, identityWords } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -135,6 +136,20 @@ export function menu(options?: string): string {
     hidden: () => portal.airlockFor() === null,
     act: () => tell({ type: atHome ? "doors" : "home" }),
   });
+
+  // Who they are here, and the way to sign in. It is their own client's to ask, so the engine does the going, as
+  // it does for home: the same control, in the same place, with the same words as in a Three.js world (ui/identity.ts).
+  if (identityHost()) {
+    c.addSection(identitySection());
+    c.add({
+      id: "identity",
+      section: "you",
+      icon: "you",
+      label: () => identityWords().label,
+      short: () => identityWords().short,
+      act: () => tell({ type: "identity" }),
+    });
+  }
 
   // How they move at a desk. The same control, the same words and the same memory as in a Three.js world (fps.ts).
   const context = arrival.read().context;

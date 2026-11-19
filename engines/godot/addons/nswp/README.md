@@ -93,6 +93,13 @@ func _ready() -> void:
 - **The way home.** The menu offers it. `Nswp.home()` does it from your own
   code. If `Nswp.arrival.home` is true, this world is their home, and the
   menu offers their doors instead.
+- **Signing in.** The menu offers it under "You": "You are a guest here.
+  Sign in". It leaves for the visitor's own client, which asks them on its
+  own page and brings them back here; `Nswp.arrival.name` and `pubkey` are
+  then filled if they chose to come by name. `Nswp.sign_in()` does it from a
+  button of your own. Never draw a sign-in yourself, and never ask for a
+  password or a key: that is the one thing about signing in a world must not
+  do ([NSWP-10](../../../../protocol/10-identity.md)).
 - **A headset.** An `NswpVisitor` starts a session when the visitor presses
   Enter VR in the menu, and a visitor who left a headset to come here is
   told where that is. Leaving through a door ends the session for you.

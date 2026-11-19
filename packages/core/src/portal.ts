@@ -113,6 +113,15 @@ export interface AirlockUrlOptions {
    * the way home too: what they changed in a world comes home with them.
    */
   settings?: TravelSettings;
+  /**
+   * The visitor asked, from inside a world, to say who they are (`who=1`):
+   * to sign in, switch to another profile, or go on as a guest. Their own
+   * client shows them its own way of doing that before it takes them on. A
+   * request and nothing more: a link anyone can write never signs anyone in,
+   * and never sends anyone by name (protocol/10-identity.md, "Signing in
+   * from inside a world"). Only with a destination, never on the way home.
+   */
+  who?: boolean;
 }
 
 /** How a visitor is using a flat screen: with their fingers, or with a mouse and keys. */
@@ -156,7 +165,7 @@ export function buildAirlockUrl(airlock: string, dest: PortalDestination, opts: 
   const parts = [`to=${encodeURIComponent(to)}`];
   if (dest.naddr && dest.url) parts.push(`url=${encodeURIComponent(dest.url)}`);
   if (dest.entryPoint) parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-  parts.push(...stateFlags(opts), ...(isForm(opts.form) ? [`form=${opts.form}`] : []), ...settingsFlag(opts), ...blockedFlag(opts));
+  parts.push(...(opts.who ? ["who=1"] : []), ...stateFlags(opts), ...(isForm(opts.form) ? [`form=${opts.form}`] : []), ...settingsFlag(opts), ...blockedFlag(opts));
   u.hash = parts.join("&");
   return u.href;
 }
@@ -181,6 +190,8 @@ export interface AirlockRequest {
   form?: Form;
   /** The link says what their settings were (`set=`). Preferences, with everything unknown already left out. */
   settings?: TravelSettings;
+  /** The link says the visitor asked to say who they are first (`who=1`). A request: it shows them a choice and makes none. */
+  who?: true;
 }
 
 /** Whether a fragment says the visitor came from a headset session, with or without a destination: a way home carries it too. */
@@ -250,6 +261,7 @@ export function parseAirlockFragment(hash: string): AirlockRequest | null {
   const entry = params.get("entry");
   if (entry && ENTRY_POINT.test(entry)) req.entryPoint = entry;
   if (params.get("xr") === "1") req.immersive = true;
+  if (params.get("who") === "1") req.who = true;
   if (params.get("joined") === "1") {
     req.joined = true;
     if (params.get("mic") === "1") req.mic = true;

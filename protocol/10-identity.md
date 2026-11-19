@@ -1,6 +1,6 @@
 # NSWP-10: Who someone is
 
-**Status:** Passes, names in rooms and the proven mark are implemented; profile cards beyond a name, hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
+**Status:** Passes, names in rooms, the proven mark and signing in from inside a world are implemented; profile cards beyond a name, hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
 
 A world is someone else's website. It must never hold a visitor's key, and it
 doesn't need to: what it needs is to know, when the visitor wants it known,
@@ -12,9 +12,12 @@ without the key ever leaving the visitor's own client.
 1. **A world never gets a key that matters.** No world asks for one, and no
    client gives one. A world that asks a visitor to sign in is doing
    something this protocol has no use for ([NSWP-09](09-what-a-world-owes.md)).
-2. **Going by name is a choice made on each trip,** at the Airlock, in the
-   visitor's own client. It is never the default the first time, and never
-   happens for a site that hasn't adopted the protocol.
+   What a world may do is offer the way to the visitor's own client, which
+   asks ("Signing in from inside a world", below).
+2. **Going by name is a choice made on each trip,** in the visitor's own
+   client: at the Airlock, or on its sign-in page when they asked to sign in
+   from inside a world. It never happens without their having chosen it, and
+   never for a site that hasn't adopted the protocol.
 3. **A guest is a full visitor.** Nothing here is needed to walk around, to
    join a room, or to be seen.
 4. **A name is shown only when it is proved.** Nobody is called anything on
@@ -153,15 +156,82 @@ protocol:
   never asks anyone to sign in: a sign-in prompt in the middle of a crossing
   is exactly what a fake Airlock would show. If the session can't sign just
   then, the visitor is told, and chooses again; they are never sent on as
-  something they didn't pick.
+  something they didn't pick. A visitor who wants to sign in goes to the
+  client's sign-in page, which is a page of its own and says so.
 - **Only for a verified world.** A pass names the visitor's key for good, so
   it goes only to a site that has proved it is the one its announcement says.
-- **The choice is remembered** once it has worked, and the first time it is
-  never "by name".
+- **The choice is remembered** once it has worked. Until a visitor has
+  chosen "by name" themselves, it is never what they are sent as.
 - **A new session key every trip.** Two passes can't be linked by their
   session keys, only by the identity that signed them.
 
+## Signing in from inside a world
+
+A visitor shouldn't have to go home to sign in. And no world may show a
+sign-in. Both hold, because what a world offers is not a sign-in: it is the
+way to the visitor's own client, and back.
+
+1. **The world has a control that says who the visitor is here,** from what
+   it was told on arrival and nothing else: "You are a guest here. Sign in",
+   or "Here as Alice. Switch profile, or go as a guest". The reference kit
+   puts it in the console of every world, under "You", and a world may draw
+   it anywhere in an interface of its own
+   ([NSWP-11](11-the-visitors-console.md), "Drawing it yourself"). It says
+   where pressing it leads: the host of the visitor's own client.
+2. **Pressing it leaves the world.** The world sends the visitor to their
+   Airlock ([NSWP-02](02-doors.md), "Which Airlock") with a door back to
+   itself and `who=1`. The door is the world's own: the announcement its
+   manifest lists for its address, and the address. The visitor's state goes
+   on the link as it does through any door (`xr=1`, `joined=1`, `form`,
+   `set` and the rest), so they come back as they left.
+3. **Their client asks them, in its own way, on its own page.** To sign in,
+   to make a profile, to switch to another, or to go back as a guest. The
+   world sees none of it.
+4. **Their client takes them back through the door,** checked as any door is
+   checked. If they chose to go by name and the site has proved it is who it
+   says, they arrive with a pass. The world reads it as it reads any arrival.
+
+What keeps this from being the thing rule 1 forbids:
+
+- **A world never draws the sign-in, and never takes a credential.** Not in
+  a frame, not in a panel, not "to save a step". The control only leaves.
+- **`who=1` is a request, and a link is something anyone can write.** A
+  client treats it as "show this visitor their choices". It never signs
+  anyone in, never chooses "by name" for them, and never skips the check of
+  the door. A visitor goes by name only by pressing the thing that says so,
+  on their client's own page, after being told what it gives away.
+- **A client never takes the way back from its sign-in page's own address.**
+  It keeps the door itself, for that tab, and the way back leads to its
+  Airlock and nowhere else.
+- **The client's sign-in page says whose it is.** The one real protection a
+  visitor has against a world that sends them to a page that only looks like
+  their client's is the address of that page, and a sign-in that is bound to
+  it (a passkey, a password manager). A client says so on the page, and a
+  visitor who is asked for a password anywhere else leaves.
+- **A world with no client to go back to offers nothing.** A visitor who
+  opened it by itself, with no Airlock named in its manifest, has nobody to
+  ask.
+
+A client with no sign-in of its own ignores `who=1` and takes the visitor
+back through the door.
+
+In the reference client, the Airlock sends a `who=1` door to its sign-in
+page. The page offers "Back to *the world*, by name" to someone signed in,
+with what that gives away written under it, and "Go back as a guest" to
+anyone. The Airlock then goes straight through to a place the visitor knows,
+or shows its whole screen if anything about the door needs to be seen. If
+they asked to go by name and can't (the site hasn't proved it is who it
+says), the screen is shown and says so.
+
 ## In code
+
+```js
+import { arrival, portal } from "nswp-sdk";
+
+portal.signIn();   // "who are you here?": leaves for the visitor's own client, and comes back
+// The kit's console has the control already, under "You" (addViewControls). In another engine:
+// NSWP.signIn(state), and in Godot Nswp.sign_in(). An `identity` event comes when the menu's is pressed.
+```
 
 ```js
 import { arrival } from "nswp-sdk";

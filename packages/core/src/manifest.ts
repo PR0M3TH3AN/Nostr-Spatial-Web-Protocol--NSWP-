@@ -1,7 +1,8 @@
 /** World manifests at /.well-known/nswp.json and origin verification (spec §7). */
-import { LIMITS, MODES, SCHEMAS, WELL_KNOWN_PATH } from "./constants.js";
+import { LIMITS, MODES, SCHEMAS, WELL_KNOWN_PATH, WORLD_KIND } from "./constants.js";
 import { isHttpsUrl, isWssUrl, normalizeUrl } from "./destination.js";
 import { isHex64 } from "./event.js";
+import { encodeNaddr } from "./nip19.js";
 import { Collector, isPlainObject, NswpError, type Issue, type Result } from "./result.js";
 import type { World } from "./world.js";
 
@@ -184,6 +185,21 @@ export function verifyOrigin(world: World, manifest: Manifest, manifestUrl: stri
     message: urlMatch ? "Entry URL matches the manifest." : "The announcement's entry URL differs from the manifest's.",
   });
   return { verified: checks.every((ch) => ch.ok), checks };
+}
+
+/**
+ * The door to a world as its own site names it: the announcement its manifest
+ * lists for this address, and the address. A world uses it to send a visitor
+ * back to itself through their own client, which checks it like any other
+ * door. With no announcement for the address, or more than one publisher
+ * claiming it, the door is the address alone.
+ */
+export function doorFor(manifest: Manifest, url: string): { naddr?: string; url: string } {
+  const here = normalizeUrl(url);
+  const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
+  const publishers = d === undefined ? [] : Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
+  if (d === undefined || publishers.length !== 1) return { url };
+  return { naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: publishers[0]!, identifier: d, relays: manifest.relays.slice(0, 2) }), url };
 }
 
 export interface FetchManifestResult {
