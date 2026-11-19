@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.15.2
+
+Signs that are the right size wherever you stand, a crossing that nothing pokes into, and a way to try builds on your own machine.
+
+- **Signs.** A sign made to be read from across a room filled the screen of anyone standing next to it: it was a size in the world, and what a reader needs is a size in their view. Two rules now. On a flat screen, what something is goes beside the controls: `controls.setTarget(name, detail)` shows a small card, always the same size, never in front of the thing. In the world, `viewScale(distance, { at })` keeps a sign the same size in the visitor's view, within limits.
+- **BitPortal's room** follows both: pointing at a door shows its address, what it is, why it is there and how to go, in a card over the buttons. The sign that hung in front of the door is a headset's only, low on the door and a steady size. The first-visit hint moved the same way.
+- **The crossing's room is drawn over everything.** It stands round the visitor wherever they are, which may be half inside a bench or another person. It is now drawn last, on a cleared depth, so nothing shows inside its walls or through them; the visitor's own hands and console are drawn after it; and other people aren't drawn while it stands.
+- **A local server** (`node scripts/serve-local.mjs`): the built sites, each on a port of its own, on this machine or the local network with `--lan`. A door still leads to the deployed sites, since each world is built for its real address.
+- **Found on the way:** a ranking reason with nothing to say for itself was showing as the bare word "Tastes" in BitPortal ("…ranks it highly and Tastes"). It is left out.
+- **Status (2026-11-18):** built, not deployed, and running on the local server. Looked at in a browser: a door's card the same size from the middle of the room and from the doorway, with the view through the door clear; and the crossing's room stood in the middle of the Grove's hearth, with none of its crystals showing inside. The headset's sign was not looked at in a headset.
+
 ## 0.15.1
 
 The two ways of moving have one pair of names, at a desk and in a headset: casual and intense.

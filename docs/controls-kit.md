@@ -507,3 +507,16 @@ const fps = createFps({
 - While they are on, aim from the middle of the view: set your pointer to
   (0, 0) when `fps.update` returns true.
 - `addViewControls` adds Fullscreen to the menu.
+
+## Signs
+
+A sign is a size in a visitor's view, not in the world.
+
+- **On a flat screen,** say what is pointed at beside the controls:
+  `controls.setTarget("The Tour, at tour.example", ["Five stops that teach
+  looking and moving.", "Click to visit"])`. It is a small card, always the
+  same size, and never in front of the thing.
+- **In the world,** keep a sign the same size in the view, every frame:
+  `sign.scale.copy(natural).multiplyScalar(viewScale(distance, { at: 6 }))`,
+  where `at` is the distance it was made to be read from. It stops shrinking
+  and growing at `least` and `most`.
