@@ -494,6 +494,11 @@ sounds.moved(metres);
   or brighter than the last, and a touch to the side of the foot that made
   it. This is done as each is played (`stepShape`), to the kit's step and to
   a world's own alike, so one step file is enough. None is heard in the air.
+- **What is playing.** The Sound section names the piece of the place's
+  music that is playing now, by its file's name ("Playing here: room-e. Next
+  of 8"), so a visitor can say which one they mean. Pressing it goes on to
+  the next. `sounds.piece` and `sounds.nextPiece()` are the same from code.
+  Give your music files names worth reading.
 - **The visitor's volumes** (effects, music, voices, all off) are in the menu
   and are kept for the site. Wire voices with
   `sounds.onChange((l) => presence.setVolume(l.off ? 0 : l.voices))`.
@@ -526,7 +531,12 @@ const fps = createFps({
 - The menu, under Moving, has "Desk controls: casual / intense" (this) and
   "Headset controls: casual / intense" (`createXrInput`, which takes
   `arrivedIntense` the same way). Each is kept for the site, by itself.
-- The mouse looks (the first click takes the pointer), W A S D and the arrows
+- The mouse looks, at once: a visitor who arrives moving the intense way is
+  moving that way before they have pressed anything. A browser hands a page
+  the pointer only after a press, so until then the kit turns the view from
+  the mouse's own movement over the canvas, with the pointer's picture
+  hidden, and takes the pointer at the first key or click. Leave the
+  canvas's `cursor` alone while `fps.enabled`. W A S D and the arrows
   walk, Shift runs, F or a click uses, Escape brings up the menu.
 - While they are on, aim from the middle of the view: set your pointer to
   (0, 0) when `fps.update` returns true.

@@ -4269,9 +4269,8 @@ var NSWP = (() => {
   var DESK_WORDS = {
     intense: "Desk controls: intense",
     casual: "Desk controls: casual",
-    nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
-    nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
-    click: "Click the view to look round. Escape brings up the menu."
+    nowIntense: "Intense: the mouse looks round. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
+    nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps."
   };
   var hasMouse = () => startingForm() === "desk";
   function startsIntense(arrived2, key = DESK_KEY) {
@@ -4479,6 +4478,16 @@ var NSWP = (() => {
     const h = ownSound(pick(hum), folder);
     if (h) out.hum = h;
     return out;
+  }
+  function pieceName(address) {
+    let name = address;
+    try {
+      name = decodeURIComponent(new URL(address, "https://x.invalid/").pathname.split("/").pop() ?? "");
+    } catch {
+      name = address.split(/[/?#]/).filter(Boolean).pop() ?? "";
+    }
+    name = name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[\u0000-\u001f]/g, "").trim();
+    return name.slice(0, 60) || "a piece with no name";
   }
   var STEP_LEVEL = 0.45;
   function stepShape(foot, random = Math.random) {
@@ -4821,6 +4830,7 @@ var NSWP = (() => {
       const decks = [deck(), deck()];
       let active = 0;
       let index = 0;
+      let heard = 0;
       let turning = false;
       let stopped = false;
       const curve = (rising) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(k / 31 * Math.PI / 2));
@@ -4840,6 +4850,8 @@ var NSWP = (() => {
             from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
             to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
             active = 1 - active;
+            heard = index;
+            opts.onTurn?.();
             setTimeout(() => {
               from.audio.pause();
               turning = false;
@@ -4883,11 +4895,25 @@ var NSWP = (() => {
         /** How many times one piece has handed on to the next. For tests. */
         get index() {
           return index;
+        },
+        /** Where the piece that is heard now is kept. */
+        get now() {
+          return tracks[heard];
+        },
+        get count() {
+          return tracks.length;
+        },
+        /** Hand on to the next piece now. */
+        next() {
+          if (tracks.length < 2 || turning || stopped) return false;
+          turn();
+          return true;
         }
       };
     };
     let kind = theme.music === null ? "none" : theme.music ? "world" : "made";
     let stopMusic = null;
+    let pieces = null;
     let stopHum = null;
     let humAddress = null;
     let musicAsked = false;
@@ -4904,15 +4930,20 @@ var NSWP = (() => {
         changed();
         if (theme.music === null) return;
         if (tracks) {
-          stopMusic = loopPlayer(tracks, placeMusic, {
+          const player2 = loopPlayer(tracks, placeMusic, {
             gain: 0.6,
+            onTurn: () => changed(),
             onFail: () => {
               stopMusic?.();
+              pieces = null;
               kind = "made";
               stopMusic = madeMusic();
               changed();
             }
-          }).stop;
+          });
+          pieces = player2;
+          stopMusic = player2.stop;
+          changed();
           return;
         }
         stopMusic = madeMusic();
@@ -5093,6 +5124,12 @@ var NSWP = (() => {
       get music() {
         return kind;
       },
+      get piece() {
+        return pieces ? { name: pieceName(pieces.now), of: pieces.count } : null;
+      },
+      nextPiece() {
+        return pieces?.next() ?? false;
+      },
       get hasHum() {
         return !!humAddress;
       },
@@ -5176,6 +5213,24 @@ var NSWP = (() => {
       },
       level("sound-effects", "Effects", "effects"),
       level("sound-music", "Music", "music"),
+      {
+        // What the place is playing, by name, so a visitor can say which piece they mean. Pressing goes on to the next.
+        id: "sound-piece",
+        section: "sound",
+        icon: "note",
+        hidden: () => sounds2.music === "none" || sounds2.music === "made" || !sounds2.piece,
+        label: () => {
+          const p = sounds2.piece;
+          if (!p) return "This place's music";
+          return `Playing here: ${p.name}${p.of > 1 ? `. Next of ${p.of}` : ""}`;
+        },
+        act: () => {
+          const p = sounds2.piece;
+          if (!p) return;
+          if (sounds2.nextPiece()) controls2.say(`Going on from ${p.name} to this place's next piece.`);
+          else controls2.say(`${p.name} is the only piece this place has. Music: off, above, silences it.`);
+        }
+      },
       level("sound-voices", "Voices", "voices"),
       {
         id: "sound-hum",

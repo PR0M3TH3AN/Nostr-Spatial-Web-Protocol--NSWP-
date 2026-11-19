@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanKit, nextVariant, stepShape, STEP_LEVEL, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+import { cleanKit, nextVariant, pieceName, stepShape, STEP_LEVEL, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
 
 describe("the default cues", () => {
   it("has one for everything on the list, each short and quiet", () => {
@@ -206,5 +206,21 @@ describe("footsteps", () => {
     // One foot is a touch lower than the other, on the whole.
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     expect(mean(rates.filter((_, i) => i % 2 === 1))).toBeGreaterThan(mean(rates.filter((_, i) => i % 2 === 0)));
+  });
+});
+
+describe("what a piece of music is called", () => {
+  it("is its file's name, without what kind of file it is", () => {
+    expect(pieceName("https://portal.bitblocks.network/sounds/room-e.ogg")).toBe("room-e");
+    expect(pieceName("/sounds/kit/music/default-2.ogg")).toBe("default-2");
+    expect(pieceName("sounds/music.mp3?v=3#t=2")).toBe("music");
+    expect(pieceName("https://world.example/sounds/Evening%20Rain.opus")).toBe("Evening Rain");
+  });
+
+  it("is never empty, never long, and never carries anything a menu shouldn't show", () => {
+    expect(pieceName("")).toBe("a piece with no name");
+    expect(pieceName("https://world.example/")).toBe("a piece with no name");
+    expect(pieceName(`https://world.example/${"a".repeat(300)}.ogg`)).toHaveLength(60);
+    expect(pieceName("https://world.example/one%0Atwo.ogg")).toBe("onetwo");
   });
 });

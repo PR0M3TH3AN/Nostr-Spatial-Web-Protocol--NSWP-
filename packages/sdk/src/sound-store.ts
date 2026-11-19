@@ -220,6 +220,22 @@ export function cleanKit(input: unknown, folder: string, playsOgg: boolean): Kit
 }
 
 /**
+ * What a piece of music is called, from where it is kept: the file's own name, without what kind of file it is.
+ * It is what a visitor reads in the menu, and what they can tell whoever runs the place if they'd rather not
+ * hear it.
+ */
+export function pieceName(address: string): string {
+  let name = address;
+  try {
+    name = decodeURIComponent(new URL(address, "https://x.invalid/").pathname.split("/").pop() ?? "");
+  } catch {
+    name = address.split(/[/?#]/).filter(Boolean).pop() ?? "";
+  }
+  name = name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[\u0000-\u001f]/g, "").trim();
+  return name.slice(0, 60) || "a piece with no name";
+}
+
+/**
  * How one footstep differs from the last. No two real steps sound alike: the
  * weight on each foot differs, and so does what is under it. And a step is a
  * quiet thing, heard a thousand times a visit, so it sits well under every
