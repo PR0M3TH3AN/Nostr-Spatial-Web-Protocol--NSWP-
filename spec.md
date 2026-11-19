@@ -1807,6 +1807,8 @@ A world may put these anywhere: in its own pause menu, on a wall, on a wrist. It
 
 With the summons, a world that hides the console no longer takes on the duty of putting those things in menus of its own. The exception is a headset used with tracked hands and no controllers, where a hidden console has no summons yet: there the duty stands.
 
+**Settings that travel.** A world is a website, and can only remember what a visitor chose there. Having to turn the music down again in every world, or make the text larger again, is the kind of small cost that makes a place feel like a lot of separate sites. So a visitor's volumes, the size of their text, whether things move, how their hands are set in a headset and whether their screen was filled go with them through a door (`set=` on the link, `settings` in the arrival), and home again. They are preferences, forgeable at no cost that matters, so nothing is asked about them; and nothing that would need asking (a microphone, a block, hearing other people's music) is ever one of them. A world's colours stay the world's.
+
 **The same form on the other side.** A visitor is on a touch screen, at a desk, or in a headset, and a door doesn't change which. A headset already travels (`xr=1`, `immersive`). The other two now do too (`form=touch` or `form=desk`), for the devices that can be either, as a preference a world follows where the device can.
 
 **Sharing the space.** The world says where the kit may sit, and the kit says what it covers, so the world can lay its own interface out around it. The kit never moves into space it wasn't given.

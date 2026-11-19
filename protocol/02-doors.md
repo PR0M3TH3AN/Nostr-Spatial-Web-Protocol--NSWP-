@@ -36,7 +36,7 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&moving=intense&joined=1&mic=1&form=touch&blocked=<key>,<key>
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&moving=intense&joined=1&mic=1&form=touch&set=<settings>&blocked=<key>,<key>
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
@@ -56,6 +56,12 @@ moves", below).
 with, so that they arrive laid out the same way
 ([NSWP-11](11-the-visitors-console.md), "The same form on the other side").
 It is not sent on the way home.
+
+`set=<settings>` is the visitor's settings as they leave: their volumes, the
+size of their text, whether things move, their hands in a headset, whether
+their screen was filled. The place they arrive starts from them
+([NSWP-11](11-the-visitors-console.md), "Settings that travel"). It is sent
+on the way home too.
 
 `blocked` is there only when the visitor blocked someone in this world during
 this visit: the identity keys of the people, as hex, at most sixteen
@@ -84,7 +90,7 @@ A client may let a visitor choose where they start: a world of their own
 doors are two places. An Airlock opened with no destination and `doors=1`
 takes the visitor to their doors: the client's own place, never a world. A
 client with one place for both takes them there either way. `doors=1`,
-`xr=1`, `moving=intense`, `joined=1`, `mic=1` and `blocked` may come
+`xr=1`, `moving=intense`, `joined=1`, `mic=1`, `set` and `blocked` may come
 together, and nothing else may.
 
 ## What an Airlock does

@@ -77,6 +77,12 @@ before the engine's canvas does, and the engine never hears them. It hears a
 `menu` event instead, and should leave the visitor's input alone until the
 next one. Never bind that key or that hold to anything in the game.
 
+The visitor's settings travel with them: their volumes, the size of their
+text, whether their screen was filled. The script's menu and sounds begin
+from what they arrived with and send on what they have, with nothing for
+the engine to do. `NSWP.arrival()` gives them as `settings`, for an engine
+with an interface of its own.
+
 `NSWP.arrival()` also says the form the visitor is in on a flat screen
 (`form`: `touch` or `desk`), so an engine with its own interface can lay it
 out the way they were using the last world. The script carries it on through

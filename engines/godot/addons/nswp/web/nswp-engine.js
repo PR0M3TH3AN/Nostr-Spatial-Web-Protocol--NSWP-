@@ -3961,6 +3961,7 @@ var NSWP = (() => {
   var LOCAL_MAP_PATH = "/.well-known/nswp-local.json";
   var LOCAL_MAP_WAIT = 2e3;
   var LOCAL_MAP_LIMIT = 64;
+  var FOLLOWED_MOST = 16384;
   function isLocalHost(hostname) {
     const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (h === "localhost" || h.endsWith(".localhost") || h === "::1")
@@ -3973,8 +3974,8 @@ var NSWP = (() => {
       return false;
     return a === 127 || a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a === 169 && b === 254;
   }
-  function originOf(text) {
-    if (typeof text !== "string" || text.length > 300)
+  function originOf(text, most = 300) {
+    if (typeof text !== "string" || text.length > most)
       return null;
     try {
       const u = new URL(text);
@@ -4005,7 +4006,7 @@ var NSWP = (() => {
   function mapToLocal(url, map) {
     if (!map.size)
       return url;
-    const u = originOf(url);
+    const u = originOf(url, FOLLOWED_MOST);
     const to = u && map.get(u.origin);
     return to ? `${to}${url.slice(u.origin.length)}` : url;
   }

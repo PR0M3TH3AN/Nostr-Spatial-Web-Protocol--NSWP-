@@ -394,6 +394,15 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
   tracked hands and no controllers, which has no summons for a hidden
   console yet: there, offer the way home, leaving VR, the room and the
   microphone, and turning and stepping somewhere of your own.
+- **Settings that travel.** A visitor's volumes, the size of their text,
+  whether things move, their hands in a headset and whether their screen was
+  filled go with them from world to world
+  ([NSWP-11](../protocol/11-the-visitors-console.md)). The kit does all of
+  it: `arrival.read()` takes them in, each part begins from them, and
+  `portal.go()` and `portal.home()` send on what the visitor has now. A
+  screen that was filled is filled again at their first key or press. If
+  you keep a setting of your own that should begin from theirs, read
+  `arrivedSettings()`; to send one on, `reportSettings(name, () => ({...}))`.
 - **The form a visitor arrives in.** `startingForm()` is `"touch"` or
   `"desk"`: how they were in the place they came from, where this device
   can do the same, and otherwise what the device is. Lay your own interface
