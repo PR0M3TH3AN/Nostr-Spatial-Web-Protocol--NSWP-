@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.28.0
+
+The signer can make the pass, a world's signing limit is the pace of a person, and the feed says how a post is marked.
+
+- **A pass from the signer** (NSWP-10). A world asks its visitor's signer for a room pass with a session key and nothing else; the signer writes the site, the expiry and the name, picture and few words itself. So someone who signs in at a world is by name there, whether or not their client vouched for them first, and as the person they signed in as. `sign` still refuses a pass (kind 27300). The kit asks when it holds no pass for the signed-in key, checks what comes back (that key, this site, that session), and joins the room by name. A signer that makes none says nothing and the visitor is a guest who can still post: nothing breaks against BitLogin's live signer, which makes none yet.
+- **Limits: three notes a minute and twenty an hour for one world,** from six and sixty. A pass counts as a note. The signer enforces them; these are the numbers a signer is held to.
+- **`state` may carry `picture` and `about`** beside `name`, from the visitor's own profile as their sign-in address read it. For the visitor's own card.
+- **"My public feed" says how a post is marked:** "Each post is marked as sent from" and the world's address, where the visitor writes. The mark itself is not new: a world's signer has always added it.
+- **In the kit:** `signer.pass(session)`, `signer.picture`, `signer.about`; `seekPass()`, `onHereAs(fn)`, `arrival.keepIdentity(pass, sessionKey)`; `byName()` takes and gives `{ pass, sessionKey }` and waits briefly for a signer's pass; `FeedOptions.who` may be a function, `FeedOptions.marked`, `FeedView.lead`.
+- **Not yet:** the reference client still sends its own pass on arrival, so a world's site learns a signed-in visitor's key before they sign in there. That stops once BitLogin's signer makes passes on its live site.
+
 ## 0.27.0
 
 One sign-in in a world, and a public feed of your own in place of the posting switch.

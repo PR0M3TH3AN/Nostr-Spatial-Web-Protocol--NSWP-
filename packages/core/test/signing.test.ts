@@ -118,6 +118,14 @@ describe("a place, as it may be named", () => {
   });
 });
 
+describe("how fast a world may have notes signed", () => {
+  it("is the pace of a person: three a minute, twenty an hour", () => {
+    expect(SIGN_LIMITS.burst).toBe(3);
+    expect(SIGN_LIMITS.perMs).toBe(60_000);
+    expect(SIGN_LIMITS.hourly).toBe(20);
+  });
+});
+
 describe("what a world and the signer say to each other", () => {
   it("is read back as it was sent", () => {
     expect(readSignerRequest(signerMessage({ t: "state", id: "a1" }))).toEqual({ t: "state", id: "a1" });
@@ -127,6 +135,23 @@ describe("what a world and the signer say to each other", () => {
     expect(readSignerReply(signerMessage({ t: "refused", id: "a2" }))).toEqual({ t: "refused", id: "a2" });
     const pubkey = "ab".repeat(32);
     expect(readSignerReply(signerMessage({ t: "state", id: "a1", unlocked: true, pubkey, name: "  Alice\n", until: 99 }))).toEqual({ t: "state", id: "a1", unlocked: true, pubkey, name: "Alice", until: 99 });
+  });
+
+  it("asks for a pass with a session key and nothing else", () => {
+    const session = "cd".repeat(32);
+    expect(readSignerRequest(signerMessage({ t: "pass", id: "p1", session }))).toEqual({ t: "pass", id: "p1", session });
+    // Whatever else a world writes beside it is not read: the signer writes the rest of a pass.
+    expect(readSignerRequest({ ...signerMessage({ t: "pass", id: "p1", session }), name: "Somebody else", origin: "https://other.example" })).toEqual({ t: "pass", id: "p1", session });
+    for (const not of ["", "CD".repeat(32), "cd".repeat(31), 5, undefined]) expect(readSignerRequest({ nswp: "nswp-signer", v: 1, t: "pass", id: "p1", session: not })).toBeNull();
+  });
+
+  it("reads who the signer says they are, cleaned as a pass's words are", () => {
+    const pubkey = "ab".repeat(32);
+    const said = readSignerReply(signerMessage({ t: "state", id: "a1", unlocked: true, pubkey, name: "Alice", picture: "https://pics.example/a.png", about: "  Builds\nworlds.  " }));
+    expect(said).toEqual({ t: "state", id: "a1", unlocked: true, pubkey, name: "Alice", picture: "https://pics.example/a.png", about: "Builds worlds." });
+    // Only an https address is a picture, and a locked signer says nothing of anybody.
+    expect(readSignerReply(signerMessage({ t: "state", unlocked: true, pubkey, picture: "http://pics.example/a.png" }))).toEqual({ t: "state", unlocked: true, pubkey });
+    expect(readSignerReply({ nswp: "nswp-signer", v: 1, t: "state", unlocked: false, picture: "https://pics.example/a.png", about: "words" })).toEqual({ t: "state", unlocked: false });
   });
 
   it("never reads a signer as unlocked without saying whose key it holds", () => {

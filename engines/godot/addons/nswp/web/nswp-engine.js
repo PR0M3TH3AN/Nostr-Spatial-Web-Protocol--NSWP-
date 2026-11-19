@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.27.0";
+  var KIT_VERSION = "0.28.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4111,114 +4111,6 @@ var NSWP = (() => {
   }
   var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
 
-  // packages/core/dist/signing.js
-  var SIGNER_PROTOCOL = "nswp-signer";
-  var SIGNER_VERSION = 1;
-  var SIGN_LIMITS = {
-    /** The longest a note's content may be, in characters. */
-    contentChars: 8e3,
-    tags: 60,
-    tagItems: 8,
-    tagChars: 400,
-    /** How long an unlocked signer stays unlocked for a world, at most. Closing the world's page ends it sooner. */
-    grantSec: 4 * 3600,
-    /** No more than this many notes for one world in `perMs`. */
-    burst: 6,
-    perMs: 6e4,
-    /** And no more than this many in an hour. */
-    hourly: 60
-  };
-  var WORLD_TAG = "nswp:world";
-  function cleanOrigin(input) {
-    if (typeof input !== "string" || input.length > 300)
-      return "";
-    try {
-      const u = new URL(input);
-      return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
-    } catch {
-      return "";
-    }
-  }
-  function isWhatWasAsked(asked, signed) {
-    if (signed.kind !== asked.kind || signed.content !== asked.content)
-      return false;
-    const mine = asked.tags.filter((t) => t[0] !== WORLD_TAG);
-    const theirs = signed.tags.filter((t) => t[0] !== WORLD_TAG);
-    return JSON.stringify(mine) === JSON.stringify(theirs);
-  }
-  function signerAddresses(airlock) {
-    if (!airlock)
-      return null;
-    try {
-      const base = new URL(airlock);
-      if (base.protocol !== "https:")
-        return null;
-      return { origin: base.origin, signer: new URL("../signer/", base).href, window: new URL("../connect/", base).href };
-    } catch {
-      return null;
-    }
-  }
-  function signerAt(base) {
-    if (!base || base.length > 300)
-      return null;
-    try {
-      const at = new URL(base);
-      if (at.protocol !== "https:" || at.username || at.password)
-        return null;
-      if (!at.pathname.endsWith("/"))
-        at.pathname += "/";
-      at.search = "";
-      at.hash = "";
-      return { origin: at.origin, signer: new URL("signer/", at).href, window: new URL("connect/", at).href };
-    } catch {
-      return null;
-    }
-  }
-  var ID = /^[0-9a-z-]{1,40}$/i;
-  var wrapped = (data) => {
-    if (!data || typeof data !== "object")
-      return null;
-    const d = data;
-    return d.nswp === SIGNER_PROTOCOL && d.v === SIGNER_VERSION && typeof d.t === "string" ? d : null;
-  };
-  var signerMessage = (message) => ({ nswp: SIGNER_PROTOCOL, v: SIGNER_VERSION, ...message });
-  function readSignerReply(data) {
-    const d = wrapped(data);
-    if (!d)
-      return null;
-    if (d.t === "ready")
-      return { t: "ready" };
-    if (d.t === "state" && typeof d.unlocked === "boolean") {
-      const pubkey = typeof d.pubkey === "string" && /^[0-9a-f]{64}$/.test(d.pubkey) ? d.pubkey : void 0;
-      return {
-        t: "state",
-        ...typeof d.id === "string" && ID.test(d.id) ? { id: d.id } : {},
-        unlocked: d.unlocked && !!pubkey,
-        ...pubkey ? { pubkey } : {},
-        ...typeof d.name === "string" && cleanLine(d.name, 48) ? { name: cleanLine(d.name, 48) } : {},
-        ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}
-      };
-    }
-    if (typeof d.id !== "string" || !ID.test(d.id))
-      return null;
-    if (d.t === "refused")
-      return { t: "refused", id: d.id };
-    if (d.t === "signed" && d.event && typeof d.event === "object")
-      return { t: "signed", id: d.id, event: d.event };
-    return null;
-  }
-
-  // packages/core/dist/layout.js
-  var LAYOUT_LIMITS = {
-    placements: 64,
-    publishedItems: 16,
-    /** Furthest a placement may be from the home's origin, in metres. */
-    reach: 50,
-    noteChars: 280,
-    /** A picture in a frame (spec §10.1). */
-    pictureBytes: 1024 * 1024
-  };
-
   // packages/core/dist/pass.js
   var PASS_LIMITS = {
     defaultTtlSec: 4 * 3600,
@@ -4317,6 +4209,117 @@ var NSWP = (() => {
       c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
     return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, about, expiresAt, id: event.id });
   }
+
+  // packages/core/dist/signing.js
+  var SIGNER_PROTOCOL = "nswp-signer";
+  var SIGNER_VERSION = 1;
+  var SIGN_LIMITS = {
+    /** The longest a note's content may be, in characters. */
+    contentChars: 8e3,
+    tags: 60,
+    tagItems: 8,
+    tagChars: 400,
+    /** How long an unlocked signer stays unlocked for a world, at most. Closing the world's page ends it sooner. */
+    grantSec: 4 * 3600,
+    /** No more than this many notes for one world in `perMs`: the pace of a person, not of a script. */
+    burst: 3,
+    perMs: 6e4,
+    /** And no more than this many in an hour. */
+    hourly: 20
+  };
+  var WORLD_TAG = "nswp:world";
+  function cleanOrigin(input) {
+    if (typeof input !== "string" || input.length > 300)
+      return "";
+    try {
+      const u = new URL(input);
+      return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
+    } catch {
+      return "";
+    }
+  }
+  function isWhatWasAsked(asked, signed) {
+    if (signed.kind !== asked.kind || signed.content !== asked.content)
+      return false;
+    const mine = asked.tags.filter((t) => t[0] !== WORLD_TAG);
+    const theirs = signed.tags.filter((t) => t[0] !== WORLD_TAG);
+    return JSON.stringify(mine) === JSON.stringify(theirs);
+  }
+  function signerAddresses(airlock) {
+    if (!airlock)
+      return null;
+    try {
+      const base = new URL(airlock);
+      if (base.protocol !== "https:")
+        return null;
+      return { origin: base.origin, signer: new URL("../signer/", base).href, window: new URL("../connect/", base).href };
+    } catch {
+      return null;
+    }
+  }
+  function signerAt(base) {
+    if (!base || base.length > 300)
+      return null;
+    try {
+      const at = new URL(base);
+      if (at.protocol !== "https:" || at.username || at.password)
+        return null;
+      if (!at.pathname.endsWith("/"))
+        at.pathname += "/";
+      at.search = "";
+      at.hash = "";
+      return { origin: at.origin, signer: new URL("signer/", at).href, window: new URL("connect/", at).href };
+    } catch {
+      return null;
+    }
+  }
+  var ID = /^[0-9a-z-]{1,40}$/i;
+  var wrapped = (data) => {
+    if (!data || typeof data !== "object")
+      return null;
+    const d = data;
+    return d.nswp === SIGNER_PROTOCOL && d.v === SIGNER_VERSION && typeof d.t === "string" ? d : null;
+  };
+  var signerMessage = (message) => ({ nswp: SIGNER_PROTOCOL, v: SIGNER_VERSION, ...message });
+  function readSignerReply(data) {
+    const d = wrapped(data);
+    if (!d)
+      return null;
+    if (d.t === "ready")
+      return { t: "ready" };
+    if (d.t === "state" && typeof d.unlocked === "boolean") {
+      const pubkey = typeof d.pubkey === "string" && /^[0-9a-f]{64}$/.test(d.pubkey) ? d.pubkey : void 0;
+      return {
+        t: "state",
+        ...typeof d.id === "string" && ID.test(d.id) ? { id: d.id } : {},
+        unlocked: d.unlocked && !!pubkey,
+        ...pubkey ? { pubkey } : {},
+        ...typeof d.name === "string" && cleanLine(d.name, 48) ? { name: cleanLine(d.name, 48) } : {},
+        // Their own picture and words, as their sign-in address read them from their profile: cleaned as a pass's are.
+        ...pubkey && cleanPicture(d.picture) ? { picture: cleanPicture(d.picture) } : {},
+        ...pubkey && cleanAbout(d.about) ? { about: cleanAbout(d.about) } : {},
+        ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}
+      };
+    }
+    if (typeof d.id !== "string" || !ID.test(d.id))
+      return null;
+    if (d.t === "refused")
+      return { t: "refused", id: d.id };
+    if (d.t === "signed" && d.event && typeof d.event === "object")
+      return { t: "signed", id: d.id, event: d.event };
+    return null;
+  }
+
+  // packages/core/dist/layout.js
+  var LAYOUT_LIMITS = {
+    placements: 64,
+    publishedItems: 16,
+    /** Furthest a placement may be from the home's origin, in metres. */
+    reach: 50,
+    noteChars: 280,
+    /** A picture in a frame (spec §10.1). */
+    pictureBytes: 1024 * 1024
+  };
 
   // packages/core/dist/bridge.js
   var WORLD_GRANT_LIMITS = {
@@ -4681,6 +4684,20 @@ var NSWP = (() => {
         return { pubkey, name, ...picture ? { picture } : {}, ...about ? { about } : {}, pass: kept.pass, sessionKey: kept.sessionKey };
       } catch {
         return void 0;
+      }
+    },
+    /**
+     * Keep a pass made for this site after arriving: the one the visitor's signer made when they signed in here
+     * (protocol/10-identity.md, "A pass from the signer"). It is checked as an arrival's is, and kept the same way,
+     * for this tab. False if it doesn't check out.
+     */
+    keepIdentity(pass, sessionKey) {
+      try {
+        if (!/^[0-9a-f]{64}$/.test(sessionKey) || !verifyRoomPass(pass, { origin: location.origin }).ok) return false;
+        session()?.setItem(PASS_KEY, JSON.stringify({ pass, sessionKey }));
+        return true;
+      } catch {
+        return false;
       }
     },
     /** The Airlock this visitor came from, for this tab's session only. */
@@ -6044,6 +6061,8 @@ var NSWP = (() => {
     state: "none",
     pubkey: null,
     name: null,
+    picture: null,
+    about: null,
     host: null,
     unanswered: false,
     copy: null,
@@ -6051,6 +6070,7 @@ var NSWP = (() => {
     lock() {
     },
     sign: async () => null,
+    pass: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -6077,6 +6097,8 @@ var NSWP = (() => {
     let state = "none";
     let pubkey = null;
     let name = null;
+    let picture = null;
+    let about = null;
     let origin = "";
     let windowAt = "";
     let frame = null;
@@ -6108,6 +6130,8 @@ var NSWP = (() => {
         state = reply.unlocked ? "unlocked" : "locked";
         pubkey = reply.unlocked ? reply.pubkey ?? null : null;
         name = reply.unlocked ? reply.name ?? null : null;
+        picture = reply.unlocked ? reply.picture ?? null : null;
+        about = reply.unlocked ? reply.about ?? null : null;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -6117,6 +6141,11 @@ var NSWP = (() => {
       clearTimeout(waiting2.timer);
       if (reply.t === "refused") return waiting2.done(null);
       const signed = reply.event;
+      if (waiting2.session) {
+        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting2.session });
+        return waiting2.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
+      }
+      if (!waiting2.asked) return waiting2.done(null);
       const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
       waiting2.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting2.asked, signed) ? signed : null);
     };
@@ -6157,6 +6186,12 @@ var NSWP = (() => {
       get name() {
         return name;
       },
+      get picture() {
+        return picture;
+      },
+      get about() {
+        return about;
+      },
       get unanswered() {
         return named && waited && state === "none" && !disposed;
       },
@@ -6194,6 +6229,18 @@ var NSWP = (() => {
           }, 8e3);
           pending.set(id, { asked, done, timer });
           tell2({ t: "sign", id, event: asked });
+        });
+      },
+      pass(session2) {
+        if (state !== "unlocked" || !frame) return Promise.resolve(null);
+        const id = `p${++n}`;
+        return new Promise((done) => {
+          const timer = setTimeout(() => {
+            pending.delete(id);
+            done(null);
+          }, 8e3);
+          pending.set(id, { session: session2, done, timer });
+          tell2({ t: "pass", id, session: session2 });
         });
       },
       onChange(fn) {
@@ -6244,6 +6291,28 @@ var NSWP = (() => {
     const signer = worldSigner();
     return signer.state === "unlocked" && signer.pubkey === who.pubkey ? who : void 0;
   }
+  var hereWatchers = /* @__PURE__ */ new Set();
+  var seeking = null;
+  var seekAfter = 0;
+  function seekPass() {
+    if (seeking) return seeking;
+    if (!signerNamed()) return Promise.resolve();
+    const signer = worldSigner();
+    const key = signer.state === "unlocked" ? signer.pubkey : null;
+    if (!key || arrival.identity()?.pubkey === key || Date.now() < seekAfter) return Promise.resolve();
+    seekAfter = Date.now() + 6e4;
+    const secret = crypto.getRandomValues(new Uint8Array(32));
+    const sessionKey = [...secret].map((b) => b.toString(16).padStart(2, "0")).join("");
+    seeking = signer.pass(getPublicKey(secret)).then((pass) => {
+      if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
+        for (const fn of [...hereWatchers]) fn();
+      } else if (!pass) seekAfter = Date.now() + 10 * 6e4;
+    }).catch(() => {
+    }).finally(() => {
+      seeking = null;
+    });
+    return seeking;
+  }
   function identityWords() {
     const who = hereAs();
     const name = who ? who.name || shortNpub(who.pubkey) : "";
@@ -6257,7 +6326,7 @@ var NSWP = (() => {
       return { title: who.name || shortNpub(who.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who.pubkey), copy: npub, text: who.about ?? "", picture: who.picture ?? "", color: "", now: [] };
     }
     if (signer?.state === "unlocked" && signer.pubkey) {
-      return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: "", picture: "", color: "", now: [] };
+      return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: signer.about ?? "", picture: signer.picture ?? "", color: "", now: [] };
     }
     return null;
   }
@@ -6286,8 +6355,14 @@ var NSWP = (() => {
   });
   var shared = null;
   function worldSigner() {
-    shared ?? (shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() }));
-    return shared;
+    if (shared) return shared;
+    const signer = shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() });
+    signer.onChange(() => {
+      if (signer.state !== "unlocked") seekAfter = 0;
+      void seekPass();
+    });
+    if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 6e4);
+    return signer;
   }
 
   // packages/sdk/src/ui/icons.ts
@@ -6491,7 +6566,9 @@ var NSWP = (() => {
         return null;
       },
       view() {
-        return { ready: !!opts, title: "My public feed", who: opts?.who ?? "", posts, loading: loading2, said, limit: CHAT_LIMITS.chars, version };
+        const who = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
+        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+        return { ready: !!opts, title: "My public feed", who, posts, loading: loading2, said, lead, limit: CHAT_LIMITS.chars, version };
       }
     };
   }
@@ -6933,7 +7010,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
       chatNewest = newest;
       const showing = chatState === "open" ? dockTab : "room";
-      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? Math.floor(Date.now() / 6e4) : 0]);
+      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : 0]);
       if (now === chatDrawn) return;
       chatDrawn = now;
       chat.dataset.state = chatState;
@@ -6954,7 +7031,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       chatField.setAttribute("aria-label", words2);
       chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
       if (showing === "feed") {
-        feedLead.textContent = `Public, like a tweet: anyone can read what you send out here, as ${f.who}, and it can't be taken back.`;
+        feedLead.textContent = f.lead;
         feedSaid.textContent = f.said;
         const nowSec = Math.floor(Date.now() / 1e3);
         chatLines.replaceChildren(...f.posts.map((p) => el("li", { class: `post ${p.state}` }, p.text, el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : ago(p.at, nowSec)))));
