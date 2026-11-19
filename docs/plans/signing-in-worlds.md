@@ -183,6 +183,39 @@ it is the visitor's client, which the arrival already names. For a site
 that isn't a world, BitLogin needs a default and a way for a visitor to
 choose their own.
 
+## Apps that aren't worlds
+
+The owner's other apps embed BitLogin's widget today, and sign in on their
+own pages. With the window, such an app has no sign-in box: a button opens
+the sign-in address, the password is typed there (once for the device, not
+once for each app), and the app is handed a signer.
+
+What exists is built for worlds, and is too narrow for an app. From a
+read of the two apps' own code on 2026-11-19:
+
+| App | What it asks its signer for today |
+|---|---|
+| bitunlock | A public key; signatures on a web-request proof (27235) and private messages (4); a wallet connection |
+| bitvid | Signatures on videos (21, 22), lists (30000, 30002, 30015), reactions, reposts, deletions, zap requests, application data (30078), a web-request proof; and encrypting and decrypting, for messages and private lists |
+
+Nearly all of that is refused to a world, on purpose. So before either app
+changes how it signs in, three things are needed:
+
+1. **A permission an app declares and the visitor sees.** The window shows
+   what this app asks for (which kinds, whether it may read private
+   messages, whether it may spend), and the signer holds it to that. A
+   world's list stays what it is.
+2. **A session in BitLogin between "can only sign" and "everything".** A
+   handed-over session refuses to decrypt. An app that shows private
+   messages needs one that may, for that app, when the visitor said so.
+3. **A sign-in address for an app that isn't a world.** A world's visitor
+   arrives from their client, which is the address. An app needs a default,
+   and a way for someone to name their own.
+
+Until then nothing changes for those apps: they keep the widget, on pages
+that are the owner's own. A flat demo of the sign-in half is in
+[`signin-demo/`](signin-demo/).
+
 ## What was tried
 
 The window (piece 3), with two small sites standing in for a client and a
