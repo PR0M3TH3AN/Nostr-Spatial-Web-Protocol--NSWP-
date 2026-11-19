@@ -255,11 +255,20 @@ What follows from it:
    goes against the owner's earlier wish for sign-in to be a place in the
    world, and is theirs to weigh.
 
+**Done since (2026-11-19, the owner's "Yes, move them"):** the signer and
+the window are pages of BitLogin's own site, on a branch of BitLogin's that
+is not pushed (merging BitLogin deploys its site). Its own browser test
+makes a throwaway account, opens the window from a site on another origin,
+and has a note signed. The flat demo ([`signin-demo/`](signin-demo/)) asks
+BitLogin's site now. Worlds still ask BitPortal's unshipped copy: how a
+world finds a signer that isn't beside its visitor's Airlock is point 3
+above, and is not built.
+
 Still to decide:
 
 | | Decision | Recommendation |
 |---|---|---|
-| A | The address, for good. Every passkey made there is bound to it: changing it later orphans them all | A domain of its own, kept for nothing else. Beside the apps on `bitblocks.network` a browser counts them as one site, and walls less between them |
+| A | The address, for good. Every passkey made there is bound to it: changing it later orphans them all | A domain of its own, kept for nothing else. BitLogin's tests name `bitlogin.network`, which would be exactly that. Beside the apps on `bitblocks.network` a browser would count them as one site, and wall less between them |
 | B | Whether it is the only sign-in address, or the default | The default. Anyone can serve BitLogin's static site themselves, and an app lets a person name their own. One address for everyone is one thing to fail, and one thing to attack |
 | C | BitLogin's site stops being a demo. Two of its pages change what they allow (its tests pin today's headers), and it becomes what every account depends on | Yes, with the review BitLogin's own documents ask for before it holds more |
 | D | Point 4 above | Accept it. A password typed in one known place is the point of all this |

@@ -9,7 +9,9 @@ reference worlds on 4301 to 4307, the world template on 4308, and the Godot
 example on 4309 if it has been exported (`npm run build:godot`). A flat
 demo of signing in by the window is on 4310 if it has been built
 (`node docs/plans/signin-demo/build.mjs`, see
-[its notes](plans/signin-demo/README.md)). BitPortal
+[its notes](plans/signin-demo/README.md)). BitLogin's own site, the
+sign-in address that demo asks, is on 4311 if it has been built
+(`npm run build:demo` in the bitlogin checkout). BitPortal
 and the template are served from their own repositories beside this one, if
 they are built. Add `--lan` to reach them from another device on the same
 network, and `--https` so that device can sign in, use a microphone and enter

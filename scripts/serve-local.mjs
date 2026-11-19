@@ -53,6 +53,8 @@ const sites = [
   ["A world in Godot", join(root, "engines", "godot", "dist"), "about 40 MB to load", ""],
   // Not a world: a plain website that signs in by the window, to try what that is like (docs/plans/signin-demo).
   ["Notebook, a flat demo of signing in", join(root, "docs", "plans", "signin-demo", "dist"), "needs https; build it with node docs/plans/signin-demo/build.mjs", ""],
+  // BitLogin's own site: the sign-in address Notebook asks. Its headers are written beside its packages, not in its build.
+  ["BitLogin's own site", join(root, "..", "bitlogin", "packages", "demo", "dist"), "the sign-in address; build it with npm run build:demo in bitlogin", "", join(root, "..", "bitlogin", "vercel.json")],
 ];
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -77,12 +79,17 @@ const types = {
  * of BitPortal may be embedded by a world and no other may. So each rule is kept with the paths it is for, and every
  * rule that fits a request is applied, a later one over an earlier.
  */
-function headersOf(dist) {
+function headersOf(dist, written = join(dist, "vercel.json")) {
   try {
-    const rules = JSON.parse(readFileSync(join(dist, "vercel.json"), "utf8")).headers ?? [];
+    const rules = JSON.parse(readFileSync(written, "utf8")).headers ?? [];
     const kept = rules.map((rule) => ({
       fits: new RegExp(`^${rule.source}$`),
-      headers: Object.fromEntries((rule.headers ?? []).filter((h) => !/strict-transport|upgrade-insecure|cache-control/i.test(`${h.key} ${h.value}`)).map((h) => [h.key, h.value])),
+      // Left out: what only makes sense on a real https host, and caching. A policy keeps everything else it says.
+      headers: Object.fromEntries(
+        (rule.headers ?? [])
+          .filter((h) => !/strict-transport|cache-control/i.test(h.key))
+          .map((h) => [h.key, h.value.replace(/;?\s*upgrade-insecure-requests/i, "")]),
+      ),
     }));
     return (path) => Object.assign({}, ...kept.filter((rule) => rule.fits.test(path)).map((rule) => rule.headers));
   } catch {
@@ -139,7 +146,7 @@ if (wantHttps) {
   }
 }
 // Which sites are being served, and where: the map every one of them publishes.
-const served = sites.map(([name, dist, note, real], i) => ({ name, dist, note, real, port: first + i, built: existsSync(join(dist, "index.html")) }));
+const served = sites.map(([name, dist, note, real, headers], i) => ({ name, dist, note, real, headers, port: first + i, built: existsSync(join(dist, "index.html")) }));
 /** The map for someone who reached this server as `host`: each real address, to its copy at that same host. */
 function localMap(host, secure) {
   // The host a browser used is echoed back only if it is this machine by a name this server knows.
@@ -149,12 +156,12 @@ function localMap(host, secure) {
   return Object.fromEntries(served.filter((s) => s.built && s.real).map((s) => [s.real, `${secure ? "https" : "http"}://${known ? name : "localhost"}:${s.port}`]));
 }
 
-for (const { name, dist, note, port: here, built } of served) {
+for (const { name, dist, note, headers, port: here, built } of served) {
   if (!built) {
     console.log(`  (not built) ${name}: ${dist}`);
     continue;
   }
-  const extra = headersOf(dist);
+  const extra = headersOf(dist, headers);
   const answer = (req, res) => {
     let path;
     try {
