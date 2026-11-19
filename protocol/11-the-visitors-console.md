@@ -152,6 +152,7 @@ The things a visitor has, by the names a world presses them by:
 | `sound-all`, `sound-effects`, `sound-music`, `sound-voices`, `sound-hum` | Their volumes |
 | `sound-piece` | Says which piece of the place's music is playing, and goes on to the next |
 | `room-join`, `room-mic` | Joining the room here, and their microphone |
+| `people-pictures` | Whether they see other people's pictures |
 | `look-size`, `look-motion` | The size of their text, and whether things move |
 
 In the reference kit a world reads the whole list with `controls.view()`,
@@ -218,6 +219,7 @@ settings now go with them instead, the same way the form they are in does:
 | That they prefer the intense way of moving at a desk | `intense` | The mouse looks round and keys walk, from the start, with nothing to switch on |
 | How fast the view turns under a mouse or a finger | `look`: 0.25 to 3, 1 being the world's own speed | |
 | How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
+| Whether they see other people's pictures | `pictures`. Left out, they do | A picture is fetched from its owner's own host, which learns the viewer's address ([NSWP-10](10-identity.md), "Pictures") |
 
 **They say what the visitor prefers, not what happened to be so when they
 left.** Someone who prefers a filled screen and pressed Escape for a moment

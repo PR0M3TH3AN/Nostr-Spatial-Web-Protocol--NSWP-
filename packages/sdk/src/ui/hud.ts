@@ -413,6 +413,10 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     setTimeout(() => line.remove(), 4200);
   });
   const stop = controls.subscribe(draw);
+  // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.
+  const stopAsking = controls.onSignal((name) => {
+    if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
+  });
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);
   // Things arrive once, when the HUD first appears. A key redrawn later is simply there.
@@ -446,6 +450,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     remove() {
       clearInterval(tick);
       stop();
+      stopAsking();
       stopSay();
       removeEventListener("keydown", onKey);
       removeEventListener("keydown", onSummonKey, listening);

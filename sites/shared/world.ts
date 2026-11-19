@@ -540,6 +540,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
     if (onPanel) return void panels!.press(onPanel);
+    // Someone's picture, over their head: pressing it chooses them.
+    if (presence.pressAt(raycaster)) return;
     // Moving the intense way, a door is gone through by walking into it and no other way.
   };
   fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: context?.moving === "intense" && !context.immersive });
@@ -566,6 +568,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
     if (onPanel) return void panels!.press(onPanel);
+    if (presence.pressAt(raycaster)) return;
     const any = anyDoorAt(raycaster.intersectObjects(targets, false)[0]?.object);
     if (any >= 0 && doorFar(any) <= DOOR_REACH) void go(any);
     else if (any >= 0) {
@@ -618,9 +621,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       const key = panels!.keyboard.pick(raycaster);
       const button = key ? null : xrConsole.pick(raycaster);
       const onPanel = key ?? (button ? null : panels!.pick(raycaster));
-      if (button || onPanel || door >= 0) input?.pulse(i, 0.5, 30);
+      const person = button || onPanel ? null : presence.personAt(raycaster);
+      if (button || onPanel || person || door >= 0) input?.pulse(i, 0.5, 30);
       if (button) xrConsole.press(button);
       else if (onPanel) panels!.press(onPanel);
+      else if (person) presence.pressAt(raycaster);
       else if (door >= 0) void go(door);
       else {
         const spot = floorUnder();

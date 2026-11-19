@@ -387,6 +387,23 @@ They are what the visitor chose, not how things stand: `prefersFullscreen()`
 stays true after Escape, and the next world fills the screen again. Never
 report `full` from `document.fullscreenElement`.
 
+### People's names and pictures
+
+Someone who came by name is shown by the name and the picture from their
+Nostr profile, both off their pass. `createPresence` draws the picture as a
+round badge over the name. It is a button: wherever your world asks what a
+pointer is on, ask the room too.
+
+```js
+if (presence.pressAt(raycaster)) return; // someone's picture: they are chosen, and the menu comes up on People
+```
+
+`presence.personAt(raycaster)` says whose picture it is without pressing.
+`controls.signal("show:people")` brings the menu up on a section from
+anywhere. The visitor's switch is `people-pictures`; `showsPictures()` reads
+it, and `loadPicture(address)` fetches one the safe way for anything you
+draw yourself.
+
 ### One order everywhere
 
 `controls.view()` puts the things every place has in one order, whatever

@@ -64,6 +64,15 @@ client arrives at every world that has proved who it is already signed in:
 the pass comes with them. Your world never has a sign-in of its own to keep
 in step with anyone else's. Read `arrival.identity()` and you have it.
 
+**Their name and picture are Nostr's.** A visitor who comes by name brings
+the name and the picture from their Nostr profile, on the pass their own key
+signed. The kit shows the picture over their name, and pressing it chooses
+them. You do nothing for it. If you draw people yourself: `member.name` and
+`member.picture` are there once their pass has checked out, `loadPicture()`
+fetches a picture safely and respects the visitor's switch, and you never
+ask a relay about your visitors ([NSWP-10](../protocol/10-identity.md),
+"Pictures").
+
 **Their look is the same.** "Change how you look" is beside "Sign in", and
 works the same way: it leaves for their own client and comes back. Draw
 their look your own way if your world has a style, but never edit it or send

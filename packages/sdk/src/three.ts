@@ -24,6 +24,7 @@ export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { loadPicture, onPicturesChange, setShowsPictures, showsPictures } from "./picture.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { figureAction, identityAction, identityHost, identitySection, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
@@ -101,6 +102,15 @@ export interface Presence {
   selfLook(): Member["look"] | string;
   /** Show for a few seconds where one member is: a column of light over their head. */
   pointOut(pubkey: string): void;
+  /**
+   * Whose picture a ray is on, by their session key, or null. A picture over someone's head is a button: a world
+   * asks this wherever it asks what a pointer is on. The ray's `camera` must be set, as for any sprite.
+   */
+  personAt(raycaster: THREE.Raycaster): string | null;
+  /** Press whoever's picture the ray is on, as choosing them from the People list does. True if someone was. */
+  pressAt(raycaster: THREE.Raycaster): boolean;
+  /** What pressing a picture does. The room's controls set it. */
+  onPerson(cb: (pubkey: string) => void): void;
   /** Everyone else in the room, as they are being drawn. */
   people(): Member[];
   /** How loud other people's voices are for this visitor, from 0 to 1. Theirs to set, and nobody else's. */
@@ -186,6 +196,10 @@ interface Avatar {
   hands: [THREE.Mesh, THREE.Mesh];
   figure: Figure;
   label: THREE.Sprite;
+  /** Their own picture, over their name, when their pass says where it is and this visitor sees pictures. */
+  picture?: THREE.Sprite;
+  /** The address the picture shown, or being fetched, came from. */
+  pictureFrom?: string;
   /** Shown while they say they are recording. */
   light?: THREE.Sprite;
   /** Shown while they are being pointed out. */
@@ -284,6 +298,7 @@ export function createPresence(d: PresenceOptions): Presence {
     figure.head.position.copy(was?.head.position ?? figure.head.position);
     figure.head.quaternion.copy(was?.head.quaternion ?? figure.head.quaternion);
     figure.head.add(a.label);
+    if (a.picture) figure.head.add(a.picture);
     figure.hands.forEach((h, i) => {
       h.visible = was?.hands[i]!.visible ?? false;
       if (was) {
@@ -303,12 +318,50 @@ export function createPresence(d: PresenceOptions): Presence {
     a.head = figure.head;
     a.torso = figure.torso;
     a.hands = figure.hands;
-    a.materials = [figure.metal, a.label.material].map((material: THREE.Material) => {
-      const opacity = material === a.label.material ? 1 : material.opacity;
+    a.materials = [figure.metal, a.label.material, ...(a.picture ? [a.picture.material] : [])].map((material: THREE.Material) => {
+      const opacity = material === a.label.material || material === a.picture?.material ? 1 : material.opacity;
       material.transparent = true;
       return { material, opacity };
     });
   };
+
+  /** Take a member's picture off them, and let go of what it was drawn with. */
+  const dropPicture = (a: Avatar) => {
+    if (!a.picture) return;
+    a.picture.removeFromParent();
+    a.picture.material.map?.dispose();
+    a.picture.material.dispose();
+    delete a.picture;
+  };
+  /**
+   * A member's own picture, as a round badge over their name: theirs, because their own key signed where it is.
+   * It is also a button: pressing it is choosing them (`pressAt`). Nothing is shown for a guest, for someone with
+   * no picture, or to a visitor who has turned pictures off.
+   */
+  const showPicture = (a: Avatar) => {
+    const from = !a.member.guest && showsPictures() ? (a.member.picture ?? "") : "";
+    if (from === (a.pictureFrom ?? "")) return;
+    a.pictureFrom = from;
+    dropPicture(a);
+    if (!from) return void dress(a, a.member.look);
+    void loadPicture(from).then((canvas) => {
+      // They may have gone, or changed, while it was fetched.
+      if (!canvas || a.pictureFrom !== from || !avatars.has(a.member.pubkey)) return;
+      const map = new THREE.CanvasTexture(canvas);
+      map.colorSpace = THREE.SRGBColorSpace;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, depthWrite: false }));
+      sprite.scale.set(0.2, 0.2, 1);
+      sprite.position.set(0, 0.63, 0); // over the name, which is over the tallest head
+      sprite.userData.person = a.member.pubkey;
+      a.picture = sprite;
+      dress(a, a.member.look);
+      changed();
+    });
+  };
+  onPicturesChange(() => {
+    for (const a of avatars.values()) showPicture(a);
+  });
+  let onPerson: (pubkey: string) => void = () => {};
 
   const makeAvatar = (member: Member): Avatar => {
     const root = new THREE.Group();
@@ -318,6 +371,7 @@ export function createPresence(d: PresenceOptions): Presence {
     d.scene.add(root);
     const a = { member, root, label, target: null, placed: false } as unknown as Avatar;
     dress(a, member.look);
+    showPicture(a);
     return a;
   };
 
@@ -448,6 +502,7 @@ export function createPresence(d: PresenceOptions): Presence {
     stopTune(a);
     if (a.element) a.element.srcObject = null;
     d.scene.remove(a.root);
+    dropPicture(a);
     a.figure.dispose();
   };
 
@@ -549,6 +604,7 @@ export function createPresence(d: PresenceOptions): Presence {
         a.label.material.dispose();
         a.label = label;
         dress(a, m.look);
+        showPicture(a);
       }
       changed();
     });
@@ -662,6 +718,20 @@ export function createPresence(d: PresenceOptions): Presence {
       const read = mine ? decodeLook(mine) : null;
       // Not in a room and wearing nothing: a figure of their own for this visit.
       return read?.ok ? read.value.look : (plainSeed ??= `plain-${Math.random().toString(36).slice(2, 12)}`);
+    },
+    personAt(raycaster) {
+      const badges = [...avatars.values()].filter((a) => a.picture && a.root.visible).map((a) => a.picture!);
+      if (!badges.length) return null;
+      const hit = raycaster.intersectObjects(badges, false)[0];
+      return hit ? String(hit.object.userData.person) : null;
+    },
+    pressAt(raycaster) {
+      const who = this.personAt(raycaster);
+      if (who) onPerson(who);
+      return who !== null;
+    },
+    onPerson(cb) {
+      onPerson = cb;
     },
     pointOut(pubkey) {
       const a = avatars.get(pubkey);
@@ -1199,6 +1269,35 @@ export function addRoomControls(
   // The visitor's own list came with them. Nobody on it is connected to, from the first moment.
   if (opts.arrived?.blocked?.length) presence.blockAlso(opts.arrived.blocked);
   const recorders = new Set<string>();
+  /** Choose someone: from the list, or by pressing the picture over their head. What can be done about them follows. */
+  const choose = (m: Member) => {
+    chosen = m.pubkey;
+    people();
+    presence.pointOut(m.pubkey);
+    // A name is not unique and a mark can be matched, so the key behind a name is one action away, in full.
+    controls.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
+  };
+  // A picture over someone's head is a button, and pressing it is choosing them.
+  presence.onPerson((pubkey) => {
+    const m = presence.people().find((x) => x.pubkey === pubkey);
+    if (!m) return;
+    choose(m);
+    // And what can be done about them is put in front of the visitor: the menu, on People.
+    controls.signal("show:people");
+  });
+  // Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world.
+  controls.add({
+    id: "people-pictures",
+    section: "people",
+    icon: "selfie",
+    on: () => showsPictures(),
+    label: () => (showsPictures() ? "Profile pictures: on" : "Profile pictures: off"),
+    short: "Pictures",
+    act: () => {
+      setShowsPictures(!showsPictures());
+      controls.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
+    },
+  });
   const people = () => {
     const here = presence.session ? presence.people() : [];
     // Someone came, or someone went: heard, as well as listed.
@@ -1228,13 +1327,7 @@ export function addRoomControls(
         kind: "swatch",
         color: m.look.light,
         label: () => `${m.name}${m.recording ? ", recording" : ""}${m.sharing ? ", sharing their screen" : ""}${m.music ? ", sharing music" : ""}`,
-        act: () => {
-          chosen = m.pubkey;
-          people();
-          presence.pointOut(m.pubkey);
-          // A name is not unique and a mark can be matched, so the key behind a name is one action away, in full.
-          controls.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
-        },
+        act: () => choose(m),
       }),
     );
     // Said once a visit, to someone who hasn't turned shared music on: that it is there, and where the switch is.
@@ -1708,6 +1801,7 @@ export { addJump, createJump, JUMP_GRAVITY, JUMP_HEIGHT, JUMP_SPEED, type AddJum
 export { viewScale } from "./sign.js";
 export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
 export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
+export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsPictures } from "./picture.js";
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
 export { figureAction, identityAction, identityHost, identitySection, identityWords, type Leaving } from "./ui/identity.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
