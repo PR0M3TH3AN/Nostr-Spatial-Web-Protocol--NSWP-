@@ -46,7 +46,8 @@ const lookAtCanvas = async (page) => {
     all.sort((a, b) => b.r.width * b.r.height - a.r.width * a.r.height);
     const top = all[0];
     if (!top) return null;
-    return { x: Math.max(0, top.r.x), y: Math.max(0, top.r.y), width: Math.min(innerWidth, top.r.width), height: Math.min(innerHeight, top.r.height), fills: (Math.min(innerWidth, top.r.width) * Math.min(innerHeight, top.r.height)) / (innerWidth * innerHeight), overflow: document.documentElement.scrollWidth - innerWidth };
+    // Which kit the page says is running (the kit writes it as it reads the arrival), or null for a world built without it.
+    return { x: Math.max(0, top.r.x), y: Math.max(0, top.r.y), width: Math.min(innerWidth, top.r.width), height: Math.min(innerHeight, top.r.height), fills: (Math.min(innerWidth, top.r.width) * Math.min(innerHeight, top.r.height)) / (innerWidth * innerHeight), overflow: document.documentElement.scrollWidth - innerWidth, kit: document.documentElement.dataset.nswpKit ?? null };
   });
   if (!found) return { canvas: false, drawn: false, fills: 0, overflow: 0 };
   // Two pictures a moment apart, and how many different colours are in the first: a canvas left blank is one colour.
@@ -65,7 +66,7 @@ const lookAtCanvas = async (page) => {
     for (let i = 0; i < d.length; i += 4) seen.add(((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3));
     return seen.size;
   }, shot.toString("base64")).catch(() => 0) : 0;
-  return { canvas: true, drawn: drawn > 6, colours: drawn, fills: Math.round(found.fills * 100) / 100, overflow: found.overflow };
+  return { canvas: true, drawn: drawn > 6, colours: drawn, fills: Math.round(found.fills * 100) / 100, overflow: found.overflow, kit: found.kit };
 };
 
 async function tryForm(browser, address, form) {

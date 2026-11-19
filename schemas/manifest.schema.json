@@ -51,6 +51,7 @@
         }
       }
     },
-    "relays": { "type": "array", "items": { "type": "string", "description": "wss:// relay URLs; clients skip others with a warning." } }
+    "relays": { "type": "array", "items": { "type": "string", "description": "wss:// relay URLs; clients skip others with a warning." } },
+    "kit": { "type": "string", "pattern": "^[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$", "description": "The version of the NSWP kit the site was built with. The site's own word: a client may tell a visitor that a world's controls are older than its own, and nothing else is decided by it." }
   }
 }

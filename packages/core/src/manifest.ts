@@ -1,5 +1,5 @@
 /** World manifests at /.well-known/nswp.json and origin verification (spec §7). */
-import { LIMITS, MODES, SCHEMAS, WELL_KNOWN_PATH, WORLD_KIND } from "./constants.js";
+import { LIMITS, MODES, parseKitVersion, SCHEMAS, WELL_KNOWN_PATH, WORLD_KIND } from "./constants.js";
 import { isHttpsUrl, isWssUrl, normalizeUrl } from "./destination.js";
 import { isHex64 } from "./event.js";
 import { encodeNaddr } from "./nip19.js";
@@ -22,6 +22,8 @@ export interface Manifest {
   publishers: Record<string, { worlds: string[] }>;
   worlds: Record<string, ManifestWorld>;
   relays: string[];
+  /** The version of the kit the site was built with, when it says. Its own word, and only ever something to tell someone. */
+  kit?: string;
 }
 
 const stringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -126,7 +128,13 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
     else for (const r of input.relays) isWssUrl(r) ? relays.push(r) : c.warn("invalid_relay", "relays", `Ignoring relay "${r}" (not wss).`);
   }
 
-  return c.result({ schema: typeof schema === "string" ? schema : SCHEMAS.manifest, listing, publishers, worlds, relays });
+  let kit: string | undefined;
+  if (input.kit !== undefined) {
+    if (parseKitVersion(input.kit)) kit = input.kit as string;
+    else c.warn("invalid_field", "kit", "kit must be a version such as \"0.21.0\"; ignoring it.");
+  }
+
+  return c.result({ schema: typeof schema === "string" ? schema : SCHEMAS.manifest, listing, publishers, worlds, relays, ...(kit ? { kit } : {}) });
 }
 
 export interface VerificationCheck {

@@ -183,7 +183,8 @@ visiting it, and the visit is what the Airlock is there to ask about.
 
 | What | How |
 |---|---|
-| The announcement and the manifest | `nswp check <address>` |
+| The announcement and the manifest, and how old its kit is | `nswp check <address>` |
+| Whether a newer kit is out, for a world from the template | `npm run update -- --check`; `npm run update` takes it in ([keeping-up.md](keeping-up.md)) |
 | Each form a visitor can be in | `node scripts/probe-world.mjs <address>` |
 | The whole journey, on your own machine | [local-server.md](local-server.md): links between the sites served there lead to those copies |
 | A headset | [headset-checklist.md](headset-checklist.md) |

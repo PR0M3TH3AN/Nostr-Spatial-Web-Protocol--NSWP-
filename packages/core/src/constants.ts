@@ -14,6 +14,38 @@ export const SCHEMAS = {
 
 export const WELL_KNOWN_PATH = "/.well-known/nswp.json";
 
+/**
+ * The version of the kit this code is: the library, the SDK, the engine
+ * script and the Godot addon are built together and share it. It is the
+ * spec's version, the newest heading in CHANGELOG.md, and a test keeps the
+ * two the same. A world says it in its manifest (`kit`), so a visitor's
+ * client can tell how old a world's controls are without loading the world
+ * (protocol/01-worlds.md, "Which kit a world was built with").
+ */
+export const KIT_VERSION = "0.21.0";
+
+/** A version as three numbers, or null for anything that isn't one. */
+export function parseKitVersion(v: unknown): [number, number, number] | null {
+  const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/**
+ * How a world's kit stands beside the one a reader has: "same" (the same
+ * release, give or take a fix), "older", "newer", or "unknown" when the world
+ * doesn't say or what it says isn't a version. Only ever something to tell a
+ * visitor or a world's owner. An older kit still works: a reader ignores what
+ * it doesn't know, and that is what keeps old worlds open.
+ */
+export function kitAge(theirs: unknown, mine: string = KIT_VERSION): "same" | "older" | "newer" | "unknown" {
+  const a = parseKitVersion(theirs);
+  const b = parseKitVersion(mine);
+  if (!a || !b) return "unknown";
+  // A fix (the last number) isn't worth telling anyone about.
+  const d = a[0] - b[0] || a[1] - b[1];
+  return d === 0 ? "same" : d < 0 ? "older" : "newer";
+}
+
 export const MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"] as const;
 export const CAPABILITIES = [
   "webxr",

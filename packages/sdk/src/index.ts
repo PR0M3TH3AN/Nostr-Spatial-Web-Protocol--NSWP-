@@ -17,6 +17,7 @@ import {
   decodeArrival,
   doorFor,
   fromLocal,
+  KIT_VERSION,
   localMap,
   parseManifest,
   stripArrivalParam,
@@ -73,6 +74,12 @@ export const arrival = {
    */
   read(): { context: Arrival | null; warnings: Issue[] } {
     if (cached) return cached;
+    // Which kit is running, said on the page: a probe that visits a world can see how old its controls are.
+    try {
+      document.documentElement.dataset.nswpKit = KIT_VERSION;
+    } catch {
+      /* no document to say it on */
+    }
     // On a development server, find out now where the local copies are, so a door needn't wait (core, local.ts).
     void localMap();
     const raw = arrivalParam(location.hash);
