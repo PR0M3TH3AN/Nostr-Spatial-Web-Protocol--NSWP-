@@ -138,6 +138,18 @@ describe("leaving a headset session to cross", () => {
     expect(buildWayUrl("https://lobby.example/go/", { doors: true, blocked: [b] })).toBe(`https://lobby.example/go/#doors=1&blocked=${b}`);
   });
 
+  it("carries game controls on a link and in an arrival, as a preference", () => {
+    const door = { url: "https://world.example/" };
+    const link = buildAirlockUrl("https://lobby.example/go/", door, { fps: true, joined: true });
+    expect(link).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&fps=1&joined=1");
+    expect(parseAirlockFragment(new URL(link).hash)).toMatchObject({ fps: true, joined: true });
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&fps=yes")?.fps).toBeUndefined();
+    expect(wayWithoutDestination("#fps=1")).toEqual({ immersive: false, doors: false, fps: true });
+    expect(buildWayUrl("https://lobby.example/go/", { doors: true, fps: true })).toBe("https://lobby.example/go/#doors=1&fps=1");
+    const r = decodeArrival(encodeArrival({ fps: true }));
+    expect(r.ok && r.value.fps).toBe(true);
+  });
+
   it("reads a visitor's block list in an arrival, whole or not at all", () => {
     const a = "ab".repeat(32);
     const r = decodeArrival(encodeArrival({ blocked: [a] }));

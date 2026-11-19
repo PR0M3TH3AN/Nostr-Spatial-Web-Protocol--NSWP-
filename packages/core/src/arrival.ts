@@ -58,6 +58,12 @@ export interface Arrival {
    * (protocol/03-arrival.md, "Blocks that travel").
    */
   blocked?: string[];
+  /**
+   * The visitor was moving with game controls where they came from (the
+   * mouse looks, keys walk). A world that has such controls starts in them.
+   * A preference, and theirs to change the moment they arrive.
+   */
+  fps?: true;
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -145,6 +151,10 @@ export function decodeArrival(value: string): Result<Arrival> {
     // A microphone with nobody to hear it means nothing, and is never a reason to join.
     if (json.mic === true && out.joined) out.mic = true;
     else c.warn("invalid_mic", "mic", "Ignoring a microphone hint that isn't true, or that comes without joined.");
+  }
+  if (json.fps !== undefined && json.fps !== false) {
+    if (json.fps === true) out.fps = true;
+    else c.warn("invalid_fps", "fps", "Ignoring a game-controls hint that isn't true or false.");
   }
   if (json.blocked !== undefined) {
     const ok = Array.isArray(json.blocked) && json.blocked.length <= LIMITS.maxBlocked && json.blocked.every((k) => typeof k === "string" && isHex64(k));
