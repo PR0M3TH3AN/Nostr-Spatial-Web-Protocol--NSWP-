@@ -96,6 +96,8 @@ export interface UiView {
   title: string;
   address: string;
   target: string;
+  /** A few more lines about what is pointed at. */
+  detail: string[];
   presence: Presence;
   corner: Corner;
   keys: UiKeys;
@@ -109,8 +111,13 @@ export interface Controls {
   add(...actions: UiAction[]): void;
   remove(id: string): void;
   addSection(section: UiSection): void;
-  /** Say what the visitor is pointing at, or "" for nothing. */
-  setTarget(text: string): void;
+  /**
+   * Say what the visitor is pointing at, or "" for nothing. `detail` is a
+   * few more lines about it: what it is, why it is here, how to use it. On a
+   * flat screen they are shown beside the controls, the same size wherever
+   * the thing is, so that a world needn't hang a sign in front of it.
+   */
+  setTarget(text: string, detail?: string[]): void;
   /** A few words shown for a moment. */
   say(text: string): void;
   /** Do an action by its id, as pressing it would. Returns false if it isn't there or isn't showing. */
@@ -194,6 +201,7 @@ export function createControls(opts: ControlsOptions): Controls {
   let visitor = loadVisitorTheme();
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
+  let detail: string[] = [];
   let presence: Presence = PRESENCES.includes(opts.presence as Presence) ? (opts.presence as Presence) : "full";
   let corner: Corner = CORNERS.includes(opts.corner as Corner) ? (opts.corner as Corner) : "top-left";
   let keys = cleanKeys({ menu: "m", hotbar: true }, opts.keys);
@@ -251,9 +259,11 @@ export function createControls(opts: ControlsOptions): Controls {
       claimed = next;
       changed();
     },
-    setTarget(text) {
-      if (text === target) return;
+    setTarget(text, more = []) {
+      const next = text ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
+      if (text === target && next.join("\n") === detail.join("\n")) return;
       target = text;
+      detail = next;
       changed();
     },
     say(text) {
@@ -290,6 +300,7 @@ export function createControls(opts: ControlsOptions): Controls {
         title: opts.title,
         address: opts.address ?? "",
         target,
+        detail,
         sections: [...sections, ...extra]
           .map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) }))
           .filter((s) => s.items.length > 0 || s.note),

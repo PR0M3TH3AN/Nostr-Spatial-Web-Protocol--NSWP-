@@ -400,7 +400,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const [midX, midZ] = cfg.middle ?? [0, 0];
   const reach = cfg.reach ?? 14;
   // Leaving and arriving happen in the kit's chamber: the same small room at both ends of every trip.
-  const crossing = createCrossing({ scene, camera, accent, textColor: cfg.palette.text, motion: () => controls.theme.motion });
+  // The room is drawn over everything where it stands; the visitor's own hands and console are drawn over it.
+  const crossing = createCrossing({ scene, camera, accent, textColor: cfg.palette.text, motion: () => controls.theme.motion, keep: [rig, xrConsole.group] });
   hooks.crossing = () => crossing.state;
   const canStand = (x: number, z: number) => crossing.allows(x, z) && Math.hypot(x - midX, z - midZ) <= reach && (handle.canStand?.(x, z) ?? true);
   const headAt = new THREE.Vector3();
@@ -786,6 +787,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // Steps are made from how far the visitor was moved, not from how their head sways.
     if (state.ready) sounds.moved(Math.hypot(rig.position.x - movedFrom.x, rig.position.z - movedFrom.z));
     movedFrom.copy(rig.position);
+    // Shut in the crossing's room, nobody else is in it with the visitor, wherever they happen to be standing.
+    presence.setHidden(crossing.state !== "none");
     presence.update(dt);
     environment.update(t);
     for (const a of alloys) a.tick(t);

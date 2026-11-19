@@ -28,6 +28,15 @@ const H = 2.8;
 const BAYS = 10; // the wall, in flat panels; the first is the doorway
 const DOOR_W = 1.04;
 const DOOR_H = 2.2;
+/**
+ * Where the room is drawn in a frame: after everything else. It stands round
+ * the visitor wherever they happen to be, which may be half inside a bench,
+ * a wall or another person. Drawn in its turn it would have those poking
+ * through its walls and standing in its floor. So it is drawn last, on a
+ * cleared depth: whatever is inside its walls, or behind them, is painted
+ * over, and its own parts still hide each other as they should.
+ */
+export const CHAMBER_ORDER = 10000;
 
 export interface Chamber {
   group: THREE.Group;
@@ -116,8 +125,15 @@ export function createChamber(accent: THREE.ColorRepresentation, opts: { textCol
 
   const rising = new THREE.Group(); // everything that comes up out of the floor
   rising.add(walls, ...leaves, sign);
+  // Drawn after everything else, on a cleared depth (see CHAMBER_ORDER). This draws nothing itself: it is the
+  // moment in the frame, just before the room's own parts, at which what was drawn before stops being in the way.
+  const clear = new THREE.Mesh(new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3)), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false }));
+  clear.frustumCulled = false;
+  clear.renderOrder = CHAMBER_ORDER;
+  clear.onBeforeRender = (renderer) => renderer.clearDepth();
+  for (const part of [floor, walls, lid, ...leaves, sign]) part.renderOrder = CHAMBER_ORDER + 1;
   const group = new THREE.Group();
-  group.add(floor, rising, lid);
+  group.add(clear, floor, rising, lid);
 
   let door = 0;
   let presence = 1;
@@ -127,6 +143,7 @@ export function createChamber(accent: THREE.ColorRepresentation, opts: { textCol
     rising.visible = presence > 0.002;
     floor.scale.setScalar(Math.max(0.001, Math.min(1, presence * 1.6)));
     floor.visible = presence > 0.002;
+    clear.visible = presence > 0.002;
     // The lid waits overhead and comes down as the walls reach it. It never passes through anyone.
     lid.position.y = H + (1 - up) * 3.5;
     lid.visible = presence > 0.5;
@@ -162,7 +179,8 @@ export function createChamber(accent: THREE.ColorRepresentation, opts: { textCol
     },
     dispose() {
       group.removeFromParent();
-      for (const mesh of [floor, walls, lid, ...leaves]) mesh.geometry.dispose();
+      for (const mesh of [floor, walls, lid, ...leaves, clear]) mesh.geometry.dispose();
+      (clear.material as THREE.Material).dispose();
       metal.dispose();
       sign.geometry.dispose();
       (sign.material as THREE.MeshBasicMaterial).map?.dispose();
@@ -180,6 +198,11 @@ export interface CrossingOptions {
   textColor?: string;
   /** Whether things may move. Someone who asked for less motion gets the room without its rising and sinking. */
   motion?: () => boolean;
+  /**
+   * What is the visitor's own and stays in sight inside the room: their hands and controllers (the camera's
+   * parent), a console. The room is drawn over everything else; these are drawn after it.
+   */
+  keep?: THREE.Object3D[];
 }
 
 export interface ArriveOptions {
@@ -239,9 +262,26 @@ export function createCrossing(o: CrossingOptions): Crossing {
     chamber = made;
     return made;
   };
+  // The visitor's own things are drawn after the room while it stands, and in their usual turn again when it goes.
+  const usual = new Map<THREE.Object3D, number>();
+  const keepInSight = (on: boolean) => {
+    if (on) {
+      for (const root of o.keep ?? []) {
+        root.traverse((part) => {
+          if (usual.has(part)) return;
+          usual.set(part, part.renderOrder);
+          part.renderOrder = CHAMBER_ORDER + 2 + part.renderOrder;
+        });
+      }
+    } else {
+      for (const [part, order] of usual) part.renderOrder = order;
+      usual.clear();
+    }
+  };
   const enter = (next: CrossingState) => {
     state = next;
     since = 0;
+    keepInSight(next !== "none");
   };
 
   return {
@@ -311,6 +351,7 @@ export function createCrossing(o: CrossingOptions): Crossing {
       chamber?.dispose();
       chamber = null;
       state = "none";
+      keepInSight(false);
     },
   };
 }

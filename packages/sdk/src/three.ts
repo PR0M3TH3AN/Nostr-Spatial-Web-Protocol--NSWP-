@@ -101,6 +101,11 @@ export interface Presence {
   people(): Member[];
   /** How loud other people's voices are for this visitor, from 0 to 1. Theirs to set, and nobody else's. */
   setVolume(volume: number): void;
+  /**
+   * Stop drawing the others, or draw them again: for the moments a visitor is shut in the crossing's room, where
+   * someone standing in the same spot would otherwise be in it with them. They are still there, and still heard.
+   */
+  setHidden(hidden: boolean): void;
   /** Whether this visitor is offering their music to people nearby. */
   readonly musicOn: boolean;
   /** How many members their music is going to now. */
@@ -313,6 +318,7 @@ export function createPresence(d: PresenceOptions): Presence {
   };
 
   // Music: what this visitor shares, the lines other members' music arrives on, and whether they want to hear any.
+  let hiddenAll = false;
   let tuneTrack: MediaStreamTrack | null = null;
   const tunes = new Map<string, MediaStream>();
   const tuneMuted = new Set<string>();
@@ -668,6 +674,10 @@ export function createPresence(d: PresenceOptions): Presence {
     people() {
       return [...avatars.values()].map((a) => a.member);
     },
+    setHidden(hidden) {
+      hiddenAll = hidden;
+      if (hidden) for (const a of avatars.values()) a.root.visible = false;
+    },
     setVolume(volume) {
       // Voices alone: other people's music has a volume of its own.
       voiceVolume = Math.min(1, Math.max(0, volume));
@@ -766,7 +776,7 @@ export function createPresence(d: PresenceOptions): Presence {
         const snap = a.placed ? k : 1;
         apply(a.head, a.target.head, snap);
         a.placed = true;
-        a.root.visible = true;
+        a.root.visible = !hiddenAll;
         euler.setFromQuaternion(a.head.quaternion, "YXZ");
         a.torso.position.set(a.head.position.x, a.head.position.y - 0.45, a.head.position.z);
         a.torso.rotation.set(0, euler.y, 0);
@@ -1685,11 +1695,12 @@ export { LIBRARY_LIMITS, PANEL_LIMITS, PANEL_LOOKS, type LibraryItem, type Panel
 import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
 export { createStroll, reachOf, TAP_REACH, WALK_SPEED, type Stroll } from "./stroll.js";
+export { viewScale } from "./sign.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
 export { addSoundControls, createSounds, CUES, type Cue, type Jukebox, type Song, type SoundLevels, type Sounds, type SoundsOptions, type SoundTheme } from "./sound.js";
 export { browserVoice, computerVoice, createVoice, recordVoice, toPcm16, type Hearing, type Voice, type VoiceSource, type VoiceState } from "./speech.js";
 export { createKeyboard, type AskOptions, type Keyboard, type KeyboardOptions } from "./keyboard.js";
 export { createLibrary, type Library, type LibraryOptions } from "./library.js";
-export { createChamber, createCrossing, type ArriveOptions, type Chamber, type Crossing, type CrossingOptions, type CrossingState } from "./chamber.js";
+export { CHAMBER_ORDER, createChamber, createCrossing, type ArriveOptions, type Chamber, type Crossing, type CrossingOptions, type CrossingState } from "./chamber.js";
 
 export { addCameraControls, canRecord, recordClip, saveFile, takePicture, takeSelfie, type Camera, type CameraOptions, type Capture, type Clip } from "./camera.js";

@@ -150,6 +150,17 @@ Each is one file, `sites/<name>/src/main.ts`, on the shared code in
 the preview picture. `sites/sites.json` names them and their addresses; a
 world's page and manifest are generated from its `world.json` when it is built.
 
+### Trying the sites on your own machine
+
+```bash
+npm run build && node scripts/serve-local.mjs
+```
+
+Each built site is served on a port of its own (BitPortal and the world
+template too, from their repositories beside this one, if they are built).
+Add `--lan` to reach them from another device on the same network. A door
+still leads to the deployed sites: each world is built for its real address.
+
 ### Deploying the sites
 
 The sites deploy to Vercel projects listed in
