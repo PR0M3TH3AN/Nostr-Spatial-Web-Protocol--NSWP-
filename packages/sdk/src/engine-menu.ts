@@ -141,14 +141,10 @@ export function menu(options?: string): string {
   // it does for home: the same control, in the same place, with the same words as in a Three.js world (ui/identity.ts).
   if (identityHost()) {
     c.addSection(identitySection());
-    c.add({
-      id: "identity",
-      section: "you",
-      icon: "you",
-      label: () => identityWords().label,
-      short: () => identityWords().short,
-      act: () => tell({ type: "identity" }),
-    });
+    c.add(
+      { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
+      { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, act: () => tell({ type: "identity" }) },
+    );
   }
 
   // How they move at a desk. The same control, the same words and the same memory as in a Three.js world (fps.ts).

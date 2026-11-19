@@ -42,17 +42,33 @@ export const identitySection = (): UiSection => ({
   icon: "you",
   note: () => {
     const host = identityHost();
-    return host ? `Who you are is asked and kept by ${host}, the place you set out from, and never by this world. Signing in takes you there and brings you back here.` : "";
+    return host ? `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.` : "";
   },
 });
+
+/** The visitor's state as they go, so they come back as they left. A world may bring its crossing's room up first. */
+export type Leaving = (to: { title: string; address: string }) => GoOptions | Promise<GoOptions>;
+
+let going = false;
+const leave = async (controls: Controls, what: "identity" | "look", leaving: Leaving): Promise<void> => {
+  if (going) return;
+  going = true;
+  const host = identityHost() ?? "your own client";
+  controls.say(what === "look" ? `Taking you to ${host} to change how you look.` : `Taking you to ${host} to say who you are.`);
+  try {
+    if (await portal.ask(what, await leaving({ title: what === "look" ? "Your look" : "Who you are", address: host }))) return;
+  } catch {
+    /* they stay */
+  }
+  going = false;
+};
 
 /**
  * The control. `leaving` is the visitor's state as they go (in a room, with a
  * microphone on, moving the intense way, in a headset session), so they come
  * back as they left.
  */
-export function identityAction(controls: Controls, leaving: () => GoOptions = () => ({})): UiAction {
-  let going = false;
+export function identityAction(controls: Controls, leaving: Leaving = () => ({})): UiAction {
   return {
     id: "identity",
     section: "you",
@@ -60,11 +76,23 @@ export function identityAction(controls: Controls, leaving: () => GoOptions = ()
     label: () => identityWords().label,
     short: () => identityWords().short,
     hidden: () => portal.airlockFor() === null,
-    act: async () => {
-      if (going) return;
-      going = true;
-      controls.say(`Taking you to ${identityHost() ?? "your own client"} to say who you are.`);
-      if (!(await portal.signIn(leaving()))) going = false;
-    },
+    act: () => leave(controls, "identity", leaving),
+  };
+}
+
+/**
+ * The way to change how they look. Their look is kept by their own client and
+ * is the same in every world, so it is changed there: this leaves for it and
+ * comes back, as signing in does.
+ */
+export function figureAction(controls: Controls, leaving: Leaving = () => ({})): UiAction {
+  return {
+    id: "figure",
+    section: "you",
+    icon: "look",
+    label: "Change how you look",
+    short: "Look",
+    hidden: () => portal.airlockFor() === null,
+    act: () => leave(controls, "look", leaving),
   };
 }

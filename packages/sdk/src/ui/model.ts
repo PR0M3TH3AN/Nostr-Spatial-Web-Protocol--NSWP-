@@ -192,9 +192,29 @@ const STANDARD: UiSection[] = [
   { id: "panels", label: "Panels", icon: "panel" },
   { id: "view", label: "View", icon: "vr" },
   { id: "moving", label: "Moving", icon: "step" },
-  { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
+  { id: "sound", label: "Sound", icon: "sound" },
+  // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+  { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
   { id: "help", label: "Help", icon: "help" },
 ];
+
+/**
+ * The order of the things every place has, wherever in a world's code they
+ * were added. So the taskbar reads the same in every world, and the same
+ * number key does the same thing: the way home is first, then the visitor's
+ * doors, the headset, the room, and jumping. A world's own things come after,
+ * in the order it added them.
+ */
+export const STANDARD_ORDER: readonly string[] = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "jump"];
+const rank = (id: string): number => {
+  const i = STANDARD_ORDER.indexOf(id);
+  return i === -1 ? STANDARD_ORDER.length : i;
+};
+const inOrder = <T extends { id: string }>(list: T[]): T[] =>
+  list
+    .map((a, i) => [a, i] as const)
+    .sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1])
+    .map((x) => x[0]);
 
 export function createControls(opts: ControlsOptions): Controls {
   const sections: UiSection[] = STANDARD.map((s) => ({ ...s }));
@@ -304,7 +324,7 @@ export function createControls(opts: ControlsOptions): Controls {
       changed();
     },
     view() {
-      const showing = actions.filter((a) => !a.hidden?.());
+      const showing = inOrder(actions.filter((a) => !a.hidden?.()));
       const bar = showing.filter((a) => a.hotbar).slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
