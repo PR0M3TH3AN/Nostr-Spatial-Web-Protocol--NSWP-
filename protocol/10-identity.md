@@ -256,8 +256,11 @@ A client that does this:
 - **Never takes it from a link.** Nothing a world or a link says makes
   someone signed in, or by name.
 
-Where the client names a signer, the pass it hands over counts in a world
-once the visitor has signed in there ("One sign-in", below).
+Where the client names a signer, a pass it hands over counts in a world only
+once the visitor has signed in there ("One sign-in", below), and such a
+client need hand over none: the signer makes it ("A pass from the signer").
+The reference client names one, so what follows describes a client that
+doesn't.
 
 The reference client does this. Going by name is the default for someone
 signed in; "Go to worlds as myself" is a tick on the sign-in page, on until
@@ -515,7 +518,8 @@ vouched for them first. So the signer can make the pass.
 
 With this a client need not send a pass on arrival at all, and a world then
 learns nothing about a visitor until they say yes there. The reference
-client still sends one, until its sign-in address makes passes.
+client sends none: its Airlock names the visitor's signer and nothing else
+about them, and says at the door that signing in is done at the world.
 
 ## Posting from a world
 
@@ -586,10 +590,6 @@ above, for a world that draws its own rooms.
 - **A pass for one room,** naming a room event, once rooms have them; and
   **hosted rooms** that check passes at the door (spec §9.1 to §9.5).
 - **Going as another identity** than the one signed in.
-- **A client that sends no pass on arrival** where it names a signer that
-  makes them, so a world learns nothing until the visitor signs in there
-  ("A pass from the signer"). The reference client waits on BitLogin's
-  signer making passes on its live site.
 - **Carrying the visitor's mute list,** so a world can leave out the people
   they have muted.
 - **Proof for a world's server.** The entry assertion in
