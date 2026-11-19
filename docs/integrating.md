@@ -68,6 +68,28 @@ last is the one thing that has to stay true when you do.
 | **Rooms**: seeing and hearing each other | Your own, or none | A microphone, a block and joining keep their own rules ([NSWP-06](../protocol/06-rooms.md)) |
 | **Panels, the jukebox, the camera** | Leave out what you don't want | What a visitor keeps stays in their browser |
 
+### The visitor's things, in your own interface
+
+You don't have to choose between the kit's menu and none. Any of the
+visitor's things can go into a menu, a wall or a wrist of your own, drawn
+your own way: the way home on your pause screen, their volumes in your
+settings, a button that brings their whole console up. Behind each is the
+same thing the console has, so it uses the visitor's own settings and their
+own home ([NSWP-11](../protocol/11-the-visitors-console.md), "Drawing it
+yourself").
+
+```js
+const { sections, hotbar } = controls.view();      // everything, with the words as they stand now
+controls.run("home");                              // their home, wherever their own client says that is
+controls.run("sound-music");                       // their music volume: the console shows the same
+hud.setOpen(true);                                 // bring the whole console up from a button of your own
+controls.subscribe(() => redrawMyMenu(controls.view()));
+```
+
+In another engine: `NSWP.view()`, `NSWP.run("home")`, `NSWP.open("1")` and
+the `changed` event. In Godot: `Nswp.console_view()`, `Nswp.run("home")`,
+`Nswp.open_console()` and `console_changed`.
+
 "World skin" is all of the above together: a world with its own doorway, its
 own sounds and music, its own look for its visitors and its own interface on
 screen is still a world on this web, as long as the agreement holds.

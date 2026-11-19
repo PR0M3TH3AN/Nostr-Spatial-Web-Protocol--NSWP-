@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.4
+
+The visitor's things in a world's own interface, and a filled screen back at the first press.
+
+- **[NSWP-11](protocol/11-the-visitors-console.md), "Drawing it yourself":** a world may put any of the visitor's things into an interface of its own, wherever it likes and drawn its own way: the way home on its pause menu, the volumes on its settings screen, a button that brings the whole console up. What makes that safe is that it is the same thing behind the button: it does what the console's does, reads and writes the visitor's own settings, and "home" is the visitor's home, never the world's. The document lists them by the names a world presses them by.
+- **For other engines:** `NSWP.view()`, `NSWP.run(id)`, `NSWP.open(on)` and a `changed` event in the engine script; `Nswp.console_view()`, `Nswp.run(id)`, `Nswp.open_console()` and `console_changed` in Godot. In the kit this was already `controls.view()`, `controls.run()` and `hud.setOpen()`.
+- **Fullscreen is the first thing looked at on arriving.** It was looked for only once the place was built and the crossing's room had started to open, so the screen filled a moment after the doors did. Now it is looked for as the arrival is read, before anything is built, and taken at the visitor's very first press of any kind: a key, a click, a touch, or a key already held as they walked through the door. If a press isn't one the browser will take, the next is tried. A hint says so if the screen is still waiting.
+- **What can't be done:** filling the screen with no press at all. A browser gives up fullscreen whenever the page changes and fills it again only on a press. That is the web's rule and no page gets round it.
+- **Status (2026-11-18):** not deployed. In Chrome on the local server, arriving in the Gallery with the screen marked as filled: a key pressed while the crossing's room was still shut filled the screen before its doors opened; leaving fullscreen afterwards held. **Not tried:** a key held across the crossing (a test can't hold one through a page change), Firefox, Safari.
+
 ## 0.17.3
 
 An Airlock that is only seen when there is something to see.

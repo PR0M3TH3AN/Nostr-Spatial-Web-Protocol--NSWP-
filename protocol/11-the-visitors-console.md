@@ -87,6 +87,58 @@ good pause menu will. The one place the duty still stands is a headset used
 with tracked hands and no controllers, where a hidden console has no summons
 yet (below): there, a world that hides it offers those things itself.
 
+## Drawing it yourself
+
+A world may put any of the visitor's things into an interface of its own,
+wherever it likes: the way home on its pause menu, the volumes on its own
+settings screen, a button on a wall that brings the whole console up, a
+headset wrist of its own design. It may draw them in its own style, with its
+own art, in its own order.
+
+What makes that safe for a visitor is that it is the same thing behind the
+button, not a copy of it:
+
+- **It does what the console's does, and nothing else.** A world's "home"
+  button takes the visitor to *their* home, wherever their own client says
+  that is, by the way home ([NSWP-02](02-doors.md)). It is never the world's
+  idea of home, and never a link of the world's own.
+- **It reads and writes the visitor's settings.** A volume set on a world's
+  own slider is the visitor's volume: the console shows the same number, and
+  it goes with them to the next world ("Settings that travel", below).
+- **It says what it does in words a visitor knows.** "Go home" may be drawn
+  as a house, a door or a rune, but it is called home.
+- **The console stays whole, and the summons still brings it up.** Drawing
+  some of it elsewhere takes nothing out of it.
+- **It never looks like an Airlock or a sign-in.** Those are the visitor's
+  client's own pages and no world draws them
+  ([NSWP-09](09-what-a-world-owes.md)).
+
+The things a visitor has, by the names a world presses them by:
+
+| Name | What it does |
+|---|---|
+| `home` | Takes them home (or to their doors, in a world that is their home) |
+| `vr` | Into a headset session, or out of one |
+| `fullscreen` | Fills their screen, or gives it back |
+| `fps`, `move-style` | Casual or intense, at a desk and in a headset |
+| `jump` | Jumps |
+| `sound-all`, `sound-effects`, `sound-music`, `sound-voices`, `sound-hum` | Their volumes |
+| `sound-piece` | Says which piece of the place's music is playing, and goes on to the next |
+| `room-join`, `room-mic` | Joining the room here, and their microphone |
+| `look-size`, `look-motion` | The size of their text, and whether things move |
+
+In the reference kit a world reads the whole list with `controls.view()`,
+presses one with `controls.run(name)`, and hears of changes with
+`controls.subscribe()`. In another engine, through the engine script:
+`NSWP.view()`, `NSWP.run(name)` and a `changed` event; and
+`NSWP.open("1")` for a button that brings the console up. In Godot:
+`Nswp.console_view()`, `Nswp.run(name)`, `Nswp.open_console()` and the
+`console_changed` signal.
+
+A world built some other way keeps the same rules by hand: its home button
+is `<the visitor's Airlock>` with no destination, and its settings begin
+from the arrival and go out on the link.
+
 ## The same form on the other side
 
 A visitor is in one of three forms: using a touch screen, at a desk with a
@@ -135,7 +187,7 @@ settings now go with them instead, the same way the form they are in does:
 | The size of text and controls | `text`: 0.85 to 1.5 | |
 | Whether things move as they open and close | `motion` | |
 | Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving) | |
-| Their screen filled | `full` | Taken up again at their first key or press on arriving, since a browser fills the screen only on a press |
+| Their screen filled | `full` | Looked for first, before the place is built, and taken up again at their very first press of any kind. A browser gives up a filled screen whenever the page changes and fills it only on a press: no page can do it sooner |
 
 - **A world says** `set=<settings>` on the link, for what the visitor has
   now: the settings as JSON, base64url, at most 400 characters.

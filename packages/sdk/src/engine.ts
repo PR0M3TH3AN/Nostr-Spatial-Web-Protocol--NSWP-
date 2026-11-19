@@ -30,10 +30,10 @@
 import { checkDestination, type PortalDestination } from "@nswp/core";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, claim, door, events, headset, kit, menu, moved, play, presence, say, target } from "./engine-menu.js";
+export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 3;
+export const VERSION = 4;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {

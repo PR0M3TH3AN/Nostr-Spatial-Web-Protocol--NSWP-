@@ -59,6 +59,9 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.target(name, detail)` | What the visitor is pointing at, shown in a card beside the controls. |
 | `NSWP.headset(state)` | Whether a headset session can start, and whether one is running. The menu offers the way in. |
 | `NSWP.door(entry)` | List a door in the menu. |
+| `NSWP.view()` | Everything in the visitor's console, as JSON, for an engine that draws some of it in an interface of its own. |
+| `NSWP.run(id)` | Press one of them by its id: `home`, `fullscreen`, `sound-music`, `jump`. The same button, with the visitor's own settings and home. |
+| `NSWP.open(on)` | Bring the console up, or put it away, from a button of the engine's own. |
 | `NSWP.presence(level)` | How much of the screen the controls take: `full`, `quiet` or `hidden`. For an engine with an interface of its own. |
 | `NSWP.claim(on)` | Take every key for the game, or give them back. |
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
@@ -67,7 +70,9 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter
 VR or Leave VR), `jump` (they pressed Jump, which is how it is asked for
-where there is no keyboard), `home`, `doors` and `door`.
+where there is no keyboard), `home`, `doors`, `door`, and `changed`
+(something in the console changed: an engine drawing its own reads
+`NSWP.view()` again).
 
 **The visitor can always bring the menu up,** whatever level the engine has
 set and whatever it has done with the keys: the key left of 1 at a desk, or

@@ -27,6 +27,7 @@ import {
 
 import { arriveAs, currentForm, type Form } from "./form.js";
 import { arriveWith, currentSettings } from "./settings.js";
+import { resumeFullscreen } from "./ui/fullscreen.js";
 
 export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
 
@@ -83,6 +84,8 @@ export const arrival = {
     arriveAs(cached.context?.form);
     // And the settings they had there: each part of the kit begins from them (settings.ts).
     arriveWith(cached.context?.settings);
+    // A screen that was filled is filled again at their first press: looked for now, before anything is built.
+    resumeFullscreen();
     // Arriving any way but home ends being at home, for this tab.
     try {
       if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
