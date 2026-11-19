@@ -40,12 +40,47 @@ engine can pass to a page:
 It works under a strict content policy (`script-src 'self'`): nothing in it
 is evaluated from text.
 
+## The same menu and the same sounds
+
+A visitor should find the same controls in every world: the same menu in the
+same corner, the same sounds at the volumes they set, the same words. None of
+that needs a renderer, so the script carries the reference kit's own menu
+(`packages/sdk/src/ui/`) and its own sounds (`packages/sdk/src/sound.ts`),
+not copies of them. The menu is drawn by the page over the engine's canvas.
+
+| Call | Does |
+|---|---|
+| `NSWP.menu(options)` | Call once. Puts the menu over the canvas and starts the sounds. `options` is JSON: `title`, `accent`, `kit` (where the page serves the kit's sound files), `sounds` (the world's own), `help`. Returns how the visitor starts out moving. |
+| `NSWP.events()` | What the visitor did in the menu since the engine last asked, as a JSON list. Ask every frame. |
+| `NSWP.play(cue)` | Play a cue by name: `cross`, `arrive`, `hover`, `press` and the rest. |
+| `NSWP.moved(metres)` | How far the visitor walked this frame. Their steps are heard. |
+| `NSWP.bump()` | They walked into something. |
+| `NSWP.say(text)` | A few words shown for a moment. |
+| `NSWP.target(name, detail)` | What the visitor is pointing at, shown in a card beside the controls. |
+| `NSWP.headset(state)` | Whether a headset session can start, and whether one is running. The menu offers the way in. |
+| `NSWP.door(entry)` | List a door in the menu. |
+| `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
+| `NSWP.check(url)` | How a door's address should be read on its sign. |
+
+The events are `moving` (they chose casual or intense), `menu` (it opened or
+closed: stop moving them, and let the pointer go), `vr` (they pressed Enter
+VR or Leave VR), `home`, `doors` and `door`.
+
+The sound files go beside the page, in a folder the engine names (`kit`).
+Without them the sounds are the ones the kit makes in the browser.
+
 ## What an engine draws for itself
 
-The reference kit's Three.js parts don't come along: other people's figures,
-the crossing's room, panels, the console in a headset. The protocol lets a
-world draw its visitors its own way ([NSWP-05](../protocol/05-looks.md)), so
-that is allowed. It is also work.
+Its doors, and how its visitors move. An engine's side should take both from
+the kit all the same, so that a door is recognisable and moving feels the
+same: `NSWP.kit()` has the numbers, and the Godot addon has the doorway's
+frame as a mesh made from the kit's own modelling code.
+
+The rest of the reference kit's Three.js parts don't come along: other
+people's figures, the crossing's room, the view through a door, panels, the
+console in a headset. The protocol lets a world draw its visitors its own
+way ([NSWP-05](../protocol/05-looks.md)), so that is allowed. It is also
+work.
 
 Rooms aren't in the script yet. The kit's room connection is JavaScript and
 passes more than text.
@@ -53,24 +88,51 @@ passes more than text.
 ## Godot
 
 [`engines/godot/addons/nswp/`](../engines/godot/addons/nswp/README.md): an
-addon with an `Nswp` autoload and an `NswpPortal` node. Godot 4 exports to
-the Web and supports headsets in the browser itself, so it is the one engine
-besides Three.js where every part is the engine's own.
+addon. Godot 4 exports to the Web and supports headsets in the browser
+itself, so it is the one engine besides Three.js where every part is the
+engine's own.
+
+| Part | What it is |
+|---|---|
+| `Nswp` | An autoload: how the visitor arrived, the doors out, the menu and the sounds. |
+| `NswpGate` | The standard doorway. Its frame is the kit's own model, exported as a mesh; its three surfaces are the kit's shaders, written for Godot. |
+| `NswpVisitor` | A visitor who moves the casual way or the intense way, as they choose in the menu, at the kit's own speeds. |
+| `NswpPortal` | A door with nothing drawn, for a world that draws its own. |
+
+Each default can be replaced. A world that wants its own door uses
+`NswpPortal` and draws what it likes; one that wants its own sounds names
+them, as any world does ([controls-kit.md](controls-kit.md), "Sound").
 
 There is an example world beside it
 ([`engines/godot/example/`](../engines/godot/example/)): two entry points, a
-door, the way home and the way into a headset. `npm run build:godot` exports
-it, given Godot 4 and its web export templates, and
-`node scripts/serve-local.mjs` serves it with the other sites.
+door and nothing else of its own. `npm run build:godot` exports it, given
+Godot 4 and its web export templates, and
+[`node scripts/serve-local.mjs`](local-server.md) serves it with the other
+sites.
 
-**Status (2026-11-18):** the script is tested in a browser, on a bare page
-under a strict content policy. The addon and its example have been run in
-Godot 4.7.2, exported for the Web, in Chrome on a flat screen: arriving by an
-ordinary link and by an arrival, each entry point, a door through to the
-Airlock, and the way home. With a made-up headset on the page the way in is
-offered; a session itself wasn't started, since Godot needs the browser's
-WebXR Layers and the made-up headset has none. No real headset, phone,
-Firefox or Safari has been tried.
+**Status (2026-11-18):** run in Godot 4.7.2, exported for the Web, in Chrome
+on a flat screen, with a mouse and keyboard:
+
+- The kit's menu over the canvas, with the way home, the sound volumes, how
+  to move, and fullscreen. The kit's sound files are loaded.
+- The standard doorway, lit when pointed at, with a card saying where it
+  leads.
+- Moving the casual way: a click on the floor walks no further than the
+  kit's reach, and a drag turns the view.
+- Moving the intense way: the mouse looks round, Shift runs, and taking the
+  pointer back opens the menu.
+- Arriving by an ordinary link and by an arrival, each entry point, a door
+  through to the Airlock, and the way home.
+
+**Not tried:** a real phone (a tap on an emulated touch screen walks as it
+should), Firefox, Safari, and a real headset. With a made-up headset on the page the way in is offered; a session
+itself wasn't started, since Godot needs the browser's WebXR Layers and the
+made-up headset has none. Nobody has listened to it: the sound files are
+asked for and decoded, and that is all a test can say.
+
+**Not in the Godot addon:** moving in a headset (a session starts, and the
+visitor stands where they are), the crossing's room, the view through a
+door, and other people.
 
 A Godot export is large (about 40 MB, nearly all the engine) and Godot's page
 starts itself with a script written into the page, so it can't be served
