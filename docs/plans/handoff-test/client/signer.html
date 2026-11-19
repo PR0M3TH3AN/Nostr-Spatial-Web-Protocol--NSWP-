@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>signer (embedded)</title>
+<script>
+  // The hidden signer inside a world. Its storage is the world's partition: it starts knowing nothing.
+  const me = location.origin;
+  let session = null;
+  let world = location.ancestorOrigins?.[0] ?? null; // who embeds us, as the browser says (not in Firefox)
+  const state = () => ({ seesStoredSession: !!localStorage.getItem("session"), unlocked: !!session, world });
+  addEventListener("message", async (e) => {
+    const d = e.data ?? {};
+    if (e.source === parent) {
+      // From the world. Its origin is what the browser reports for the message.
+      world = world ?? e.origin;
+      if (d.t === "state") parent.postMessage({ t: "state", ...state() }, e.origin);
+      if (d.t === "sign") {
+        if (!session) return parent.postMessage({ t: "signed", id: d.id, error: "locked" }, e.origin);
+        // Stands in for a signature: something only the session's holder can make. The session itself never goes out.
+        const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(session), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(d.text));
+        parent.postMessage({ t: "signed", id: d.id, sig: [...new Uint8Array(mac)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("") }, e.origin);
+      }
+      return;
+    }
+    // From anything else: only our own site's window counts, and it must be a top-level one.
+    if (e.origin !== me) return;
+    if (d.t === "hello") e.source.postMessage({ t: "frame", world, nonce: d.nonce }, me);
+    if (d.t === "grant" && d.world === world) {
+      session = d.session;
+      parent.postMessage({ t: "unlocked" }, world);
+    }
+  });
+  parent.postMessage({ t: "ready" }, "*");
+</script>

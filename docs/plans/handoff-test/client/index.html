@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>client: signed in here</title>
+<p id="s"></p>
+<script>
+  // "Signing in" at the client's own page: a secret kept in this site's own storage.
+  if (new URLSearchParams(location.search).get("signin")) localStorage.setItem("session", "SECRET-" + Math.random().toString(36).slice(2));
+  document.getElementById("s").textContent = "session: " + (localStorage.getItem("session") ? "yes" : "no");
+</script>

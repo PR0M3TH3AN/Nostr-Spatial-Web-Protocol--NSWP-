@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>a world</title>
+<button id="connect">Connect</button><button id="sign">Sign</button><pre id="log"></pre>
+<iframe id="signer" src="http://127.0.0.1:4391/signer.html" style="width:1px;height:1px;border:0;position:absolute;left:-9px"></iframe>
+<script>
+  // The world. Everything it can learn is written to window.seen, so the test can check it learnt no secret.
+  const CLIENT = "http://127.0.0.1:4391";
+  window.seen = [];
+  const frame = document.getElementById("signer");
+  addEventListener("message", (e) => { window.seen.push({ origin: e.origin, data: e.data }); document.getElementById("log").textContent = JSON.stringify(window.seen, null, 1); });
+  document.getElementById("connect").onclick = () => { window.popup = window.open(CLIENT + "/connect.html", "connect", "width=420,height=520"); };
+  let n = 0;
+  document.getElementById("sign").onclick = () => frame.contentWindow.postMessage({ t: "sign", id: ++n, text: "hello" }, CLIENT);
+  window.ask = (m) => frame.contentWindow.postMessage(m, CLIENT);
+  // What a hostile world would try: read the frame, read the popup, and pose as the frame.
+  window.tryToSteal = () => {
+    const out = {};
+    try { out.frameStorage = frame.contentWindow.localStorage.getItem("session"); } catch (err) { out.frameStorage = "refused: " + err.name; }
+    try { out.popupStorage = window.popup?.localStorage.getItem("session"); } catch (err) { out.popupStorage = "refused: " + err.name; }
+    try { out.popupDoc = window.popup?.document.body.innerText; } catch (err) { out.popupDoc = "refused: " + err.name; }
+    return out;
+  };
+</script>

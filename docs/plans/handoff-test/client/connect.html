@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>client: connect</title>
+<p id="who">Looking for the signer…</p><button id="allow" hidden>Allow</button><p id="out"></p>
+<script>
+  // The small window. It is the client's own top-level page, so it has the client's real storage.
+  const me = location.origin;
+  const session = localStorage.getItem("session");
+  const nonce = Math.random().toString(36).slice(2);
+  let frame = null, world = null;
+  addEventListener("message", (e) => {
+    if (e.origin !== me || e.data?.t !== "frame" || e.data.nonce !== nonce) return;
+    frame = e.source;
+    world = e.data.world;
+    document.getElementById("who").textContent = (session ? "Signed in. " : "NOT signed in here. ") + "Let " + world + " ask this signer?";
+    document.getElementById("allow").hidden = !session;
+  });
+  // Every frame of the page that opened us is told hello, but only one on our own site can hear it.
+  const call = () => { try { for (let i = 0; i < opener.frames.length; i++) opener.frames[i].postMessage({ t: "hello", nonce }, me); } catch (err) { document.getElementById("out").textContent = "can't reach: " + err.message; } };
+  if (!opener) document.getElementById("who").textContent = "No opener.";
+  else { call(); setTimeout(call, 300); }
+  document.getElementById("allow").onclick = () => {
+    frame.postMessage({ t: "grant", world, session }, me);
+    document.getElementById("out").textContent = "granted";
+    setTimeout(() => close(), 200);
+  };
+</script>
