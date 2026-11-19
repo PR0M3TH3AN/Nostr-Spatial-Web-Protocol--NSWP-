@@ -255,9 +255,9 @@ What follows from it:
    goes against the owner's earlier wish for sign-in to be a place in the
    world, and is theirs to weigh.
 
-**Done since (2026-11-19, the owner's "Yes, move them"):** the signer and
-the window are pages of BitLogin's own site, on a branch of BitLogin's that
-is not pushed (merging BitLogin deploys its site). Its own browser test
+**Done since (2026-11-19, the owner's "Yes, move them" and "Yes, merge
+BitLogin"):** the signer and the window are pages of BitLogin's own site,
+merged and live at `https://bitlogin.network/signer/` and `/connect/`. Its own browser test
 makes a throwaway account, opens the window from a site on another origin,
 and has a note signed. The flat demo ([`signin-demo/`](signin-demo/)) asks
 BitLogin's site now. Worlds still ask BitPortal's unshipped copy: how a

@@ -29,6 +29,11 @@ Press **Sign in with BitLogin**. A window opens at BitLogin's site. Sign in
 there if you aren't already, then press Allow. Back on the page: sign a note, ask
 for something it may not, sign out.
 
+Adding `?at=live` asks BitLogin's real site, `https://bitlogin.network`,
+where the signer and the window have been since 2026-11-19. That is the
+whole thing as a stranger's site would meet it: two different sites, the
+browser's walls between them, and a real sign-in.
+
 Adding `?at=portal` asks BitPortal's copy (the first port) in place of
 BitLogin's: the first version of the window, kept to compare. With it,
 `&signer=test` makes BitPortal's window hand over a throwaway identity in

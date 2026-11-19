@@ -12,9 +12,11 @@ import { createWorldSigner } from "../../../packages/sdk/src/signer.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 // The sign-in address: BitLogin's own site, as the copy the development server serves beside this page (its
-// twelfth port), wherever this page was opened from. `?at=portal` asks BitPortal's first copy instead.
-const portal = new URLSearchParams(location.search).get("at") === "portal";
-const client = `https://${location.hostname}:${portal ? 4300 : 4311}`;
+// twelfth port), wherever this page was opened from. `?at=live` asks BitLogin's real site, and `?at=portal`
+// BitPortal's first copy.
+const where = new URLSearchParams(location.search).get("at");
+const portal = where === "portal";
+const client = where === "live" ? "https://bitlogin.network" : `https://${location.hostname}:${portal ? 4300 : 4311}`;
 for (const el of document.querySelectorAll("[data-host]")) el.textContent = `${portal ? "BitPortal" : "BitLogin"}, at ${new URL(client).host}`;
 
 const signer = portal ? createWorldSigner({ airlock: `${client}/go/` }) : createWorldSigner({ at: { signer: `${client}/signer/`, window: `${client}/connect/` } });
