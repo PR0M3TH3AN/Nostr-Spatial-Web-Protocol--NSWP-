@@ -94,11 +94,15 @@ function certificate() {
   const certFile = join(dir, "cert.pem");
   const mine = [...new Set(["127.0.0.1", ...Object.values(networkInterfaces()).flat().filter((i) => i && i.family === "IPv4").map((i) => i.address).filter(isPrivate)])];
   const wanted = ["DNS:localhost", ...mine.map((a) => `IP:${a}`)];
+  // What it has to cover to be kept: this machine by name, and the address other devices are told to use. Other
+  // addresses come and go (a VPN's changes every time it connects), and a new certificate means a new warning on
+  // every device, so they are no reason to make one.
+  const needed = ["DNS:localhost", "IP Address:127.0.0.1", ...(address && isPrivate(address) ? [`IP Address:${address}`] : [])];
   const stillGood = () => {
     try {
       const cert = new X509Certificate(readFileSync(certFile));
-      const names = cert.subjectAltName ?? "";
-      return existsSync(keyFile) && new Date(cert.validTo).getTime() - Date.now() > 7 * 864e5 && wanted.every((w) => names.includes(w.replace("IP:", "IP Address:")));
+      const names = (cert.subjectAltName ?? "").split(", ");
+      return existsSync(keyFile) && new Date(cert.validTo).getTime() - Date.now() > 7 * 864e5 && needed.every((n) => names.includes(n));
     } catch {
       return false;
     }
