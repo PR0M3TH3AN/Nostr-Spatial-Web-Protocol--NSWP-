@@ -198,6 +198,15 @@ from people says how in the list's `description`.
 
 ## Proposed, not built
 
+- **What a curator found by trying a world.** A world says what devices it
+  is for, and that is its maker's word. Whoever lists a world can try it
+  themselves (the reference probe, `scripts/probe-world.mjs`, does it on a
+  phone-sized touch screen, at a desk and with a made-up headset) and tell
+  the people who follow their list what they found. BitPortal keeps its own
+  findings in a file beside its list and shows them at the Airlock, before
+  the maker's word. Carrying them in the list itself, signed with it, so
+  that anyone following the list gets them, is not built.
+
 - **A list of what a host refuses,** beside the list of what it shows. A
   strict client has no use for one. An open one does.
 - **Hashtags a visitor likes as a list of their own on Nostr** (NIP-51

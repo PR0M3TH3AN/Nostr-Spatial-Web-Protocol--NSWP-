@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.17.2
+
+One page for everything a world has to do and everything it may replace, and a probe that tries a world for itself.
+
+- **[docs/integrating.md](docs/integrating.md):** the agreement and the defaults, on one page. Eleven things every world keeps, each with where it is written. Then what the kit gives by default (the menu, the sounds, the music, the doorway, moving, the marks on the floor, the crossing's room, how visitors look, rooms, panels), how to replace each, and the one thing that must stay true when you do. Four ways to build, and a table of everything that goes with a visitor and whether they are asked about it.
+- **Signing in is not on either list.** It belongs to the visitor's client and never to a world. In BitPortal it is BitLogin, and a world can't replace it because it isn't in a world. The protocol itself names no sign-in.
+- **`scripts/probe-world.mjs`:** tries a world on a phone-sized touch screen, at a desk and with a made-up headset, and says for each whether it loaded and drew, didn't load at all, or couldn't be confirmed. For whoever lists worlds, so that what a world's maker declares isn't the only thing a visitor is told. An Airlock can't do this at the moment of crossing: loading a world is visiting it.
+- **In BitPortal:** the Airlock is cut down to where the door leads, what has to be known or answered, and the way through, with the rest under "More about this place", which holds a crossing while it is read. It says, before a visitor goes, when a world failed when tried on their kind of device or its maker says it isn't for it. And the sign-in page is BitLogin drawn in BitPortal's colours, with staying anonymous and switching profile beside it.
+- **Proposed in [NSWP-08](protocol/08-lists.md):** carrying what a curator found in the list itself, signed with it.
+- **Status (2026-11-18):** not deployed. The probe was run against the live reference worlds and the other sites on BitPortal's list; what it found is in BitPortal's repository. Its "works" means a page loaded and drew under a software renderer, or a session started with a made-up headset; it is not a person trying the world on a real phone or headset.
+
 ## 0.17.1
 
 Marks on the floor for a casual walk, and a door that answers only from near it.
