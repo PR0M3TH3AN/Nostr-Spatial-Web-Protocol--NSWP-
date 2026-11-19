@@ -12,18 +12,73 @@
  * It is there only for a visitor who came through a client: with no Airlock
  * to go back to, there is nobody to ask.
  */
-import { shortNpub } from "@nswp/core";
+import { encodeNpub, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
 import { arrival, portal, type GoOptions } from "../index.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
-import type { Controls, UiAction, UiSection } from "./model.js";
+import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
+
+/**
+ * Whether signing in here means unlocking a signer: the visitor's client named one
+ * (protocol/10-identity.md, "One sign-in"). Then there is one sign-in in this world and it is that one. A
+ * client's own pages are not a world it sent someone to: there they are signed in already, its own way.
+ */
+export function signerNamed(): boolean {
+  if (!signerAt(arrival.signer())) return false;
+  try {
+    const airlock = portal.airlockFor();
+    if (airlock && new URL(airlock).origin === location.origin) return false;
+  } catch {
+    /* no Airlock to compare with */
+  }
+  return true;
+}
+
+/**
+ * Who the visitor is here, now. With no signer named, what their pass says. With one, their pass counts only
+ * while that signer is unlocked for this world and holds the pass's own key: signed out, they are a guest,
+ * whatever they arrived with. So nothing here says "you are here as" someone who isn't signed in.
+ */
+export function hereAs(): ReturnType<typeof arrival.identity> {
+  const who = arrival.identity();
+  if (!who || !signerNamed()) return who;
+  const signer = worldSigner();
+  return signer.state === "unlocked" && signer.pubkey === who.pubkey ? who : undefined;
+}
+
+/**
+ * The same question for a room about to be joined, with a moment's wait for a signer that hasn't spoken yet:
+ * one that remembers this world says so just after the page loads, and a room joined before that would be
+ * joined as a guest.
+ */
+export async function byName<T extends { pass: NostrEvent }>(identity: T | undefined): Promise<T | undefined> {
+  if (!identity || !signerNamed()) return identity;
+  const signer = worldSigner();
+  await signer.whenAnswered(2500);
+  return signer.state === "unlocked" && signer.pubkey === identity.pass.pubkey ? identity : undefined;
+}
 
 /** The words for who a visitor is here, for a world that draws this itself. */
 export function identityWords(): { signedIn: boolean; name: string; label: string; short: string } {
-  const who = arrival.identity();
+  const who = hereAs();
   const name = who ? who.name || shortNpub(who.pubkey) : "";
   return who
     ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" }
     : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
+}
+
+/** Who they are signed in as, as a card at the head of You: their picture, their name, their key. Null for a guest. */
+export function youCard(): UiCard | null {
+  const who = hereAs();
+  const signer = signerNamed() ? worldSigner() : null;
+  if (who) {
+    const npub = encodeNpub(who.pubkey);
+    return { title: who.name || shortNpub(who.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who.pubkey), copy: npub, text: who.about ?? "", picture: who.picture ?? "", color: "", now: [] };
+  }
+  // Unlocked, with no pass for that key: they can post as it, and the room has nobody's word for a name.
+  if (signer?.state === "unlocked" && signer.pubkey) {
+    return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: "", picture: "", color: "", now: [] };
+  }
+  return null;
 }
 
 /** Where signing in happens: the host of the visitor's own client. Null when they came through none. */
@@ -41,9 +96,15 @@ export const identitySection = (): UiSection => ({
   id: "you",
   label: "You",
   icon: "you",
+  card: youCard,
   note: () => {
     const host = identityHost();
-    return host ? `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.` : "";
+    if (!host) return "";
+    if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
+    const at = worldSigner().host ?? "your sign-in address";
+    const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
+    if (worldSigner().state === "unlocked") return `You are signed in here by ${at}. Signing out here makes you a guest in this world, and nowhere else. ${look}`;
+    return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
   },
 });
 
@@ -76,7 +137,8 @@ export function identityAction(controls: Controls, leaving: Leaving = () => ({})
     icon: "you",
     label: () => identityWords().label,
     short: () => identityWords().short,
-    hidden: () => portal.airlockFor() === null,
+    // Where a signer was named there is one sign-in, and it is that one (signerAction): this row would be a second.
+    hidden: () => portal.airlockFor() === null || signerNamed(),
     act: () => leave(controls, "identity", leaving),
   };
 }
@@ -87,7 +149,7 @@ export function unansweredWords(signer: WorldSigner): string {
   const copy = signer.copy
     ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.`
     : " Reloading the page tries again.";
-  return `This world asked ${host} for your signer and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
+  return `This world asked ${host} for your sign-in and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
 }
 
 let shared: WorldSigner | null = null;
@@ -106,9 +168,17 @@ export function worldSigner(): WorldSigner {
 export function signerAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
   const signer = worldSigner();
   let was = signer.state;
+  const short = () => shortNpub(signer.pubkey ?? "");
   signer.onChange(() => {
-    if (signer.state === "unlocked" && was !== "unlocked") controls.say(`You can sign notes here as ${signer.name ?? shortNpub(signer.pubkey ?? "")}. It ends when you leave this world, or when you turn it off under You.`);
-    if (signer.state === "locked" && was === "unlocked") controls.say("Nothing more can be signed as you here.");
+    if (signer.state === "unlocked" && was !== "unlocked") {
+      const who = hereAs();
+      controls.say(
+        who
+          ? `You are signed in here as ${who.name || short()}. People in a room see your name and picture, and you can send out posts. Signing out is under You.`
+          : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: your name comes with you from ${identityHost() ?? "your own client"}, when you are signed in there as the same person.`,
+      );
+    }
+    if (signer.state === "locked" && was === "unlocked") controls.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
     was = signer.state;
     controls.signal("signer");
   });
@@ -116,14 +186,14 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     id: "signer",
     section: "you",
     icon: "key",
-    // Locked, it says whose window will open, before anything is pressed: an address to recognise.
+    // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
     label: () =>
       signer.state === "unlocked"
-        ? `Signing as ${signer.name ?? shortNpub(signer.pubkey ?? "")}: on`
+        ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here`
         : signer.unanswered
-          ? `Signing isn't available: ${signer.host ?? "your signer"} didn't answer`
-          : `Sign in to sign notes${signer.host ? `, at ${signer.host}` : ""}`,
-    short: () => (signer.state === "unlocked" ? "Signing" : "Sign"),
+          ? `Signing in isn't available: ${signer.host ?? "your signer"} didn't answer`
+          : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+    short: () => (signer.state === "unlocked" ? "Sign out" : "Sign in"),
     on: () => signer.state === "unlocked",
     // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
     // a row that isn't there can't be asked about.
@@ -135,8 +205,8 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
         return controls.say(unansweredWords(signer));
       }
       // A headset draws nothing but the world, so no window of the client's can open in one.
-      if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in to sign, and come back in.`);
-      if (signer.unlock()) controls.say(`A window from ${host} has opened. Say yes there, and you can sign notes here.`);
+      if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in, and come back in.`);
+      if (signer.unlock()) controls.say(`A window from ${host} has opened. Say yes there, and you are signed in here.`);
       else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
     },
   };

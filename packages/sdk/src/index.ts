@@ -158,7 +158,7 @@ export const arrival = {
    * the clock each time; undefined for a guest, and once the pass has run out.
    * The world never sees their own key, only this throwaway one.
    */
-  identity(): { pubkey: string; name: string; pass: NostrEvent; sessionKey: string } | undefined {
+  identity(): { pubkey: string; name: string; picture?: string; about?: string; pass: NostrEvent; sessionKey: string } | undefined {
     try {
       const kept = JSON.parse(session()?.getItem(PASS_KEY) ?? "null") as { pass?: NostrEvent; sessionKey?: string } | null;
       if (!kept?.pass || typeof kept.sessionKey !== "string") return undefined;
@@ -167,7 +167,8 @@ export const arrival = {
         session()?.removeItem(PASS_KEY);
         return undefined;
       }
-      return { pubkey: checked.value.pubkey, name: checked.value.name, pass: kept.pass, sessionKey: kept.sessionKey };
+      const { pubkey, name, picture, about } = checked.value;
+      return { pubkey, name, ...(picture ? { picture } : {}), ...(about ? { about } : {}), pass: kept.pass, sessionKey: kept.sessionKey };
     } catch {
       return undefined;
     }

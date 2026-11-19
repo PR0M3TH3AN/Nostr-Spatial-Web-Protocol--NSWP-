@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.27.0
+
+One sign-in in a world, and a public feed of your own in place of the posting switch.
+
+- **A world no longer says "here as Alice" to someone who hasn't signed in there.** Where the visitor's client names a signer, that is the one sign-in: a pass they arrived with counts once the signer is unlocked for the world, as the same person. Until then they are a guest, to the room and in the menu. Signing in or out leaves the room and joins it again as who they now are. A signer that remembers the world answers as the page loads, and the kit waits for it before joining, so nothing is pressed the second time. (NSWP-10, "One sign-in".)
+- **One row under You,** "Sign in, at bitlogin.network" or "Signed in as Alice. Sign out here", under a card with their picture, name and key. The older "Here as Alice. Switch profile, or go as a guest" row is not shown where a signer is named.
+- **What this costs:** the first time in each world, one press and one yes in the sign-in window. Before, a signed-in visitor was by name on arrival with nothing asked.
+- **"Send out a post" replaces "Post what I write as Nostr notes".** It opens **My public feed**: the visitor's own posts, newest first, with the place to write above them. It is the other side of the panel the room's chat is on, and a panel of its own in a headset. A line said to the room is never posted now, and a post is never said to the room. It needs no room. (NSWP-10, "Posting from a world".)
+- **Their earlier posts are read from the relays when they open the feed,** and not before: the one thing a world asks a relay about a person, and it is the visitor's own key. Replies are left out. A post is shown as plain words; nothing in it is fetched or opened.
+- **In the kit:** `controls.feed` (`UiFeed`, `FeedView`), `hud.setChatOpen(open, "feed")`, `hud.chatTab`, `controls.signal("toggle:feed")`; `hereAs()`, `byName()`, `signerNamed()`, `youCard()`; `signer.whenAnswered(ms)`; `arrival.identity()` also gives the pass's `picture` and `about`; `RoomNotes` gains `pubkey` and `who`. The row `room-chat-notes` is now `feed`.
+- **Not built:** someone who signs in at a world as a key their client sent no pass for can post, and is a guest in a room. Closing that needs the signer to make the pass (NSWP-10, "Proposed, not built").
+
 ## 0.26.3
 
 The posting switch is where a visitor looks for it, before they have signed in to sign.

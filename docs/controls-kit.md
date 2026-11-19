@@ -357,7 +357,9 @@ inside a world").
 - To put the button somewhere of your own, press the same one:
   `controls.run("identity")`. `identityWords()` has its words, and
   `identityHost()` the host it leads to.
-- It is absent when there is no Airlock to go back to.
+- It is absent when there is no Airlock to go back to, and where the
+  visitor's client named a signer: then signing in is the signer's row
+  ("Signing as the visitor", below), and there is one sign-in, not two.
 - When they come back, `arrival.identity()` has their name and key, checked.
 
 A world never draws the sign-in itself, in a panel or anywhere else.
@@ -408,9 +410,19 @@ draw yourself.
 
 A world never holds its visitor's key. The kit embeds their own client's
 hidden signer and asks it ([NSWP-10](../protocol/10-identity.md), "Signing
-from a world"). `addViewControls` adds the control: **Sign in to sign
-notes**, under You, in every world. It opens a window of the visitor's own
-client, where they say yes. Nothing is typed in your world.
+from a world"). `addViewControls` adds the control: **Sign in, at
+bitlogin.network**, under You, in every world. It opens a window of the
+visitor's sign-in address, where they say yes. Nothing is typed in your
+world.
+
+Where a signer is named, that is the one sign-in in your world
+([NSWP-10](../protocol/10-identity.md), "One sign-in"). Signed in, the row
+reads "Signed in as Alice. Sign out here", under a card with their picture,
+name and key. Until then they are a guest in a room, whatever pass they
+arrived with, and the older "Here as Alice" row is not shown. `hereAs()` is
+who they are now; `signerNamed()` says whether this applies; `youCard()` is
+the card. `createPresence({ identity: () => arrival.identity() })` is still
+what you write: the kit holds the pass until they are signed in.
 
 ```js
 const signer = worldSigner();        // the page's one signer: where the visitor's client said, or beside its Airlock
@@ -434,11 +446,16 @@ if (note) await publishEvent(relays, note);                               // sen
   for nothing else. Never draw anything that looks like the visitor's
   sign-in, and never ask for a password: there is nothing you could do
   with one, and asking is how a visitor is robbed.
-- In the room's chat, **Post what I write as Nostr notes** is there whenever
-  the visitor has a signer. Before they have unlocked it, the row says where
-  they sign in first, and pressing it opens that window. It is off at every
-  visit. Pass
-  `addRoomControls(..., { noteRelays })` to say where those notes go.
+- Under Room, **Send out a post** is there whenever the visitor has a
+  signer. Signed out, the row says where they sign in first, and pressing it
+  opens that window. Signed in, it opens **My public feed**: their own posts,
+  newest first, and the place to write another. It is the other side of the
+  panel the chat is on (`controls.signal("toggle:feed")`,
+  `hud.setChatOpen(true, "feed")`), and a panel of its own in a headset.
+  Nothing said to the room is posted. Pass
+  `addRoomControls(..., { noteRelays })` to say where posts go and are read
+  from. `controls.feed.view()` has `{ ready, title, who, posts, loading,
+  said }` if you draw it yourself.
 - A world has nothing more to do. `{ notes }` is for a visitor's own client,
   in a room of its own where they are already signed in: it gives a signer
   of its own in place of the world signer. A world never passes one: it has

@@ -52,6 +52,11 @@ export interface WorldSigner {
   sign(note: { kind: number; content: string; tags?: string[][] }): Promise<NostrEvent | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
+  /**
+   * Wait until it has said whether it is unlocked, or `ms` have passed. A signer that remembers this world
+   * says so a moment after the page loads: this is how to not decide anything before it has.
+   */
+  whenAnswered(ms: number): Promise<void>;
   dispose(): void;
 }
 
@@ -85,6 +90,7 @@ const NONE: WorldSigner = {
   lock() {},
   sign: async () => null,
   onChange: () => () => {},
+  whenAnswered: async () => {},
   dispose() {},
 };
 
@@ -125,6 +131,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   }, 7000);
   /** Whether the signer has answered at all. Until it has, it is asked again a few times. */
   let answered = false;
+  const firstAnswer = new Set<() => void>();
   let n = 0;
   const changed = () => {
     for (const fn of watchers) fn();
@@ -146,6 +153,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       state = reply.unlocked ? "unlocked" : "locked";
       pubkey = reply.unlocked ? (reply.pubkey ?? null) : null;
       name = reply.unlocked ? (reply.name ?? null) : null;
+      for (const go of [...firstAnswer]) go();
       return changed();
     }
     const waiting = pending.get(reply.id);
@@ -249,8 +257,21 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       watchers.add(fn);
       return () => void watchers.delete(fn);
     },
+    whenAnswered(ms) {
+      if (answered || disposed) return Promise.resolve();
+      return new Promise((done) => {
+        const go = () => {
+          clearTimeout(timer);
+          firstAnswer.delete(go);
+          done();
+        };
+        const timer = setTimeout(go, ms);
+        firstAnswer.add(go);
+      });
+    },
     dispose() {
       disposed = true;
+      for (const go of [...firstAnswer]) go();
       removeEventListener("message", onMessage);
       frame?.remove();
       frame = null;

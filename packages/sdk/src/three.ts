@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, cleanChat, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, queryRelays, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -26,9 +26,10 @@ import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { loadPicture, onPicturesChange, setShowsPictures, showsPictures } from "./picture.js";
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
+import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
-import { figureAction, identityAction, identityHost, identitySection, signerAction, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
+import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, signerAction, signerNamed, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
@@ -656,7 +657,9 @@ export function createPresence(d: PresenceOptions): Presence {
       addEventListener("keydown", wake, true);
     }
     const look = typeof d.look === "function" ? d.look() : d.look;
-    const identity = typeof d.identity === "function" ? d.identity() : d.identity;
+    // By name only while they are signed in here: where their client named a signer, a pass they arrived with counts
+    // once that signer is unlocked for this world, as the same person (ui/identity.ts).
+    const identity = await byName(typeof d.identity === "function" ? d.identity() : d.identity);
     const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys() });
     session = s;
     if (!offsetApplied) {
@@ -1228,7 +1231,7 @@ export interface Travelling {
 /** Where a page keeps whether its visitor was joined, so a refresh doesn't put them out of the room. This tab only. */
 const JOINED_KEY = () => `nswp:joined:${location.pathname}`;
 
-/** What signs a note for the visitor when they post what they write in a room's chat. */
+/** What signs a post for the visitor when they send one out from their public feed. */
 export interface RoomNotes {
   /** Whether a note can be signed now. While it can't, posting isn't offered. */
   ready(): boolean;
@@ -1244,6 +1247,10 @@ export interface RoomNotes {
   host?(): string | null;
   /** A signer was named and didn't answer: then what to say about it. Null when that isn't so. */
   unanswered?(): string | null;
+  /** Whose key signs, once it can: their feed is that key's posts. Left out, the feed shows only what is sent from here. */
+  pubkey?(): string | null;
+  /** What to call them over their feed: their name, or null for the short form of their key. */
+  who?(): string | null;
 }
 
 export function addRoomControls(
@@ -1269,10 +1276,10 @@ export function addRoomControls(
     sounds?: Sounds | null;
     /** False where this world wants no shared music: a concert, a library. Its visitors' own music still plays for them. */
     sharedMusic?: boolean;
-    /** The relays a note the visitor posts from the chat goes to. Left out, the kit's own list. */
+    /** The relays a post the visitor sends out goes to, and their earlier posts are read from. Left out, the kit's own list. */
     noteRelays?: string[];
     /**
-     * What signs a note when the visitor posts what they write. Left out, the page's own signer: the hidden one
+     * What signs a post when the visitor sends one out. Left out, the page's own signer: the hidden one
      * their client named, unlocked in that client's window (`worldSigner()`), which is what a world has. A
      * visitor's own client, in a room of its own where they are already signed in, gives its own.
      */
@@ -1309,6 +1316,7 @@ export function addRoomControls(
     );
     controls.addSection({ id: "room", label: "Room", icon: "room", note: status });
     tendChat();
+    tendFeed();
     people();
     remember();
   };
@@ -1744,8 +1752,7 @@ export function addRoomControls(
       (text) => {
         const how = s.say(text);
         if (how === "slow") return "That is a lot at once. Wait a moment, then send it again.";
-        if (how === "said" && postsNotes && notes.ready()) void postNote(text);
-        else if (how === "said" && s.members.length === 0) controls.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
+        if (how === "said" && s.members.length === 0) controls.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
         return null;
       },
       { title: presence.roomName ? "Private room chat" : "Room chat" },
@@ -1773,10 +1780,9 @@ export function addRoomControls(
     if (!showsChat()) closeChatPanel();
     refresh();
   });
-  // ---- Notes (protocol/10-identity.md, "Signing from a world"). What is written in a room stays in the room,
-  // unless the visitor has unlocked their signer here AND turned this on. Then each line they write is also a
-  // public Nostr note, signed by their own client's signer and sent to relays from here. Off at every visit.
-  let postsNotes = false;
+  // ---- My public feed (protocol/10-identity.md, "Posting from a world"). What is written in a room stays in the
+  // room. A post is another thing, in a window of its own: a public Nostr note, signed by the visitor's sign-in and
+  // sent to relays from here, shown among the posts they have already made. It needs no room.
   const notes: RoomNotes = opts.notes ?? {
     ready: () => worldSigner().state === "unlocked",
     sign: (n) => worldSigner().sign(n),
@@ -1785,29 +1791,195 @@ export function addRoomControls(
     unlock: () => worldSigner().unlock(),
     host: () => worldSigner().host,
     unanswered: () => (worldSigner().unanswered ? unansweredWords(worldSigner()) : null),
+    pubkey: () => worldSigner().pubkey,
+    who: () => hereAs()?.name || worldSigner().name,
   };
-  /** They pressed the posting row while the signer was locked: once it is unlocked, posting is what they asked for. */
-  let wantsNotes = false;
-  const POSTING_ON = "Each line you write here is now also posted to Nostr as a public note, signed as you. Anyone can read it, anywhere, and it can't be taken back.";
-  const postNote = async (text: string) => {
-    const words = cleanChat(text);
+  const noteRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
+  /** They pressed the row while signed out: once they are signed in, their feed is what they asked for. */
+  let wantsFeed = false;
+  const postNote = async (words: string): Promise<{ ok: boolean; said: string }> => {
     const signed = await notes.sign({ kind: 1, content: words, tags: [] }).catch(() => null);
     // Whatever signed it, what is sent on is checked first: a real signature, on a note, saying what was written.
     const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words ? signed : null;
-    if (!note) return void controls.chat.add({ note: true, text: "That wasn't posted as a note: your signer said no." });
-    const sent = await publishEvent(opts.noteRelays ?? DEFAULT_RELAYS, note).catch(() => null);
+    if (!note) return { ok: false, said: "That wasn't sent: your sign-in said no." };
+    const sent = await publishEvent(noteRelays(), note).catch(() => null);
     const kept = sent ? Object.values(sent.relays).filter((said) => said === "ok").length : 0;
-    controls.chat.add({ note: true, text: kept ? `Posted as a note, to ${kept === 1 ? "1 relay" : `${kept} relays`}.` : "Signed, but no relay took it. It wasn't posted." });
+    return kept ? { ok: true, said: `Sent out, to ${kept === 1 ? "1 relay" : `${kept} relays`}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+  };
+  /**
+   * The visitor's own posts, asked of the relays their posts go to. This is the one thing a world asks a relay
+   * about a person, and it is the visitor's own key, in their own browser, when they open their own feed.
+   */
+  const loadPosts = async (): Promise<FeedSource[] | null> => {
+    const key = notes.pubkey?.();
+    if (!key) return [];
+    const got = await queryRelays(noteRelays(), { kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, 5000);
+    if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
+    // Their posts, and not their replies to other people: out of its thread a reply reads as nonsense.
+    return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
+  };
+  /** Whose feed the controls hold: a key, "" for someone whose key isn't told, null for nobody. */
+  let feedFor: string | null = null;
+  const FEED_LEAD = 150;
+  let feedPanel: { panel: Panel; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; drawn: string } | null = null;
+  const closeFeedPanel = () => {
+    const was = feedPanel;
+    feedPanel = null;
+    was?.texture.dispose();
+    was?.panel.close();
+  };
+  const tendFeed = () => {
+    const key = notes.ready() ? (notes.pubkey?.() ?? "") : null;
+    if (key === feedFor) return;
+    feedFor = key;
+    if (key === null) {
+      controls.feed.detach();
+      return closeFeedPanel();
+    }
+    controls.feed.attach({ who: notes.who?.() || (key ? shortNpub(key) : "you"), send: postNote, load: loadPosts });
+  };
+  /** The feed in a headset: the same posts, on a panel of the visitor's own. Where to write is at the top. */
+  const drawFeedPanel = () => {
+    if (!feedPanel) return;
+    const view = controls.feed.view();
+    const stamp = `${view.version}:${Math.floor(Date.now() / 60000)}`;
+    if (stamp === feedPanel.drawn) return;
+    feedPanel.drawn = stamp;
+    const t = controls.theme;
+    const g = feedPanel.canvas.getContext("2d")!;
+    g.fillStyle = t.glass;
+    g.fillRect(0, 0, CHAT_W, CHAT_H);
+    g.textBaseline = "middle";
+    g.textAlign = "left";
+    const ROW = 44;
+    const measure = (text: string) => g.measureText(text).width;
+    g.font = "30px system-ui, sans-serif";
+    g.fillStyle = t.ink;
+    g.globalAlpha = 0.72;
+    wrapWords(`Public, like a tweet: anyone can read what you send out here, as ${view.who}, and it can't be taken back.`, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, 34 + r * 38));
+    g.globalAlpha = 1;
+    // The one button: it puts the keyboard up.
+    g.strokeStyle = t.accent;
+    g.lineWidth = 3;
+    g.fillStyle = `rgba(${rgb(t.accent)}, 0.16)`;
+    g.beginPath();
+    g.roundRect(20, FEED_LEAD, CHAT_W - 40, WRITE_H - 32, 22);
+    g.fill();
+    g.stroke();
+    g.font = "600 36px system-ui, sans-serif";
+    g.fillStyle = t.ink;
+    g.textAlign = "center";
+    g.fillText("Send out a post", CHAT_W / 2, FEED_LEAD + (WRITE_H - 32) / 2);
+    g.textAlign = "left";
+    let y = FEED_LEAD + WRITE_H;
+    const say = (text: string) => {
+      g.font = "italic 30px system-ui, sans-serif";
+      g.globalAlpha = 0.7;
+      wrapWords(text, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+      g.globalAlpha = 1;
+      y += ROW * 2;
+    };
+    if (view.said) say(view.said);
+    if (!view.posts.length) say(view.loading ? "Fetching your posts…" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.");
+    const nowSec = Math.floor(Date.now() / 1000);
+    // The newest at the top, and as many under it as there is room for.
+    for (const post of view.posts) {
+      g.font = "33px system-ui, sans-serif";
+      const rows = wrapWords(post.text, measure, CHAT_W - 56, 5);
+      if (y + (rows.length + 1) * ROW > CHAT_H - 10) break;
+      g.fillStyle = t.ink;
+      g.globalAlpha = post.state === "sending" ? 0.6 : 1;
+      rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+      y += rows.length * ROW;
+      g.font = "26px system-ui, sans-serif";
+      g.fillStyle = post.state === "failed" ? t.warn : t.ink;
+      g.globalAlpha = post.state === "failed" ? 1 : 0.55;
+      g.fillText(post.state === "sending" ? "Sending…" : post.state === "failed" ? "Not sent" : ago(post.at, nowSec), 28, y + 20);
+      g.globalAlpha = 0.14;
+      g.fillStyle = t.ink;
+      g.fillRect(28, y + ROW + 4, CHAT_W - 56, 2);
+      g.globalAlpha = 1;
+      y += ROW + 16;
+    }
+    feedPanel.texture.needsUpdate = true;
+  };
+  const openFeedPanel = () => {
+    if (!opts.panels || feedPanel || !controls.feed.view().ready) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = CHAT_W;
+    canvas.height = CHAT_H;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    try {
+      const panel = opts.panels.open(
+        {
+          kind: "custom",
+          title: controls.feed.view().title,
+          texture,
+          aspect: CHAT_W / CHAT_H,
+          onPress: (_x, y) => {
+            if (y < FEED_LEAD / CHAT_H || y > (FEED_LEAD + WRITE_H) / CHAT_H || !opts.panels) return;
+            void opts.panels.keyboard.ask({ title: "Write a post. Done sends it out, for anyone to read.", maxLength: CHAT_LIMITS.chars }).then((text) => {
+              const trouble = text ? controls.feed.send(text) : null;
+              if (trouble) tell(trouble);
+            });
+          },
+          onClose: () => {
+            if (feedPanel?.texture === texture) feedPanel = null;
+            texture.dispose();
+          },
+        },
+        // On the other side from the room's chat, so both can be up.
+        { id: "my-feed", keep: false, place: { width: 0.46 }, pin: [0.46, -0.04, -0.8] },
+      );
+      feedPanel = { panel, canvas, texture, drawn: "" };
+      controls.feed.opened();
+      drawFeedPanel();
+    } catch (err) {
+      texture.dispose();
+      tell(err instanceof Error ? err.message.replace(/^nswp-sdk: /, "") : "Your feed couldn't be opened.");
+    }
+  };
+  controls.subscribe(drawFeedPanel);
+  /** In a headset it is a panel in the world; on a screen, the other side of the panel the chat is on. */
+  const openFeed = () => {
+    if (presence.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
+    controls.signal("toggle:feed");
   };
   notes.onChange?.(() => {
-    if (!notes.ready()) postsNotes = false;
-    else if (wantsNotes) {
-      wantsNotes = false;
-      postsNotes = true;
-      tell(POSTING_ON);
+    tendFeed();
+    if (notes.ready() && wantsFeed) {
+      wantsFeed = false;
+      openFeed();
     }
     refresh();
   });
+
+  // ---- Signing in or out here changes who the room sees. A room joined as one is left and joined again as the
+  // other: a pass can't be shown late or taken back, and saying one thing while the room sees another is worse.
+  let turning = false;
+  const asWhoTheyAre = async () => {
+    const s = presence.session;
+    if (!s || busy || turning) return;
+    const who = hereAs();
+    if (!!who === !s.self.guest) return;
+    turning = busy = true;
+    const mic = presence.micOn;
+    const name = presence.roomName;
+    for (const key of [...watching.keys()]) stopWatching(key);
+    presence.leave();
+    try {
+      await presence.join(name);
+      if (mic) await microphone();
+      tell(presence.session?.self.guest ? "The room sees a guest now." : `The room sees you as ${presence.session?.self.name} now.`);
+    } catch {
+      tell("You left the room, and joining it again didn't work. Join it again from here.");
+    } finally {
+      turning = busy = false;
+      refresh();
+    }
+  };
+  if (signerNamed()) worldSigner().onChange(() => void asWhoTheyAre());
 
   controls.add(
     {
@@ -1832,33 +2004,29 @@ export function addRoomControls(
       },
     },
     {
-      id: "room-chat-notes",
+      id: "feed",
       section: "room",
-      icon: "key",
-      // It is here whenever there is a signer to post with, unlocked or not: a row that isn't there can't be
-      // found. Locked, it says what comes first, and pressing it starts that.
+      icon: "note",
+      // It is here whenever there is something to post with, signed in or not: a row that isn't there can't be
+      // found. Signed out, it says what comes first, and pressing it starts that.
       label: () => {
-        if (notes.ready()) return postsNotes ? "Post what I write as Nostr notes: on" : "Post what I write as Nostr notes: off";
-        const host = notes.host?.() ?? "your signer";
-        return notes.unanswered?.() ? `Posting as Nostr notes isn't available: ${host} didn't answer` : `Post what I write as Nostr notes: sign in at ${host} first`;
+        if (notes.ready()) return "Send out a post";
+        const host = notes.host?.() ?? "your sign-in address";
+        return notes.unanswered?.() ? `Sending out a post isn't available: ${host} didn't answer` : `Send out a post: sign in at ${host} first`;
       },
-      on: () => notes.ready() && postsNotes,
-      // In a room, with chat on, and with a signer that is ready, or could be, or was named and didn't answer.
-      hidden: () => !presence.session || !showsChat() || !(notes.ready() || notes.locked?.() || notes.unanswered?.()),
+      short: "Post",
+      hidden: () => !(notes.ready() || notes.locked?.() || notes.unanswered?.()),
       act: () => {
-        if (notes.ready()) {
-          postsNotes = !postsNotes;
-          return tell(postsNotes ? POSTING_ON : "What you write stays in the room again.");
-        }
+        if (notes.ready()) return openFeed();
         const why = notes.unanswered?.();
         if (why) return tell(why);
-        const host = notes.host?.() ?? "your signer";
+        const host = notes.host?.() ?? "your sign-in address";
         // A headset draws nothing but the world, so no window can open in one.
         if (presence.presenting) return tell(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
-        wantsNotes = !!notes.unlock?.();
+        wantsFeed = !!notes.unlock?.();
         tell(
-          wantsNotes
-            ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then what you write here is posted as notes.`
+          wantsFeed
+            ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.`
             : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`,
         );
       },
@@ -2232,7 +2400,7 @@ export { arrivedSettings, arriveWith, currentSettings, reportSettings, type Trav
 export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
 export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsPictures } from "./picture.js";
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
-export { figureAction, identityAction, identityHost, identitySection, identityWords, signerAction, worldSigner, type Leaving } from "./ui/identity.js";
+export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, signerAction, signerNamed, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
