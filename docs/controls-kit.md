@@ -371,6 +371,22 @@ leave by it, as through any door:
 leaving: async (to) => { await crossing.leave(to); return { ...travelling(), moving }; }
 ```
 
+### What a visitor prefers, in every world
+
+Four things are the visitor's standing preferences. They arrive with them,
+the kit starts from them, and its controls change them everywhere:
+
+| Preference | Control | In your world |
+|---|---|---|
+| A filled screen | `fullscreen` | Nothing to do: it is taken at their first press (`resumeFullscreen`, called by `arrival.read()`) |
+| The intense way at a desk | `fps` | Nothing to do with `createFps` |
+| How fast the view turns | `look-speed` | `createFps` uses it. Multiply your own drag-to-look by `lookScale()` |
+| How wide they see at a desk | `fov` | `addViewControls` keeps your camera to it. If you set `camera.fov` yourself (to fit a window, say), pass `fov: false` and use `visitorFov() ?? yours`, calling your fit again from `onDeskChange` |
+
+They are what the visitor chose, not how things stand: `prefersFullscreen()`
+stays true after Escape, and the next world fills the screen again. Never
+report `full` from `document.fullscreenElement`.
+
 ### One order everywhere
 
 `controls.view()` puts the things every place has in one order, whatever

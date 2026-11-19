@@ -144,8 +144,10 @@ The things a visitor has, by the names a world presses them by:
 | `identity` | Says who they are here, and leaves for their own client to sign in, switch profile or go on as a guest. Then brings them back |
 | `figure` | Leaves for their own client to change how they look, and brings them back wearing it ([NSWP-05](05-looks.md), "Changing a look") |
 | `vr` | Into a headset session, or out of one |
-| `fullscreen` | Fills their screen, or gives it back |
-| `fps`, `move-style` | Casual or intense, at a desk and in a headset |
+| `fullscreen` | Whether they prefer a filled screen, in every world; fills it, or gives it back |
+| `fps`, `move-style` | Casual or intense, at a desk and in a headset: what they prefer, in every world |
+| `look-speed` | How fast the view turns under a mouse or a finger |
+| `fov` | How wide they see at a desk |
 | `jump` | Jumps |
 | `sound-all`, `sound-effects`, `sound-music`, `sound-voices`, `sound-hum` | Their volumes |
 | `sound-piece` | Says which piece of the place's music is playing, and goes on to the next |
@@ -212,12 +214,31 @@ settings now go with them instead, the same way the form they are in does:
 | The size of text and controls | `text`: 0.85 to 1.5 | |
 | Whether things move as they open and close | `motion` | |
 | Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving) | |
-| Their screen filled | `full` | Looked for first, before the place is built, and taken up again at their very first press of any kind. A browser gives up a filled screen whenever the page changes and fills it only on a press: no page can do it sooner |
+| That they prefer a filled screen | `full` | Looked for first, before the place is built, and taken up at their very first press of any kind. A browser gives up a filled screen whenever the page changes and fills it only on a press: no page can do it sooner |
+| That they prefer the intense way of moving at a desk | `intense` | The mouse looks round and keys walk, from the start, with nothing to switch on |
+| How fast the view turns under a mouse or a finger | `look`: 0.25 to 3, 1 being the world's own speed | |
+| How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
+
+**They say what the visitor prefers, not what happened to be so when they
+left.** Someone who prefers a filled screen and pressed Escape for a moment
+in one world still prefers a filled screen, and the next world fills it at
+their first press. Someone who prefers the intense way arrives moving the
+intense way. What changes a preference is the visitor's own hand on the
+control for it, in any world's console or in their client's settings, and
+nothing else: not the state of the screen as they leave, and not the device
+they happen to be on. A world reports `full` and `intense` from what the
+visitor chose, never from `document.fullscreenElement` or from whether the
+pointer is held. Where a world can't offer a thing at all (the intense way,
+on a phone) it says nothing about it, and the preference passes through
+untouched.
 
 - **A world says** `set=<settings>` on the link, for what the visitor has
   now: the settings as JSON, base64url, at most 400 characters.
 - **The visitor's client passes them on** as `settings` in the arrival
-  context ([NSWP-03](03-arrival.md)).
+  context ([NSWP-03](03-arrival.md)). It starts from what it keeps for the
+  visitor itself, with what the link says over it, so a door that says
+  nothing (one opened from a list on a page) still takes their preferences
+  along.
 - **The world they arrive in starts from them,** in place of whatever that
   site remembered, and keeps them for next time.
 - **They go home too.** On the way home the link carries them, and the
@@ -245,7 +266,9 @@ visitor's settings one way only, by their client, as they arrive.
 
 How a visitor moves (`moving`) and the form they are in (`form`) are
 settings of the same kind. They have fields of their own because a world
-needs them before anything else is set up.
+needs them before anything else is set up. At a desk, `intense` in the
+settings is the word that counts where both are said: it says "casual" as
+plainly as "intense", which a flag that is only ever present can't.
 
 ## Who draws it
 
