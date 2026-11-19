@@ -85,6 +85,37 @@ export function heldKey(code: string): keyof Held | null {
   }
 }
 
+/** Where the choice is kept, for this site, unless a world names another place. */
+export const DESK_KEY = "nswp:fps";
+/** What the control says, and what is said when it is pressed. One wording, whatever draws the world. */
+export const DESK_WORDS = {
+  intense: "Desk controls: intense",
+  casual: "Desk controls: casual",
+  nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu.",
+  nowCasual: "Casual: click where you want to stand, and drag to look round.",
+  click: "Click the view to look round. Escape brings up the menu.",
+} as const;
+/** A way of moving that needs a mouse is not offered where there isn't one. */
+export const hasMouse = (): boolean => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
+/** Whether a visitor starts out moving the intense way at a desk: they arrived so, or chose it here before. */
+export function startsIntense(arrived: boolean, key = DESK_KEY): boolean {
+  if (!hasMouse()) return false;
+  try {
+    return arrived || localStorage.getItem(key) === "1";
+  } catch {
+    return arrived;
+  }
+}
+/** Keep the choice, or forget it. */
+export function keepIntense(on: boolean, key = DESK_KEY): void {
+  try {
+    if (on) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
+  } catch {
+    /* it lasts for this visit */
+  }
+}
+
 export interface FpsOptions {
   /** What is clicked to look round: the canvas. */
   dom: HTMLElement;
@@ -124,15 +155,9 @@ export interface Fps {
 }
 
 export function createFps(o: FpsOptions): Fps {
-  const key = o.keep ?? "nswp:fps";
-  // A way of moving that needs a mouse is not offered where there isn't one.
-  const hasMouse = typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
-  let enabled = false;
-  try {
-    enabled = hasMouse && (o.arrived === true || localStorage.getItem(key) === "1");
-  } catch {
-    enabled = hasMouse && o.arrived === true;
-  }
+  const key = o.keep ?? DESK_KEY;
+  const mouse = hasMouse();
+  let enabled = startsIntense(o.arrived === true, key);
   const held: Held = {};
   let pitch = 0;
   let weLetGo = false;
@@ -243,15 +268,10 @@ export function createFps(o: FpsOptions): Fps {
   });
 
   const setEnabled = (on: boolean) => {
-    const next = on && hasMouse;
+    const next = on && mouse;
     if (next === enabled) return;
     enabled = next;
-    try {
-      if (enabled) localStorage.setItem(key, "1");
-      else localStorage.removeItem(key);
-    } catch {
-      /* it lasts for this visit */
-    }
+    keepIntense(enabled, key);
     if (!enabled) {
       letGo();
       pitch = 0;
@@ -267,15 +287,11 @@ export function createFps(o: FpsOptions): Fps {
     icon: "step",
     on: () => enabled,
     // No mouse, no mouse look. And not in a headset, where it has no meaning.
-    hidden: () => !hasMouse || o.presenting(),
-    label: () => (enabled ? "Desk controls: intense" : "Desk controls: casual"),
+    hidden: () => !mouse || o.presenting(),
+    label: () => (enabled ? DESK_WORDS.intense : DESK_WORDS.casual),
     act: () => {
       setEnabled(!enabled);
-      o.controls.say(
-        enabled
-          ? "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu."
-          : "Casual: click where you want to stand, and drag to look round.",
-      );
+      o.controls.say(enabled ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
     },
   });
 
@@ -296,7 +312,7 @@ export function createFps(o: FpsOptions): Fps {
       // Said once, to someone who has it on and hasn't clicked yet: nothing happens until they do.
       if (!told && !looking() && !o.hud?.open) {
         told = true;
-        o.controls.say("Click the view to look round. Escape brings up the menu.");
+        o.controls.say(DESK_WORDS.click);
       }
       if (o.hud?.open) return true;
       const [dx, dz] = strideOf(held, o.rig.rotation.y, o.speed ?? 2.4, dt);

@@ -1,5 +1,5 @@
 // Exports the Godot example world (engines/godot) for the web, into engines/godot/dist, and puts the kit's
-// script beside its page, which the export can't do for itself.
+// script and sounds beside its page, which the export can't do for itself.
 //
 //   GODOT=/path/to/godot node scripts/build-godot-example.mjs
 //
@@ -49,5 +49,6 @@ if (!existsSync(join(dist, "index.html"))) {
   console.error("Godot exported nothing. Are the web export templates installed for this version?");
   process.exit(1);
 }
-cpSync(join(project, "addons", "nswp", "web", "nswp-engine.js"), join(dist, "nswp-engine.js"));
+// What goes beside the page: the kit's script and its sounds. Godot's export can't put them there itself.
+cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: (from) => !from.endsWith(".gdignore") });
 console.log(`exported engines/godot/dist: ${readdirSync(dist).join(", ")}`);

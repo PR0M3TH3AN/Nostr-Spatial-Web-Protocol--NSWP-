@@ -42,6 +42,8 @@ func enter() -> void:
 		return
 	_gone = true
 	leaving.emit(self)
+	# The sound of a crossing: the world's own, or the kit's.
+	Nswp.play("cross")
 	if not Nswp.go(url, naddr, entry_point):
 		_gone = false
 

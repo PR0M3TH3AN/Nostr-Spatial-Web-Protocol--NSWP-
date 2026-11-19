@@ -20,15 +20,20 @@
  *
  * Built into engines/nswp-engine.js by scripts/build-engine.mjs.
  *
- * What an engine draws for itself: other people, the crossing's room, and
- * signs. What it doesn't get here yet: rooms (voices and other visitors),
- * which need more than text to pass through.
+ * It also carries the kit's own menu and sounds (engine-menu.ts), which need
+ * no renderer: `menu()`, `events()`, `play()`, `moved()`.
+ *
+ * What an engine draws for itself: its doors, other people, and the
+ * crossing's room. What it doesn't get here yet: rooms (voices and other
+ * visitors), which need more than text to pass through.
  */
 import { checkDestination, type PortalDestination } from "@nswp/core";
 import { arrival as arrivals, configure, portal, type GoOptions } from "./index.js";
 
+export { bump, check, door, events, headset, kit, menu, moved, play, say, target } from "./engine-menu.js";
+
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 1;
+export const VERSION = 2;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {

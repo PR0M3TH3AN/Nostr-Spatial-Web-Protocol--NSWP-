@@ -5,9 +5,9 @@ var NSWP = (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __export = (target, all) => {
+  var __export = (target2, all) => {
     for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
+      __defProp(target2, name, { get: all[name], enumerable: true });
   };
   var __copyProps = (to, from, except, desc) => {
     if (from && typeof from === "object" || typeof from === "function") {
@@ -25,10 +25,21 @@ var NSWP = (() => {
   __export(engine_exports, {
     VERSION: () => VERSION,
     arrival: () => arrival2,
-    doors: () => doors,
+    bump: () => bump,
+    check: () => check,
+    door: () => door,
+    doors: () => doors2,
+    events: () => events,
     go: () => go,
+    headset: () => headset,
     home: () => home,
-    start: () => start
+    kit: () => kit,
+    menu: () => menu,
+    moved: () => moved,
+    play: () => play,
+    say: () => say,
+    start: () => start,
+    target: () => target
   });
 
   // packages/core/dist/constants.js
@@ -2356,10 +2367,10 @@ var NSWP = (() => {
     if (aliases !== void 0) {
       for (const alias of Object.keys(aliases)) {
         const code = alias.charCodeAt(0);
-        const target = decTable[aliases[alias].charCodeAt(0)];
-        if (alias.length !== 1 || code > 127 || target === void 0 || target === -1)
+        const target2 = decTable[aliases[alias].charCodeAt(0)];
+        if (alias.length !== 1 || code > 127 || target2 === void 0 || target2 === -1)
           throw new Error(`alphabet: invalid alias ${alias}`);
-        decTable[code] = target;
+        decTable[code] = target2;
       }
     }
     return {
@@ -2408,11 +2419,11 @@ var NSWP = (() => {
         throw new Error(`${label}: printable ASCII expected`);
     }
   }
-  function wordsToU8(words) {
-    const len = words.length;
+  function wordsToU8(words2) {
+    const len = words2.length;
     const res = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
-      const w = words[i];
+      const w = words2[i];
       if (w < 0 || w >= 32)
         throw new Error(`alphabet.encode: invalid digit ${w}`);
       res[i] = w;
@@ -2429,7 +2440,7 @@ var NSWP = (() => {
     }
     return chk;
   }
-  function bechChecksum(prefix, words, encodingConst = 1) {
+  function bechChecksum(prefix, words2, encodingConst = 1) {
     const len = prefix.length;
     let chk = 1;
     for (let i = 0; i < len; i++) {
@@ -2441,7 +2452,7 @@ var NSWP = (() => {
     chk = bech32Polymod(chk);
     for (let i = 0; i < len; i++)
       chk = bech32Polymod(chk) ^ prefix.charCodeAt(i) & 31;
-    for (let v of words)
+    for (let v of words2)
       chk = bech32Polymod(chk) ^ v;
     for (let i = 0; i < 6; i++)
       chk = bech32Polymod(chk);
@@ -2484,23 +2495,23 @@ var NSWP = (() => {
       return _words.decode(digits);
     };
     const fromWordsUnsafe = unsafeWrapper(fromWords);
-    function encode(prefix, words, limit = 90) {
+    function encode(prefix, words2, limit = 90) {
       astr("bech32.encode prefix", prefix);
       if (limit !== false)
         anumber3(limit, "limit");
-      if (isBytes3(words))
-        words = u8ToNumArr(words);
-      anumArr("bech32.encode", words);
+      if (isBytes3(words2))
+        words2 = u8ToNumArr(words2);
+      anumArr("bech32.encode", words2);
       const plen = prefix.length;
       if (plen === 0)
         throw new TypeError(`Invalid prefix length ${plen}`);
-      const actualLength = plen + 7 + words.length;
+      const actualLength = plen + 7 + words2.length;
       if (limit !== false && actualLength > limit)
         throw new TypeError(`Length ${actualLength} exceeds limit ${limit}`);
       assertBech32Printable("bech32.encode prefix", prefix);
       const lowered = prefix.toLowerCase();
-      const sum = bechChecksum(lowered, words, ENCODING_CONST);
-      return `${lowered}1${BECH_ALPHABET.encode(wordsToU8(words))}${sum}`;
+      const sum = bechChecksum(lowered, words2, ENCODING_CONST);
+      return `${lowered}1${BECH_ALPHABET.encode(wordsToU8(words2))}${sum}`;
     }
     function decode(str, limit = 90) {
       astr("bech32.decode input", str);
@@ -2524,19 +2535,19 @@ var NSWP = (() => {
       if (data.length < 6)
         throw new Error("invalid data length");
       const digits = BECH_ALPHABET.decode(data);
-      const words = u8ToNumArr(digits, digits.length - 6);
-      const sum = bechChecksum(prefix, words, ENCODING_CONST);
+      const words2 = u8ToNumArr(digits, digits.length - 6);
+      const sum = bechChecksum(prefix, words2, ENCODING_CONST);
       if (!data.endsWith(sum))
         throw new Error(`Invalid checksum in ${str}`);
-      return { prefix, words };
+      return { prefix, words: words2 };
     }
     const decodeUnsafe = unsafeWrapper(decode);
     function decodeToBytes(str, limit = 90) {
-      const { prefix, words } = decode(str, limit);
+      const { prefix, words: words2 } = decode(str, limit);
       return {
         prefix,
-        words,
-        bytes: fromWords(words)
+        words: words2,
+        bytes: fromWords(words2)
       };
     }
     function encodeFromBytes(prefix, bytes) {
@@ -3871,6 +3882,89 @@ var NSWP = (() => {
     maxTtlSec: 12 * 3600
   };
 
+  // packages/core/dist/local.js
+  var LOCAL_MAP_PATH = "/.well-known/nswp-local.json";
+  var LOCAL_MAP_LIMIT = 64;
+  function isLocalHost(hostname) {
+    const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (h === "localhost" || h.endsWith(".localhost") || h === "::1")
+      return true;
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+    if (!m)
+      return false;
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if ([a, b, Number(m[3]), Number(m[4])].some((n) => n > 255))
+      return false;
+    return a === 127 || a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a === 169 && b === 254;
+  }
+  function originOf(text) {
+    if (typeof text !== "string" || text.length > 300)
+      return null;
+    try {
+      const u = new URL(text);
+      return u.username || u.password ? null : u;
+    } catch {
+      return null;
+    }
+  }
+  function cleanLocalMap(input) {
+    const out = /* @__PURE__ */ new Map();
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      return out;
+    for (const [real, local] of Object.entries(input)) {
+      if (out.size >= LOCAL_MAP_LIMIT)
+        break;
+      const from = originOf(real);
+      const to = originOf(local);
+      if (!from || !to)
+        continue;
+      if (from.protocol !== "https:" || isLocalHost(from.hostname))
+        continue;
+      if (to.protocol !== "http:" || !isLocalHost(to.hostname))
+        continue;
+      out.set(from.origin, to.origin);
+    }
+    return out;
+  }
+  function mapToLocal(url, map) {
+    if (!map.size)
+      return url;
+    const u = originOf(url);
+    const to = u && map.get(u.origin);
+    return to ? `${to}${url.slice(u.origin.length)}` : url;
+  }
+  var NONE = /* @__PURE__ */ new Map();
+  var loading;
+  function onLocalHost() {
+    try {
+      return typeof location !== "undefined" && location.protocol === "http:" && isLocalHost(location.hostname);
+    } catch {
+      return false;
+    }
+  }
+  function localMap() {
+    if (loading)
+      return loading;
+    if (!onLocalHost() || typeof fetch !== "function")
+      return loading = Promise.resolve(NONE);
+    loading = (async () => {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 1500);
+      try {
+        const res = await fetch(LOCAL_MAP_PATH, { cache: "no-store", credentials: "omit", signal: ctl.signal });
+        return res.ok ? cleanLocalMap(await res.json()) : NONE;
+      } catch {
+        return NONE;
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+    return loading;
+  }
+  async function toLocal(url) {
+    return mapToLocal(url, await localMap());
+  }
+
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
   var LOOK_KEY = "nswp:look";
@@ -3900,6 +3994,7 @@ var NSWP = (() => {
      */
     read() {
       if (cached) return cached;
+      void localMap();
       const raw = arrivalParam(location.hash);
       if (!raw) {
         cached = { context: null, warnings: [] };
@@ -4015,7 +4110,7 @@ var NSWP = (() => {
       }
       const airlock = portal.airlockFor(opts);
       if (airlock) {
-        location.assign(buildAirlockUrl(airlock, dest, carried(opts, immersive)));
+        location.assign(await toLocal(buildAirlockUrl(airlock, dest, carried(opts, immersive))));
         return;
       }
       showFallback(dest);
@@ -4035,7 +4130,7 @@ var NSWP = (() => {
         } catch {
         }
       }
-      location.assign(buildWayUrl(airlock, carried(opts, immersive)));
+      location.assign(await toLocal(buildWayUrl(airlock, carried(opts, immersive))));
       return true;
     },
     /**
@@ -4054,7 +4149,7 @@ var NSWP = (() => {
         } catch {
         }
       }
-      location.assign(buildWayUrl(airlock, { ...carried(opts, immersive), doors: true }));
+      location.assign(await toLocal(buildWayUrl(airlock, { ...carried(opts, immersive), doors: true })));
       return true;
     }
   };
@@ -4090,7 +4185,7 @@ var NSWP = (() => {
     go2.disabled = !chk?.ok;
     cancel.onclick = () => host.remove();
     go2.onclick = () => {
-      if (chk?.ok) location.assign(buildArrivalUrl(chk.value.url, dest.entryPoint ? { entry: dest.entryPoint } : {}));
+      if (chk?.ok) void toLocal(buildArrivalUrl(chk.value.url, dest.entryPoint ? { entry: dest.entryPoint } : {})).then((to) => location.assign(to));
     };
     row.append(cancel, go2);
     card.append(h, where, row);
@@ -4099,9 +4194,1754 @@ var NSWP = (() => {
     go2.focus();
   }
 
+  // packages/sdk/src/fps.ts
+  var LOOK_SPEED = 22e-4;
+  var PITCH_LIMIT = 85 * Math.PI / 180;
+  var SPRINT = 1.75;
+  var DESK_KEY = "nswp:fps";
+  var DESK_WORDS = {
+    intense: "Desk controls: intense",
+    casual: "Desk controls: casual",
+    nowIntense: "Intense: click the view to look round with the mouse. W, A, S, D walk, Shift runs, F uses what is in front of you, and Escape brings up this menu.",
+    nowCasual: "Casual: click where you want to stand, and drag to look round.",
+    click: "Click the view to look round. Escape brings up the menu."
+  };
+  var hasMouse = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
+  function startsIntense(arrived, key = DESK_KEY) {
+    if (!hasMouse()) return false;
+    try {
+      return arrived || localStorage.getItem(key) === "1";
+    } catch {
+      return arrived;
+    }
+  }
+  function keepIntense(on, key = DESK_KEY) {
+    try {
+      if (on) localStorage.setItem(key, "1");
+      else localStorage.removeItem(key);
+    } catch {
+    }
+  }
+
+  // packages/sdk/src/gate-size.ts
+  var PORTAL_WIDTH = 1.5;
+  var PORTAL_HEIGHT = 2.1;
+  var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
+  var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
+
+  // packages/sdk/src/panel-store.ts
+  var PANEL_LIMITS = {
+    count: 24,
+    titleChars: 80,
+    noteChars: 4e3,
+    srcChars: 2048,
+    minWidth: 0.3,
+    maxWidth: 3,
+    /** A panel is never kept further from the middle of a world than this, in metres. */
+    reach: 500,
+    /** The largest file of the visitor's own that is kept, in bytes. */
+    fileBytes: 64 * 1024 * 1024
+  };
+
+  // packages/sdk/src/library.ts
+  var DB = "nswp-panels";
+  function files() {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open(DB, 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("files");
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+  }
+  async function fileStore(mode, run) {
+    try {
+      const db = await files();
+      return await new Promise((resolve, reject) => {
+        const request = run(db.transaction("files", mode).objectStore("files"));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return void 0;
+    }
+  }
+
+  // packages/sdk/src/sound-store.ts
+  var CUES = [
+    "step",
+    // a footstep, walking
+    "land",
+    // arriving at the end of a jump: a step in a headset, or one taken at once
+    "bump",
+    // walking into something that can't be walked through
+    "grab",
+    "drop",
+    "hover",
+    "press",
+    "menuOpen",
+    "menuClose",
+    "cross",
+    // leaving through a door
+    "arrive",
+    // coming out of one
+    "join",
+    // someone is in the room who wasn't: the visitor, or another person
+    "leave",
+    "micOn",
+    "micOff",
+    "notice",
+    // the kit has something to say
+    "error"
+  ];
+  var tone = (from, to, at, dur, gain, wave = "sine") => ({
+    kind: "tone",
+    wave,
+    from,
+    ...to === void 0 ? {} : { to },
+    at,
+    dur,
+    gain
+  });
+  var noise = (band, at, dur, gain) => ({ kind: "noise", band, at, dur, gain });
+  var RECIPES = {
+    step: [noise(850, 0, 0.06, 0.2), tone(120, 70, 0, 0.07, 0.16)],
+    land: [tone(190, 62, 0, 0.16, 0.3), noise(480, 0, 0.11, 0.2)],
+    bump: [tone(96, 58, 0, 0.12, 0.28, "triangle"), noise(260, 0, 0.05, 0.14)],
+    grab: [tone(520, 780, 0, 0.07, 0.16, "triangle")],
+    drop: [tone(700, 420, 0, 0.08, 0.16, "triangle")],
+    hover: [tone(1400, void 0, 0, 0.025, 0.05)],
+    press: [tone(880, 1320, 0, 0.05, 0.15, "triangle")],
+    menuOpen: [tone(660, void 0, 0, 0.05, 0.12), tone(990, void 0, 0.05, 0.07, 0.12)],
+    menuClose: [tone(990, void 0, 0, 0.05, 0.12), tone(660, void 0, 0.05, 0.07, 0.12)],
+    cross: [tone(196, 784, 0, 0.5, 0.22), noise(1400, 0.05, 0.45, 0.07), tone(392, 1568, 0.1, 0.4, 0.08)],
+    arrive: [tone(784, 392, 0, 0.42, 0.2), tone(1176, 588, 0.04, 0.38, 0.08), noise(900, 0, 0.2, 0.05)],
+    join: [tone(523.25, void 0, 0, 0.09, 0.14), tone(783.99, void 0, 0.09, 0.14, 0.14)],
+    leave: [tone(783.99, void 0, 0, 0.09, 0.12), tone(523.25, void 0, 0.09, 0.14, 0.12)],
+    micOn: [tone(600, 900, 0, 0.08, 0.14)],
+    micOff: [tone(900, 600, 0, 0.08, 0.14)],
+    notice: [tone(1046.5, void 0, 0, 0.08, 0.09), tone(1318.5, void 0, 0.08, 0.12, 0.08)],
+    error: [tone(220, void 0, 0, 0.11, 0.13, "square"), tone(185, void 0, 0.14, 0.14, 0.13, "square")]
+  };
+  function cueRecipe(cue) {
+    return RECIPES[cue];
+  }
+  var SOUND_LIMITS = {
+    /** A world's own cue: a file this size at most, this long at most. Longer ones aren't sounds for something that happened. */
+    cueBytes: 512 * 1024,
+    cueSeconds: 3,
+    /** Kinds of file a world may name. */
+    extensions: ["ogg", "oga", "opus", "mp3", "m4a", "aac", "wav", "webm", "flac"],
+    /** Files for one cue: one is chosen each time, so a sound heard often isn't the same sound every time. */
+    variants: 6,
+    /** Pieces of music for one place: they play in turn. */
+    tracks: 8,
+    /** The visitor's own songs: this many, each this size at most. */
+    songs: 60,
+    songBytes: 40 * 1024 * 1024,
+    titleChars: 80
+  };
+  function ownSound(address, base) {
+    if (typeof address !== "string" || address.length > 2e3) return null;
+    let u;
+    let b;
+    try {
+      b = new URL(base);
+      u = new URL(address, b);
+    } catch {
+      return null;
+    }
+    if (u.origin !== b.origin || u.protocol !== "https:" && u.protocol !== "http:") return null;
+    const ext = u.pathname.split(".").pop()?.toLowerCase() ?? "";
+    if (!SOUND_LIMITS.extensions.includes(ext)) return null;
+    u.hash = "";
+    return u.href;
+  }
+  function ownSounds(value, base, limit) {
+    const out = [];
+    for (const v of Array.isArray(value) ? value : [value]) {
+      const address = ownSound(v, base);
+      if (address && !out.includes(address)) out.push(address);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+  function cleanTheme(input, base) {
+    const out = { cues: {} };
+    if (!input || typeof input !== "object") return out;
+    const { cues, music, hum } = input;
+    if (cues && typeof cues === "object") {
+      for (const cue of CUES) {
+        const v = cues[cue];
+        if (v === null) out.cues[cue] = null;
+        else if (v !== void 0) {
+          const files2 = ownSounds(v, base, SOUND_LIMITS.variants);
+          if (files2.length) out.cues[cue] = files2;
+        }
+      }
+    }
+    if (music === null) out.music = null;
+    else if (music !== void 0) {
+      const tracks = ownSounds(music, base, SOUND_LIMITS.tracks);
+      if (tracks.length) out.music = tracks;
+    }
+    if (hum === null) out.hum = null;
+    else if (hum !== void 0) {
+      const address = ownSound(hum, base);
+      if (address) out.hum = address;
+    }
+    return out;
+  }
+  function cleanKit(input, folder, playsOgg) {
+    const out = { cues: {} };
+    if (!input || typeof input !== "object") return out;
+    const pick = (entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const { ogg, mp3 } = entry;
+      return playsOgg ? ogg ?? mp3 : mp3 ?? ogg;
+    };
+    const many = (value, limit) => ownSounds((Array.isArray(value) ? value : [value]).map(pick), folder, limit);
+    const { cues, music, hum } = input;
+    if (cues && typeof cues === "object") {
+      for (const cue of CUES) {
+        const files2 = many(cues[cue], SOUND_LIMITS.variants);
+        if (files2.length) out.cues[cue] = files2;
+      }
+    }
+    const tracks = many(music, SOUND_LIMITS.tracks);
+    if (tracks.length) out.music = tracks;
+    const h = ownSound(pick(hum), folder);
+    if (h) out.hum = h;
+    return out;
+  }
+  function nextVariant(count, last, random = Math.random) {
+    if (count <= 1) return 0;
+    if (last < 0 || last >= count) return Math.min(count - 1, Math.floor(random() * count));
+    const i = Math.floor(random() * (count - 1));
+    return i >= last ? i + 1 : i;
+  }
+  var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
+  var LEVEL_STEPS = [0, 0.35, 0.7, 1];
+  var LEVEL_WORDS = ["off", "low", "medium", "high"];
+  var unit = (v, fallback) => typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
+  function cleanLevels(input) {
+    const i = input && typeof input === "object" ? input : {};
+    return {
+      off: i.off === true,
+      effects: unit(i.effects, DEFAULT_LEVELS.effects),
+      music: unit(i.music, DEFAULT_LEVELS.music),
+      voices: unit(i.voices, DEFAULT_LEVELS.voices),
+      hearShared: i.hearShared === true,
+      shared: unit(i.shared, DEFAULT_LEVELS.shared),
+      hum: i.hum !== false
+    };
+  }
+  function levelStep(v) {
+    let best = 0;
+    LEVEL_STEPS.forEach((s, i) => {
+      if (Math.abs(s - v) < Math.abs(LEVEL_STEPS[best] - v)) best = i;
+    });
+    return best;
+  }
+  function nextLevel(v) {
+    return LEVEL_STEPS[(levelStep(v) + 1) % LEVEL_STEPS.length];
+  }
+  function seeded(seed) {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    let a = h >>> 0;
+    return () => {
+      a = a + 1831565813 >>> 0;
+      let t = a;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var ROOTS = [98, 110, 116.54, 130.81, 146.83, 155.56];
+  var SCALES = [
+    [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3],
+    // major pentatonic: open, bright
+    [1, 6 / 5, 4 / 3, 3 / 2, 9 / 5],
+    // minor pentatonic: darker
+    [1, 9 / 8, 4 / 3, 3 / 2, 16 / 9],
+    // suspended: unresolved, still
+    [1, 5 / 4, 3 / 2, 15 / 8, 9 / 4]
+    // major seventh: warm
+  ];
+  function ambiencePlan(seed) {
+    const r = seeded(`ambience:${seed}`);
+    const root = ROOTS[Math.floor(r() * ROOTS.length)];
+    const scale = SCALES[Math.floor(r() * SCALES.length)];
+    const fifth = scale.includes(3 / 2) ? 3 / 2 : scale[3];
+    const drones = [1, fifth, 2, scale[2] * 2].map((m) => ({ hz: root * m, detune: (r() - 0.5) * 14, swell: 11 + r() * 18 }));
+    const least = 3.5 + r() * 3;
+    return { root, scale, drones, colour: 500 + r() * 900, gap: [least, least + 3 + r() * 4] };
+  }
+  function songTitle(fileName) {
+    const raw = typeof fileName === "string" ? fileName : "";
+    const cleaned = raw.split(/[\\/]/).pop().replace(/\.[a-z0-9]{1,5}$/i, "").normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ").replace(/[_\s]+/g, " ").trim();
+    return [...cleaned].slice(0, SOUND_LIMITS.titleChars).join("").trim() || "A song";
+  }
+  function cleanSongs(input) {
+    if (!Array.isArray(input)) return [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const s of input) {
+      if (!s || typeof s !== "object") continue;
+      const { id, title, size, at } = s;
+      if (typeof id !== "string" || !/^[a-z0-9-]{4,40}$/.test(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ id, title: songTitle(title), size: typeof size === "number" && size > 0 ? Math.floor(size) : 0, at: typeof at === "number" && at > 0 ? Math.floor(at) : 0 });
+      if (out.length >= SOUND_LIMITS.songs) break;
+    }
+    return out;
+  }
+  function songRefusal(file, have) {
+    const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+    const isSound = (file.type ?? "").startsWith("audio/") || SOUND_LIMITS.extensions.includes(ext);
+    if (!isSound) return "That isn't a sound file.";
+    if (!file.size) return "That file is empty.";
+    if (file.size > SOUND_LIMITS.songBytes) return `That file is over ${Math.round(SOUND_LIMITS.songBytes / 1024 / 1024)} MB, which is more than is kept here.`;
+    if (have >= SOUND_LIMITS.songs) return `${SOUND_LIMITS.songs} songs are kept here at most. Take one out first.`;
+    return null;
+  }
+
+  // packages/sdk/src/sound.ts
+  var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25 };
+  var STRIDE = 0.75;
+  var JUMP = 1.2;
+  function createSounds(o = {}) {
+    const ctx = o.context ?? new AudioContext();
+    const base = o.base ?? location.href;
+    const theme = cleanTheme(o.theme, base);
+    const levelsKey = o.keep?.levels ?? "nswp:sound";
+    const songsKey = o.keep?.songs ?? "nswp:jukebox";
+    const read4 = (key) => {
+      try {
+        return JSON.parse(localStorage.getItem(key) ?? "null");
+      } catch {
+        return null;
+      }
+    };
+    const write = (key, value) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+      }
+    };
+    let levels = cleanLevels(read4(levelsKey));
+    let songs = cleanSongs(read4(songsKey));
+    let disposed = false;
+    const master = ctx.createGain();
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -14;
+    limiter.knee.value = 10;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 3e-3;
+    limiter.release.value = 0.25;
+    const meter = ctx.createAnalyser();
+    meter.fftSize = 1024;
+    master.connect(limiter);
+    limiter.connect(meter);
+    limiter.connect(ctx.destination);
+    const effects = ctx.createGain();
+    const placeMusic = ctx.createGain();
+    const ownMusic = ctx.createGain();
+    for (const g of [effects, placeMusic, ownMusic]) g.connect(master);
+    const humGain = ctx.createGain();
+    humGain.connect(placeMusic);
+    const listeners = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of listeners) {
+        try {
+          fn(levels);
+        } catch (err) {
+          console.error("nswp-sdk sound listener failed", err);
+        }
+      }
+    };
+    const juke = { audio: null, url: "", current: null, playing: false, tap: null };
+    const apply = () => {
+      const t = ctx.currentTime;
+      master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
+      effects.gain.setTargetAtTime(levels.effects, t, 0.05);
+      placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
+      ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
+      humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
+    };
+    apply();
+    let noiseBuffer = null;
+    const noise2 = () => {
+      if (noiseBuffer) return noiseBuffer;
+      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      return noiseBuffer;
+    };
+    const playPart = (p, when) => {
+      const start2 = when + p.at;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, start2);
+      gain.gain.linearRampToValueAtTime(p.gain, start2 + Math.min(6e-3, p.dur / 3));
+      gain.gain.exponentialRampToValueAtTime(8e-4, start2 + p.dur);
+      gain.connect(effects);
+      if (p.kind === "tone") {
+        const osc = ctx.createOscillator();
+        osc.type = p.wave;
+        osc.frequency.setValueAtTime(p.from, start2);
+        if (p.to !== void 0) osc.frequency.exponentialRampToValueAtTime(p.to, start2 + p.dur);
+        osc.connect(gain);
+        osc.start(start2);
+        osc.stop(start2 + p.dur + 0.02);
+      } else {
+        const src = ctx.createBufferSource();
+        src.buffer = noise2();
+        const band = ctx.createBiquadFilter();
+        band.type = "bandpass";
+        band.frequency.value = p.band;
+        band.Q.value = 1.1;
+        src.connect(band);
+        band.connect(gain);
+        src.start(start2, Math.random() * 0.5);
+        src.stop(start2 + p.dur + 0.02);
+      }
+    };
+    const CUE_LOUDNESS = 0.14;
+    const loudnessOf = (buffer) => {
+      let sum = 0;
+      let n = 0;
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const data = buffer.getChannelData(c);
+        for (let i = 0; i < data.length; i += 4) {
+          sum += data[i] * data[i];
+          n++;
+        }
+      }
+      return n ? Math.sqrt(sum / n) : 0;
+    };
+    const loadCue = async (address) => {
+      try {
+        const res = await fetch(address);
+        if (!res.ok) return null;
+        const bytes = await res.arrayBuffer();
+        if (bytes.byteLength > SOUND_LIMITS.cueBytes) return null;
+        const buffer = await ctx.decodeAudioData(bytes);
+        if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return null;
+        const loud = loudnessOf(buffer);
+        return { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 };
+      } catch {
+        return null;
+      }
+    };
+    const own = /* @__PURE__ */ new Map();
+    const fromKit = /* @__PURE__ */ new Map();
+    const loadInto = (into, files2) => {
+      for (const [cue, addresses] of Object.entries(files2)) {
+        for (const address of addresses ?? []) {
+          void loadCue(address).then((loaded) => {
+            if (loaded) into.set(cue, [...into.get(cue) ?? [], loaded]);
+          });
+        }
+      }
+    };
+    let kit2 = { cues: {} };
+    const kitReady = o.kit ? (async () => {
+      try {
+        const folder = new URL(o.kit.endsWith("/") ? o.kit : `${o.kit}/`, base).href;
+        const res = await fetch(new URL("sounds.json", folder).href);
+        if (!res.ok) return;
+        const playsOgg = new Audio().canPlayType('audio/ogg; codecs="opus"') !== "";
+        kit2 = cleanKit(await res.json(), folder, playsOgg);
+      } catch {
+      }
+    })() : Promise.resolve();
+    let cuesAsked = false;
+    const loadCues = () => {
+      if (cuesAsked || disposed) return;
+      cuesAsked = true;
+      loadInto(own, theme.cues);
+      void kitReady.then(() => {
+        const rest = Object.fromEntries(Object.entries(kit2.cues).filter(([cue]) => theme.cues[cue] === void 0));
+        loadInto(fromKit, rest);
+      });
+    };
+    const last = /* @__PURE__ */ new Map();
+    const lastVariant = /* @__PURE__ */ new Map();
+    const play2 = (cue) => {
+      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+      if (theme.cues[cue] === null) return;
+      const now = ctx.currentTime;
+      if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
+      last.set(cue, now);
+      const files2 = own.get(cue) ?? fromKit.get(cue);
+      if (files2?.length) {
+        const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
+        lastVariant.set(cue, which);
+        const src = ctx.createBufferSource();
+        src.buffer = files2[which].buffer;
+        const level = ctx.createGain();
+        level.gain.value = files2[which].gain;
+        src.connect(level);
+        level.connect(effects);
+        src.start();
+        return;
+      }
+      for (const part of cueRecipe(cue)) playPart(part, now + 5e-3);
+    };
+    let walked = 0;
+    const moved2 = (metres) => {
+      if (!(metres > 5e-4)) return;
+      if (metres > JUMP) {
+        walked = 0;
+        return play2("land");
+      }
+      walked += metres;
+      if (walked >= STRIDE) {
+        walked = 0;
+        play2("step");
+      }
+    };
+    const loopPlayer = (tracks, into, opts = {}) => {
+      const fade = opts.fade ?? 2;
+      const out = ctx.createGain();
+      out.gain.value = opts.gain ?? 1;
+      out.connect(into);
+      const deck = () => {
+        const audio = new Audio();
+        audio.preload = "auto";
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        ctx.createMediaElementSource(audio).connect(gain);
+        gain.connect(out);
+        return { audio, gain };
+      };
+      const decks = [deck(), deck()];
+      let active = 0;
+      let index = 0;
+      let turning = false;
+      let stopped = false;
+      const curve = (rising) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(k / 31 * Math.PI / 2));
+      const turn = () => {
+        if (turning || stopped) return;
+        turning = true;
+        const from = decks[active];
+        const to = decks[1 - active];
+        index = (index + 1) % tracks.length;
+        to.audio.src = tracks[index];
+        to.audio.currentTime = 0;
+        void to.audio.play().then(
+          () => {
+            const t = ctx.currentTime + 0.02;
+            from.gain.gain.cancelScheduledValues(t);
+            to.gain.gain.cancelScheduledValues(t);
+            from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
+            to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
+            active = 1 - active;
+            setTimeout(() => {
+              from.audio.pause();
+              turning = false;
+            }, (fade + 0.1) * 1e3);
+          },
+          () => {
+            turning = false;
+          }
+        );
+      };
+      for (const d of decks) {
+        d.audio.addEventListener("timeupdate", () => {
+          if (d !== decks[active] || !Number.isFinite(d.audio.duration)) return;
+          if (d.audio.duration - d.audio.currentTime <= fade + 0.35) turn();
+        });
+        d.audio.addEventListener("ended", () => {
+          if (d === decks[active]) turn();
+        });
+        d.audio.addEventListener("error", () => {
+          if (stopped || d !== decks[active] || turning) return;
+          stopped = true;
+          opts.onFail?.();
+        });
+      }
+      const first = decks[0];
+      first.audio.src = tracks[0];
+      void first.audio.play().then(
+        () => first.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.8),
+        () => {
+        }
+      );
+      return {
+        stop() {
+          stopped = true;
+          for (const d of decks) {
+            d.audio.pause();
+            d.audio.removeAttribute("src");
+          }
+          out.disconnect();
+        },
+        /** How many times one piece has handed on to the next. For tests. */
+        get index() {
+          return index;
+        }
+      };
+    };
+    let kind = theme.music === null ? "none" : theme.music ? "world" : "made";
+    let stopMusic = null;
+    let stopHum = null;
+    let humAddress = null;
+    let musicAsked = false;
+    const startMusic = () => {
+      if (musicAsked || disposed) return;
+      musicAsked = true;
+      loadCues();
+      void kitReady.then(() => {
+        if (disposed) return;
+        humAddress = theme.hum === null ? null : theme.hum ?? kit2.hum ?? null;
+        if (humAddress) stopHum = loopPlayer([humAddress], humGain, { gain: 0.55 }).stop;
+        const tracks = theme.music === null ? null : theme.music ?? kit2.music ?? null;
+        if (theme.music === void 0 && kit2.music) kind = "kit";
+        changed();
+        if (theme.music === null) return;
+        if (tracks) {
+          stopMusic = loopPlayer(tracks, placeMusic, {
+            gain: 0.6,
+            onFail: () => {
+              stopMusic?.();
+              kind = "made";
+              stopMusic = madeMusic();
+              changed();
+            }
+          }).stop;
+          return;
+        }
+        stopMusic = madeMusic();
+      });
+    };
+    const madeMusic = () => {
+      const plan = ambiencePlan(o.seed ?? location.host);
+      const bed = ctx.createGain();
+      bed.gain.value = 0.12;
+      const colour = ctx.createBiquadFilter();
+      colour.type = "lowpass";
+      colour.frequency.value = plan.colour;
+      colour.connect(bed);
+      bed.connect(placeMusic);
+      const running = [];
+      plan.drones.forEach((d, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = i < 2 ? "sine" : "triangle";
+        osc.frequency.value = d.hz;
+        osc.detune.value = d.detune;
+        const swell = ctx.createGain();
+        swell.gain.value = i < 2 ? 0.3 : 0.14;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 1 / d.swell;
+        const depth = ctx.createGain();
+        depth.gain.value = swell.gain.value * 0.8;
+        lfo.connect(depth);
+        depth.connect(swell.gain);
+        osc.connect(swell);
+        swell.connect(colour);
+        osc.start();
+        lfo.start();
+        running.push(osc, lfo);
+      });
+      const random = seeded(`notes:${o.seed ?? location.host}`);
+      let timer;
+      const note = () => {
+        if (disposed) return;
+        if (ctx.state === "running" && !levels.off && levels.music > 0) {
+          const hz = plan.root * plan.scale[Math.floor(random() * plan.scale.length)] * (random() < 0.5 ? 2 : 4);
+          const t = ctx.currentTime + 0.05;
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.value = hz;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.11, t + 0.5);
+          g.gain.exponentialRampToValueAtTime(8e-4, t + 4.5);
+          osc.connect(g);
+          g.connect(bed);
+          osc.start(t);
+          osc.stop(t + 4.6);
+        }
+        timer = setTimeout(note, (plan.gap[0] + random() * (plan.gap[1] - plan.gap[0])) * 1e3);
+      };
+      timer = setTimeout(note, 1500);
+      return () => {
+        clearTimeout(timer);
+        for (const n of running) {
+          try {
+            n.stop();
+          } catch {
+          }
+        }
+        bed.disconnect();
+      };
+    };
+    const wake = () => {
+      void ctx.resume().then(startMusic, () => {
+      });
+      if (ctx.state === "running") startMusic();
+    };
+    const onTouch = () => wake();
+    addEventListener("pointerdown", onTouch, true);
+    addEventListener("keydown", onTouch, true);
+    if (ctx.state === "running") startMusic();
+    const keepSongs = () => write(songsKey, songs);
+    const stopOwn = () => {
+      juke.audio?.pause();
+      juke.playing = false;
+      apply();
+      changed();
+    };
+    const player = () => {
+      if (!juke.audio || !juke.tap) {
+        juke.audio = new Audio();
+        const source = ctx.createMediaElementSource(juke.audio);
+        source.connect(ownMusic);
+        juke.tap = ctx.createMediaStreamDestination();
+        source.connect(juke.tap);
+        juke.audio.addEventListener("ended", () => void jukebox.next());
+      }
+      return { audio: juke.audio, tap: juke.tap };
+    };
+    const jukebox = {
+      list: () => [...songs],
+      async add(file) {
+        const refusal = songRefusal({ type: file.type, size: file.size, ...file.name ? { name: file.name } : {} }, songs.length);
+        if (refusal) return refusal;
+        const id = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const kept = await fileStore("readwrite", (s) => s.put(file, `song:${id}`));
+        if (kept === void 0) return "This browser couldn't keep that file.";
+        songs = cleanSongs([...songs, { id, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
+        keepSongs();
+        changed();
+        return null;
+      },
+      async remove(id) {
+        if (juke.current?.id === id) {
+          stopOwn();
+          juke.current = null;
+        }
+        songs = songs.filter((s) => s.id !== id);
+        keepSongs();
+        await fileStore("readwrite", (s) => s.delete(`song:${id}`));
+        changed();
+      },
+      async play(id) {
+        const song = id ? songs.find((s) => s.id === id) : juke.current ?? songs[0];
+        if (!song || disposed) return false;
+        player();
+        if (juke.current?.id !== song.id || !juke.url) {
+          const file = await fileStore("readonly", (s) => s.get(`song:${song.id}`));
+          if (!file) return false;
+          if (juke.url) URL.revokeObjectURL(juke.url);
+          juke.url = URL.createObjectURL(file);
+          juke.audio.src = juke.url;
+          juke.current = song;
+        }
+        try {
+          await ctx.resume();
+          await juke.audio.play();
+        } catch {
+          juke.playing = false;
+          apply();
+          changed();
+          return false;
+        }
+        juke.playing = true;
+        apply();
+        changed();
+        return true;
+      },
+      pause: stopOwn,
+      async next() {
+        if (songs.length === 0) return false;
+        const at = songs.findIndex((s) => s.id === juke.current?.id);
+        return jukebox.play(songs[(at + 1) % songs.length].id);
+      },
+      get playing() {
+        return juke.playing;
+      },
+      get current() {
+        return juke.current;
+      },
+      output: () => player().tap.stream.getAudioTracks()[0]
+    };
+    const samples = new Float32Array(meter.fftSize);
+    return {
+      play: play2,
+      moved: moved2,
+      bump: () => play2("bump"),
+      get levels() {
+        return levels;
+      },
+      setLevels(patch) {
+        levels = cleanLevels({ ...levels, ...patch });
+        write(levelsKey, levels);
+        apply();
+        changed();
+      },
+      jukebox,
+      onChange(fn) {
+        listeners.add(fn);
+        fn(levels);
+        return () => listeners.delete(fn);
+      },
+      get music() {
+        return kind;
+      },
+      get hasHum() {
+        return !!humAddress;
+      },
+      loudness() {
+        meter.getFloatTimeDomainData(samples);
+        return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
+      },
+      dispose() {
+        disposed = true;
+        removeEventListener("pointerdown", onTouch, true);
+        removeEventListener("keydown", onTouch, true);
+        stopMusic?.();
+        stopHum?.();
+        juke.audio?.pause();
+        if (juke.url) URL.revokeObjectURL(juke.url);
+        master.disconnect();
+      }
+    };
+  }
+  function addSoundControls(controls2, sounds2) {
+    const word = (v) => LEVEL_WORDS[levelStep(v)];
+    let listed = [];
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "audio/*";
+    picker.multiple = true;
+    picker.hidden = true;
+    document.body.append(picker);
+    picker.addEventListener("change", async () => {
+      let added = 0;
+      let refused = "";
+      for (const file of [...picker.files ?? []]) {
+        const no = await sounds2.jukebox.add(file);
+        if (no) refused = no;
+        else added++;
+      }
+      picker.value = "";
+      controls2.say(added ? `${added === 1 ? "1 song" : `${added} songs`} added. Only you hear your music.${refused ? ` ${refused}` : ""}` : refused || "Nothing was added.");
+      refresh();
+    });
+    const refresh = () => {
+      for (const id of listed) controls2.remove(id);
+      const songs = sounds2.jukebox.list();
+      listed = songs.map((s) => `song-${s.id}`);
+      controls2.addSection({
+        id: "sound",
+        label: "Sound",
+        icon: "sound",
+        note: () => `${sounds2.levels.off ? "All sound is off. " : ""}${sounds2.music === "none" ? "This place has no music of its own." : sounds2.music === "world" ? "This place plays its own music." : sounds2.music === "kit" ? "This place plays the music every world starts with." : "This place's music is made by your browser, from its name."} Your own music is kept in this browser, for this site, and only you hear it.`
+      });
+      songs.forEach(
+        (s, i) => controls2.add({
+          id: listed[i],
+          section: "sound",
+          icon: "note",
+          on: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id,
+          label: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id ? `Playing: ${s.title}` : s.title,
+          act: async () => {
+            if (sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id) sounds2.jukebox.pause();
+            else if (!await sounds2.jukebox.play(s.id)) controls2.say(`${s.title} couldn't be played.`);
+          }
+        })
+      );
+    };
+    const level = (id, name, key) => ({
+      id,
+      section: "sound",
+      label: () => `${name}: ${word(sounds2.levels[key])}`,
+      on: () => sounds2.levels[key] > 0,
+      act: () => sounds2.setLevels({ [key]: nextLevel(sounds2.levels[key]) })
+    });
+    controls2.addSection({ id: "sound", label: "Sound", icon: "sound" });
+    controls2.add(
+      {
+        id: "sound-all",
+        section: "sound",
+        icon: () => sounds2.levels.off ? "soundOff" : "sound",
+        on: () => !sounds2.levels.off,
+        label: () => sounds2.levels.off ? "All sound: off" : "All sound: on",
+        act: () => sounds2.setLevels({ off: !sounds2.levels.off })
+      },
+      level("sound-effects", "Effects", "effects"),
+      level("sound-music", "Music", "music"),
+      level("sound-voices", "Voices", "voices"),
+      {
+        id: "sound-hum",
+        section: "sound",
+        icon: "sound",
+        on: () => sounds2.levels.hum,
+        hidden: () => !sounds2.hasHum,
+        label: () => sounds2.levels.hum ? "The room's hum: on" : "The room's hum: off",
+        act: () => sounds2.setLevels({ hum: !sounds2.levels.hum })
+      },
+      {
+        id: "juke-add",
+        section: "sound",
+        icon: "save",
+        label: "Add music from this device",
+        act: () => picker.click()
+      },
+      {
+        id: "juke-play",
+        section: "sound",
+        icon: "note",
+        on: () => sounds2.jukebox.playing,
+        hidden: () => sounds2.jukebox.list().length === 0,
+        label: () => sounds2.jukebox.playing ? "Pause your music" : "Play your music",
+        act: async () => {
+          if (sounds2.jukebox.playing) return sounds2.jukebox.pause();
+          if (!await sounds2.jukebox.play()) controls2.say("Your music couldn't be played.");
+        }
+      },
+      {
+        id: "juke-next",
+        section: "sound",
+        icon: "turn",
+        hidden: () => sounds2.jukebox.list().length < 2,
+        label: "Next song",
+        act: () => void sounds2.jukebox.next()
+      },
+      {
+        id: "juke-remove",
+        section: "sound",
+        icon: "exit",
+        hidden: () => !sounds2.jukebox.current,
+        label: () => `Take out ${sounds2.jukebox.current?.title ?? "this song"}`,
+        act: async () => {
+          const song = sounds2.jukebox.current;
+          if (!song) return;
+          await sounds2.jukebox.remove(song.id);
+          controls2.say(`${song.title} was taken out of this browser.`);
+          refresh();
+        }
+      }
+    );
+    refresh();
+    controls2.onSignal((name) => {
+      if (CUES.includes(name)) sounds2.play(name);
+    });
+    controls2.onSay(() => sounds2.play("notice"));
+    sounds2.onChange(() => refresh());
+    return { refresh };
+  }
+
+  // packages/sdk/src/stroll.ts
+  var WALK_SPEED = 2.4;
+  var TAP_REACH = 3;
+  var DRAG_LOOK = 5e-3;
+
+  // packages/sdk/src/ui/fullscreen.ts
+  function fullscreenAction(controls2, presenting) {
+    return {
+      id: "fullscreen",
+      section: "view",
+      icon: "size",
+      on: () => !!document.fullscreenElement,
+      // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
+      hidden: () => !document.fullscreenEnabled || presenting(),
+      label: () => document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off",
+      act: async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          controls2.say("This browser wouldn't go fullscreen.");
+        }
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/icons.ts
+  var ICONS = {
+    home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
+    turn: "M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5",
+    room: "M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20a6 6 0 0 1 12 0M16.5 11.5a2.5 2.5 0 1 0 0-5M17.5 14.6A5 5 0 0 1 21.5 20",
+    leave: "M10 4H5v16h5M14 8l4 4-4 4M18 12H9",
+    mic: "M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6",
+    micOff: "M9 9v2a3 3 0 0 0 4.6 2.5M15 10.5V6a3 3 0 0 0-5.7-1.3M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.4 2.2M12 17v4M9 21h6M4 4l16 16",
+    list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+    vr: "M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3.5l-2-2.5h-3L8.5 17H5a2 2 0 0 1-2-2V9ZM8 12h.01M16 12h.01",
+    exit: "M18 6 6 18M6 6l12 12",
+    look: "M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11ZM9 14a3 3 0 0 0 3 3",
+    help: "M9.2 9a3 3 0 1 1 4.6 2.5c-1 .7-1.8 1.4-1.8 2.7M12 18h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
+    menu: "M4 7h16M4 12h16M4 17h10",
+    /** An arched doorway: this project's mark for a way through. */
+    door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
+    link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
+    save: "M7 4h10v17l-5-3.5L7 21V4Z",
+    step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+    size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
+    motion: "M3 12h4l3-7 4 14 3-7h4",
+    check: "M5 12.500 10 17.500 19 7",
+    camera: "M4 8h3l1.5-2h7L17 8h3v11H4ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
+    selfie: "M4 5h16v14H4ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM7.5 19a4.5 4.5 0 0 1 9 0",
+    record: "M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    /** A panel: a frame with a bar along its top. */
+    panel: "M4 5h16v14H4ZM4 9h16M15 7h.01M17.5 7h.01",
+    note: "M6 3h9l4 4v14H6ZM14 3v5h5M9 13h7M9 17h5",
+    /** A loudspeaker, sounding and crossed out. */
+    sound: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9a4.500 4.500 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11",
+    soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
+    people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
+  };
+
+  // packages/sdk/src/ui/theme.ts
+  var DEFAULT_THEME = { accent: "#ffb65c", ink: "#eef5fb", glass: "#0a1018", warn: "#ff7566", motion: true, scale: 1, wrist: "left" };
+  var UI_PRESETS = [
+    { id: "lantern", label: "Lantern", accent: "#ffb65c" },
+    { id: "ion", label: "Ion", accent: "#62d9ff" },
+    { id: "verdant", label: "Verdant", accent: "#4fd08b" },
+    { id: "rose", label: "Rose", accent: "#ff8fb1" },
+    { id: "paper", label: "Paper", accent: "#f2f3f6" }
+  ];
+  var KEY = "nswp:ui";
+  var HEX = /^#[0-9a-f]{6}$/i;
+  function cleanTheme2(input) {
+    const out = {};
+    if (!input || typeof input !== "object") return out;
+    const t = input;
+    for (const k of ["accent", "ink", "glass", "warn"]) if (typeof t[k] === "string" && HEX.test(t[k])) out[k] = t[k].toLowerCase();
+    if (typeof t.motion === "boolean") out.motion = t.motion;
+    if (typeof t.scale === "number" && Number.isFinite(t.scale)) out.scale = Math.min(1.5, Math.max(0.85, t.scale));
+    if (t.wrist === "left" || t.wrist === "right" || t.wrist === "off") out.wrist = t.wrist;
+    return out;
+  }
+  function loadVisitorTheme() {
+    try {
+      return cleanTheme2(JSON.parse(globalThis.localStorage?.getItem(KEY) ?? "{}"));
+    } catch {
+      return {};
+    }
+  }
+  function saveVisitorTheme(theme) {
+    try {
+      globalThis.localStorage?.setItem(KEY, JSON.stringify(cleanTheme2(theme)));
+    } catch {
+    }
+  }
+  function prefersStill() {
+    try {
+      return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    } catch {
+      return false;
+    }
+  }
+  function resolveTheme(world = {}, visitor = loadVisitorTheme()) {
+    return { ...DEFAULT_THEME, ...prefersStill() ? { motion: false } : {}, ...cleanTheme2(world), ...cleanTheme2(visitor) };
+  }
+  function rgb(hex) {
+    const n = Number.parseInt(hex.slice(1), 16);
+    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
+  }
+
+  // packages/sdk/src/ui/hud.ts
+  var CSS = `
+:host { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: block;
+  --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
+  font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
+:host([hidden]) { display: none; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 3px; }
+svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.glass { background: rgba(var(--glass), .7); border: 1px solid rgba(var(--accent), .34);
+  -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); }
+.mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-weight: 400; }
+
+/* ---- the corners of the view, marked lightly: this is a HUD, laid over a place */
+.corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(var(--accent), .5); }
+.corner.a { left: 6px; bottom: 6px; border-left-width: 1px; border-bottom-width: 1px; border-bottom-left-radius: 6px; }
+.corner.b { right: 6px; bottom: 6px; border-right-width: 1px; border-bottom-width: 1px; border-bottom-right-radius: 6px; }
+@media (max-width: 640px) { .corner { display: none; } }
+
+/* ---- who and where: top left */
+.id { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 10px; max-width: min(60vw, 420px); padding: 8px 14px 8px 10px; border-radius: 6px 14px 14px 6px;
+  border-left: 2px solid rgb(var(--accent)); }
+/* The mark: a lit doorway. The arch is this kit's one shape, borrowed from the doors it leads to. */
+.mark { width: 18px; height: 24px; border-radius: 9px 9px 2px 2px; flex: none; position: relative;
+  background: linear-gradient(rgba(var(--accent), .95), rgba(var(--accent), .25)); box-shadow: 0 0 14px rgba(var(--accent), .55); }
+.mark::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: -3px; height: 2px; background: rgb(var(--ink)); border-radius: 1px; }
+.id b { display: block; font-weight: 650; font-size: 1.12em; letter-spacing: .005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.id .mono { display: block; font-size: .86em; color: rgba(var(--ink), .68); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- the menu button: top right */
+.menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
+.menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-align: center; border-radius: 5px;
+  border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); }
+
+/* ---- the bottom: what you point at, then the hotbar */
+.low { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px; }
+.target { max-width: min(92vw, 640px); padding: 6px 14px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.target:empty { visibility: hidden; }
+/* What is pointed at, with a few lines about it: a small card, always this size, never in the way of the thing itself. */
+.target.card { max-width: min(92vw, 460px); padding: 10px 16px; border-radius: 14px; white-space: normal; text-align: left; display: grid; gap: 3px; }
+.target.card b { font-weight: 650; }
+.target.card span { opacity: 0.86; font-size: 0.93em; line-height: 1.35; }
+.target.card span:last-child { opacity: 1; color: rgb(var(--accent)); }
+.hotbar { pointer-events: auto; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 12px 14px 8px; border-radius: 20px 20px 10px 10px; }
+.key { position: relative; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
+/* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
+.key .arch { width: 52px; height: 54px; display: grid; place-items: center; border-radius: 26px 26px 7px 7px;
+  background: rgba(var(--accent), .08); border: 1px solid rgba(var(--accent), .42); transition: background .15s, border-color .15s, transform .15s; }
+.key .sill { width: 60px; height: 2px; margin-top: -4px; border-radius: 1px; background: rgba(var(--ink), .28); transition: background .2s, box-shadow .2s; }
+.key .name { font-size: .84em; line-height: 1.2; color: rgba(var(--ink), .82); max-width: 100%; overflow-wrap: anywhere; }
+.key .num { position: absolute; top: -6px; right: -2px; }
+.key:hover .arch, .key:focus-visible .arch { background: rgba(var(--accent), .2); border-color: rgb(var(--accent)); transform: translateY(-2px); }
+.key:hover .sill, .key[aria-pressed="true"] .sill { background: rgb(var(--accent)); box-shadow: 0 0 12px rgba(var(--accent), .8); }
+.key[aria-pressed="true"] .arch { background: rgba(var(--accent), .26); color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
+.key.primary .arch { background: rgb(var(--accent)); color: rgb(var(--glass)); border-color: rgb(var(--accent)); box-shadow: 0 0 18px rgba(var(--accent), .45); }
+.key.warn .arch { border-color: rgba(var(--warn), .7); color: rgb(var(--warn)); background: rgba(var(--warn), .08); }
+.key:disabled { opacity: .5; cursor: default; }
+
+/* ---- a few words for a moment: bottom left */
+.says { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); display: grid; gap: 6px; max-width: min(80vw, 360px); }
+.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
+.say.going { opacity: 0; transition: opacity .5s; }
+
+/* ---- the sheet: everything else, by section */
+.sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
+  width: min(480px, calc(100vw - 20px)); max-height: min(62vh, 560px); display: flex; flex-direction: column; pointer-events: auto;
+  border-radius: 22px 22px 12px 12px; overflow: hidden; }
+.sheet[hidden] { display: none; }
+.sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 16px rgb(var(--accent)); }
+.tabs { display: flex; gap: 4px; padding: 12px 12px 0; overflow-x: auto; scrollbar-width: none; }
+.tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab:hover { color: rgb(var(--ink)); }
+.tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
+.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
+/* A choice of colour is a row of small doorways, each lit in its own. */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
+.swatch { width: 66px; display: grid; justify-items: center; gap: 6px; font-size: .86em; color: rgba(var(--ink), .8); }
+.swatch i { width: 38px; height: 44px; border-radius: 19px 19px 5px 5px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
+.swatch u { width: 46px; height: 2px; margin-top: -3px; border-radius: 1px; background: rgba(var(--ink), .25); }
+.swatch:hover i { transform: translateY(-2px); }
+.swatch[aria-pressed="true"] i { box-shadow: 0 0 16px var(--c); }
+.swatch[aria-pressed="true"] u { background: var(--c); box-shadow: 0 0 10px var(--c); }
+.swatch[aria-pressed="true"] { color: rgb(var(--ink)); }
+.row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
+  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
+.row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
+.row .grow { flex: 1; min-width: 0; }
+.row .state { font-size: .86em; color: rgba(var(--ink), .6); }
+.row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
+.row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
+.row.warn { color: rgb(var(--warn)); }
+.row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
+.note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
+.note:empty { display: none; }
+.foot { display: flex; justify-content: flex-end; padding: 0 12px 12px; }
+.close { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); }
+.close:hover { border-color: rgb(var(--ink)); }
+
+/* ---- quiet: one mark in a corner, and everything else behind it */
+.quiet { position: absolute; pointer-events: auto; display: none; width: 44px; height: 48px; place-items: center; border-radius: 22px 22px 8px 8px; }
+.quiet .mark { margin-bottom: 2px; }
+.quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
+:host([data-presence="quiet"]) .quiet { display: grid; }
+:host([data-presence="quiet"]) :is(.id, .menu, .hotbar, .target, .corner),
+:host([data-presence="hidden"]) :is(.id, .menu, .hotbar, .target, .corner, .says) { display: none; }
+:host([data-corner="top-left"]) .quiet { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+:host([data-corner="top-right"]) .quiet { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
+:host([data-corner="bottom-left"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
+:host([data-corner="bottom-right"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
+/* With no hotbar under it, the sheet opens in the middle of the bottom edge, clear of the corners. */
+:host(:not([data-presence="full"])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
+:host(:not([data-presence="full"])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
+/* Keys the world has switched off aren't advertised. */
+:host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
+
+/* ---- one moment of motion: things arrive. Nothing loops. */
+@keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
+:host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
+:host(.moving.arriving) .id, :host(.moving.arriving) .menu { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+:host(.moving) .sheet:not([hidden]) { animation: unfold .24s cubic-bezier(.2, .8, .2, 1) both; }
+:host(:not(.moving)) * { transition: none !important; animation: none !important; }
+
+/* ---- a phone: the same things, closer together */
+@media (max-width: 640px) {
+  .id { max-width: calc(100vw - 86px); padding: 6px 10px 6px 8px; }
+  .menu span, .menu kbd, .key .num { display: none; }
+  .menu { padding: 0 10px; }
+  .hotbar { gap: 4px; padding: 10px 8px 6px; }
+  .key { width: 54px; }
+  .key .arch { width: 46px; height: 46px; border-radius: 23px 23px 6px 6px; }
+  .key .sill { width: 50px; }
+  .key .name { font-size: .76em; }
+  .sheet { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
+  .says { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px * var(--s)); }
+}
+@media (hover: none) { kbd { display: none; } }
+`;
+  function icon(name) {
+    if (!name) return null;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", ICONS[name]);
+    svg.append(path);
+    return svg;
+  }
+  function el(tag, attrs = {}, ...children) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    for (const c of children) if (c) e.append(c);
+    return e;
+  }
+  function mountHud(controls2, opts = {}) {
+    const host = document.createElement("nswp-hud");
+    const root = host.attachShadow({ mode: "open" });
+    let style = "";
+    try {
+      const sheet2 = new CSSStyleSheet();
+      sheet2.replaceSync(CSS);
+      root.adoptedStyleSheets = [sheet2];
+    } catch {
+      style = document.createElement("style");
+      style.textContent = CSS;
+    }
+    const title = el("b");
+    const address = el("span", { class: "mono" });
+    const id = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
+    const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
+    const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
+    const target2 = el("div", { class: "target glass", "aria-live": "polite" });
+    const hotbar = el("nav", { class: "hotbar glass", "aria-label": "Controls" });
+    const says = el("div", { class: "says", role: "status" });
+    const tabs = el("div", { class: "tabs", role: "tablist" });
+    const rows = el("div", { class: "rows" });
+    const note = el("p", { class: "note" });
+    const close = el("button", { class: "close", type: "button" }, "Close");
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, sheet, el("div", { class: "low" }, target2, hotbar));
+    (opts.parent ?? document.body).append(host);
+    let open = false;
+    let section = "";
+    let drawn = "";
+    const press = (item) => controls2.run(item.id);
+    const draw = () => {
+      const view = controls2.view();
+      const t = view.theme;
+      host.style.setProperty("--accent", rgb(t.accent));
+      host.style.setProperty("--ink", rgb(t.ink));
+      host.style.setProperty("--glass", rgb(t.glass));
+      host.style.setProperty("--warn", rgb(t.warn));
+      host.style.setProperty("--s", String(t.scale));
+      host.classList.toggle("moving", t.motion);
+      host.dataset.presence = view.presence;
+      host.dataset.corner = view.corner;
+      host.classList.toggle("no-menu-key", view.keys.menu === null);
+      host.classList.toggle("no-hotbar-keys", !view.keys.hotbar);
+      const key = menu2.querySelector("kbd");
+      if (key && view.keys.menu) key.textContent = view.keys.menu.toUpperCase();
+      title.textContent = view.title;
+      address.textContent = view.address;
+      const shown = [view.target, ...view.detail].join("\n");
+      if (target2.dataset.shown !== shown) {
+        target2.dataset.shown = shown;
+        target2.classList.toggle("card", view.detail.length > 0);
+        if (view.detail.length) target2.replaceChildren(el("b", {}, view.target), ...view.detail.map((line) => el("span", {}, line)));
+        else target2.textContent = view.target;
+      }
+      if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
+      const now = JSON.stringify([view.hotbar, view.sections, section, open, view.presence]);
+      if (now === drawn) return;
+      drawn = now;
+      hotbar.replaceChildren(
+        ...view.hotbar.map((item, i) => {
+          const b = el(
+            "button",
+            { class: `key ${item.tone}`, type: "button", "aria-label": item.label, ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
+            el("span", { class: "arch" }, icon(item.icon ?? "door")),
+            el("span", { class: "sill" }),
+            el("span", { class: "name" }, item.short),
+            el("kbd", { class: "num mono" }, item.key)
+          );
+          b.style.setProperty("--i", String(i));
+          b.addEventListener("click", () => press(item));
+          return b;
+        })
+      );
+      hotbar.hidden = view.hotbar.length === 0;
+      tabs.replaceChildren(
+        ...view.sections.map((s) => {
+          const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
+          b.addEventListener("click", () => {
+            section = s.id;
+            draw();
+            tabs.querySelector('[aria-selected="true"]')?.focus();
+          });
+          return b;
+        })
+      );
+      const current = view.sections.find((s) => s.id === section);
+      const drawSwatch = (item) => {
+        const b = el("button", { class: "swatch", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, el("i"), el("u"), item.label);
+        b.style.setProperty("--c", item.color);
+        b.addEventListener("click", () => press(item));
+        return b;
+      };
+      const swatches = (current?.items ?? []).filter((i) => i.kind === "swatch");
+      rows.replaceChildren(
+        swatches.length ? el("div", { class: "swatches" }, ...swatches.map(drawSwatch)) : "",
+        ...(current?.items ?? []).filter((i) => i.kind !== "swatch").map((item) => {
+          const b = el(
+            "button",
+            { class: `row ${item.tone}`, type: "button", ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
+            icon(item.icon),
+            el("span", { class: "grow" }, item.label),
+            item.on !== null && el("span", { class: "state" }, item.on ? "On" : "Off"),
+            item.key ? el("kbd", { class: "mono" }, item.key) : null
+          );
+          b.addEventListener("click", () => press(item));
+          return b;
+        })
+      );
+      rows.hidden = !current?.items.length;
+      note.textContent = current?.note ?? "";
+      sheet.hidden = !open;
+      menu2.setAttribute("aria-expanded", String(open));
+      quiet.setAttribute("aria-expanded", String(open));
+    };
+    const setOpen = (next) => {
+      if (open === next) return;
+      open = next;
+      controls2.signal(open ? "menuOpen" : "menuClose");
+      draw();
+      if (open) tabs.querySelector('[aria-selected="true"]')?.focus();
+      else (controls2.presence === "quiet" ? quiet : menu2).focus();
+    };
+    menu2.addEventListener("click", () => setOpen(!open));
+    quiet.addEventListener("click", () => setOpen(!open));
+    close.addEventListener("click", () => setOpen(false));
+    const onKey = (e) => {
+      if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const at = e.composedPath()[0];
+      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
+      if (e.key === "Escape" && open) return setOpen(false);
+      const view = controls2.view();
+      if (view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
+      if (!view.keys.hotbar || view.presence !== "full") return;
+      const item = view.hotbar.find((i) => i.key === e.key);
+      if (item) press(item);
+    };
+    addEventListener("keydown", onKey);
+    const stopSay = controls2.onSay((text) => {
+      const line = el("div", { class: "say glass" }, text);
+      says.append(line);
+      while (says.childElementCount > 3) says.firstElementChild?.remove();
+      setTimeout(() => line.classList.add("going"), 3600);
+      setTimeout(() => line.remove(), 4200);
+    });
+    const stop = controls2.subscribe(draw);
+    const tick = setInterval(draw, 400);
+    host.classList.add("arriving");
+    setTimeout(() => host.classList.remove("arriving"), 1200);
+    draw();
+    return {
+      element: host,
+      get open() {
+        return open;
+      },
+      setOpen,
+      bounds() {
+        if (host.hidden) return [];
+        return [id, menu2, quiet, hotbar, target2, sheet].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
+      },
+      cover() {
+        if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
+        const low = hotbar.getBoundingClientRect();
+        const high = id.getBoundingClientRect();
+        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - Math.min(low.top, target2.getBoundingClientRect().top)) };
+      },
+      setHidden(hidden) {
+        host.hidden = hidden;
+        if (hidden) setOpen(false);
+      },
+      remove() {
+        clearInterval(tick);
+        stop();
+        stopSay();
+        removeEventListener("keydown", onKey);
+        host.remove();
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/model.ts
+  var PRESENCES = ["full", "quiet", "hidden"];
+  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  function cleanKeys2(now, k) {
+    const out = { ...now };
+    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
+    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+    return out;
+  }
+  var read = (t) => typeof t === "function" ? t() : t ?? "";
+  var STANDARD = [
+    { id: "travel", label: "Travel", icon: "door" },
+    { id: "room", label: "Room", icon: "room" },
+    { id: "people", label: "People", icon: "people" },
+    { id: "camera", label: "Camera", icon: "camera" },
+    { id: "panels", label: "Panels", icon: "panel" },
+    { id: "view", label: "View", icon: "vr" },
+    { id: "moving", label: "Moving", icon: "step" },
+    { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
+    { id: "help", label: "Help", icon: "help" }
+  ];
+  function createControls(opts) {
+    const sections = STANDARD.map((s) => ({ ...s }));
+    for (const s of opts.sections ?? []) addSection(s);
+    const actions = [];
+    const listeners = /* @__PURE__ */ new Set();
+    const sayers = /* @__PURE__ */ new Set();
+    const signals = /* @__PURE__ */ new Set();
+    let visitor = loadVisitorTheme();
+    let theme = resolveTheme(opts.theme, visitor);
+    let target2 = "";
+    let detail = [];
+    let presence = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
+    let keys = cleanKeys2({ menu: "m", hotbar: true }, opts.keys);
+    let claimed = false;
+    const changed = () => {
+      for (const fn of listeners) fn();
+    };
+    function addSection(s) {
+      const i = sections.findIndex((x) => x.id === s.id);
+      if (i === -1) sections.push({ ...s });
+      else sections[i] = { ...sections[i], ...s };
+    }
+    const controls2 = {
+      get theme() {
+        return theme;
+      },
+      add(...more) {
+        for (const a of more) {
+          const i = actions.findIndex((x) => x.id === a.id);
+          if (i === -1) actions.push(a);
+          else actions[i] = a;
+        }
+        changed();
+      },
+      remove(id) {
+        const i = actions.findIndex((x) => x.id === id);
+        if (i !== -1) actions.splice(i, 1);
+        changed();
+      },
+      addSection(s) {
+        addSection(s);
+        changed();
+      },
+      get presence() {
+        return presence;
+      },
+      setPresence(next) {
+        if (!PRESENCES.includes(next) || next === presence) return;
+        presence = next;
+        changed();
+      },
+      setCorner(next) {
+        if (!CORNERS.includes(next) || next === corner) return;
+        corner = next;
+        changed();
+      },
+      setKeys(next) {
+        keys = cleanKeys2(keys, next);
+        changed();
+      },
+      claimInput(next) {
+        if (claimed === next) return;
+        claimed = next;
+        changed();
+      },
+      setTarget(text, more = []) {
+        const next = text ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
+        if (text === target2 && next.join("\n") === detail.join("\n")) return;
+        target2 = text;
+        detail = next;
+        changed();
+      },
+      say(text) {
+        for (const fn of sayers) fn(text);
+      },
+      run(id) {
+        const a = actions.find((x) => x.id === id);
+        if (!a || a.hidden?.()) return false;
+        for (const fn of signals) fn("press");
+        void Promise.resolve().then(() => a.act()).catch(() => {
+        }).finally(changed);
+        return true;
+      },
+      setTheme(patch, keep2 = false) {
+        if (keep2) {
+          visitor = { ...visitor, ...patch };
+          saveVisitorTheme(visitor);
+        }
+        theme = resolveTheme({ ...opts.theme, ...keep2 ? {} : patch }, visitor);
+        changed();
+      },
+      view() {
+        const showing = actions.filter((a) => !a.hidden?.());
+        const bar = showing.filter((a) => a.hotbar).slice(0, 6);
+        const item = (a) => {
+          const slot = bar.indexOf(a);
+          return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: a.color ?? "" };
+        };
+        const known = new Set(sections.map((s) => s.id));
+        const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
+        return {
+          title: opts.title,
+          address: opts.address ?? "",
+          target: target2,
+          detail,
+          sections: [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) })).filter((s) => s.items.length > 0 || s.note),
+          hotbar: bar.map(item),
+          theme,
+          presence,
+          corner,
+          keys: claimed ? { menu: null, hotbar: false } : keys
+        };
+      },
+      subscribe(fn) {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+      signal(name) {
+        for (const fn of signals) {
+          try {
+            fn(name);
+          } catch {
+          }
+        }
+      },
+      onSignal(fn) {
+        signals.add(fn);
+        return () => signals.delete(fn);
+      },
+      onSay(fn) {
+        sayers.add(fn);
+        return () => sayers.delete(fn);
+      }
+    };
+    const keep = (patch) => controls2.setTheme(patch, true);
+    controls2.add(
+      ...UI_PRESETS.map(
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep({ accent: p.accent }) })
+      ),
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep({ motion: !theme.motion }) },
+      {
+        id: "look-wrist",
+        section: "look",
+        icon: "menu",
+        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
+        on: () => theme.wrist !== "off",
+        act: () => keep({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+      },
+      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
+        visitor = {};
+        saveVisitorTheme({});
+        theme = resolveTheme(opts.theme, visitor);
+      } }
+    );
+    return controls2;
+  }
+
+  // packages/sdk/src/engine-menu.ts
+  var read2 = (text) => {
+    try {
+      const v = typeof text === "string" && text ? JSON.parse(text) : text;
+      return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+    } catch {
+      return {};
+    }
+  };
+  var words = (v, most) => typeof v === "string" ? v.slice(0, most) : "";
+  var queue = [];
+  var tell = (event) => {
+    if (queue.length < 64) queue.push(event);
+  };
+  var controls = null;
+  var hud = null;
+  var sounds = null;
+  var moving = "casual";
+  var vr = { supported: false, presenting: false };
+  var doors = /* @__PURE__ */ new Map();
+  function kit() {
+    return JSON.stringify({
+      walkSpeed: WALK_SPEED,
+      tapReach: TAP_REACH,
+      sprint: SPRINT,
+      dragLook: DRAG_LOOK,
+      lookSpeed: LOOK_SPEED,
+      pitchLimit: PITCH_LIMIT,
+      gateWidth: PORTAL_WIDTH,
+      gateHeight: PORTAL_HEIGHT,
+      gateSpring: PORTAL_SPRING,
+      gateSignHeight: PORTAL_SIGN_HEIGHT,
+      cues: CUES
+    });
+  }
+  function check(url) {
+    const c = checkDestination(typeof url === "string" ? url : "");
+    if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
+    return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
+  }
+  function menu(options) {
+    if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
+    const o = read2(options);
+    const title = words(o.title, 80) || "A world";
+    const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
+    const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
+    const h = hud = mountHud(c);
+    const s = sounds = createSounds({
+      seed: title,
+      ...typeof o.kit === "string" && o.kit ? { kit: o.kit } : {},
+      ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
+    });
+    addSoundControls(c, s);
+    const atHome = arrival.atHome();
+    c.add({
+      id: "home",
+      section: "travel",
+      icon: "home",
+      hotbar: true,
+      label: atHome ? "Your doors" : "Go home",
+      short: atHome ? "Doors" : "Home",
+      hidden: () => portal.airlockFor() === null,
+      act: () => tell({ type: atHome ? "doors" : "home" })
+    });
+    const context = arrival.read().context;
+    moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
+    c.add({
+      id: "fps",
+      section: "moving",
+      icon: "step",
+      on: () => moving === "intense",
+      hidden: () => !hasMouse() || vr.presenting,
+      label: () => moving === "intense" ? DESK_WORDS.intense : DESK_WORDS.casual,
+      act: () => {
+        moving = moving === "intense" ? "casual" : "intense";
+        keepIntense(moving === "intense");
+        tell({ type: "moving", moving });
+        c.say(moving === "intense" ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+      }
+    });
+    c.add(
+      {
+        id: "vr",
+        section: "view",
+        icon: "vr",
+        tone: "primary",
+        hotbar: true,
+        hidden: () => !vr.supported,
+        label: () => vr.presenting ? "Leave VR" : "Enter VR",
+        short: "VR",
+        // A browser starts a headset session only on a press. This is one, and the engine hears of it within a frame.
+        act: () => tell({ type: "vr", enter: !vr.presenting })
+      },
+      fullscreenAction(c, () => vr.presenting)
+    );
+    document.addEventListener("fullscreenchange", () => c.setTarget(""));
+    c.addSection({
+      id: "help",
+      label: "Help",
+      icon: "help",
+      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
+    });
+    let closedAt = -1;
+    c.onSignal((name) => {
+      if (name === "menuOpen") tell({ type: "menu", open: true });
+      if (name === "menuClose") {
+        closedAt = performance.now();
+        tell({ type: "menu", open: false });
+        document.querySelector("canvas")?.focus();
+      }
+    });
+    document.addEventListener("pointerlockchange", () => {
+      if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open) return;
+      if (performance.now() - closedAt > 80) h.setOpen(true);
+    });
+    addEventListener("keydown", (e) => {
+      if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement) return;
+      if (performance.now() - closedAt > 80) h.setOpen(true);
+    });
+    return JSON.stringify({ moving, mouse: hasMouse() });
+  }
+  function events() {
+    if (!queue.length) return "[]";
+    const out = JSON.stringify(queue);
+    queue.length = 0;
+    return out;
+  }
+  function play(cue) {
+    if (CUES.includes(cue)) sounds?.play(cue);
+  }
+  function moved(metres) {
+    if (typeof metres === "number" && Number.isFinite(metres) && metres > 0) sounds?.moved(metres);
+  }
+  function bump() {
+    sounds?.bump();
+  }
+  function say(text) {
+    const t = words(text, 300);
+    if (t) controls?.say(t);
+  }
+  function target(name, detail) {
+    let lines = [];
+    try {
+      const d = detail ? JSON.parse(detail) : [];
+      if (Array.isArray(d)) lines = d.filter((l) => typeof l === "string").slice(0, 6).map((l) => l.slice(0, 200));
+    } catch {
+    }
+    controls?.setTarget(words(name, 120), lines);
+  }
+  function headset(state) {
+    const s = read2(state);
+    vr.supported = s.supported === true;
+    vr.presenting = s.presenting === true;
+    hud?.setHidden(vr.presenting);
+    controls?.setTarget("");
+  }
+  function door(entry) {
+    const d = read2(entry);
+    const id = words(d.id, 60);
+    if (!id || !controls) return;
+    const menuId = `door-${id}`;
+    if (d.remove === true) {
+      doors.delete(id);
+      controls.remove(menuId);
+      return;
+    }
+    if (doors.has(id) || doors.size >= 24) return;
+    doors.set(id, words(d.label, 80) || "A door");
+    controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id) ?? "A door", short: "Door", act: () => tell({ type: "door", id }) });
+  }
+
   // packages/sdk/src/engine.ts
-  var VERSION = 1;
-  var read = (text) => {
+  var VERSION = 2;
+  var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
       return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -4110,7 +5950,7 @@ var NSWP = (() => {
     }
   };
   function stateOf(text) {
-    const s = read(text);
+    const s = read3(text);
     return {
       immersive: s.immersive === true,
       ...s.joined === true ? { joined: true, ...s.mic === true ? { mic: true } : {} } : {},
@@ -4139,12 +5979,12 @@ var NSWP = (() => {
     });
   }
   function start(options) {
-    const o = read(options);
+    const o = read3(options);
     if (typeof o.airlock === "string" && o.airlock) configure({ defaultAirlock: o.airlock });
     return arrival2();
   }
   function go(destination, state) {
-    const d = read(destination);
+    const d = read3(destination);
     const dest = {
       ...typeof d.url === "string" ? { url: d.url } : {},
       ...typeof d.naddr === "string" ? { naddr: d.naddr } : {},
@@ -4164,7 +6004,7 @@ var NSWP = (() => {
     void portal.home(stateOf(state));
     return true;
   }
-  function doors(state) {
+  function doors2(state) {
     if (portal.airlockFor() === null) return false;
     void portal.doors(stateOf(state));
     return true;

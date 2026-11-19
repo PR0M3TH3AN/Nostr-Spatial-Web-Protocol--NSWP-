@@ -15,5 +15,6 @@ export * from "./avatar.js";
 export * from "./list.js";
 export * from "./pass.js";
 export * from "./bridge.js";
+export * from "./local.js";
 
 export const VERSION = "0.1.0";
