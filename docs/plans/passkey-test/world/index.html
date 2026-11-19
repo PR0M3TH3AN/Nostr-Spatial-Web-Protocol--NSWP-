@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Passkey test: a world</title>
+<link rel="stylesheet" href="style.css">
+<h1>Passkey test</h1>
+<p class="where">Page 2 of 2: a world, on a different site from the client</p>
+<p>Do <a id="client" href="#">page 1</a> first on this device. Then press A. If nothing happens within a few seconds, press B, which is inside the dashed box. Nothing is sent anywhere.</p>
+<ol>
+  <li><button id="ask">A. Ask from the world's own menu</button></li>
+  <li><iframe id="component" title="The client's component" allow="publickey-credentials-get; publickey-credentials-create"></iframe></li>
+  <li id="vr-row"><button id="vr">C. Headset only: enter VR, then pull the trigger</button>
+    <p class="note">In VR you see one flat colour. Grey: waiting for the trigger. Blue: asked for the passkey. Green: got it. Red: refused or failed. Leave VR with the headset's own button, then copy the results.</p></li>
+</ol>
+<h2>Results</h2>
+<textarea id="log" readonly rows="16"></textarea>
+<p><button id="copy">Copy results</button> <span id="copied"></span></p>
+<script src="config.js"></script>
+<script src="world.js"></script>
+</html>
