@@ -1648,7 +1648,26 @@ export async function addViewControls(
       },
     },
     { id: "turn", section: "view", icon: "turn", label: "Turn around", act: () => turnVisitor(d.rig, d.camera, 180) },
+    {
+      id: "fullscreen",
+      section: "view",
+      icon: "size",
+      on: () => !!document.fullscreenElement,
+      // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
+      hidden: () => !document.fullscreenEnabled || presenting(),
+      label: () => (document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off"),
+      act: async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          controls.say("This browser wouldn't go fullscreen.");
+        }
+      },
+    },
   );
+  // Leaving fullscreen with the browser's own key changes what the control should say.
+  document.addEventListener("fullscreenchange", () => controls.setTarget(""));
   controls.addSection({
     id: "view",
     label: "View",
@@ -1666,6 +1685,7 @@ export { LIBRARY_LIMITS, PANEL_LIMITS, PANEL_LOOKS, type LibraryItem, type Panel
 import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
 export { createStroll, reachOf, TAP_REACH, WALK_SPEED, type Stroll } from "./stroll.js";
+export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
 export { addSoundControls, createSounds, CUES, type Cue, type Jukebox, type Song, type SoundLevels, type Sounds, type SoundsOptions, type SoundTheme } from "./sound.js";
 export { browserVoice, computerVoice, createVoice, recordVoice, toPcm16, type Hearing, type Voice, type VoiceSource, type VoiceState } from "./speech.js";
 export { createKeyboard, type AskOptions, type Keyboard, type KeyboardOptions } from "./keyboard.js";

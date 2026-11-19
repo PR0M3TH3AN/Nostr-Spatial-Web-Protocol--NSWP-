@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, addSoundControls, createSounds, type SoundTheme, createStroll, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, createStroll, reachOf, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -114,6 +114,10 @@ type TestHooks = {
   panels?: Panels;
   /** What this place sounds like: cues, its music, and the visitor's own. */
   sounds?: unknown;
+  /** Game controls on a desk: the mouse looks, keys walk. */
+  fps?: Fps;
+  /** The menu on a flat screen. */
+  hud?: { readonly open: boolean; setOpen(open: boolean): void };
   /** Where a named thing is on the page, in pixels, or null if it is behind the visitor. */
   screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
@@ -224,6 +228,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
   const hud = mountHud(controls);
   hooks.controls = controls;
+  hooks.hud = hud;
   // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
   // are theirs, kept for this site.
   const sounds = createSounds({ context: THREE.AudioContext.getContext() as unknown as AudioContext, seed: cfg.title, kit: "/sounds/kit/", theme: { music: ["/sounds/music.ogg", "/sounds/music-2.ogg"], ...cfg.sounds } });
@@ -353,7 +358,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // The walls come up, naming where this door says it leads. The visitor's Airlock shows the real address next.
     await crossing.leave({ title: g.door.label, address: host(g.place.url) });
     document.body.classList.add("leaving");
-    await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling() });
+    await portal.go(g.destination, { xrSession: renderer.xr.getSession(), ...travelling(), fps: !!fps?.enabled });
   };
   const goHome = async () => {
     const back = arrival.returnAirlock();
@@ -362,7 +367,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     sounds.play("cross");
     await crossing.leave({ title: "home", address: new URL(back).host });
     document.body.classList.add("leaving");
-    await portal.home({ xrSession: renderer.xr.getSession(), ...travelling() });
+    await portal.home({ xrSession: renderer.xr.getSession(), ...travelling(), fps: !!fps?.enabled });
   };
   hooks.goThrough = go;
   hooks.goThroughPortal = () => go(0);
@@ -489,7 +494,23 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const setPointer = (e: PointerEvent) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   // A panel taken by its bar is dragged; anything else, and the drag turns the view.
   let panelDrag = false;
+  // Game controls, for a visitor who turned them on: the mouse looks, keys walk, F uses. While they are on, the
+  // clicks and drags below stand down.
+  let fps: Fps | null = null;
+  const gameControls = () => !!fps?.enabled && !renderer.xr.isPresenting;
+  /** Use what the middle of the view points at: a panel, or a door. */
+  const use = () => {
+    pointer.set(0, 0);
+    raycaster.setFromCamera(pointer, camera);
+    const onPanel = panels?.pick(raycaster);
+    if (onPanel) return void panels!.press(onPanel);
+    const door = doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+    if (door >= 0) void go(door);
+  };
+  fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: !!context?.fps });
+  hooks.fps = fps;
   renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (gameControls()) return;
     setPointer(e);
     raycaster.setFromCamera(pointer, camera);
     panelDrag = !renderer.xr.isPresenting && !!panels?.pointer("down", raycaster);
@@ -505,7 +526,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       panels?.pointer("up", raycaster);
       return;
     }
-    if (moved > 6 || renderer.xr.isPresenting || e.target !== renderer.domElement) return;
+    if (moved > 6 || renderer.xr.isPresenting || gameControls() || e.target !== renderer.domElement) return;
     setPointer(e);
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
@@ -523,7 +544,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       moved += Math.abs(e.clientX - lastX);
       lastX = e.clientX;
     }
-    setPointer(e);
+    if (!gameControls()) setPointer(e);
     if (panelDrag) {
       raycaster.setFromCamera(pointer, camera);
       panels?.pointer("move", raycaster);
@@ -795,8 +816,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       const through = walkedInto();
       if (through >= 0) void go(through);
     } else {
-      walk(dt);
-      stroll.update(dt);
+      // Game controls have the visitor's movement when they are on, and aim from the middle of the view.
+      if (fps!.update(dt)) pointer.set(0, 0);
+      else {
+        walk(dt);
+        stroll.update(dt);
+      }
       raycaster.setFromCamera(pointer, camera);
       panelAimed = panels!.pick(raycaster);
       aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
