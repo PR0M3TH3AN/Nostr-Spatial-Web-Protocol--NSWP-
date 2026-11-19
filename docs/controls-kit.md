@@ -434,8 +434,10 @@ if (note) await publishEvent(relays, note);                               // sen
   for nothing else. Never draw anything that looks like the visitor's
   sign-in, and never ask for a password: there is nothing you could do
   with one, and asking is how a visitor is robbed.
-- In the room's chat, **Post what I write as Nostr notes** appears once the
-  signer is unlocked. It is off at every visit. Pass
+- In the room's chat, **Post what I write as Nostr notes** is there whenever
+  the visitor has a signer. Before they have unlocked it, the row says where
+  they sign in first, and pressing it opens that window. It is off at every
+  visit. Pass
   `addRoomControls(..., { noteRelays })` to say where those notes go.
 - A world has nothing more to do. `{ notes }` is for a visitor's own client,
   in a room of its own where they are already signed in: it gives a signer

@@ -81,6 +81,15 @@ export function identityAction(controls: Controls, leaving: Leaving = () => ({})
   };
 }
 
+/** What to say when a signer that was named didn't answer: what happened, and the one thing likely to help. */
+export function unansweredWords(signer: WorldSigner): string {
+  const host = signer.host ?? "your signer";
+  const copy = signer.copy
+    ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.`
+    : " Reloading the page tries again.";
+  return `This world asked ${host} for your signer and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
+}
+
 let shared: WorldSigner | null = null;
 /** This page's one signer, from the visitor's own client (signer.ts). "none" when they came through no client. */
 export function worldSigner(): WorldSigner {
@@ -123,7 +132,7 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
       if (signer.state === "unlocked") return signer.lock();
       const host = signer.host ?? "your own client";
       if (signer.unanswered) {
-        return controls.say(`This world asked ${host} for your signer and got no answer. It may be unreachable from here, or your browser may have kept it out. Reloading the page tries again. Nothing is wrong with your sign-in.`);
+        return controls.say(unansweredWords(signer));
       }
       // A headset draws nothing but the world, so no window of the client's can open in one.
       if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in to sign, and come back in.`);
