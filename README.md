@@ -150,6 +150,13 @@ Each is one file, `sites/<name>/src/main.ts`, on the shared code in
 the preview picture. `sites/sites.json` names them and their addresses; a
 world's page and manifest are generated from its `world.json` when it is built.
 
+### Building a world, or fitting an existing one
+
+[docs/integrating.md](docs/integrating.md) is the whole of it on one page:
+the short list every world keeps, what the kit gives you by default (the
+menu, the sounds, the doorway, how people move and look) and how to replace
+each with your own.
+
 ### Trying the sites on your own machine
 
 ```bash

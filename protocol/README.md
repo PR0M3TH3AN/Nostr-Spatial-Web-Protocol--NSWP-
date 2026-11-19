@@ -17,6 +17,7 @@ and says plainly what is built and what is only proposed.
 | **Build a client**: a lobby, a directory, an Airlock | [01](01-worlds.md), [02](02-doors.md), [08](08-lists.md), [04](04-previews.md) | [03](03-arrival.md), [05](05-looks.md) |
 | **Join the same rooms** as the reference worlds | [06](06-rooms.md), [05](05-looks.md) | [10](10-identity.md) |
 | **Know who a visitor is,** or let them go by name | [10](10-identity.md) | [03](03-arrival.md) |
+| **See all of it at once:** what is required, what comes ready-made, what you may replace | [`docs/integrating.md`](../docs/integrating.md) | |
 | **Build a game** with an interface of its own | [11](11-the-visitors-console.md) | [09](09-what-a-world-owes.md) |
 | **Draw people** your own way | [05](05-looks.md), "What a world may change" | |
 | **Know why** it is built this way | [`spec.md`](../spec.md) | |
