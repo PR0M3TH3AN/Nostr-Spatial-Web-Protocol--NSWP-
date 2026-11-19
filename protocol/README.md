@@ -17,6 +17,7 @@ and says plainly what is built and what is only proposed.
 | **Build a client**: a lobby, a directory, an Airlock | [01](01-worlds.md), [02](02-doors.md), [08](08-lists.md), [04](04-previews.md) | [03](03-arrival.md), [05](05-looks.md) |
 | **Join the same rooms** as the reference worlds | [06](06-rooms.md), [05](05-looks.md) | [10](10-identity.md) |
 | **Know who a visitor is,** or let them go by name | [10](10-identity.md) | [03](03-arrival.md) |
+| **Build a game** with an interface of its own | [11](11-the-visitors-console.md) | [09](09-what-a-world-owes.md) |
 | **Draw people** your own way | [05](05-looks.md), "What a world may change" | |
 | **Know why** it is built this way | [`spec.md`](../spec.md) | |
 | **Build a browser,** or see where a browser could take this | [`browser/spec.md`](../browser/spec.md): a plan, not part of the protocol | [02](02-doors.md), [10](10-identity.md) |
@@ -35,6 +36,7 @@ and says plainly what is built and what is only proposed.
 | [08 Lists and finding worlds](08-lists.md) | Lists anyone can publish and follow; worlds nobody has listed | Implemented, in part | 30004 |
 | [09 What a world owes a visitor](09-what-a-world-owes.md) | The few things that are the same everywhere | Implemented | |
 | [10 Who someone is](10-identity.md) | Going by name without a world ever holding a key: passes, names, the proven mark | Implemented, in part | 27300 |
+| [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; and arriving in the form they left in | Implemented, in part | |
 
 ## What "status" means
 

@@ -27,6 +27,7 @@ var NSWP = (() => {
     arrival: () => arrival2,
     bump: () => bump,
     check: () => check,
+    claim: () => claim,
     door: () => door,
     doors: () => doors2,
     events: () => events,
@@ -37,6 +38,7 @@ var NSWP = (() => {
     menu: () => menu,
     moved: () => moved,
     play: () => play,
+    presence: () => presence,
     say: () => say,
     start: () => start,
     target: () => target
@@ -3705,6 +3707,12 @@ var NSWP = (() => {
       else
         c.warn("invalid_moving", "moving", `Ignoring a way of moving that isn't "casual" or "intense".`);
     }
+    if (json.form !== void 0) {
+      if (json.form === "touch" || json.form === "desk")
+        out.form = json.form;
+      else
+        c.warn("invalid_form", "form", `Ignoring a form that isn't "touch" or "desk".`);
+    }
     if (json.blocked !== void 0) {
       const ok = Array.isArray(json.blocked) && json.blocked.length <= LIMITS.maxBlocked && json.blocked.every((k) => typeof k === "string" && isHex64(k));
       if (ok) {
@@ -3742,6 +3750,7 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/portal.js
+  var isForm = (v) => v === "touch" || v === "desk";
   function cleanKeys(input, limit) {
     if (!Array.isArray(input))
       return [];
@@ -3772,7 +3781,7 @@ var NSWP = (() => {
       parts.push(`url=${encodeURIComponent(dest.url)}`);
     if (dest.entryPoint)
       parts.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-    parts.push(...stateFlags(opts), ...blockedFlag(opts));
+    parts.push(...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...blockedFlag(opts));
     u.hash = parts.join("&");
     return u.href;
   }
@@ -3968,6 +3977,51 @@ var NSWP = (() => {
     return mapToLocal(url, await mapSoon());
   }
 
+  // packages/sdk/src/form.ts
+  var matches = (query) => {
+    try {
+      return typeof matchMedia === "function" && matchMedia(query).matches;
+    } catch {
+      return false;
+    }
+  };
+  function deviceForms() {
+    const touch = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0 || matches("(any-pointer: coarse)");
+    const mouse = matches("(any-pointer: fine)");
+    return { touch, mouse, main: matches("(pointer: fine)") ? "desk" : "touch" };
+  }
+  function formFor(said, device) {
+    if (said === "touch" && device.touch) return "touch";
+    if (said === "desk" && device.mouse) return "desk";
+    return device.main;
+  }
+  var arrived;
+  var used;
+  var watching = false;
+  function arriveAs(form) {
+    arrived = form;
+    watch();
+  }
+  function startingForm() {
+    return formFor(arrived, deviceForms());
+  }
+  function currentForm() {
+    watch();
+    return used ?? startingForm();
+  }
+  function watch() {
+    if (watching || typeof addEventListener !== "function") return;
+    watching = true;
+    addEventListener(
+      "pointerdown",
+      (e) => {
+        if (e.pointerType === "touch") used = "touch";
+        else if (e.pointerType === "mouse") used = "desk";
+      },
+      { capture: true, passive: true }
+    );
+  }
+
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
   var LOOK_KEY = "nswp:look";
@@ -4001,11 +4055,13 @@ var NSWP = (() => {
       const raw = arrivalParam(location.hash);
       if (!raw) {
         cached = { context: null, warnings: [] };
+        arriveAs(void 0);
         return cached;
       }
       history.replaceState(history.state, "", `${location.pathname}${location.search}${stripArrivalParam(location.hash)}`);
       const r = decodeArrival(raw);
       cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
+      arriveAs(cached.context?.form);
       try {
         if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
         else if (cached.context) session()?.removeItem(HOME_KEY);
@@ -4087,7 +4143,8 @@ var NSWP = (() => {
     immersive,
     ...opts.joined ? { joined: true, ...opts.mic ? { mic: true } : {} } : {},
     ...opts.blocked?.length ? { blocked: opts.blocked } : {},
-    ...opts.moving === "intense" ? { moving: "intense" } : {}
+    ...opts.moving === "intense" ? { moving: "intense" } : {},
+    form: opts.form ?? currentForm()
   });
   var portal = {
     /** Which Airlock `go()` would use right now, or null for the built-in screen. */
@@ -4216,13 +4273,13 @@ var NSWP = (() => {
     nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
     click: "Click the view to look round. Escape brings up the menu."
   };
-  var hasMouse = () => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
-  function startsIntense(arrived, key = DESK_KEY) {
+  var hasMouse = () => startingForm() === "desk";
+  function startsIntense(arrived2, key = DESK_KEY) {
     if (!hasMouse()) return false;
     try {
-      return arrived || localStorage.getItem(key) === "1";
+      return arrived2 || localStorage.getItem(key) === "1";
     } catch {
-      return arrived;
+      return arrived2;
     }
   }
   function keepIntense(on, key = DESK_KEY) {
@@ -5240,6 +5297,37 @@ var NSWP = (() => {
     people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
   };
 
+  // packages/sdk/src/ui/summon.ts
+  var SUMMON_KEY = "Backquote";
+  var SUMMON_HOLD = 600;
+  var SUMMON_SLOP = 18;
+  function createHoldWatch(o) {
+    const hold = o.hold ?? SUMMON_HOLD;
+    const slop = o.slop ?? SUMMON_SLOP;
+    let from = null;
+    let timer = null;
+    const cancel = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      from = null;
+    };
+    return {
+      touches(points) {
+        if (points.length !== 2) return cancel();
+        if (!from) {
+          from = points.map((p) => ({ x: p.x, y: p.y }));
+          timer = setTimeout(() => {
+            cancel();
+            o.onHeld();
+          }, hold);
+          return;
+        }
+        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
+      },
+      cancel
+    };
+  }
+
   // packages/sdk/src/ui/theme.ts
   var DEFAULT_THEME = { accent: "#ffb65c", ink: "#eef5fb", glass: "#0a1018", warn: "#ff7566", motion: true, scale: 1, wrist: "left" };
   var UI_PRESETS = [
@@ -5291,7 +5379,7 @@ var NSWP = (() => {
 
   // packages/sdk/src/ui/hud.ts
   var CSS = `
-:host { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: block;
+:host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
   --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
   font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
@@ -5480,6 +5568,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     (opts.parent ?? document.body).append(host);
     let open = false;
     let section = "";
+    let chose = false;
     let drawn = "";
     const press = (item) => controls2.run(item.id);
     const draw = () => {
@@ -5531,6 +5620,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
           b.addEventListener("click", () => {
             section = s.id;
+            chose = true;
             draw();
             tabs.querySelector('[aria-selected="true"]')?.focus();
           });
@@ -5566,13 +5656,26 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       menu2.setAttribute("aria-expanded", String(open));
       quiet.setAttribute("aria-expanded", String(open));
     };
+    const focused = () => {
+      let at = document.activeElement;
+      while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
+      return at;
+    };
+    let cameFrom = null;
     const setOpen = (next) => {
       if (open === next) return;
+      if (next) {
+        cameFrom = focused();
+        if (!chose) section = "";
+      }
       open = next;
       controls2.signal(open ? "menuOpen" : "menuClose");
       draw();
-      if (open) tabs.querySelector('[aria-selected="true"]')?.focus();
-      else (controls2.presence === "quiet" ? quiet : menu2).focus();
+      if (open) return void tabs.querySelector('[aria-selected="true"]')?.focus();
+      const back = cameFrom;
+      cameFrom = null;
+      if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+      else focused()?.blur();
     };
     menu2.addEventListener("click", () => setOpen(!open));
     quiet.addEventListener("click", () => setOpen(!open));
@@ -5589,6 +5692,28 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (item) press(item);
     };
     addEventListener("keydown", onKey);
+    const onSummonKey = (e) => {
+      if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const at = e.composedPath()[0];
+      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!e.repeat) setOpen(!open);
+    };
+    const swallow = (e) => {
+      if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+    };
+    const hold = createHoldWatch({
+      onHeld: () => {
+        if (!host.hidden) setOpen(!open);
+      }
+    });
+    const onTouch = (e) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
+    const listening = { capture: true };
+    const watching2 = { capture: true, passive: true };
+    addEventListener("keydown", onSummonKey, listening);
+    addEventListener("keyup", swallow, listening);
+    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching2);
     const stopSay = controls2.onSay((text) => {
       const line = el("div", { class: "say glass" }, text);
       says.append(line);
@@ -5626,6 +5751,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stop();
         stopSay();
         removeEventListener("keydown", onKey);
+        removeEventListener("keydown", onSummonKey, listening);
+        removeEventListener("keyup", swallow, listening);
+        for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching2);
+        hold.cancel();
         host.remove();
       }
     };
@@ -5663,7 +5792,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
-    let presence = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let presence2 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
     let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
     let keys = cleanKeys2({ menu: "m", hotbar: true }, opts.keys);
     let claimed = false;
@@ -5697,11 +5826,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         changed();
       },
       get presence() {
-        return presence;
+        return presence2;
       },
       setPresence(next) {
-        if (!PRESENCES.includes(next) || next === presence) return;
-        presence = next;
+        if (!PRESENCES.includes(next) || next === presence2) return;
+        presence2 = next;
         changed();
       },
       setCorner(next) {
@@ -5761,7 +5890,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           sections: [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) })).filter((s) => s.items.length > 0 || s.note),
           hotbar: bar.map(item),
           theme,
-          presence,
+          presence: presence2,
           corner,
           keys: claimed ? { menu: null, hotbar: false } : keys
         };
@@ -5924,7 +6053,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       id: "help",
       label: "Help",
       icon: "help",
-      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
+      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
     });
     let closedAt = -1;
     c.onSignal((name) => {
@@ -5980,6 +6109,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     hud?.setHidden(vr.presenting);
     controls?.setTarget("");
   }
+  function presence(level) {
+    if (level === "full" || level === "quiet" || level === "hidden") controls?.setPresence(level);
+  }
+  function claim(on) {
+    controls?.claimInput(on === true || on === "true" || on === "1" || on === 1);
+  }
   function door(entry) {
     const d = read2(entry);
     const id = words(d.id, 60);
@@ -5996,7 +6131,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 2;
+  var VERSION = 3;
   var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
@@ -6025,6 +6160,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       joined: context?.joined === true,
       mic: context?.mic === true,
       moving: context?.moving ?? "casual",
+      form: startingForm(),
       blocked: context?.blocked ?? [],
       look: arrival.look() ?? "",
       guest: !who,

@@ -17,6 +17,7 @@
  */
 import { ICONS, type IconName } from "./icons.js";
 import type { Controls, UiItemView, UiView } from "./model.js";
+import { createHoldWatch, SUMMON_KEY } from "./summon.js";
 import { rgb } from "./theme.js";
 
 export interface Hud {
@@ -34,7 +35,7 @@ export interface Hud {
 }
 
 const CSS = `
-:host { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: block;
+:host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
   --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
   font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
@@ -231,6 +232,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
 
   let open = false;
   let section = "";
+  /** Whether the visitor has picked a section themselves. Until they do, the menu comes up on the first: the way home. */
+  let chose = false;
   let drawn = "";
 
   const press = (item: UiItemView) => controls.run(item.id);
@@ -288,6 +291,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
         const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
         b.addEventListener("click", () => {
           section = s.id;
+          chose = true;
           draw();
           (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
         });
@@ -324,13 +328,31 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     quiet.setAttribute("aria-expanded", String(open));
   };
 
+  /** Whatever has the keys now, looked for inside shadow roots too. */
+  const focused = (): HTMLElement | null => {
+    let at = document.activeElement as HTMLElement | null;
+    while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement as HTMLElement;
+    return at;
+  };
+  /** What had the keys when the menu came up: they go back to it when the menu goes away. */
+  let cameFrom: HTMLElement | null = null;
   const setOpen = (next: boolean) => {
     if (open === next) return;
+    if (next) {
+      cameFrom = focused();
+      // Sections fill in as a world starts up, so "the first" is asked for again each time it comes up.
+      if (!chose) section = "";
+    }
     open = next;
     controls.signal(open ? "menuOpen" : "menuClose");
     draw();
-    if (open) (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
-    else (controls.presence === "quiet" ? quiet : menu).focus();
+    if (open) return void (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
+    // Closing leaves nothing of ours holding the keys: they go back to whatever had them, the world's own
+    // interface included, and to our own mark only if that is where the visitor came from.
+    const back = cameFrom;
+    cameFrom = null;
+    if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+    else focused()?.blur();
   };
   menu.addEventListener("click", () => setOpen(!open));
   quiet.addEventListener("click", () => setOpen(!open));
@@ -349,6 +371,32 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (item) press(item);
   };
   addEventListener("keydown", onKey);
+
+  // The summons (summon.ts): the visitor's own way to their controls, in every world. It answers whatever the
+  // world has done with its screen and its keys, and it is heard before the world hears anything, so a world
+  // can neither take the gesture nor be disturbed by it.
+  const onSummonKey = (e: KeyboardEvent) => {
+    if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+    const at = e.composedPath()[0] as HTMLElement | undefined;
+    if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (!e.repeat) setOpen(!open);
+  };
+  const swallow = (e: KeyboardEvent) => {
+    if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+  };
+  const hold = createHoldWatch({
+    onHeld: () => {
+      if (!host.hidden) setOpen(!open);
+    },
+  });
+  const onTouch = (e: TouchEvent) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
+  const listening = { capture: true } as const;
+  const watching = { capture: true, passive: true } as const;
+  addEventListener("keydown", onSummonKey, listening);
+  addEventListener("keyup", swallow, listening);
+  for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"] as const) addEventListener(type, onTouch, watching);
 
   const stopSay = controls.onSay((text) => {
     const line = el("div", { class: "say glass" }, text);
@@ -393,6 +441,10 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       stop();
       stopSay();
       removeEventListener("keydown", onKey);
+      removeEventListener("keydown", onSummonKey, listening);
+      removeEventListener("keyup", swallow, listening);
+      for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"] as const) removeEventListener(type, onTouch, watching);
+      hold.cancel();
       host.remove();
     },
   };

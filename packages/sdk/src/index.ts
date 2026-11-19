@@ -25,7 +25,10 @@ import {
   type PortalDestination,
 } from "@nswp/core";
 
+import { arriveAs, currentForm, type Form } from "./form.js";
+
 export type { Arrival, PortalDestination } from "@nswp/core";
+export { currentForm, startingForm, type Form } from "./form.js";
 export { room, RoomSession, type JoinOptions, type Member, type RoomStatus } from "./room.js";
 export type { Pose, Transform } from "@nswp/core";
 export { dropBrought, somethingBrought, takeBrought, watchBrought, type Brought } from "./bring.js";
@@ -67,11 +70,14 @@ export const arrival = {
     const raw = arrivalParam(location.hash);
     if (!raw) {
       cached = { context: null, warnings: [] };
+      arriveAs(undefined);
       return cached;
     }
     history.replaceState(history.state, "", `${location.pathname}${location.search}${stripArrivalParam(location.hash)}`);
     const r = decodeArrival(raw);
     cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
+    // The form they were in where they came from: this place starts them the same way, where the device can.
+    arriveAs(cached.context?.form);
     // Arriving any way but home ends being at home, for this tab.
     try {
       if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
@@ -183,6 +189,11 @@ export interface GoOptions {
    * client asks whether to block them everywhere (protocol/02-doors.md, "Blocks that travel").
    */
   blocked?: string[];
+  /**
+   * What the visitor is using a flat screen with: their fingers or a mouse and keys. Left out, it is what they
+   * last used here, which is nearly always right. It goes with them through a door, never on the way home.
+   */
+  form?: Form;
   /** The visitor is moving the intense way here (`fps.enabled` at a desk, `input.intense` in a headset), and would go on doing so where they arrive. */
   moving?: "intense" | "casual";
 }
@@ -193,6 +204,7 @@ const carried = (opts: GoOptions, immersive: boolean) => ({
   ...(opts.joined ? { joined: true, ...(opts.mic ? { mic: true } : {}) } : {}),
   ...(opts.blocked?.length ? { blocked: opts.blocked } : {}),
   ...(opts.moving === "intense" ? { moving: "intense" as const } : {}),
+  form: opts.form ?? currentForm(),
 });
 
 export const portal = {

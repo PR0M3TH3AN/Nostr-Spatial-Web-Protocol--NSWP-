@@ -138,6 +138,25 @@ describe("leaving a headset session to cross", () => {
     expect(buildWayUrl("https://lobby.example/go/", { doors: true, blocked: [b] })).toBe(`https://lobby.example/go/#doors=1&blocked=${b}`);
   });
 
+  it("carries the form a visitor is in through a door, and never on the way home", () => {
+    const door = { url: "https://world.example/" };
+    const link = buildAirlockUrl("https://lobby.example/go/", door, { form: "touch", immersive: true });
+    expect(link).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F&xr=1&form=touch");
+    expect(parseAirlockFragment(new URL(link).hash)).toMatchObject({ form: "touch", immersive: true });
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fworld.example%2F&form=desk")?.form).toBe("desk");
+    // A form nobody knows is no form at all, and so is one that isn't lower case.
+    for (const odd of ["hologram", "Touch", "", "1"]) expect(parseAirlockFragment(`#to=https%3A%2F%2Fworld.example%2F&form=${odd}`)?.form).toBeUndefined();
+    expect(buildAirlockUrl("https://lobby.example/go/", door, { form: "hologram" as never })).toBe("https://lobby.example/go/#to=https%3A%2F%2Fworld.example%2F");
+    // The way home says nothing of it: a visitor's own client knows their device, and an older one still reads the link.
+    expect(buildWayUrl("https://lobby.example/go/", { form: "touch", immersive: true })).toBe("https://lobby.example/go/#xr=1");
+    // In an arrival it is kept as said, and anything else is ignored with a warning.
+    const arrived = decodeArrival(encodeArrival({ entry: "main-entrance", form: "desk" }));
+    expect(arrived.ok && arrived.value.form).toBe("desk");
+    const odd = decodeArrival(Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", form: "hologram" })).toString("base64url"));
+    expect(odd.ok && odd.value.form).toBeUndefined();
+    expect(odd.warnings.map((w) => w.code)).toContain("invalid_form");
+  });
+
   it("carries the intense way of moving on a link and in an arrival, as a preference", () => {
     const door = { url: "https://world.example/" };
     const link = buildAirlockUrl("https://lobby.example/go/", door, { moving: "intense", joined: true });

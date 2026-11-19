@@ -148,6 +148,7 @@ func _report() -> void:
 		"said": _said,
 		"entry": str(Nswp.arrival.get("entry", "")),
 		"moving": Nswp.moving,
+		"form": str(Nswp.arrival.get("form", "")),
 		"menu_open": Nswp.menu_open,
 		"looking": _visitor.looking(),
 		"aimed": _gate.aimed,

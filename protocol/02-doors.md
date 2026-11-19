@@ -36,7 +36,7 @@ A world sends the visitor to an Airlock with the destination in the
 **fragment**, never the query string, so no server logs where anyone went:
 
 ```text
-<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&moving=intense&joined=1&mic=1&blocked=<key>,<key>
+<airlock>#to=<naddr or url>&url=<url, when both are given>&entry=<entry point>&xr=1&moving=intense&joined=1&mic=1&form=touch&blocked=<key>,<key>
 ```
 
 Each value is percent-encoded. `xr=1` is there only when the visitor is in a
@@ -51,6 +51,11 @@ joined", below).
 `moving=intense` is there when the visitor has chosen the intense way of
 moving, so that they needn't choose it again in every world ("How a visitor
 moves", below).
+
+`form=touch` or `form=desk` says what the visitor was using a flat screen
+with, so that they arrive laid out the same way
+([NSWP-11](11-the-visitors-console.md), "The same form on the other side").
+It is not sent on the way home.
 
 `blocked` is there only when the visitor blocked someone in this world during
 this visit: the identity keys of the people, as hex, at most sixteen

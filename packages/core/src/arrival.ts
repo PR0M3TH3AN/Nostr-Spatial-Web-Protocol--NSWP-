@@ -66,6 +66,15 @@ export interface Arrival {
    * arrive. Left out, the casual way.
    */
   moving?: "intense";
+  /**
+   * What the visitor was using a flat screen with where they came from:
+   * their fingers ("touch") or a mouse and keys ("desk"). A world that lays
+   * itself out differently for the two starts them the same way, where
+   * their device can do both. A preference, and theirs to change by simply
+   * using the other. Left out, the world works it out from the device.
+   * A headset session is `immersive`.
+   */
+  form?: "touch" | "desk";
 }
 
 const ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -157,6 +166,10 @@ export function decodeArrival(value: string): Result<Arrival> {
   if (json.moving !== undefined && json.moving !== "casual") {
     if (json.moving === "intense") out.moving = "intense";
     else c.warn("invalid_moving", "moving", "Ignoring a way of moving that isn't \"casual\" or \"intense\".");
+  }
+  if (json.form !== undefined) {
+    if (json.form === "touch" || json.form === "desk") out.form = json.form;
+    else c.warn("invalid_form", "form", "Ignoring a form that isn't \"touch\" or \"desk\".");
   }
   if (json.blocked !== undefined) {
     const ok = Array.isArray(json.blocked) && json.blocked.length <= LIMITS.maxBlocked && json.blocked.every((k) => typeof k === "string" && isHex64(k));

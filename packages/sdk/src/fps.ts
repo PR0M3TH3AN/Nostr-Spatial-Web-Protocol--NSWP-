@@ -23,6 +23,7 @@
  * what the visitor finds, and a click on the view takes them in again.
  */
 import type * as THREE from "three";
+import { startingForm } from "./form.js";
 import { RUN } from "./stroll.js";
 import type { Controls } from "./ui/model.js";
 
@@ -96,8 +97,11 @@ export const DESK_WORDS = {
   nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps.",
   click: "Click the view to look round. Escape brings up the menu.",
 } as const;
-/** A way of moving that needs a mouse is not offered where there isn't one. */
-export const hasMouse = (): boolean => typeof matchMedia === "function" && matchMedia("(pointer: fine)").matches;
+/**
+ * A way of moving that needs a mouse is not offered where there isn't one, or to a visitor who arrived using
+ * their fingers on a device that has both (form.ts).
+ */
+export const hasMouse = (): boolean => startingForm() === "desk";
 /** Whether a visitor starts out moving the intense way at a desk: they arrived so, or chose it here before. */
 export function startsIntense(arrived: boolean, key = DESK_KEY): boolean {
   if (!hasMouse()) return false;

@@ -59,6 +59,8 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.target(name, detail)` | What the visitor is pointing at, shown in a card beside the controls. |
 | `NSWP.headset(state)` | Whether a headset session can start, and whether one is running. The menu offers the way in. |
 | `NSWP.door(entry)` | List a door in the menu. |
+| `NSWP.presence(level)` | How much of the screen the controls take: `full`, `quiet` or `hidden`. For an engine with an interface of its own. |
+| `NSWP.claim(on)` | Take every key for the game, or give them back. |
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
 
@@ -66,6 +68,19 @@ The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter
 VR or Leave VR), `jump` (they pressed Jump, which is how it is asked for
 where there is no keyboard), `home`, `doors` and `door`.
+
+**The visitor can always bring the menu up,** whatever level the engine has
+set and whatever it has done with the keys: the key left of 1 at a desk, or
+two fingers held still on a touch screen
+([NSWP-11](../protocol/11-the-visitors-console.md)). The script hears those
+before the engine's canvas does, and the engine never hears them. It hears a
+`menu` event instead, and should leave the visitor's input alone until the
+next one. Never bind that key or that hold to anything in the game.
+
+`NSWP.arrival()` also says the form the visitor is in on a flat screen
+(`form`: `touch` or `desk`), so an engine with its own interface can lay it
+out the way they were using the last world. The script carries it on through
+a door.
 
 The sound files go beside the page, in a folder the engine names (`kit`).
 Without them the sounds are the ones the kit makes in the browser.
@@ -122,6 +137,8 @@ on a flat screen, with a mouse and keyboard:
   kit's reach, and a drag turns the view.
 - Moving the intense way: the mouse looks round, and taking the pointer back
   opens the menu.
+- The summons: with the controls hidden, the key left of 1 brought them up
+  over the canvas and put them away, and Godot never saw the key.
 - Running and jumping, both ways: Shift runs at 4.3 metres a second against
   2.4 walking, two clicks on the floor run there, and Space jumps 0.45 m.
 - Arriving by an ordinary link and by an arrival, each entry point, a door
