@@ -113,6 +113,7 @@ var kit: Dictionary = {
 	"sprint": 1.75,
 	"dragLook": 0.005,
 	"lookSpeed": 0.0022,
+	"fov": 0,
 	"pitchLimit": 1.4835298641951802,
 	"doubleTap": 400,
 	"jumpHeight": 0.45,
