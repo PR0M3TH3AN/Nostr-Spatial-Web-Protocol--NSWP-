@@ -1,0 +1,197 @@
+/**
+ * Signing from inside a world (protocol/10-identity.md, "Signing from a
+ * world").
+ *
+ * A world never holds its visitor's key. It embeds a hidden signer served
+ * by the visitor's own client, and asks it. This is the world's side of
+ * that: the embed, the question, and the check on what comes back.
+ *
+ *   const signer = worldSigner();
+ *   signer.unlock();                                   // from a press: opens the client's own window
+ *   const note = await signer.sign({ kind: 1, content: "Hello" });   // null if locked or refused
+ *
+ * What a world can learn from it: whether it is unlocked, and then whose key
+ * it holds. What it can never get: the key, a password, or a reason for a
+ * refusal. Nothing is asked of the visitor here. The window that unlocks it
+ * is the client's own page, which this page can't read.
+ */
+import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerMessage, toLocal, verifyEvent, WORLD_TAG, type NostrEvent } from "@nswp/core";
+
+/** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
+export type SignerState = "none" | "locked" | "unlocked";
+
+export interface WorldSigner {
+  readonly state: SignerState;
+  /** Whose key it holds, once unlocked. */
+  readonly pubkey: string | null;
+  /** What the client calls them, once unlocked, or null. Their own choice of name, not a fact. */
+  readonly name: string | null;
+  /** The visitor's client, as a host to name in words, or null. */
+  readonly host: string | null;
+  /**
+   * Open the client's window, where the visitor unlocks it for this world.
+   * Call it from a press: a browser opens a window for nothing else. False
+   * if there is no signer, or no window could be opened.
+   */
+  unlock(): boolean;
+  /** Lock it again for this world. The visitor's own doing, from the world's menu. */
+  lock(): void;
+  /** Ask for a note to be signed. Null if it is locked, or it refused, or what came back wasn't what was asked. */
+  sign(note: { kind: number; content: string; tags?: string[][] }): Promise<NostrEvent | null>;
+  /** Be told when its state changes. Returns how to stop. */
+  onChange(fn: () => void): () => void;
+  dispose(): void;
+}
+
+export interface WorldSignerOptions {
+  /** The visitor's Airlock: usually `portal.airlockFor()`. The signer is beside it. */
+  airlock: string | null | undefined;
+  /** This page's query string, for tests (`signer=test` asks the client's window for a throwaway identity). */
+  search?: string;
+}
+
+const NONE: WorldSigner = {
+  state: "none",
+  pubkey: null,
+  name: null,
+  host: null,
+  unlock: () => false,
+  lock() {},
+  sign: async () => null,
+  onChange: () => () => {},
+  dispose() {},
+};
+
+/** A signer for this page, from the visitor's client. With no client, or off a browser, one that is always "none". */
+export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
+  const real = signerAddresses(opts.airlock);
+  if (!real || typeof document === "undefined") return NONE;
+  const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
+  const watchers = new Set<() => void>();
+  const pending = new Map<string, { asked: { kind: number; content: string; tags: string[][] }; done: (e: NostrEvent | null) => void; timer: ReturnType<typeof setTimeout> }>();
+  let state: SignerState = "none";
+  let pubkey: string | null = null;
+  let name: string | null = null;
+  // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
+  let origin = "";
+  let windowAt = "";
+  let frame: HTMLIFrameElement | null = null;
+  let disposed = false;
+  let n = 0;
+  const changed = () => {
+    for (const fn of watchers) fn();
+  };
+  const tell = (message: Parameters<typeof signerMessage>[0]) => frame?.contentWindow?.postMessage(signerMessage(message), origin);
+
+  const onMessage = (e: MessageEvent) => {
+    // Only the signer itself is listened to: that frame, at that address.
+    if (!frame || e.source !== frame.contentWindow || e.origin !== origin) return;
+    const reply = readSignerReply(e.data);
+    if (!reply) return;
+    if (reply.t === "ready") {
+      if (state === "none") state = "locked";
+      tell({ t: "state", id: `s${++n}` });
+      return changed();
+    }
+    if (reply.t === "state") {
+      state = reply.unlocked ? "unlocked" : "locked";
+      pubkey = reply.unlocked ? (reply.pubkey ?? null) : null;
+      name = reply.unlocked ? (reply.name ?? null) : null;
+      return changed();
+    }
+    const waiting = pending.get(reply.id);
+    if (!waiting) return;
+    pending.delete(reply.id);
+    clearTimeout(waiting.timer);
+    if (reply.t === "refused") return waiting.done(null);
+    // What comes back is checked like anything else that arrives: a real signature, by the key it said it holds,
+    // on the note that was asked for, marked for this world.
+    const signed = reply.event;
+    const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+    waiting.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting.asked, signed) ? signed : null);
+  };
+
+  void (async () => {
+    try {
+      const signerAt = await toLocal(real.signer);
+      windowAt = await toLocal(real.window);
+      origin = new URL(signerAt).origin;
+      if (disposed) return;
+      frame = document.createElement("iframe");
+      frame.title = "Signer";
+      frame.setAttribute("aria-hidden", "true");
+      frame.tabIndex = -1;
+      // It has nothing to show and is never seen. It is allowed nothing the page could lend it.
+      frame.setAttribute("allow", "");
+      frame.referrerPolicy = "no-referrer";
+      frame.style.cssText = "position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;visibility:hidden;pointer-events:none";
+      addEventListener("message", onMessage);
+      frame.src = signerAt;
+      document.body.append(frame);
+    } catch {
+      /* no signer: it stays "none" */
+    }
+  })();
+
+  return {
+    get state() {
+      return state;
+    },
+    get pubkey() {
+      return pubkey;
+    },
+    get name() {
+      return name;
+    },
+    get host() {
+      try {
+        return new URL(real.origin).host;
+      } catch {
+        return null;
+      }
+    },
+    unlock() {
+      if (state === "none" || !windowAt) return false;
+      try {
+        // A window of its own, never a tab the visitor would lose the world behind. It must keep its link to this
+        // page: that is how it finds the signer here. So no "noopener".
+        const opened = window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
+        return !!opened;
+      } catch {
+        return false;
+      }
+    },
+    lock() {
+      if (state === "unlocked") tell({ t: "lock", id: `l${++n}` });
+    },
+    sign(note) {
+      if (state !== "unlocked" || !frame) return Promise.resolve(null);
+      const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+      const id = `q${++n}`;
+      return new Promise((done) => {
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          done(null);
+        }, 8000);
+        pending.set(id, { asked, done, timer });
+        tell({ t: "sign", id, event: asked });
+      });
+    },
+    onChange(fn) {
+      watchers.add(fn);
+      return () => void watchers.delete(fn);
+    },
+    dispose() {
+      disposed = true;
+      removeEventListener("message", onMessage);
+      frame?.remove();
+      frame = null;
+      for (const w of pending.values()) {
+        clearTimeout(w.timer);
+        w.done(null);
+      }
+      pending.clear();
+      state = "none";
+    },
+  };
+}

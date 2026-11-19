@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.24.0";
+  var KIT_VERSION = "0.25.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4105,6 +4105,22 @@ var NSWP = (() => {
   }
   var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
 
+  // packages/core/dist/signing.js
+  var SIGN_LIMITS = {
+    /** The longest a note's content may be, in characters. */
+    contentChars: 8e3,
+    tags: 60,
+    tagItems: 8,
+    tagChars: 400,
+    /** How long an unlocked signer stays unlocked for a world, at most. Closing the world's page ends it sooner. */
+    grantSec: 4 * 3600,
+    /** No more than this many notes for one world in `perMs`. */
+    burst: 6,
+    perMs: 6e4,
+    /** And no more than this many in an hour. */
+    hourly: 60
+  };
+
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {
     placements: 64,
@@ -5973,6 +5989,7 @@ var NSWP = (() => {
     soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
     you: "M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5ZM5 20.5a7 7 0 0 1 14 0",
     close: "M6 6l12 12M18 6 6 18",
+    key: "M14.5 9.5a3.5 3.5 0 1 0-3.4 3.5L4 20v-3h3v-3h3l1.6-1.6M16 8h.01",
     chat: "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM8 10h8M8 13h5",
     people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
   };

@@ -404,6 +404,37 @@ anywhere. The visitor's switch is `people-pictures`; `showsPictures()` reads
 it, and `loadPicture(address)` fetches one the safe way for anything you
 draw yourself.
 
+### Signing as the visitor
+
+A world never holds its visitor's key. The kit embeds their own client's
+hidden signer and asks it ([NSWP-10](../protocol/10-identity.md), "Signing
+from a world"). `addViewControls` adds the control: **Sign in to sign
+notes**, under You, in every world. It opens a window of the visitor's own
+client, where they say yes. Nothing is typed in your world.
+
+```js
+const signer = worldSigner();        // the page's one signer
+signer.state;                        // "none" (no client offers one), "locked", "unlocked"
+signer.onChange(() => {});
+const note = await signer.sign({ kind: 1, content: "Hello", tags: [] });  // null if locked or refused
+if (note) await publishEvent(relays, note);                               // sending it is yours to do
+```
+
+- A note (kind 1) and a reaction (kind 7) are signed once the visitor has
+  allowed your world. Everything else is refused, and a refusal never says
+  why. Six a minute, sixty an hour.
+- What comes back carries `["nswp:world", "<your origin>"]`, put there by
+  the signer. `sign()` returns only a note that checks out.
+- `signer.unlock()` must be called from a press: a browser opens a window
+  for nothing else. Never draw anything that looks like the visitor's
+  sign-in, and never ask for a password: there is nothing you could do
+  with one, and asking is how a visitor is robbed.
+- In the room's chat, **Post what I write as Nostr notes** appears once the
+  signer is unlocked. It is off at every visit. Pass
+  `addRoomControls(..., { noteRelays })` to say where those notes go.
+- Your site's security policy must let the client be embedded:
+  `frame-src 'self' https:`.
+
 ### Who someone is
 
 Choosing someone, from People or by the picture over their head, puts a card
