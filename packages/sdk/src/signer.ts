@@ -95,6 +95,8 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let windowAt = "";
   let frame: HTMLIFrameElement | null = null;
   let disposed = false;
+  /** Whether the signer has answered at all. Until it has, it is asked again a few times. */
+  let answered = false;
   let n = 0;
   const changed = () => {
     for (const fn of watchers) fn();
@@ -112,6 +114,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       return changed();
     }
     if (reply.t === "state") {
+      answered = true;
       state = reply.unlocked ? "unlocked" : "locked";
       pubkey = reply.unlocked ? (reply.pubkey ?? null) : null;
       name = reply.unlocked ? (reply.name ?? null) : null;
@@ -144,6 +147,15 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       frame.referrerPolicy = "no-referrer";
       frame.style.cssText = "position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;visibility:hidden;pointer-events:none";
       addEventListener("message", onMessage);
+      // A signer says nothing to a page whose address it doesn't know, and not every browser tells it. So it is
+      // asked: once the frame has loaded, and a few times more in case its script wasn't listening yet.
+      frame.addEventListener("load", () => {
+        for (const after of [0, 400, 1200, 3000]) {
+          setTimeout(() => {
+            if (!answered && !disposed) tell({ t: "state", id: `s${++n}` });
+          }, after);
+        }
+      });
       frame.src = signerAt;
       document.body.append(frame);
     } catch {
