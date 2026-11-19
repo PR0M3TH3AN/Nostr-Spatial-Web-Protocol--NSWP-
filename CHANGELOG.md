@@ -2,6 +2,20 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.19.0
+
+One coherent "you": signed in everywhere, one look everywhere, and the same menu everywhere.
+
+- **[NSWP-10](protocol/10-identity.md), "Signed in everywhere":** a visitor signs in once, in their own client, and is signed in wherever they go. No world has a sign-in of its own, so there is nothing to sign in to one by one. A client that does this says so where they sign in, with what it gives away, and puts the way out beside it. A pass still never goes to a site that hasn't proved who it is, and never on a link's word.
+- **The place a visitor signs in may be somewhere to stand,** reached by the crossing's room like any other place, so nobody is dropped from a world onto a page. In BitPortal it now is: the room's ground and sky, the crossing's room opening as they arrive and closing as they leave, and BitLogin on a panel in front of them.
+- **[NSWP-05](protocol/05-looks.md), "Changing a look":** "Change how you look" is in every world's console, under "You". Like signing in, it leaves for the visitor's own client (`who=look`, [NSWP-02](protocol/02-doors.md)) and brings them back wearing it. A world never edits a look and never sends one back: a look a world could write is a mark it could follow a visitor by. In BitPortal the look is changed in the room, from the menu, with the visitor's own figure standing there to show them: the same controls on a phone, at a desk and on a headset's wrist.
+- **[NSWP-11](protocol/11-the-visitors-console.md), "What is in it":** one order for every menu and taskbar. The kit orders the things every place has (home, the headset, the room, the microphone, jump), so the first key is the way home in every world whatever order a world's code added things in. Sections have one order too, with Sound and Display in it. The section for how the controls look is now called "Display", since "your look" is how other people see you.
+- **What was different and is now the same:** the seven reference worlds had "Home, Join", the template "Home, Doors, Join", and their Travel sections began with different things. The worlds had no Panels section and the template did. Sound came after Help. All of them now have the same things in the same places. A world with no room has no Join, and that is the only kind of difference left.
+- **[NSWP-07](protocol/07-homes.md):** a world that can be a home offers the way to their doors to the visitor whose home it is, where every other world offers the way home, not beside it for everyone.
+- **In the kit:** `portal.changeLook()`, `figureAction`, `STANDARD_ORDER`, `hud.setOpen(true, section)`, a swatch whose colour follows what it shows, and `leaving` on `addViewControls` may bring the crossing's room up first. **For other engines:** `NSWP.changeLook(state)` and a `figure` event (script version 6); `Nswp.change_look()` in Godot.
+- **What this does not do:** draw the sign-in inside a headset session. An immersive session can't show a page, and a password is typed into one. From a headset the sign-in is seen on the headset's flat screen, and the world offers the way back into VR after.
+- **Status (2026-11-19):** not deployed. On the local server in Chrome: from a world's menu by its crossing's room to the sign-in place and back; to the room to change a look and back wearing it; with the Airlock's throwaway test identity, by name with nothing chosen, and as a guest once "as a guest" was set; the menus of the room, eight worlds and the Godot example listed side by side. **Not tried:** a real BitLogin sign-in, a headset, a real phone.
+
 ## 0.18.0
 
 Signing in from inside a world.

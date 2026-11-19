@@ -177,6 +177,8 @@ func _process(_delta: float) -> void:
 				doors()
 			"identity":
 				sign_in()
+			"figure":
+				change_look()
 			"door":
 				var id := str(event.get("id", ""))
 				door_chosen.emit(id)
@@ -410,6 +412,19 @@ func sign_in() -> bool:
 	var state := _state()
 	_leave_headset()
 	return bool(_js.signIn(JSON.stringify(state)))
+
+
+## The visitor asked to change how they look. Their look is kept by their own client and is
+## the same in every world, so this leaves for it and brings them back here wearing it
+## (`arrival.look`). The menu offers it for you, under "You". Never edit a look yourself or
+## send one back: draw it your own way if your world has a style of its own, and leave what
+## it is to them. Returns false if they came through no client.
+func change_look() -> bool:
+	if _js == null or not bool(arrival.get("canGoHome", false)):
+		return false
+	var state := _state()
+	_leave_headset()
+	return bool(_js.changeLook(JSON.stringify(state)))
 
 
 ## Whether the visitor is in a headset session now.

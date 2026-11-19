@@ -26,6 +26,7 @@ var NSWP = (() => {
     VERSION: () => VERSION,
     arrival: () => arrival2,
     bump: () => bump,
+    changeLook: () => changeLook,
     check: () => check,
     claim: () => claim,
     door: () => door,
@@ -4022,7 +4023,7 @@ var NSWP = (() => {
       parts2.push(`url=${encodeURIComponent(dest.url)}`);
     if (dest.entryPoint)
       parts2.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-    parts2.push(...opts.who ? ["who=1"] : [], ...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
+    parts2.push(...opts.who === "look" ? ["who=look"] : opts.who ? ["who=1"] : [], ...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
     u.hash = parts2.join("&");
     return u.href;
   }
@@ -4557,6 +4558,21 @@ var NSWP = (() => {
      * false, and does nothing, when they came through no client.
      */
     async signIn(opts = {}) {
+      return portal.ask("identity", opts);
+    },
+    /**
+     * The visitor asked to change how they look. A look is theirs, kept by
+     * their own client, and a world never edits one or sends one back: a look
+     * a world could write would be a mark it could follow them by
+     * (protocol/05-looks.md). So, like signing in, this leaves for their own
+     * client with a door back here (`who=look`). Returns false, and does
+     * nothing, when they came through no client.
+     */
+    async changeLook(opts = {}) {
+      return portal.ask("look", opts);
+    },
+    /** To the visitor's own client for something that is theirs, and back here. */
+    async ask(what, opts = {}) {
       const airlock = portal.airlockFor(opts);
       if (!airlock) return false;
       const immersive = opts.immersive ?? !!opts.xrSession;
@@ -4567,7 +4583,7 @@ var NSWP = (() => {
         } catch {
         }
       }
-      location.assign(await toLocal(buildAirlockUrl(airlock, here, { ...carried(opts, immersive), who: true })));
+      location.assign(await toLocal(buildAirlockUrl(airlock, here, { ...carried(opts, immersive), who: what === "look" ? "look" : true })));
       return true;
     },
     /**
@@ -5699,7 +5715,7 @@ var NSWP = (() => {
     icon: "you",
     note: () => {
       const host = identityHost();
-      return host ? `Who you are is asked and kept by ${host}, the place you set out from, and never by this world. Signing in takes you there and brings you back here.` : "";
+      return host ? `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.` : "";
     }
   });
 
@@ -6103,7 +6119,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return at;
     };
     let cameFrom = null;
-    const setOpen = (next) => {
+    const setOpen = (next, at) => {
+      if (next && at) {
+        section = at;
+        chose = true;
+        if (open2) return void draw();
+      }
       if (open2 === next) return;
       if (next) {
         cameFrom = focused();
@@ -6215,15 +6236,26 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "travel", label: "Travel", icon: "door" },
     // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
     { id: "you", label: "You", icon: "you" },
+    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+    { id: "figure", label: "Your look", icon: "look" },
     { id: "room", label: "Room", icon: "room" },
     { id: "people", label: "People", icon: "people" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },
     { id: "moving", label: "Moving", icon: "step" },
-    { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
+    { id: "sound", label: "Sound", icon: "sound" },
+    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
     { id: "help", label: "Help", icon: "help" }
   ];
+  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "jump"];
+  var rank = (id) => {
+    const i = STANDARD_ORDER.indexOf(id);
+    return i === -1 ? STANDARD_ORDER.length : i;
+  };
+  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
   function createControls(opts) {
     const sections = STANDARD.map((s) => ({ ...s }));
     for (const s of opts.sections ?? []) addSection(s);
@@ -6325,11 +6357,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         changed();
       },
       view() {
-        const showing = actions.filter((a) => !a.hidden?.());
+        const showing = inOrder(actions.filter((a) => !a.hidden?.()));
         const bar = showing.filter((a) => a.hotbar).slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
-          return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: a.color ?? "" };
+          return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color) };
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
@@ -6461,14 +6493,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
     if (identityHost()) {
       c.addSection(identitySection());
-      c.add({
-        id: "identity",
-        section: "you",
-        icon: "you",
-        label: () => identityWords().label,
-        short: () => identityWords().short,
-        act: () => tell({ type: "identity" })
-      });
+      c.add(
+        { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
+        { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, act: () => tell({ type: "identity" }) }
+      );
     }
     const context = arrival.read().context;
     moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
@@ -6620,7 +6648,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 5;
+  var VERSION = 6;
   var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
@@ -6689,6 +6717,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function signIn(state) {
     if (portal.airlockFor() === null) return false;
     void portal.signIn(stateOf(state));
+    return true;
+  }
+  function changeLook(state) {
+    if (portal.airlockFor() === null) return false;
+    void portal.changeLook(stateOf(state));
     return true;
   }
   function doors2(state) {

@@ -89,9 +89,12 @@ then owes.
 A world says so with `home` among the `capabilities` of its manifest entry
 ([NSWP-01](01-worlds.md)). It is a promise of one thing:
 
-- **Wherever it offers the way home, it offers the way to the visitor's
-  doors** (`doors=1`, [NSWP-02](02-doors.md)). At home, home leads nowhere
-  new, and someone with no way to their doors is stuck in their own house.
+- **To the visitor whose home it is, it offers the way to their doors where
+  every other world offers the way home** (`doors=1`,
+  [NSWP-02](02-doors.md)). At home, home leads nowhere new, and someone with
+  no way to their doors is stuck in their own house. It stands in the same
+  place as the way home, so the first key does the same kind of thing in
+  every world ([NSWP-11](11-the-visitors-console.md), "What is in it").
 
 A client bringing its visitor home says so with `home` in the arrival
 context ([NSWP-03](03-arrival.md)), so the world can leave the way home out

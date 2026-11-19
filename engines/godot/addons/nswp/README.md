@@ -99,7 +99,11 @@ func _ready() -> void:
   then filled if they chose to come by name. `Nswp.sign_in()` does it from a
   button of your own. Never draw a sign-in yourself, and never ask for a
   password or a key: that is the one thing about signing in a world must not
-  do ([NSWP-10](../../../../protocol/10-identity.md)).
+  do ([NSWP-10](../../../../protocol/10-identity.md)). They sign in once, in
+  their own client, and arrive at every world signed in: there is nothing
+  for your world to keep in step.
+- **Their look.** "Change how you look" is beside it and works the same way:
+  `Nswp.change_look()`. They come back wearing it (`Nswp.arrival.look`).
 - **A headset.** An `NswpVisitor` starts a session when the visitor presses
   Enter VR in the menu, and a visitor who left a headset to come here is
   told where that is. Leaving through a door ends the session for you.

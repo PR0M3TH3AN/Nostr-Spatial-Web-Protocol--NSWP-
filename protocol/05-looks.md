@@ -110,6 +110,33 @@ everywhere. A client therefore keeps nothing and sends nothing until the
 visitor makes a look, and its Airlock offers the choice on every trip: go as
 yourself, or go plain.
 
+## Changing a look
+
+A look is the visitor's, kept by their own client, and it is the same in
+every world that doesn't dress its visitors its own way. So it is changed in
+one place: their client.
+
+- **A world never edits a look and never sends one back.** No part of a look
+  travels on a link out of a world. A look a world could write would be a
+  mark it could put on a visitor and then follow them by, from world to
+  world, without their knowing. This is why a look is not one of the
+  settings that travel ([NSWP-11](11-the-visitors-console.md)).
+- **A world offers the way to change it.** The console has "Change how you
+  look" under "You" in every world. Pressing it leaves for the visitor's own
+  client with a door back to the world and `who=look`
+  ([NSWP-02](02-doors.md)), exactly as signing in does
+  ([NSWP-10](10-identity.md), "Signing in from inside a world"). They come
+  back wearing what they chose.
+- **A client keeps it as it keeps the visitor's other things.** In the
+  browser first, and with their profile if they have asked for that, so
+  another device starts from it. That is the client's business and no
+  world's.
+
+In the reference client the look is changed in the visitor's room, from the
+menu: the same controls on a phone, at a desk and on a headset's wrist, with
+their own figure standing in the room to show them. Each part steps through
+the protocol's list for it.
+
 ## What a world may change
 
 | Level | What the world does | What survives |

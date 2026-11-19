@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addPanelControls, addRoomControls, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -658,6 +658,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // with a select like everything else.
   panels = createPanels({ scene, camera, accent, textColor: cfg.palette.text, input, session: () => renderer.xr.getSession() });
   for (const [content, place] of toHang) panels.open(content, { ...(place ? { place } : {}), keep: false });
+  // The visitor's own panels, as in every world: a note, a picture or a video of theirs, hung where they like.
+  addPanelControls(controls, panels, { presenting: () => renderer.xr.isPresenting });
   hooks.panels = panels;
   hooks.pointedAt = (slot) => {
     const door = aimFrom(controllers[slot]!);
@@ -801,8 +803,16 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     onState: (x) => (state.xr = x),
     ...(backToHeadset ? { arrived: { title: cfg.title } } : {}),
     onOffer: (showing) => (offered = showing),
-    // Signing in is their own client's to do. They leave as they are, and come back the same: in the room, moving as they were.
-    leaving: () => ({ ...travelling(), moving: movingNow() }),
+    // Who they are and how they look are their own client's to keep. They leave by the crossing's room, as through
+    // any door, and come back the same way: in the room they were in, moving as they were.
+    leaving: async (to) => {
+      state.leaving = true;
+      stroll.stop();
+      sounds.play("cross");
+      await crossing.leave(to);
+      document.body.classList.add("leaving");
+      return { ...travelling(), moving: movingNow() };
+    },
   });
   if (!state.vrSupported) offered = false;
 

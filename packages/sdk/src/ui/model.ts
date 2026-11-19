@@ -42,7 +42,8 @@ export interface UiAction {
    * "swatch" is a choice of colour, and needs `color`.
    */
   kind?: "button" | "swatch";
-  color?: string;
+  /** A function is read again as things change, for a swatch that shows a choice as it stands. */
+  color?: Text;
 }
 
 export interface UiSection {
@@ -186,15 +187,38 @@ const STANDARD: UiSection[] = [
   { id: "travel", label: "Travel", icon: "door" },
   // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
   { id: "you", label: "You", icon: "you" },
+  // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+  // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+  { id: "figure", label: "Your look", icon: "look" },
   { id: "room", label: "Room", icon: "room" },
   { id: "people", label: "People", icon: "people" },
   { id: "camera", label: "Camera", icon: "camera" },
   { id: "panels", label: "Panels", icon: "panel" },
   { id: "view", label: "View", icon: "vr" },
   { id: "moving", label: "Moving", icon: "step" },
-  { id: "look", label: "Look", icon: "look", note: "How these controls look to you. Kept in this browser, for this site." },
+  { id: "sound", label: "Sound", icon: "sound" },
+  // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+  { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
   { id: "help", label: "Help", icon: "help" },
 ];
+
+/**
+ * The order of the things every place has, wherever in a world's code they
+ * were added. So the taskbar reads the same in every world, and the same
+ * number key does the same thing: the way home is first, then the visitor's
+ * doors, the headset, the room, and jumping. A world's own things come after,
+ * in the order it added them.
+ */
+export const STANDARD_ORDER: readonly string[] = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "jump"];
+const rank = (id: string): number => {
+  const i = STANDARD_ORDER.indexOf(id);
+  return i === -1 ? STANDARD_ORDER.length : i;
+};
+const inOrder = <T extends { id: string }>(list: T[]): T[] =>
+  list
+    .map((a, i) => [a, i] as const)
+    .sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1])
+    .map((x) => x[0]);
 
 export function createControls(opts: ControlsOptions): Controls {
   const sections: UiSection[] = STANDARD.map((s) => ({ ...s }));
@@ -304,11 +328,11 @@ export function createControls(opts: ControlsOptions): Controls {
       changed();
     },
     view() {
-      const showing = actions.filter((a) => !a.hidden?.());
+      const showing = inOrder(actions.filter((a) => !a.hidden?.()));
       const bar = showing.filter((a) => a.hotbar).slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: a.color ?? "" };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color) };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);

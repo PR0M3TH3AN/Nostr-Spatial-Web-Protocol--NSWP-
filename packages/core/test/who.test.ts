@@ -16,7 +16,7 @@ describe("asking to say who you are, from inside a world", () => {
     const link = buildAirlockUrl("https://lobby.example/go/", { url: "https://garden.example/" }, { who: true, immersive: true });
     expect(new URL(link).hash).toContain("who=1");
     const req = parseAirlockFragment(new URL(link).hash);
-    expect(req?.who).toBe(true);
+    expect(req?.who).toBe("identity");
     expect(req?.url).toBe("https://garden.example/");
     expect(req?.immersive).toBe(true);
   });
@@ -29,7 +29,15 @@ describe("asking to say who you are, from inside a world", () => {
 
   it("means nothing but itself: only who=1 is the request", () => {
     expect(parseAirlockFragment("#to=https%3A%2F%2Fgarden.example%2F&who=yes")?.who).toBeUndefined();
-    expect(parseAirlockFragment("#to=https%3A%2F%2Fgarden.example%2F&who=1&name=alice")?.who).toBe(true);
+    expect(parseAirlockFragment("#to=https%3A%2F%2Fgarden.example%2F&who=1&name=alice")?.who).toBe("identity");
+  });
+
+  it("may ask for the look instead, and says only that", () => {
+    const link = buildAirlockUrl("https://lobby.example/go/", { url: "https://garden.example/" }, { who: "look" });
+    expect(new URL(link).hash).toContain("who=look");
+    expect(parseAirlockFragment(new URL(link).hash)?.who).toBe("look");
+    // A look is never on a link: only the request to go and change it.
+    expect(new URL(link).hash).not.toMatch(/look=|s=/);
   });
 
   it("never rides on the way home, which has no world to come back to", () => {

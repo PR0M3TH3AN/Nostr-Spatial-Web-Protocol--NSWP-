@@ -33,7 +33,7 @@ import { arrival as arrivals, configure, portal, startingForm, type GoOptions } 
 export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 5;
+export const VERSION = 6;
 
 const read = (text: unknown): Record<string, unknown> => {
   try {
@@ -151,6 +151,18 @@ export function home(state?: string): boolean {
 export function signIn(state?: string): boolean {
   if (portal.airlockFor() === null) return false;
   void portal.signIn(stateOf(state));
+  return true;
+}
+
+/**
+ * The visitor asked to change how they look. Their look is kept by their own
+ * client and is the same in every world, so this leaves for it and brings
+ * them back here wearing it. The menu offers it (a `figure` event); call this
+ * then, or from a button of your own. A world never edits a look itself.
+ */
+export function changeLook(state?: string): boolean {
+  if (portal.airlockFor() === null) return false;
+  void portal.changeLook(stateOf(state));
   return true;
 }
 
