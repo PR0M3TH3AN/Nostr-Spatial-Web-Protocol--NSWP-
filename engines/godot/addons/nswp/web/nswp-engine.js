@@ -6363,7 +6363,7 @@ var NSWP = (() => {
       if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
       const at = worldSigner().host ?? "your sign-in address";
       const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
-      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. To stay signed in here, sign out, sign in again, and tick "remember" in its window.` : "";
+      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose in its window.` : "";
       if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
       return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
     }
