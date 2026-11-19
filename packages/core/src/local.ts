@@ -24,6 +24,8 @@ export const LOCAL_MAP_WAIT = 2000;
 export const LOCAL_MAP_LIMIT = 64;
 
 export type LocalMap = ReadonlyMap<string, string>;
+/** The longest address that is followed to a local copy: far longer than any arrival, with a pass and settings in it. */
+const FOLLOWED_MOST = 16384;
 
 /**
  * Whether a host is one only this machine or this network can reach:
@@ -39,9 +41,12 @@ export function isLocalHost(hostname: string): boolean {
   return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
 }
 
-/** An address's origin, or null if it isn't an address. */
-function originOf(text: unknown): URL | null {
-  if (typeof text !== "string" || text.length > 300) return null;
+/**
+ * An address, or null if it isn't one. `most` is how long it may be: a map's own entries are short, and an address
+ * being followed may be as long as an arrival makes it.
+ */
+function originOf(text: unknown, most = 300): URL | null {
+  if (typeof text !== "string" || text.length > most) return null;
   try {
     const u = new URL(text);
     return u.username || u.password ? null : u;
@@ -74,7 +79,7 @@ export function cleanLocalMap(input: unknown): LocalMap {
 /** The same address at its local copy, if the map has one for its origin. Anything else comes back as it was. */
 export function mapToLocal(url: string, map: LocalMap): string {
   if (!map.size) return url;
-  const u = originOf(url);
+  const u = originOf(url, FOLLOWED_MOST);
   const to = u && map.get(u.origin);
   return to ? `${to}${url.slice(u.origin.length)}` : url;
 }
@@ -82,7 +87,7 @@ export function mapToLocal(url: string, map: LocalMap): string {
 /** The other way: a local copy's address as the real one. */
 export function mapFromLocal(url: string, map: LocalMap): string {
   if (!map.size) return url;
-  const u = originOf(url);
+  const u = originOf(url, FOLLOWED_MOST);
   if (!u) return url;
   for (const [real, local] of map) if (local === u.origin) return `${real}${url.slice(u.origin.length)}`;
   return url;

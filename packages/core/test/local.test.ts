@@ -43,6 +43,10 @@ describe("local copies", () => {
     expect(mapToLocal("https://grove.bitblocks.network/", map)).toBe("https://grove.bitblocks.network/");
     expect(mapToLocal("https://gallery.bitblocks.network.evil.example/", map)).toBe("https://gallery.bitblocks.network.evil.example/");
     expect(mapToLocal("nonsense", map)).toBe("nonsense");
+    // An arrival is long: a pass, a look and settings are all after the #. It is followed all the same.
+    const long = `https://gallery.bitblocks.network/#nswp=${"A".repeat(3000)}`;
+    expect(mapToLocal(long, map)).toBe(`http://localhost:4301/#nswp=${"A".repeat(3000)}`);
+    expect(mapFromLocal(`http://localhost:4301/#nswp=${"A".repeat(3000)}`, map)).toBe(long);
     expect(mapFromLocal("http://localhost:4300/go/", map)).toBe("https://portal.bitblocks.network/go/");
     expect(mapFromLocal("http://localhost:9999/go/", map)).toBe("http://localhost:9999/go/");
     expect(mapToLocal("https://gallery.bitblocks.network/", new Map())).toBe("https://gallery.bitblocks.network/");
