@@ -388,8 +388,13 @@ why.
 - **Limits:** 8,000 characters, 60 tags; six notes a minute and sixty an
   hour for one world. A world the visitor allowed still can't pour notes
   out under their name.
-- **It ends** when the world's page closes, when the visitor locks it, or
-  after four hours. The key is held in memory and never stored.
+- **How long it lasts is the signer's to say,** and it says so in `until`.
+  The visitor locking it ends it at once. A signer may remember that a
+  world was allowed, so the visitor isn't asked again each time its page is
+  loaded: BitLogin's does, for thirty days on that device, keeping what it
+  needs encrypted in storage the world can't read, and counting signatures
+  across page loads. A signer that remembers nothing ends when the page
+  does.
 - **A world checks what comes back** like anything else that arrives: a
   real signature, by the key the signer said it holds, on the note that was
   asked for, marked for this world.

@@ -421,6 +421,10 @@ const note = await signer.sign({ kind: 1, content: "Hello", tags: [] });  // nul
 if (note) await publishEvent(relays, note);                               // sending it is yours to do
 ```
 
+- Once allowed, your world stays allowed on that device until the visitor
+  signs out of it there, or the signer's own limit (BitLogin's is thirty
+  days). `signer.state` is "unlocked" from the first answer after a page
+  load: nothing is asked again.
 - A note (kind 1) and a reaction (kind 7) are signed once the visitor has
   allowed your world. Everything else is refused, and a refusal never says
   why. Six a minute, sixty an hour.

@@ -302,7 +302,7 @@ room.
 |---|---|---|
 | 1 | Two pages of BitPortal change what they allow: one (the signer) may be embedded by any world, and one (the window) keeps its link to the page that opened it. Every other page stays as it is. This is the setting Claude declined to change on its own | Yes. Neither page takes anything on a world's word |
 | 2 | The signer in a world signs more than a pass and a look: the classes in "Permissions". This replaces "never a general signer" in the other plan | Yes, with that table as the whole list |
-| 3 | The signer keeps the unlocked key in memory while the world's page is open, four hours at most, and never stores it. This replaces "used and dropped" | Yes. Unlocking for every note would be a prompt per note |
+| 3 | The signer keeps the unlocked key in memory while the world's page is open, four hours at most, and never stores it. This replaces "used and dropped" | Yes. Unlocking for every note would be a prompt per note. **Changed by the owner the same day, on using it:** a window on every page load is too much. BitLogin's signer now remembers a site for thirty days, encrypted at rest, until the visitor signs out of it (BitLogin `docs/sign-in-window.md` §SW11) |
 | 4 | BitLogin gains the sign-in window mode, and the embedded password widget is for the sign-in address only. Worlds first; other sites after | Yes |
 | 5 | After a password sign-in, the window offers a passkey. That needs BitLogin to add a passkey to an account that already exists, which it can't today (a passkey makes an account of its own) | Yes. It is a change to how BitLogin keeps an account, so it goes through BitLogin's own review |
 | 6 | The first build is notes only. Budgets and payments are a later plan of their own | Yes |
@@ -381,7 +381,9 @@ Reading the session code closely is the first step of the work.
   address as the browser gave it.
 - The signer signs only for the world the browser says is asking, only
   what that world's permission allows, and never hands out a key.
-- The signer stores no key. Closing the world's page locks it.
+- What the signer keeps for a site is for that site alone, encrypted, can
+  only sign, and ends at its date or when the visitor signs out there. It
+  is never the client's own session.
 - A world never learns why it was refused, and never learns whether the
   visitor is signed in at their client until they unlock.
 - A link, or anything a world says, never unlocks the signer, never widens
