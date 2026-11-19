@@ -39,6 +39,9 @@ signal menu_toggled(open: bool)
 ## The visitor pressed Enter VR (true) or Leave VR (false) in the menu. A browser starts a
 ## headset session only on a press, and this is one: start it now.
 signal vr_pressed(enter: bool)
+## Something in the visitor's console changed: a volume, the words on a control. If you
+## draw any of it yourself (`console_view`), read it again.
+signal console_changed
 ## The visitor pressed Jump in the menu: the way to ask where there is no keyboard.
 signal jump_pressed
 ## The visitor chose a door from the menu's list (`add_door`). It has been gone through already
@@ -164,6 +167,8 @@ func _process(_delta: float) -> void:
 				menu_toggled.emit(menu_open)
 			"vr":
 				vr_pressed.emit(bool(event.get("enter", true)))
+			"changed":
+				console_changed.emit()
 			"jump":
 				jump_pressed.emit()
 			"home":
@@ -253,6 +258,32 @@ func target(name_of_it: String, detail: PackedStringArray = PackedStringArray())
 func headset(supported: bool, presenting: bool) -> void:
 	if _menu:
 		_js.headset(JSON.stringify({"supported": supported, "presenting": presenting}))
+
+
+## Everything in the visitor's console, for drawing some or all of it in an interface of
+## your own: their home button on your pause menu, their volumes on your settings screen,
+## wherever you like. `sections` is the whole menu and `hotbar` the few kept at hand; each
+## item has an `id` to press it by (`run`), its `label` as it stands now, and `on`.
+## The words change as things do; `console_changed` says when to ask again.
+func console_view() -> Dictionary:
+	if _menu:
+		var read: Variant = JSON.parse_string(str(_js.view()))
+		if typeof(read) == TYPE_DICTIONARY:
+			return read
+	return {"sections": [], "hotbar": [], "open": false}
+
+
+## Press something in the visitor's console by its id, as pressing it there would: "home",
+## "fullscreen", "sound-music", "jump". It is the same button, with the visitor's own
+## settings and their own home. Returns false if there is no such thing just now.
+func run(id: String) -> bool:
+	return _menu and bool(_js.run(id))
+
+
+## Bring the visitor's console up, or put it away: for a button of your own that opens it.
+func open_console(open: bool = true) -> void:
+	if _menu:
+		_js.open("1" if open else "0")
 
 
 ## How much of the screen the kit's controls take: "full", "quiet" (one small mark in a

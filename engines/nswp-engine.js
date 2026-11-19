@@ -37,11 +37,14 @@ var NSWP = (() => {
     kit: () => kit,
     menu: () => menu,
     moved: () => moved,
+    open: () => open,
     play: () => play,
     presence: () => presence,
+    run: () => run,
     say: () => say,
     start: () => start,
-    target: () => target
+    target: () => target,
+    view: () => view
   });
 
   // packages/core/dist/constants.js
@@ -106,11 +109,11 @@ var NSWP = (() => {
   // node_modules/@noble/hashes/_u64.js
   var fromNumH = (n) => n / 2 ** 32 | 0;
   var fromNumL = (n) => n >>> 0;
-  function setU64FromNum(view, byteOffset, n, isLE) {
+  function setU64FromNum(view2, byteOffset, n, isLE) {
     const h = fromNumH(n);
     const l = fromNumL(n);
-    view.setUint32(byteOffset, isLE ? l : h, isLE);
-    view.setUint32(byteOffset + 4, isLE ? h : l, isLE);
+    view2.setUint32(byteOffset, isLE ? l : h, isLE);
+    view2.setUint32(byteOffset + 4, isLE ? h : l, isLE);
   }
 
   // node_modules/@noble/hashes/utils.js
@@ -311,7 +314,7 @@ var NSWP = (() => {
     update(data) {
       aexists(this);
       abytes(data);
-      const { view, buffer, blockLen } = this;
+      const { view: view2, buffer, blockLen } = this;
       const len = data.length;
       let processed = false;
       for (let pos = 0; pos < len; ) {
@@ -327,7 +330,7 @@ var NSWP = (() => {
         this.pos += take;
         pos += take;
         if (this.pos === blockLen) {
-          this.process(view, 0);
+          this.process(view2, 0);
           this.pos = 0;
           processed = true;
         }
@@ -341,18 +344,18 @@ var NSWP = (() => {
       aexists(this);
       aoutput(out, this);
       this.finished = true;
-      const { buffer, view, blockLen, isLE } = this;
+      const { buffer, view: view2, blockLen, isLE } = this;
       let { pos } = this;
       buffer[pos++] = 128;
       buffer.fill(0, pos);
       if (this.padOffset > blockLen - pos) {
-        this.process(view, 0);
+        this.process(view2, 0);
         buffer.fill(0);
       }
-      setU64FromNum(view, blockLen - 8, this.length * 8, isLE);
-      this.process(view, 0);
+      setU64FromNum(view2, blockLen - 8, this.length * 8, isLE);
+      this.process(view2, 0);
       this.roundClean();
-      const oview = out === buffer ? view : createView(out);
+      const oview = out === buffer ? view2 : createView(out);
       const len = this.outputLen;
       const outLen = len / 4;
       const state = this.get();
@@ -504,9 +507,9 @@ var NSWP = (() => {
       (to || (to = new this.constructor())).set(...this.get());
       return this._cloneIntoMeta(to);
     }
-    process(view, offset) {
+    process(view2, offset) {
       for (let i = 0; i < 16; i++, offset += 4)
-        SHA256_W[i] = view.getUint32(offset, false);
+        SHA256_W[i] = view2.getUint32(offset, false);
       for (let i = 16; i < 64; i++) {
         const W15 = SHA256_W[i - 15];
         const W2 = SHA256_W[i - 2];
@@ -4117,6 +4120,56 @@ var NSWP = (() => {
     return cleanSettings(out);
   }
 
+  // packages/sdk/src/ui/fullscreen.ts
+  var resumed = false;
+  var waiting = false;
+  function resumeFullscreen(presenting = () => false) {
+    if (resumed || typeof document === "undefined") return;
+    resumed = true;
+    reportSettings("screen", () => ({ full: !!document.fullscreenElement || waiting }));
+    waiting = arrivedSettings().full === true && document.fullscreenEnabled && !document.fullscreenElement;
+    if (!waiting) return;
+    const presses = ["keydown", "pointerdown", "pointerup", "touchend"];
+    const stop = () => {
+      waiting = false;
+      for (const type of presses) removeEventListener(type, onPress, true);
+      document.removeEventListener("fullscreenchange", onChange);
+    };
+    const onChange = () => {
+      if (document.fullscreenElement) stop();
+    };
+    const onPress = (e) => {
+      if (e.code === "Escape" || presenting() || document.fullscreenElement) return;
+      void document.documentElement.requestFullscreen().then(stop, () => {
+      });
+    };
+    for (const type of presses) addEventListener(type, onPress, true);
+    document.addEventListener("fullscreenchange", onChange);
+  }
+  function fullscreenAction(controls2, presenting) {
+    resumeFullscreen(presenting);
+    setTimeout(() => {
+      if (waiting && !presenting()) controls2.say("Press any key, or click, to fill the screen again.");
+    }, 600);
+    return {
+      id: "fullscreen",
+      section: "view",
+      icon: "size",
+      on: () => !!document.fullscreenElement,
+      // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
+      hidden: () => !document.fullscreenEnabled || presenting(),
+      label: () => document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off",
+      act: async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          controls2.say("This browser wouldn't go fullscreen.");
+        }
+      }
+    };
+  }
+
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
   var LOOK_KEY = "nswp:look";
@@ -4158,6 +4211,7 @@ var NSWP = (() => {
       cached = r.ok ? { context: r.value, warnings: r.warnings } : { context: null, warnings: [...r.errors, ...r.warnings] };
       arriveAs(cached.context?.form);
       arriveWith(cached.context?.settings);
+      resumeFullscreen();
       try {
         if (cached.context?.home) session()?.setItem(HOME_KEY, "1");
         else if (cached.context) session()?.removeItem(HOME_KEY);
@@ -4412,17 +4466,17 @@ var NSWP = (() => {
   var DB = "nswp-panels";
   function files() {
     return new Promise((resolve, reject) => {
-      const open = indexedDB.open(DB, 1);
-      open.onupgradeneeded = () => open.result.createObjectStore("files");
-      open.onsuccess = () => resolve(open.result);
-      open.onerror = () => reject(open.error);
+      const open2 = indexedDB.open(DB, 1);
+      open2.onupgradeneeded = () => open2.result.createObjectStore("files");
+      open2.onsuccess = () => resolve(open2.result);
+      open2.onerror = () => reject(open2.error);
     });
   }
-  async function fileStore(mode, run) {
+  async function fileStore(mode, run2) {
     try {
       const db = await files();
       return await new Promise((resolve, reject) => {
-        const request = run(db.transaction("files", mode).objectStore("files"));
+        const request = run2(db.transaction("files", mode).objectStore("files"));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
@@ -5400,49 +5454,6 @@ var NSWP = (() => {
   var JUMP_GRAVITY = 9.8;
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
-  // packages/sdk/src/ui/fullscreen.ts
-  var resumed = false;
-  function resumeFullscreen(presenting) {
-    if (resumed || typeof document === "undefined") return;
-    resumed = true;
-    reportSettings("screen", () => ({ full: !!document.fullscreenElement || waiting }));
-    let waiting = arrivedSettings().full === true && document.fullscreenEnabled && !document.fullscreenElement;
-    if (!waiting) return;
-    const stop = () => {
-      waiting = false;
-      removeEventListener("keydown", onPress, true);
-      removeEventListener("pointerup", onPress, true);
-    };
-    const onPress = (e) => {
-      if (e.code === "Escape" || presenting()) return;
-      stop();
-      if (!document.fullscreenElement) void document.documentElement.requestFullscreen().catch(() => {
-      });
-    };
-    addEventListener("keydown", onPress, true);
-    addEventListener("pointerup", onPress, true);
-  }
-  function fullscreenAction(controls2, presenting) {
-    resumeFullscreen(presenting);
-    return {
-      id: "fullscreen",
-      section: "view",
-      icon: "size",
-      on: () => !!document.fullscreenElement,
-      // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
-      hidden: () => !document.fullscreenEnabled || presenting(),
-      label: () => document.fullscreenElement ? "Fullscreen: on" : "Fullscreen: off",
-      act: async () => {
-        try {
-          if (document.fullscreenElement) await document.exitFullscreen();
-          else await document.documentElement.requestFullscreen();
-        } catch {
-          controls2.say("This browser wouldn't go fullscreen.");
-        }
-      }
-    };
-  }
-
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
     home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
@@ -5746,41 +5757,41 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabs, rows, note, el("div", { class: "foot" }, close));
     root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, sheet, el("div", { class: "low" }, target2, hotbar));
     (opts.parent ?? document.body).append(host);
-    let open = false;
+    let open2 = false;
     let section = "";
     let chose = false;
     let drawn = "";
     const press = (item) => controls2.run(item.id);
     const draw = () => {
-      const view = controls2.view();
-      const t = view.theme;
+      const view2 = controls2.view();
+      const t = view2.theme;
       host.style.setProperty("--accent", rgb(t.accent));
       host.style.setProperty("--ink", rgb(t.ink));
       host.style.setProperty("--glass", rgb(t.glass));
       host.style.setProperty("--warn", rgb(t.warn));
       host.style.setProperty("--s", String(t.scale));
       host.classList.toggle("moving", t.motion);
-      host.dataset.presence = view.presence;
-      host.dataset.corner = view.corner;
-      host.classList.toggle("no-menu-key", view.keys.menu === null);
-      host.classList.toggle("no-hotbar-keys", !view.keys.hotbar);
+      host.dataset.presence = view2.presence;
+      host.dataset.corner = view2.corner;
+      host.classList.toggle("no-menu-key", view2.keys.menu === null);
+      host.classList.toggle("no-hotbar-keys", !view2.keys.hotbar);
       const key = menu2.querySelector("kbd");
-      if (key && view.keys.menu) key.textContent = view.keys.menu.toUpperCase();
-      title.textContent = view.title;
-      address.textContent = view.address;
-      const shown = [view.target, ...view.detail].join("\n");
+      if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
+      title.textContent = view2.title;
+      address.textContent = view2.address;
+      const shown = [view2.target, ...view2.detail].join("\n");
       if (target2.dataset.shown !== shown) {
         target2.dataset.shown = shown;
-        target2.classList.toggle("card", view.detail.length > 0);
-        if (view.detail.length) target2.replaceChildren(el("b", {}, view.target), ...view.detail.map((line) => el("span", {}, line)));
-        else target2.textContent = view.target;
+        target2.classList.toggle("card", view2.detail.length > 0);
+        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line) => el("span", {}, line)));
+        else target2.textContent = view2.target;
       }
-      if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
-      const now = JSON.stringify([view.hotbar, view.sections, section, open, view.presence]);
+      if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
+      const now = JSON.stringify([view2.hotbar, view2.sections, section, open2, view2.presence]);
       if (now === drawn) return;
       drawn = now;
       hotbar.replaceChildren(
-        ...view.hotbar.map((item, i) => {
+        ...view2.hotbar.map((item, i) => {
           const b = el(
             "button",
             { class: `key ${item.tone}`, type: "button", "aria-label": item.label, ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
@@ -5794,9 +5805,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return b;
         })
       );
-      hotbar.hidden = view.hotbar.length === 0;
+      hotbar.hidden = view2.hotbar.length === 0;
       tabs.replaceChildren(
-        ...view.sections.map((s) => {
+        ...view2.sections.map((s) => {
           const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
           b.addEventListener("click", () => {
             section = s.id;
@@ -5807,7 +5818,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return b;
         })
       );
-      const current = view.sections.find((s) => s.id === section);
+      const current = view2.sections.find((s) => s.id === section);
       const drawSwatch = (item) => {
         const b = el("button", { class: "swatch", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, el("i"), el("u"), item.label);
         b.style.setProperty("--c", item.color);
@@ -5832,9 +5843,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       );
       rows.hidden = !current?.items.length;
       note.textContent = current?.note ?? "";
-      sheet.hidden = !open;
-      menu2.setAttribute("aria-expanded", String(open));
-      quiet.setAttribute("aria-expanded", String(open));
+      sheet.hidden = !open2;
+      menu2.setAttribute("aria-expanded", String(open2));
+      quiet.setAttribute("aria-expanded", String(open2));
     };
     const focused = () => {
       let at = document.activeElement;
@@ -5843,32 +5854,32 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     let cameFrom = null;
     const setOpen = (next) => {
-      if (open === next) return;
+      if (open2 === next) return;
       if (next) {
         cameFrom = focused();
         if (!chose) section = "";
       }
-      open = next;
-      controls2.signal(open ? "menuOpen" : "menuClose");
+      open2 = next;
+      controls2.signal(open2 ? "menuOpen" : "menuClose");
       draw();
-      if (open) return void tabs.querySelector('[aria-selected="true"]')?.focus();
+      if (open2) return void tabs.querySelector('[aria-selected="true"]')?.focus();
       const back = cameFrom;
       cameFrom = null;
       if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
       else focused()?.blur();
     };
-    menu2.addEventListener("click", () => setOpen(!open));
-    quiet.addEventListener("click", () => setOpen(!open));
+    menu2.addEventListener("click", () => setOpen(!open2));
+    quiet.addEventListener("click", () => setOpen(!open2));
     close.addEventListener("click", () => setOpen(false));
     const onKey = (e) => {
       if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
       if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-      if (e.key === "Escape" && open) return setOpen(false);
-      const view = controls2.view();
-      if (view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
-      if (!view.keys.hotbar || view.presence !== "full") return;
-      const item = view.hotbar.find((i) => i.key === e.key);
+      if (e.key === "Escape" && open2) return setOpen(false);
+      const view2 = controls2.view();
+      if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
+      if (!view2.keys.hotbar || view2.presence !== "full") return;
+      const item = view2.hotbar.find((i) => i.key === e.key);
       if (item) press(item);
     };
     addEventListener("keydown", onKey);
@@ -5878,14 +5889,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      if (!e.repeat) setOpen(!open);
+      if (!e.repeat) setOpen(!open2);
     };
     const swallow = (e) => {
       if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
     };
     const hold = createHoldWatch({
       onHeld: () => {
-        if (!host.hidden) setOpen(!open);
+        if (!host.hidden) setOpen(!open2);
       }
     });
     const onTouch = (e) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
@@ -5909,7 +5920,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return {
       element: host,
       get open() {
-        return open;
+        return open2;
       },
       setOpen,
       bounds() {
@@ -6243,6 +6254,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       icon: "help",
       note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
     });
+    let told = 0;
+    c.subscribe(() => {
+      const now = performance.now();
+      if (now - told < 120) return;
+      told = now;
+      tell({ type: "changed" });
+    });
     let closedAt = -1;
     c.onSignal((name) => {
       if (name === "menuOpen") tell({ type: "menu", open: true });
@@ -6297,6 +6315,25 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     hud?.setHidden(vr.presenting);
     controls?.setTarget("");
   }
+  function view() {
+    if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
+    const v = controls.view();
+    const item = (i) => ({ id: i.id, label: i.label, short: i.short, on: i.on, tone: i.tone });
+    return JSON.stringify({
+      title: v.title,
+      address: v.address,
+      presence: v.presence,
+      open: hud?.open ?? false,
+      sections: v.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
+      hotbar: v.hotbar.map(item)
+    });
+  }
+  function run(id) {
+    return typeof id === "string" && !!controls?.run(id);
+  }
+  function open(on) {
+    hud?.setOpen(on === true || on === "true" || on === "1" || on === 1);
+  }
   function presence(level2) {
     if (level2 === "full" || level2 === "quiet" || level2 === "hidden") controls?.setPresence(level2);
   }
@@ -6319,7 +6356,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 3;
+  var VERSION = 4;
   var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;

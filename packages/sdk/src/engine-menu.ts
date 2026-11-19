@@ -191,6 +191,14 @@ export function menu(options?: string): string {
       "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out.",
   });
 
+  // Something in the console changed (a volume, the words on a control): an engine drawing its own asks again.
+  let told = 0;
+  c.subscribe(() => {
+    const now = performance.now();
+    if (now - told < 120) return;
+    told = now;
+    tell({ type: "changed" });
+  });
   // The menu opening and closing: the engine stops moving the visitor, and lets the pointer go.
   let closedAt = -1;
   c.onSignal((name) => {
@@ -271,6 +279,48 @@ export function headset(state: string): void {
   vr.presenting = s.presenting === true;
   hud?.setHidden(vr.presenting);
   controls?.setTarget("");
+}
+
+/**
+ * Everything in the visitor's console, as JSON, for an engine that wants to
+ * draw some or all of it in an interface of its own: the home button on its
+ * own pause menu, the volumes in its own settings screen, wherever it likes.
+ *
+ * `sections` is the whole menu, in order, each with its `items`; `hotbar` is
+ * the few kept always at hand. An item has an `id` to press it by (`run`),
+ * the words on it as they stand now (`label`, and `short` for a small
+ * space), and `on` (true, false, or null for something that isn't on or
+ * off). The words change as things do: "Music: low", "Fullscreen: on". Ask
+ * again when a `changed` event comes.
+ */
+export function view(): string {
+  if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
+  const v = controls.view();
+  const item = (i: { id: string; label: string; short: string; on: boolean | null; tone: string }) => ({ id: i.id, label: i.label, short: i.short, on: i.on, tone: i.tone });
+  return JSON.stringify({
+    title: v.title,
+    address: v.address,
+    presence: v.presence,
+    open: hud?.open ?? false,
+    sections: v.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
+    hotbar: v.hotbar.map(item),
+  });
+}
+
+/**
+ * Press something in the visitor's console by its id, as pressing it there
+ * would: "home", "fullscreen", "sound-music", "jump". It does exactly what
+ * the console's own does, with the visitor's own settings and their own
+ * home, which is the point: a button a world draws for itself is the same
+ * button. Returns false if there is no such thing just now.
+ */
+export function run(id: string): boolean {
+  return typeof id === "string" && !!controls?.run(id);
+}
+
+/** Bring the visitor's console up ("1" or true), or put it away: for a world's own button that opens it. */
+export function open(on: unknown): void {
+  hud?.setOpen(on === true || on === "true" || on === "1" || on === 1);
 }
 
 /**

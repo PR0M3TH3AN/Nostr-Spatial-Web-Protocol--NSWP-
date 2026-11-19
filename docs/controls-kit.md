@@ -383,6 +383,14 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
   `controls.claimInput(true)` takes every key for the world until you give
   them back. Escape still closes a sheet the kit has opened, and the mark can
   still be clicked.
+- **The visitor's things, wherever you like.** You needn't choose between
+  the kit's menu and none: put the way home on your pause screen, their
+  volumes in your settings, a button that brings the whole console up on a
+  wall. `controls.run("home")`, `controls.run("sound-music")`,
+  `hud.setOpen(true)`. Each is the same thing the console has, with the
+  visitor's own settings and home
+  ([NSWP-11](../protocol/11-the-visitors-console.md), "Drawing it
+  yourself", has the names).
 - **Your own menu instead.** Use the list without either renderer: don't call
   `mountHud` or `createConsole`, read `controls.view()` for the sections and
   their buttons, call `controls.run(id)` when one is pressed, and
