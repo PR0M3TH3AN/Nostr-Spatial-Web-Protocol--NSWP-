@@ -368,7 +368,11 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `sign`, with `event`: `kind`, `content`, `tags` | `signed`, with the whole signed note; or `refused` |
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
 
-The signer says `ready` once when it has loaded. A refusal never says why.
+A world asks `state` once the frame has loaded, and again a few times: the
+answer is how it knows a signer is there. A signer never sends anything to
+a page whose address it doesn't know. Where the browser tells it which page
+embeds it, it may say `ready` to that page, unasked. A refusal never says
+why.
 
 **What it signs for a world**, by kind:
 
