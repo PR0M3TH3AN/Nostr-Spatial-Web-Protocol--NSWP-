@@ -45,7 +45,13 @@ export interface WorldSigner {
 
 export interface WorldSignerOptions {
   /** The visitor's Airlock: usually `portal.airlockFor()`. The signer is beside it. */
-  airlock: string | null | undefined;
+  airlock?: string | null | undefined;
+  /**
+   * Or the signer and its window, named outright: for a site that isn't a
+   * world, whose visitor arrived from no client. Both must be https
+   * addresses on one origin.
+   */
+  at?: { signer: string; window: string };
   /** This page's query string, for tests (`signer=test` asks the client's window for a throwaway identity). */
   search?: string;
 }
@@ -62,9 +68,21 @@ const NONE: WorldSigner = {
   dispose() {},
 };
 
+/** A signer and its window named outright: both https, on one origin. Null for anything else. */
+function namedAddresses(at: { signer: string; window: string }): { origin: string; signer: string; window: string } | null {
+  try {
+    const signer = new URL(at.signer);
+    const win = new URL(at.window);
+    if (signer.protocol !== "https:" || win.origin !== signer.origin) return null;
+    return { origin: signer.origin, signer: signer.href, window: win.href };
+  } catch {
+    return null;
+  }
+}
+
 /** A signer for this page, from the visitor's client. With no client, or off a browser, one that is always "none". */
 export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
-  const real = signerAddresses(opts.airlock);
+  const real = opts.at ? namedAddresses(opts.at) : signerAddresses(opts.airlock);
   if (!real || typeof document === "undefined") return NONE;
   const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
   const watchers = new Set<() => void>();

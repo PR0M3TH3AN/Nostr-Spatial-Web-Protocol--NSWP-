@@ -413,7 +413,8 @@ notes**, under You, in every world. It opens a window of the visitor's own
 client, where they say yes. Nothing is typed in your world.
 
 ```js
-const signer = worldSigner();        // the page's one signer
+const signer = worldSigner();        // the page's one signer, from the visitor's client
+// or, for a site that isn't a world: createWorldSigner({ at: { signer, window } })
 signer.state;                        // "none" (no client offers one), "locked", "unlocked"
 signer.onChange(() => {});
 const note = await signer.sign({ kind: 1, content: "Hello", tags: [] });  // null if locked or refused

@@ -11,11 +11,13 @@ import { shortNpub, encodeNpub } from "@nswp/core";
 import { createWorldSigner } from "../../../packages/sdk/src/signer.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-// The sign-in address: BitPortal's copy beside this page, wherever this page was opened from.
-const client = `https://${location.hostname}:4300`;
-for (const el of document.querySelectorAll("[data-host]")) el.textContent = new URL(client).host;
+// The sign-in address: BitLogin's own site, as the copy the development server serves beside this page (its
+// twelfth port), wherever this page was opened from. `?at=portal` asks BitPortal's first copy instead.
+const portal = new URLSearchParams(location.search).get("at") === "portal";
+const client = `https://${location.hostname}:${portal ? 4300 : 4311}`;
+for (const el of document.querySelectorAll("[data-host]")) el.textContent = `${portal ? "BitPortal" : "BitLogin"}, at ${new URL(client).host}`;
 
-const signer = createWorldSigner({ airlock: `${client}/go/` });
+const signer = portal ? createWorldSigner({ airlock: `${client}/go/` }) : createWorldSigner({ at: { signer: `${client}/signer/`, window: `${client}/connect/` } });
 let waited = false;
 setTimeout(() => {
   waited = true;
