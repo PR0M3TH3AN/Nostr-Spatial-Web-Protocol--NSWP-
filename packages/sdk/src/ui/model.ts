@@ -42,7 +42,8 @@ export interface UiAction {
    * "swatch" is a choice of colour, and needs `color`.
    */
   kind?: "button" | "swatch";
-  color?: string;
+  /** A function is read again as things change, for a swatch that shows a choice as it stands. */
+  color?: Text;
 }
 
 export interface UiSection {
@@ -331,7 +332,7 @@ export function createControls(opts: ControlsOptions): Controls {
       const bar = showing.filter((a) => a.hotbar).slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: a.color ?? "" };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color) };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);
