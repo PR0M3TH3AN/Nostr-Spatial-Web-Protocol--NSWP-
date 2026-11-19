@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, cleanChat, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, shortNpub, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, cleanChat, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -1228,6 +1228,16 @@ export interface Travelling {
 /** Where a page keeps whether its visitor was joined, so a refresh doesn't put them out of the room. This tab only. */
 const JOINED_KEY = () => `nswp:joined:${location.pathname}`;
 
+/** What signs a note for the visitor when they post what they write in a room's chat. */
+export interface RoomNotes {
+  /** Whether a note can be signed now. While it can't, posting isn't offered. */
+  ready(): boolean;
+  /** Sign a note. Null, or a rejection, if it won't be signed. What comes back is checked before it is sent anywhere. */
+  sign(note: { kind: number; content: string; tags: string[][] }): Promise<NostrEvent | null>;
+  /** Be told when `ready()` may have changed. */
+  onChange?(fn: () => void): unknown;
+}
+
 export function addRoomControls(
   controls: Controls,
   presence: Presence,
@@ -1253,6 +1263,12 @@ export function addRoomControls(
     sharedMusic?: boolean;
     /** The relays a note the visitor posts from the chat goes to. Left out, the kit's own list. */
     noteRelays?: string[];
+    /**
+     * What signs a note when the visitor posts what they write. Left out, the page's own signer: the hidden one
+     * their client named, unlocked in that client's window (`worldSigner()`), which is what a world has. A
+     * visitor's own client, in a room of its own where they are already signed in, gives its own.
+     */
+    notes?: RoomNotes;
   } = {},
 ): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
@@ -1720,7 +1736,7 @@ export function addRoomControls(
       (text) => {
         const how = s.say(text);
         if (how === "slow") return "That is a lot at once. Wait a moment, then send it again.";
-        if (how === "said" && postsNotes && worldSigner().state === "unlocked") void postNote(text);
+        if (how === "said" && postsNotes && notes.ready()) void postNote(text);
         else if (how === "said" && s.members.length === 0) controls.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
         return null;
       },
@@ -1753,15 +1769,19 @@ export function addRoomControls(
   // unless the visitor has unlocked their signer here AND turned this on. Then each line they write is also a
   // public Nostr note, signed by their own client's signer and sent to relays from here. Off at every visit.
   let postsNotes = false;
+  const notes: RoomNotes = opts.notes ?? { ready: () => worldSigner().state === "unlocked", sign: (n) => worldSigner().sign(n), onChange: (fn) => worldSigner().onChange(fn) };
   const postNote = async (text: string) => {
-    const note = await worldSigner().sign({ kind: 1, content: cleanChat(text), tags: [] });
+    const words = cleanChat(text);
+    const signed = await notes.sign({ kind: 1, content: words, tags: [] }).catch(() => null);
+    // Whatever signed it, what is sent on is checked first: a real signature, on a note, saying what was written.
+    const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words ? signed : null;
     if (!note) return void controls.chat.add({ note: true, text: "That wasn't posted as a note: your signer said no." });
     const sent = await publishEvent(opts.noteRelays ?? DEFAULT_RELAYS, note).catch(() => null);
     const kept = sent ? Object.values(sent.relays).filter((said) => said === "ok").length : 0;
     controls.chat.add({ note: true, text: kept ? `Posted as a note, to ${kept === 1 ? "1 relay" : `${kept} relays`}.` : "Signed, but no relay took it. It wasn't posted." });
   };
-  worldSigner().onChange(() => {
-    if (worldSigner().state !== "unlocked") postsNotes = false;
+  notes.onChange?.(() => {
+    if (!notes.ready()) postsNotes = false;
     refresh();
   });
 
@@ -1794,7 +1814,7 @@ export function addRoomControls(
       label: () => (postsNotes ? "Post what I write as Nostr notes: on" : "Post what I write as Nostr notes: off"),
       on: () => postsNotes,
       // Only for someone who has unlocked their signer for this world, in a room, with chat on.
-      hidden: () => !presence.session || !showsChat() || worldSigner().state !== "unlocked",
+      hidden: () => !presence.session || !showsChat() || !notes.ready(),
       act: () => {
         postsNotes = !postsNotes;
         tell(

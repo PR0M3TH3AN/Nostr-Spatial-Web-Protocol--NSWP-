@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.26.2
+
+A visitor can post from their own client's room, where they are already signed in.
+
+- **A room may be given its own note signer** (`addRoomControls(..., { notes })`, `RoomNotes`). Left out, it is the page's world signer, as before: what a world has. A visitor's own client, in a room of its own, gives one that uses the sign-in it already holds.
+- **Whatever signs a note, it is checked before it is sent:** a real signature, on a note, saying what was written.
+- **In BitPortal:** the room in a visitor's home has "Post what I write as Nostr notes" for someone signed in, signed with their BitPortal sign-in, with no window to open. It signs a plain note of the words written and nothing else. It is off at every visit, and isn't offered to a guest or to someone going about as one.
+
 ## 0.26.1
 
 One address on a development server, and a menu that says when a signer doesn't answer.
