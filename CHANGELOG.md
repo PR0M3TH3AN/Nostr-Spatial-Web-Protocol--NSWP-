@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.48.0
+
+Items: the rules, and the first of the building.
+
+- **[NSWP-17](protocol/17-items.md): items,** as the owner decided on 2026-11-20. An item never touches another person's device or account: what it does of its own runs only for the person carrying it. A world has the last word on what anything an item did means. Where a world lets items work, the people in it are part of its game. And a visitor is told before they go in, and may mute items where they are not what the place is for. Most of it is the agreed design, to be built in the order the document gives.
+- **Built: an item's description** (kind 37303): what a thing is, signed by its maker, with every file named by its hash. `buildItem`, `parseItem` in the core; `vectors/items.json`.
+- **Built: what a world does with items:** an `items` tag in its announcement, `allowed` or `play`; saying nothing is none. `ITEM_RULES`, `cleanItemsRule`, `itemsWords`.
+- **Built: the warning on a door.** A door to a place where items are part of play says so on its sign (`setItems`).
+- Nothing carried is drawn, held or run anywhere yet.
+
 ## 0.47.0
 
 - **Ratings on a world's own doors** ([NSWP-13](protocol/13-ratings.md), "On a world's own doors"): a door's sign can say what the people its visitor follows thought of where it leads, "★ 4.5 from 3". The visitor's own rating always counts; the people they follow do where the visitor has let that world see who they follow. Asked of relays by world; nothing for a guest. `createDoorRatings` in the kit, `setRating` on a door, `tallyMark` in the core. The reference worlds do it, and say it in full when a door is pointed at. Optional.

@@ -1076,6 +1076,8 @@ Payments are optional, and browsing public worlds never requires one. Uses inclu
 
 ### 10.4 Items (proposed)
 
+> **Decided and partly built: see [NSWP-17](protocol/17-items.md).** It keeps what is below, and changes one thing on the owner's word: an item may carry logic of its own, run only on the device of the person carrying it. The "Data, never code" rule below is replaced by the four rules at the head of that document.
+
 An **item** is a thing that can be placed in a home or carried by a person: a lantern, a trophy, a chair, a hat. Two events describe it, and they are kept apart on purpose.
 
 - **What the thing is** is an item definition, signed by its maker. It is published once and can be used in many places.

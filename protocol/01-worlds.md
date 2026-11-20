@@ -56,6 +56,7 @@ how everything else refers to the world.
 | `content-warning` | | NIP-36, with a reason |
 | `audience` | | Who it is for, as its maker says: `kids`, `general` or `adult` |
 | `category` | | What kind of place it is, as its maker says: `game`, `experience`, `social`, `app` or `site`. One. See below |
+| `items` | | What it does with the things visitors carry: `allowed` or `play`. Left out, nothing carried is drawn or works there. [NSWP-17](17-items.md) |
 | `status` | | `live`, `beta`, `maintenance`, `retired` |
 | `p` | | Co-creators |
 | `a` | | Linked things, such as an access product |

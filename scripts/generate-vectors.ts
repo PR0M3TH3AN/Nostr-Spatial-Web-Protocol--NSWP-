@@ -48,6 +48,8 @@ import {
   bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
+  buildItem,
+  parseItem,
   achievementForWorld,
   achievementsIn,
   parseAchievement,
@@ -126,7 +128,7 @@ const withTags = (f: (tags: string[][]) => string[][]): EventTemplate => {
   return { ...t, tags: f(t.tags) };
 };
 
-type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null } };
+type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null; items?: string | null } };
 const worldCases: Omit<WorldVector, "event"> & { event: unknown }[] = [];
 const goodWorld = sign(buildWorldEvent(baseWorld));
 const tampered = { ...goodWorld, content: "edited after signing" };
@@ -151,6 +153,9 @@ const worldVectors: WorldVector[] = [
   // What kind of place a world is. `category` in `expect` is what a reader takes from it; null is "didn't say".
   { name: "a_game", description: "Says what kind of place it is, from the closed list.", event: sign(buildWorldEvent({ ...baseWorld, category: "game" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], category: "game" } },
   { name: "a_category_nobody_knows", description: "A category that isn't on the list is treated as not stated.", event: withTags((t) => [...t, ["category", "casino"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_category"], category: null } },
+  // What a world does with the things visitors carry. `items` in `expect` is what a reader takes from it; null is "nothing", which is what saying nothing means.
+  { name: "items_are_the_game", description: "Says items are part of play: a door and the Airlock say so before a visitor goes in.", event: sign(buildWorldEvent({ ...baseWorld, items: "play" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], items: "play" } },
+  { name: "an_items_rule_nobody_knows", description: "A rule for items that isn't on the list is treated as none.", event: withTags((t) => [...t, ["items", "anything-goes"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_items_rule"], items: null } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",
@@ -234,6 +239,7 @@ for (const v of worldVectors) {
   expectEqual(`world/${v.name} signature`, sigProvided ? verifyEvent(v.event) : null, v.expect.signatureValid);
   if (v.expect.audience !== undefined && r.ok) expectEqual(`world/${v.name} audience`, audienceOf(r.value), v.expect.audience);
   if (v.expect.category !== undefined && r.ok) expectEqual(`world/${v.name} category`, r.value.category ?? null, v.expect.category);
+  if (v.expect.items !== undefined && r.ok) expectEqual(`world/${v.name} items`, r.value.items ?? null, v.expect.items);
 }
 void worldCases;
 
@@ -1066,6 +1072,50 @@ const files: Record<string, unknown> = {
     counted: [PK3],
     me: PK1,
     holders,
+  };
+}
+
+// ---- Items (protocol/17-items.md): a description as its maker signs it, and what a reader takes from one.
+{
+  const H = (c: string) => c.repeat(64);
+  const lantern = {
+    d: "brass-lantern",
+    title: "Brass lantern",
+    summary: "A lantern that swings as you walk.",
+    model: { url: `https://items.example/${H("a")}.glb`, sha256: H("a") },
+    thumb: { url: `https://items.example/${H("b")}.webp`, sha256: H("b") },
+    size: [0.18, 0.42, 0.18] as [number, number, number],
+    colliders: [{ shape: "box" as const, centre: [0, 0.21, 0] as [number, number, number], size: [0.18, 0.42, 0.18] as [number, number, number] }],
+    clips: { idle: "Swing", use: "Flare" },
+    behaviors: ["holdable" as const],
+    fits: ["place" as const, "hand-left" as const, "hand-right" as const],
+    script: { url: `https://items.example/${H("c")}.js`, sha256: H("c") },
+    license: "CC-BY-4.0",
+  };
+  const full = sign(buildItem({ ...lantern, now: T0 })!);
+  const plain = sign(buildItem({ d: "chair", title: "Chair", model: lantern.model, size: [0.5, 0.9, 0.5], behaviors: ["sittable"], fits: ["place"], now: T0 })!);
+  const noModel = { ...full, tags: full.tags.filter((t) => t[0] !== "model") };
+  const plainHttp = { ...full, tags: full.tags.map((t) => (t[0] === "model" ? ["model", "http://items.example/a.glb", "glb", H("a")] : t)) };
+  const tooBig = { ...full, tags: full.tags.map((t) => (t[0] === "size" ? ["size", "0.2 9 0.2"] : t)) };
+  const unknowns = { ...full, tags: [...full.tags, ["behavior", "explodes"], ["collider", "blob", "0 0 0", "1"]] };
+  const reading = [
+    { name: "a_lantern", description: "A description with everything: a model, a picture, a hit box, animations, where it fits, and a script.", event: full },
+    { name: "a_chair", description: "The least a description can be, and what it can be.", event: plain },
+    { name: "things_nobody_knows", description: "A behaviour and a shape that aren't on the lists are left out; the item is still an item.", event: unknowns },
+    { name: "no_model", description: "Names no model: not an item.", event: noModel },
+    { name: "a_model_over_plain_http", description: "A file that isn't an https address: not an item.", event: plainHttp },
+    { name: "too_big", description: "A side longer than four metres: not an item.", event: tooBig },
+  ].map((v) => ({ ...v, expect: parseItem(v.event as NostrEvent) }));
+  expectEqual("items/a_lantern", reading[0]!.expect?.id, `37303:${PK1}:brass-lantern`);
+  expectEqual("items/a_lantern_script", reading[0]!.expect?.script, lantern.script);
+  expectEqual("items/a_chair", [reading[1]!.expect?.behaviors, reading[1]!.expect?.script], [["sittable"], null]);
+  expectEqual("items/things_nobody_knows", [reading[2]!.expect?.behaviors, reading[2]!.expect?.colliders.length], [["holdable"], 1]);
+  for (const v of reading.slice(3)) expectEqual(`items/${v.name}`, v.expect, null);
+  files["items.json"] = {
+    description:
+      "Items (protocol/17-items.md, kind 37303). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it.",
+    testKeys,
+    reading,
   };
 }
 
