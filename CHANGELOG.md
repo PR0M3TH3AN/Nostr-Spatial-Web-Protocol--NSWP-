@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.30.3
+
+- **A client's own feed says how a post is marked.** A client that signs in its own room (`notes` in `addRoomControls`) can say which site its sign-in marks each post with (`RoomNotes.marked()`), and the feed then tells the visitor where they write, as it does in a world. BitPortal's sign-in is moving to BitLogin's window, whose signer marks what it signs for an application.
+- **The development server names local copies in a site's policy.** Where a site's content policy names a real address this server also serves (BitPortal's names its sign-in address, to embed that address's signer), the local copy's address is named beside it. Nothing else about a policy changes.
+
 ## 0.30.2
 
 - **The menu's tabs say when there are more.** A world with many sections has more tabs than fit, and the strip scrolled sideways with no bar and no sign of it. An arrow now stands at whichever end has more, over a fade, and pressing it slides the strip; a mouse's wheel over the strip moves along it; and choosing a section brings its tab into sight.

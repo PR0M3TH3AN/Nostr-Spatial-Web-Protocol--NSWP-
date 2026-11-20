@@ -1251,6 +1251,11 @@ export interface RoomNotes {
   pubkey?(): string | null;
   /** What to call them over their feed: their name, or null for the short form of their key. */
   who?(): string | null;
+  /**
+   * The site each post is marked with by whatever signs it, as a host to name, or null for none. A client whose
+   * sign-in marks what it signs says so here, and the visitor is told where they write.
+   */
+  marked?(): string | null;
 }
 
 export function addRoomControls(
@@ -1860,8 +1865,9 @@ export function addRoomControls(
       controls.feed.detach();
       return closeFeedPanel();
     }
-    // A world's signer marks each note with the world that asked. A client signing in its own room marks nothing.
-    controls.feed.attach({ who: () => notes.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? "" : location.host, send: postNote, load: loadPosts });
+    // A world's signer marks each note with the world that asked. A client signing in its own room says whether
+    // its sign-in marks what it signs, and with what.
+    controls.feed.attach({ who: () => notes.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? (opts.notes.marked?.() ?? "") : location.host, send: postNote, load: loadPosts });
   };
   /** The feed in a headset: the same posts, on a panel of the visitor's own. Where to write is at the top. */
   const drawFeedPanel = () => {

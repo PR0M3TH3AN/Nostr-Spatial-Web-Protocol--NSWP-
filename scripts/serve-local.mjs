@@ -159,6 +159,20 @@ function localMap(host, secure) {
   return Object.fromEntries(served.filter((s) => s.built && s.real).map((s) => [s.real, `${secure ? "https" : "http"}://${known ? name : "localhost"}:${s.port}`]));
 }
 
+/**
+ * A site's policy names the real addresses it may reach: BitPortal's names the one sign-in address whose signer it
+ * may embed. Here each of those has a local copy, at the address the map gives, so wherever a policy names a real
+ * address the local one is named beside it. Nothing else about a policy changes, and only addresses this server
+ * itself serves are ever added.
+ */
+function withLocal(headers, map) {
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === "content-security-policy");
+  if (!key) return headers;
+  let policy = headers[key];
+  for (const [real, local] of Object.entries(map)) policy = policy.replace(new RegExp(`(^|[\\s;])${real.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=[\\s;]|$)`, "g"), `$1${real} ${local}`);
+  return { ...headers, [key]: policy };
+}
+
 for (const { name, dist, note, headers, port: here, built } of served) {
   if (!built) {
     console.log(`  (not built) ${name}: ${dist}`);
@@ -189,7 +203,7 @@ for (const { name, dist, note, headers, port: here, built } of served) {
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file)) return res.writeHead(404, { "content-type": "text/plain" }).end("Not found");
     const body = readFileSync(file);
-    const head = { ...extra(new URL(req.url, "http://x").pathname), "content-type": types[extname(file)] ?? "application/octet-stream", "accept-ranges": "bytes", "cache-control": "no-store" };
+    const head = { ...withLocal(extra(new URL(req.url, "http://x").pathname), localMap(req.headers.host, !!req.socket.encrypted)), "content-type": types[extname(file)] ?? "application/octet-stream", "accept-ranges": "bytes", "cache-control": "no-store" };
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? "");
     if (range) {
       const from = Number(range[1]);
