@@ -35,8 +35,16 @@ const DOOR_H = 2.2;
  * through its walls and standing in its floor. So it is drawn last, on a
  * cleared depth: whatever is inside its walls, or behind them, is painted
  * over, and its own parts still hide each other as they should.
+ *
+ * That alone covers what a world draws solid. What it draws see-through (a
+ * doorway's field of light, a glow, a lamp's beam, a pane) is drawn later in
+ * a frame than anything solid, whatever its turn, so a doorway the room came
+ * up round showed through the walls from inside. So the room also shuts those
+ * out, wherever it is in the view (`shutOut`, below).
  */
 export const CHAMBER_ORDER = 10000;
+/** After everything solid, the visitor's own things included: the last solid thing in a frame. */
+const SHUT_ORDER = CHAMBER_ORDER + 1_000_000;
 
 export interface Chamber {
   group: THREE.Group;
@@ -131,7 +139,34 @@ export function createChamber(accent: THREE.ColorRepresentation, opts: { textCol
   clear.frustumCulled = false;
   clear.renderOrder = CHAMBER_ORDER;
   clear.onBeforeRender = (renderer) => renderer.clearDepth();
-  for (const part of [floor, walls, lid, ...leaves, sign]) part.renderOrder = CHAMBER_ORDER + 1;
+  for (const part of [floor, walls, lid, ...leaves]) part.renderOrder = CHAMBER_ORDER + 1;
+  sign.renderOrder = CHAMBER_ORDER + 1.3;
+  /**
+   * Shutting out what a world draws see-through. Three more passes over the room's own shape, none of which
+   * colours anything:
+   *
+   * 1. Last among the solid things, the room's whole outline in the view is marked as nearer than anything can
+   *    be. Everything see-through a world then draws fails there: it is inside the walls or behind them, and
+   *    either way isn't seen. Through the open doorway, which is no part of the outline, the world is as it was.
+   * 2. and 3. Before the visitor's own see-through things (a panel they hold, their hands), the mark is taken off
+   *    and the room's real depth put back, so those are in front of the walls and behind nothing.
+   */
+  const depthOnly = (depth: string, o: THREE.ShaderMaterialParameters) =>
+    new THREE.ShaderMaterial({ vertexShader: "void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }", fragmentShader: `void main() { gl_FragDepth = ${depth}; gl_FragColor = vec4(0.0); }`, colorWrite: false, depthTest: true, depthFunc: THREE.AlwaysDepth, depthWrite: true, side: THREE.DoubleSide, ...o });
+  const nearest = depthOnly("0.0", {});
+  const farthest = depthOnly("1.0", { transparent: true });
+  const real = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true, side: THREE.DoubleSide });
+  const shutOut: THREE.Mesh[] = [];
+  for (const part of [floor, walls, lid, ...leaves]) {
+    for (const [material, order] of [[nearest, SHUT_ORDER], [farthest, CHAMBER_ORDER + 1.1], [real, CHAMBER_ORDER + 1.2]] as const) {
+      // A child of the part it shadows: it rises, slides and hides with it.
+      const pass = new THREE.Mesh(part.geometry, material);
+      pass.renderOrder = order;
+      pass.frustumCulled = false;
+      part.add(pass);
+      shutOut.push(pass);
+    }
+  }
   const group = new THREE.Group();
   group.add(clear, floor, rising, lid);
 
@@ -181,6 +216,8 @@ export function createChamber(accent: THREE.ColorRepresentation, opts: { textCol
       group.removeFromParent();
       for (const mesh of [floor, walls, lid, ...leaves, clear]) mesh.geometry.dispose();
       (clear.material as THREE.Material).dispose();
+      for (const material of [nearest, farthest, real]) material.dispose();
+      shutOut.length = 0;
       metal.dispose();
       sign.geometry.dispose();
       (sign.material as THREE.MeshBasicMaterial).map?.dispose();

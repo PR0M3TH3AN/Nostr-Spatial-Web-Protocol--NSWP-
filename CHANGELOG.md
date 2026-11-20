@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.31.1
+
+- **Nothing shows through the walls of the crossing's room.** Chosen from close to it, a doorway is inside the room that comes up round the visitor, and its light showed through the walls from inside: its field, its glow, anything a world draws see-through. Solid things were already painted over; see-through ones are drawn later in a frame, and weren't. The room now shuts them out wherever it stands in the view, and through its open doorway the world is as it was.
+
 ## 0.31.0
 
 - **"Signed in as", said once, at the top of the view.** When a visitor becomes signed in to a world (on arriving already signed in, or on signing in) a small badge comes up at the top centre with their picture and name, stays a few seconds and goes. Signing out says "Signed out" the same way. It comes into focus where it stands and never slides; with Motion off it simply appears. It can't be pressed and nothing under it is blocked. In a headset, where the page can't be seen, the same words are said the way everything is said there. It reads the card at the head of You, so it is the same in every world and in a client's own room. A guest who never signed in is told nothing.
