@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanOrigin, cleanSlot, fitsInSave, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type SignerReply, type SignerRequest } from "@nswp/core";
+import { cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -37,6 +37,11 @@ export interface WorldSigner {
   readonly remembered: boolean | null;
   /** The visitor's client, as a host to name in words, or null. */
   readonly host: string | null;
+  /**
+   * What the visitor let this world do beyond a note and a reaction (protocol/10-identity.md, "Asking for more"):
+   * "follows", or nothing. Empty while it is locked, and from a signer that offers none of it.
+   */
+  readonly more: readonly SignerMore[];
   /**
    * True when a signer was named for this visitor (in the arrival, or
    * outright) and has had time to answer, and hasn't: it couldn't be
@@ -82,6 +87,19 @@ export interface WorldSigner {
   find(slot: string): Promise<string | null>;
   /** Have a save opened. Null if it isn't this world's, or isn't theirs, or as for `save`. */
   open(event: NostrEvent): Promise<{ slot: string; data: string; at: number } | null>;
+  /**
+   * Say what this world would like to be let do. It approves nothing: the signer remembers it for its own window,
+   * so call `unlock()` after it, from the same press, for the visitor to be shown it. False where there is no
+   * signer to tell.
+   */
+  want(more: readonly SignerMore[]): boolean;
+  /**
+   * Follow or unfollow one person, for a visitor who let this world do so (protocol/14-people-and-messages.md).
+   * `list` is the newest follow list of theirs that could be found, or null where they have said they follow
+   * nobody yet. What comes back is their new list, signed, for this page to send to their relays. Null if it is
+   * locked, or they haven't allowed it, or it refused, or what came back isn't that list with that one change.
+   */
+  follow(list: NostrEvent | null, change: { add: string } | { remove: string }): Promise<NostrEvent | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
   /**
@@ -119,6 +137,7 @@ const NONE: WorldSigner = {
   about: null,
   remembered: null,
   host: null,
+  more: [],
   unanswered: false,
   asking: false,
   retry: () => false,
@@ -130,6 +149,8 @@ const NONE: WorldSigner = {
   save: async () => null,
   find: async () => null,
   open: async () => null,
+  want: () => false,
+  follow: async () => null,
   onChange: () => () => {},
   whenAnswered: async () => {},
   dispose() {},
@@ -171,6 +192,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let picture: string | null = null;
   let about: string | null = null;
   let remembered: boolean | null = null;
+  let more: SignerMore[] = [];
   // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
   let origin = "";
   let windowAt = "";
@@ -244,6 +266,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       picture = reply.unlocked ? (reply.picture ?? null) : null;
       about = reply.unlocked ? (reply.about ?? null) : null;
       remembered = reply.unlocked ? (reply.remembered ?? null) : null;
+      more = reply.unlocked ? cleanMore(reply.more) : [];
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -326,6 +349,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     get remembered() {
       return remembered;
     },
+    get more() {
+      return more;
+    },
     get unanswered() {
       return named && waited && state === "none" && !disposed;
     },
@@ -405,6 +431,20 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     open(event) {
       if (state !== "unlocked" || !frame || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
       return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => (reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null));
+    },
+    want(asked) {
+      const wanted = cleanMore([...asked]);
+      if (state === "none" || !frame || wanted.length === 0) return false;
+      tell({ t: "want", id: `w${++n}`, more: wanted });
+      return true;
+    },
+    follow(list, change) {
+      const add = "add" in change ? change.add : undefined;
+      const remove = "remove" in change ? change.remove : undefined;
+      if (state !== "unlocked" || !frame || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
+      // What comes back is checked as anything that arrives is: their own list, really signed, and exactly the one
+      // handed over with that one change. A signer can't slip anyone else in, and nor can anything between.
+      return askAbout({ t: "follow", id: `w${++n}`, list, ...(add ? { add } : { remove: remove! }) }, (reply) => (reply.t === "signed" && isFollowAsked(reply.event, { list, ...(add ? { add } : { remove: remove! }), pubkey }) ? reply.event : null));
     },
     onChange(fn) {
       watchers.add(fn);

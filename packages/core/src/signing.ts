@@ -184,7 +184,32 @@ export type SignerRequest =
   /** Where is my save in this slot kept? So the world can ask a relay for it. */
   | { t: "find"; id: string; slot: string }
   /** Open this save, which a relay gave me. Opened only if it is this world's. */
-  | { t: "open"; id: string; event: NostrEvent };
+  | { t: "open"; id: string; event: NostrEvent }
+  /**
+   * This world would like to be let do more than a note and a reaction (protocol/10-identity.md, "Asking for
+   * more"). It approves nothing: the signer remembers it for its own window, where the visitor is shown it.
+   */
+  | { t: "want"; id: string; more: SignerMore[] }
+  /**
+   * Follow or unfollow one person (protocol/14-people-and-messages.md). The world hands over the newest follow
+   * list it found for the visitor, or null where they have none, and the one change. The signer makes the change.
+   */
+  | { t: "follow"; id: string; list: NostrEvent | null; add?: string; remove?: string };
+
+/**
+ * What a world may ask its visitor to let it do, beyond a note and a reaction. A closed list: each is a thing a
+ * visitor can be asked in a few plain words, and none is "sign whatever I hand you".
+ *
+ * - "follows": follow and unfollow people for them, one at a time (the `follow` message).
+ */
+export const SIGNER_MORE = ["follows"] as const;
+export type SignerMore = (typeof SIGNER_MORE)[number];
+
+/** What was asked for or allowed, as it may be used: only names on the list, each once. */
+export function cleanMore(input: unknown): SignerMore[] {
+  if (!Array.isArray(input)) return [];
+  return SIGNER_MORE.filter((name) => input.includes(name));
+}
 
 /**
  * From the signer. `ready` is said once, unasked, when it has loaded. `state`
@@ -193,7 +218,7 @@ export type SignerRequest =
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[] }
   | { t: "signed"; id: string; event: NostrEvent }
   /** Answers `find`: the `d` of this world's save in that slot. */
   | { t: "found"; id: string; d: string }
@@ -221,6 +246,10 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "save" && cleanSlot(d.slot) && fitsInSave(d.data)) return { t: "save", id: d.id, slot: cleanSlot(d.slot), data: d.data };
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
+  if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
+  if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
+    return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
+  }
   return null;
 }
 
@@ -243,6 +272,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
       ...(typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {}),
       // Whether the signer will still be unlocked for this world on their next visit, where it says.
       ...(pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {}),
+      // What the visitor let this world do beyond a note and a reaction. Nothing, from a signer that doesn't say.
+      ...(pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {}),
     };
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;

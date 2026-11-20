@@ -1,6 +1,6 @@
 # NSWP-14: People and messages
 
-**Status:** Implemented in the reference library (changing a follow list; writing, wrapping and reading a message). Not built in BitPortal yet, and what a world offers is proposed · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts)
+**Status:** Following is implemented in the reference library and kit (a world's side, and the signer's side as a function); no signer has built its side yet, BitLogin's included. Messages are implemented in the library only · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`people.ts`](../packages/sdk/src/people.ts), [`signer.ts`](../packages/sdk/src/signer.ts)
 
 Following someone, and writing to them privately, are Nostr's own and are
 used here as they are. Who a visitor follows in an NSWP client is who they
@@ -10,13 +10,14 @@ things may be done, and how a follow list is changed without losing it.
 
 ## Three rules
 
-1. **Only the visitor's own client does these.** Following, unfollowing,
-   and sending or reading a private message are done where the visitor is
-   signed in as themselves: at their home. A world never does them.
-2. **A world can't have them signed.** A follow list is one of the kinds a
-   world's signer refuses ([NSWP-10](10-identity.md), "careful"), and a
-   private message or any of its wrappings is refused whatever anyone says
-   ("never"). Neither changes here.
+1. **A world is a Nostr client, and is trusted as one: when its visitor
+   says so.** Following can be done from inside a world the visitor has let
+   do it ([NSWP-10](10-identity.md), "Asking for more"). Nothing is allowed
+   by default, and nothing by the world's own word.
+2. **A world never builds a follow list.** It hands the visitor's signer
+   their newest list and one change. The signer makes the change and signs.
+   So a world can follow or unfollow one person at a time, and can't have a
+   list of its own making signed.
 3. **A follow list is changed, never rewritten.** A client that writes one
    from an old copy, or from nothing, wipes out everyone its visitor
    followed.
@@ -99,22 +100,43 @@ sender's key and name only until the visitor opens it, and never counted in
 anything that asks for their attention. Someone the visitor has blocked is
 never shown.
 
-## What a world may offer (proposed)
+## Following from inside a world
 
 A world shows a card about a person ([NSWP-10](10-identity.md), "Who
-someone is"). Beside muting and blocking, it may offer **Follow** and
-**Message**. Neither is done by the world:
+someone is"). Beside muting and blocking it offers **Follow**, for someone
+who came by name, to a visitor who is signed in there.
 
-- Each is a way to the visitor's own client, with the person's key and a
-  door back to the world, as signing in from a world is
-  ([NSWP-10](10-identity.md), "Signing in from inside a world"). The
-  visitor's client shows the person again, from their own profile, and the
-  visitor presses there.
-- A world is never told who its visitor follows, and doesn't ask a relay.
-  So a card in a world doesn't say "following".
-- A link's word is something anyone can write. The client that receives
-  one shows a person and a choice. It follows nobody and sends nothing
-  because a link said so.
+1. **The first press in a world asks.** The world sends `want` with
+   `follows` and opens the signer's window, where the visitor is asked
+   whether this world may change who they follow. Until they have said yes,
+   the world asks no relay who they follow, and the control says "Follow".
+2. **The world finds their newest list:** on their own relays and the usual
+   ones, and on the device.
+3. **It hands the signer that list and the one change** (`follow`, with
+   `list` and `add` or `remove`). `list` is null only where relays answered
+   and had none, and the visitor pressed a second time to start one.
+4. **The signer checks and signs.** The list must be the visitor's own,
+   with a real signature. It makes the one change (`followForWorld`) and
+   signs the result. It marks nothing on it: a follow list that named the
+   world it was last changed in would say where its owner had been.
+5. **The world checks what came back** is that list with that change and no
+   other, and sends it to the visitor's relays.
+
+**What a signer does beside that:**
+
+- Counts them: six a minute and sixty an hour for one world, the pace of a
+  person.
+- Remembers the time of the newest list of theirs it has signed or been
+  handed, and refuses one older than that, or none at all once it has seen
+  one. A world can't take a visitor back to an old list.
+
+**What trusting a world with this means.** It can follow and unfollow
+people for the visitor without asking each time, as any Nostr client they
+use can. It can't sign anything else, read anything, or write a list of its
+own. A signer that has never seen the visitor's list has to take a world's
+word that there is none: a world that lied could start a new list over an
+old one. That is the trust the visitor gives, and why it is asked for by
+name, one world at a time.
 
 ## What it gives away
 
@@ -124,14 +146,18 @@ someone is"). Beside muting and blocking, it may offer **Follow** and
 - **A message, to its reader:** who wrote it and when, which they could
   show to anyone, though nothing they hold proves it to a stranger: the
   message itself carries no signature.
-- **To a world:** nothing. It isn't asked and isn't told.
+- **To a world the visitor let follow for them:** who they follow, which is public already. To any other world: nothing.
 
 ## In code
 
 ```ts
 import { changeFollows, newestFollows, buildMessage, sealTemplate, wrapSeal, readSeal, readMessage } from "@nswp/core";
 
-// Following: the newest list, one line changed, signed by the visitor.
+// Following, in a world built with the kit: all of the above.
+const people = worldPeople();                      // nswp-sdk/three
+const done = await people.follow(theirKey, "Ada"); // { ok, why, said }
+
+// Following, in a client with its own signer: the newest list, one line changed.
 const next = changeFollows(newestFollows(events, me), { add: theirKey, now: Date.now() / 1000 });
 
 // Sending: the signer seals and signs; the client wraps with a throwaway key.
@@ -146,12 +172,9 @@ const message = sealIn && readMessage(await signer.decryptEvent(sealIn), sealIn,
 
 ## Proposed, not built
 
-- **All of it in BitPortal:** people and messages at home, on a phone, at a
-  desk and in a headset, and the two ways home from a world's card.
-- **Following from inside a world without leaving it:** the visitor's
-  signer changing the list itself, on a surface it draws, with the
-  visitor's say each time. This is the "careful" tier of
-  [NSWP-10](10-identity.md), which no signer has built.
-- **Word of a new message while in a world.** A world can't be told, so it
-  would have to come from the visitor's signer or their client.
+- **BitLogin's side of `want` and `follow`.** Until a signer answers them,
+  Follow in a world says where following is done.
+- **People and messages at the visitor's home,** in BitPortal.
+- **Messages from inside a world:** a second name on the list a world may
+  ask for (`messages`), with the signer sealing and opening each one.
 - **Conversations among several, and files.**

@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.39.0";
+  var KIT_VERSION = "0.40.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4495,6 +4495,12 @@ var NSWP = (() => {
       return null;
     }
   }
+  var SIGNER_MORE = ["follows"];
+  function cleanMore(input) {
+    if (!Array.isArray(input))
+      return [];
+    return SIGNER_MORE.filter((name) => input.includes(name));
+  }
   var ID = /^[0-9a-z-]{1,40}$/i;
   var wrapped = (data) => {
     if (!data || typeof data !== "object")
@@ -4522,7 +4528,9 @@ var NSWP = (() => {
         ...pubkey && cleanAbout(d.about) ? { about: cleanAbout(d.about) } : {},
         ...typeof d.until === "number" && Number.isFinite(d.until) ? { until: d.until } : {},
         // Whether the signer will still be unlocked for this world on their next visit, where it says.
-        ...pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {}
+        ...pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {},
+        // What the visitor let this world do beyond a note and a reaction. Nothing, from a signer that doesn't say.
+        ...pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {}
       };
     }
     if (typeof d.id !== "string" || !ID.test(d.id))
@@ -4536,6 +4544,41 @@ var NSWP = (() => {
     if (d.t === "opened" && cleanSlot(d.slot) && fitsInSave(d.data) && typeof d.at === "number" && Number.isFinite(d.at))
       return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
     return null;
+  }
+
+  // packages/core/dist/rating.js
+  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
+
+  // packages/core/dist/people.js
+  var FOLLOWS_KIND = 3;
+  function changeFollows(newest, change2) {
+    if (newest && (newest.kind !== FOLLOWS_KIND || !Array.isArray(newest.tags)))
+      return null;
+    if (!newest && !change2.fromNothing)
+      return null;
+    const add = typeof change2.add === "string" ? change2.add.toLowerCase() : "";
+    const remove = typeof change2.remove === "string" ? change2.remove.toLowerCase() : "";
+    if (add === "" === (remove === ""))
+      return null;
+    const who2 = add || remove;
+    if (!isHex64(who2) || add && newest?.pubkey === add)
+      return null;
+    const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((item) => typeof item === "string") && !SITE_MARKS.includes(t[0] ?? "")) : [];
+    const names = (t) => t[0] === "p" && typeof t[1] === "string" && t[1].toLowerCase() === who2;
+    const follows = had.some(names);
+    if (add ? follows : !follows)
+      return null;
+    const tags = add ? [...had.map((t) => [...t]), ["p", add, ...change2.relay ? [change2.relay] : []]] : had.filter((t) => !names(t)).map((t) => [...t]);
+    const created_at = Math.max(Math.floor(change2.now), newest ? newest.created_at + 1 : 0);
+    return { kind: FOLLOWS_KIND, created_at, tags, content: typeof newest?.content === "string" ? newest.content : "" };
+  }
+  function isFollowAsked(signed, o) {
+    if (!o.pubkey || !verifyEvent(signed) || signed.kind !== FOLLOWS_KIND || signed.pubkey !== o.pubkey)
+      return false;
+    const want = changeFollows(o.list, { ...o.add ? { add: o.add } : {}, ...o.remove ? { remove: o.remove } : {}, now: signed.created_at, fromNothing: o.list === null });
+    if (!want || signed.content !== want.content || o.list && signed.created_at <= o.list.created_at)
+      return false;
+    return JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(want.tags);
   }
 
   // packages/core/dist/message.js
@@ -6808,6 +6851,7 @@ var NSWP = (() => {
     about: null,
     remembered: null,
     host: null,
+    more: [],
     unanswered: false,
     asking: false,
     retry: () => false,
@@ -6820,6 +6864,8 @@ var NSWP = (() => {
     save: async () => null,
     find: async () => null,
     open: async () => null,
+    want: () => false,
+    follow: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -6858,6 +6904,7 @@ var NSWP = (() => {
     let picture = null;
     let about = null;
     let remembered = null;
+    let more = [];
     let origin = "";
     let windowAt = "";
     let frame = null;
@@ -6913,6 +6960,7 @@ var NSWP = (() => {
         picture = reply.unlocked ? reply.picture ?? null : null;
         about = reply.unlocked ? reply.about ?? null : null;
         remembered = reply.unlocked ? reply.remembered ?? null : null;
+        more = reply.unlocked ? cleanMore(reply.more) : [];
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -6981,6 +7029,9 @@ var NSWP = (() => {
       },
       get remembered() {
         return remembered;
+      },
+      get more() {
+        return more;
       },
       get unanswered() {
         return named && waited && state === "none" && !disposed;
@@ -7056,6 +7107,18 @@ var NSWP = (() => {
       open(event) {
         if (state !== "unlocked" || !frame || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
         return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
+      },
+      want(asked) {
+        const wanted = cleanMore([...asked]);
+        if (state === "none" || !frame || wanted.length === 0) return false;
+        tell2({ t: "want", id: `w${++n}`, more: wanted });
+        return true;
+      },
+      follow(list, change2) {
+        const add = "add" in change2 ? change2.add : void 0;
+        const remove = "remove" in change2 ? change2.remove : void 0;
+        if (state !== "unlocked" || !frame || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
+        return askAbout({ t: "follow", id: `w${++n}`, list, ...add ? { add } : { remove } }, (reply) => reply.t === "signed" && isFollowAsked(reply.event, { list, ...add ? { add } : { remove }, pubkey }) ? reply.event : null);
       },
       onChange(fn) {
         watchers3.add(fn);

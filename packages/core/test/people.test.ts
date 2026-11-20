@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeFollows, finalizeEvent, followsIn, FOLLOWS_KIND, getPublicKey, newestFollows, signClass } from "../src/index.js";
+import { changeFollows, finalizeEvent, followForWorld, followsIn, FOLLOWS_KIND, getPublicKey, isFollowAsked, newestFollows, signClass } from "../src/index.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { TEST_KEY_1, TEST_KEY_2 } from "./helpers.js";
@@ -71,5 +71,48 @@ describe("unfollowing someone", () => {
 describe("a world", () => {
   it("never has a follow list signed for it", () => {
     expect(signClass(FOLLOWS_KIND)).toBe("careful");
+  });
+});
+
+describe("a world that was let follow for its visitor", () => {
+  const had = list([["p", ann], ["t", "worlds"]]);
+
+  it("hands the signer their own list and one change", () => {
+    const made = followForWorld({ list: had, add: bo, pubkey: me, now: T + 10 })!;
+    expect(made.tags).toEqual([["p", ann], ["t", "worlds"], ["p", bo]]);
+    expect(isFollowAsked(finalizeEvent(made, TEST_KEY_1), { list: had, add: bo, pubkey: me })).toBe(true);
+  });
+
+  it("can't have a list of its own making signed", () => {
+    const made = { kind: FOLLOWS_KIND, pubkey: me, created_at: T, tags: [], content: "", id: "0".repeat(64), sig: "0".repeat(128) };
+    expect(followForWorld({ list: made, add: bo, pubkey: me, now: T })).toBeNull();
+    const someoneElses = finalizeEvent({ kind: FOLLOWS_KIND, created_at: T, tags: [], content: "" }, TEST_KEY_2);
+    expect(followForWorld({ list: someoneElses, add: bo, pubkey: me, now: T })).toBeNull();
+    expect(followForWorld({ list: "a list", add: bo, pubkey: me, now: T })).toBeNull();
+  });
+
+  it("can't take them back to an older list, or start a new one, once the signer has seen theirs", () => {
+    expect(followForWorld({ list: had, add: bo, pubkey: me, now: T + 10, seen: T + 5 })).toBeNull();
+    expect(followForWorld({ list: null, add: bo, pubkey: me, now: T + 10, seen: T })).toBeNull();
+    expect(followForWorld({ list: null, add: bo, pubkey: me, now: T + 10 })?.tags).toEqual([["p", bo]]);
+    expect(followForWorld({ list: had, add: bo, pubkey: me, now: T + 10, seen: T })).not.toBeNull();
+  });
+
+  it("checks what comes back is that list with that change, and nothing else", () => {
+    const ok = finalizeEvent(followForWorld({ list: had, add: bo, pubkey: me, now: T + 10 })!, TEST_KEY_1);
+    expect(isFollowAsked(ok, { list: had, remove: ann, pubkey: me })).toBe(false);
+    expect(isFollowAsked(ok, { list: had, add: bo, pubkey: ann })).toBe(false);
+    const extra = finalizeEvent({ ...ok, tags: [...ok.tags, ["p", cy]] }, TEST_KEY_1);
+    expect(isFollowAsked(extra, { list: had, add: bo, pubkey: me })).toBe(false);
+    const dropped = finalizeEvent({ ...ok, tags: [["p", bo]] }, TEST_KEY_1);
+    expect(isFollowAsked(dropped, { list: had, add: bo, pubkey: me })).toBe(false);
+    // A mark the signer added, saying which site asked, is allowed for.
+    const marked = finalizeEvent({ ...ok, tags: [...ok.tags, ["bitlogin:site", "https://portal.example"]] }, TEST_KEY_1);
+    expect(isFollowAsked(marked, { list: had, add: bo, pubkey: me })).toBe(true);
+  });
+
+  it("drops the last signer's mark from the list it changes", () => {
+    const marked = list([["p", ann], ["bitlogin:site", "https://portal.example"], ["nswp:world", "https://arcade.example"]]);
+    expect(changeFollows(marked, { add: bo, now: T + 1 })!.tags).toEqual([["p", ann], ["p", bo]]);
   });
 });

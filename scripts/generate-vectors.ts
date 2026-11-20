@@ -57,6 +57,7 @@ import {
   sealSave,
   buildMessage,
   changeFollows,
+  followForWorld,
   followsIn,
   nip44Encrypt,
   openWrap,
@@ -943,12 +944,34 @@ const files: Record<string, unknown> = {
   for (const m of messages.slice(2)) expectEqual(`people/${m.name}`, m.expect, null);
   expectEqual("people/wrap_by_throwaway", good.pubkey, getPublicKey(ONCE));
   expectEqual("people/wrap_moved_back", good.created_at, T0 - 12 * 3600);
+  // A world that was let follow for its visitor hands the signer their list and one change.
+  const older = sign({ kind: FOLLOWS_KIND, created_at: T0 - 3600, tags: [["p", CY]], content: "" });
+  const someoneElses = sign({ kind: FOLLOWS_KIND, created_at: T0, tags: [["p", CY]], content: "" }, KEY2);
+  const madeUp = { ...had, tags: [["p", CY]] };
+  const forWorld = (name: string, description: string, o: { list: NostrEvent | null; add?: string; remove?: string; seen?: number }) => ({
+    name,
+    description,
+    ...o,
+    expect: followForWorld({ ...o, pubkey: PK1, now: T0 + 60 }),
+  });
+  const fromAWorld = [
+    forWorld("their_own_list", "The first key's own list and one change: signed.", { list: had, add: PK3 }),
+    forWorld("a_list_the_world_made", "The same list with its lines changed by the world: the signature no longer holds. Refused.", { list: madeUp as NostrEvent, add: PK3 }),
+    forWorld("someone_elses_list", "A real list, by another key. Refused.", { list: someoneElses, add: PK3 }),
+    forWorld("older_than_seen", "A real list of theirs, older than one the signer has seen. Refused.", { list: older, add: PK3, seen: T0 }),
+    forWorld("none_once_one_was_seen", "The world says they have no list; the signer has seen one. Refused.", { list: null, add: PK3, seen: T0 }),
+    forWorld("a_first_list", "The world says they have no list, and the signer has seen none: a first list.", { list: null, add: PK3 }),
+  ];
+  expectEqual("people/world_own", fromAWorld[0]!.expect?.tags, [...had.tags, ["p", PK3]]);
+  for (const v of fromAWorld.slice(1, 5)) expectEqual(`people/world_${v.name}`, v.expect, null);
+  expectEqual("people/world_first", fromAWorld[5]!.expect?.tags, [["p", PK3]]);
   files["people.json"] = {
     description:
-      "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
+      "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
     testKeys: { ...testKeys, throwaway: { label: "nswp test vector throwaway key", secretKey: hex(ONCE), pubkey: getPublicKey(ONCE) } },
     followList: had,
     follows,
+    fromAWorld,
     written,
     messages,
   };

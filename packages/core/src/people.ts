@@ -9,10 +9,12 @@
  * here is always made to the newest list that could be found, keeps everything in it that this file doesn't
  * understand, and is refused when there is no list to change unless the caller says the person truly has none.
  *
- * Nothing here signs anything or talks to a relay. A world never has a follow list signed (signing.ts: it is
- * "careful"): this is for the visitor's own client.
+ * Nothing here signs anything or talks to a relay. A world can't have a follow list of its own making signed
+ * (signing.ts: the kind is "careful", and `sign` refuses it). A world its visitor has let follow for them hands
+ * the signer their newest list and one change, and the signer makes it: `followForWorld`, below.
  */
-import { isHex64, type EventTemplate, type NostrEvent } from "./event.js";
+import { isHex64, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
+import { SITE_MARKS } from "./rating.js";
 
 /** Who someone follows: NIP-02. A relay keeps the newest. */
 export const FOLLOWS_KIND = 3;
@@ -71,7 +73,9 @@ export function changeFollows(newest: Pick<NostrEvent, "kind" | "pubkey" | "crea
   const who = add || remove;
   if (!isHex64(who) || (add && newest?.pubkey === add)) return null;
 
-  const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((item) => typeof item === "string")) : [];
+  // A mark a signer put on the last one, saying which site asked, is that signer's to write again or leave off: a
+  // list that carried the last one along would say where its owner had been, and a signer would refuse it.
+  const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((item) => typeof item === "string") && !SITE_MARKS.includes(t[0] ?? "")) : [];
   const names = (t: string[]): boolean => t[0] === "p" && typeof t[1] === "string" && t[1].toLowerCase() === who;
   const follows = had.some(names);
   if (add ? follows : !follows) return null;
@@ -79,4 +83,38 @@ export function changeFollows(newest: Pick<NostrEvent, "kind" | "pubkey" | "crea
   // Never older than the one it replaces: a relay would keep the old one.
   const created_at = Math.max(Math.floor(change.now), newest ? newest.created_at + 1 : 0);
   return { kind: FOLLOWS_KIND, created_at, tags, content: typeof newest?.content === "string" ? newest.content : "" };
+}
+
+/**
+ * A world may be let change who its visitor follows (protocol/14-people-and-messages.md, "From inside a world").
+ * How often: the pace of a person pressing a button, never of a script.
+ */
+export const FOLLOW_LIMITS = { burst: 6, perMs: 60_000, hourly: 60 } as const;
+
+/**
+ * What a signer does when a world it was allowed to asks for one person to be followed or unfollowed: the
+ * world hands over the newest follow list it found, and the one change. The list must be the visitor's own, with
+ * a real signature, so a world can't have a list of its own making signed: only one that the visitor signed
+ * before, with one line changed. Null for anything else.
+ *
+ * `list` null is "they have none yet". A signer that has seen a list of theirs before should refuse that, and
+ * refuse one older than the newest it has seen: pass that list's time as `seen`.
+ */
+export function followForWorld(o: { list: unknown; add?: unknown; remove?: unknown; pubkey: string; now: number; seen?: number }): EventTemplate | null {
+  const change = { ...(typeof o.add === "string" ? { add: o.add } : {}), ...(typeof o.remove === "string" ? { remove: o.remove } : {}), now: o.now };
+  if (o.list === null || o.list === undefined) return o.seen ? null : changeFollows(null, { ...change, fromNothing: true });
+  if (!verifyEvent(o.list) || o.list.kind !== FOLLOWS_KIND || o.list.pubkey !== o.pubkey) return null;
+  if (o.seen && o.list.created_at < o.seen) return null;
+  return changeFollows(o.list, change);
+}
+
+/**
+ * Whether a follow list a signer handed back is the one that was asked for: the visitor's own, really signed,
+ * and exactly the list that was handed over with that one change. A world checks this before it sends it on.
+ */
+export function isFollowAsked(signed: unknown, o: { list: NostrEvent | null; add?: string; remove?: string; pubkey: string | null }): signed is NostrEvent {
+  if (!o.pubkey || !verifyEvent(signed) || signed.kind !== FOLLOWS_KIND || signed.pubkey !== o.pubkey) return false;
+  const want = changeFollows(o.list, { ...(o.add ? { add: o.add } : {}), ...(o.remove ? { remove: o.remove } : {}), now: signed.created_at, fromNothing: o.list === null });
+  if (!want || signed.content !== want.content || (o.list && signed.created_at <= o.list.created_at)) return false;
+  return JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(want.tags);
 }
