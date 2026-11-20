@@ -893,7 +893,9 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       if (host.hidden || controls.presence !== "full") return { top: 0, bottom: 0 };
       const low = hotbar.getBoundingClientRect();
       const high = id.getBoundingClientRect();
-      return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - Math.min(low.top, target.getBoundingClientRect().top)) };
+      // The controls, and not the words about what is pointed at: those come and go as the pointer moves, and a
+      // page that moves its picture clear of what is covered would move it every time something was pointed at.
+      return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
     },
     setHidden(hidden) {
       host.hidden = hidden;

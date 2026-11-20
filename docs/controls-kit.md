@@ -799,9 +799,18 @@ import { createFloorMarks, DOOR_REACH } from "nswp-sdk/three";
 const marks = createFloorMarks(accent);
 scene.add(marks.group);
 // each frame, on a flat screen, moving the casual way:
-marks.update({ hover: spotAPressWouldLeadTo, from: [head.x, head.z], to: stroll.target, t });
+marks.update({ hover: stroll.reach(spot.x, spot.z), from: [head.x, head.z], path: stroll.path, t });
 // in a headset, or moving the intense way:
-marks.update({ hover: null, from: [head.x, head.z], to: null, t });
+marks.update({ hover: null, from: [head.x, head.z], path: null, t });
+```
+
+A press on the floor is `stroll.tap(x, z)`, with the spot pressed, however
+far off it is. And each frame of a walk, the view turns to face the way they
+are going, unless they are turning it themselves:
+
+```js
+stroll.update(dt);
+if (stroll.going && !dragging) rig.rotation.y = stroll.face(rig.rotation.y, dt);
 ```
 
 - **A ring** under the pointer, on the spot a press would walk them to. It
@@ -810,6 +819,20 @@ marks.update({ hover: null, from: [head.x, head.z], to: null, t });
   touch screen there is no ring.
 - **A dot** where they are headed, once they have pressed, and **a dotted
   line** from their feet to it.
+- **A path, pressed out as they walk.** A press while they are walking adds
+  a stretch to the way they are going, from where the last press ended, as
+  far as one press reaches from there. The line is drawn through every spot
+  with a small ring at each turn, and they walk it in order at the same
+  pace. Twelve stretches may be waiting (`PATH_MOST`). Something in the way
+  ends the whole of it.
+- **They face the way they walk.** The view turns to look along the stretch
+  being walked, no faster than `FACE_RATE` (a little under half a turn a
+  second), and settles there. So a press ahead is a press where they are
+  looking. It never turns anyone in a headset, and it waits while they drag
+  the view themselves.
+- **Two presses close together are a run straight to that spot,** with the
+  rest of the path forgotten. That is how to change one's mind. A key
+  pressed to walk does the same as before: the keys take over.
 - **Only they see them.** Nothing about them is sent to anyone else.
 - **A door is chosen from within `DOOR_REACH`** of it, ten feet, and no
   further. Nearer than that it lights when pointed at, and a press goes

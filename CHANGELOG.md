@@ -2,6 +2,13 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.32.0
+
+- **A path, pressed out as they walk.** Moving the casual way on a flat screen, a press while already walking started again from the visitor's feet, so the line on the floor was redrawn and the first spot was lost. Now it adds a stretch from where the last press ended. The line is drawn through every spot, with a ring at each turn, and they walk it in order at the same pace. Two presses close together are still a run, straight to that spot with the rest forgotten.
+- **They face the way they walk.** While a walk is on, the view turns to look along the stretch being walked, at an easy rate, and settles there. Never in a headset, and not while they are dragging the view themselves.
+- **In the kit:** `stroll.tap(x, z)` for a press on the floor, `stroll.reach(x, z)` for the ring under the pointer, `stroll.path`, `stroll.heading`, `stroll.face(yaw, dt)`; `createFloorMarks().update({ path })`; `PATH_MOST`, `FACE_RATE`. `stroll.to()` is as it was, for a walk a page starts itself. A world with boot code of its own changes four lines: see "Marks on the floor" in the kit guide.
+- **Pointing at something no longer moves the picture.** `hud.cover()` counted the words about what is pointed at as part of what the controls cover, so a page that moves its view clear of the controls moved it every time the pointer crossed something: in BitPortal's room the view dipped whenever a button on the wall was pointed at. It now counts the controls and nothing that comes and goes.
+
 ## 0.31.1
 
 - **Nothing shows through the walls of the crossing's room.** Chosen from close to it, a doorway is inside the room that comes up round the visitor, and its light showed through the walls from inside: its field, its glow, anything a world draws see-through. Solid things were already painted over; see-through ones are drawn later in a frame, and weren't. The room now shuts them out wherever it stands in the view, and through its open doorway the world is as it was.

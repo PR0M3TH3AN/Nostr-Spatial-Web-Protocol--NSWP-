@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.31.1";
+  var KIT_VERSION = "0.32.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -7480,7 +7480,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
         const low = hotbar.getBoundingClientRect();
         const high = id.getBoundingClientRect();
-        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - Math.min(low.top, target2.getBoundingClientRect().top)) };
+        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
       },
       setHidden(hidden) {
         host.hidden = hidden;
