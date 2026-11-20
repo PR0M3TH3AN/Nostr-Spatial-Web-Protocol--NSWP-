@@ -153,7 +153,7 @@ describe("a private message", () => {
 describe("a message's words", () => {
   it("are plain text with their lines kept", () => {
     expect(cleanMessage("  one\r\n two \n\n\n\n three\t!  ")).toBe("one\ntwo\n\nthree !");
-    expect(cleanMessage("a‮b​c")).toBe("a b c");
+    expect(cleanMessage("a\u202eb\u200bc")).toBe("a b c");
     expect(cleanMessage(5)).toBe("");
     expect([...cleanMessage("x".repeat(5000))].length).toBe(MESSAGE_LIMITS.chars);
   });
