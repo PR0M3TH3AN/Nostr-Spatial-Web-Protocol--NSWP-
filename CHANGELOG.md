@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.32.1
+
+- **The card about what is pointed at is one column again.** Since the profile card arrived (0.27.0) the two shared a style name, so a door or a thing pointed at had its lines laid out in two squeezed columns, as a picture and a name are. The profile card has a name of its own now.
+
 ## 0.32.0
 
 - **A path, pressed out as they walk.** Moving the casual way on a flat screen, a press while already walking started again from the visitor's feet, so the line on the floor was redrawn and the first spot was lost. Now it adds a stretch from where the last press ended. The line is drawn through every spot, with a ring at each turn, and they walk it in order at the same pace. Two presses close together are still a run, straight to that spot with the rest forgotten.
