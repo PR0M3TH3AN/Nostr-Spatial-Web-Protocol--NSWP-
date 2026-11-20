@@ -58,6 +58,8 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
   let withWhom: string | null = null;
   let requests = false;
   let wasMe: string | null = null;
+  /** Their messages are being looked for because who is signed in, or what they allowed, has just become known. */
+  let fetching = false;
   const nameOf = (pubkey: string) => profiles.get(pubkey)?.name || shortNpub(pubkey);
   const say = (text: string) => controls.say(text);
   const inHeadset = () => !!opts.presenting?.() && !!opts.panels;
@@ -218,7 +220,15 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
       closePanel();
     }
     const allowed = !!me && hand.allowed();
-    const state = allowed ? m.state() : "off";
+    // Who is signed in is often known a moment after the page is: their messages are looked for then, not a
+    // minute later.
+    if (allowed && m.state() === "off" && !fetching) {
+      fetching = true;
+      void m.load().finally(() => {
+        fetching = false;
+      });
+    }
+    const state = allowed ? (m.state() === "off" ? "looking" : m.state()) : "off";
     const all = allowed ? m.conversations() : [];
     const known = all.filter((c) => c.known);
     const asking = all.filter((c) => !c.known);
