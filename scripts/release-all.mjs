@@ -58,18 +58,31 @@ for (const [name, dir] of [["NSWP", root], ["BitPortal", portal], ["the world te
   const ahead = quiet("git", ["rev-list", "--count", "origin/main..HEAD"], dir);
   need(branch === "main" && !dirty && behind === "0" && ahead === "0", `${name} is on main, clean, and the same as what is on GitHub`, `${name}: ${branch !== "main" ? `on branch ${branch}` : dirty ? "has changes that aren't committed" : behind !== "0" ? "is behind GitHub: git pull" : "has commits that aren't pushed"}`);
 }
-/** The NSWP commit a repository's copy of the kit was taken from. */
+/** The NSWP commit a repository's copy of the kit was taken from. Each repository writes it down its own way. */
 const vendoredAt = (dir) => {
   try {
-    const packages = JSON.parse(readFileSync(join(dir, "vendor", "integrity.json"), "utf8")).packages ?? {};
-    return Object.values(packages).find((p) => /Nostr-Spatial-Web-Protocol/.test(p.source?.remote ?? ""))?.source?.commit ?? null;
+    const kept = JSON.parse(readFileSync(join(dir, "vendor", "integrity.json"), "utf8"));
+    const sources = [kept.source, ...Object.values(kept.packages ?? {}).map((p) => p.source)].filter(Boolean);
+    return sources.find((source) => /Nostr-Spatial-Web-Protocol/.test(source.remote ?? source.repository ?? ""))?.commit ?? null;
   } catch {
     return null;
   }
 };
+/**
+ * Whether the kit at that commit is the kit here. A later commit that changed only words or scripts changed no
+ * kit: what a world carries is built from `packages/`, and nothing else.
+ */
+const sameKit = (at) => {
+  try {
+    run("git", ["diff", "--quiet", at, "HEAD", "--", "packages"], root);
+    return true;
+  } catch {
+    return false;
+  }
+};
 for (const [name, dir, how] of [["BitPortal", portal, "npm run vendor -- --only nswp"], ["The world template", template, "npm run vendor"]]) {
   const at = vendoredAt(dir);
-  need(!!at && at === head, `${name} carries this repo's kit (${kit}, ${head?.slice(0, 7)})`, `${name} carries the kit from ${at?.slice(0, 7) ?? "nowhere this could read"}, and this repo is at ${head?.slice(0, 7)}: in that repo, ${how}, then commit and merge`);
+  need(!!at && sameKit(at), `${name} carries this repo's kit (${kit}, taken at ${at?.slice(0, 7) ?? "?"})`, `${name} carries the kit from ${at?.slice(0, 7) ?? "nowhere this could read"}, and the kit has changed here since: in that repo, ${how}, then commit and merge`);
 }
 
 // ---------------------------------------------------------------- what is public now
