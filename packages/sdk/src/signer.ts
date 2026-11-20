@@ -43,6 +43,11 @@ export interface WorldSigner {
    */
   readonly more: readonly SignerMore[];
   /**
+   * What this signer can be asked for at all, as it says ("Asking for more"), or null where it doesn't say. A
+   * name that is missing has no question in its window: asking would open a window that says nothing of it.
+   */
+  readonly offers: readonly SignerMore[] | null;
+  /**
    * True when a signer was named for this visitor (in the arrival, or
    * outright) and has had time to answer, and hasn't: it couldn't be
    * loaded, or the browser kept it out. Then there is something to say.
@@ -149,6 +154,7 @@ const NONE: WorldSigner = {
   remembered: null,
   host: null,
   more: [],
+  offers: null,
   unanswered: false,
   asking: false,
   retry: () => false,
@@ -207,6 +213,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   let about: string | null = null;
   let remembered: boolean | null = null;
   let more: SignerMore[] = [];
+  let offers: SignerMore[] | null = null;
   // Where the signer and the window really are: the client's own addresses, or their copies on a development server.
   let origin = "";
   let windowAt = "";
@@ -281,6 +288,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       about = reply.unlocked ? (reply.about ?? null) : null;
       remembered = reply.unlocked ? (reply.remembered ?? null) : null;
       more = reply.unlocked ? cleanMore(reply.more) : [];
+      if (reply.offers) offers = reply.offers;
       for (const go of [...firstAnswer]) go();
       return changed();
     }
@@ -366,6 +374,9 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     get more() {
       return more;
     },
+    get offers() {
+      return offers;
+    },
     get unanswered() {
       return named && waited && state === "none" && !disposed;
     },
@@ -447,7 +458,8 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => (reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null));
     },
     want(asked) {
-      const wanted = cleanMore([...asked]);
+      // Only what this signer says it has a question for, where it says.
+      const wanted = cleanMore([...asked]).filter((name) => !offers || offers.includes(name));
       if (state === "none" || !frame || wanted.length === 0) return false;
       tell({ t: "want", id: `w${++n}`, more: wanted });
       return true;

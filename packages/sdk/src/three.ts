@@ -1361,6 +1361,8 @@ export function addRoomControls(
       });
     }
     const where = signer.host ?? "your sign-in address";
+    // A sign-in address that says what it offers, and doesn't offer this: its window would have nothing to ask.
+    if (signer.offers && !signer.offers.includes(what)) return `${where} doesn't let a world ${to} yet. It can be done at your home.`;
     if (opts.presenting?.()) return `This world needs your say before it can ${to}, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
     waitingFor.set(what, { then, at: Date.now() });
     // Everything they have let it do already is asked for again beside it: an answer is for the whole of it.
