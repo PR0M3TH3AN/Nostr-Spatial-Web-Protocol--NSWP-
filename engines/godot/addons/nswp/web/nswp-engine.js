@@ -76,7 +76,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.57.0";
+  var KIT_VERSION = "0.57.1";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -45666,6 +45666,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       void o.model(item, tints).then(
         (object) => {
           if (!ready2.has(key)) return;
+          let frames = 0;
+          let solids = 0;
+          object.traverse((part) => {
+            const mesh = part;
+            if (!mesh.isMesh) return;
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            if (materials.every((m) => m.wireframe === true)) frames++;
+            else solids++;
+          });
+          if (frames > 0 && solids === 0) return;
           const box = new Box3().setFromObject(object);
           const ball = box.getBoundingSphere(new Sphere());
           if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);

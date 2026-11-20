@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.57.1
+
+- **A thing whose model can't be fetched has no picture in the bag,** and is shown by its first letter and its name. It was shown as a bare wire frame of its size, which is what a world draws in a model's place and is no picture of anything.
+
 ## 0.57.0
 
 A better bag, and a larger menu.
