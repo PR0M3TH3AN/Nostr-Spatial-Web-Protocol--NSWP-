@@ -6,17 +6,34 @@
  * that draws nothing carried, the bag can still be looked through, and says that nothing in it works there.
  *
  * It also has the visitor's one switch for all items: off, nothing of anyone's is fetched, drawn or run.
+ *
+ * How it is laid out, and why. What they have is shown as the things themselves, side by side, each drawn from
+ * its own model (item-preview.ts). Choosing one puts it at the head of the tab, large and turning, with the one
+ * thing most people came to do, taking it in hand, as the first button under it: before this, that button was
+ * the third row of a list, under two rows of housekeeping, and on a phone it was out of sight. Where a thing
+ * can't be held, the tab says so in that button's place and says why. Housekeeping is last.
  */
 import { decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE } from "@nswp/core";
 import type { Bag } from "./bag.js";
+import { createItemPreviews, type ItemPreviews } from "./item-preview.js";
 import { onItemsChange, setShowsItems, showsItems, type ItemStore } from "./item-store.js";
+import type { Items } from "./items.js";
 import type { Keyboard } from "./keyboard.js";
 import type { Controls, UiAction } from "./ui/model.js";
 
 export interface BaggingOptions {
   bag: Bag;
-  /** What looks items up: only their descriptions are needed here, so nothing that draws. */
-  items: Pick<ItemStore, "known" | "describe">;
+  /**
+   * What looks items up. Their descriptions are all that is needed; where it can also give a model (items.ts),
+   * each thing is shown as itself, drawn from that model. Without, each is shown by its first letter.
+   */
+  items: Pick<ItemStore, "known" | "describe"> & Partial<Pick<Items, "model">>;
+  /** What draws each thing's picture. Left out, one is made from `items.model`, where there is one. `null` for none. */
+  previews?: ItemPreviews | null;
+  /** Whether things may move for this visitor: off, the chosen thing is shown still. Left out, as the menu's own setting says. */
+  motion?: () => boolean;
+  /** What this place is called, for saying where a thing can't be held. */
+  place?: () => string;
   /** The visitor's key here, or null: a guest carries nothing, and has no tab. */
   me(): string | null;
   /** What this place does with items: "none", "allowed" or "play". */
@@ -70,7 +87,15 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   let pages = 1;
   let wasMe: string | null = null;
   let looked = false;
+  /** An item whose own logic they were just asked about: the next press of Hold lets it run. */
+  let asking = "";
   const say = (text: string) => controls.say(text);
+  const model = items.model;
+  const previews = opts.previews === undefined ? (model ? createItemPreviews({ model: (item, tints) => model(item, tints) }) : null) : opts.previews;
+  const still = (item: string) => (): CanvasImageSource | null => {
+    const described = items.known(item);
+    return described && previews && showsItems() ? previews.still(described, bag.tints(item)) : null;
+  };
   const titleOf = (item: string) => items.known(item)?.title ?? item.split(":")[2] ?? "an item";
 
   const change = (item: string, adding: boolean) => {
@@ -136,25 +161,41 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       card: () => {
         const item = chosen ? items.known(chosen) : null;
         if (!item) return null;
-        return { title: item.title, tag: opts.holding() === item.id ? "In your hand" : has?.includes(item.id) ? "In your bag" : "Offered here", proven: false, sub: `Made by ${item.maker.slice(0, 8)}…`, copy: item.id, text: item.summary, picture: "", color: "", now: [] };
+        const tints = bag.tints(item.id);
+        return {
+          title: item.title,
+          tag: opts.holding() === item.id ? "In your hand" : has?.includes(item.id) ? "In your bag" : "Offered here",
+          proven: false,
+          sub: `Made by ${item.maker.slice(0, 8)}…`,
+          copy: item.id,
+          text: item.summary,
+          picture: "",
+          color: "",
+          now: [],
+          // The thing itself, large and turning, in the colours they chose for it.
+          ...(previews && showsItems() ? { draw: () => previews.turning(item, tints, opts.motion?.() ?? controls.theme?.motion ?? true) } : {}),
+        };
       },
     });
     // A guest carries nothing: the tab has nothing in it, and isn't shown.
     if (!me) return;
-    add({
-      id: "bag-items",
-      icon: "check",
-      on: () => showsItems(),
-      label: () => (showsItems() ? "Items: on" : "Items: off. Nothing of anyone's is fetched, drawn or run"),
-      short: "Items",
-      act: () => {
-        setShowsItems(!showsItems());
-        if (!showsItems() && opts.holding()) void opts.hold("");
-        say(showsItems() ? "Items are drawn, here and in the next world that allows them." : "No item is fetched, drawn or run for you, here or in the next world.");
-        refresh();
-      },
-    });
+    const housekeeping = (): void => {
+      add({
+        id: "bag-items",
+        icon: "check",
+        on: () => showsItems(),
+        label: () => (showsItems() ? "Items: on" : "Items: off. Nothing of anyone's is fetched, drawn or run"),
+        short: "Items",
+        act: () => {
+          setShowsItems(!showsItems());
+          if (!showsItems() && opts.holding()) void opts.hold("");
+          say(showsItems() ? "Items are drawn, here and in the next world that allows them." : "No item is fetched, drawn or run for you, here or in the next world.");
+          refresh();
+        },
+      });
+    };
     if (has === null) {
+      housekeeping();
       if (!looked) {
         looked = true;
         void bag.load().then(refresh);
@@ -170,21 +211,44 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
         });
       return;
     }
-    // Looked for again when they ask: something put in at their home a moment ago is there then.
-    add({ id: "bag-look", icon: "turn", label: "Look again", short: "Look", act: () => void bag.load(true).then(refresh) });
-    if (bag.canChange()) add({ id: "bag-add", icon: "save", label: () => (opts.presenting?.() && opts.keyboard?.() ? "Put in an item by its address" : "Put in the item I copied"), short: "Add", act: () => void fromCopy() });
-    if (opts.holding()) add({ id: "bag-away", icon: "close", label: `Put ${titleOf(opts.holding())} away`, short: "Away", act: async () => say((await opts.hold("")).said) });
+    // What is in their hand is what the tab opens on: the thing they are most likely here about.
+    if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
+    const holding = opts.holding();
+    const away = (): UiAction => ({ id: "bag-away", icon: "close", tone: chosen === holding ? "primary" : "normal", label: `Put ${titleOf(holding)} away`, short: "Away", act: async () => say((await opts.hold("")).said) });
+    // ---- The thing they chose: what to do with it comes first, straight under its picture.
     if (chosen && has.includes(chosen)) {
       const item = chosen;
-      // Only where something held would be drawn: a place that has items, for someone who has them switched on.
-      if (opts.holding() !== item && rule !== "none" && showsItems()) {
+      if (holding === item) add(away());
+      else if (rule === "none") {
+        // Said where the button would be, and why: a button that isn't there can't be asked about.
+        add({
+          id: "bag-nohold",
+          icon: "close",
+          label: `Can't be held here: ${opts.place?.() || "this place"} doesn't have items`,
+          act: () => say("Each place says whether things can be carried in it. Where they can, a door's sign says \"Items work\", and Hold is here."),
+        });
+      } else if (!showsItems()) {
+        add({
+          id: "bag-turn-on",
+          icon: "check",
+          tone: "primary",
+          label: `Turn items on, to hold ${titleOf(item)}`,
+          act: () => {
+            setShowsItems(true);
+            refresh();
+          },
+        });
+      } else {
         add({
           id: "bag-hold",
           icon: "check",
           tone: "primary",
-          label: `Hold ${titleOf(item)}`,
+          // An item that does things of its own runs its maker's code, shut away: the second press is their yes.
+          label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
           act: async () => {
-            say((await opts.hold(item, bag.tints(item))).said);
+            const done = await opts.hold(item, bag.tints(item));
+            asking = !done.ok && /Press Hold again/.test(done.said) ? item : "";
+            say(done.said);
             refresh();
           },
         });
@@ -215,20 +279,28 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       const item = chosen;
       add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change(item, true) });
     }
+    // Something else is in their hand than the thing they are looking at: the way to put it away is still here.
+    if (holding && holding !== chosen) add(away());
+    // ---- Everything they have, as the things themselves, side by side.
     const listed = has.slice(0, pages * PAGE);
     // What each is called is asked for a page at a time, for the things on show.
     for (const item of listed) if (!items.known(item)) void items.describe(item).then((found) => found && soon());
+    const choose = (item: string) => () => {
+      chosen = chosen === item ? null : item;
+      asking = "";
+      refresh();
+    };
     add(
       ...listed.map(
         (item): UiAction => ({
           id: `bag-${item.split(":")[1]!.slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
+          kind: "tile",
           icon: "save",
+          picture: still(item),
           on: () => chosen === item,
           label: () => `${titleOf(item)}${opts.holding() === item ? ", in your hand" : ""}`,
-          act: () => {
-            chosen = chosen === item ? null : item;
-            refresh();
-          },
+          short: () => titleOf(item),
+          act: choose(item),
         }),
       ),
     );
@@ -239,13 +311,13 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       ...offered.map(
         (item): UiAction => ({
           id: `bag-offer-${item.split(":")[1]!.slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
+          kind: "tile",
           icon: "save",
+          picture: still(item),
           on: () => chosen === item,
           label: () => `${titleOf(item)}, offered here`,
-          act: () => {
-            chosen = chosen === item ? null : item;
-            refresh();
-          },
+          short: () => titleOf(item),
+          act: choose(item),
         }),
       ),
     );
@@ -260,6 +332,10 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
         },
       });
     }
+    // ---- Housekeeping, last: looked for again when they ask, since something put in at their home a moment ago is there then.
+    housekeeping();
+    add({ id: "bag-look", icon: "turn", label: "Look again", short: "Look", act: () => void bag.load(true).then(refresh) });
+    if (bag.canChange()) add({ id: "bag-add", icon: "save", label: () => (opts.presenting?.() && opts.keyboard?.() ? "Put in an item by its address" : "Put in the item I copied"), short: "Add", act: () => void fromCopy() });
   };
 
   let drawing = false;
@@ -273,6 +349,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   };
   bag.onChange(soon);
   onItemsChange(soon);
+  // A thing's picture is ready: the tiles are drawn again with it.
+  previews?.onChange(soon);
   refresh();
   return { refresh };
 }

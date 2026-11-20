@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.57.0
+
+A better bag, and a larger menu.
+
+- **A bag shows the things in it:** each item drawn from its own model, side by side (`kind: "tile"` in the controls model; `item-preview.ts`). Nobody makes a thumbnail, and what is shown is what would be in the hand, in the holder's colours. The page draws them, so the bag is the same in a world made with Three.js and in one made with Godot.
+- **The thing chosen is at the head of the tab, large and turning, with Hold straight under it.** Before, choosing a thing put its Hold button third in a list under two rows of housekeeping, and on a phone that was out of sight: it looked as though choosing did nothing. Housekeeping (the switch, Look again, putting one in) is last now. The tab opens on whatever is in hand.
+- **Where a thing can't be held, the tab says so where the button would be, and why:** "Can't be held here: The Gallery doesn't have items". Before, there was no button and no reason.
+- **An item with logic of its own says so on the button:** the second press, which lets it run, reads "Let it run, and hold…". The words that explain it used to be only in a line at the side that a phone's menu covered.
+- **The menu is larger at a desk:** 780 wide where there is room, up to three quarters of the height, with rows two abreast. On a phone it is a little taller.
+- Rows are drawn in the order they are added, and swatches or tiles that come together are one strip or grid where they were put.
+- **A tap's aim belongs to the press, not to a moment.** 0.56.0 timed it on the clock, a second and a half; with the page under more load that still ran out, and the thing went to the middle of the view. Now the next thing the item sends out takes the aim, and the next press of any kind replaces it.
+- The engine script is larger again (about 2.3 MB before the server squeezes it): it carries a renderer for the bag's pictures.
+
 ## 0.56.0
 
 Items between people, in a world made with another engine. And two faults found on the way, fixed for every world.

@@ -816,10 +816,12 @@ export function createPlay(o: PlayOptions): Play {
     o.onChange?.();
   };
   /**
-   * Where the next thing sent out is to go, for a moment after a tap or a click said so. The moment is measured
-   * on the wall's clock and not in frames: the item's own logic answers from its locked box a little later, and
-   * on a device drawing only a few frames a second that little is several frames. Counted in frames, a tap there
-   * sent its thing to the middle of the view instead of where it was pressed.
+   * Where the next thing sent out is to go, after a tap or a click said so. It belongs to that press: the next
+   * thing the item sends out takes it, and the next press of any kind replaces it. It is not a moment of time.
+   * The item's own logic answers from its locked box when it can, and on a device that is struggling that may be
+   * a second or more later: timed (in frames at first, then on the clock), a tap there sent its thing to the
+   * middle of the view instead of where it was pressed. The limit left is only so that something forgotten
+   * can't aim a thing sent out long afterwards.
    */
   let pointed: { to: THREE.Vector3; until: number } | null = null;
   const wall = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
@@ -939,10 +941,12 @@ export function createPlay(o: PlayOptions): Play {
     },
     use(toward) {
       if (!active() || !box) return;
-      pointed = toward ? { to: toward.clone(), until: wall() + 1500 } : null;
+      pointed = toward ? { to: toward.clone(), until: wall() + 10_000 } : null;
       box.tell("use");
     },
     second() {
+      // Another press: whatever an earlier one pointed at is no longer where anything goes.
+      pointed = null;
       if (active()) box?.tell("second");
     },
     get does() {

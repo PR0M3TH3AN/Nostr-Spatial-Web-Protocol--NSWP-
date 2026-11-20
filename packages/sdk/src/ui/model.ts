@@ -48,9 +48,15 @@ export interface UiAction {
   /**
    * What kind of control it is. Each kind is drawn by one small function in
    * each renderer, so a new kind is added there and nowhere else.
-   * "swatch" is a choice of colour, and needs `color`.
+   * "swatch" is a choice of colour, and needs `color`. "tile" is a thing with a picture of itself, one of several
+   * laid out side by side: it needs `picture`.
    */
-  kind?: "button" | "swatch";
+  kind?: "button" | "swatch" | "tile";
+  /**
+   * For a tile: its picture as it is now, or null while there is none (a renderer then shows its first letter).
+   * Asked again whenever the menu is drawn.
+   */
+  picture?: () => CanvasImageSource | null;
   /** A function is read again as things change, for a swatch that shows a choice as it stands. */
   color?: Text;
 }
@@ -79,6 +85,11 @@ export interface UiCard {
   color: string;
   /** What is so about them now: recording, sharing their screen. */
   now: string[];
+  /**
+   * For a card about a thing and not a person: its picture as it is this moment, drawn large and asked for again
+   * many times a second, so it may turn. Null while there is none.
+   */
+  draw?: () => CanvasImageSource | null;
 }
 
 export interface UiSection {
@@ -100,8 +111,10 @@ export interface UiItemView {
   /** The number key that presses it from the hotbar, or "". */
   key: string;
   short: string;
-  kind: "button" | "swatch";
+  kind: "button" | "swatch" | "tile";
   color: string;
+  /** A tile's picture, asked for as it is drawn. Not part of what is written out as text. */
+  picture?: () => CanvasImageSource | null;
 }
 export interface UiSectionView {
   id: string;
@@ -457,7 +470,7 @@ export function createControls(opts: ControlsOptions): Controls {
       const bar = [...showing.filter((a) => a.hotbar && a.lead), ...showing.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color) };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color), ...(a.picture ? { picture: a.picture } : {}) };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);

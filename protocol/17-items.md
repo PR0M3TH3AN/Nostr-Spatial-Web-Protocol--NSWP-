@@ -460,6 +460,17 @@ items, and puts it away again.
   wherever their makers keep them, so its page has to be allowed to. A
   world with no items reaches only itself and relays.
 
+**A bag shows the things themselves.** In the Bag tab each item is drawn
+from its own model: the model that would be in the visitor's hand, read and
+checked the same way, in the colours they chose. So nobody makes a thumbnail
+for an item, and nobody can make one that misleads. The one they choose is
+shown large, turning, with taking it in hand as the first thing under it.
+Where it can't be held, the tab says so there, and says why: each place
+says whether things can be carried in it. The page draws these pictures, in
+a small view of its own, whatever draws the world. So looking in a bag
+fetches the models of the things on show, from wherever their makers keep
+them, in a place with no items too: unless the visitor has items off.
+
 **The visitor's switch.** "Items: off" in the Bag tab, and nothing of
 anyone's is fetched, drawn or run for them. It is one of the settings that
 travel ([NSWP-11](11-the-visitors-console.md)), so it is off in the next

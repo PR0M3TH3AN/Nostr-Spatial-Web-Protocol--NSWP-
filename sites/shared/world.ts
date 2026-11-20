@@ -861,6 +861,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     items,
     me: () => (signedInHere() ? worldSigner().pubkey : null),
     rule: () => itemsRule,
+    place: () => cfg.title,
     holding: () => presence.holding,
     hold: async (item, tints) => {
       const done = await presence.setHolding(item, tints);

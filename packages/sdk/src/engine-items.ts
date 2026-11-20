@@ -164,6 +164,7 @@ export function items(options?: string): string {
     items: engineItemStore(),
     me,
     rule: () => rule,
+    place: () => controls.view().title,
     holding: () => presence.holding,
     hold: async (item, tints) => {
       const done = await presence.setHolding(item, tints);

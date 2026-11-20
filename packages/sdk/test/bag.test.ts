@@ -237,3 +237,63 @@ describe("fetching an item", () => {
     expect(withinBudget(new THREE.Group())).toBe(false);
   });
 });
+
+describe("the Bag tab, as it is laid out", () => {
+  const menu = () => {
+    const actions = new Map<string, UiAction>();
+    const said: string[] = [];
+    const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), addSection: () => {}, say: (t: string) => void said.push(t), theme: { motion: true } } as unknown as Controls;
+    return { controls, actions, said, order: () => [...actions.keys()], press: (id: string) => actions.get(id)?.act?.() };
+  };
+  const tile = `bag-${maker.slice(0, 8)}-brass-lantern`;
+  const tab = async (rule: string, hold: (item: string) => Promise<{ ok: boolean; said: string }>) => {
+    const { bag } = set({ had: bagEvent([LANTERN, BOOK]), readOnly: true });
+    const m = menu();
+    const items = { known: () => null, describe: async () => null } as unknown as Parameters<typeof addBagControls>[1]["items"];
+    const bagging = addBagControls(m.controls, { bag, items, me: () => me, rule: () => rule, holding: () => "", hold, place: () => "The Gallery" });
+    await bag.load();
+    bagging.refresh();
+    return m;
+  };
+
+  it("shows what they have as things side by side, and keeps its housekeeping for last", async () => {
+    const m = await tab("allowed", async () => ({ ok: true, said: "Held." }));
+    expect(m.actions.get(tile)?.kind).toBe("tile");
+    const order = m.order();
+    expect(order.indexOf(tile)).toBeLessThan(order.indexOf("bag-items"));
+    expect(order.indexOf(tile)).toBeLessThan(order.indexOf("bag-look"));
+  });
+
+  it("puts taking a thing in hand first, straight under the thing chosen: ahead of everything else", async () => {
+    const m = await tab("allowed", async () => ({ ok: true, said: "Held." }));
+    m.press(tile);
+    expect(m.order()[0]).toBe("bag-hold");
+    expect(m.actions.get("bag-hold")?.tone).toBe("primary");
+  });
+
+  it("says where a thing can't be held, and why, in the place the button would be", async () => {
+    const m = await tab("none", async () => ({ ok: false, said: "" }));
+    m.press(tile);
+    expect(m.order()[0]).toBe("bag-nohold");
+    expect(String(m.actions.get("bag-nohold")?.label)).toBe("Can't be held here: The Gallery doesn't have items");
+    expect(m.actions.has("bag-hold")).toBe(false);
+  });
+
+  it("says on the button itself that a second press lets an item's own logic run, and forgets that for another thing", async () => {
+    let asked = 0;
+    const m = await tab("allowed", async () => (asked++ === 0 ? { ok: false, said: "It runs shut away on your device. Press Hold again to let it." } : { ok: true, said: "Held." }));
+    m.press(tile);
+    expect(m.actions.get("bag-hold")?.label).toBe("Hold brass-lantern");
+    await m.press("bag-hold");
+    expect(m.actions.get("bag-hold")?.label).toBe("Let it run, and hold brass-lantern");
+    // Another thing chosen: its button is the plain one again.
+    m.press(`bag-${maker.slice(0, 8)}-old-book`);
+    expect(m.actions.get("bag-hold")?.label).toBe("Hold old-book");
+  });
+
+  it("has no picture where there is nothing to draw one with, and says a thing's name all the same", async () => {
+    const m = await tab("allowed", async () => ({ ok: true, said: "" }));
+    expect(m.actions.get(tile)?.picture?.()).toBeNull();
+    expect((m.actions.get(tile)?.label as () => string)()).toBe("brass-lantern");
+  });
+});
