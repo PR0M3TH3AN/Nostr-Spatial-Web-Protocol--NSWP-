@@ -1,5 +1,5 @@
 {
-  "description": "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
+  "description": "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`, where the world said what the board is called and that it counts a time; `signedPlain`: where it said neither. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -23,6 +23,8 @@
   "signed": {
     "board": "lantern-run",
     "score": 42500,
+    "title": "Lantern Run",
+    "format": "time",
     "origin": "https://arcade.example",
     "now": 1794430800,
     "expect": {
@@ -39,15 +41,54 @@
         ],
         [
           "board",
-          "lantern-run"
+          "lantern-run",
+          "Lantern Run"
         ],
         [
           "score",
-          "42500"
+          "42500",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 42500"
+          "A score in a world: Lantern Run: 42.5 s"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": ""
+    }
+  },
+  "signedPlain": {
+    "board": "main",
+    "score": 7,
+    "origin": "https://arcade.example",
+    "now": 1794430800,
+    "expect": {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/main"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "main"
+        ],
+        [
+          "score",
+          "7"
+        ],
+        [
+          "alt",
+          "A score in a world: 7"
         ],
         [
           "nswp:world",
@@ -72,15 +113,17 @@
         ],
         [
           "board",
-          "lantern-run"
+          "lantern-run",
+          "Lantern Run"
         ],
         [
           "score",
-          "42500"
+          "42500",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 42500"
+          "A score in a world: Lantern Run: 42.5 s"
         ],
         [
           "nswp:world",
@@ -89,8 +132,8 @@
       ],
       "content": "",
       "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
-      "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
-      "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+      "id": "f30a84eb4cde584386ce4e2119de5428414984eded36021422c0536a1c1893fb",
+      "sig": "fdea71771ea2724c14ee8cd166de42e827495bfe91a448fab7947b7d2625b782da8cc176708899e551d8485a047d59a470ac99769fd2cac384ef4f17de4fc8d8"
     },
     {
       "kind": 37306,
@@ -106,15 +149,17 @@
         ],
         [
           "board",
-          "lantern-run"
+          "lantern-run",
+          "Lantern Run"
         ],
         [
           "score",
-          "41000"
+          "41000",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 41000"
+          "A score in a world: Lantern Run: 41.0 s"
         ],
         [
           "nswp:world",
@@ -123,8 +168,8 @@
       ],
       "content": "",
       "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
-      "id": "f3ca2e76b739a85a91ad632170711bfc37d414bba76e04b65f87c741fd28b674",
-      "sig": "46a246a552ef5b45d487729e43ed32e649debe2d706947ce759b2bd8ea85900fe87da0c5738adcfe16b36dee5ee5fdf21d53b8c31e514410e860b932b4b230bb"
+      "id": "758ac4ba2577a80d6a7cfbe3a8954fe1017d679d6390ef6df09ebafbac4c7177",
+      "sig": "bee6db3a1c542333b211dd27e4da5656ecb7b64d67eb34cd94d0b0d9aca6894288c9c762ca4a50aebd5345dfdda698dab762d735c831bfc07034196767557ec7"
     },
     {
       "kind": 37306,
@@ -140,15 +185,17 @@
         ],
         [
           "board",
-          "lantern-run"
+          "lantern-run",
+          "Lantern Run"
         ],
         [
           "score",
-          "39500"
+          "39500",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 39500"
+          "A score in a world: Lantern Run: 39.5 s"
         ],
         [
           "nswp:world",
@@ -157,8 +204,8 @@
       ],
       "content": "",
       "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
-      "id": "656570e80d63d66573ee10460599ffb11e5763dfb5c56f75b1706038b3427ff7",
-      "sig": "a19ac59bce74528b18da69dfe332d0f734fe2c83495ad85cc2423b0cddcf775efec21ba91879a92790d45416983d267632f093ae1a9c2cae6a9a8f3bee96097c"
+      "id": "c9445678ca31f89a450201a5c837c29fc9fb0024212f4b95fc5009c2ae0559e4",
+      "sig": "5e225d44d3d9dd6922e239d7a62cbcd1b9fe95b159fa6ddf1f1b53235bbfa04b778fb16ff59fb4043a518cd9f76c8835c71f5fe3b41fc39c6756bfae4169de99"
     },
     {
       "kind": 37306,
@@ -174,15 +221,17 @@
         ],
         [
           "board",
-          "lantern-run"
+          "lantern-run",
+          "Lantern Run"
         ],
         [
           "score",
-          "1"
+          "1",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 1"
+          "A score in a world: Lantern Run: 0.0 s"
         ],
         [
           "nswp:world",
@@ -191,8 +240,8 @@
       ],
       "content": "",
       "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
-      "id": "311fc2c54617bd73d644395422516a0e766f61472a69c9add469c97ec515ba48",
-      "sig": "593cf8ce2e2beaa49fb5af8ab86c990834ecb16e850a0cb2b362b45f9d1e5fd762f089cf1af7d945d199bd9f26b8af1e1caa0f0a931e50d3f69a793514b424fd"
+      "id": "5e542f320b8ba6ba668e1910fcfdccc32ccea1910617872a45dcfa8dfd282590",
+      "sig": "db185de54dbe678013775ef3557c5d045daee26cc7756f10ce2a487ec90f7c292ecaaa3028305f13528be598f6f997e6386746c593754a027fd335d2d61284c5"
     },
     {
       "kind": 37306,
@@ -208,15 +257,17 @@
         ],
         [
           "board",
-          "another"
+          "another",
+          "Lantern Run"
         ],
         [
           "score",
-          "5"
+          "5",
+          "time"
         ],
         [
           "alt",
-          "A score in a world: 5"
+          "A score in a world: Lantern Run: 0.0 s"
         ],
         [
           "nswp:world",
@@ -225,8 +276,8 @@
       ],
       "content": "",
       "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
-      "id": "0a87382ab498fd4d9283b018d9a8285f174cb6163d78c69af02314916a5cb986",
-      "sig": "2425019480bd017462ab550efbe0686bb361898204f911d7d5bdcb352bb8f1ff85b4ee68e38e3735dc6ae8b97f26847dd2761defb367e293bedcf71193f9a569"
+      "id": "ffe6a83d4dbd37a15f028effdb7671584742b329edeb06679d528e6687a15f1f",
+      "sig": "c6a7dc4c94b31b4318e8f4e545d9a7a7a0cda57cd7548c5c6e9dd1aa532b07b0240b9efebe2fd34daf046da39e6d5f0bcc2f96bc9b4a9dd0e4f219d958537029"
     }
   ],
   "reading": [
@@ -247,15 +298,17 @@
           ],
           [
             "board",
-            "lantern-run"
+            "lantern-run",
+            "Lantern Run"
           ],
           [
             "score",
-            "42500"
+            "42500",
+            "time"
           ],
           [
             "alt",
-            "A score in a world: 42500"
+            "A score in a world: Lantern Run: 42.5 s"
           ],
           [
             "nswp:world",
@@ -264,14 +317,16 @@
         ],
         "content": "",
         "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
-        "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
-        "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+        "id": "f30a84eb4cde584386ce4e2119de5428414984eded36021422c0536a1c1893fb",
+        "sig": "fdea71771ea2724c14ee8cd166de42e827495bfe91a448fab7947b7d2625b782da8cc176708899e551d8485a047d59a470ac99769fd2cac384ef4f17de4fc8d8"
       },
       "expect": {
         "by": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
         "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
         "board": "lantern-run",
         "score": 42500,
+        "title": "Lantern Run",
+        "format": "time",
         "at": 1794430800,
         "askedAt": [
           "https://arcade.example"
@@ -295,15 +350,17 @@
           ],
           [
             "board",
-            "lantern-run"
+            "lantern-run",
+            "Lantern Run"
           ],
           [
             "score",
-            "42500"
+            "42500",
+            "time"
           ],
           [
             "alt",
-            "A score in a world: 42500"
+            "A score in a world: Lantern Run: 42.5 s"
           ],
           [
             "nswp:world",
@@ -312,8 +369,8 @@
         ],
         "content": "",
         "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
-        "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
-        "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+        "id": "f30a84eb4cde584386ce4e2119de5428414984eded36021422c0536a1c1893fb",
+        "sig": "fdea71771ea2724c14ee8cd166de42e827495bfe91a448fab7947b7d2625b782da8cc176708899e551d8485a047d59a470ac99769fd2cac384ef4f17de4fc8d8"
       },
       "expect": null
     }

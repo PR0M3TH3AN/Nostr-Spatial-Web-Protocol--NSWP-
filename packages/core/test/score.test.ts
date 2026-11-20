@@ -10,14 +10,18 @@ const URL_ = "https://arcade.example/";
 const T = 1_800_000_000;
 /** A score as a visitor's signer makes it for a world: marked with the site that asked. */
 const post = (by: number, score: number, o: { at?: number; origin?: string; board?: string; world?: string } = {}): NostrEvent =>
-  finalizeEvent(scoreForWorld({ world: o.world ?? WORLD, board: o.board ?? "lantern-run", score, origin: o.origin ?? "https://arcade.example", now: o.at ?? T })!, key(by));
+  finalizeEvent(scoreForWorld({ world: o.world ?? WORLD, board: o.board ?? "lantern-run", score, title: "Lantern Run", format: "time", origin: o.origin ?? "https://arcade.example", now: o.at ?? T })!, key(by));
 const board = (events: NostrEvent[], o: Partial<Parameters<typeof rankScores>[1]> = {}) => rankScores(events, { world: WORLD, board: "lantern-run", order: "low", worldUrl: URL_, ...o });
 
 describe("a score", () => {
   it("says who made what, on which board of which world", () => {
     const e = post(1, 42_500);
     expect(e.kind).toBe(SCORE_KIND);
-    expect(parseScore(e)).toEqual({ by: pk(1), world: WORLD, board: "lantern-run", score: 42_500, at: T, askedAt: ["https://arcade.example"] });
+    expect(parseScore(e)).toEqual({ by: pk(1), world: WORLD, board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time", at: T, askedAt: ["https://arcade.example"] });
+    // It says what the board is called and how it counts, so that it can be read where the world isn't.
+    expect(e.tags.find((t) => t[0] === "alt")?.[1]).toBe("A score in a world: Lantern Run: 42.5 s");
+    // One that doesn't say is a plain number on a board known only by its name.
+    expect(parseScore(finalizeEvent(scoreForWorld({ world: WORLD, board: "main", score: 7, origin: "https://arcade.example", now: T })!, key(1)))).toMatchObject({ title: "", format: "number" });
     expect(e.tags.find((t) => t[0] === "d")?.[1]).toBe(`${WORLD}/lantern-run`);
   });
 
@@ -41,16 +45,19 @@ describe("a score", () => {
 
   it("is checked by the world that asked for it: theirs, that score, marked for that site", () => {
     const e = post(1, 42_500);
-    const asked = { pubkey: pk(1), world: WORLD, board: "lantern-run", score: 42_500, origin: "https://arcade.example" };
+    const asked = { pubkey: pk(1), world: WORLD, board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time" as const, origin: "https://arcade.example" };
     expect(isScoreAsked(e, asked)).toBe(true);
     expect(isScoreAsked(e, { ...asked, score: 1 })).toBe(false);
     expect(isScoreAsked(e, { ...asked, pubkey: pk(2) })).toBe(false);
     expect(isScoreAsked(e, { ...asked, origin: "https://elsewhere.example" })).toBe(false);
-    expect(isScoreAsked(finalizeEvent(buildScore({ world: WORLD, board: "lantern-run", score: 42_500, now: T })!, key(1)), asked)).toBe(false);
+    expect(isScoreAsked(e, { ...asked, title: "World Record" })).toBe(false);
+    expect(isScoreAsked(e, { ...asked, format: "number" })).toBe(false);
+    expect(isScoreAsked(finalizeEvent(buildScore({ world: WORLD, board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time", now: T })!, key(1)), asked)).toBe(false);
   });
 
   it("is asked of a signer by its own message, and never by `sign`", () => {
     expect(readSignerRequest(signerMessage({ t: "score", id: "c1", world: WORLD, board: "lantern-run", score: 42_500 }))).toEqual({ t: "score", id: "c1", world: WORLD, board: "lantern-run", score: 42_500 });
+    expect(readSignerRequest(signerMessage({ t: "score", id: "c1", world: WORLD, board: "lantern-run", score: 42_500, title: "  Lantern   Run ", format: "time" }))).toEqual({ t: "score", id: "c1", world: WORLD, board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time" });
     expect(readSignerRequest(signerMessage({ t: "score", id: "c1", world: "nowhere", board: "lantern-run", score: 1 }))).toBeNull();
     expect(readSignerRequest(signerMessage({ t: "score", id: "c1", world: WORLD, board: "lantern-run", score: -5 }))).toBeNull();
     expect(signClass(SCORE_KIND)).toBe("careful");

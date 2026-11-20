@@ -33,6 +33,7 @@ import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
 import { createMessages } from "./messages.js";
+import type { PersonLines } from "./person-lines.js";
 import { addMessagingControls, type Messaging, type MessagingHand } from "./messaging.js";
 import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldPeople, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
@@ -1311,6 +1312,11 @@ export function addRoomControls(
      * page's own signer, once the visitor has let this world do so. A visitor's own client gives its own.
      */
     messages?: MessagingHand;
+    /**
+     * A few lines about someone, for their card in People and in Following: where they stand on this world's
+     * boards, which of its achievements they show (person-lines.ts). Left out, a card says nothing of that.
+     */
+    about?: PersonLines | null;
     /** Whether the visitor is in a headset: a window that opens can't be seen from in there. */
     presenting?: () => boolean;
   } = {},
@@ -1400,6 +1406,7 @@ export function addRoomControls(
     ...(opts.noteRelays ? { relays: opts.noteRelays } : {}),
     keyboard: () => opts.panels?.keyboard ?? null,
     ...(opts.presenting ? { presenting: opts.presenting } : {}),
+    ...(opts.about ? { about: opts.about } : {}),
     more: (who) => [{ id: "following-write", icon: "chat", label: `Write to ${who.name}, privately`, act: () => messaging.write(who.pubkey) }],
   });
   // Their private messages, in a tab of their own, and a conversation on its own panel (messaging.ts).
@@ -1594,6 +1601,8 @@ export function addRoomControls(
           picture: !who.guest && showsPictures() ? (who.picture ?? "") : "",
           color: who.look.light,
           now: [
+            // What they have done here, as they say. Only someone who came by name has anything to show.
+            ...(who.identity ? (opts.about?.lines(who.identity) ?? []) : []),
             ...(who.recording ? ["Recording what they see"] : []),
             ...(who.sharing ? ["Sharing their screen"] : []),
             ...(who.music ? ["Sharing music"] : []),
@@ -2578,6 +2587,7 @@ export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions
 export { foundRelays, publishBacked, queryBacked, relayBackup } from "./relay-book.js";
 export { createScores, type ScoreHand, type Scores, type ScoresOptions } from "./scores.js";
 export { addScoreControls, type Scoring, type ScoringOptions } from "./scoring.js";
+export { ordinal, someOf, worldPersonLines, type PersonLines } from "./person-lines.js";
 export { createAchievements, type AchievementHand, type Achievements, type AchievementsOptions } from "./achievements.js";
 export { addAchievementControls, type Achieving, type AchievingOptions } from "./achieving.js";
 export { createMessages, type Conversation, type MessageHand, type Messages, type MessagesOptions, type MessagesState } from "./messages.js";

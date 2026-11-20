@@ -40,9 +40,9 @@ on each board. Posting a better one replaces it.
   "tags": [
     ["d", "37300:<the world's publisher>:<the world's d>/lantern-run"],
     ["a", "37300:<the world's publisher>:<the world's d>"],
-    ["board", "lantern-run"],
-    ["score", "42500"],
-    ["alt", "A score in a world: 42500"],
+    ["board", "lantern-run", "Lantern Run"],
+    ["score", "42500", "time"],
+    ["alt", "A score in a world: Lantern Run: 42.5 s"],
     ["nswp:world", "https://arcade.example"]
   ],
   "content": ""
@@ -52,6 +52,11 @@ on each board. Posting a better one replaces it.
 - `a` names the world, and is what a relay is asked by. `board` names the
   board. `d` is the two joined by `/`: a score whose `d` disagrees with them
   is not a score.
+- `board` may say what the board is called, and `score` how it counts
+  (`time`; a plain number where it doesn't say). They go with the score so
+  that it can be shown anywhere, by a client that has never been to the
+  world: "Lantern Run: 42.5 s". They are the poster's word for what the
+  world said, shown as plain text.
 - `nswp:world` is the mark the visitor's signer puts on what it signs for a
   world: the site that asked. **A score counts on a board only if that mark
   is the world's own address.** So another site can't post to this world's
@@ -64,13 +69,13 @@ A world asks its visitor's signer, in the conversation of
 
 | From the world | The signer answers |
 |---|---|
-| `score`, with `world` (its own coordinate), `board` and `score` | `signed`, with the whole signed score; or `refused` |
+| `score`, with `world` (its own coordinate), `board` and `score`; and, if it likes, `title` and `format` | `signed`, with the whole signed score; or `refused` |
 
 - **Any world its visitor has unlocked may ask.** A score is less than a
   note, which such a world may already have signed. It is not one of the
   things asked for by name.
-- **The signer writes the note.** The world gives three things and nothing
-  else. The signer sets the time and the mark (`scoreForWorld`). `sign`
+- **The signer writes the note.** The world gives those few things and
+  nothing else. The signer sets the time and the mark (`scoreForWorld`). `sign`
   still refuses the kind.
 - **How often:** six a minute and sixty an hour for one world.
 - **The world sends it** to the visitor's own relays
@@ -99,6 +104,20 @@ told whose scores are being looked for. Then (`rankScores`):
 
 A client says a score is claimed. It never calls one verified, a record, or
 a win, on this alone.
+
+## On a person's card
+
+A world that keeps score may say, on the card it shows about a person
+([NSWP-10](10-identity.md), "Who someone is"), where they stand on its
+boards: "Lantern Run: 41.2 s, 2nd of 14 here". It says only what its own
+boards hold, which it asked relays for by world. So a card is filled in
+without a relay being asked about the person on it.
+
+A visitor's own client may say more: what someone has posted in any world
+it knows. There it asks relays about that person, as it does for their
+profile, when its visitor asks to see who they are. It shows a score only
+for a world whose announcement it has, and only if the score's mark is that
+world's address.
 
 ## What it gives away
 
@@ -132,4 +151,3 @@ addScoreControls(controls, { scores, signedIn: () => worldSigner().state === "un
 - **A world saying its boards in its announcement,** so that a visitor's own
   client can show a board on the world's door before they go in.
 - **Boards across worlds,** which need someone to say which worlds count.
-- **Scores on a person's card.**

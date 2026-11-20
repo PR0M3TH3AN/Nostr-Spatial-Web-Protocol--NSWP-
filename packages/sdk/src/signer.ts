@@ -122,7 +122,7 @@ export interface WorldSigner {
    * comes back is for this page to send to relays. Null if it is locked, or it refused, or it is a signer that
    * signs no scores, or what came back isn't that score, by the key it holds, marked for this site.
    */
-  score(world: string, board: string, score: number): Promise<NostrEvent | null>;
+  score(world: string, board: string, score: number, said?: { title?: string; format?: "number" | "time" }): Promise<NostrEvent | null>;
   /**
    * Have it signed that the visitor holds one of this world's achievements (protocol/16-achievements.md). Any
    * world its visitor has unlocked may ask; it is public, so ask only when the visitor has said to show it. Null
@@ -501,9 +501,11 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       if (state !== "unlocked" || !frame || !more.includes("messages")) return Promise.resolve(null);
       return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => (reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null));
     },
-    score(world, board, score) {
+    score(world, board, score, said = {}) {
       if (state !== "unlocked" || !frame) return Promise.resolve(null);
-      return askAbout({ t: "score", id: `c${++n}`, world, board, score }, (reply) => (reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, origin: location.origin }) ? reply.event : null));
+      // What the board is called and how it counts go with the score, so it can be shown where the world isn't.
+      const more = { ...(said.title ? { title: said.title } : {}), ...(said.format === "time" ? { format: "time" as const } : {}) };
+      return askAbout({ t: "score", id: `c${++n}`, world, board, score, ...more }, (reply) => (reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, ...more, origin: location.origin }) ? reply.event : null));
     },
     achieve(world, achievement, title) {
       if (state !== "unlocked" || !frame) return Promise.resolve(null);

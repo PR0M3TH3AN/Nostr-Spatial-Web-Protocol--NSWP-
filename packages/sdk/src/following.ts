@@ -11,6 +11,7 @@
 import { decodeNpub, encodeNpub, shortNpub } from "@nswp/core";
 import type { Keyboard } from "./keyboard.js";
 import type { People } from "./people.js";
+import type { PersonLines } from "./person-lines.js";
 import { showsPictures } from "./picture.js";
 import { createProfiles, type Profiles } from "./profiles.js";
 import type { Controls, UiAction } from "./ui/model.js";
@@ -38,6 +39,8 @@ export interface FollowingOptions {
   more?: (who: { pubkey: string; name: string }) => UiAction[];
   /** Read what the visitor copied. For tests; left out, the browser's own. */
   copied?: () => Promise<string>;
+  /** A few lines about someone, for their card: what they have done here, say (person-lines.ts). */
+  about?: PersonLines | null;
 }
 
 export interface Following {
@@ -156,7 +159,8 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
           text: p?.about ?? "",
           picture: showsPictures() ? (p?.picture ?? "") : "",
           color: "",
-          now: [],
+          // What they have done, as they say: where they stand here, what they show.
+          now: opts.about?.lines(chosen) ?? [],
         };
       },
     });
@@ -239,6 +243,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
   };
   profiles.onChange(soon);
   f.people.onChange(soon);
+  opts.about?.onChange(soon);
   refresh();
   return {
     refresh,

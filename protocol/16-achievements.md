@@ -1,6 +1,6 @@
 # NSWP-16: Achievements
 
-**Status:** Implemented in the reference library and kit, as claims; the Arcade has four. A signer's side is one message, which BitLogin has not built yet: until it has, what a visitor earned stays on their device. Achievements granted by someone a reader trusts, and showing them on a person's card, are proposed · **Kinds:** 37307 · **Vectors:** [`achievements`](../vectors/achievements.json) · **Code:** core [`achievement.ts`](../packages/core/src/achievement.ts); SDK [`achievements.ts`](../packages/sdk/src/achievements.ts), [`achieving.ts`](../packages/sdk/src/achieving.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
+**Status:** Implemented in the reference library and kit, as claims; the Arcade has four. A signer's side is one message, which BitLogin has not built yet: until it has, what a visitor earned stays on their device. Achievements granted by someone a reader trusts are proposed · **Kinds:** 37307 · **Vectors:** [`achievements`](../vectors/achievements.json) · **Code:** core [`achievement.ts`](../packages/core/src/achievement.ts); SDK [`achievements.ts`](../packages/sdk/src/achievements.ts), [`achieving.ts`](../packages/sdk/src/achieving.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
 
 A world may mark things its visitors do: the first lantern caught, every
 one of them, a run under a minute. A visitor who earns one may show it as
@@ -94,6 +94,15 @@ marked as asked for at the world's own address; each person once for each
 achievement. It says how many people show each, and names the ones its
 reader has reason to know.
 
+## On a person's card
+
+A world that marks achievements may say, on the card it shows about a
+person, which of its own they show: "Shows 2 of 4 achievements here: First
+light, All twelve". Like a score ([NSWP-15](15-scores.md), "On a person's
+card"), that comes from what the world asked relays for by world, never by
+person. A visitor's own client may show what someone holds in any world it
+knows, counted only where the mark is that world's address.
+
 ## What it gives away
 
 - **An achievement shown is public:** that this key was in this world, what
@@ -124,5 +133,5 @@ addAchievementControls(controls, { achievements, signedIn: () => worldSigner().s
   grant is laid over a claim.
 - **A world naming its achievements in its announcement,** so that a
   visitor's own client can show them on the world's door.
-- **Achievements on a person's card,** and what someone has earned across
-  worlds.
+- **What someone has earned across every world there is,** beyond the ones
+  a visitor's client already knows.

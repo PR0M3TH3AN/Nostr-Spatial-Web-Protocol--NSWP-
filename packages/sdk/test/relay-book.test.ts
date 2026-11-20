@@ -171,6 +171,23 @@ describe("a backup from relay monitors (NIP-66)", () => {
     expect(n.kept).toEqual([]);
   });
 
+  it("goes on to the next few when the first found relays refuse, as most do", async () => {
+    // Six relays that two monitors each found open. The first four refuse a note from a key they don't know.
+    const urls = Array.from({ length: 6 }, (_, i) => `wss://found-${i}.example`);
+    const many = urls.flatMap((u) => [finding(1, u), finding(2, u)]);
+    const refusing = urls.slice(0, 4);
+    const kept: string[] = [];
+    const query = async (relays: string[], filter: Filter) => ({ events: filter.kinds?.includes(RELAY_DISCOVERY_KIND) ? many : [], relays: Object.fromEntries(relays.map((r) => [r, filter.kinds?.includes(RELAY_DISCOVERY_KIND) ? "eose" : "timeout"])) });
+    const publish = async (relays: string[]) => {
+      for (const r of relays) if (urls.includes(r) && !refusing.includes(r)) kept.push(r);
+      return { relays: Object.fromEntries(relays.map((r) => [r, urls.includes(r) && !refusing.includes(r) ? "ok" : "blocked: not on the list"])) };
+    };
+    const sent = await sendWell(note, { own: OWN, usual: USUAL, publish, query, now: () => NOW });
+    expect(sent.took).toBeGreaterThan(0);
+    expect(kept.every((r) => !refusing.includes(r))).toBe(true);
+    expect(sent.relays.filter((r) => urls.includes(r)).length).toBe(6);
+  });
+
   it("never stands in for relays that were never named", async () => {
     const n = net([]);
     // Sent to nobody: it goes to nobody, monitors or no monitors.

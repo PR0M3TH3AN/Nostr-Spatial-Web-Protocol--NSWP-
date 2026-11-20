@@ -120,6 +120,9 @@ describe("who else holds one", () => {
     const got = (await me.achievements.holders(true))!;
     expect(got.get("all-twelve")).toEqual({ id: "all-twelve", holders: 2, known: [pk(3)], mine: false });
     expect(got.get("first-lantern")).toBeUndefined();
+    // Which ones someone shows, for saying so on their card.
+    expect(me.achievements.heldBy(pk(2)).map((a) => a.title)).toEqual(["All twelve"]);
+    expect(me.achievements.heldBy(pk(77))).toEqual([]);
   });
 
   it("is nothing where no relay answered", async () => {
