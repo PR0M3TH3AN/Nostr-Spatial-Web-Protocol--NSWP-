@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.43.0";
+  var KIT_VERSION = "0.43.1";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6876,7 +6876,7 @@ var NSWP = (() => {
         tried.push(...rest);
       }
     }
-    if (took === 0 && backup && event.kind !== WRAP_KIND) {
+    if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
       const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open.slice(0, BACKUP_AT_ONCE);
       if (more.length) {
         const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
@@ -6927,12 +6927,13 @@ var NSWP = (() => {
     return finding.then(without);
   }
   var BACKUP_AT_ONCE = 4;
+  var mayBackUp = (relays, injected) => backup && relays.length > 0 && (injected || typeof document !== "undefined");
   async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
     const query = o.query ?? queryRelays;
     const now = o.now ?? (() => Date.now());
     const got = await query(relays, filter, timeoutMs);
     learnFrom(got.relays, now());
-    if (!backup || Object.values(got.relays).some((said) => said === "eose")) return got;
+    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said) => said === "eose")) return got;
     const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
     if (!more.length) return got;
     const again = await query(more, filter, timeoutMs).catch(() => null);
