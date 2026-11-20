@@ -167,6 +167,7 @@ describe("an item that does something, as its description says it", () => {
       { slot: "accent", label: "Accent", color: "#f2691c" },
       { slot: "dart", label: "Darts", color: "#35f0e0" },
     ],
+    aim: { at: [0, 0.217, -0.076] as [number, number, number], zoom: 0.6 },
     effects: [{ of: "dart", state: "health" as const, take: 1 }],
     does: { use: "Fire", second: "Reload" },
   };
@@ -178,6 +179,7 @@ describe("an item that does something, as its description says it", () => {
     expect(item.effects).toEqual(blaster.effects);
     expect(item.does).toEqual(blaster.does);
     expect(item.tints).toEqual(blaster.tints);
+    expect(item.aim).toEqual(blaster.aim);
     expect(item.script).toEqual(blaster.script);
   });
 
@@ -188,6 +190,10 @@ describe("an item that does something, as its description says it", () => {
     // A trail longer than any may be, and a colour that isn't written as one.
     expect(buildItem({ ...blaster, sends: [{ ...blaster.sends[0]!, trail: 30 }], now: 1 })).toBeNull();
     expect(buildItem({ ...blaster, tints: [{ slot: "accent", label: "Accent", color: "orange" }], now: 1 })).toBeNull();
+    // A sight that isn't on the item, and a zoom that widens the view or shuts it.
+    expect(buildItem({ ...blaster, aim: { at: [0, 40, 0], zoom: 0.6 }, now: 1 })).toBeNull();
+    expect(buildItem({ ...blaster, aim: { at: [0, 0.2, 0], zoom: 1.5 }, now: 1 })).toBeNull();
+    expect(buildItem({ ...blaster, aim: { at: [0, 0.2, 0], zoom: 0 }, now: 1 })).toBeNull();
   });
 
   it("is read without what a reader doesn't understand: an effect on anything but health asks nothing", () => {

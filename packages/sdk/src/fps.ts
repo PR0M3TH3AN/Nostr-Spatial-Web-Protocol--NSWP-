@@ -23,7 +23,7 @@
  * what the visitor finds, and a click on the view takes them in again.
  */
 import type * as THREE from "three";
-import { lookScale } from "./desk.js";
+import { aimScale, lookScale } from "./desk.js";
 import { startingForm } from "./form.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
 import { RUN } from "./stroll.js";
@@ -210,7 +210,7 @@ export function createFps(o: FpsOptions): Fps {
   const free = (e: MouseEvent) => !looking() && !o.hud?.open && e.target === o.dom && e.buttons === 0;
   const onMove = (e: MouseEvent) => {
     if (!active() || !(looking() || free(e))) return;
-    const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY, LOOK_SPEED * lookScale());
+    const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY, LOOK_SPEED * lookScale() * aimScale());
     o.rig.rotation.y = next.yaw;
     pitch = next.pitch;
     o.camera.rotation.x = pitch;

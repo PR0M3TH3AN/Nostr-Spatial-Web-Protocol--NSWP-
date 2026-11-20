@@ -156,6 +156,24 @@ export function hoop(material, { u, v, radius, from, to, r, along = 12, round = 
   return tris;
 }
 
+/** A thin ring round the line of the barrel, as seen from behind: the mark a sight is aimed by. */
+export function ring(material, { u, v, radius, r, round = 28, across = 6 }) {
+  const tris = [];
+  const point = (i, k) => {
+    const t = (i / round) * Math.PI * 2;
+    const a = (k / across) * Math.PI * 2;
+    const out = [Math.cos(t), Math.sin(t)];
+    return { p: at(u + Math.sin(a) * r, v + out[0] * (radius + Math.cos(a) * r), out[1] * (radius + Math.cos(a) * r)), n: way(Math.sin(a), out[0] * Math.cos(a), out[1] * Math.cos(a)) };
+  };
+  for (let i = 0; i < round; i++) {
+    for (let k = 0; k < across; k++) {
+      const [a, b, c, d] = [point(i, k), point(i + 1, k), point(i + 1, k + 1), point(i, k + 1)];
+      tris.push(...quad(material, [a.p, b.p, c.p, d.p], [a.n, b.n, c.n, d.n]));
+    }
+  }
+  return tris;
+}
+
 /** A flat mark on each side of a slab: an outline in the side view, just proud of the surface at `x`. */
 export function mark(material, outline, x) {
   const middle = [outline.reduce((s, p) => s + p[0], 0) / outline.length, outline.reduce((s, p) => s + p[1], 0) / outline.length];
@@ -218,9 +236,16 @@ export const MATERIALS = {
   dark: { color: hex("#14161a"), metal: 0, rough: 0.8 },
   glass: { color: hex("#0f5f66"), metal: 0, rough: 0.12, alpha: 0.78 },
   clear: { color: hex("#e8f4ff"), metal: 0, rough: 0.08, alpha: 0.2 },
+  // The glass of the sight: almost nothing, so that what is aimed at is seen through it.
+  lens: { color: hex("#bfeff2"), metal: 0, rough: 0.05, alpha: 0.1 },
 };
 
 const BODY = 0.027; // half its width
+// Where the middle of the sight is: how far forward, and how high. The mark to aim by is here.
+const SIGHT_U = 0.222;
+const SIGHT_V = 0.208;
+/** The point of the sight, in the side view: for the description to say where an eye is brought to. */
+export const SIGHT = { u: SIGHT_U, v: SIGHT_V };
 const AXIS = 0.135; // how high the barrel runs
 
 const gun = [
@@ -252,11 +277,16 @@ const gun = [
   ...slab("tint:accent", rounded([[0.086, 0.1], [0.1, 0.1], [0.0955, 0.072], [0.089, 0.074]], 0.003), 0.006, 0.002),
   // The sight's hinge.
   ...axle("tint:accent", { u: 0.2, v: 0.179, r: 0.011, half: 0.021 }),
-  // The sight: a frame leaning forward, a pane of lit glass in it, and a mark to aim by.
-  ...slab("teal", rounded([[0.2085, 0.184], [0.2165, 0.184], [0.2345, 0.228], [0.2265, 0.228]], 0.002, 2), 0.0195, 0.003),
-  ...slab("glass", [[0.2095, 0.193], [0.2187, 0.193], [0.2327, 0.222], [0.2235, 0.222]], 0.014, 0.001, 1),
-  ...slab("tint:dart", [[0.2106, 0.2068], [0.2222, 0.2068], [0.2228, 0.2082], [0.2112, 0.2082]], 0.0075, 0.0003, 1),
-  ...slab("tint:dart", [[0.2085, 0.2], [0.2205, 0.2], [0.2255, 0.2148], [0.2135, 0.2148]], 0.0009, 0.0003, 1),
+  // The sight: an upright frame with clear glass in it, and a ring and a dot of light to aim by. Looking along the
+  // top of the blaster from behind, the dot sits on what the dart is aimed at.
+  ...slab("teal", rect(SIGHT_U - 0.004, 0.185, SIGHT_U + 0.004, 0.1895), 0.0215, 0.0015, 2),
+  ...slab("teal", rect(SIGHT_U - 0.004, 0.2265, SIGHT_U + 0.004, 0.231), 0.0215, 0.0015, 2),
+  ...slab("teal", rect(SIGHT_U - 0.004, 0.185, SIGHT_U + 0.004, 0.231), 0.0018, 0.0008, 1, -0.0198),
+  ...slab("teal", rect(SIGHT_U - 0.004, 0.185, SIGHT_U + 0.004, 0.231), 0.0018, 0.0008, 1, 0.0198),
+  ...ring("tint:dart", { u: SIGHT_U, v: SIGHT_V, radius: 0.0085, r: 0.0006 }),
+  ...tube("tint:dart", { u0: SIGHT_U - 0.0004, u1: SIGHT_U + 0.0004, r0: 0.0013, v: SIGHT_V, sides: 10 }),
+  ...[[0, 1], [0, -1], [1, 0], [-1, 0]].flatMap(([dx, dv]) => slab("tint:dart", rect(SIGHT_U - 0.0004, SIGHT_V + dv * 0.0115 - (dv ? 0.002 : 0.0005), SIGHT_U + 0.0004, SIGHT_V + dv * 0.0115 + (dv ? 0.002 : 0.0005)), dx ? 0.002 : 0.0005, 0.0001, 1, dx * 0.0115)),
+  ...slab("lens", rect(SIGHT_U - 0.0008, 0.1895, SIGHT_U + 0.0008, 0.2265), 0.018, 0.0003, 1),
 ];
 
 // The top rail slides back as a dart is fed in.

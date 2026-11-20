@@ -176,7 +176,7 @@ interface Peer {
 
 /** What may be said of an item in play, and how much of it one member may say. */
 const PLAY_WORD = /^(shot|hit|did|st|tint):/;
-const PLAY_SAID = { burst: 24, perSecond: 16 } as const;
+const PLAY_SAID = { burst: 40, perSecond: 30 } as const;
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
 const HELLO_EVERY_MS = 20_000;
@@ -941,14 +941,16 @@ export class RoomSession {
 
   /**
    * Say something of an item in play to everyone: a thing sent out, a hit, a sound, this visitor's state
-   * (`buildShot`, `buildHit`, `buildDid`, `buildState` in the core). Sent once: these are moments, and a late one
-   * is a wrong one. Anything that isn't one of those is not sent.
+   * (`buildShot`, `buildHit`, `buildDid`, `buildState` in the core). Anything that isn't one of those is not sent.
    */
   tellPlay(said: string): void {
     if (this.closed || typeof said !== "string" || said.length > 200 || !PLAY_WORD.test(said)) return;
     // The colours of what they hold are said again to whoever comes in later.
     if (said.startsWith("tint:")) this.tints = said;
     this.tellAll(said);
+    // The channel doesn't try again, and a dart nobody else heard of can't reach them. So everything but a sound or
+    // an animation (which would be heard twice) is said a second time a moment later; a reader takes the first.
+    if (!said.startsWith("did:")) setTimeout(() => !this.closed && this.tellAll(said), 90);
   }
 
   setRecording(on: boolean): void {

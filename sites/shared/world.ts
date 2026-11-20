@@ -144,6 +144,8 @@ type TestHooks = {
   play?: () => unknown;
   itemUse?: () => void;
   itemSecond?: () => void;
+  sight?: (on: boolean) => void;
+  view?: () => { fov: number; sighting: boolean };
   /** What the visitor's hands are doing, as the input layer reads them. */
   input?: () => unknown;
   /** The panels hanging here. */
@@ -595,6 +597,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let dragging = false;
   let lastX = 0;
   let moved = 0;
+  let downAt = 0;
   const setPointer = (e: PointerEvent) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   // A panel taken by its bar is dragged; anything else, and the drag turns the view.
   let panelDrag = false;
@@ -624,6 +627,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     dragging = !panelDrag;
     lastX = e.clientX;
     moved = 0;
+    downAt = performance.now();
   });
   addEventListener("pointerup", (e) => {
     dragging = false;
@@ -638,6 +642,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     raycaster.setFromCamera(pointer, camera);
     const onPanel = panels?.pick(raycaster);
     if (onPanel) return void panels!.press(onPanel);
+    // With something in hand that does something, a tap is its first press, sent where they tapped. A press held
+    // is still how they walk, choose someone or go through a door.
+    if (itemControls?.tap(raycaster.ray, performance.now() - downAt)) return;
     if (presence.pressAt(raycaster)) return;
     const any = anyDoorAt(raycaster.intersectObjects(targets, false)[0]?.object);
     if (any >= 0 && doorFar(any) <= DOOR_REACH) void go(any);
@@ -801,7 +808,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const itemsRule = cleanItemsRule((onMyNetwork ? new URLSearchParams(location.search).get("items") : null) ?? cfg.items);
   const items = createItems();
   // An item's own logic runs here, in its locked box, where this world draws items at all.
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());
@@ -866,7 +873,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   });
   if (signerNamed()) worldSigner().onChange(() => bagging.refresh());
   // What is in their hand, pressed: on the bar, by the mouse and R at a desk, by the trigger in a headset.
-  itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement });
+  itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement, sight: (on) => presence.setSighting(on) });
+  hooks.sight = (on) => presence.setSighting(on);
+  hooks.view = () => ({ fov: Math.round(camera.fov * 10) / 10, sighting: presence.sighting });
   hooks.play = () => presence.play?.info() ?? null;
   hooks.itemUse = () => presence.play?.use();
   hooks.itemSecond = () => presence.play?.second();

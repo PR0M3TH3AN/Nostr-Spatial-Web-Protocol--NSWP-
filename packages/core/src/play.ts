@@ -192,9 +192,11 @@ export const HEALTH = {
   full: 5,
   /** The most one thing may take at once. */
   most: 5,
-  /** After this long with nothing reaching them, they are back to full, in seconds. */
-  restSeconds: 6,
-  /** How long they stay at nothing before they are back to full, in seconds. */
+  /** After this long with nothing reaching them, it begins to come back, in seconds. */
+  restSeconds: 4,
+  /** And then one comes back every so many seconds, until they are full. */
+  regenSeconds: 1,
+  /** How long they stay at nothing before they are back to full, in seconds. Nothing reaches them meanwhile. */
   downSeconds: 3,
 } as const;
 

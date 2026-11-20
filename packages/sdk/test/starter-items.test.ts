@@ -64,6 +64,10 @@ describe("the starter items", () => {
     for (const [name, file] of Object.entries(blaster.sounds)) expect(bytesToHex(sha256(readFileSync(join(sites, "items", "sounds", `${name}.ogg`)))), name).toBe(file.sha256);
     // Its script is asked about before it runs, and says only what the description lets it: Fire and Reload.
     expect(blaster.does).toEqual({ use: "Fire", second: "Reload" });
+    // Its sight is on it: above its middle, toward its front, and it asks for no more than a toy's zoom.
+    expect(blaster.aim!.at[1]).toBeGreaterThan(blaster.size[1] * 0.6);
+    expect(blaster.aim!.at[2]).toBeLessThan(0);
+    expect(blaster.aim!.zoom).toBeGreaterThanOrEqual(0.45);
     expect(blaster.effects).toEqual([{ of: "dart", state: "health", take: 1 }]);
   });
 

@@ -29,7 +29,7 @@ import { loadPicture, onPicturesChange, setShowsPictures, showsPictures } from "
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
-import { addDeskControls, watchFov } from "./desk.js";
+import { addDeskControls, setAimScale, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { applyTints, createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
 import { allowScript, createPlay, scriptAllowed, type Play, type PlayOptions } from "./play.js";
@@ -72,6 +72,8 @@ export interface PresenceOptions {
   solid?: PlayOptions["solid"];
   /** Be told when something an item sent out sticks to a shape of this world: what that means is the world's rule. */
   onStruck?: PlayOptions["onStruck"];
+  /** The world's own colour and whether things may move for the visitor, for what is drawn of how they are. */
+  theme?: PlayOptions["theme"];
   /**
    * The visitor's own look, in its inline form (spec §4.2), for the others in a
    * room to draw them by: usually `arrival.look()`. A function is asked each
@@ -154,6 +156,12 @@ export interface Presence {
   readonly play: Play | null;
   /** Which hand holds the item in a headset: the index of its controller, or -1 at a desk or with nothing held. */
   readonly holdingHand: number;
+  /**
+   * Aim along the sight of what is in hand, at a desk, or stop: it is brought up to the eye, and they see as much
+   * narrower as the item asks (never narrower than a little under half). Nothing happens for an item with no sight.
+   */
+  setSighting(on: boolean): void;
+  readonly sighting: boolean;
   /** Stop, or let again, what one person's items do from reaching this visitor. Nobody is told. For a place that only allows items. */
   muteItems(pubkey: string, on: boolean): void;
   isItemsMuted(pubkey: string): boolean;
@@ -437,21 +445,65 @@ export function createPresence(d: PresenceOptions): Presence {
     return right >= 0 && right < d.controllers.length ? right : 0;
   };
   let inHand = -2;
+  // ---- Where what they hold sits in their view, at a desk or on a phone, and bringing it up to the eye.
+  /** Whether they are aiming along its sight, and how far the item has come up to the eye for it, from 0 to 1. */
+  let sightWant = false;
+  let sightK = 0;
+  /** How wide they saw before they began to aim: put back when they stop. */
+  let fovBase: number | null = null;
+  const hip = new THREE.Vector3();
+  const up = new THREE.Vector3();
+  const endSight = () => {
+    sightWant = false;
+    sightK = 0;
+    if (fovBase !== null) {
+      d.camera.fov = fovBase;
+      d.camera.updateProjectionMatrix();
+      fovBase = null;
+    }
+    setAimScale(1);
+  };
   /** Put what they hold where they see it from: in a hand in a headset, low and to the right of a screen. */
-  const placeMine = () => {
+  const placeMine = (dt = 0) => {
     const now = hand();
     if (!mineModel) return;
+    const described = mine ? (d.items?.known(mine) ?? null) : null;
     if (now < 0) {
-      // Low and to the right of what they see, far enough off that it is a thing in the hand and not a thing in
-      // the way: and by the shape of the screen, so that it is in view on a tall narrow one too.
-      const tall = Math.tan(THREE.MathUtils.degToRad(d.camera.fov / 2)) * 0.8;
-      // On a screen taller than it is wide the bar and what is said take the bottom of the view: it sits higher.
-      const low = d.camera.aspect < 1 ? tall * 0.52 : Math.min(0.5, tall * 0.9);
-      mineModel.position.set(Math.min(0.34, tall * d.camera.aspect * 0.62), -low, -0.8);
+      // Near enough to fill about a third of the height of the view, whatever its size: a thing in the hand, not a
+      // speck in the corner. To the right, clear of the bar in the middle; and on a screen taller than it is wide,
+      // where the bar runs the whole way across, above it.
+      const size = described?.size ?? [0.2, 0.3, 0.2];
+      const acts = !!described?.does.use;
+      const tall1 = Math.tan(THREE.MathUtils.degToRad((fovBase ?? d.camera.fov) / 2));
+      const narrow = d.camera.aspect < 1;
+      // On a screen taller than it is wide there is less room across: it is a smaller share of the height there.
+      const far = THREE.MathUtils.clamp(size[1] / (2 * tall1 * (narrow ? 0.24 : acts ? 0.4 : 0.3)), 0.4, 0.95);
+      const tall = tall1 * far;
+      const wide = tall * d.camera.aspect;
+      hip.set(narrow ? wide * 0.5 : Math.min(wide * 0.6, wide - size[0] * 0.6), narrow ? -tall * 0.56 : -tall * 0.99, -far);
+      const aim = described?.aim ?? null;
+      sightK += ((sightWant && aim ? 1 : 0) - sightK) * (dt > 0 ? Math.min(1, dt * 14) : 1);
+      if (aim) {
+        // Up to the eye: the mark of its sight on the middle of the view, an arm's length off.
+        up.set(-aim.at[0], -aim.at[1], -0.36 - aim.at[2]);
+        mineModel.position.lerpVectors(hip, up, sightK);
+        if (sightK > 0.002 || fovBase !== null) {
+          fovBase ??= d.camera.fov;
+          const share = THREE.MathUtils.lerp(1, Math.max(0.45, aim.zoom), sightK);
+          d.camera.fov = fovBase * share;
+          d.camera.updateProjectionMatrix();
+          setAimScale(share);
+          if (sightK <= 0.002 && !sightWant) endSight();
+        }
+      } else mineModel.position.copy(hip);
+      // Something that is pointed is turned a little toward the middle, as a hand holds it.
+      mineModel.rotation.set(0, acts ? 0.1 * (1 - sightK) : 0, 0);
     }
     if (now === inHand) return;
     inHand = now;
     if (now >= 0) {
+      endSight();
+      mineModel.rotation.set(0, 0, 0);
       mineModel.position.set(0, -0.06, 0.02);
       d.controllers[now]!.add(mineModel);
     } else d.camera.add(mineModel);
@@ -469,11 +521,13 @@ export function createPresence(d: PresenceOptions): Presence {
         people: () =>
           [...avatars.values()]
             .filter((a) => a.target && a.root.visible)
-            .map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new THREE.Vector3()), body: a.torso, over: a.head, holding: a.heldItem ?? "", held: a.held ?? null })),
+            .map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new THREE.Vector3()), body: a.torso, over: a.head, root: a.root, holding: a.heldItem ?? "", held: a.held ?? null })),
         itemsMuted: (pubkey) => itemMutes.has(pubkey),
         tell: (said) => session?.tellPlay(said),
         tintsOf: (pubkey) => (pubkey === null ? mineTints : (avatars.get(pubkey)?.tints ?? {})),
         presenting: () => d.renderer.xr.isPresenting,
+        sighting: () => sightK > 0.5,
+        ...(d.theme ? { theme: d.theme } : {}),
         // In a headset a thing goes where the hand that holds the item points.
         aim: () => {
           const i = hand();
@@ -996,6 +1050,7 @@ export function createPresence(d: PresenceOptions): Presence {
         mineModel?.removeFromParent();
         mineModel = null;
         inHand = -2;
+        endSight();
         void play?.held(null, null);
         session?.setHolding("");
       };
@@ -1036,6 +1091,12 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     get holdingHand() {
       return mine ? hand() : -1;
+    },
+    setSighting(on) {
+      sightWant = on && !!mine && !d.renderer.xr.isPresenting;
+    },
+    get sighting() {
+      return sightK > 0.5;
     },
     muteItems(pubkey, on) {
       if (on) itemMutes.add(pubkey);
@@ -1186,7 +1247,7 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     update(dt) {
       tendMusic(dt);
-      placeMine();
+      placeMine(dt);
       const k = 1 - Math.exp(-dt * 14);
       d.camera.getWorldPosition(v);
       for (const a of avatars.values()) {
@@ -2851,7 +2912,7 @@ export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } fr
 export { addBagControls, itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
 export { allowScript, createPlay, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson } from "./play.js";
 export { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
-export { addItemControls, type ItemControls, type ItemControlsOptions } from "./item-controls.js";
+export { addItemControls, TAP_MS, type ItemControls, type ItemControlsOptions } from "./item-controls.js";
 export { createDoorRatings, type DoorRatings, type DoorRatingsOptions } from "./door-ratings.js";
 export { ordinal, someOf, worldPersonLines, type PersonLines } from "./person-lines.js";
 export { createAchievements, type AchievementHand, type Achievements, type AchievementsOptions } from "./achievements.js";

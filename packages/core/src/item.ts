@@ -83,6 +83,16 @@ export interface ItemEffect {
   take: number;
 }
 
+/**
+ * How an item is aimed, where it has a sight to aim by: the point of the sight, in the item's own space as it is
+ * drawn (metres from the middle of its base, with its front toward -z), and how much narrower the holder sees
+ * while they aim (1 is no narrower; 0.45 is the narrowest a renderer goes). It asks; the renderer decides.
+ */
+export interface ItemAim {
+  at: [number, number, number];
+  zoom: number;
+}
+
 /** What its two presses are called, for the buttons a visitor is shown: "Fire", "Reload". */
 export interface ItemDoes {
   use?: string;
@@ -143,6 +153,7 @@ export interface ItemInput {
   effects?: ItemEffect[];
   does?: ItemDoes;
   tints?: ItemTint[];
+  aim?: ItemAim;
   license?: string;
 }
 
@@ -164,6 +175,7 @@ export interface Item extends Required<Pick<ItemInput, "d" | "title" | "model" |
   effects: ItemEffect[];
   does: ItemDoes;
   tints: ItemTint[];
+  aim: ItemAim | null;
   license: string;
   /** When its maker last described it, in seconds. */
   at: number;
@@ -211,6 +223,12 @@ function readCollider(t: string[]): ItemCollider | null {
   if (t[1] === "sphere") return { shape: "sphere", centre, radius };
   const height = numbers(t[4], 1)?.[0];
   return t[1] === "capsule" && height !== undefined && within(height) ? { shape: "capsule", centre, radius, height } : null;
+}
+
+function readAim(t: string[] | undefined): ItemAim | null {
+  const at = numbers(t?.[1], 3) as [number, number, number] | null;
+  const zoom = Number(t?.[2]);
+  return at && at.every((x) => Math.abs(x) <= ITEM_LIMITS.metres) && zoom > 0 && zoom <= 1 ? { at, zoom } : null;
 }
 
 const SEND_MOMENTS = ["lands", "drops", "strikes", "tells"] as const;
@@ -293,6 +311,11 @@ export function buildItem(o: ItemInput & { now: number }): EventTemplate | null 
     const label = cleanLine(o.does?.[press] ?? "", ITEM_LIMITS.label);
     if (label) tags.push(["does", press, label]);
   }
+  if (o.aim) {
+    const ok = Array.isArray(o.aim.at) && o.aim.at.length === 3 && o.aim.at.every((x) => Number.isFinite(x) && Math.abs(x) <= ITEM_LIMITS.metres) && typeof o.aim.zoom === "number" && o.aim.zoom > 0 && o.aim.zoom <= 1;
+    if (!ok) return null;
+    tags.push(["aim", said(o.aim.at), said([o.aim.zoom])]);
+  }
   for (const t of (o.tints ?? []).slice(0, ITEM_LIMITS.tints)) {
     const label = cleanLine(t?.label ?? "", ITEM_LIMITS.label);
     if (!t || !PLAIN.test(t.slot) || !label || !HEX.test(t.color)) return null;
@@ -365,6 +388,7 @@ export function parseItem(event: NostrEvent | null | undefined): Item | null {
         .map((t) => [t[1], cleanLine(t[2], ITEM_LIMITS.label)] as const)
         .filter((d) => d[1]),
     ),
+    aim: readAim(tag("aim")),
     tints: getTags(event, "tint")
       .slice(0, ITEM_LIMITS.tints)
       .map((t) => ({ slot: t[1] ?? "", label: cleanLine(t[2], ITEM_LIMITS.label), color: t[3] ?? "" }))
