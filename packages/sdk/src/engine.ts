@@ -189,11 +189,20 @@ export function arrival(): string {
 /**
  * Call once when the page comes up. `options` is JSON: `airlock` is the
  * Airlock to send a visitor through when they arrived without one of their
- * own. Returns what `arrival()` returns.
+ * own, and `signer` the sign-in address offered to a visitor no client
+ * brought. Returns what `arrival()` returns.
  */
 export function start(options?: string): string {
   const o = read(options);
   if (typeof o.airlock === "string" && o.airlock) configure({ defaultAirlock: o.airlock });
+  // The signer offered to someone no client brought, so that signing in is the same however they came.
+  if (typeof o.signer === "string") {
+    try {
+      configure({ defaultSigner: o.signer });
+    } catch {
+      /* not an https address: none is offered */
+    }
+  }
   return arrival();
 }
 

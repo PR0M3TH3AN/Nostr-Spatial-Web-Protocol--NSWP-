@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.54.1
+
+One sign-in, however you came.
+
+- **A world opened by its own address now offers the same sign-in as one reached through a door** (`configure({ defaultSigner })`; `signer` in `NSWP.start`; `nswp/signer` in a Godot project). Until now the row "Sign in, at bitlogin.network" was there only for someone who had come through a client's door in that same tab. Anyone who opened a world from a bookmark, a shared link or a phone's home screen got the older row instead, "You are a guest here. Sign in", which took them by the crossing's room to their client's sign-in page, asked them to open the sign-in window there, and brought them back still a guest in the world, to be asked again. That was found on the live sites, in every world, on 2026-11-20, after the owner couldn't sign in on a phone.
+- The reference worlds and the Foundry name BitLogin's. A visitor a client brought still signs in where that client says, and a client that names no signer keeps its own way.
+- A world opened directly no longer loads a signer page from beside its Airlock that isn't there (it was a 404 at the reference client).
+
 ## 0.54.0
 
 Items in a world made with another engine, and one item for every world.

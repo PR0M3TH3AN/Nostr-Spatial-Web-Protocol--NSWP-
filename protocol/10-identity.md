@@ -367,6 +367,17 @@ sign in is a smaller thing to trust than a whole client, and one address is
 one sign-in for every client and site that uses it. The reference client
 names BitLogin's own site, `https://bitlogin.network/`.
 
+**Someone no client brought has no client to say.** They opened the
+world's address themselves: from a bookmark, a link a friend sent, a phone's
+home screen. A world may name the signer it offers them, as it names an
+Airlock for them ([NSWP-02](02-doors.md), "Which Airlock"). Then signing in
+is the same thing in that world however a visitor came, which is what a
+visitor expects and what the reference worlds do: they offer BitLogin's.
+A world that names none has no sign-in for such a visitor but the way to a
+client ("Signing in from inside a world"). A visitor a client brought is
+never given the world's choice in place of their client's: a client that
+names no signer has said how its visitors sign in, and that stands.
+
 An arrival is something anyone can write, so a link can name a signer of
 its own making, as it can an Airlock. What that gains is little, and a
 world keeps it so:
@@ -541,6 +552,12 @@ hasn't signed in there.
 - **A client's own pages are not a world it sent someone to.** There the
   visitor is signed in already, the client's own way.
 - **A client that names no signer** is as before: its pass is its word.
+- **However they came, it is the same sign-in.** A world that names a
+  signer for visitors no client brought ("Signing from a world") shows
+  them the same one row, and never the way to a client's sign-in place.
+  The reference kit until 0.54.0 offered the row only to someone who had
+  come through a door in that same tab; anyone else was sent to their
+  client and came back still a guest, to be asked a second time.
 
 What this costs: the first time in each world, one press and one yes in the
 sign-in window, where "Signed in everywhere" asked for nothing. What it buys:

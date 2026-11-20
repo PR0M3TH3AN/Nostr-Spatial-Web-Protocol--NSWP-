@@ -165,7 +165,11 @@ import { arrival, configure, portal } from "nswp-sdk";
 // 1. Read how the visitor arrived. This also removes the note from the
 //    address, so it doesn't linger in history or reach other scripts.
 const { context } = arrival.read();
-configure({ defaultAirlock: "https://portal.bitblocks.network/go/" });
+configure({
+  defaultAirlock: "https://portal.bitblocks.network/go/",
+  // Where someone who opened your address themselves signs in. Their own client's word comes first.
+  defaultSigner: "https://bitlogin.network/",
+});
 
 // 2. Offer the way back, when there is one. Put it wherever your own menus
 //    are: a pause menu is fine.

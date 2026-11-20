@@ -28,6 +28,7 @@ enabled=PackedStringArray("res://addons/nswp/plugin.cfg")
 [nswp]
 
 airlock="https://portal.bitblocks.network/go/"
+signer="https://bitlogin.network/"
 
 [rendering]
 

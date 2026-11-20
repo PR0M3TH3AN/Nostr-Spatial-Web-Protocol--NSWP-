@@ -3,6 +3,7 @@
   "relays": ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"],
   "lobby": "https://portal.bitblocks.network/",
   "airlock": "https://portal.bitblocks.network/go/",
+  "signer": "https://bitlogin.network/",
   "keepsItems": "grove",
   "worlds": {
     "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "category": "experience", "was": "nswp-world-a.vercel.app" },
