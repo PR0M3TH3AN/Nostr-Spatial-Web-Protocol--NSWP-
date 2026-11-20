@@ -43,6 +43,8 @@ export interface WorldSigner {
    * loaded, or the browser kept it out. Then there is something to say.
    */
   readonly unanswered: boolean;
+  /** True while it is being asked again because the visitor pressed for it (`retry`), and hasn't answered yet. */
+  readonly asking: boolean;
   /**
    * Where the signer is being asked for on this page, when that is a
    * development server's copy and not the real address: something to name
@@ -55,6 +57,11 @@ export interface WorldSigner {
    * if there is no signer, or no window could be opened.
    */
   unlock(): boolean;
+  /**
+   * Load the signer again and ask it once more: for one that was named and said nothing. False if there is nothing
+   * to ask again (none was named, or it has answered).
+   */
+  retry(): boolean;
   /** Lock it again for this world. The visitor's own doing, from the world's menu. */
   lock(): void;
   /** Ask for a note to be signed. Null if it is locked, or it refused, or what came back wasn't what was asked. */
@@ -103,6 +110,8 @@ const NONE: WorldSigner = {
   remembered: null,
   host: null,
   unanswered: false,
+  asking: false,
+  retry: () => false,
   copy: null,
   unlock: () => false,
   lock() {},
@@ -151,10 +160,37 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
    * can take five seconds over it: ten is allowed before it is called silent.
    */
   let waited = false;
-  setTimeout(() => {
-    waited = true;
-    if (state === "none") changed();
-  }, 10_000);
+  /** The visitor pressed to have it asked again, and it hasn't answered yet. */
+  let asking = false;
+  /** How many times its frame has been loaded again because it said nothing. Once by itself; then on a press. */
+  let again = 0;
+  let waiting: ReturnType<typeof setTimeout> | undefined;
+  /** Where the frame was sent, to send it there again. */
+  let signerUrl = "";
+  const reload = () => {
+    if (frame && signerUrl) frame.src = signerUrl;
+  };
+  /**
+   * Give it the time, and say so when it runs out. A frame that never loaded (a moment without a network, a
+   * browser that was busy) answers nothing however long it is waited for, so the first time the time runs out it
+   * is loaded once more, quietly, before anyone is told it is silent.
+   */
+  const wait = () => {
+    waited = false;
+    clearTimeout(waiting);
+    waiting = setTimeout(() => {
+      if (state !== "none" || disposed) return;
+      if (again === 0) {
+        again = 1;
+        reload();
+        return wait();
+      }
+      waited = true;
+      asking = false;
+      changed();
+    }, 10_000);
+  };
+  wait();
   /** Whether the signer has answered at all. Until it has, it is asked again a few times. */
   let answered = false;
   const firstAnswer = new Set<() => void>();
@@ -170,12 +206,14 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     const reply = readSignerReply(e.data);
     if (!reply) return;
     if (reply.t === "ready") {
+      asking = false;
       if (state === "none") state = "locked";
       tell({ t: "state", id: `s${++n}` });
       return changed();
     }
     if (reply.t === "state") {
       answered = true;
+      asking = false;
       state = reply.unlocked ? "unlocked" : "locked";
       pubkey = reply.unlocked ? (reply.pubkey ?? null) : null;
       name = reply.unlocked ? (reply.name ?? null) : null;
@@ -209,7 +247,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       // A client's own addresses are followed to their copies on a development server. One named outright is used
       // as it is: whoever named it meant that one.
       const there = opts.at ? async (address: string) => address : toLocal;
-      const signerUrl = await there(real.signer);
+      signerUrl = await there(real.signer);
       windowAt = await there(real.window);
       origin = new URL(signerUrl).origin;
       if (disposed) return;
@@ -259,6 +297,18 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     },
     get unanswered() {
       return named && waited && state === "none" && !disposed;
+    },
+    get asking() {
+      return asking && state === "none" && !disposed;
+    },
+    retry() {
+      if (!named || state !== "none" || disposed || !frame) return false;
+      again++;
+      asking = true;
+      reload();
+      wait();
+      changed();
+      return true;
     },
     get copy() {
       return origin && origin !== real.origin ? origin : null;
@@ -330,6 +380,7 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     dispose() {
       disposed = true;
       for (const go of [...firstAnswer]) go();
+      clearTimeout(waiting);
       removeEventListener("message", onMessage);
       frame?.remove();
       frame = null;

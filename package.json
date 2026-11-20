@@ -16,6 +16,7 @@
     "previews": "node scripts/capture-previews.mjs",
     "deploy:sites": "node scripts/deploy-sites.mjs",
     "kits": "node scripts/kit-status.mjs",
+    "release:all": "node scripts/release-all.mjs",
     "build:engine": "node scripts/build-engine.mjs",
     "engine:check": "node scripts/build-engine.mjs --check",
     "build:godot": "node scripts/build-godot-example.mjs"

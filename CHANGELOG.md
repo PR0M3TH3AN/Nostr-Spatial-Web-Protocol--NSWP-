@@ -2,6 +2,12 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.31.0
+
+- **"Signed in as", said once, at the top of the view.** When a visitor becomes signed in to a world (on arriving already signed in, or on signing in) a small badge comes up at the top centre with their picture and name, stays a few seconds and goes. Signing out says "Signed out" the same way. It comes into focus where it stands and never slides; with Motion off it simply appears. It can't be pressed and nothing under it is blocked. In a headset, where the page can't be seen, the same words are said the way everything is said there. It reads the card at the head of You, so it is the same in every world and in a client's own room. A guest who never signed in is told nothing.
+- **A signer that says nothing is asked again.** A named signer whose frame never loaded stayed silent for good, and the menu could only suggest reloading the page. Now its frame is loaded once more by itself before anyone is told, and the row that says it didn't answer asks again when pressed (`signer.retry()`, `signer.asking`).
+- **`npm run release:all`** moves every public site together: the seven reference worlds, the Starter Home and BitPortal. It refuses to start unless all three repositories are on main, clean, and carrying this repo's kit, says what each public site is on, and then deploys all nine or says which it did. Without `--go` it only looks.
+
 ## 0.30.3
 
 - **A client's own feed says how a post is marked.** A client that signs in its own room (`notes` in `addRoomControls`) can say which site its sign-in marks each post with (`RoomNotes.marked()`), and the feed then tells the visitor where they write, as it does in a world. BitPortal's sign-in is moving to BitLogin's window, whose signer marks what it signs for an application.
