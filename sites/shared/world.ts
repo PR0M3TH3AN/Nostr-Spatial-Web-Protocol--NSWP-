@@ -18,7 +18,8 @@ import previews from "../previews/index.json";
 import sites from "../sites.json";
 
 type V3 = [number, number, number];
-type Place = { d: string; url: string; title?: string };
+/** `category` is what kind of place it is, as its own announcement says (the build checks the two agree). */
+type Place = { d: string; url: string; title?: string; category?: string };
 const places: Record<string, Place> = { ...sites.worlds, ...sites.elsewhere };
 
 export interface Door {
@@ -324,7 +325,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       url: place.url,
       entryPoint: "main-entrance",
     };
-    const gate = createPortalGate(destination, { label: door.label, color: accent, textColor: cfg.palette.text });
+    const gate = createPortalGate(destination, { label: door.label, category: place.category ?? null, color: accent, textColor: cfg.palette.text });
     gate.group.position.set(...door.position);
     if (door.rotation === undefined) gate.group.lookAt(spawn.position[0], door.position[1], spawn.position[2]);
     else gate.group.rotation.y = THREE.MathUtils.degToRad(door.rotation);

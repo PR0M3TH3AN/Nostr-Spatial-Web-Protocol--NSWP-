@@ -14,6 +14,7 @@
  */
 import { encodeNpub, getPublicKey, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
 import { arrival, portal, type GoOptions } from "../index.js";
+import { createSaves, type Saves } from "../saves.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
 
@@ -219,6 +220,15 @@ export function worldSigner(): WorldSigner {
   });
   if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 60_000);
   return signer;
+}
+
+let kept: Saves | null = null;
+/**
+ * This world's saves (saves.ts, protocol/12-saves.md): on this device for anyone, and with their account for a
+ * visitor who is signed in here. One for the page, using the page's one signer.
+ */
+export function worldSaves(): Saves {
+  return (kept ??= createSaves({ signer: () => (signerNamed() ? worldSigner() : null) }));
 }
 
 /**

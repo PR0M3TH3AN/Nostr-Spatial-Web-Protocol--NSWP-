@@ -48,6 +48,10 @@ import {
   bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
+  getConversationKey,
+  openSave,
+  saveAddress,
+  sealSave,
   type EventTemplate,
   type NostrEvent,
 } from "../packages/core/src/index.js";
@@ -103,7 +107,7 @@ const withTags = (f: (tags: string[][]) => string[][]): EventTemplate => {
   return { ...t, tags: f(t.tags) };
 };
 
-type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string } };
+type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null } };
 const worldCases: Omit<WorldVector, "event"> & { event: unknown }[] = [];
 const goodWorld = sign(buildWorldEvent(baseWorld));
 const tampered = { ...goodWorld, content: "edited after signing" };
@@ -125,6 +129,9 @@ const worldVectors: WorldVector[] = [
   { name: "not_rated", description: "Says nothing about who it is for.", event: goodWorld, expect: { valid: true, signatureValid: true, errors: [], warnings: [], audience: "unrated" } },
   { name: "an_audience_nobody_knows", description: "An audience that isn't one of the three is treated as not stated.", event: withTags((t) => [...t, ["audience", "teens"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_audience"], audience: "unrated" } },
   { name: "for_kids_with_a_warning", description: "For kids, with a content warning. One of the two is wrong; the maker is told, and their word about the audience stands.", event: withTags((t) => [...t, ["audience", "kids"], ["content-warning", "loud"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["kids_with_warning"], audience: "kids" } },
+  // What kind of place a world is. `category` in `expect` is what a reader takes from it; null is "didn't say".
+  { name: "a_game", description: "Says what kind of place it is, from the closed list.", event: sign(buildWorldEvent({ ...baseWorld, category: "game" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], category: "game" } },
+  { name: "a_category_nobody_knows", description: "A category that isn't on the list is treated as not stated.", event: withTags((t) => [...t, ["category", "casino"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_category"], category: null } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",
@@ -207,6 +214,7 @@ for (const v of worldVectors) {
   const sigProvided = typeof v.event === "object" && v.event !== null && "sig" in v.event;
   expectEqual(`world/${v.name} signature`, sigProvided ? verifyEvent(v.event) : null, v.expect.signatureValid);
   if (v.expect.audience !== undefined && r.ok) expectEqual(`world/${v.name} audience`, audienceOf(r.value), v.expect.audience);
+  if (v.expect.category !== undefined && r.ok) expectEqual(`world/${v.name} category`, r.value.category ?? null, v.expect.category);
 }
 void worldCases;
 
@@ -761,6 +769,59 @@ const files: Record<string, unknown> = {
   },
   "portals.json": { description: "Portals (spec §6.1) and NIP-19 naddr round-trips.", portals: portalVectors, naddr: naddrVectors },
 };
+
+// ---- Saves (protocol/12-saves.md). A signer's whole side: work out an address, seal a save, and open one only for
+// the world it belongs to.
+{
+  const ARCADE = "https://arcade.example";
+  const OTHER = "https://other.example";
+  const me = getPublicKey(KEY1);
+  const K = getConversationKey(KEY1, me);
+  const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  const NONCE = sha256(utf8ToBytes("nswp test vector save nonce"));
+  const seal = (world: string, slot: string, data: string, tags?: string[][]) => {
+    const made = sealSave({ conversationKey: K, world, slot, data, now: T0, nonce: NONCE })!;
+    return sign(tags ? { ...made, tags } : made);
+  };
+  const opens = (name: string, description: string, event: NostrEvent, world: string, pubkey = me) => {
+    const got = openSave(event, { conversationKey: K, pubkey, world });
+    return { name, description, event, askedBy: world, expect: got };
+  };
+  const good = seal(ARCADE, "main", '{"level":3}');
+  const address = [
+    { world: ARCADE, slot: "main", d: saveAddress(K, ARCADE, "main") },
+    { world: `${ARCADE}/play/?level=3`, slot: "main", d: saveAddress(K, `${ARCADE}/play/?level=3`, "main"), note: "Only the origin counts: the same address as the line above." },
+    { world: ARCADE, slot: "run-2", d: saveAddress(K, ARCADE, "run-2") },
+    { world: OTHER, slot: "main", d: saveAddress(K, OTHER, "main") },
+    { world: ARCADE, slot: "Not A Slot", d: saveAddress(K, ARCADE, "Not A Slot"), note: "Not a slot's name: no address." },
+  ];
+  const vectors = [
+    opens("its_own_world", "Opened for the world it was saved from.", good, ARCADE),
+    opens("another_world_asks", "The same save, handed over by another world: refused.", good, OTHER),
+    opens("moved_to_another_worlds_address", "A real save put at the address of the asking world's own slot: what is inside still says whose it is. Refused.", seal(ARCADE, "main", "x", [["d", saveAddress(K, OTHER, "main")]]), OTHER),
+    opens("kept_at_the_wrong_slot", "At the address of another slot of the same world: refused.", seal(ARCADE, "main", "x", [["d", saveAddress(K, ARCADE, "run-2")]]), ARCADE),
+    opens("somebody_elses", "A save by another key: refused.", sign(sealSave({ conversationKey: getConversationKey(KEY2, getPublicKey(KEY2)), world: ARCADE, slot: "main", data: "x", now: T0, nonce: NONCE })!, KEY2), ARCADE),
+    opens("not_a_save", "The same words in a note of another kind: refused.", sign({ kind: 1, created_at: T0, tags: [], content: good.content }), ARCADE),
+    opens("cleared", "An empty save: opened, and empty. This is how a slot is cleared.", seal(ARCADE, "main", ""), ARCADE),
+  ];
+  // What the core must make of them: one opens, one opens empty, and every other is refused.
+  expectEqual("saves/its_own_world", vectors[0]!.expect, { slot: "main", data: '{"level":3}', at: T0 });
+  expectEqual("saves/cleared", vectors.at(-1)!.expect, { slot: "main", data: "", at: T0 });
+  for (const v of vectors.slice(1, -1)) expectEqual(`saves/${v.name}`, v.expect, null);
+  expectEqual("saves/address is the origin's", address[1]!.d, address[0]!.d);
+  expectEqual("saves/no address for a bad slot", address[4]!.d, "");
+  expectEqual("saves/addresses differ", new Set(address.slice(0, 4).map((a) => a.d)).size, 3);
+  files["saves.json"] = {
+    description:
+      "Saves (protocol/12-saves.md). `key1`'s NIP-44 conversation key with itself is `conversationKey`. `addresses` gives the `d` for a world and a slot (\"\" where there is none). `sealed` is a save made with the fixed `nonce`, so it can be reproduced exactly. In `opening`, `expect` is what a signer answers when the world `askedBy` hands it `event`: the slot, the data and the time, or null for a refusal. Signatures are checked separately.",
+    testKeys,
+    conversationKey: hex(K),
+    nonce: hex(NONCE),
+    addresses: address,
+    sealed: { world: ARCADE, slot: "main", data: '{"level":3}', now: T0, event: good },
+    opening: vectors,
+  };
+}
 
 mkdirSync(outDir, { recursive: true });
 let stale = 0;

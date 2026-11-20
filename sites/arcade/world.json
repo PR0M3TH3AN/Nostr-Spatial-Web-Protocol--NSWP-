@@ -36,6 +36,7 @@
   ],
   "status": "beta",
   "audience": "general",
+  "category": "game",
   "entryPoints": [
     "main-entrance"
   ],

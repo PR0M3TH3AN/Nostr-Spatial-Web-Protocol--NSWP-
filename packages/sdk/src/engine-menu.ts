@@ -33,7 +33,7 @@ import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
-import { hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed } from "./ui/identity.js";
+import { hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldSaves } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -275,6 +275,32 @@ const whoNow = (): { guest: boolean; name: string; pubkey: string; picture: stri
  */
 export function who(): string {
   return JSON.stringify(whoNow());
+}
+
+/**
+ * Keep this for the visitor (protocol/12-saves.md): text, the world's own, in a slot ("main" when none is named).
+ * It is kept on this device at once, and with their account if they are signed in here. A `saved` event says
+ * where it was kept: `{"type":"saved","slot":...,"kept":"account"|"device"|"nowhere","said":...}`.
+ */
+export function save(data: string, slot?: string): void {
+  const name = slot || "main";
+  void worldSaves()
+    .save(String(data ?? ""), name)
+    .catch(() => ({ kept: "nowhere" as const, said: "That wasn't saved." }))
+    .then((r) => tell({ type: "saved", slot: name, kept: r.kept, said: r.said }));
+}
+
+/**
+ * Ask for what was kept in a slot. The answer is a `loaded` event: `{"type":"loaded","slot":...,"found":true,
+ * "data":...,"at":...,"from":"account"|"device"}`, or `"found":false` when there is nothing. The newer of this
+ * device's and their account's is given.
+ */
+export function load(slot?: string): void {
+  const name = slot || "main";
+  void worldSaves()
+    .load(name)
+    .catch(() => null)
+    .then((got) => tell(got ? { type: "loaded", slot: name, found: true, data: got.data, at: got.at, from: got.from } : { type: "loaded", slot: name, found: false, data: "", at: 0, from: "" }));
 }
 
 /** What happened since the engine last asked, as a JSON list, oldest first. Ask every frame. */

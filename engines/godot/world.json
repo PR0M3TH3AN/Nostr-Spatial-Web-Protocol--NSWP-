@@ -30,6 +30,7 @@
   ],
   "status": "beta",
   "audience": "general",
+  "category": "experience",
   "entryPoints": [
     "main-entrance",
     "balcony"

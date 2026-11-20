@@ -4,16 +4,16 @@
   "lobby": "https://portal.bitblocks.network/",
   "airlock": "https://portal.bitblocks.network/go/",
   "worlds": {
-    "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "was": "nswp-world-a.vercel.app" },
-    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "was": "nswp-world-b.vercel.app" },
-    "tour": { "d": "tour", "url": "https://tour.bitblocks.network/" },
-    "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/" },
-    "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/" },
-    "workshop": { "d": "workshop", "url": "https://workshop.bitblocks.network/" },
-    "library": { "d": "library", "url": "https://library.bitblocks.network/" }
+    "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "category": "experience", "was": "nswp-world-a.vercel.app" },
+    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "category": "social", "was": "nswp-world-b.vercel.app" },
+    "tour": { "d": "tour", "url": "https://tour.bitblocks.network/", "category": "experience" },
+    "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/", "category": "game" },
+    "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/", "category": "experience" },
+    "workshop": { "d": "workshop", "url": "https://workshop.bitblocks.network/", "category": "experience" },
+    "library": { "d": "library", "url": "https://library.bitblocks.network/", "category": "site" }
   },
   "elsewhere": {
-    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "was": "nswp-world-template.vercel.app" },
-    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry" }
+    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "category": "experience", "was": "nswp-world-template.vercel.app" },
+    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry", "category": "experience" }
   }
 }

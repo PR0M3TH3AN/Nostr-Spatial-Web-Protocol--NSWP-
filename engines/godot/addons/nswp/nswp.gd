@@ -55,6 +55,12 @@ signal crossing_changed(state: String)
 ## for someone signed in `name`, `pubkey`, `picture` and `about`. A name is theirs only while
 ## they are signed in here.
 signal who_changed(who: Dictionary)
+## What was asked for with `load()` has come: `found` is false when nothing was kept in that slot.
+## `from` is "account" or "device".
+signal loaded(slot: String, found: bool, data: String, from: String)
+## What was handed to `save()` has been kept: `kept` is "account", "device" or "nowhere", and `said`
+## is words for the visitor ("Saved to your account").
+signal saved(slot: String, kept: String, said: String)
 
 ## The project setting that names the Airlock to send a visitor through when they arrived
 ## without one of their own. A visitor who came through an Airlock always goes back through theirs.
@@ -201,6 +207,10 @@ func _process(_delta: float) -> void:
 				for field: String in ["guest", "name", "pubkey"]:
 					arrival[field] = event.get(field, arrival.get(field))
 				who_changed.emit(event)
+			"loaded":
+				loaded.emit(str(event.get("slot", "")), bool(event.get("found", false)), str(event.get("data", "")), str(event.get("from", "")))
+			"saved":
+				saved.emit(str(event.get("slot", "")), str(event.get("kept", "nowhere")), str(event.get("said", "")))
 			"door":
 				var id := str(event.get("id", ""))
 				door_chosen.emit(id)
@@ -233,6 +243,28 @@ func who() -> Dictionary:
 		return {"guest": true, "name": "", "pubkey": "", "picture": "", "about": ""}
 	var now: Variant = JSON.parse_string(str(_js.who()))
 	return now if typeof(now) == TYPE_DICTIONARY else {"guest": true}
+
+
+## Keep this for the visitor: text, your world's own (JSON is the usual choice), 32 KB at most, in
+## a slot ("main" unless you name another: lower-case letters, digits and hyphens). It is kept on
+## their device at once, and with their account if they are signed in here, encrypted so only
+## they can read it; then it is there on their next device. `saved` says where it was kept.
+## Your world can read its own saves and nobody else's.
+func save(data: String, slot: String = "main") -> void:
+	if _js == null:
+		saved.emit(slot, "nowhere", "Saves need a browser.")
+		return
+	_js.save(data, slot)
+
+
+## Ask for what was kept in a slot: the newer of their device's and their account's. The answer
+## comes as `loaded`. Ask once the menu is up, and again on `who_changed` if a save matters to you:
+## someone who signs in may have one from another device.
+func load_save(slot: String = "main") -> void:
+	if _js == null:
+		loaded.emit(slot, false, "", "")
+		return
+	_js.load(slot)
 
 
 ## Whether this is running in a browser with the kit's script on the page: whether doors lead anywhere.

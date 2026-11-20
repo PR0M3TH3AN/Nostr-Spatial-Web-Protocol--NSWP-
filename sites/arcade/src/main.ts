@@ -4,19 +4,31 @@
  */
 import * as THREE from "three";
 import { addBench, addCrystal, addGyro, addLamp, MeshBuilder } from "nswp-sdk/home";
+import { worldSaves, worldSigner } from "nswp-sdk/three";
 import { startWorld } from "../../shared/world.js";
 
 const COUNT = 12;
 const BEST = "arcade:best";
 const FIELD: [number, number] = [0, -9];
 
-/** The fastest run on this device, in seconds, or 0. It never leaves the device. */
-function best(): number {
-  try {
-    return Number(localStorage.getItem(BEST)) || 0;
-  } catch {
-    return 0;
-  }
+/**
+ * The fastest run, in seconds, or 0. It is this world's save (`worldSaves`): kept on this device for anyone, and
+ * with their account for a visitor who is signed in here, so it is there on their next device.
+ */
+let fastest = 0;
+const best = (): number => fastest;
+const saves = worldSaves();
+/** Take up a time from somewhere else if it is faster than the one in hand. True if it was. */
+function takeBest(seconds: unknown): boolean {
+  if (typeof seconds !== "number" || !(seconds > 0) || (fastest && seconds >= fastest)) return false;
+  fastest = seconds;
+  return true;
+}
+try {
+  // What this world kept before it had saves: a number of its own on this device.
+  takeBest(Number(localStorage.getItem(BEST)));
+} catch {
+  /* a private window */
 }
 
 void startWorld({
@@ -82,7 +94,7 @@ void startWorld({
       kit.note("board", `${heading}: ${text}`);
       kit.note("caught", caught);
     };
-    const record = () => (best() ? `Best on this device: ${best().toFixed(1)} s.` : "No best time yet on this device.");
+    const record = () => (best() ? `Your best: ${best().toFixed(1)} s.` : "No best time yet.");
 
     const reset = () => {
       caught = 0;
@@ -94,7 +106,24 @@ void startWorld({
       show("Lantern Run", `0 of ${COUNT}. ${record()}`);
     };
     reset();
-    kit.controls.addSection({ id: "play", label: "Play", icon: "turn", note: "Walk into a lantern to catch it. Your best time is kept on this device and goes nowhere else." });
+    // Their save, from this device or their account, whichever is the faster: asked for now, and again when they
+    // sign in here. A faster time in hand than their account has is kept there.
+    const readSave = async () => {
+      const saved = await saves.load().catch(() => null);
+      let theirs = 0;
+      try {
+        theirs = Number((JSON.parse(saved?.data ?? "{}") as { best?: unknown }).best) || 0;
+      } catch {
+        /* not this world's shape: ignored */
+      }
+      const had = fastest;
+      if (takeBest(theirs) && caught === 0) show("Lantern Run", `0 of ${COUNT}. ${record()}`);
+      else if (had && (!theirs || had < theirs)) void saves.save(JSON.stringify({ best: had }));
+      kit.note("best", fastest);
+    };
+    void readSave();
+    worldSigner().onChange(() => void readSave());
+    kit.controls.addSection({ id: "play", label: "Play", icon: "turn", note: "Walk into a lantern to catch it. Your best time is kept on this device, and with your account when you are signed in here." });
     kit.controls.add({ id: "again", section: "play", icon: "turn", label: "Start the run again", short: "Again", act: reset });
 
     return {
@@ -117,14 +146,16 @@ void startWorld({
           }
           const took = now - startedAt;
           const was = best();
-          if (!was || took < was) {
-            try {
-              localStorage.setItem(BEST, String(took));
-            } catch {
-              /* a private window: the run still counts, it just isn't kept */
-            }
+          const better = takeBest(took);
+          show(better ? "A new best" : "All twelve", `${took.toFixed(1)} seconds. ${was && !better ? `Your best is ${was.toFixed(1)} s. ` : ""}Open the menu and choose "Start the run again" for another go.`);
+          // Kept at once on this device, and with their account if they are signed in here. The board says where.
+          if (better) {
+            kit.note("best", fastest);
+            void saves.save(JSON.stringify({ best: took })).then((r) => {
+              kit.note("saved", r.kept);
+              if (caught === COUNT) show("A new best", `${took.toFixed(1)} seconds. ${r.said} Open the menu and choose "Start the run again" for another go.`);
+            });
           }
-          show(!was || took < was ? "A new best" : "All twelve", `${took.toFixed(1)} seconds. ${was && took >= was ? `Your best is ${was.toFixed(1)} s. ` : ""}Open the menu and choose "Start the run again" for another go.`);
         }
       },
       get hideFromPreview() {

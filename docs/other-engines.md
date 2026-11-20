@@ -36,6 +36,8 @@ engine can pass to a page:
 | `NSWP.changeLook(state)` | To their own client, to change how they look, and back here wearing it. The menu offers it under "You" and sends a `figure` event when it is pressed. A world never edits a look. |
 | `NSWP.signIn(state)` | To their own client, to say who they are, for a visitor whose client named no sign-in address. Where it named one (the reference client does), signing in is the menu's own row, in a window of that address, and they never leave your world: see "The same sign-in" below. False if they came through no client. |
 | `NSWP.who()` | Who they are here, now, as JSON: `guest` true, or `name`, `pubkey`, `picture` and `about`. A `who` event says when it changes: they signed in or out in the menu. |
+| `NSWP.save(data, slot)` | Keep this text for the visitor, in a slot (`"main"` unless named). On their device at once, and with their account if they are signed in here. A `saved` event says where: `kept` is `account`, `device` or `nowhere`, with `said` as words for them. |
+| `NSWP.load(slot)` | Ask for what was kept. A `loaded` event answers: `found`, and then `data`, `at` and `from`. |
 | `NSWP.crossing()` | Where the crossing's room is: `"arriving"`, `"opening"`, `"none"`, `"leaving"`, `"shut"` or `"failed"`. A `crossing` event says when it changes. |
 | `NSWP.loading(fraction)` | How much of the world has arrived, 0 to 1: the line of light over the room's doors fills. The page that starts the engine calls it. |
 | `NSWP.ready()` | The world is ready: the room's doors open. Asking for the menu does this by itself, unless it was asked for with `hold` true. |
@@ -101,6 +103,22 @@ Signed in, the card at the head of You has their picture, name and key, and
 "Signed in as" is said at the top of the view. Your engine is told
 (`{"type":"who", ...}`), and `NSWP.who()` says who they are now. A name is
 theirs only while they are signed in here: write none over a guest.
+
+## Keeping a visitor's progress
+
+A world with something to remember keeps it as a save
+([NSWP-12](../protocol/12-saves.md)): text of its own, 32 KB at most, in a
+named slot. `NSWP.save(data, slot)` keeps it on the visitor's device at once,
+and with their account if they are signed in here, encrypted so that only
+they can read it; then it is there on their next device. `NSWP.load(slot)`
+asks for the newer of the two, and a `loaded` event answers. In Godot these
+are `Nswp.save(data, slot)` and `Nswp.load_save(slot)`, with the signals
+`saved` and `loaded`.
+
+Ask once the menu is up, and again on a `who` event if a save matters to
+your world: someone who signs in may have one from another device. Your
+world can read its own saves and nobody else's, and never needs to know
+where one is kept.
 
 ## The latest, always
 

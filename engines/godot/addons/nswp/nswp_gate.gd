@@ -24,6 +24,20 @@ extends NswpPortal
 		ground = value
 		_colour()
 
+## What kind of place it leads to, as that place's own announcement says: `game`, `experience`,
+## `social`, `app` or `site`. The sign then reads "A game at example.com". Left empty, or
+## anything else, and the sign says only the address.
+@export var category: String = ""
+
+## The kit's words for each kind of place. They are the core's (`categoryWords`); a test checks.
+const CATEGORY_WORDS := {
+	"game": "A game",
+	"experience": "An experience",
+	"social": "A place to meet",
+	"app": "An app",
+	"site": "A site",
+}
+
 ## Set to true while a visitor is pointing at this door; its light answers. `NswpVisitor` does this.
 var aimed: bool = false
 
@@ -115,10 +129,15 @@ func _process(delta: float) -> void:
 
 ## What its sign says of where it leads: whose site it is, never a name alone.
 func address_line() -> String:
+	var kind := str(CATEGORY_WORDS.get(category, ""))
 	if url == "":
-		return "A world on Nostr" if naddr != "" else "Nowhere yet"
+		if naddr == "":
+			return "Nowhere yet"
+		return "%s on Nostr" % kind if kind != "" else "A world on Nostr"
 	var read := Nswp.read_address(url)
-	return str(read.domain) if bool(read.ok) else "invalid address"
+	if not bool(read.ok):
+		return "invalid address"
+	return "%s at %s" % [kind, str(read.domain)] if kind != "" else str(read.domain)
 
 
 func _has_shape() -> bool:

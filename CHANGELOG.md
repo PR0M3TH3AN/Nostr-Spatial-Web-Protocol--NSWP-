@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.36.0
+
+What kind of place a world is, and what a world keeps for its visitor.
+
+- **A world says what kind of place it is** ([NSWP-01](protocol/01-worlds.md)): a `category` tag in its announcement, one of `game`, `experience`, `social`, `app`, `site`. `CATEGORIES`, `categoryWords()` in the core; `"category"` in a world's `world.json`. A value that isn't on the list is treated as not stated.
+- **A door says it:** `createPortalGate(destination, { category })`, and `category` on Godot's `NswpGate`. The sign reads "A game at example.com". The reference worlds' doors do, and the build checks that what a door says of a place is that place's own word.
+- **Saves** ([NSWP-12](protocol/12-saves.md), kind 37304): a world keeps text for its visitor with their own account, on their own relays, encrypted so that only they can read it. A world reaches its own saves and nobody else's: it never names where one is kept, the visitor's signer works that out from the world's address. Three more messages to the signer (`save`, `find`, `open`); `saveAddress`, `sealSave`, `openSave` in the core; `vectors/saves.json`.
+- **In the kit:** `worldSaves()` (`load`, `save`, `clear`), which keeps a save on the device at once and with the account of a visitor who is signed in. For another engine, `NSWP.save` and `NSWP.load` with `saved` and `loaded` events; in Godot, `Nswp.save()`, `Nswp.load_save()`. The script's `VERSION` is 9.
+- **The Arcade keeps its best time as a save.** It was a number on one device.
+- **Not built yet:** BitLogin's signer doesn't answer the three messages, so until it does a save stays on the device. Nothing else changes for a world when it does.
+- Application data (kind 30078) stays out of a world's reach, as before. `cleanOrigin` moved within the core; it is exported as it was.
+
 ## 0.35.0
 
 Always the latest.
