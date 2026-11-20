@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.40.0";
+  var KIT_VERSION = "0.41.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -8510,6 +8510,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "figure", label: "Your look", icon: "look" },
     { id: "room", label: "Room", icon: "room" },
     { id: "people", label: "People", icon: "people" },
+    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
+    { id: "following", label: "Following", icon: "list" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },

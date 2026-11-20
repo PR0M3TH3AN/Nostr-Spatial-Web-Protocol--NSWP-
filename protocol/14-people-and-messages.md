@@ -1,6 +1,6 @@
 # NSWP-14: People and messages
 
-**Status:** Following is implemented in the reference library and kit (a world's side, and the signer's side as a function); no signer has built its side yet, BitLogin's included. Messages are implemented in the library only · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`people.ts`](../packages/sdk/src/people.ts), [`signer.ts`](../packages/sdk/src/signer.ts)
+**Status:** Following is implemented in the reference library and kit (a person's card, and a Following tab in the menu every world has; the signer's side as a function); no signer has built its side for worlds yet, BitLogin's included. Messages are implemented in the library only · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`people.ts`](../packages/sdk/src/people.ts), [`signer.ts`](../packages/sdk/src/signer.ts)
 
 Following someone, and writing to them privately, are Nostr's own and are
 used here as they are. Who a visitor follows in an NSWP client is who they
@@ -121,6 +121,13 @@ who came by name, to a visitor who is signed in there.
    world it was last changed in would say where its owner had been.
 5. **The world checks what came back** is that list with that change and no
    other, and sends it to the visitor's relays.
+
+**Who they follow, in the menu.** Once a visitor has let a world see to
+who they follow, the menu's **Following** tab lists them by name, there as
+at their home: choose one to see who they are and to unfollow them, or
+follow someone by their key (copied, or typed on a headset's keyboard).
+Names come from each person's own profile, asked of relays a page at a
+time, for the people on show, and kept on the device.
 
 **What a signer does beside that:**
 

@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addPanelControls, addRoomControls, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addPanelControls, addRoomControls, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -403,7 +403,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     id: "help",
     label: "Help",
     icon: "help",
-    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D, or point at the floor and select to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
+    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D or the up and down arrows; the left and right arrows turn you. Or point at the floor and select to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
   });
   const xrConsole: XrConsole = createConsole(controls, { renderer, rig });
   scene.add(xrConsole.group);
@@ -699,7 +699,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     return -1;
   };
 
-  // Without a headset: W, A, S, D or the arrow keys.
+  // Without a headset: W, A, S, D, and the arrow keys. Up and down walk; left and right turn (the owner's ask of
+  // 2026-11-20), so someone can get about with one hand and no mouse. A and D still step to the side.
   const keys = new Set<string>();
   addEventListener("keydown", (e) => {
     if (!(e.target instanceof HTMLButtonElement)) keys.add(e.code);
@@ -709,7 +710,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const stride = new THREE.Vector3();
   const walk = (dt: number) => {
     const forward = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
-    const strafe = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
+    const strafe = (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0);
+    const turn = (keys.has("ArrowLeft") ? 1 : 0) - (keys.has("ArrowRight") ? 1 : 0);
+    if (turn) {
+      stroll.stop(); // a walk a tap began turns them its own way
+      rig.rotation.y += turn * KEY_TURN * dt;
+    }
     if (!forward && !strafe) return;
     stroll.stop(); // the keys take over from a walk a tap began
     // Shift runs, moving the casual way as it does the intense way.

@@ -31,7 +31,7 @@ import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
-import type { People } from "./people.js";
+import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
 import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldPeople, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
@@ -1261,16 +1261,8 @@ export interface RoomNotes {
   marked?(): string | null;
 }
 
-/** What follows and unfollows someone for the visitor, from a person's card in a room (protocol/14-people-and-messages.md). */
-export interface RoomFollows {
-  people: People;
-  /** The visitor's key here, or null: nobody is followed for a guest. */
-  pubkey(): string | null;
-  /** Whether the visitor has let this place change who they follow. */
-  allowed(): boolean;
-  /** From a press: have the visitor asked. Returns what to say meanwhile; `then` is run once they have allowed it. */
-  ask(then: () => void): string;
-}
+/** What follows and unfollows someone for the visitor: from a person's card in a room, and in Following (protocol/14-people-and-messages.md). */
+export type RoomFollows = FollowingHand;
 
 export function addRoomControls(
   controls: Controls,
@@ -1315,7 +1307,7 @@ export function addRoomControls(
     /** Whether the visitor is in a headset: a window that opens can't be seen from in there. */
     presenting?: () => boolean;
   } = {},
-): { refresh(): void; travelling(): Travelling } {
+): { refresh(): void; travelling(): Travelling; following: Following } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
   // For tests: a drawn picture that changes, in place of the browser's screen picker.
   const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
@@ -1371,17 +1363,16 @@ export function addRoomControls(
   };
   let followsKept: RoomFollows | null = null;
   const follows = (): RoomFollows => (followsKept ??= opts.follows ?? worldFollows());
-  const followPress = (key: string, name: string, adding: boolean) => {
-    const f = follows();
-    const now = async () => {
-      const done = await (adding ? f.people.follow(key, name) : f.people.unfollow(key, name));
-      controls.say(done.said);
-      refresh();
-    };
-    if (!f.pubkey()) return controls.say("Sign in to follow people: it is under You.");
-    if (f.allowed()) return void now();
-    controls.say(f.ask(() => void now()));
-  };
+  // Who they follow, in a tab of its own: the same in every world and at their home (following.ts).
+  const following = addFollowingControls(controls, {
+    follows: follows(),
+    ...(opts.noteRelays ? { relays: opts.noteRelays } : {}),
+    keyboard: () => opts.panels?.keyboard ?? null,
+    ...(opts.presenting ? { presenting: opts.presenting } : {}),
+  });
+  // Signed in, signed out, or let do more: what the tab offers changes with it.
+  if (!opts.follows && signerNamed()) worldSigner().onChange(() => following.refresh());
+  const followPress = (key: string, name: string, adding: boolean) => following.press(key, name, adding);
 
   const refresh = () => {
     const s = presence.session;
@@ -2350,6 +2341,7 @@ export function addRoomControls(
 
   return {
     refresh,
+    following,
     travelling: () => ({ joined: !!presence.session && !presence.roomName, mic: !!presence.session && !presence.roomName && presence.micOn, blocked: presence.newlyBlocked() }),
   };
 }
@@ -2521,7 +2513,7 @@ import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
 export { watchFresh, type Fresh, type FreshOptions } from "./fresh.js";
 export { freshAction } from "./ui/fresh.js";
-export { createStepPace, createStroll, dotsBetween, DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, reachOf, RUN, TAP_REACH, TOP_SPEED, WALK_SPEED, type StepPace, type Stroll } from "./stroll.js";
+export { createStepPace, createStroll, dotsBetween, DOUBLE_TAP, DRAG_LOOK, FACE_RATE, KEY_TURN, PATH_MOST, reachOf, RUN, TAP_REACH, TOP_SPEED, WALK_SPEED, type StepPace, type Stroll } from "./stroll.js";
 export { createFloorMarks, type FloorMarks } from "./floor-mark.js";
 export { DOOR_REACH } from "./gate-size.js";
 export { addJump, createJump, JUMP_GRAVITY, JUMP_HEIGHT, JUMP_SPEED, type AddJumpOptions, type Jump } from "./jump.js";
@@ -2532,6 +2524,8 @@ export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsP
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
 export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldPeople, worldSaves, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions } from "./saves.js";
+export { addFollowingControls, keyIn, type Following, type FollowingHand, type FollowingOptions } from "./following.js";
+export { createProfiles, readProfile, type Profile, type Profiles } from "./profiles.js";
 export { createPeople, type FollowHand, type FollowResult, type FollowWhy, type People, type PeopleOptions } from "./people.js";
 export { askWell, learnFrom, relaysWell, sendWell, type SentWell } from "./relay-book.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";

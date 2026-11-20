@@ -542,6 +542,10 @@ if (worldSigner().more.includes("follows")) {
 }
 ```
 
+The menu also has a **Following** tab: who they follow, by name, with
+unfollowing and following by a copied key. It is there for a visitor who is
+signed in, and asks them once before it shows anything.
+
 Where they haven't let your world yet, call `worldSigner().want(["follows"])`
 and then `worldSigner().unlock()`, both from the same press. Don't ask on
 arrival: ask when they press the thing that needs it.
