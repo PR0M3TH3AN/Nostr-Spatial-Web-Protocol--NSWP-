@@ -102,6 +102,15 @@ Signed in, the card at the head of You has their picture, name and key, and
 (`{"type":"who", ...}`), and `NSWP.who()` says who they are now. A name is
 theirs only while they are signed in here: write none over a guest.
 
+## The latest, always
+
+Serve your export's page and its scripts with `Cache-Control: no-cache`, as
+every world is ([NSWP-09](../protocol/09-what-a-world-owes.md), "They always
+get the latest"). The engine and the game's package are large and change
+with every export: let a browser ask about those too, and it will be told in
+a few bytes when it has the latest. The menu here tells a visitor whose page
+has been open since before an update, as a Three.js world's does.
+
 ## The same menu and the same sounds
 
 A visitor should find the same controls in every world: the same menu in the

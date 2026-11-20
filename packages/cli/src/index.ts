@@ -43,6 +43,7 @@ import {
   type WorldInput,
   kitAge,
   KIT_VERSION,
+  servedFresh,
 } from "@nswp/core";
 
 const argv = process.argv.slice(2);
@@ -101,7 +102,14 @@ async function check(url: string): Promise<number> {
     else if (!res.ok) {
       out(`  ${BAD} Entry URL returned HTTP ${res.status}.`);
       failed = true;
-    } else out(`  ${OK} Entry URL responds (HTTP ${res.status}).`);
+    } else {
+      out(`  ${OK} Entry URL responds (HTTP ${res.status}).`);
+      // Always the latest: a browser must ask before it uses a copy of the page it kept (NSWP-09).
+      const cache = res.headers.get("cache-control");
+      report.cacheControl = cache;
+      if (servedFresh(cache)) out(`  ${OK} A browser asks for the latest page each time (Cache-Control: ${cache}).`);
+      else out(`  ${WARN} A browser may go on using an old copy of this page after you update it (Cache-Control: ${cache ?? "none"}). Serve the page and its scripts with "Cache-Control: no-cache".`);
+    }
   } catch {
     out(`  ${BAD} Entry URL is unreachable.`);
     failed = true;

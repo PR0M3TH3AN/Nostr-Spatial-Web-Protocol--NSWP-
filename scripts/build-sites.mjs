@@ -129,6 +129,10 @@ for (const s of sites) {
       ],
     },
   ];
+  // Always the latest (protocol/09-what-a-world-owes.md): a browser asks before it uses a copy of the page or a
+  // script it kept. Said outright, and not left to a host's habit. Not for what is named by its hash, or has a
+  // rule of its own below.
+  headers.push({ source: "/((?!previews/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] });
   if (s.world) {
     headers.push({
       source: "/previews/(.*)",

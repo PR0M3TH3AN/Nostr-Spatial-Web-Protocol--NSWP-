@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.35.0
+
+Always the latest.
+
+- **A world owes its visitors the latest** ([NSWP-09](protocol/09-what-a-world-owes.md)): its page and scripts are served so that a browser asks before using a copy it kept (`Cache-Control: no-cache`, `max-age=0` or `no-store`), and a page that is already open finds out when its world has been updated. Nothing of the visitor's is ever cleared to make an update take.
+- **The kit tells a visitor whose page is older than the world.** `addViewControls` and an engine's menu add a control that shows only then: "This place has been updated. Reload for the latest". Someone coming back to the tab with nothing in hand is given the latest at once; someone in a room, in a headset or writing is told and left to choose. `watchFresh`, `freshAction`.
+- **`nswp check`** says whether a page is served that way, and warns when it isn't. `servedFresh(cacheControl)` in the core.
+- **The reference worlds, BitPortal and the template say `Cache-Control: no-cache` outright** for everything not named by a hash, where they had left it to their host's habit.
+
 ## 0.34.0
 
 A world made in another engine is crossed into the way a Three.js world is.

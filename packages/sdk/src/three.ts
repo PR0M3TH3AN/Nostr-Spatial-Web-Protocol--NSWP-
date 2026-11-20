@@ -29,6 +29,7 @@ import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
+import { freshAction } from "./ui/fresh.js";
 import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
@@ -2341,6 +2342,9 @@ export async function addViewControls(
     fov?: boolean;
   },
 ): Promise<boolean> {
+  // The latest, always: a visitor is told when the world has been updated since they opened it, and is given it
+  // at once on coming back to the tab with nothing in hand (ui/fresh.ts). In every world, since every world has these.
+  if (!controls.has("fresh")) controls.add(freshAction(controls, { busy: () => d.renderer.xr.isPresenting }));
   const xr = navigator.xr;
   let supported = false;
   try {
@@ -2430,6 +2434,8 @@ export { addPanelControls, createPanels, type Panel, type PanelContent, type Pan
 export { LIBRARY_LIMITS, PANEL_LIMITS, PANEL_LOOKS, type LibraryItem, type PanelLook, type PanelPlace, type PanelRecord, type PanelSource } from "./panel-store.js";
 import { wasRefreshed } from "./stay.js";
 export { createStay, wasRefreshed, type Stay, type Stood } from "./stay.js";
+export { watchFresh, type Fresh, type FreshOptions } from "./fresh.js";
+export { freshAction } from "./ui/fresh.js";
 export { createStepPace, createStroll, dotsBetween, DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, reachOf, RUN, TAP_REACH, TOP_SPEED, WALK_SPEED, type StepPace, type Stroll } from "./stroll.js";
 export { createFloorMarks, type FloorMarks } from "./floor-mark.js";
 export { DOOR_REACH } from "./gate-size.js";
