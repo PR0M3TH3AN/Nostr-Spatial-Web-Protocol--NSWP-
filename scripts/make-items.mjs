@@ -422,7 +422,10 @@ const boxOf = (shape) => {
 };
 const blasterShape = BLASTER_PARTS.flatMap((p) => p.shape);
 // Sounds the owner has picked are kept beside the models, each under the name the script and the dart use.
-const SOUND_NAMES = ["equip", "unequip", "reload", "fire", "impact", "fall", "hit", "tick"];
+// A sound may have more takes than one, named `<name>-2` up to `<name>-4`: the kit plays one of them each time.
+const SOUND_NAMES = ["equip", "unequip", "reload", "fire", "impact", "impact-2", "fall", "hit", "tick"];
+/** What the blaster needs before it is signed: one of each of these. */
+const NEEDED = ["equip", "unequip", "reload", "fire", "impact", "fall", "hit", "tick"];
 const picked = Object.fromEntries(SOUND_NAMES.filter((name) => existsSync(join(out, "sounds", `${name}.ogg`))).map((name) => [name, keep(readFileSync(join(out, "sounds", `${name}.ogg`)), "ogg")]));
 const has = (name) => (picked[name] ? { [({ impact: "lands", fall: "drops", hit: "strikes", tick: "tells" })[name]]: name } : {});
 const drafts = [
@@ -441,8 +444,14 @@ const drafts = [
     does: { use: "Fire", second: "Reload" },
   },
 ];
-writeFileSync(join(out, "drafts.json"), `${JSON.stringify(drafts, null, 2)}\n`);
-for (const d of drafts) console.log(`draft ${d.d}: ${d.size.join(" × ")} m, model ${d.model.sha256.slice(0, 12)}…, script ${d.script.sha256.slice(0, 12)}…, sounds: ${Object.keys(d.sounds ?? {}).join(", ") || "none picked yet"}`);
+// With every sound picked it is no longer a draft: it is written with the rest, to be signed. Until then it waits.
+const ready = NEEDED.every((name) => picked[name]);
+if (ready) {
+  described.push(...drafts);
+  writeFileSync(join(out, "items.json"), `${JSON.stringify(described, null, 2)}\n`);
+}
+writeFileSync(join(out, "drafts.json"), `${JSON.stringify(ready ? [] : drafts, null, 2)}\n`);
+for (const d of drafts) console.log(`${ready ? "ready to sign" : "draft"} ${d.d}: ${d.size.join(" × ")} m, model ${d.model.sha256.slice(0, 12)}…, script ${d.script.sha256.slice(0, 12)}…, sounds: ${Object.keys(d.sounds ?? {}).join(", ") || "none picked yet"}`);
 // A model no item names any more is still named by the bags that hold the older one: it is kept, and said.
 const older = readdirSync(join(out, "models")).filter((f) => !made.has(f));
 if (older.length) console.log(`kept, and named by no item now: ${older.join(", ")}`);

@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.51.1
+
+- **The dart blaster has its sounds,** the owner's picks by ear: nine files in [`sites/items/sounds`](sites/items/sounds), with how each was made and its licence beside them. With them it is no longer a draft: it is described with the other starter items and signed.
+- **A sound may have more takes than one** (`impact`, `impact-2`): one is played each time, and not the same twice running.
+- The held item sits higher on a screen taller than it is wide, clear of the bar.
+- **Fixed: putting one scripted item away and taking up another could leave the new one dead,** when the old one's box ended a moment late and was taken for the new one's. Each box now answers only for the item it was made for.
+- **Fixed: a busy device could be taken for a hung script.** A script is ended only after three seconds of silence seen twice, with a turn between for its waiting answers to be read.
+
 ## 0.51.0
 
 Items that do something: a dart blaster, drafted, and everything it needs.

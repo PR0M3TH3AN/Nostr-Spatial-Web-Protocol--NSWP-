@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.51.0";
+  var KIT_VERSION = "0.51.1";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4823,7 +4823,7 @@ var NSWP = (() => {
     show: { burst: 8, perSecond: 8 }
   };
   var ITEM_EVENTS = ["held", "away", "use", "second", "tick"];
-  var SCRIPT_LIMITS = { bytes: 64e3, silentMs: 1500 };
+  var SCRIPT_LIMITS = { bytes: 64e3, silentMs: 3e3 };
 
   // packages/core/dist/item-box.js
   var WORKER_HEAD = `"use strict";
@@ -4877,6 +4877,9 @@ postMessage({ t: "started" });
   // When the script last answered anything, or last had nothing to answer. It is ended only if something has been
   // waiting on it since then for too long: a busy device, with one thing always on its way in, is not a hung script.
   let lastWord = 0;
+  // Seen silent once already. A page that was itself held up for a moment finds the script's answers waiting for
+  // it when it comes back: so silence has to be seen twice, with a turn between for those answers to be read.
+  let suspect = false;
   const up = (m) => parent.postMessage(Object.assign({ nswpItemBox: 1 }, m), "*");
   const stop = (why) => {
     if (!worker) return;
@@ -4893,11 +4896,12 @@ postMessage({ t: "started" });
       return up({ t: "stopped", why: "no worker" });
     }
     sent = answered = 0;
+    suspect = false;
     lastWord = performance.now();
     worker.onmessage = (e) => {
       const m = e.data;
       if (!m) return;
-      if (m.t === "beat") { answered = Math.max(answered, Number(m.n) || 0); lastWord = performance.now(); }
+      if (m.t === "beat") { answered = Math.max(answered, Number(m.n) || 0); lastWord = performance.now(); suspect = false; }
       else if (m.t === "ask") up({ t: "ask", name: String(m.name), args: m.args });
       else if (m.t === "started") up({ t: "started" });
       else if (m.t === "error") up({ t: "error", text: String(m.text).slice(0, 200) });
@@ -4917,7 +4921,11 @@ postMessage({ t: "started" });
     }
   });
   // A script that has stopped answering is ended: it can hang nothing but itself.
-  setInterval(() => { if (worker && sent > answered && performance.now() - lastWord > SILENT) stop("silent"); }, 250);
+  setInterval(() => {
+    if (!worker || sent <= answered || performance.now() - lastWord <= SILENT) return void (suspect = false);
+    if (suspect) stop("silent");
+    else suspect = true;
+  }, 300);
   up({ t: "ready" });
 })();
 <\/script>

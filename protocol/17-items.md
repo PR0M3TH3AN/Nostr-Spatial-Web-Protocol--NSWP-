@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit for worlds drawn with Three.js: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); a dart blaster is drafted there and not yet signed. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a world drawn by another engine · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit for worlds drawn with Three.js: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a world drawn by another engine · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -96,7 +96,9 @@ What a thing is, is said once by its maker, in an addressable note
 - **`script`** is what it does of its own, where it does anything. See
   below.
 - **`sound`** is one of its own sounds, by a short plain name: twelve at
-  most, each a small file (150 KB) no longer than four seconds.
+  most, each a small file (150 KB) no longer than four seconds. A sound
+  may have more takes than one, named `<name>-2` up to `<name>-4`: a
+  renderer plays one of them each time, and not the same twice running.
 - **`sends`** is a thing it may send out: a dart, a ball. It has a name, a
   model of its own, and its box. After those it may say which of the item's
   sounds go with what happens to it: `lands` (it stuck to something),
@@ -170,8 +172,9 @@ that runs items' logic serves as `item-box.html`.
   page that holds it.
 - **The script runs in a worker inside it,** given one object, `item`. The
   names it might reach anything else by are empty for it.
-- **A script that stops answering is ended,** after a second and a half.
-  It can hang nothing but itself.
+- **A script that stops answering is ended,** after three seconds. It can
+  hang nothing but itself. A device that was only busy for a moment isn't
+  mistaken for a script that hung: silence has to be seen twice.
 - Where the page isn't served, or is served under other rules, no script
   runs there, and an item is a shape.
 

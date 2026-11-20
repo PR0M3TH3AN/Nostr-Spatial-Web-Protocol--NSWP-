@@ -25,8 +25,8 @@ describe("the starter items", () => {
       const input = inputs.find((i) => i.d === item.d)!;
       expect(item.model).toEqual(input.model);
       expect(item.use).toBe("anyone");
-      // Nothing of theirs runs: a starter item is a shape and nothing more.
-      expect(item.script).toBeNull();
+      // Only the blaster does anything of its own. The rest are shapes, and nothing of theirs runs.
+      expect(item.script === null).toBe(item.d !== "dart-blaster");
     }
   });
 
@@ -39,6 +39,32 @@ describe("the starter items", () => {
       expect(bytesToHex(sha256(bytes))).toBe(item.model.sha256);
       expect(bytes.length).toBeLessThanOrEqual(ITEM_BUDGET.bytes);
     }
+  });
+
+  it("serve every other file an item names, each with the hash signed: a script, its sounds, what it sends out", () => {
+    const host = `${config.worlds[config.keepsItems]!.url}items/`;
+    let checked = 0;
+    for (const event of signed) {
+      const item = parseItem(event)!;
+      const named: [{ url: string; sha256: string }, string][] = [...(item.script ? [[item.script, "js"] as [typeof item.model, string]] : []), ...Object.values(item.sounds).map((s) => [s, "ogg"] as [typeof item.model, string]), ...item.sends.map((s) => [s.model, "glb"] as [typeof item.model, string])];
+      for (const [file, ext] of named) {
+        expect(file.url).toBe(`${host}${file.sha256}.${ext}`);
+        expect(bytesToHex(sha256(readFileSync(join(sites, "items", "models", `${file.sha256}.${ext}`))))).toBe(file.sha256);
+        checked++;
+      }
+      // What a thing it sends out sounds like is one of its own sounds, and what it asks of a person is on the list.
+      for (const send of item.sends) for (const moment of ["lands", "drops", "strikes", "tells"] as const) if (send[moment]) expect(item.sounds[send[moment]!], `${item.d} ${moment}`).toBeTruthy();
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("keep the blaster's sounds as the owner picked them: each file beside the models is one in sites/items/sounds", () => {
+    const blaster = signed.map((e) => parseItem(e)!).find((i) => i.d === "dart-blaster");
+    if (!blaster) return;
+    for (const [name, file] of Object.entries(blaster.sounds)) expect(bytesToHex(sha256(readFileSync(join(sites, "items", "sounds", `${name}.ogg`)))), name).toBe(file.sha256);
+    // Its script is asked about before it runs, and says only what the description lets it: Fire and Reload.
+    expect(blaster.does).toEqual({ use: "Fire", second: "Reload" });
+    expect(blaster.effects).toEqual([{ of: "dart", state: "health", take: 1 }]);
   });
 
   it("are each drawn as themselves by the kit, not as a marker", async () => {

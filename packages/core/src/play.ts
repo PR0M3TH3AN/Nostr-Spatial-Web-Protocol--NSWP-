@@ -229,7 +229,7 @@ export const ITEM_EVENTS = ["held", "away", "use", "second", "tick"] as const;
 export type ItemEvent = (typeof ITEM_EVENTS)[number];
 
 /** The longest an item's script may be, in bytes, and how long it may go without answering before it is stopped. */
-export const SCRIPT_LIMITS = { bytes: 64_000, silentMs: 1500 } as const;
+export const SCRIPT_LIMITS = { bytes: 64_000, silentMs: 3000 } as const;
 
 /** A gate that lets `burst` through at once and then `perSecond`: for what one person, or one script, may ask. */
 export function createRate(burst: number, perSecond: number): { take(nowMs: number): boolean } {
