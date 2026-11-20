@@ -10,7 +10,7 @@
 // Change a shape and its hash changes: the item must then be signed and published again, and the old file kept
 // where it is for the bags that still name it.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -212,6 +212,175 @@ function glb(shape) {
   return file;
 }
 
+// ---------------------------------------------------------------- a thing with parts that move
+// The first five items are one still shape each, and are written exactly as they were: their files are named by
+// their bytes, and those names are published. A thing with moving parts is written by this, apart: each part is a
+// node of its own, and an animation moves the nodes.
+function glbMoving(parts, clips) {
+  const names = [...new Set(parts.flatMap((p) => p.shape.map((t) => t.material)))];
+  const round = (x) => Math.round(x * 1e5) / 1e5;
+  const json = {
+    asset: { version: "2.0", generator: "nswp make-items" },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ name: "all", children: parts.filter((p) => !p.under).map((p) => parts.indexOf(p) + 1) }, ...parts.map((p) => ({ name: p.name, mesh: parts.indexOf(p), ...(parts.some((c) => c.under === p.name) ? { children: parts.filter((c) => c.under === p.name).map((c) => parts.indexOf(c) + 1) } : {}) }))],
+    meshes: [],
+    materials: names.map((name) => ({ name, pbrMetallicRoughness: { baseColorFactor: [...M[name].color, 1], metallicFactor: M[name].metal, roughnessFactor: M[name].rough }, ...(M[name].emit ? { emissiveFactor: M[name].emit } : {}) })),
+    animations: [],
+    buffers: [{ byteLength: 0 }],
+    bufferViews: [],
+    accessors: [],
+  };
+  const chunks = [];
+  let offset = 0;
+  const view = (bytes, target) => {
+    json.bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.byteLength, ...(target ? { target } : {}) });
+    chunks.push(new Uint8Array(bytes.buffer));
+    offset += bytes.byteLength;
+    return json.bufferViews.length - 1;
+  };
+  for (const part of parts) {
+    const mesh = { name: part.name, primitives: [] };
+    for (const name of names) {
+      const tris = part.shape.filter((t) => t.material === name);
+      if (!tris.length) continue;
+      const pos = new Float32Array(tris.flatMap((t) => t.points.flat().map(round)));
+      const nor = new Float32Array(tris.flatMap((t) => { const n = unit(cross(sub(t.points[1], t.points[0]), sub(t.points[2], t.points[0]))).map(round); return [...n, ...n, ...n]; }));
+      const count = tris.length * 3;
+      const xs = [0, 1, 2].map((i) => Array.from({ length: count }, (_, k) => pos[k * 3 + i]));
+      json.accessors.push({ bufferView: view(pos, 34962), componentType: 5126, count, type: "VEC3", min: xs.map((x) => Math.min(...x)), max: xs.map((x) => Math.max(...x)) });
+      json.accessors.push({ bufferView: view(nor, 34962), componentType: 5126, count, type: "VEC3" });
+      mesh.primitives.push({ attributes: { POSITION: json.accessors.length - 2, NORMAL: json.accessors.length - 1 }, material: names.indexOf(name) });
+    }
+    json.meshes.push(mesh);
+  }
+  for (const clip of clips) {
+    const animation = { name: clip.name, samplers: [], channels: [] };
+    for (const move of clip.moves) {
+      const times = new Float32Array(move.times);
+      const values = new Float32Array(move.values.flat().map(round));
+      json.accessors.push({ bufferView: view(times), componentType: 5126, count: times.length, type: "SCALAR", min: [Math.min(...times)], max: [Math.max(...times)] });
+      json.accessors.push({ bufferView: view(values), componentType: 5126, count: move.values.length, type: move.path === "rotation" ? "VEC4" : "VEC3" });
+      animation.samplers.push({ input: json.accessors.length - 2, output: json.accessors.length - 1, interpolation: "LINEAR" });
+      animation.channels.push({ sampler: animation.samplers.length - 1, target: { node: parts.findIndex((p) => p.name === move.node) + 1, path: move.path } });
+    }
+    json.animations.push(animation);
+  }
+  json.buffers[0].byteLength = offset;
+  const pad = (bytes, fill) => {
+    const padded = new Uint8Array(bytes.length + ((4 - (bytes.length % 4)) % 4)).fill(fill);
+    padded.set(bytes);
+    return padded;
+  };
+  const head = pad(new TextEncoder().encode(JSON.stringify(json)), 0x20);
+  const bin = new Uint8Array(offset);
+  let at = 0;
+  for (const c of chunks) {
+    bin.set(c, at);
+    at += c.length;
+  }
+  const body = pad(bin, 0);
+  const file = new Uint8Array(12 + 8 + head.length + 8 + body.length);
+  const v = new DataView(file.buffer);
+  v.setUint32(0, 0x46546c67, true);
+  v.setUint32(4, 2, true);
+  v.setUint32(8, file.length, true);
+  v.setUint32(12, head.length, true);
+  v.setUint32(16, 0x4e4f534a, true);
+  file.set(head, 20);
+  v.setUint32(20 + head.length, body.length, true);
+  v.setUint32(24 + head.length, 0x004e4942, true);
+  file.set(body, 28 + head.length);
+  return file;
+}
+/** A prism lying along z, from `z0` back to `z1`, at height `y`: a barrel. */
+const along = (material, o) => prism(material, { r0: o.r0, r1: o.r1 ?? o.r0, y0: o.z0, y1: o.z1, sides: o.sides ?? 10 }).map((t) => ({ ...t, points: t.points.map(([x, y, z]) => [x, z + o.y, y]) }));
+/** A turn about the x axis, as glTF says one: x, y, z, w. */
+const tip = (degrees) => [Math.sin((degrees * Math.PI) / 360), 0, 0, Math.cos((degrees * Math.PI) / 360)];
+
+// ---------------------------------------------------------------- the dart blaster
+// A toy: bright plastic, and nothing about it like a firearm. It points away from whoever holds it (toward -z).
+// What it does is its script's to say, below. Its sounds are the owner's to pick by ear before it is signed: until
+// then it is a draft, written to drafts.json and signed by nobody.
+M.toyOrange = { color: [0.98, 0.45, 0.1], metal: 0, rough: 0.55 };
+M.toyBlue = { color: [0.12, 0.42, 0.9], metal: 0, rough: 0.5 };
+M.toyYellow = { color: [1, 0.82, 0.16], metal: 0, rough: 0.5 };
+M.toyGrey = { color: [0.82, 0.84, 0.88], metal: 0, rough: 0.6 };
+M.foam = { color: [1, 0.55, 0.12], metal: 0, rough: 0.95 };
+M.rubber = { color: [0.1, 0.35, 0.8], metal: 0, rough: 0.8 };
+const BLASTER_PARTS = [
+  {
+    name: "gun",
+    shape: [
+      ...box("toyOrange", [0, 0.125, -0.03], [0.046, 0.06, 0.2]),
+      ...box("toyBlue", [0, 0.05, 0.055], [0.034, 0.1, 0.042]),
+      ...along("toyGrey", { r0: 0.018, y: 0.13, z0: -0.13, z1: -0.215 }),
+      ...along("toyOrange", { r0: 0.023, y: 0.13, z0: -0.215, z1: -0.235, sides: 10 }),
+      ...box("toyBlue", [0, 0.162, -0.11], [0.012, 0.014, 0.03]),
+      ...box("toyGrey", [0, 0.085, 0.012], [0.012, 0.03, 0.05]),
+    ],
+  },
+  { name: "slide", under: "gun", shape: box("toyYellow", [0, 0.165, 0.02], [0.05, 0.022, 0.1]) },
+  { name: "clip", under: "gun", shape: [...box("toyBlue", [0, 0.062, -0.05], [0.03, 0.072, 0.04]), ...box("foam", [0, 0.1, -0.05], [0.02, 0.008, 0.03])] },
+];
+const BLASTER_CLIPS = [
+  {
+    name: "reload",
+    moves: [
+      { node: "clip", path: "translation", times: [0, 0.3, 0.75, 1.05, 1.4], values: [[0, 0, 0], [0, -0.1, 0.01], [0, -0.1, 0.01], [0, 0, 0], [0, 0, 0]] },
+      { node: "slide", path: "translation", times: [0, 1.05, 1.2, 1.32, 1.4], values: [[0, 0, 0], [0, 0, 0], [0, 0, 0.055], [0, 0, 0], [0, 0, 0]] },
+      { node: "gun", path: "rotation", times: [0, 0.25, 0.9, 1.25, 1.4], values: [tip(0), tip(-22), tip(-22), tip(4), tip(0)] },
+    ],
+  },
+  {
+    name: "fire",
+    moves: [
+      { node: "gun", path: "rotation", times: [0, 0.04, 0.16], values: [tip(0), tip(9), tip(0)] },
+      { node: "slide", path: "translation", times: [0, 0.04, 0.16], values: [[0, 0, 0], [0, 0, 0.03], [0, 0, 0]] },
+    ],
+  },
+];
+// A dart lies along z with its tip at +z: the kit turns that way round to where it is going.
+const DART = [...along("foam", { r0: 0.008, y: 0.012, z0: -0.04, z1: 0.03, sides: 8 }), ...along("rubber", { r0: 0.012, y: 0.012, z0: 0.03, z1: 0.045, sides: 8 })];
+const BLASTER_SCRIPT = `// Dart blaster: five darts, then a reload. There is no end of darts.
+var FULL = 5;
+var darts = FULL;
+var busy = false;
+function show() {
+  item.show(busy ? "Reloading" : darts + " / " + FULL);
+}
+function reload() {
+  if (busy || darts === FULL) return;
+  busy = true;
+  show();
+  item.play("reload");
+  item.clip("reload");
+  item.after(1400, function () {
+    darts = FULL;
+    busy = false;
+    show();
+  });
+}
+item.on("held", function () {
+  item.play("equip");
+  show();
+});
+item.on("away", function () {
+  item.play("unequip");
+});
+item.on("use", function () {
+  if (busy) return;
+  if (darts === 0) return reload();
+  darts -= 1;
+  item.send("dart", { speed: 14, stick: 3 });
+  item.play("fire");
+  item.clip("fire");
+  show();
+  if (darts === 0) reload();
+});
+item.on("second", reload);
+`;
+
 // ---------------------------------------------------------------- written out
 mkdirSync(join(out, "models"), { recursive: true });
 const described = [];
@@ -239,6 +408,41 @@ for (const item of ITEMS) {
   console.log(`${item.d}: ${item.shape.length} triangles, ${bytes.length} bytes, ${size.join(" × ")} m, ${sha256.slice(0, 12)}…`);
 }
 writeFileSync(join(out, "items.json"), `${JSON.stringify(described, null, 2)}\n`);
+
+// The drafts: described, and signed by nobody yet.
+const keep = (bytes, ext) => {
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  writeFileSync(join(out, "models", `${sha256}.${ext}`), bytes);
+  made.add(`${sha256}.${ext}`);
+  return { url: `${HOST}${sha256}.${ext}`, sha256 };
+};
+const boxOf = (shape) => {
+  const points = shape.flatMap((t) => t.points);
+  return [0, 1, 2].map((i) => Math.round((Math.max(...points.map((p) => p[i])) - Math.min(...points.map((p) => p[i]))) * 1000) / 1000);
+};
+const blasterShape = BLASTER_PARTS.flatMap((p) => p.shape);
+// Sounds the owner has picked are kept beside the models, each under the name the script and the dart use.
+const SOUND_NAMES = ["equip", "unequip", "reload", "fire", "impact", "fall", "hit", "tick"];
+const picked = Object.fromEntries(SOUND_NAMES.filter((name) => existsSync(join(out, "sounds", `${name}.ogg`))).map((name) => [name, keep(readFileSync(join(out, "sounds", `${name}.ogg`)), "ogg")]));
+const has = (name) => (picked[name] ? { [({ impact: "lands", fall: "drops", hit: "strikes", tick: "tells" })[name]]: name } : {});
+const drafts = [
+  {
+    d: "dart-blaster",
+    title: "Dart blaster",
+    summary: "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
+    model: keep(glbMoving(BLASTER_PARTS, BLASTER_CLIPS), "glb"),
+    size: boxOf(blasterShape),
+    behaviors: ["holdable"],
+    fits: ["hand-left", "hand-right"],
+    script: keep(new TextEncoder().encode(BLASTER_SCRIPT), "js"),
+    ...(Object.keys(picked).length ? { sounds: picked } : {}),
+    sends: [{ name: "dart", model: keep(glb(DART), "glb"), size: boxOf(DART), ...has("impact"), ...has("fall"), ...has("hit"), ...has("tick") }],
+    effects: [{ of: "dart", state: "health", take: 1 }],
+    does: { use: "Fire", second: "Reload" },
+  },
+];
+writeFileSync(join(out, "drafts.json"), `${JSON.stringify(drafts, null, 2)}\n`);
+for (const d of drafts) console.log(`draft ${d.d}: ${d.size.join(" × ")} m, model ${d.model.sha256.slice(0, 12)}…, script ${d.script.sha256.slice(0, 12)}…, sounds: ${Object.keys(d.sounds ?? {}).join(", ") || "none picked yet"}`);
 // A model no item names any more is still named by the bags that hold the older one: it is kept, and said.
 const older = readdirSync(join(out, "models")).filter((f) => !made.has(f));
 if (older.length) console.log(`kept, and named by no item now: ${older.join(", ")}`);

@@ -32,6 +32,8 @@ import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
+import { allowScript, createPlay, scriptAllowed, type Play, type PlayOptions } from "./play.js";
+import type { ItemBoxOptions } from "./item-box.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
 import { createMessages } from "./messages.js";
 import type { PersonLines } from "./person-lines.js";
@@ -59,6 +61,17 @@ export interface PresenceOptions {
   items?: Items | null;
   /** What this world does with items: "none", "allowed" or "play". Asked each time. Left out, none. */
   itemsRule?: () => string;
+  /**
+   * Whether an item's own logic runs in this world, in its locked box (item-box.ts), and where the box's page is
+   * served. Left out, items are shapes here and do nothing of their own.
+   */
+  itemScripts?: boolean | ItemBoxOptions;
+  /** The world's sounds: an item's own sounds are played through them, at the visitor's own volume. */
+  sounds?: PlayOptions["sounds"];
+  /** Whether a shape of this world is solid to things items send out. Left out, every mesh that can be seen is. */
+  solid?: PlayOptions["solid"];
+  /** Be told when something an item sent out sticks to a shape of this world: what that means is the world's rule. */
+  onStruck?: PlayOptions["onStruck"];
   /**
    * The visitor's own look, in its inline form (spec §4.2), for the others in a
    * room to draw them by: usually `arrival.look()`. A function is asked each
@@ -129,6 +142,18 @@ export interface Presence {
    * be granted.
    */
   setHolding(item: string): Promise<{ ok: boolean; said: string }>;
+  /**
+   * Items in play (play.ts): what the item in hand does on a press, the things sent out, and how this visitor is.
+   * Null in a world that draws no items.
+   */
+  readonly play: Play | null;
+  /** Which hand holds the item in a headset: the index of its controller, or -1 at a desk or with nothing held. */
+  readonly holdingHand: number;
+  /** Stop, or let again, what one person's items do from reaching this visitor. Nobody is told. For a place that only allows items. */
+  muteItems(pubkey: string, on: boolean): void;
+  isItemsMuted(pubkey: string): boolean;
+  /** What this world does with items: "none", "allowed" or "play". */
+  readonly itemsRule: string;
   /** How this visitor looks to the others: for a selfie, or a mirror. */
   selfLook(): Member["look"] | string;
   /** Show for a few seconds where one member is: a column of light over their head. */
@@ -381,6 +406,64 @@ export function createPresence(d: PresenceOptions): Presence {
   const canBeHeld = (item: Item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
   let mine = "";
   let mineModel: THREE.Object3D | null = null;
+  /** An item whose script this visitor was just asked about: a second press lets it run. */
+  let askedScript = "";
+  const itemMutes = new Set<string>();
+  /** In a headset the item is in a hand: the right, where there is one. */
+  const hand = (): number => {
+    if (!d.renderer.xr.isPresenting || !d.controllers.length) return -1;
+    const sources = [...(d.renderer.xr.getSession()?.inputSources ?? [])];
+    const right = sources.findIndex((s) => s.handedness === "right");
+    return right >= 0 && right < d.controllers.length ? right : 0;
+  };
+  let inHand = -2;
+  /** Put what they hold where they see it from: in a hand in a headset, low and to the right of a screen. */
+  const placeMine = () => {
+    const now = hand();
+    if (!mineModel) return;
+    if (now < 0) {
+      // Low and to the right of what they see, far enough off that it is a thing in the hand and not a thing in
+      // the way: and by the shape of the screen, so that it is in view on a tall narrow one too.
+      const tall = Math.tan(THREE.MathUtils.degToRad(d.camera.fov / 2)) * 0.8;
+      mineModel.position.set(Math.min(0.34, tall * d.camera.aspect * 0.62), -Math.min(0.5, tall * 0.9), -0.8);
+    }
+    if (now === inHand) return;
+    inHand = now;
+    if (now >= 0) {
+      mineModel.position.set(0, -0.06, 0.02);
+      d.controllers[now]!.add(mineModel);
+    } else d.camera.add(mineModel);
+  };
+  const play: Play | null = d.items
+    ? createPlay({
+        scene: d.scene,
+        camera: d.camera,
+        rig: d.rig,
+        items: d.items,
+        sounds: d.sounds ?? null,
+        rule: () => itemsRule(),
+        ...(d.itemScripts ? { scripts: d.itemScripts } : {}),
+        me: () => session?.self.pubkey ?? null,
+        people: () =>
+          [...avatars.values()]
+            .filter((a) => a.target && a.root.visible)
+            .map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new THREE.Vector3()), body: a.torso, over: a.head, holding: a.heldItem ?? "", held: a.held ?? null })),
+        itemsMuted: (pubkey) => itemMutes.has(pubkey),
+        tell: (said) => session?.tellPlay(said),
+        presenting: () => d.renderer.xr.isPresenting,
+        // In a headset a thing goes where the hand that holds the item points.
+        aim: () => {
+          const i = hand();
+          const c = i >= 0 ? d.controllers[i] : null;
+          if (!c) return null;
+          const from = c.getWorldPosition(new THREE.Vector3());
+          return { from, to: from.clone().add(new THREE.Vector3(0, 0, -18).applyQuaternion(c.getWorldQuaternion(new THREE.Quaternion()))) };
+        },
+        ...(d.solid ? { solid: d.solid } : {}),
+        ...(d.onStruck ? { onStruck: d.onStruck } : {}),
+        onChange: () => changed(),
+      })
+    : null;
   const showHeld = async (a: Avatar | undefined, item: string) => {
     if (!a) return;
     a.heldItem = item;
@@ -500,6 +583,8 @@ export function createPresence(d: PresenceOptions): Presence {
   const makeAvatar = (member: Member): Avatar => {
     const root = new THREE.Group();
     root.visible = false;
+    // A person is reached by what an item sends out as a simple shape (play.ts), never by their drawn figure.
+    root.userData.nswpNoHit = true;
     const label = textSprite(member.name, labelColor, 0.5);
     label.position.set(0, 0.42, 0); // clear of the tallest head with a hat on it
     d.scene.add(root);
@@ -632,6 +717,7 @@ export function createPresence(d: PresenceOptions): Presence {
     const a = avatars.get(pubkey);
     if (!a) return;
     avatars.delete(pubkey);
+    play?.left(pubkey);
     a.audio?.disconnect();
     stopTune(a);
     if (a.element) a.element.srcObject = null;
@@ -731,6 +817,7 @@ export function createPresence(d: PresenceOptions): Presence {
     });
     // What this visitor already holds is said to the room they have just joined.
     if (mine) s.setHolding(mine);
+    s.on("play", (m, said) => play?.heard(m.pubkey, said));
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
@@ -872,6 +959,8 @@ export function createPresence(d: PresenceOptions): Presence {
         mine = "";
         mineModel?.removeFromParent();
         mineModel = null;
+        inHand = -2;
+        void play?.held(null, null);
         session?.setHolding("");
       };
       if (!item) {
@@ -886,16 +975,40 @@ export function createPresence(d: PresenceOptions): Presence {
       if (!canBeHeld(described)) return { ok: false, said: `${described.title} isn't something to hold.` };
       // An item that must be granted needs its maker's grant checked, which nothing here does yet.
       if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+      // An item that does things of its own runs its maker's code, shut away. They are told so, and who wrote it,
+      // the first time: a second press lets it. A changed script is asked about again.
+      if (described.script && d.itemScripts && !scriptAllowed(described.script.sha256)) {
+        if (askedScript !== described.script.sha256) {
+          askedScript = described.script.sha256;
+          return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}…). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+        }
+        allowScript(described.script.sha256);
+      }
       const model = await d.items.model(described);
       put();
       mine = item;
       mineModel = model;
-      // In the hand a visitor sees it from: low and to the right of their view, far enough off that it is a thing
-      // in the hand and not a thing in the way.
-      model.position.set(0.34, -0.5, -0.8);
-      d.camera.add(model);
+      placeMine();
       session?.setHolding(item);
+      await play?.held(described, model);
       return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
+    },
+    get play() {
+      return play;
+    },
+    get holdingHand() {
+      return mine ? hand() : -1;
+    },
+    muteItems(pubkey, on) {
+      if (on) itemMutes.add(pubkey);
+      else itemMutes.delete(pubkey);
+      changed();
+    },
+    isItemsMuted(pubkey) {
+      return itemMutes.has(pubkey);
+    },
+    get itemsRule() {
+      return itemsRule();
     },
     selfLook() {
       if (session) return session.self.look;
@@ -1035,6 +1148,7 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     update(dt) {
       tendMusic(dt);
+      placeMine();
       const k = 1 - Math.exp(-dt * 14);
       d.camera.getWorldPosition(v);
       for (const a of avatars.values()) {
@@ -1069,6 +1183,7 @@ export function createPresence(d: PresenceOptions): Presence {
           } else mesh.visible = false;
         });
       }
+      play?.update(dt);
     },
     info() {
       const buf = new Float32Array(512);
@@ -1800,6 +1915,24 @@ export function addRoomControls(
                         ? `You hear ${who.name}'s music again when they share it and you are near.`
                         : `${who.name}'s music is no longer muted. To hear anyone's shared music, turn it on in Sound.`,
                   );
+                },
+              },
+            ]
+          : []),
+        // What their items do, in a place that only allows items: muted, they can't reach this visitor, and none of
+        // it is seen or heard. Where items are the game, nobody is out of their reach, and this isn't offered.
+        ...(presence.itemsRule === "allowed"
+          ? [
+              {
+                id: "person-mute-items",
+                section: "people",
+                icon: "close" as const,
+                on: () => presence.isItemsMuted(who.pubkey),
+                label: () => (presence.isItemsMuted(who.pubkey) ? `Unmute ${who.name}'s items` : `Mute ${who.name}'s items`),
+                act: () => {
+                  const now = !presence.isItemsMuted(who.pubkey);
+                  presence.muteItems(who.pubkey, now);
+                  controls.say(now ? `What ${who.name}'s items do can't reach you, and you won't see or hear it. They aren't told.` : `${who.name}'s items are no longer muted.`);
                 },
               },
             ]
@@ -2677,6 +2810,9 @@ export { addScoreControls, type Scoring, type ScoringOptions } from "./scoring.j
 export { createItems, fitToSize, ITEM_BUDGET, onItemsChange, setShowsItems, showsItems, withinBudget, type Items, type ItemsOptions } from "./items.js";
 export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } from "./bag.js";
 export { addBagControls, itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
+export { allowScript, createPlay, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson } from "./play.js";
+export { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
+export { addItemControls, type ItemControls, type ItemControlsOptions } from "./item-controls.js";
 export { createDoorRatings, type DoorRatings, type DoorRatingsOptions } from "./door-ratings.js";
 export { ordinal, someOf, worldPersonLines, type PersonLines } from "./person-lines.js";
 export { createAchievements, type AchievementHand, type Achievements, type AchievementsOptions } from "./achievements.js";

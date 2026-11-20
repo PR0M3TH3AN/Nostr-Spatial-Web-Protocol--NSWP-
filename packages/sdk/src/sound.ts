@@ -133,8 +133,31 @@ export interface Sounds {
   readonly hasHum: boolean;
   /** How loud everything going out is right now, from 0. For tests. */
   loudness(): number;
+  /**
+   * Make a sound that isn't one of the kit's ready to play: an item's own (protocol/17-items.md). Null if it
+   * isn't a sound, or runs longer than `FOREIGN_SOUND.seconds`. It is levelled as it is read, so that none can be
+   * louder than the kit's own cues.
+   */
+  decode(bytes: Uint8Array): Promise<ForeignSound | null>;
+  /**
+   * Play one, at the visitor's own volume for effects. With `from` it is heard from where it happened: quieter
+   * and duller the further off, to its side, and not at all beyond `FOREIGN_SOUND.gone` metres.
+   */
+  playForeign(sound: ForeignSound, from?: SoundPlace): void;
+  /** How many sounds that aren't the kit's have been played. For tests. */
+  readonly foreignPlayed: number;
   dispose(): void;
 }
+
+/** A sound that isn't one of the kit's own, ready to play. */
+export interface ForeignSound {
+  buffer: AudioBuffer;
+  /** What it is turned down by, so its loudest moment is no louder than a cue's. */
+  gain: number;
+}
+
+/** The longest such a sound may be, how loud its loudest moment may come out, and where it stops being heard. */
+export const FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 } as const;
 
 /** The least time between two of the same cue, in seconds: so held keys and busy frames don't make a buzz. */
 const GAP: Partial<Record<Cue, number>> = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
@@ -346,6 +369,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     } else level.connect(effects);
     return soft;
   };
+  let foreignPlayed = 0;
   const play = (cue: Cue, from?: SoundPlace) => {
     if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
     if (theme.cues[cue] === null) return; // the world wants this one silent
@@ -728,6 +752,36 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     },
     get hasHum() {
       return !!humAddress;
+    },
+    async decode(bytes) {
+      try {
+        const buffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+        if (!(buffer.duration > 0) || buffer.duration > FOREIGN_SOUND.seconds) return null;
+        let peak = 0;
+        for (let c = 0; c < buffer.numberOfChannels; c++) for (const x of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
+        return { buffer, gain: peak > 0 ? Math.min(1, FOREIGN_SOUND.peak / peak) : 1 };
+      } catch {
+        return null;
+      }
+    },
+    playForeign(sound, from) {
+      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+      // Beyond where the kit's own sounds have gone dull, these go on down to nothing: a dart landing a long way
+      // off isn't heard at all.
+      const far = from && Number.isFinite(from.distance) ? Math.max(0, from.distance) : 0;
+      const reach = far <= FOREIGN_SOUND.fades ? 1 : Math.max(0, 1 - (far - FOREIGN_SOUND.fades) / (FOREIGN_SOUND.gone - FOREIGN_SOUND.fades));
+      if (reach <= 0) return;
+      const src = ctx.createBufferSource();
+      src.buffer = sound.buffer;
+      const level = ctx.createGain();
+      level.gain.value = sound.gain * reach;
+      src.connect(level);
+      level.connect(from ? shaped(heardFrom(from)) : effects);
+      src.start();
+      foreignPlayed++;
+    },
+    get foreignPlayed() {
+      return foreignPlayed;
     },
     loudness() {
       meter.getFloatTimeDomainData(samples);

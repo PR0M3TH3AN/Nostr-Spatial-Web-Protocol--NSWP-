@@ -682,6 +682,20 @@ addBagControls(controls, {
   (`showsItems`).
 - A visitor's own client, which can change the bag, may pass `offered`: a
   few items to put in with one press. A world never does.
+- **Items that do something** (a blaster that sends out darts) need three
+  more things from your world:
+  - `itemScripts: true` and `sounds` on `createPresence`, to let an item's
+    own logic run and be heard;
+  - the locked box served as `item-box.html` beside your page: write out
+    `ITEM_BOX_HTML` from `@nswp/core`, serve it with exactly `ITEM_BOX_CSP`
+    as its Content-Security-Policy, and leave your world's own content
+    rules off that one page;
+  - `addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement })`
+    for the two presses, and a call to its `trigger(hand)` where you handle
+    a headset's trigger, after your own console.
+- Things an item sends out stick to any mesh of your scene. Nothing of
+  yours has to be an item. Give `solid` to say what isn't solid, and
+  `onStruck` to be told what was struck and decide what that means.
 - In a world that says nothing about items, the tab still shows the bag,
   says nothing carried works there, and offers nothing to hold.
 

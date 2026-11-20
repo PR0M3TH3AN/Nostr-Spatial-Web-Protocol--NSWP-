@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -127,9 +127,12 @@ for (const s of sites) {
     if (config.keepsItems === s.name) {
       mkdirSync(join(out, "items"), { recursive: true });
       for (const f of readdirSync(join(root, "sites", "items", "models"))) {
-        if (/^[0-9a-f]{64}\.glb$/.test(f)) cpSync(join(root, "sites", "items", "models", f), join(out, "items", f));
+        if (/^[0-9a-f]{64}\.(glb|js|ogg)$/.test(f)) cpSync(join(root, "sites", "items", "models", f), join(out, "items", f));
       }
     }
+    // The locked box an item's own logic runs in (protocol/17-items.md): a page of its own, served under rules
+    // that let it reach nothing, in a world that draws items. A world with none has no such page.
+    if (carries(s)) writeFileSync(join(out, "item-box.html"), ITEM_BOX_HTML);
     mkdirSync(join(out, ".well-known"), { recursive: true });
     writeFileSync(join(out, ".well-known", "nswp.json"), `${JSON.stringify(manifest(world), null, 2)}\n`);
   }
@@ -154,7 +157,9 @@ for (const s of sites) {
   ].join("; ");
   const headers = [
     {
-      source: "/(.*)",
+      // Every page but the locked box, which has rules of its own below: this world's rules would stop the one
+      // script the box is for, and the box's own are far tighter.
+      source: s.world && carries(s) ? "/((?!item-box\\.html$).*)" : "/(.*)",
       headers: [
         ...common,
         { key: "Content-Security-Policy", value: csp },
@@ -166,16 +171,22 @@ for (const s of sites) {
   // script it kept. Said outright, and not left to a host's habit. Not for what is named by its hash, or has a
   // rule of its own below.
   headers.push({ source: "/((?!previews/|items/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] });
-  // An item's model is fetched by every world that draws it, and is the same for ever: it is named by its hash.
+  // An item's files are fetched by every world that draws it, and are the same for ever: each is named by its hash.
+  // A script is only ever fetched as text, checked, and handed to the locked box: no page runs it from here.
   if (config.keepsItems === s.name) {
-    headers.push({
-      source: "/items/(.*)",
-      headers: [
-        { key: "Access-Control-Allow-Origin", value: "*" },
-        { key: "Content-Type", value: "model/gltf-binary" },
-        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-      ],
-    });
+    for (const [ext, type] of [["glb", "model/gltf-binary"], ["js", "text/plain; charset=utf-8"], ["ogg", "audio/ogg"]]) {
+      headers.push({
+        source: `/items/(.*)\\.${ext}`,
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Content-Type", value: type },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      });
+    }
+  }
+  if (s.world && carries(s)) {
+    headers.push({ source: "/item-box\\.html", headers: [...common, { key: "Content-Security-Policy", value: ITEM_BOX_CSP }, { key: "Cache-Control", value: "no-cache" }] });
   }
   if (s.world) {
     headers.push({

@@ -40,6 +40,7 @@ import {
   verifyRoomPass,
   type Look,
   type VerifiedPass,
+  createRate,
   itemCoordinate,
 } from "@nswp/core";
 
@@ -110,6 +111,8 @@ interface Events {
   recording: (member: Member, on: boolean) => void;
   /** A member took an item in hand, or put it away: its coordinate, or "". */
   holding: (member: Member, item: string) => void;
+  /** A member said something of an item in play (protocol/17-items.md): a thing sent out, a hit, a sound, their state. */
+  play: (member: Member, said: string) => void;
   audio: (member: Member, stream: MediaStream) => void;
   /** A member started or stopped offering their screen. */
   screen: (member: Member, on: boolean) => void;
@@ -161,6 +164,8 @@ interface Peer {
   refused: number;
   /** What they have written lately, counted: a repeat is taken once, and nobody floods the room. */
   words: ChatGate;
+  /** How much this member may say of items in play: a burst, and then so many a second. */
+  plays: { take(nowMs: number): boolean };
   /** When their pass stops, in seconds. */
   passUntil?: number;
   pose?: RTCDataChannel;
@@ -168,6 +173,10 @@ interface Peer {
   lastSeen: number;
   startedAt: number;
 }
+
+/** What may be said of an item in play, and how much of it one member may say. */
+const PLAY_WORD = /^(shot|hit|did|st):/;
+const PLAY_SAID = { burst: 24, perSecond: 16 } as const;
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
 const HELLO_EVERY_MS = 20_000;
@@ -221,6 +230,7 @@ export class RoomSession {
     identity: new Set(),
     recording: new Set(),
     holding: new Set(),
+    play: new Set(),
     screen: new Set(),
     video: new Set(),
     tune: new Set(),
@@ -460,6 +470,7 @@ export class RoomSession {
       pc,
       refused: 0,
       words: createChatGate(),
+      plays: createRate(PLAY_SAID.burst, PLAY_SAID.perSecond),
       open: false,
       lastSeen: Date.now(),
       startedAt: Date.now(),
@@ -533,6 +544,11 @@ export class RoomSession {
             else delete peer.member.holding;
             this.emit("holding", peer.member, item);
           }
+        }
+        else if (PLAY_WORD.test(e.data)) {
+          // Something of an item in play. Passed on as it was said: whoever draws the room reads it, and reads it
+          // strictly. No more than so many from one member, whatever their client does.
+          if (peer.plays.take(Date.now())) this.emit("play", peer.member, e.data);
         }
         else if (e.data.startsWith("say:")) {
           // A few words to the room. Each is sent several times; the first is taken, and no more than a few in a while.
@@ -917,6 +933,16 @@ export class RoomSession {
       if (--left > 0) setTimeout(say, 700);
     };
     say();
+  }
+
+  /**
+   * Say something of an item in play to everyone: a thing sent out, a hit, a sound, this visitor's state
+   * (`buildShot`, `buildHit`, `buildDid`, `buildState` in the core). Sent once: these are moments, and a late one
+   * is a wrong one. Anything that isn't one of those is not sent.
+   */
+  tellPlay(said: string): void {
+    if (this.closed || typeof said !== "string" || said.length > 200 || !PLAY_WORD.test(said)) return;
+    this.tellAll(said);
   }
 
   setRecording(on: boolean): void {

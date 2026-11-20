@@ -1,0 +1,52 @@
+[
+  {
+    "d": "dart-blaster",
+    "title": "Dart blaster",
+    "summary": "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9.glb",
+      "sha256": "cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9"
+    },
+    "size": [
+      0.05,
+      0.176,
+      0.311
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "hand-left",
+      "hand-right"
+    ],
+    "script": {
+      "url": "https://grove.bitblocks.network/items/d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba.js",
+      "sha256": "d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba"
+    },
+    "sends": [
+      {
+        "name": "dart",
+        "model": {
+          "url": "https://grove.bitblocks.network/items/73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4.glb",
+          "sha256": "73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4"
+        },
+        "size": [
+          0.024,
+          0.024,
+          0.085
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "of": "dart",
+        "state": "health",
+        "take": 1
+      }
+    ],
+    "does": {
+      "use": "Fire",
+      "second": "Reload"
+    }
+  }
+]
