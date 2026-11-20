@@ -19,6 +19,11 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "none";
   const ownCarried = (read.world ?? read).items ?? "none";
   if (carried !== ownCarried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its own world.json says "${ownCarried}". They must agree.`);
+  // And the page must do what the announcement says: a reference world's own code names the same rule.
+  if (config.worlds[name]) {
+    const inCode = /^\s*items: "([a-z]+)",?\s*$/m.exec(readFileSync(join(root, "sites", name, "src", "main.ts"), "utf8"))?.[1] ?? "none";
+    if (inCode !== carried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its src/main.ts says "${inCode}". They must agree.`);
+  }
 }
 /** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */
 const carries = (s) => {
@@ -118,6 +123,13 @@ for (const s of sites) {
     for (const f of readdirSync(join(root, "sites", "previews"))) {
       if (/^[0-9a-f]{64}\.webp$/.test(f)) cpSync(join(root, "sites", "previews", f), join(out, "previews", f));
     }
+    // The starter items' models (protocol/17-items.md), named by hash, kept by one world for every world to fetch.
+    if (config.keepsItems === s.name) {
+      mkdirSync(join(out, "items"), { recursive: true });
+      for (const f of readdirSync(join(root, "sites", "items", "models"))) {
+        if (/^[0-9a-f]{64}\.glb$/.test(f)) cpSync(join(root, "sites", "items", "models", f), join(out, "items", f));
+      }
+    }
     mkdirSync(join(out, ".well-known"), { recursive: true });
     writeFileSync(join(out, ".well-known", "nswp.json"), `${JSON.stringify(manifest(world), null, 2)}\n`);
   }
@@ -153,7 +165,18 @@ for (const s of sites) {
   // Always the latest (protocol/09-what-a-world-owes.md): a browser asks before it uses a copy of the page or a
   // script it kept. Said outright, and not left to a host's habit. Not for what is named by its hash, or has a
   // rule of its own below.
-  headers.push({ source: "/((?!previews/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] });
+  headers.push({ source: "/((?!previews/|items/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] });
+  // An item's model is fetched by every world that draws it, and is the same for ever: it is named by its hash.
+  if (config.keepsItems === s.name) {
+    headers.push({
+      source: "/items/(.*)",
+      headers: [
+        { key: "Access-Control-Allow-Origin", value: "*" },
+        { key: "Content-Type", value: "model/gltf-binary" },
+        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+      ],
+    });
+  }
   if (s.world) {
     headers.push({
       source: "/previews/(.*)",

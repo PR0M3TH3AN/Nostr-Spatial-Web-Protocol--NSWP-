@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in part. Implemented in the reference library and kit: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item in a hand, and the visitor's switch for all items. No reference world has turned items on. The rest is the agreed design, not yet built: an item's own logic, people as part of a world's game, muting one person's items, granted items, and a world giving an item · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in part. Implemented in the reference library and kit: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item in a hand, and the visitor's switch for all items. The Grove draws what its visitors hold, and keeps five starter items ([`sites/items`](../sites/items)). The rest is the agreed design, not yet built: an item's own logic, people as part of a world's game, muting one person's items, granted items, and a world giving an item · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -94,6 +94,16 @@ What a thing is, is said once by its maker, in an addressable note
 **One site can hold any number of items.** An item is a note and some
 files, and the files can be anywhere that serves them over `https`. A
 maker keeps as many as they like in one place.
+
+**A file is served so that any world can fetch it:** with
+`Access-Control-Allow-Origin: *`, since each viewer fetches it from the
+world they are in. It is named by its hash and never changes, so it can be
+kept for ever by whoever fetched it.
+
+**Signing one.** `nswp sign-item item.json --key-file <key>` signs a
+description from a file of what `buildItem` takes (`d`, `title`, `model`
+with its address and hash, `size`, and the rest), or each of a list of
+them with `--out-dir`. `nswp publish` sends it.
 
 **The maker is always on show.** A description is signed, so anything that
 draws an item can say who made it.
@@ -200,6 +210,8 @@ naming each item by its coordinate:
 - **It is changed at the visitor's own client.** A world can look through
   its visitor's bag, which is public, and can't change it. A world giving
   an item is a later thing.
+- **A client may offer a few items to start with,** to put in with one
+  press. They are items like any other: someone else's, taken up.
 - 200 items at most are read from one.
 
 Carrying an item into a world is tied to who they are there. A guest

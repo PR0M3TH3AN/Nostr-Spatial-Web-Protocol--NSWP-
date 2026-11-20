@@ -30,6 +30,11 @@ export interface BaggingOptions {
   allowed?: () => boolean;
   keyboard?: () => Keyboard | null;
   presenting?: () => boolean;
+  /**
+   * A few items offered here, by coordinate, for someone to put in their bag with one press: a client's starter
+   * items. Shown only where the bag can be changed, and only the ones not already in it. Twelve at most.
+   */
+  offered?: () => string[];
   /** Read what the visitor copied. For tests; left out, the browser's own. */
   copied?: () => Promise<string>;
 }
@@ -108,6 +113,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     }
     const has = me ? bag.items() : null;
     const rule = opts.rule();
+    /** What is offered here that they don't have, where they could take it. */
+    const offers = (): string[] => (has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : []);
     const add = (...actions: UiAction[]) => {
       for (const a of actions) shown.push(a.id);
       controls.add(...actions.map((a) => ({ section: "bag", ...a })));
@@ -120,13 +127,13 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
         const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
         if (!me) return "Sign in to keep a bag.";
         if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
-        if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
+        if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? (offers().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item.") : "Things are put in it at your home."} ${here}`;
         return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
       },
       card: () => {
         const item = chosen ? items.known(chosen) : null;
         if (!item) return null;
-        return { title: item.title, tag: opts.holding() === item.id ? "In your hand" : "In your bag", proven: false, sub: `Made by ${item.maker.slice(0, 8)}…`, copy: item.id, text: item.summary, picture: "", color: "", now: [] };
+        return { title: item.title, tag: opts.holding() === item.id ? "In your hand" : has?.includes(item.id) ? "In your bag" : "Offered here", proven: false, sub: `Made by ${item.maker.slice(0, 8)}…`, copy: item.id, text: item.summary, picture: "", color: "", now: [] };
       },
     });
     // A guest carries nothing: the tab has nothing in it, and isn't shown.
@@ -180,6 +187,9 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
         });
       }
       if (bag.canChange()) add({ id: "bag-remove", icon: "close", label: `Take ${titleOf(item)} out of my bag`, act: () => change(item, false) });
+    } else if (chosen && offers().includes(chosen)) {
+      const item = chosen;
+      add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change(item, true) });
     }
     const listed = has.slice(0, pages * PAGE);
     // What each is called is asked for a page at a time, for the things on show.
@@ -191,6 +201,23 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           icon: "save",
           on: () => chosen === item,
           label: () => `${titleOf(item)}${opts.holding() === item ? ", in your hand" : ""}`,
+          act: () => {
+            chosen = chosen === item ? null : item;
+            refresh();
+          },
+        }),
+      ),
+    );
+    // What is offered here, after what they have.
+    const offered = offers();
+    for (const item of offered) if (!items.known(item)) void items.describe(item).then((found) => found && soon());
+    add(
+      ...offered.map(
+        (item): UiAction => ({
+          id: `bag-offer-${item.split(":")[1]!.slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
+          icon: "save",
+          on: () => chosen === item,
+          label: () => `${titleOf(item)}, offered here`,
           act: () => {
             chosen = chosen === item ? null : item;
             refresh();

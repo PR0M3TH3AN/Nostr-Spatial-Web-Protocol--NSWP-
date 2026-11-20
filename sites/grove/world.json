@@ -37,6 +37,7 @@
   "status": "beta",
   "audience": "general",
   "category": "social",
+  "items": "allowed",
   "entryPoints": [
     "main-entrance",
     "clearing"

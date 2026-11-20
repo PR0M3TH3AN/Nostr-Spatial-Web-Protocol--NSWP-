@@ -680,6 +680,8 @@ addBagControls(controls, {
   `connect-src` with `https:`. A world with no items shouldn't have that.
 - The visitor's own switch, "Items: off", holds in every world
   (`showsItems`).
+- A visitor's own client, which can change the bag, may pass `offered`: a
+  few items to put in with one press. A world never does.
 - In a world that says nothing about items, the tab still shows the bag,
   says nothing carried works there, and offers nothing to hold.
 

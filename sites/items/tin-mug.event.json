@@ -1,0 +1,52 @@
+{
+  "kind": 37303,
+  "created_at": 1795195780,
+  "tags": [
+    [
+      "d",
+      "tin-mug"
+    ],
+    [
+      "title",
+      "Tin mug"
+    ],
+    [
+      "summary",
+      "An enamel mug of tea that never goes cold."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/5699936c356c395bf87e7a02c251b046d619e7c7714e7e987293eadf9b791de4.glb",
+      "glb",
+      "5699936c356c395bf87e7a02c251b046d619e7c7714e7e987293eadf9b791de4"
+    ],
+    [
+      "size",
+      "0.118 0.097 0.086"
+    ],
+    [
+      "collider",
+      "box",
+      "0.016 0.049 0",
+      "0.118 0.097 0.086"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "place",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "alt",
+      "Item: Tin mug"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "027800d73c60a48ace3c0e7aebf9de2ea59417433a664ec5aff8be2518c9e029",
+  "sig": "b8be5f5778bc35c6c787b1f3a003834986f0a555f5c2a9313490c57b11a50c546ec77efdd5bb9a58f01783d8911da322957d118e7255ac4b0a6e471636e9470d"
+}

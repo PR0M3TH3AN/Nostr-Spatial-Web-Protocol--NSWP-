@@ -1,0 +1,52 @@
+{
+  "kind": 37303,
+  "created_at": 1795195780,
+  "tags": [
+    [
+      "d",
+      "lantern-seedling"
+    ],
+    [
+      "title",
+      "Lantern-tree seedling"
+    ],
+    [
+      "summary",
+      "A seedling of the Grove's lantern trees, in a clay pot. Its tip already glows."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/97d7467a820bdf45400755dc33e43abbe0fb0e01aa5437b8e54734e90860ac9e.glb",
+      "glb",
+      "97d7467a820bdf45400755dc33e43abbe0fb0e01aa5437b8e54734e90860ac9e"
+    ],
+    [
+      "size",
+      "0.22 0.42 0.191"
+    ],
+    [
+      "collider",
+      "box",
+      "0 0.21 0",
+      "0.22 0.42 0.191"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "place",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "alt",
+      "Item: Lantern-tree seedling"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "3c528a613a2cf8d92d8fb5bea35211cf94ba7bf8f6b46bb1d110a127e44b917c",
+  "sig": "bfb9afd29b711f66f6c91279044bbde9010d929ce4b3caad6ba9f5a23844901a7adaccbc75f0c69681936145f48dbaa39238eb0618f774f62b8aed498c3da137"
+}

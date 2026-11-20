@@ -154,10 +154,35 @@ describe("the Bag tab", () => {
     expect(none.actions.has("bag-hold")).toBe(false);
   });
 
+  it("offers a few things to take, at a place that can change the bag, and takes one on a press", async () => {
+    const { bag, h } = set({ had: bagEvent([LANTERN]) });
+    const m = menu();
+    const items = { known: () => null, describe: async () => null } as unknown as Parameters<typeof addBagControls>[1]["items"];
+    const bagging = addBagControls(m.controls, { bag, items, me: () => me, rule: () => "none", holding: () => "", hold: async () => ({ ok: false, said: "" }), offered: () => [LANTERN, BOOK, "not an item"] });
+    await bag.load();
+    bagging.refresh();
+    // The lantern is already theirs: only the book is offered.
+    expect(m.actions.has(`bag-offer-${maker.slice(0, 8)}-old-book`)).toBe(true);
+    expect(m.actions.has(`bag-offer-${maker.slice(0, 8)}-brass-lantern`)).toBe(false);
+    m.press(`bag-offer-${maker.slice(0, 8)}-old-book`);
+    expect(m.actions.has("bag-take")).toBe(true);
+    m.press("bag-take");
+    await new Promise((done) => setTimeout(done, 20));
+    expect(h.signed).toBe(1);
+    expect(bag.items()).toEqual([LANTERN, BOOK]);
+  });
+
   it("changes nothing from a world: a bag is changed at its owner's home", async () => {
     const t = await tab("allowed");
     expect(t.actions.has("bag-add")).toBe(false);
     expect(t.actions.has("bag-remove")).toBe(false);
+    // And nothing is offered where nothing could be taken.
+    const { bag } = set({ had: bagEvent([LANTERN]), readOnly: true });
+    const m = menu();
+    const items = { known: () => null, describe: async () => null } as unknown as Parameters<typeof addBagControls>[1]["items"];
+    addBagControls(m.controls, { bag, items, me: () => me, rule: () => "allowed", holding: () => "", hold: async () => ({ ok: true, said: "" }), offered: () => [BOOK] });
+    await bag.load();
+    expect([...m.actions.keys()].some((id) => id.startsWith("bag-offer-"))).toBe(false);
   });
 });
 
