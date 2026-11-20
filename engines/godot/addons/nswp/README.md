@@ -34,17 +34,32 @@ in Godot: a test can say the sounds are loaded, not how they sound.
 1. Copy `addons/nswp/` into your project and enable **NSWP** in Project
    Settings, Plugins. That adds the `Nswp` autoload and a setting,
    `nswp/airlock`: the Airlock to use for a visitor who arrived without one.
-2. In your Web export preset, set **HTML, Head Include** to:
+2. In your Web export preset, set **HTML, Custom HTML Shell** to
+   `res://addons/nswp/web/shell.html`, and **HTML, Head Include** to your
+   world's name and colour:
 
    ```html
-   <script src="nswp-engine.js"></script>
+   <meta name="nswp:title" content="My world">
+   <meta name="nswp:accent" content="#4cc9f0">
    ```
 
-3. After each export, copy everything in `addons/nswp/web/` beside the
-   exported `index.html`: the script (`nswp-engine.js`) and the kit's sounds
+   The shell is the page your world is exported with. It has no loading
+   screen of Godot's: from its first moment it shows the crossing's room,
+   the one a visitor left the last world from, wearing that name and colour.
+   The line of light over its doors fills as the engine arrives, and the
+   doors open when your world asks for its menu (`Nswp.menu`). It also runs
+   nothing written into the page itself, so it can be served under a content
+   policy with no inline script. (Godot's engine still needs
+   `'wasm-unsafe-eval'` there.)
+3. In Project Settings, Application, Boot Splash: turn **Show Image** off
+   and set **BG Color** to something dark. Nobody sees it, since the room is
+   in front of it, but it is what the canvas holds for a moment.
+4. After each export, copy everything in `addons/nswp/web/` but `shell.html`
+   beside the exported `index.html`: the kit's script (`nswp-engine.js`),
+   the script that starts the engine (`nswp-godot.js`) and the kit's sounds
    (`sounds/`). An export can't do this for you: files it adds go inside the
    game's package, and the page has to load these itself.
-4. Serve the export over https, with the file that says who may announce it
+5. Serve the export over https, with the file that says who may announce it
    (`/.well-known/nswp.json`) and an announcement, as for any world. See
    [`docs/add-your-site.md`](../../../../docs/add-your-site.md). Neither has
    anything to do with Godot.
@@ -198,5 +213,10 @@ applies whatever the engine. The ones a Godot world is most likely to miss:
   multiplayer of its own.
 - **Moving in a headset**, and the menu there. The page's menu can't be seen
   in a session.
-- **The crossing's room**, which the reference worlds stand a visitor in as
-  they arrive and leave, and the view through a door of where it leads.
+- **The view through a door** of where it leads: a doorway here shows its
+  field of light.
+- **A room of its own shape to cross in.** The crossing's room is there, at
+  both ends of every trip, but it is the page's picture of it, seen from its
+  middle facing the doors. A Three.js world's can be looked round in.
+- **Posting from a world** ("My public feed"). Signing in is here; the feed
+  is not yet.

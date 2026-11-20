@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.34.0
+
+A world made in another engine is crossed into the way a Three.js world is.
+
+- **The crossing's room, for any engine.** A Godot world showed Godot's own loading screen for as long as its forty megabytes took, and then the world, with no room at either end of the trip. The kit's script for engines now draws the room itself, as the page: the view from inside it, facing its doors. It is up from the page's first moment, before the engine has loaded, wearing the world's name and colour (`<meta name="nswp:title">`, `<meta name="nswp:accent">`). The line of light over its doors fills as the engine arrives (`NSWP.loading`), the doors open when the world asks for its menu (or `NSWP.ready()`), and leaving by a door it comes up and shuts before the page is left. `NSWP.crossing()` and a `crossing` event say where it is.
+- **A page for Godot with no Godot loading screen:** `addons/nswp/web/shell.html`, set as the export's Custom HTML Shell, and `nswp-godot.js`, which starts the engine from it. Nothing is run from the page itself.
+- **The same sign-in in an engine's menu:** the row that opens the visitor's sign-in address's window, the card at the head of You, and "Signed in as". The engine is told who they are (`NSWP.who()`, a `who` event; `Nswp.who()` and `who_changed` in Godot). `arrival()` names someone only while they are signed in here.
+- **The Godot visitor walks a pressed-out path** and faces the way it walks, as a Three.js world's does (0.32.0). `NSWP.kit()` has `pathMost` and `faceRate`.
+- The script's `VERSION` is 8. `Nswp.go()` in Godot takes the door's name, for the room's sign; `NswpPortal` passes its own.
+
 ## 0.33.0
 
 - **A tab of the menu can be kept on the bar.** Each tab has "Keep this tab on your bar" beside Close. A pinned tab stands on the bar after the place's own keys, with the tab's own picture and name and the next number key; pressing it brings the menu up on that tab, and pressing it again puts the menu away. Four may be pinned. Nothing is pinned until the visitor pins it, and a world never pins for them.

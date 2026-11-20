@@ -30,24 +30,29 @@ var NSWP = (() => {
     changeLook: () => changeLook,
     check: () => check,
     claim: () => claim,
+    crossing: () => crossing,
     door: () => door,
     doors: () => doors2,
     events: () => events,
+    failed: () => failed,
     go: () => go,
     headset: () => headset,
     home: () => home,
     kit: () => kit,
+    loading: () => loading2,
     menu: () => menu,
     moved: () => moved,
     open: () => open,
     play: () => play,
     presence: () => presence,
+    ready: () => ready,
     run: () => run,
     say: () => say,
     signIn: () => signIn,
     start: () => start,
     target: () => target,
-    view: () => view
+    view: () => view,
+    who: () => who
   });
 
   // packages/core/dist/constants.js
@@ -58,7 +63,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.33.0";
+  var KIT_VERSION = "0.34.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -2075,12 +2080,12 @@ var NSWP = (() => {
     endo: secp256k1_ENDO
   });
   var TAGGED_HASH_PREFIXES = /* @__PURE__ */ Object.create(null);
-  function taggedHash(tag, ...messages) {
-    let tagP = TAGGED_HASH_PREFIXES[tag];
+  function taggedHash(tag2, ...messages) {
+    let tagP = TAGGED_HASH_PREFIXES[tag2];
     if (tagP === void 0) {
-      const tagH = sha256(asciiToBytes(tag));
+      const tagH = sha256(asciiToBytes(tag2));
       tagP = concatBytes2(tagH, tagH);
-      TAGGED_HASH_PREFIXES[tag] = tagP;
+      TAGGED_HASH_PREFIXES[tag2] = tagP;
     }
     return sha256(concatBytes2(tagP, ...messages));
   }
@@ -4446,6 +4451,254 @@ var NSWP = (() => {
     return mapFromLocal(url, await mapSoon());
   }
 
+  // packages/sdk/src/ui/theme.ts
+  var DEFAULT_THEME = { accent: "#ffb65c", ink: "#eef5fb", glass: "#0a1018", warn: "#ff7566", motion: true, scale: 1, wrist: "left" };
+  var UI_PRESETS = [
+    { id: "lantern", label: "Lantern", accent: "#ffb65c" },
+    { id: "ion", label: "Ion", accent: "#62d9ff" },
+    { id: "verdant", label: "Verdant", accent: "#4fd08b" },
+    { id: "rose", label: "Rose", accent: "#ff8fb1" },
+    { id: "paper", label: "Paper", accent: "#f2f3f6" }
+  ];
+  var KEY = "nswp:ui";
+  var HEX = /^#[0-9a-f]{6}$/i;
+  function cleanTheme(input) {
+    const out = {};
+    if (!input || typeof input !== "object") return out;
+    const t = input;
+    for (const k of ["accent", "ink", "glass", "warn"]) if (typeof t[k] === "string" && HEX.test(t[k])) out[k] = t[k].toLowerCase();
+    if (typeof t.motion === "boolean") out.motion = t.motion;
+    if (typeof t.scale === "number" && Number.isFinite(t.scale)) out.scale = Math.min(1.5, Math.max(0.85, t.scale));
+    if (t.wrist === "left" || t.wrist === "right" || t.wrist === "off") out.wrist = t.wrist;
+    return out;
+  }
+  function loadVisitorTheme() {
+    try {
+      return cleanTheme(JSON.parse(globalThis.localStorage?.getItem(KEY) ?? "{}"));
+    } catch {
+      return {};
+    }
+  }
+  function saveVisitorTheme(theme) {
+    try {
+      globalThis.localStorage?.setItem(KEY, JSON.stringify(cleanTheme(theme)));
+    } catch {
+    }
+  }
+  function prefersStill() {
+    try {
+      return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    } catch {
+      return false;
+    }
+  }
+  function resolveTheme(world = {}, visitor = loadVisitorTheme()) {
+    return { ...DEFAULT_THEME, ...prefersStill() ? { motion: false } : {}, ...cleanTheme(world), ...cleanTheme(visitor) };
+  }
+  function rgb(hex) {
+    const n = Number.parseInt(hex.slice(1), 16);
+    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
+  }
+
+  // packages/sdk/src/engine-crossing.ts
+  var CSS = `
+:host { position: fixed; inset: 0; z-index: 2147482990; display: block; overflow: hidden; pointer-events: auto;
+  --accent: 76, 201, 240; --ink: 238, 245, 251; --wall: 12, 17, 24; --dark: 6, 9, 14;
+  /* The doorway: as wide as it can be and still stand whole in a tall or a wide window. */
+  --door: min(27vw, 46vh, 420px); --jamb: calc(var(--door) * .075);
+  font: 500 16px / 1.3 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: rgb(var(--ink));
+  /* Where the leaves start, from the top: under the sign and the line of light. */
+  --head: calc(clamp(22px, 6.2vh, 56px) + var(--door) * .57);
+  opacity: 1; transition: opacity .45s ease; -webkit-font-smoothing: antialiased; }
+:host(.gone) { opacity: 0; pointer-events: none; }
+:host(.coming) { opacity: 0; }
+* { box-sizing: border-box; }
+@media (max-aspect-ratio: 3/4) { :host { --door: min(58vw, 40vh); } }
+
+/* The room, seen from its middle: a wall each side falling away, a lid overhead, and the doors ahead. */
+/* Everything is solid but the doorway itself, which only the leaves fill: what is behind them is the world. */
+.room { position: absolute; inset: 0; background:
+  linear-gradient(180deg, rgba(var(--accent), .05), transparent 18%, transparent 40%, rgba(var(--accent), .13) 50%, transparent 60%, rgba(var(--dark), .5)),
+  rgb(var(--wall));
+  clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+    calc(50% - var(--door) * .5) var(--head), calc(50% - var(--door) * .5) 100%, calc(50% + var(--door) * .5) 100%, calc(50% + var(--door) * .5) var(--head), calc(50% - var(--door) * .5) var(--head)); }
+.lid { position: absolute; left: 0; right: 0; top: 0; height: 9vh;
+  background: linear-gradient(180deg, rgba(var(--accent), .12), rgba(var(--accent), .02));
+  clip-path: polygon(22% 0, 78% 0, calc(50% + var(--door) * .5 + var(--jamb) * 3) 100%, calc(50% - var(--door) * .5 - var(--jamb) * 3) 100%); }
+.wall { position: absolute; top: 0; bottom: 0; width: calc(50% - var(--door) * .5 - var(--jamb)); overflow: hidden;
+  background: linear-gradient(90deg, rgba(var(--dark), .6), rgba(var(--wall), 1) 55%, rgba(var(--dark), .35)), rgb(var(--wall)); }
+.wall.left { left: 0; clip-path: polygon(0 0, 100% 7vh, 100% 100%, 0 100%); }
+.wall.right { right: 0; transform: scaleX(-1); clip-path: polygon(0 0, 100% 7vh, 100% 100%, 0 100%); }
+/* Two lines of light that run a panel's height: a broad one near, a narrow one far. */
+.wall i { position: absolute; top: 9vh; bottom: -2vh; border-radius: 2px; background: rgb(var(--accent)); box-shadow: 0 0 18px rgba(var(--accent), .55); }
+.wall i:nth-child(1) { left: 7%; width: max(10px, 4.2%); opacity: .92; transform: skewY(8deg); transform-origin: left top; }
+.wall i:nth-child(2) { left: 84%; width: max(5px, 2.3%); top: 11vh; opacity: .8; }
+.wall b { position: absolute; left: 22%; right: 0; top: 7vh; height: 1px; background: rgba(var(--accent), .35); transform: skewY(3deg); transform-origin: left top; }
+
+/* The doorway: two jambs, a head with the sign on it, a line of light, and two leaves. */
+.way { position: absolute; left: 50%; top: 0; bottom: 0; width: calc(var(--door) + var(--jamb) * 2); translate: -50% 0;
+  border-left: 1px solid rgba(var(--accent), .28); border-right: 1px solid rgba(var(--accent), .28); }
+/* The frame round the doorway: all of it but the opening. */
+.way::before { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(var(--ink), .06), rgba(var(--ink), .02) 8%, transparent 14%, transparent 86%, rgba(var(--ink), .02) 92%, rgba(var(--ink), .06)), rgb(var(--wall));
+  clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+    var(--jamb) var(--head), var(--jamb) 100%, calc(100% - var(--jamb)) 100%, calc(100% - var(--jamb)) var(--head), var(--jamb) var(--head)); }
+.sign { position: absolute; left: var(--jamb); right: var(--jamb); top: clamp(22px, 6.2vh, 56px); height: calc(var(--door) * .37); display: grid; align-content: center; justify-items: center; gap: .32em;
+  padding: 0 4%; text-align: center; background: rgba(var(--dark), .92); font-size: calc(var(--door) * .052); }
+.sign b { font-size: 1.62em; font-weight: 750; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sign span { opacity: .82; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sign em { font-style: normal; opacity: .9; }
+:host(.failed) .sign em { color: rgb(255, 150, 130); opacity: 1; white-space: normal; }
+/* The line over the doors. It fills as the world arrives: all the telling of progress there is. */
+.line { position: absolute; left: calc(var(--jamb) * .7); right: calc(var(--jamb) * .7); top: calc(clamp(22px, 6.2vh, 56px) + var(--door) * .37 + var(--door) * .1); height: max(4px, calc(var(--door) * .02)); border-radius: 2px;
+  background: rgba(var(--accent), .22); overflow: hidden; }
+.line i { display: block; height: 100%; width: var(--got, 100%); background: rgb(var(--accent)); box-shadow: 0 0 14px rgba(var(--accent), .8); transition: width .35s ease; }
+:host(.waiting) .line i { width: 34%; animation: sweep 1.5s ease-in-out infinite alternate; }
+@keyframes sweep { from { translate: -10% 0; } to { translate: 205% 0; } }
+.leaves { position: absolute; left: var(--jamb); right: var(--jamb); top: var(--head); bottom: 0; overflow: hidden; }
+.leaf { position: absolute; top: 0; bottom: 0; width: 50%; background: linear-gradient(180deg, rgba(var(--wall), 1), rgba(var(--dark), 1)); transition: translate .9s cubic-bezier(.6, 0, .2, 1); }
+.leaf.l { left: 0; border-right: max(2px, calc(var(--door) * .012)) solid rgb(var(--accent)); box-shadow: 4px 0 14px rgba(var(--accent), .35); }
+.leaf.r { right: 0; border-left: max(2px, calc(var(--door) * .012)) solid rgb(var(--accent)); box-shadow: -4px 0 14px rgba(var(--accent), .35); }
+.leaf::after { content: ""; position: absolute; inset: 9% 13% -4% 13%; border: 1px solid rgba(var(--accent), .42); }
+:host(.open) .leaf.l { translate: -101% 0; }
+:host(.open) .leaf.r { translate: 101% 0; }
+/* Open, the world is seen through the doorway, and then the room goes from round it (the host fades). */
+/* For someone who has asked for less motion: nothing slides. It is there, and then it isn't. */
+:host(.still) .leaf { transition: none; }
+:host(.still) .line i { animation: none; transition: none; }
+`;
+  var rgbOf = (hex) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
+  };
+  function createEngineCrossing(o) {
+    const host = document.createElement("nswp-crossing");
+    host.setAttribute("role", "status");
+    host.setAttribute("aria-live", "polite");
+    const root = host.attachShadow({ mode: "open" });
+    const el2 = (tag2, cls, ...children) => {
+      const node = document.createElement(tag2);
+      if (cls) node.className = cls;
+      node.append(...children);
+      return node;
+    };
+    const style = document.createElement("style");
+    style.textContent = CSS;
+    const name = el2("b", "");
+    const address = el2("span", "");
+    const status = el2("em", "");
+    const got = el2("i", "");
+    const wall = (side) => el2("div", `wall ${side}`, el2("i", ""), el2("i", ""), el2("b", ""));
+    root.append(
+      style,
+      el2("div", "room"),
+      el2("div", "lid"),
+      wall("left"),
+      wall("right"),
+      el2("div", "way", el2("div", "sign", name, address, status), el2("div", "line", got), el2("div", "leaves", el2("div", "leaf l"), el2("div", "leaf r")))
+    );
+    const watchers3 = /* @__PURE__ */ new Set();
+    let state = "arriving";
+    let title = o.title;
+    const set = (next) => {
+      if (next === state) return;
+      state = next;
+      host.dataset.state = next;
+      for (const fn of watchers3) fn(next);
+    };
+    const colour = (hex) => {
+      const rgb2 = hex ? rgbOf(hex) : null;
+      if (rgb2) host.style.setProperty("--accent", rgb2);
+    };
+    const say2 = (first, second, third) => {
+      name.textContent = first;
+      address.textContent = second;
+      status.textContent = third;
+    };
+    colour(o.accent ?? DEFAULT_THEME.accent);
+    host.classList.toggle("still", o.still === true);
+    host.classList.add("waiting");
+    host.dataset.state = state;
+    say2(title, o.address, "The doors open when it's ready");
+    (document.body ?? document.documentElement).append(host);
+    if (!document.body) addEventListener("DOMContentLoaded", () => document.body?.append(host), { once: true });
+    let gone;
+    return {
+      get state() {
+        return state;
+      },
+      loading(fraction) {
+        if (state !== "arriving") return;
+        const known = Number.isFinite(fraction) && fraction >= 0;
+        host.classList.toggle("waiting", !known);
+        if (known) got.style.setProperty("--got", `${Math.round(Math.min(1, fraction) * 100)}%`);
+      },
+      ready() {
+        if (state !== "arriving") return;
+        host.classList.remove("waiting");
+        got.style.setProperty("--got", "100%");
+        host.classList.add("open");
+        set("opening");
+        host.style.pointerEvents = "none";
+        clearTimeout(gone);
+        gone = setTimeout(
+          () => {
+            host.classList.add("gone");
+            gone = setTimeout(
+              () => {
+                host.hidden = true;
+                set("none");
+              },
+              o.still ? 0 : 480
+            );
+          },
+          o.still ? 60 : 720
+        );
+      },
+      failed(words2) {
+        if (state !== "arriving") return;
+        host.classList.remove("waiting");
+        host.classList.add("failed");
+        say2(title, o.address, words2.slice(0, 240));
+        set("failed");
+      },
+      leave(to) {
+        clearTimeout(gone);
+        say2(`To ${to.title}`, to.address, "Your Airlock checks the address next");
+        got.style.setProperty("--got", "100%");
+        host.classList.remove("waiting", "failed", "gone");
+        host.hidden = false;
+        host.style.pointerEvents = "auto";
+        host.classList.add("coming", "open");
+        set("leaving");
+        return new Promise((done) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            host.classList.remove("coming", "open");
+            setTimeout(
+              () => {
+                set("shut");
+                done();
+              },
+              o.still ? 80 : 950
+            );
+          }));
+        });
+      },
+      dress(look) {
+        colour(look.accent);
+        if (look.title && state === "arriving") {
+          title = look.title;
+          name.textContent = title;
+        }
+      },
+      onChange(fn) {
+        watchers3.add(fn);
+      }
+    };
+  }
+
   // packages/sdk/src/form.ts
   var matches = (query) => {
     try {
@@ -4518,6 +4771,141 @@ var NSWP = (() => {
     }
     return cleanSettings(out);
   }
+
+  // packages/sdk/src/desk.ts
+  var DESK_PREFS_KEY = "nswp:desk";
+  var LOOK_STEPS = [
+    { value: 0.5, word: "slow" },
+    { value: 0.75, word: "gentle" },
+    { value: 1, word: "normal" },
+    { value: 1.5, word: "quick" },
+    { value: 2, word: "fast" },
+    { value: 3, word: "fastest" }
+  ];
+  var FOV_STEPS = [null, 60, 70, 80, 90, 100, 110];
+  var clampLook = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v)) * 100) / 100 : 1;
+  var clampFov = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v))) : null;
+  var prefs = null;
+  var watchers = /* @__PURE__ */ new Set();
+  var keep = (p) => {
+    try {
+      localStorage.setItem(DESK_PREFS_KEY, JSON.stringify(p));
+    } catch {
+    }
+  };
+  function load() {
+    if (prefs) return prefs;
+    let kept = {};
+    try {
+      kept = JSON.parse(localStorage.getItem(DESK_PREFS_KEY) ?? "{}") ?? {};
+    } catch {
+    }
+    const came = arrivedSettings();
+    prefs = { look: clampLook(came.look ?? kept.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept.fov) };
+    if (came.look !== void 0 || came.fov !== void 0) keep(prefs);
+    reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
+    return prefs;
+  }
+  var change = (next) => {
+    prefs = next;
+    keep(next);
+    for (const w of watchers) w();
+  };
+  var lookScale = () => load().look;
+  var setLookScale = (v) => change({ ...load(), look: clampLook(v) });
+  var visitorFov = () => currentForm() === "desk" ? load().fov : null;
+  var setVisitorFov = (v) => change({ ...load(), fov: v === null ? null : clampFov(v) });
+  function onDeskChange(cb) {
+    watchers.add(cb);
+    return () => void watchers.delete(cb);
+  }
+  var after = (steps, at) => steps[(at + 1) % steps.length];
+  function addDeskControls(controls2, o) {
+    const lookAt = () => {
+      const now = lookScale();
+      let best = 0;
+      LOOK_STEPS.forEach((s, i) => {
+        if (Math.abs(s.value - now) < Math.abs(LOOK_STEPS[best].value - now)) best = i;
+      });
+      return best;
+    };
+    controls2.add(
+      {
+        id: "look-speed",
+        section: "moving",
+        icon: "turn",
+        hidden: o.presenting,
+        label: () => `Look speed: ${LOOK_STEPS[lookAt()].word}`,
+        short: "Look speed",
+        act: () => {
+          setLookScale(after(LOOK_STEPS, lookAt()).value);
+          controls2.say(`Look speed: ${LOOK_STEPS[lookAt()].word}. It is the same in every world.`);
+        }
+      },
+      {
+        id: "fov",
+        section: "view",
+        icon: "size",
+        // A touch screen's view is fitted to its window by the world, and a headset has its own.
+        hidden: () => o.presenting() || currentForm() !== "desk",
+        label: () => load().fov === null ? "Field of view: this world's own" : `Field of view: ${load().fov}\xB0`,
+        short: "View width",
+        act: () => {
+          const at = FOV_STEPS.indexOf(load().fov);
+          setVisitorFov(after(FOV_STEPS, at === -1 ? 0 : at));
+          controls2.say(load().fov === null ? "Field of view: each world's own." : `Field of view: ${load().fov}\xB0, in every world.`);
+        }
+      }
+    );
+    onDeskChange(() => controls2.setTarget(""));
+  }
+
+  // packages/sdk/src/stroll.ts
+  var WALK_SPEED = 2.4;
+  var RUN = 1.75;
+  var TOP_SPEED = WALK_SPEED * RUN;
+  var DOUBLE_TAP = 400;
+  var TAP_REACH = 6;
+  var PATH_MOST = 12;
+  var FACE_RATE = 2.8;
+  var DRAG_LOOK = 5e-3;
+
+  // packages/sdk/src/fps.ts
+  var LOOK_SPEED = 22e-4;
+  var PITCH_LIMIT = 85 * Math.PI / 180;
+  var SPRINT = RUN;
+  var DESK_KEY = "nswp:fps";
+  var DESK_WORDS = {
+    intense: "Desk controls: intense",
+    casual: "Desk controls: casual",
+    nowIntense: "Intense: the mouse looks round. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
+    nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps."
+  };
+  var hasMouse = () => startingForm() === "desk";
+  function startsIntense(arrived3, key = DESK_KEY) {
+    if (!hasMouse()) return false;
+    const prefers2 = arrivedSettings().intense;
+    if (typeof prefers2 === "boolean") return prefers2;
+    try {
+      return arrived3 || localStorage.getItem(key) === "1";
+    } catch {
+      return arrived3;
+    }
+  }
+  function keepIntense(on, key = DESK_KEY) {
+    try {
+      if (on) localStorage.setItem(key, "1");
+      else localStorage.removeItem(key);
+    } catch {
+    }
+  }
+
+  // packages/sdk/src/gate-size.ts
+  var PORTAL_WIDTH = 1.5;
+  var PORTAL_HEIGHT = 2.1;
+  var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
+  var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
+  var DOOR_REACH = 3.05;
 
   // packages/sdk/src/ui/fullscreen.ts
   var resumed = false;
@@ -4921,139 +5309,6 @@ var NSWP = (() => {
     go2.focus();
   }
 
-  // packages/sdk/src/desk.ts
-  var DESK_PREFS_KEY = "nswp:desk";
-  var LOOK_STEPS = [
-    { value: 0.5, word: "slow" },
-    { value: 0.75, word: "gentle" },
-    { value: 1, word: "normal" },
-    { value: 1.5, word: "quick" },
-    { value: 2, word: "fast" },
-    { value: 3, word: "fastest" }
-  ];
-  var FOV_STEPS = [null, 60, 70, 80, 90, 100, 110];
-  var clampLook = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v)) * 100) / 100 : 1;
-  var clampFov = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v))) : null;
-  var prefs = null;
-  var watchers = /* @__PURE__ */ new Set();
-  var keep = (p) => {
-    try {
-      localStorage.setItem(DESK_PREFS_KEY, JSON.stringify(p));
-    } catch {
-    }
-  };
-  function load() {
-    if (prefs) return prefs;
-    let kept = {};
-    try {
-      kept = JSON.parse(localStorage.getItem(DESK_PREFS_KEY) ?? "{}") ?? {};
-    } catch {
-    }
-    const came = arrivedSettings();
-    prefs = { look: clampLook(came.look ?? kept.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept.fov) };
-    if (came.look !== void 0 || came.fov !== void 0) keep(prefs);
-    reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
-    return prefs;
-  }
-  var change = (next) => {
-    prefs = next;
-    keep(next);
-    for (const w of watchers) w();
-  };
-  var lookScale = () => load().look;
-  var setLookScale = (v) => change({ ...load(), look: clampLook(v) });
-  var visitorFov = () => currentForm() === "desk" ? load().fov : null;
-  var setVisitorFov = (v) => change({ ...load(), fov: v === null ? null : clampFov(v) });
-  function onDeskChange(cb) {
-    watchers.add(cb);
-    return () => void watchers.delete(cb);
-  }
-  var after = (steps, at) => steps[(at + 1) % steps.length];
-  function addDeskControls(controls2, o) {
-    const lookAt = () => {
-      const now = lookScale();
-      let best = 0;
-      LOOK_STEPS.forEach((s, i) => {
-        if (Math.abs(s.value - now) < Math.abs(LOOK_STEPS[best].value - now)) best = i;
-      });
-      return best;
-    };
-    controls2.add(
-      {
-        id: "look-speed",
-        section: "moving",
-        icon: "turn",
-        hidden: o.presenting,
-        label: () => `Look speed: ${LOOK_STEPS[lookAt()].word}`,
-        short: "Look speed",
-        act: () => {
-          setLookScale(after(LOOK_STEPS, lookAt()).value);
-          controls2.say(`Look speed: ${LOOK_STEPS[lookAt()].word}. It is the same in every world.`);
-        }
-      },
-      {
-        id: "fov",
-        section: "view",
-        icon: "size",
-        // A touch screen's view is fitted to its window by the world, and a headset has its own.
-        hidden: () => o.presenting() || currentForm() !== "desk",
-        label: () => load().fov === null ? "Field of view: this world's own" : `Field of view: ${load().fov}\xB0`,
-        short: "View width",
-        act: () => {
-          const at = FOV_STEPS.indexOf(load().fov);
-          setVisitorFov(after(FOV_STEPS, at === -1 ? 0 : at));
-          controls2.say(load().fov === null ? "Field of view: each world's own." : `Field of view: ${load().fov}\xB0, in every world.`);
-        }
-      }
-    );
-    onDeskChange(() => controls2.setTarget(""));
-  }
-
-  // packages/sdk/src/stroll.ts
-  var WALK_SPEED = 2.4;
-  var RUN = 1.75;
-  var TOP_SPEED = WALK_SPEED * RUN;
-  var DOUBLE_TAP = 400;
-  var TAP_REACH = 6;
-  var DRAG_LOOK = 5e-3;
-
-  // packages/sdk/src/fps.ts
-  var LOOK_SPEED = 22e-4;
-  var PITCH_LIMIT = 85 * Math.PI / 180;
-  var SPRINT = RUN;
-  var DESK_KEY = "nswp:fps";
-  var DESK_WORDS = {
-    intense: "Desk controls: intense",
-    casual: "Desk controls: casual",
-    nowIntense: "Intense: the mouse looks round. W, A, S, D walk, Shift runs, Space jumps, F uses what is in front of you, and Escape brings up this menu.",
-    nowCasual: "Casual: click where you want to stand, twice to run there, and drag to look round. W, A, S, D walk, Shift runs and Space jumps."
-  };
-  var hasMouse = () => startingForm() === "desk";
-  function startsIntense(arrived3, key = DESK_KEY) {
-    if (!hasMouse()) return false;
-    const prefers2 = arrivedSettings().intense;
-    if (typeof prefers2 === "boolean") return prefers2;
-    try {
-      return arrived3 || localStorage.getItem(key) === "1";
-    } catch {
-      return arrived3;
-    }
-  }
-  function keepIntense(on, key = DESK_KEY) {
-    try {
-      if (on) localStorage.setItem(key, "1");
-      else localStorage.removeItem(key);
-    } catch {
-    }
-  }
-
-  // packages/sdk/src/gate-size.ts
-  var PORTAL_WIDTH = 1.5;
-  var PORTAL_HEIGHT = 2.1;
-  var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
-  var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
-  var DOOR_REACH = 3.05;
-
   // packages/sdk/src/panel-store.ts
   var PANEL_LIMITS = {
     count: 24,
@@ -5195,7 +5450,7 @@ var NSWP = (() => {
     }
     return out;
   }
-  function cleanTheme(input, base) {
+  function cleanTheme2(input, base) {
     const out = { cues: {} };
     if (!input || typeof input !== "object") return out;
     const { cues, music, hum } = input;
@@ -5379,7 +5634,7 @@ var NSWP = (() => {
   function createSounds(o = {}) {
     const ctx = o.context ?? new AudioContext();
     const base = o.base ?? location.href;
-    const theme = cleanTheme(o.theme, base);
+    const theme = cleanTheme2(o.theme, base);
     const levelsKey = o.keep?.levels ?? "nswp:sound";
     const songsKey = o.keep?.songs ?? "nswp:jukebox";
     const read4 = (key) => {
@@ -6347,12 +6602,16 @@ var NSWP = (() => {
     return true;
   }
   function hereAs() {
-    const who = arrival.identity();
-    if (!who || !signerNamed()) return who;
+    const who2 = arrival.identity();
+    if (!who2 || !signerNamed()) return who2;
     const signer = worldSigner();
-    return signer.state === "unlocked" && signer.pubkey === who.pubkey ? who : void 0;
+    return signer.state === "unlocked" && signer.pubkey === who2.pubkey ? who2 : void 0;
   }
   var hereWatchers = /* @__PURE__ */ new Set();
+  function onHereAs(fn) {
+    hereWatchers.add(fn);
+    return () => void hereWatchers.delete(fn);
+  }
   var seeking = null;
   var seekAfter = 0;
   function seekPass() {
@@ -6374,17 +6633,18 @@ var NSWP = (() => {
     });
     return seeking;
   }
+  var soon = (ms) => new Promise((done) => setTimeout(done, ms));
   function identityWords() {
-    const who = hereAs();
-    const name = who ? who.name || shortNpub(who.pubkey) : "";
-    return who ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
+    const who2 = hereAs();
+    const name = who2 ? who2.name || shortNpub(who2.pubkey) : "";
+    return who2 ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
   }
   function youCard() {
-    const who = hereAs();
+    const who2 = hereAs();
     const signer = signerNamed() ? worldSigner() : null;
-    if (who) {
-      const npub = encodeNpub(who.pubkey);
-      return { title: who.name || shortNpub(who.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who.pubkey), copy: npub, text: who.about ?? "", picture: who.picture ?? "", color: "", now: [] };
+    if (who2) {
+      const npub = encodeNpub(who2.pubkey);
+      return { title: who2.name || shortNpub(who2.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who2.pubkey), copy: npub, text: who2.about ?? "", picture: who2.picture ?? "", color: "", now: [] };
     }
     if (signer?.state === "unlocked" && signer.pubkey) {
       return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: signer.about ?? "", picture: signer.picture ?? "", color: "", now: [] };
@@ -6415,6 +6675,11 @@ var NSWP = (() => {
       return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
     }
   });
+  function unansweredWords(signer) {
+    const host = signer.host ?? "your signer";
+    const copy = signer.copy ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.` : " Press this again to ask once more, or reload the page.";
+    return `This world asked ${host} for your sign-in and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
+  }
   var shared = null;
   function worldSigner() {
     if (shared) return shared;
@@ -6425,6 +6690,54 @@ var NSWP = (() => {
     });
     if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 6e4);
     return signer;
+  }
+  function signerAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    let was = signer.state;
+    let wasAsking = false;
+    const short = () => shortNpub(signer.pubkey ?? "");
+    signer.onChange(() => {
+      if (signer.state === "unlocked" && was !== "unlocked") {
+        void Promise.race([seekPass(), soon(4e3)]).then(() => {
+          if (signer.state !== "unlocked") return;
+          const who2 = hereAs();
+          controls2.say(
+            who2 ? `You are signed in here as ${who2.name || short()}${signer.remembered === false ? ", for this visit" : ""}. People in a room see your name and picture, and you can send out posts. Signing out is under You.` : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: ${signer.host ?? "your sign-in address"} gave no pass with your name on it.`
+          );
+        });
+      }
+      if (signer.state === "locked" && was === "unlocked") controls2.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
+      if (wasAsking && !signer.asking && signer.unanswered) controls2.say(unansweredWords(signer));
+      if (wasAsking && !signer.asking && signer.state === "locked") controls2.say(`${signer.host ?? "Your sign-in address"} answered. You can sign in now.`);
+      wasAsking = signer.asking;
+      was = signer.state;
+      controls2.signal("signer");
+    });
+    onHereAs(() => controls2.signal("signer"));
+    return {
+      id: "signer",
+      section: "you",
+      icon: "key",
+      // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
+      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+      short: () => signer.state === "unlocked" ? "Sign out" : "Sign in",
+      on: () => signer.state === "unlocked",
+      // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
+      // a row that isn't there can't be asked about.
+      hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
+      act: () => {
+        if (signer.state === "unlocked") return signer.lock();
+        const host = signer.host ?? "your own client";
+        if (signer.asking) return;
+        if (signer.unanswered) {
+          if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
+          return controls2.say(unansweredWords(signer));
+        }
+        if (opts.presenting?.()) return controls2.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in, and come back in.`);
+        if (signer.unlock()) controls2.say(`A window from ${host} has opened. Say yes there, and you are signed in here.`);
+        else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+      }
+    };
   }
 
   // packages/sdk/src/ui/icons.ts
@@ -6557,7 +6870,7 @@ var NSWP = (() => {
   function createUiFeed(changed, now = () => Date.now()) {
     let opts = null;
     let posts = [];
-    let loading2 = false;
+    let loading3 = false;
     let said = "";
     let version = 0;
     let count = 0;
@@ -6575,7 +6888,7 @@ var NSWP = (() => {
       attach(next) {
         opts = next;
         posts = [];
-        loading2 = false;
+        loading3 = false;
         said = "";
         asked = 0;
         bump2();
@@ -6584,19 +6897,19 @@ var NSWP = (() => {
         if (!opts) return;
         opts = null;
         posts = [];
-        loading2 = false;
+        loading3 = false;
         said = "";
         bump2();
       },
       opened() {
         const mine = opts;
-        if (!mine?.load || loading2 || asked && now() - asked < 6e4) return;
+        if (!mine?.load || loading3 || asked && now() - asked < 6e4) return;
         asked = now();
-        loading2 = true;
+        loading3 = true;
         bump2();
         void mine.load().catch(() => null).then((got) => {
           if (opts !== mine) return;
-          loading2 = false;
+          loading3 = false;
           if (!got) said = "Your earlier posts couldn't be fetched just now.";
           else {
             const seen = new Set(posts.map((p) => p.key));
@@ -6629,9 +6942,9 @@ var NSWP = (() => {
         return null;
       },
       view() {
-        const who = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
-        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-        return { ready: !!opts, title: "My public feed", who, posts, loading: loading2, said, lead, limit: CHAT_LIMITS.chars, version };
+        const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
+        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading3, said, lead, limit: CHAT_LIMITS.chars, version };
       }
     };
   }
@@ -6676,57 +6989,8 @@ var NSWP = (() => {
     };
   }
 
-  // packages/sdk/src/ui/theme.ts
-  var DEFAULT_THEME = { accent: "#ffb65c", ink: "#eef5fb", glass: "#0a1018", warn: "#ff7566", motion: true, scale: 1, wrist: "left" };
-  var UI_PRESETS = [
-    { id: "lantern", label: "Lantern", accent: "#ffb65c" },
-    { id: "ion", label: "Ion", accent: "#62d9ff" },
-    { id: "verdant", label: "Verdant", accent: "#4fd08b" },
-    { id: "rose", label: "Rose", accent: "#ff8fb1" },
-    { id: "paper", label: "Paper", accent: "#f2f3f6" }
-  ];
-  var KEY = "nswp:ui";
-  var HEX = /^#[0-9a-f]{6}$/i;
-  function cleanTheme2(input) {
-    const out = {};
-    if (!input || typeof input !== "object") return out;
-    const t = input;
-    for (const k of ["accent", "ink", "glass", "warn"]) if (typeof t[k] === "string" && HEX.test(t[k])) out[k] = t[k].toLowerCase();
-    if (typeof t.motion === "boolean") out.motion = t.motion;
-    if (typeof t.scale === "number" && Number.isFinite(t.scale)) out.scale = Math.min(1.5, Math.max(0.85, t.scale));
-    if (t.wrist === "left" || t.wrist === "right" || t.wrist === "off") out.wrist = t.wrist;
-    return out;
-  }
-  function loadVisitorTheme() {
-    try {
-      return cleanTheme2(JSON.parse(globalThis.localStorage?.getItem(KEY) ?? "{}"));
-    } catch {
-      return {};
-    }
-  }
-  function saveVisitorTheme(theme) {
-    try {
-      globalThis.localStorage?.setItem(KEY, JSON.stringify(cleanTheme2(theme)));
-    } catch {
-    }
-  }
-  function prefersStill() {
-    try {
-      return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    } catch {
-      return false;
-    }
-  }
-  function resolveTheme(world = {}, visitor = loadVisitorTheme()) {
-    return { ...DEFAULT_THEME, ...prefersStill() ? { motion: false } : {}, ...cleanTheme2(world), ...cleanTheme2(visitor) };
-  }
-  function rgb(hex) {
-    const n = Number.parseInt(hex.slice(1), 16);
-    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
-  }
-
   // packages/sdk/src/ui/hud.ts
-  var CSS = `
+  var CSS2 = `
 :host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
   --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
   font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -7002,8 +7266,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     svg.append(path);
     return svg;
   }
-  function el(tag, attrs = {}, ...children) {
-    const e = document.createElement(tag);
+  function el(tag2, attrs = {}, ...children) {
+    const e = document.createElement(tag2);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     for (const c of children) if (c) e.append(c);
     return e;
@@ -7014,11 +7278,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let style = "";
     try {
       const sheet2 = new CSSStyleSheet();
-      sheet2.replaceSync(CSS);
+      sheet2.replaceSync(CSS2);
       root.adoptedStyleSheets = [sheet2];
     } catch {
       style = document.createElement("style");
-      style.textContent = CSS;
+      style.textContent = CSS2;
     }
     const title = el("b");
     const address = el("span", { class: "mono" });
@@ -7918,6 +8182,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var tell = (event) => {
     if (queue.length < 64) queue.push(event);
   };
+  var tellEngine = tell;
+  var menuWatchers = /* @__PURE__ */ new Set();
+  var onMenu = (fn) => void menuWatchers.add(fn);
   var controls = null;
   var hud = null;
   var sounds = null;
@@ -7938,6 +8205,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       fov: visitorFov() ?? 0,
       pitchLimit: PITCH_LIMIT,
       doubleTap: DOUBLE_TAP,
+      pathMost: PATH_MOST,
+      faceRate: FACE_RATE,
       jumpHeight: JUMP_HEIGHT,
       jumpGravity: JUMP_GRAVITY,
       gateWidth: PORTAL_WIDTH,
@@ -7959,6 +8228,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const title = words(o.title, 80) || "A world";
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
     const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
+    for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
     const h = hud = mountHud(c);
     const s = sounds = createSounds({
       seed: title,
@@ -7981,8 +8251,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       c.addSection(identitySection());
       c.add(
         { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
-        { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, act: () => tell({ type: "identity" }) }
+        // Where their client named a signer there is one sign-in, and it is that one, below: this row would be a second.
+        { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, hidden: () => signerNamed(), act: () => tell({ type: "identity" }) },
+        // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
+        // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
+        signerAction(c, { presenting: () => vr.presenting })
       );
+      onHereAs(() => tell({ type: "who", ...whoNow() }));
     }
     const context = arrival.read().context;
     moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
@@ -8060,6 +8335,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
     return JSON.stringify({ moving, mouse: hasMouse() });
   }
+  var whoNow = () => {
+    const me = hereAs();
+    return { guest: !me, name: me?.name ?? "", pubkey: me?.pubkey ?? "", picture: me?.picture ?? "", about: me?.about ?? "" };
+  };
+  function who() {
+    return JSON.stringify(whoNow());
+  }
   function events() {
     if (!queue.length) return "[]";
     const out = JSON.stringify(queue);
@@ -8136,7 +8418,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 7;
+  var VERSION = 8;
   var KIT = KIT_VERSION;
   var read3 = (text) => {
     try {
@@ -8146,6 +8428,58 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return {};
     }
   };
+  var tag = typeof document !== "undefined" ? document.currentScript : null;
+  var hostOf = (url) => {
+    try {
+      return url ? new URL(url, location.href).host : "";
+    } catch {
+      return "";
+    }
+  };
+  var prefersStill2 = () => {
+    try {
+      return matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  };
+  var room2 = null;
+  var holdDoors = false;
+  if (typeof document !== "undefined" && tag?.dataset.crossing !== "off") {
+    const said = (name) => document.querySelector(`meta[name="nswp:${name}"]`)?.content ?? "";
+    const accent = said("accent") || tag?.dataset.accent || "";
+    room2 = createEngineCrossing({
+      title: (said("title") || tag?.dataset.title || document.title || location.host).slice(0, 80),
+      address: location.host,
+      ...accent ? { accent } : {},
+      still: prefersStill2()
+    });
+    room2.onChange((state) => tellEngine({ type: "crossing", state }));
+    onMenu((look) => {
+      room2?.dress(look);
+      holdDoors = look.hold === true;
+      if (!holdDoors) ready();
+    });
+  }
+  function crossing() {
+    return room2?.state ?? "none";
+  }
+  function loading2(fraction) {
+    room2?.loading(typeof fraction === "number" ? fraction : -1);
+  }
+  function ready() {
+    if (!room2 || room2.state !== "arriving") return;
+    room2.ready();
+    if (arrival.read().context) play("arrive");
+  }
+  function failed(words2) {
+    room2?.failed(typeof words2 === "string" && words2 ? words2 : "This world couldn't start.");
+  }
+  function leaveThen(to, going) {
+    if (!room2 || room2.state === "leaving" || room2.state === "shut") return going();
+    play("cross");
+    void room2.leave(to).then(going, going);
+  }
   function stateOf(text) {
     const s = read3(text);
     return {
@@ -8157,7 +8491,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function arrival2() {
     const { context, warnings } = arrival.read();
-    const who = arrival.identity();
+    const who2 = hereAs();
     return JSON.stringify({
       arrived: !!context,
       entry: context?.entry ?? "",
@@ -8170,9 +8504,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       settings: context?.settings ?? {},
       blocked: context?.blocked ?? [],
       look: arrival.look() ?? "",
-      guest: !who,
-      name: who?.name ?? "",
-      pubkey: who?.pubkey ?? "",
+      guest: !who2,
+      name: who2?.name ?? "",
+      pubkey: who2?.pubkey ?? "",
       canGoHome: portal.airlockFor() !== null,
       warnings: warnings.map((w) => w.code)
     });
@@ -8194,13 +8528,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const checked = checkDestination(dest.url);
       if (!checked.ok) return checked.error.code;
     }
-    void portal.go(dest, stateOf(state)).catch(() => {
-    });
+    const st = stateOf(state);
+    const label = typeof d.title === "string" && d.title ? d.title.slice(0, 60) : hostOf(dest.url) || "another place";
+    leaveThen({ title: label, address: hostOf(dest.url) }, () => void portal.go(dest, st).catch(() => {
+    }));
     return "";
   }
   function home(state) {
-    if (portal.airlockFor() === null) return false;
-    void portal.home(stateOf(state));
+    const airlock = portal.airlockFor();
+    if (airlock === null) return false;
+    const st = stateOf(state);
+    leaveThen({ title: "your home", address: hostOf(airlock) }, () => void portal.home(st));
     return true;
   }
   function signIn(state) {
@@ -8214,8 +8552,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return true;
   }
   function doors2(state) {
-    if (portal.airlockFor() === null) return false;
-    void portal.doors(stateOf(state));
+    const airlock = portal.airlockFor();
+    if (airlock === null) return false;
+    const st = stateOf(state);
+    leaveThen({ title: "your doors", address: hostOf(airlock) }, () => void portal.doors(st));
     return true;
   }
   return __toCommonJS(engine_exports);

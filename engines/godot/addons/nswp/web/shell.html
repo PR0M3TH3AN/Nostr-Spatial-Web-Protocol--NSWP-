@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>$GODOT_PROJECT_NAME</title>
+		<!--
+			The page an NSWP world made in Godot is exported with (addons/nswp/web/shell.html; set it as the Web
+			export's Custom HTML Shell). It differs from Godot's own page in three ways:
+
+			1. No loading screen of the engine's. From its first moment the page shows the crossing's room, the same
+			   one a visitor leaves a Three.js world from, drawn by nswp-engine.js. The line of light over its doors
+			   fills as the engine arrives, and the doors open when the world asks for its menu.
+			2. Nothing is run from this page itself: the engine is started by nswp-godot.js, and its settings are
+			   data. So the page can be served under a content policy that allows no inline script.
+			3. The world's name and colour are said here, in two tags, so the room wears them before the engine has
+			   loaded. Put yours in the export's Head Include:
+			     <meta name="nswp:title" content="My world">
+			     <meta name="nswp:accent" content="#4cc9f0">
+		-->
+		<style>
+html, body, #canvas { margin: 0; padding: 0; border: 0; }
+body { color: #eef5fb; background-color: #06090e; overflow: hidden; touch-action: none; }
+#canvas { display: block; }
+#canvas:focus { outline: none; }
+		</style>
+		$GODOT_HEAD_INCLUDE
+		<script src="nswp-engine.js" data-title="$GODOT_PROJECT_NAME"></script>
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+		<noscript>
+			This world needs JavaScript.
+		</noscript>
+		<script src="$GODOT_URL"></script>
+		<script type="application/json" id="godot-config">$GODOT_CONFIG</script>
+		<script src="nswp-godot.js" data-threads="$GODOT_THREADS_ENABLED"></script>
+	</body>
+</html>

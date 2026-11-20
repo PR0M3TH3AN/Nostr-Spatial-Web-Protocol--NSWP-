@@ -50,5 +50,6 @@ if (!existsSync(join(dist, "index.html"))) {
   process.exit(1);
 }
 // What goes beside the page: the kit's script and its sounds. Godot's export can't put them there itself.
-cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: (from) => !from.endsWith(".gdignore") });
+// The page itself was written by the export from shell.html: only what goes beside it is copied.
+cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: (from) => !from.endsWith(".gdignore") && !from.endsWith("shell.html") });
 console.log(`exported engines/godot/dist: ${readdirSync(dist).join(", ")}`);

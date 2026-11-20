@@ -47,6 +47,14 @@ signal jump_pressed
 ## The visitor chose a door from the menu's list (`add_door`). It has been gone through already
 ## if it has an `enter()` of its own.
 signal door_chosen(id: String)
+## The crossing's room changed: "arriving" (its doors shut, the world loading), "opening",
+## "none" (gone: the world is the visitor's), "leaving", "shut" or "failed". The room is drawn
+## by the page, over the canvas, from before the engine loaded: see `ready()`.
+signal crossing_changed(state: String)
+## Who the visitor is here changed: they signed in or out, in the menu. `who` has `guest`, and
+## for someone signed in `name`, `pubkey`, `picture` and `about`. A name is theirs only while
+## they are signed in here.
+signal who_changed(who: Dictionary)
 
 ## The project setting that names the Airlock to send a visitor through when they arrived
 ## without one of their own. A visitor who came through an Airlock always goes back through theirs.
@@ -117,6 +125,8 @@ var kit: Dictionary = {
 	"fov": 0,
 	"pitchLimit": 1.4835298641951802,
 	"doubleTap": 400,
+	"pathMost": 12,
+	"faceRate": 2.8,
 	"jumpHeight": 0.45,
 	"jumpGravity": 9.8,
 	"gateWidth": 1.5,
@@ -151,7 +161,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if not _menu:
+	if _js == null:
 		return
 	# What the visitor did in the menu since the last frame.
 	var happened: Variant = JSON.parse_string(str(_js.events()))
@@ -185,12 +195,44 @@ func _process(_delta: float) -> void:
 				sign_in()
 			"figure":
 				change_look()
+			"crossing":
+				crossing_changed.emit(str(event.get("state", "")))
+			"who":
+				for field: String in ["guest", "name", "pubkey"]:
+					arrival[field] = event.get(field, arrival.get(field))
+				who_changed.emit(event)
 			"door":
 				var id := str(event.get("id", ""))
 				door_chosen.emit(id)
 				var listed: Variant = _doors.get(id)
 				if typeof(listed) == TYPE_DICTIONARY and is_instance_valid(listed.door) and listed.door.has_method("enter"):
 					listed.door.enter()
+
+
+## Open the doors of the crossing's room: the world is ready to be stepped into.
+##
+## A visitor arrives standing in the crossing's room, the same one they left the last world
+## from, with its doors shut. The page draws it from its first moment, while the engine is
+## still arriving. Asking for the menu (`menu()`) opens the doors by itself, so most worlds
+## never call this. Call it when you asked for the menu with `{"hold": true}`, because your
+## world has more to load before it should be seen.
+func ready() -> void:
+	if _js != null:
+		_js.ready()
+
+
+## Where the crossing's room is: "arriving", "opening", "none", "leaving", "shut" or "failed".
+## While it isn't "none", the visitor can't see the world: don't start anything they would miss.
+func crossing() -> String:
+	return "none" if _js == null else str(_js.crossing())
+
+
+## Who the visitor is here, now: `guest` true, or `name`, `pubkey`, `picture` and `about`.
+func who() -> Dictionary:
+	if _js == null:
+		return {"guest": true, "name": "", "pubkey": "", "picture": "", "about": ""}
+	var now: Variant = JSON.parse_string(str(_js.who()))
+	return now if typeof(now) == TYPE_DICTIONARY else {"guest": true}
 
 
 ## Whether this is running in a browser with the kit's script on the page: whether doors lead anywhere.
@@ -367,8 +409,11 @@ func place(visitor: Node3D) -> bool:
 ##
 ## A headset session is ended first, since the page is about to be left. Returns false, and
 ## emits `refused`, if the door can't be gone through.
-func go(url: String, naddr: String = "", entry_point: String = "") -> bool:
+func go(url: String, naddr: String = "", entry_point: String = "", title: String = "") -> bool:
 	var destination := {"url": url}
+	# What the door is called, for the sign in the crossing's room as it shuts round the visitor.
+	if title != "":
+		destination["title"] = title
 	if naddr != "":
 		destination["naddr"] = naddr
 	if entry_point != "":

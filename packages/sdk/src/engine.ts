@@ -28,12 +28,15 @@
  * visitors), which need more than text to pass through.
  */
 import { checkDestination, KIT_VERSION, type PortalDestination } from "@nswp/core";
+import { createEngineCrossing, type EngineCrossing } from "./engine-crossing.js";
+import { onMenu, play as playCue, tellEngine } from "./engine-menu.js";
+import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view } from "./engine-menu.js";
+export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view, who } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 7;
+export const VERSION = 8;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 
@@ -45,6 +48,86 @@ const read = (text: unknown): Record<string, unknown> => {
     return {};
   }
 };
+
+// ------------------------------------------------------------------ the crossing's room
+/**
+ * The room a visitor arrives in and leaves from (engine-crossing.ts). It stands from the moment this script is
+ * read, before the engine has begun to load, so that what a visitor sees between two worlds is the same room
+ * whatever each is made with. A page that wants none says so on the script's tag: `data-crossing="off"`.
+ */
+const tag = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null) : null;
+const hostOf = (url: string | null | undefined): string => {
+  try {
+    return url ? new URL(url, location.href).host : "";
+  } catch {
+    return "";
+  }
+};
+const prefersStill = (): boolean => {
+  try {
+    return matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+};
+let room: EngineCrossing | null = null;
+let holdDoors = false;
+if (typeof document !== "undefined" && tag?.dataset.crossing !== "off") {
+  // The world's name and colour, said on the page so the room wears them before the engine has loaded: two tags
+  // in the page's head, or on this script's own tag. Without them, the page's title and the kit's own colour.
+  const said = (name: string): string => document.querySelector<HTMLMetaElement>(`meta[name="nswp:${name}"]`)?.content ?? "";
+  const accent = said("accent") || tag?.dataset.accent || "";
+  room = createEngineCrossing({
+    title: (said("title") || tag?.dataset.title || document.title || location.host).slice(0, 80),
+    address: location.host,
+    ...(accent ? { accent } : {}),
+    still: prefersStill(),
+  });
+  room.onChange((state) => tellEngine({ type: "crossing", state }));
+  // The world named itself and its colour when it asked for its menu: the room wears them. And asking for a menu
+  // is a world saying it is up, unless it said it will open the doors itself (`hold`).
+  onMenu((look) => {
+    room?.dress(look);
+    holdDoors = look.hold === true;
+    if (!holdDoors) ready();
+  });
+}
+
+/** Where the crossing's room is: "arriving" (doors shut, the world loading), "opening", "none", "leaving", "shut", or "failed". */
+export function crossing(): string {
+  return room?.state ?? "none";
+}
+
+/**
+ * How much of the world has arrived, from 0 to 1: the line of light over the doors fills. Anything else (-1, say)
+ * for "loading, and nobody knows how much". The page that starts the engine calls this as the engine downloads.
+ */
+export function loading(fraction: number): void {
+  room?.loading(typeof fraction === "number" ? fraction : -1);
+}
+
+/**
+ * The world is ready to be stepped into: the doors open. Asking for the menu does this by itself, so a world calls
+ * it only if it asked for its menu with `hold` true, to open the doors at a moment of its own choosing.
+ */
+export function ready(): void {
+  if (!room || room.state !== "arriving") return;
+  room.ready();
+  if (arrivals.read().context) playCue("arrive");
+}
+
+/** The world couldn't start: the doors stay shut, and the sign says why. Plain words, shown as text. */
+export function failed(words: string): void {
+  room?.failed(typeof words === "string" && words ? words : "This world couldn't start.");
+}
+
+/** Shut the room's doors round the visitor, then go. Without a room, go at once. */
+function leaveThen(to: { title: string; address: string }, going: () => void): void {
+  if (!room || room.state === "leaving" || room.state === "shut") return going();
+  // The sound of a crossing: the world's own, or the kit's.
+  playCue("cross");
+  void room.leave(to).then(going, going);
+}
 
 /** What the visitor's state adds to the link that takes them on, from what the engine says of it. Nothing unknown passes. */
 function stateOf(text: unknown): GoOptions {
@@ -72,13 +155,16 @@ function stateOf(text: unknown): GoOptions {
  *
  * `arrived` is false for someone who came by an ordinary link, and every
  * other field then has its plain value. `name` and `pubkey` are filled only
- * when they came by name and their pass checks out for this site; otherwise
- * `guest` is true. `canGoHome` says whether `home()` would lead anywhere, and
+ * for someone signed in here, whose pass checks out for this site; otherwise
+ * `guest` is true. It changes when they sign in or out in the menu: ask `who()`
+ * when a `who` event comes. `canGoHome` says whether `home()` would lead anywhere, and
  * `signIn()` with it: both go to the visitor's own client.
  */
 export function arrival(): string {
   const { context, warnings } = arrivals.read();
-  const who = arrivals.identity();
+  // Who they are here: someone signed in here, and nobody else. Where their client named a sign-in address, a pass
+  // they arrived with counts only once they have signed in at it (protocol/10-identity.md, "One sign-in").
+  const who = hereAs();
   return JSON.stringify({
     arrived: !!context,
     entry: context?.entry ?? "",
@@ -131,14 +217,18 @@ export function go(destination: string, state?: string): string {
     const checked = checkDestination(dest.url);
     if (!checked.ok) return checked.error.code;
   }
-  void portal.go(dest, stateOf(state)).catch(() => {});
+  const st = stateOf(state);
+  const label = typeof d.title === "string" && d.title ? d.title.slice(0, 60) : hostOf(dest.url) || "another place";
+  leaveThen({ title: label, address: hostOf(dest.url) }, () => void portal.go(dest, st).catch(() => {}));
   return "";
 }
 
 /** Take the visitor home: their own client's start. Returns false, and does nothing, when there is no way there. */
 export function home(state?: string): boolean {
-  if (portal.airlockFor() === null) return false;
-  void portal.home(stateOf(state));
+  const airlock = portal.airlockFor();
+  if (airlock === null) return false;
+  const st = stateOf(state);
+  leaveThen({ title: "your home", address: hostOf(airlock) }, () => void portal.home(st));
   return true;
 }
 
@@ -170,7 +260,9 @@ export function changeLook(state?: string): boolean {
 
 /** Take the visitor to their doors: for a world that is someone's home, which offers this where it offers the way home. */
 export function doors(state?: string): boolean {
-  if (portal.airlockFor() === null) return false;
-  void portal.doors(stateOf(state));
+  const airlock = portal.airlockFor();
+  if (airlock === null) return false;
+  const st = stateOf(state);
+  leaveThen({ title: "your doors", address: hostOf(airlock) }, () => void portal.doors(st));
   return true;
 }

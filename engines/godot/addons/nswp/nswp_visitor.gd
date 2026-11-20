@@ -52,12 +52,20 @@ var _pitch: float = 0.0
 var _pressed: bool = false
 var _dragged: float = 0.0
 ## Where a tap is taking them, or null.
-var _heading: Variant = null
+## The way they are walking, moving the casual way: each spot still ahead, in order. A press
+## while they are walking adds to it from where it ends, so a path is pressed out as it is
+## walked. Empty when they are standing.
+var _path: Array[Vector2] = []
+## The way they face as they walk a stretch, as a turn about the vertical. Kept as they
+## arrive at a spot, so the view doesn't swing at the last step.
+var _facing: float = 0.0
 ## Where a press would take them, under the pointer, or null.
 var _hover: Variant = null
 var _ring: MeshInstance3D
 var _dot: MeshInstance3D
 var _line: MultiMeshInstance3D
+## A small ring at each turn of a pressed-out path.
+var _knots: MultiMeshInstance3D
 ## Whether they are running there: two taps close together, and every tap after while they still are.
 var _running: bool = false
 var _tapped_at: int = -100000
@@ -194,17 +202,31 @@ func _casual_input(event: InputEvent) -> void:
 			# with: the mouse a touch stands in for doesn't count.
 			_hover = null
 			if event.device != InputEvent.DEVICE_ID_EMULATION and not hit.is_empty() and not (hit.collider is NswpPortal) and hit.normal.y >= 0.6:
-				_hover = _within_a_press(hit.position)
+				_hover = _within_a_press(hit.position, _press_from())
 
 
-## Where a press on `spot` would take them: there, or as far towards it as one press reaches.
-func _within_a_press(spot: Vector3) -> Vector2:
-	var from := global_position
-	var away := Vector2(spot.x - from.x, spot.z - from.z)
+## Where a press leads from: their feet when they are standing, the end of the path when
+## they are walking one.
+func _press_from() -> Vector2:
+	return Vector2(global_position.x, global_position.z) if _path.is_empty() else _path[-1]
+
+
+## Where a press on `spot` would take them from `from`: there, or as far towards it as one
+## press reaches.
+func _within_a_press(spot: Vector3, from: Vector2) -> Vector2:
+	var away := Vector2(spot.x - from.x, spot.z - from.y)
 	var most := float(Nswp.kit.tapReach)
 	if away.length() > most:
 		away = away.normalized() * most
-	return Vector2(from.x + away.x, from.z + away.y)
+	return from + away
+
+
+## The turn that faces from one spot towards another, for something that looks down -Z.
+## Kept as it was when the two are all but the same spot.
+func _aim(from: Vector2, to: Vector2) -> void:
+	var away := to - from
+	if away.length() > 0.3:
+		_facing = atan2(-away.x, -away.y)
 
 
 ## Whether a door is near enough to choose from where they stand: within ten feet, as in
@@ -231,12 +253,24 @@ func _tap(at: Vector2) -> void:
 	elif hit.normal.y < 0.6:
 		# A wall, not somewhere to stand.
 		return
-	# Two taps close together are a run, and so is each tap after while they are still running.
 	var now := Time.get_ticks_msec()
-	_running = now - _tapped_at <= int(Nswp.kit.doubleTap) or (_heading != null and _running)
+	var again := now - _tapped_at <= int(Nswp.kit.doubleTap)
 	_tapped_at = now
-	_heading = _within_a_press(spot)
 	_hover = null
+	var here := Vector2(global_position.x, global_position.z)
+	if again or _path.is_empty():
+		# Standing, a walk begins. Pressed twice quickly, it is a run straight there and
+		# nothing else: the way to change one's mind.
+		var was_running := not _path.is_empty() and _running
+		_path = [_within_a_press(spot, here)]
+		_running = again or was_running
+		_aim(here, _path[0])
+		return
+	# Walking already: the path goes on from where it ended, as far as one press reaches.
+	var end: Vector2 = _path[-1]
+	var next := _within_a_press(spot, end)
+	if _path.size() < int(Nswp.kit.get("pathMost", 12)) and next.distance_to(end) > 0.3:
+		_path.append(next)
 
 
 ## F, or a click, moving the intense way. A door is not gone through this way: moving the
@@ -325,6 +359,24 @@ func _make_marks() -> void:
 	_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_line)
 	_line.global_transform = Transform3D.IDENTITY
+	# Where a pressed-out path turns.
+	var knot := TorusMesh.new()
+	knot.inner_radius = 0.1
+	knot.outer_radius = 0.15
+	knot.rings = 24
+	knot.ring_segments = 4
+	knot.material = paint
+	var turns := MultiMesh.new()
+	turns.transform_format = MultiMesh.TRANSFORM_3D
+	turns.mesh = knot
+	turns.instance_count = 16
+	turns.visible_instance_count = 0
+	_knots = MultiMeshInstance3D.new()
+	_knots.multimesh = turns
+	_knots.top_level = true
+	_knots.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_knots)
+	_knots.global_transform = Transform3D.IDENTITY
 
 
 func _mark(mesh: Mesh, paint: Material) -> MeshInstance3D:
@@ -345,26 +397,37 @@ func _draw_marks() -> void:
 	if _ring.visible:
 		var ring_at: Vector2 = _hover
 		_ring.global_position = Vector3(ring_at.x, floor_y, ring_at.y)
-	_dot.visible = casual and _heading != null
+	_dot.visible = casual and not _path.is_empty()
 	var shown := 0
+	var turns := 0
 	if _dot.visible:
-		var to: Vector2 = _heading
-		_dot.global_position = Vector3(to.x, floor_y, to.y)
-		# Evenly spaced, counted back from where they are going, so the dots stay put as they walk along them.
+		var end: Vector2 = _path[-1]
+		_dot.global_position = Vector3(end.x, floor_y, end.y)
+		# The line through every spot on the way, with a small ring at each turn. Evenly spaced,
+		# counted back from the end of each stretch, so the dots stay put as they walk along them.
 		var from := Vector2(global_position.x, global_position.z)
-		var far := from.distance_to(to)
-		var d := far - 0.3
-		while d >= 0.45 and shown < _line.multimesh.instance_count:
-			var at := from.lerp(to, d / far)
-			_line.multimesh.set_instance_transform(shown, Transform3D(Basis.IDENTITY, Vector3(at.x, floor_y, at.y)))
-			shown += 1
-			d -= 0.4
+		var flat := Basis.IDENTITY.scaled(Vector3(1.0, 0.02, 1.0))
+		for leg in _path.size():
+			var to: Vector2 = _path[leg]
+			var far := from.distance_to(to)
+			var d := far - (0.3 if leg == _path.size() - 1 else 0.32)
+			var clear := 0.45 if leg == 0 else 0.32
+			while far > 0.0 and d >= clear and shown < _line.multimesh.instance_count:
+				var at := from.lerp(to, d / far)
+				_line.multimesh.set_instance_transform(shown, Transform3D(Basis.IDENTITY, Vector3(at.x, floor_y, at.y)))
+				shown += 1
+				d -= 0.4
+			if leg < _path.size() - 1 and turns < _knots.multimesh.instance_count:
+				_knots.multimesh.set_instance_transform(turns, Transform3D(flat, Vector3(to.x, floor_y, to.y)))
+				turns += 1
+			from = to
 	_line.multimesh.visible_instance_count = shown
+	_knots.multimesh.visible_instance_count = turns
 
 
 ## What is marked on the floor now. For tests.
 func marks() -> Dictionary:
-	return {"ring": _ring.visible, "dot": _dot.visible, "dots": _line.multimesh.visible_instance_count}
+	return {"ring": _ring.visible, "dot": _dot.visible, "dots": _line.multimesh.visible_instance_count, "turns": _knots.multimesh.visible_instance_count, "path": _path.size()}
 
 
 # ------------------------------------------------------------------------ walking
@@ -380,8 +443,8 @@ func _physics_process(delta: float) -> void:
 		)
 	var speed := float(Nswp.kit.walkSpeed)
 	if keys != Vector2.ZERO:
-		# A key takes over from a tap.
-		_heading = null
+		# A key takes over from a tap, and from the whole of a pressed-out path.
+		_path.clear()
 		_running = false
 		if keys.length() > 1.0:
 			keys = keys.normalized()
@@ -389,13 +452,22 @@ func _physics_process(delta: float) -> void:
 		if Input.is_physical_key_pressed(KEY_SHIFT):
 			speed *= float(Nswp.kit.sprint)
 		wish = (transform.basis * Vector3(keys.x, 0.0, keys.y)) * speed
-	elif _heading != null and not Nswp.menu_open:
-		var to: Vector2 = _heading
+	elif not _path.is_empty() and not Nswp.menu_open:
+		var to: Vector2 = _path[0]
 		var left := Vector2(to.x - before.x, to.y - before.z)
 		if left.length() < 0.02:
-			_heading = null
-			_running = false
+			# At a spot on the path: on to the next, or done.
+			_path.remove_at(0)
+			if _path.is_empty():
+				_running = false
 		else:
+			_aim(Vector2(before.x, before.z), to)
+			# They face the way they walk, so a press ahead is a press where they are looking:
+			# eased, never faster than the kit's rate, and not while they turn the view themselves.
+			if not _pressed and not _presenting:
+				var turn := wrapf(_facing - rotation.y, -PI, PI)
+				var most := float(Nswp.kit.get("faceRate", 2.8)) * minf(delta, 0.1)
+				rotation.y += clampf(turn * minf(1.0, delta * 7.0), -most, most)
 			if _running:
 				speed *= float(Nswp.kit.sprint)
 			# No further in a frame than is left to go, so they stop on the spot and not past it.
@@ -423,15 +495,15 @@ func _physics_process(delta: float) -> void:
 		# Steps are heard on the floor, not in the air.
 		if is_on_floor():
 			Nswp.moved(went)
-		# Something was in the way: a tap ends there, and it is heard.
+		# Something was in the way: the walk ends there, the rest of the path with it, and it is heard.
 		if is_on_wall() and went < wish.length() * delta * 0.3:
-			_heading = null
+			_path.clear()
 			_running = false
 			Nswp.bump()
 
 
 func _on_moving_changed(_moving: String) -> void:
-	_heading = null
+	_path.clear()
 	_pressed = false
 	if not intense():
 		_pitch = 0.0
@@ -443,7 +515,7 @@ func _on_moving_changed(_moving: String) -> void:
 func _on_menu_toggled(open: bool) -> void:
 	if open:
 		# The pointer is needed for the menu.
-		_heading = null
+		_path.clear()
 		_pressed = false
 	_show_pointer()
 

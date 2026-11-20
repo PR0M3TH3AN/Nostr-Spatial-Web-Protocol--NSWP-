@@ -30,11 +30,16 @@ engine can pass to a page:
 |---|---|
 | `NSWP.start(options)` | Call once. `options` is JSON; `airlock` names the Airlock for a visitor who arrived without one. Returns the arrival. |
 | `NSWP.arrival()` | How they arrived, as JSON: `arrived`, `entry`, `immersive`, `home`, `joined`, `mic`, `moving`, `blocked`, `look`, `guest`, `name`, `pubkey`, `canGoHome`. |
-| `NSWP.go(destination, state)` | Through a door. `destination` is JSON with `url`, and `naddr` and `entryPoint` if the door has them. Returns `""`, or one word for why not. |
+| `NSWP.go(destination, state)` | Through a door. `destination` is JSON with `url`, and `naddr` and `entryPoint` if the door has them, and `title`: what the door is called, for the sign in the crossing's room. Returns `""`, or one word for why not. The room shuts round them first, and then the page is left. |
 | `NSWP.home(state)` | To their own start. False if there is no way there. |
 | `NSWP.doors(state)` | To their doors, for a world that is someone's home. |
 | `NSWP.changeLook(state)` | To their own client, to change how they look, and back here wearing it. The menu offers it under "You" and sends a `figure` event when it is pressed. A world never edits a look. |
-| `NSWP.signIn(state)` | To their own client, to say who they are: sign in, switch profile, or go on as a guest. It brings them back here, by name if they chose that. The menu offers it under "You" and sends an `identity` event when it is pressed; call this then, or from a button of your own. A world never draws a sign-in itself ([NSWP-10](../protocol/10-identity.md)). False if they came through no client. |
+| `NSWP.signIn(state)` | To their own client, to say who they are, for a visitor whose client named no sign-in address. Where it named one (the reference client does), signing in is the menu's own row, in a window of that address, and they never leave your world: see "The same sign-in" below. False if they came through no client. |
+| `NSWP.who()` | Who they are here, now, as JSON: `guest` true, or `name`, `pubkey`, `picture` and `about`. A `who` event says when it changes: they signed in or out in the menu. |
+| `NSWP.crossing()` | Where the crossing's room is: `"arriving"`, `"opening"`, `"none"`, `"leaving"`, `"shut"` or `"failed"`. A `crossing` event says when it changes. |
+| `NSWP.loading(fraction)` | How much of the world has arrived, 0 to 1: the line of light over the room's doors fills. The page that starts the engine calls it. |
+| `NSWP.ready()` | The world is ready: the room's doors open. Asking for the menu does this by itself, unless it was asked for with `hold` true. |
+| `NSWP.failed(words)` | The world couldn't start: the doors stay shut and the sign says why. |
 
 `NSWP.KIT` is the version of the kit the script was built from. Put it in
 your manifest as `"kit"`, so a visitor's client can tell how old your
@@ -53,6 +58,49 @@ Godot addon's visitor does this for you.
 
 It works under a strict content policy (`script-src 'self'`): nothing in it
 is evaluated from text.
+
+## The crossing's room, the same at both ends
+
+A visitor who leaves a Three.js world leaves from a small room whose walls
+rise round them, and arrives in the next standing in that room, whose doors
+open once the world is ready. An engine has two things in the way of that.
+It takes a long while to arrive (Godot's is forty megabytes), and what its
+export shows meanwhile is the engine's own loading screen.
+
+So the script draws the room itself, flat, as the page: the view from
+inside it, facing its doors. It needs no engine and no renderer.
+
+- **It is there from the page's first moment,** before the engine has begun
+  to load, wearing the world's name and colour. Those are said on the page,
+  since the engine can't say them yet:
+  `<meta name="nswp:title" content="My world">` and
+  `<meta name="nswp:accent" content="#4cc9f0">`, before the script's tag.
+- **The line of light over the doors is the loading bar.** The page that
+  starts the engine tells it how far along it is: `NSWP.loading(0.4)`.
+- **The doors open when the world asks for its menu,** which is the world
+  saying it is up. A world with more to load first asks for the menu with
+  `hold` true and calls `NSWP.ready()` when it is.
+- **Leaving, it comes up again.** `go`, `home` and `doors` bring the room up
+  round the visitor, with the door's name and address on the sign, shut its
+  doors, and only then leave the page. Give `go` the door's name as `title`.
+- **It is scenery, and proves nothing,** as the room it copies is
+  ([NSWP-02](../protocol/02-doors.md)). It asks for nothing and has nothing
+  in it to press.
+- A page that wants none says so on the script's tag:
+  `data-crossing="off"`.
+
+Your engine's own loading screen has to go for this to be seen. For Godot
+the addon has the page to export with (`addons/nswp/web/shell.html`).
+
+## The same sign-in
+
+The menu has the same sign-in as a Three.js world
+([NSWP-10](../protocol/10-identity.md), "One sign-in"): under You, "Sign in,
+at bitlogin.network" opens a window of the visitor's own sign-in address.
+Signed in, the card at the head of You has their picture, name and key, and
+"Signed in as" is said at the top of the view. Your engine is told
+(`{"type":"who", ...}`), and `NSWP.who()` says who they are now. A name is
+theirs only while they are signed in here: write none over a guest.
 
 ## The same menu and the same sounds
 
@@ -118,8 +166,8 @@ same: `NSWP.kit()` has the numbers, and the Godot addon has the doorway's
 frame as a mesh made from the kit's own modelling code.
 
 The rest of the reference kit's Three.js parts don't come along: other
-people's figures, the crossing's room, the view through a door, panels, the
-console in a headset. The protocol lets a world draw its visitors its own
+people's figures, the view through a door, panels, the console in a
+headset. (The crossing's room does, as the page's picture of it: above.) The protocol lets a world draw its visitors its own
 way ([NSWP-05](../protocol/05-looks.md)), so that is allowed. It is also
 work.
 
@@ -179,14 +227,29 @@ itself wasn't started, since Godot needs the browser's WebXR Layers and the
 made-up headset has none. Nobody has listened to it: the sound files are
 asked for and decoded, and that is all a test can say.
 
-**Not in the Godot addon:** moving in a headset (a session starts, and the
-visitor stands where they are), the crossing's room, the view through a
-door, and other people.
+**Added 2026-11-20,** run in Godot 4.7.2 exported for the Web, in Chrome on
+a flat screen:
 
-A Godot export is large (about 40 MB, nearly all the engine) and Godot's page
-starts itself with a script written into the page, so it can't be served
-under the reference worlds' strict content policy as it comes. The kit's
-script can; the page Godot writes round it is Godot's.
+- The crossing's room in place of Godot's loading screen: up from the first
+  moment, its line of light filling as the engine downloads, its doors
+  opening on the world; and coming up and shutting on the way out by a door.
+- The page the addon exports with has no script written into it.
+- The same sign-in row, card and "Signed in as" as a Three.js world. Tried
+  signed out only: nobody signs in to an account from a test.
+- A path pressed out as they walk, with a ring at each turn, and the view
+  turning to face the way they walk.
+- A tab of the menu kept on the bar, as in every world.
+
+**Not in the Godot addon:** moving in a headset (a session starts, and the
+visitor stands where they are), the view through a door, posting from a
+world, and other people. The crossing's room is the page's picture of it:
+it can't be looked round in, as a Three.js world's can.
+
+A Godot export is large (about 40 MB, nearly all the engine), which is what
+the line of light in the crossing's room is for. The page the addon exports
+with runs nothing written into it, so it can be served under a policy with
+no inline script; the engine itself is WebAssembly and needs
+`'wasm-unsafe-eval'` in `script-src`.
 
 ## Others
 
