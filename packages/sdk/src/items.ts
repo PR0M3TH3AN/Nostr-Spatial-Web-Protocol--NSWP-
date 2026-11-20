@@ -23,6 +23,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { askWell } from "./relay-book.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 
 export const ITEM_BUDGET = {
   /** The most a model file may weigh, in bytes. */
@@ -37,25 +38,48 @@ export const ITEM_BUDGET = {
 
 const ITEMS_KEY = "nswp:items";
 const watchers = new Set<() => void>();
+let shown: boolean | null = null;
 
-/** Whether this visitor has items drawn, and run, at all. Theirs to set; on unless they turned it off. */
-export function showsItems(): boolean {
-  try {
-    return globalThis.localStorage?.getItem(ITEMS_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
-/** Turn every item off, or on again, for this visitor: nothing of anyone's is fetched, drawn or run while it is off. */
-export function setShowsItems(on: boolean): void {
+const keep = (on: boolean): void => {
   try {
     if (on) globalThis.localStorage?.removeItem(ITEMS_KEY);
     else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
   } catch {
     /* a private window: for this page only */
   }
+};
+
+/**
+ * Whether this visitor has items drawn, and run, at all. Theirs to set; on unless they turned it off, here or
+ * where they came from: it goes with them from world to world, as their other settings do
+ * (protocol/11-the-visitors-console.md, "Settings that travel").
+ */
+export function showsItems(): boolean {
+  if (shown !== null) return shown;
+  const came = arrivedSettings().items;
+  let kept: string | null = null;
+  try {
+    kept = globalThis.localStorage?.getItem(ITEMS_KEY) ?? null;
+  } catch {
+    /* nothing kept */
+  }
+  shown = came ?? kept !== "off";
+  if (came !== undefined) keep(shown);
+  reportSettings("items", () => ({ items: showsItems() }));
+  return shown;
+}
+
+/** Turn every item off, or on again, for this visitor: nothing of anyone's is fetched, drawn or run while it is off. */
+export function setShowsItems(on: boolean): void {
+  showsItems();
+  shown = on;
+  keep(on);
   for (const fn of watchers) fn();
+}
+
+/** For tests: forget what was read, so the next look reads it afresh. */
+export function forgetItemsSwitch(): void {
+  shown = null;
 }
 
 export function onItemsChange(fn: () => void): () => void {

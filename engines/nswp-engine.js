@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.49.0";
+  var KIT_VERSION = "0.49.1";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -3770,6 +3770,8 @@ var NSWP = (() => {
       out.pictures = s.pictures;
     if (typeof s.chat === "boolean")
       out.chat = s.chat;
+    if (typeof s.items === "boolean")
+      out.items = s.items;
     if (Array.isArray(s.pins))
       out.pins = [...new Set(s.pins.filter((name) => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
     return out;
