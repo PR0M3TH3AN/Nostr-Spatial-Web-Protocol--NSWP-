@@ -659,7 +659,7 @@ when it takes the new SDK and rebuilds.
 | Site | To update |
 |---|---|
 | Reference worlds, the Starter Home, BitPortal | All nine together, from here: `npm run release:all -- --go` (below), once BitPortal and the template carry this kit (`npm run vendor` in each) |
-| A world from the template | `npm run vendor && npm run build`, then upload `dist/` |
+| A world from the template | `npm run update && npm run build` in a copy of the template (`npm run vendor` in the template's own repository beside this one), then upload `dist/` |
 
 Loading the kit live from one address into every world would mean one site's
 code running inside all of them, able to read how each visitor arrived. The
