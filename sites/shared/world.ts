@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND, type Achievement, type Board } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -802,6 +802,31 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     });
     if (signerNamed()) worldSigner().onChange(() => scoring.refresh());
   }
+  // What the people this visitor follows thought of the places these doors lead to, on each door's sign
+  // (protocol/13-ratings.md). Their own rating always counts; the people they follow do where they have let this
+  // world see who that is. Asked of relays by world. For a guest nothing is asked or shown.
+  const coordinateOf = (place: Place) => `${WORLD_KIND}:${sites.publisher}:${place.d}`;
+  const doorRatings = createDoorRatings({
+    doors: gates.map((g) => ({ world: coordinateOf(g.place), url: g.place.url })),
+    me: () => (signedInHere() ? worldSigner().pubkey : null),
+    counted: () => (signedInHere() && worldSigner().more.includes("follows") ? worldPeople().follows() : null),
+  });
+  const paintRatings = () => {
+    for (const g of gates) g.gate.setRating(doorRatings.mark(coordinateOf(g.place)));
+    // For tests: what each door's sign says of its place.
+    state.rated = Object.fromEntries(gates.map((g) => [g.door.to, doorRatings.mark(coordinateOf(g.place))]));
+  };
+  doorRatings.onChange(paintRatings);
+  if (signerNamed()) {
+    const look = () => {
+      // Who they follow is looked for once they have let this world see it, and the signs follow.
+      if (signedInHere() && worldSigner().more.includes("follows") && worldPeople().follows() === null) void worldPeople().load();
+      void doorRatings.load();
+    };
+    worldSigner().onChange(look);
+    worldPeople().onChange(paintRatings);
+    look();
+  }
   if (achievements) {
     const achieving = addAchievementControls(controls, { achievements, signedIn: signedInHere });
     if (signerNamed()) worldSigner().onChange(() => achieving.refresh());
@@ -1020,7 +1045,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // The console's own button sits where the keyboard comes up, and shows through it: away while typing.
     if (panels!.keyboard.open) xrConsole.group.visible = false;
     const at = gates[aimed];
-    controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "");
+    const rated = at ? doorRatings.words(coordinateOf(at.place)) : "";
+    controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "", rated ? [rated] : []);
     gates.forEach((g, i) => {
       g.gate.aimed = i === aimed ? 1 : 0;
       g.gate.update(t, dt);

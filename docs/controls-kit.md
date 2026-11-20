@@ -624,6 +624,29 @@ achievements.earn("all-twelve"); // they just did it
 - **A hidden one isn't named** until it is earned.
 - **It is a claim.** Nothing checks it, and the tab says so.
 
+### What people thought, on your doors
+
+Optional. A door can say what the people your visitor follows thought of
+where it leads ([NSWP-13](../protocol/13-ratings.md)):
+
+```ts
+import { createDoorRatings, worldPeople, worldSigner } from "nswp-sdk/three";
+
+const signedIn = () => worldSigner().state === "unlocked";
+const ratings = createDoorRatings({
+  doors: [{ world: "37300:<publisher>:arcade", url: "https://arcade.example/" }],
+  me: () => (signedIn() ? worldSigner().pubkey : null),
+  counted: () => (signedIn() && worldSigner().more.includes("follows") ? worldPeople().follows() : null),
+});
+ratings.onChange(() => gate.setRating(ratings.mark("37300:<publisher>:arcade")));
+void ratings.load();
+```
+
+A guest sees nothing and nothing is asked. Someone signed in sees their own
+rating; the people they follow are counted once they have let your world
+see who that is. Your world only shows ratings: giving one is done at the
+visitor's own client.
+
 ### What someone has done, on their card
 
 Optional. Where your world keeps score or marks achievements, a person's

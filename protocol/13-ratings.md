@@ -1,6 +1,6 @@
 # NSWP-13: Ratings
 
-**Status:** Implemented in the reference library, and in BitPortal at home (giving one, and showing a tally on doors, in the lobby and at the Airlock); a tally on a world's own doors is proposed · **Kinds:** 37305 · **Vectors:** [`ratings`](../vectors/ratings.json) · **Code:** core [`rating.ts`](../packages/core/src/rating.ts)
+**Status:** Implemented in the reference library, and in BitPortal at home (giving one, and showing a tally on doors, in the lobby and at the Airlock); and in the reference kit on a world's own doors · **Kinds:** 37305 · **Vectors:** [`ratings`](../vectors/ratings.json) · **Code:** core [`rating.ts`](../packages/core/src/rating.ts)
 
 A **rating** is what one person thought of one world: one to five stars,
 and a few words if they like. A client shows what the people a visitor has
@@ -69,6 +69,24 @@ signature. The tally is how many, and their average to one decimal place.
 people you follow or whose lists you use". With nobody counted there is no
 tally, and a client says nothing or says that: never "0 stars".
 
+## On a world's own doors
+
+A world is a Nostr client like any other, and may show what people thought
+of the places its doors lead to, as a visitor's own client does:
+
+- **The visitor's own rating always counts,** once they are signed in
+  there.
+- **The people they follow count where the visitor has let that world see
+  who they follow** ([NSWP-10](10-identity.md), "Asking for more"). A world
+  that hasn't been let counts nobody else.
+- **Relays are asked by world, never by person:** for the ratings of the
+  places its doors lead to. For a guest nothing is asked, and nothing is
+  shown.
+- **A door's sign says it in one line,** "★ 4.5 from 3", under where it
+  leads, and says nothing where nobody they know has rated the place.
+- **This is showing, never giving.** A rating is still given only at the
+  visitor's own client.
+
 ## Giving one
 
 - **At the visitor's own client,** where they are signed in: beside the door
@@ -101,10 +119,6 @@ tallyWords(tally); // "4.5 of 5, from 12", or "" when nobody counted has rated i
 
 ## Proposed, not built
 
-- **A tally on a world's own doors.** A door in a world doesn't know who its
-  visitor trusts, and asking would tell relays who is standing where. The
-  way to it is the visitor's client handing the world a tally for the doors
-  it lists, as it hands over their settings ([NSWP-11](11-the-visitors-console.md)).
 - **Taking a rating back** (a deletion, NIP-09), from the visitor's client.
 - **Reaching further than follows:** counting the people one's follows
   follow, weighted less.

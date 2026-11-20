@@ -44,6 +44,11 @@ export interface PortalGate {
   setLabel(label: string): void;
   /** Say what kind of place it leads to, on the sign: one of the core's `CATEGORIES`. Anything else says nothing. */
   setCategory(category: string | null | undefined): void;
+  /**
+   * Say what the people this visitor has reason to trust thought of the place, under the address: "★ 4.5 from 3"
+   * (protocol/13-ratings.md). "" says nothing, which is what a door says when nobody they know has rated it.
+   */
+  setRating(mark: string): void;
   /** Show a preview of the destination through the portal (spec §5.8). Returns the window, for a world that needs to hide it while it photographs itself. */
   showThrough(pano: THREE.Texture): THREE.Mesh;
   update(t: number, dt: number): void;
@@ -207,6 +212,7 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
   let sign: THREE.Sprite | null = null;
   let said = opts.label ?? "Portal";
   let category = opts.category ?? null;
+  let rating = "";
   const setLabel = (label: string) => {
     said = label;
     if (sign) {
@@ -214,7 +220,7 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
       sign.material.map?.dispose();
       sign.material.dispose();
     }
-    sign = textSprite(`${label}\n${addressLine(destination, category)}`, textColor, 2.2);
+    sign = textSprite(`${label}\n${addressLine(destination, category)}${rating ? `\n${rating}` : ""}`, textColor, 2.2);
     sign.position.set(0, PORTAL_SIGN_HEIGHT, 0);
     group.add(sign);
   };
@@ -230,6 +236,13 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
     setCategory(next) {
       if ((next ?? null) === category) return;
       category = next ?? null;
+      setLabel(said);
+    },
+    setRating(mark) {
+      // One short line of plain text: a star, a number and a count, whatever it was handed.
+      const next = typeof mark === "string" ? mark.replace(/\s+/g, " ").trim().slice(0, 24) : "";
+      if (next === rating) return;
+      rating = next;
       setLabel(said);
     },
     showThrough(pano) {
