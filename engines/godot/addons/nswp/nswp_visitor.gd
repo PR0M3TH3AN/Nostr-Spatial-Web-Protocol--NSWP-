@@ -51,6 +51,14 @@ const CLICK_SLOP := 6.0
 var _pitch: float = 0.0
 var _pressed: bool = false
 var _dragged: float = 0.0
+var _pressed_at: int = 0
+## Asked of each tap on the view, moving the casual way, before it is a step: given where it was
+## and how long it was held, in milliseconds, it says whether it took the tap for itself.
+## `NswpItems` sets it, so that a tap is the first press of what is in the visitor's hand.
+var tap_filter: Callable = Callable()
+## How much slower the view turns just now, from a little under a half to 1: `NswpItems` sets it
+## while the visitor aims along a sight, by as much as they see narrower.
+var look_scale: float = 1.0
 ## Where a tap is taking them, or null.
 ## The way they are walking, moving the casual way: each spot still ahead, in order. A press
 ## while they are walking adds to it from where it ends, so a path is pressed out as it is
@@ -172,7 +180,7 @@ func _intense_input(event: InputEvent) -> void:
 		if event.physical_keycode == KEY_F:
 			_use()
 	elif event is InputEventMouseMotion and (looking() or event.button_mask == 0):
-		var speed := float(Nswp.kit.lookSpeed)
+		var speed := float(Nswp.kit.lookSpeed) * look_scale
 		var limit := float(Nswp.kit.pitchLimit)
 		rotate_y(-event.relative.x * speed)
 		_pitch = clampf(_pitch - event.relative.y * speed, -limit, limit)
@@ -186,9 +194,14 @@ func _casual_input(event: InputEvent) -> void:
 		if event.pressed:
 			_pressed = true
 			_dragged = 0.0
+			_pressed_at = Time.get_ticks_msec()
 		elif _pressed:
 			_pressed = false
 			if _dragged <= CLICK_SLOP:
+				# Something in their hand may take a tap as its own (`NswpItems`): a press held is
+				# still how they walk.
+				if tap_filter.is_valid() and bool(tap_filter.call(event.position, Time.get_ticks_msec() - _pressed_at)):
+					return
 				_tap(event.position)
 	elif event is InputEventMouseMotion:
 		if _pressed:

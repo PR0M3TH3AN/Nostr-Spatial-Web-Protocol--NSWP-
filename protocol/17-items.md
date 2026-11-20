@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit for worlds drawn with Three.js: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a world drawn by another engine · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit: in full for worlds drawn with Three.js, and for one visitor by themself in worlds made with Godot, which have no rooms yet (so nothing reaches anyone there). Built: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, other people in a world made with Godot · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -119,7 +119,8 @@ What a thing is, is said once by its maker, in an addressable note
 - **`tint`** is a colour of the item that whoever holds it may choose:
   `["tint", "accent", "Accent", "#f2691c"]` is its name, what a visitor is
   shown it as, and the colour it is until they choose. Four at most. Every
-  material in the item's models named `tint:<name>` takes that colour, and
+  material in the item's models named `tint:<name>` (or `tint_<name>`,
+  for a tool that won't write a colon) takes that colour, and
   a part that glows, glows in it. See "A holder's own colours".
 
 **One site can hold any number of items.** An item is a note and some
@@ -130,6 +131,13 @@ maker keeps as many as they like in one place.
 `Access-Control-Allow-Origin: *`, since each viewer fetches it from the
 world they are in. It is named by its hash and never changes, so it can be
 kept for ever by whoever fetched it.
+
+**Made once, for every world.** An item is a description, a binary glTF,
+small sounds and perhaps a script: nothing in it belongs to an engine, so
+the same item works in a world drawn with Three.js and one made with Godot,
+and there is nothing to convert. `nswp make-item thing.glb --title … --host
+…` describes one from a model made in any tool: it reads the file as every
+world will, measures it and names it by its hash.
 
 **Signing one.** `nswp sign-item item.json --key-file <key>` signs a
 description from a file of what `buildItem` takes (`d`, `title`, `model`
@@ -430,7 +438,11 @@ items, and puts it away again.
   from relays, taken only with a real signature by the maker its
   coordinate names; the model from where the description says, taken only
   if its bytes have the hash the description gives.
-- **A model is counted before it is drawn:** 2 MB, 20,000 triangles, 40
+- **A model is read and counted before anything draws it,** by one reader
+  that every engine shares (`readGlb`): a binary glTF with everything it
+  needs inside itself. One that names a file outside itself, or needs a
+  special reader, is refused: a model can't send a browser to an address
+  of its maker's choosing. Then: 2 MB, 20,000 triangles, 40
   meshes, 16 materials, and pictures no larger than 1024 on a side. Lights
   and cameras a file brings are left out. Then it is scaled to the box its
   description gives.

@@ -7,16 +7,21 @@
  *   nswp keygen <key-file>
  *   nswp sign-world <world-input.json> --key-file <path> [--out <file>]
  *   nswp sign-list <list-input.json> --key-file <path> [--out <file>]
+ *   nswp make-item <model.glb> --title <name> --host <https://…/> [--d <name>] [--summary <words>] [--out <file>] [--files <dir>]
  *   nswp sign-item <item-input.json> --key-file <path> [--out <file> | --out-dir <dir>]
  *   nswp worlds [--relays ...] [--verify] [--not-on <list-event.json>] [--json]
  *   nswp publish <event.json> [--relays ...]
  */
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import {
   buildItem,
+  measureGlb,
+  MODEL_BUDGET,
+  readGlb,
   buildListEvent,
   buildWorldEvent,
   checkDestination,
@@ -229,6 +234,87 @@ function keygen(path: string): number {
 }
 
 /**
+ * Describe an item from its model, whatever made the model: Godot, Blender, Three.js, anything that writes a
+ * binary glTF (protocol/17-items.md). The file is read and counted as every world will count it, measured, and
+ * named by its hash; what comes out is a description ready for `sign-item`. An item made this way works in every
+ * world that draws items, whatever that world is made with: there is nothing to convert.
+ */
+function makeItem(path: string): number {
+  const title = flag("title");
+  const host = flag("host");
+  if (!title || !host) {
+    console.log(`${BAD} --title and --host are required: what it is called, and the https address its files will be served from (ending in /)`);
+    return 1;
+  }
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(readFileSync(path));
+  } catch {
+    console.log(`${BAD} ${path} couldn't be read`);
+    return 1;
+  }
+  const read = readGlb(bytes);
+  const measured = measureGlb(bytes);
+  if (!read.ok || !measured) {
+    const why: Record<string, string> = {
+      "not-glb": "it isn't a binary glTF (.glb). Export it as one: in Godot, Scene → Export As → glTF 2.0, with the .glb ending; in Blender, File → Export → glTF 2.0, Format: glTF Binary",
+      "too-big": `it is over ${MODEL_BUDGET.bytes / 1_000_000} MB`,
+      outside: "it names a file outside itself (a buffer or a picture at an address). Export it with everything packed inside",
+      "needs-more": "it needs something a plain reader doesn't have (a compression such as Draco or Meshopt, or a picture that isn't PNG, JPEG or WebP). Export it without",
+      "over-budget": `it is over the budget every world counts a carried model against: ${MODEL_BUDGET.triangles} triangles, ${MODEL_BUDGET.meshes} meshes, ${MODEL_BUDGET.materials} materials, pictures ${MODEL_BUDGET.texture} on a side`,
+      unreadable: "its contents couldn't be read",
+    };
+    console.log(`${BAD} ${path} can't be an item's model: ${read.ok ? "it has no shape to measure" : why[read.why]}.`);
+    return 1;
+  }
+  if (measured.size.some((side) => side > 4)) {
+    console.log(`${BAD} it is ${measured.size.join(" × ")} metres, and no side of an item may be longer than 4. Scale it down where you made it: one unit is one metre.`);
+    return 1;
+  }
+  const hash = bytesToHex(sha256(bytes));
+  const base = host.endsWith("/") ? host : `${host}/`;
+  const d =
+    flag("d") ??
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64);
+  const summary = flag("summary");
+  const [w, h, depth] = measured.size;
+  const input: ItemInput = {
+    d,
+    title,
+    ...(summary ? { summary } : {}),
+    model: { url: `${base}${hash}.glb`, sha256: hash },
+    size: measured.size,
+    colliders: [{ shape: "box", centre: [0, Math.round((h! / 2) * 1000) / 1000, 0], size: [w!, h!, depth!] }],
+    behaviors: ["holdable"],
+    fits: ["place", "hand-left", "hand-right"],
+    // A material named tint:<slot> is a colour left to whoever holds it: it starts as the colour the material has.
+    ...(measured.tints.length ? { tints: measured.tints.map((t) => ({ slot: t.slot, label: t.slot[0]!.toUpperCase() + t.slot.slice(1), color: t.color })) } : {}),
+  };
+  if (!buildItem({ ...input, now: 0 })) {
+    console.log(`${BAD} that doesn't make an item: its name must be lower-case letters, digits and hyphens, and --host an https address.`);
+    return 1;
+  }
+  const files = flag("files");
+  if (files) {
+    mkdirSync(files, { recursive: true });
+    copyFileSync(path, `${files.replace(/\/$/, "")}/${hash}.glb`);
+  }
+  const text = `${JSON.stringify(input, null, 2)}\n`;
+  const outPath = flag("out");
+  if (outPath) writeFileSync(outPath, text);
+  else process.stdout.write(text);
+  const say = outPath ? console.log : console.error;
+  say(`${OK} ${title}: ${measured.size.join(" × ")} m, ${measured.count.triangles} triangles, ${measured.count.meshes} meshes, ${measured.count.materials} materials${measured.count.animations.length ? `, animations: ${measured.count.animations.join(", ")}` : ""}${measured.tints.length ? `, colours a holder may choose: ${measured.tints.map((t) => t.slot).join(", ")}` : ""}`);
+  say(`  Its file must be served at ${input.model.url}${files ? ` (copied to ${files}/${hash}.glb)` : ""}, with Access-Control-Allow-Origin: * so that any world can fetch it.`);
+  say(`  Then: nswp sign-item ${outPath ?? "<this description>"} --key-file <your key>, and nswp publish. Edit the description first if it sits, is worn or does something.`);
+  return 0;
+}
+
+/**
  * Sign an item's description (protocol/17-items.md), or each of a list of them. The file is what `buildItem`
  * takes: `d`, `title`, `model` with its address and SHA-256, `size`, and whatever else it says of itself. The
  * model's own bytes aren't looked at here: whoever fetches it checks them against the hash.
@@ -407,6 +493,9 @@ async function main(): Promise<number> {
     case "sign-list":
       if (arg) return signList(arg);
       break;
+    case "make-item":
+      if (arg) return makeItem(arg);
+      break;
     case "sign-item":
       if (arg) return signItem(arg);
       break;
@@ -429,6 +518,8 @@ async function main(): Promise<number> {
   nswp keygen <key-file>                                  create a publisher key (hex, mode 600)
   nswp sign-world <input.json> --key-file <f> [--out f]   sign a world announcement from a WorldInput file
   nswp sign-list <input.json> --key-file <f> [--out f]    sign a list of worlds: { "d", "title", "description", "worlds": [addresses] }
+  nswp make-item <model.glb> --title <name> --host <https://…/> [--d name] [--summary words] [--out f] [--files dir]
+                                                          describe an item from a model made in any tool (NSWP-17)
   nswp sign-item <input.json> --key-file <f> [--out f | --out-dir d]
                                                           sign an item's description, or a list of them (NSWP-17)
   nswp worlds [--verify] [--not-on <list.json>] [--json]  every world announced on the relays, newest first

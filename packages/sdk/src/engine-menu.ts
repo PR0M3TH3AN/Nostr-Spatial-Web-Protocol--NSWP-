@@ -54,6 +54,8 @@ const tell = (event: Record<string, unknown>): void => {
 };
 /** For the rest of the engine's script to tell the engine something the same way. */
 export const tellEngine = tell;
+/** The menu and the sounds, once the world has asked for them: for the rest of the engine's script to add to. */
+export const engineParts = (): { controls: Controls; sounds: Sounds; presenting: boolean } | null => (controls && sounds ? { controls, sounds, presenting: vr.presenting } : null);
 /** Told once, when the world asks for its menu: its name and colour, and whether it will open the crossing's doors itself. */
 const menuWatchers = new Set<(look: { title: string; accent?: string; hold: boolean }) => void>();
 export const onMenu = (fn: (look: { title: string; accent?: string; hold: boolean }) => void): void => void menuWatchers.add(fn);

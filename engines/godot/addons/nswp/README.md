@@ -142,6 +142,62 @@ func _ready() -> void:
   if your world has rooms of its own, and they go with the visitor to the
   next world. `Nswp.arrival` has the same as they arrived.
 
+## Things visitors carry
+
+A visitor has a bag, and may take one thing from it in hand. Some things do
+something: a toy blaster sends out darts ([NSWP-17](../../../../protocol/17-items.md)).
+To have that in your world:
+
+```gdscript
+var items := NswpItems.new()
+items.visitor = $Visitor       # an NswpVisitor, or the node that stands where they stand
+items.rule = "allowed"         # what your world's announcement says of items
+add_child(items)
+```
+
+That is all of it. The Bag tab joins the menu; what a visitor holds is
+drawn in their hand; what it sends out flies, sticks to anything of yours
+with a collision shape, lets go and is gone. A tap or a click on the view
+is the item's first press, and a press held still walks. Nothing of your
+world has to be an item.
+
+Almost none of it is this addon's: the kit's own script on the page does
+everything that isn't drawing, and it is the same code a Three.js world
+runs. So an item behaves the same in your world as in any other.
+
+Three things to do beside the code:
+
+1. **Say so in your announcement:** `"items": "allowed"` in your world's
+   `world.json`, signed and published. A world that says nothing of items
+   has none, and should leave `NswpItems` out.
+2. **Serve the locked box.** An item's own logic runs in a page of its own
+   that can reach nothing: `item-box.html`, beside your `index.html`. Its
+   text is `ITEM_BOX_HTML` in the kit's core, and your host must send it
+   with exactly `ITEM_BOX_CSP` as its Content-Security-Policy and none of
+   your site's other content rules. `scripts/build-godot-example.mjs` in
+   the kit's repository does both for the example. Where it isn't served
+   that way, items are shapes in your world and do nothing of their own;
+   set `items.scripts = false` to say so.
+3. **Let your page fetch models:** `connect-src` with `https:`. An item's
+   files are wherever its maker keeps them.
+
+**Making an item in Godot.** Build it as a scene: one unit is one metre, it
+stands on its base, and it faces -Z. Then:
+
+```
+godot --headless --path . --script addons/nswp/nswp_item_model.gd -- res://mallet.tscn mallet.glb
+nswp make-item mallet.glb --title "Mallet" --host https://your.site/items/
+```
+
+The first writes the scene out as the one file an item's model is. The
+second measures it, names it by its hash and writes its description, ready
+to sign. A material named `tint_accent` (Godot won't keep a colon in a
+name) is a colour whoever holds it may choose. The item then works in
+every world that draws items, whatever each is made with.
+
+**Not here yet:** other people (so nothing reaches anyone, and nobody sees
+what you hold), and anything of this in a headset.
+
 ## Using your own instead
 
 Everything above is a default.
@@ -168,6 +224,8 @@ yours to decide, and worth deciding on purpose.
 | `nswp_portal.gd` | `NswpPortal`: a door with nothing drawn. |
 | `nswp_gate.gd` | `NswpGate`: the standard doorway. Set `category` and its sign says what kind of place it leads to. |
 | `nswp_visitor.gd` | `NswpVisitor`: a visitor who moves the way every world's do. |
+| `nswp_items.gd` | `NswpItems`: what a visitor holds, and what it sends out. |
+| `nswp_item_model.gd` | Writes a scene out as an item's model. Run it from a terminal. |
 | `gate/frame.obj` | The doorway's frame. Made from the reference kit's modelling code; don't edit it here. |
 | `gate/*.gdshader` | The kit's metal, the field of light in a doorway and its glow, written for Godot. |
 | `web/` | What goes beside the exported page: the kit's script and its sounds. Godot ignores this folder. |
@@ -212,6 +270,8 @@ applies whatever the engine. The ones a Godot world is most likely to miss:
 
 ## Not here yet
 
+- **Items between people:** hits, health and seeing what someone else
+  holds. They come with rooms.
 - **Rooms:** other visitors, their voices, shared screens and music. The
   kit's room connection is JavaScript and would need more than text passed
   across. A world in Godot today is one a visitor is alone in, or one with

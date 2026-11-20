@@ -15,6 +15,6 @@
   },
   "elsewhere": {
     "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "category": "experience", "was": "nswp-world-template.vercel.app" },
-    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry", "category": "experience" }
+    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry", "category": "experience", "items": "allowed" }
   }
 }
