@@ -34,9 +34,10 @@ import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
 export { bump, check, claim, door, events, headset, kit, load, menu, moved, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
+export { frame, items, itemSecond, itemTap, itemUse, model } from "./engine-items.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 9;
+export const VERSION = 10;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 

@@ -41,7 +41,8 @@ import {
 } from "@nswp/core";
 import * as THREE from "three";
 import { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
-import { showsItems, type Items } from "./items.js";
+import { showsItems } from "./item-store.js";
+import type { Items } from "./items.js";
 import type { ForeignSound, Sounds } from "./sound.js";
 
 /** Someone else in the room, as this needs them: where they are, what to stick things to, what they hold. */
@@ -93,6 +94,13 @@ export interface PlayOptions {
   /** Whether they are aiming along their item's sight now: then its own mark is what they aim by, and no ring is drawn. */
   sighting?: () => boolean;
   /**
+   * The world is drawn by something else (another engine), which is the one that knows its shapes. Then nothing
+   * here looks for what a thing ran into: each frame `snapshot()` says where each thing went, whatever draws the
+   * world tests that, and says what it met with `met()` and where the floor is with `floored()`, a frame later.
+   * Everything else is exactly as it is for a world drawn here: one flight, one set of rules.
+   */
+  deferred?: boolean;
+  /**
    * The colours someone chose for what they hold: the visitor's own for their own key (or null, outside a room),
    * anyone else's as they said them. Left out, everything is the colour its maker gave it.
    */
@@ -121,6 +129,12 @@ export interface Play {
   update(dt: number): void;
   /** For tests: what is in the air, stuck and lying, and what has happened. */
   info(): PlayInfo;
+  /** Everything there is to draw this frame, as plain numbers: for a world drawn by another engine (`deferred`). */
+  snapshot(): PlaySnapshot;
+  /** A thing met a shape of the world, part of the way along a step `snapshot()` asked to have tested. */
+  met(key: string, step: number, fraction: number, point: [number, number, number], ref?: string): void;
+  /** Where the floor is under a thing that has let go. */
+  floored(key: string, y: number): void;
   dispose(): void;
 }
 
@@ -145,6 +159,45 @@ export interface PlayInfo {
   bars: Record<string, { value: number; full: number }>;
 }
 
+/** What there is to draw, with nothing of any renderer in it. Distances are metres; a turn is x, y, z, w. */
+export interface PlaySnapshot {
+  things: {
+    key: string;
+    /** Which model: the hash its file is named by, and its box. */
+    model: string;
+    size: [number, number, number];
+    /** The colours whoever sent it chose. */
+    tints: Record<string, string>;
+    state: "flying" | "stuck" | "falling" | "lying";
+    /** What it is stuck to: "world", a person's key, or "". And what the engine said it met, where it said. */
+    on: string;
+    ref: string;
+    at: [number, number, number];
+    turn: [number, number, number, number];
+    scale: number;
+    /** A step to test against the world's shapes: from `a` to `b`. Null where there is nothing to test. */
+    test: { step: number; a: [number, number, number]; b: [number, number, number] } | null;
+    /** It has let go and is falling: where is the floor under it? */
+    down: boolean;
+  }[];
+  /** A streak of light behind a thing: points along its middle, each with how bright it is there, from 0 to 1. */
+  trails: { key: string; color: string; width: number; points: [number, number, number, number][] }[];
+  own: {
+    /** The ring that says where a thing will go, and the mark that says one reached someone. */
+    cross: boolean;
+    mark: boolean;
+    /** How they are, and how much of the bar to show, from 0 to 1. */
+    health: { value: number; full: number; growing: number; down: boolean; shown: number };
+    /** How red the edge of the view is, from 0 to 1, and whether the view is breaking up. */
+    red: number;
+    glitch: boolean;
+    /** What their item shows of itself. */
+    words: string;
+  };
+  /** Animations of an item's own that began since the last snapshot: whose ("" for the visitor's own), and which. */
+  clips: { who: string; name: string }[];
+}
+
 interface Thing {
   by: string;
   shot: Shot;
@@ -163,6 +216,15 @@ interface Thing {
   trail: THREE.Mesh | null;
   trailSeconds: number;
   landedAt: number | null;
+  /** The colours it was sent in. */
+  tints: Record<string, string>;
+  /** In a world drawn by another engine: the steps it has taken that are still to be answered for, what it was
+   * said to have met, and whether the floor under it has been said. */
+  steps: { n: number; t0: number; t1: number }[];
+  stepNo: number;
+  late: { t: number; point: THREE.Vector3; ref: string } | null;
+  ref: string;
+  flooredAt: boolean;
   until: number;
   fall: number;
   floor: number;
@@ -186,6 +248,30 @@ export function allowScript(sha256: string): void {
   } catch {
     /* a private window: for this page only */
   }
+}
+
+/**
+ * Whether a thing may be taken in hand here, and the words for it where it may not: the same rules and the same
+ * words whatever draws the world. `asked` remembers the script the visitor was last told about, so that a second
+ * press on the same item is their yes to it.
+ */
+export function mayHold(described: Item | null, o: { rule: string; scripts: boolean; asked: { sha: string } }): { ok: true } | { ok: false; said: string } {
+  if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+  if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+  if (!described) return { ok: false, said: "That item's description couldn't be found." };
+  if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+  // An item that must be granted needs its maker's grant checked, which nothing here does yet.
+  if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+  // An item that does things of its own runs its maker's code, shut away. They are told so, and who wrote it, the
+  // first time: a second press lets it. A changed script is asked about again.
+  if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
+    if (o.asked.sha !== described.script.sha256) {
+      o.asked.sha = described.script.sha256;
+      return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}…). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+    }
+    allowScript(described.script.sha256);
+  }
+  return { ok: true };
 }
 
 /** A flat picture that always faces the viewer, drawn by a small function. */
@@ -224,7 +310,7 @@ const repaint = (sprite: THREE.Sprite, paint: (g: CanvasRenderingContext2D, w: n
  * comes. With nothing left it says so, in the colour of a warning.
  */
 const WARN = "#ff5d52";
-const bar = (g: CanvasRenderingContext2D, w: number, h: number, o: { value: number; full: number; accent: string; growing?: number; down?: boolean; heart?: boolean }): void => {
+export const paintHealth = (g: CanvasRenderingContext2D, w: number, h: number, o: { value: number; full: number; accent: string; growing?: number; down?: boolean; heart?: boolean }): void => {
   const low = o.value <= Math.ceil(o.full / 3);
   const ink = o.down || low ? WARN : o.accent;
   g.fillStyle = "rgba(10,12,16,0.8)";
@@ -305,7 +391,8 @@ export function createPlay(o: PlayOptions): Play {
   // ---------------------------------------------------------------- what this visitor sees of themself
   const hud = new THREE.Group();
   hud.userData.nswpNoHit = true;
-  o.camera.add(hud);
+  // In a world drawn by another engine nothing here is drawn: these are kept as the state of what to draw there.
+  if (!o.deferred) o.camera.add(hud);
   const cross = drawn(64, 64, (g) => {
     g.strokeStyle = "rgba(255,255,255,0.9)";
     g.lineWidth = 3;
@@ -337,7 +424,7 @@ export function createPlay(o: PlayOptions): Play {
   /** Whether things may move for this visitor: not where they asked for none of it, and gently in a headset. */
   const lively = (): boolean => (o.theme?.().motion ?? true) && !isPresenting();
   const own = { value: HEALTH.full as number, full: HEALTH.full as number, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
-  const ownBar = drawn(384, 64, (g) => bar(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+  const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
   ownBar.scale.set(0.3, 0.05, 1);
   ownBar.material.opacity = 0;
   ownBar.visible = false;
@@ -371,7 +458,7 @@ export function createPlay(o: PlayOptions): Play {
   const paintOwn = (): void => {
     const down = own.downUntil > 0;
     const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
-    repaint(ownBar, (g, cw, ch) => bar(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
+    repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
     own.painted = clock;
   };
 
@@ -422,7 +509,10 @@ export function createPlay(o: PlayOptions): Play {
       o.sounds.playForeign(sound, { distance, pan });
     });
   };
-  const animate = (item: Item, model: THREE.Object3D | null, name: string): void => {
+  /** Animations begun since the last snapshot, for a world drawn by another engine to play on what it drew. */
+  let clipsSaid: { who: string; name: string }[] = [];
+  const animate = (item: Item, model: THREE.Object3D | null, name: string, who = ""): void => {
+    if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who, name });
     if (!model) return;
     const clip = o.items.clips(item).find((c) => c.name === name);
     if (!clip) return;
@@ -474,7 +564,8 @@ export function createPlay(o: PlayOptions): Play {
     o.scene.attach(thing.object);
     thing.state = "falling";
     thing.fall = 0;
-    thing.floor = floorUnder(thing.object.getWorldPosition(new THREE.Vector3()));
+    // Where another engine draws the world it says where the floor is, a frame on: until then, the visitor's own.
+    thing.floor = o.deferred ? o.rig.getWorldPosition(new THREE.Vector3()).y : floorUnder(thing.object.getWorldPosition(new THREE.Vector3()));
   };
   // ---- A streak of light behind a thing, along the arc it flew: a ribbon that always faces the viewer, bright at
   // the thing and fading to nothing behind it. It is worked out from the same arc the thing flies on, so it bends
@@ -560,7 +651,7 @@ export function createPlay(o: PlayOptions): Play {
     const trailSeconds = send.trail ?? 0;
     // Its trail is the colour of the tint that has the thing's own name: a dart's, for a dart.
     const trailColor = tints[send.name] ?? item.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
-    const thing: Thing = { by, shot, send, item, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null };
+    const thing: Thing = { by, shot, send, item, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
     things.push(thing);
     pending.delete(`${by}:${shot.id}`);
     // Its shape took a moment to fetch: it is flown on to where it would be by now, a little at a time, so that it
@@ -614,8 +705,18 @@ export function createPlay(o: PlayOptions): Play {
     const length = step.length();
     let first = 1.0001;
     let done: (() => void) | null = null;
+    // In a world drawn by another engine, that engine said what an earlier step met: it stops there.
+    if (o.deferred && thing.late) {
+      const late = thing.late;
+      thing.late = null;
+      thing.landedAt = late.t;
+      thing.ref = late.ref;
+      stick(thing, late.point, null, "world");
+      hear(thing.item, thing.send.lands, late.point);
+      return;
+    }
     // The shapes of the world.
-    if (length > 1e-6) {
+    if (!o.deferred && length > 1e-6) {
       ray.set(a, step.clone().divideScalar(length));
       ray.far = length;
       const hit = ray.intersectObjects(worldShapes(), false)[0];
@@ -843,7 +944,7 @@ export function createPlay(o: PlayOptions): Play {
         shown.full = Math.min(state.full, 12);
         shown.until = clock + (state.value < state.full ? 30 : 2);
         person.over.add(shown.sprite);
-        repaint(shown.sprite, (g, cw, ch) => bar(g, cw, ch, { value: Math.min(shown!.value, shown!.full), full: shown!.full, accent: accent(), down: shown!.value === 0, heart: false }));
+        repaint(shown.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown!.value, shown!.full), full: shown!.full, accent: accent(), down: shown!.value === 0, heart: false }));
         return;
       }
       const hit = parseHit(said);
@@ -885,7 +986,7 @@ export function createPlay(o: PlayOptions): Play {
       const does = (holding: Item | null): void => {
         if (!holding) return;
         if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : undefined, person.head);
-        else if (did) animate(holding, person.held, did.name);
+        else if (did) animate(holding, person.held, did.name, from);
         // Only one of the things the item in their hand says it sends out.
         else if (shot) void launch(from, holding, shot);
       };
@@ -985,10 +1086,17 @@ export function createPlay(o: PlayOptions): Play {
           // Flown in short steps however slowly the page is drawing: never one so long that a thing could pass
           // through a wall between two frames, and never slower than it really goes.
           let left = Math.min(dt, 0.5);
+          const from = thing.t;
           while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
             const step = Math.min(0.03, left);
             fly(thing, step);
             left -= step;
+          }
+          // For a world drawn by another engine: this frame's flight is one step for it to test. A few are kept,
+          // since its answer comes a frame or two on.
+          if (o.deferred && thing.state === "flying" && thing.t > from) {
+            thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
+            if (thing.steps.length > 6) thing.steps.shift();
           }
           drawTrail(thing);
         } else if (thing.state === "stuck") {
@@ -1016,6 +1124,70 @@ export function createPlay(o: PlayOptions): Play {
           if (thing.until <= 0) gone(thing);
         }
       }
+    },
+    snapshot() {
+      const clips = clipsSaid;
+      clipsSaid = [];
+      const q = new THREE.Quaternion();
+      const at = new THREE.Vector3();
+      const three = (x: THREE.Vector3): [number, number, number] => [x.x, x.y, x.z];
+      return {
+        things: things.map((t) => {
+          t.object.getWorldPosition(at);
+          t.object.getWorldQuaternion(q);
+          const last = t.state === "flying" ? t.steps[t.steps.length - 1] : undefined;
+          return {
+            key: `${t.by}:${t.shot.id}`,
+            model: t.send.model.sha256,
+            size: t.send.size,
+            tints: t.tints,
+            state: t.state,
+            on: t.on,
+            ref: t.ref,
+            at: three(at),
+            turn: [q.x, q.y, q.z, q.w] as [number, number, number, number],
+            scale: t.object.scale.x,
+            test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1) } : null,
+            down: t.state === "falling" && !t.flooredAt,
+          };
+        }),
+        trails: things.flatMap((t) => {
+          const mesh = t.trail;
+          if (!mesh || !mesh.visible) return [];
+          // The streak is kept as two edges: its middle is between them, and how bright it is there is its colour's share.
+          const position = mesh.geometry.getAttribute("position");
+          const color = mesh.geometry.getAttribute("color");
+          const base = mesh.userData.base as THREE.Color;
+          const most = Math.max(base.r, base.g, base.b, 1e-6);
+          const points: [number, number, number, number][] = [];
+          for (let i = 0; i < position.count; i += 2) {
+            points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
+          }
+          return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
+        }),
+        own: {
+          cross: cross.visible,
+          mark: mark.visible,
+          health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
+          red: edge.visible ? edge.material.opacity : 0,
+          glitch: glitch.visible,
+          words,
+        },
+        clips,
+      };
+    },
+    met(key, step, fraction, point, ref = "") {
+      const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+      const tested = thing?.steps.find((s) => s.n === step);
+      if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
+      const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+      thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new THREE.Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
+    },
+    floored(key, y) {
+      const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+      if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
+      thing.flooredAt = true;
+      thing.floor = y;
     },
     info() {
       const count = (state: Thing["state"]) => things.filter((t) => t.state === state).length;

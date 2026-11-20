@@ -32,7 +32,7 @@ import { rgb } from "./ui/theme.js";
 import { addDeskControls, setAimScale, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { applyTints, createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
-import { allowScript, createPlay, scriptAllowed, type Play, type PlayOptions } from "./play.js";
+import { createPlay, mayHold, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
 import { createMessages } from "./messages.js";
@@ -435,7 +435,7 @@ export function createPresence(d: PresenceOptions): Presence {
     if (mine) session?.tellPlay(buildTints(mineTints));
   };
   /** An item whose script this visitor was just asked about: a second press lets it run. */
-  let askedScript = "";
+  const askedScript = { sha: "" };
   const itemMutes = new Set<string>();
   /** In a headset the item is in a hand: the right, where there is one. */
   const hand = (): number => {
@@ -1059,22 +1059,11 @@ export function createPresence(d: PresenceOptions): Presence {
         put();
         return { ok: true, said: had ? "Put away." : "You are holding nothing." };
       }
-      if (!d.items || itemsRule() === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
-      if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
-      const described = await d.items.describe(item);
-      if (!described) return { ok: false, said: "That item's description couldn't be found." };
-      if (!canBeHeld(described)) return { ok: false, said: `${described.title} isn't something to hold.` };
-      // An item that must be granted needs its maker's grant checked, which nothing here does yet.
-      if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
-      // An item that does things of its own runs its maker's code, shut away. They are told so, and who wrote it,
-      // the first time: a second press lets it. A changed script is asked about again.
-      if (described.script && d.itemScripts && !scriptAllowed(described.script.sha256)) {
-        if (askedScript !== described.script.sha256) {
-          askedScript = described.script.sha256;
-          return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}…). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
-        }
-        allowScript(described.script.sha256);
-      }
+      if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
+      // The same rules, and the same words, in every world whatever draws it (`mayHold`).
+      const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
+      const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
+      if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
       mineTints = cleanTints(described, tints ?? {});
       const model = await d.items.model(described, mineTints);
       put();
@@ -2910,7 +2899,7 @@ export { addScoreControls, type Scoring, type ScoringOptions } from "./scoring.j
 export { createItems, fitToSize, ITEM_BUDGET, onItemsChange, setShowsItems, showsItems, withinBudget, type Items, type ItemsOptions } from "./items.js";
 export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } from "./bag.js";
 export { addBagControls, itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
-export { allowScript, createPlay, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson } from "./play.js";
+export { allowScript, createPlay, mayHold, paintHealth, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson, type PlaySnapshot } from "./play.js";
 export { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
 export { addItemControls, TAP_MS, type ItemControls, type ItemControlsOptions } from "./item-controls.js";
 export { createDoorRatings, type DoorRatings, type DoorRatingsOptions } from "./door-ratings.js";

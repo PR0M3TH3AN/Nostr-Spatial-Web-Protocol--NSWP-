@@ -185,6 +185,76 @@ a door.
 The sound files go beside the page, in a folder the engine names (`kit`).
 Without them the sounds are the ones the kit makes in the browser.
 
+## Things visitors carry
+
+A visitor has a bag, and may take one thing from it in hand; some things do
+something, such as a toy blaster that sends out darts
+([NSWP-17](../protocol/17-items.md)). **An item is made once and works in
+every world, whatever the world is made with.** It is a signed description,
+a model as a binary glTF (which every engine reads), small sounds, and
+perhaps a script in plain JavaScript that runs in the browser's own locked
+box. There is nothing in one to convert from engine to engine.
+
+So everything about an item that isn't drawing is in the script, and is the
+very code a Three.js world runs: the Bag tab, fetching and checking each
+file, the item's own logic in its locked box, how what it sends out flies,
+and how the visitor is. An engine does only what only it can:
+
+| Call | Does |
+|---|---|
+| `NSWP.items(options)` | Call once, after `menu`. `options` is JSON: `rule`, what the world's announcement says of items (`allowed` or `play`); `box`, where the page serves the locked box (left out, `item-box.html` beside the page; `false` for none); `relays`. The Bag tab joins the menu. |
+| `NSWP.frame(view)` | Every frame. `view` is JSON: `dt`; `head` and `turn`, where the visitor's view is and which way it faces (x, y, z, w); `floor`, how high the floor under them is; `fov`; `aspect`; `presenting`; `sighting`; and the engine's answers, `met` and `floors`. Returns what to draw. |
+| `NSWP.model(hash)` | A model's bytes as base64, by the hash its file is named by. They have been fetched, checked against that hash and counted. `""` while they are on their way; `"!"` where the file failed: draw a plain box of the thing's size. |
+| `NSWP.itemTap(press)` | The view was pressed: `from`, `dir` and `heldMs`. True if that was the item's first press, sent the way they pressed: do nothing else with it. A press held is still how they walk. |
+| `NSWP.itemUse(toward)`, `NSWP.itemSecond()` | The item's two presses, from a control of the engine's own. |
+
+What `frame` gives back:
+
+- `held`: the thing in their hand, or null: `model` and `size` (draw it
+  fitted to that box, standing on the middle of its base, its front toward
+  -Z), `tints` (a colour for each material named `tint:<slot>` or
+  `tint_<slot>`), `aim` (where its sight is and how far it asks to zoom),
+  and `acts`.
+- `sight`: whether they are holding the press that aims. Bring the item up
+  to the eye and narrow the view, and say `sighting` once it is there.
+- `things`: each thing in the air or stuck: `model`, `size`, `tints`, where
+  it is (`at`, `turn`, `scale`), and `test`: a step it took, from `a` to
+  `b`. **Test that against your world's own shapes,** and say what it met
+  in the next frame's `met` (`key`, `step`, how far along as `f`, where as
+  `at`). It then sticks there. For one with `down` true, say where the
+  floor is under it, in `floors`.
+- `trails`: a streak of light behind a thing: points along its middle, each
+  with how bright it is there. Draw a ribbon through them facing the
+  viewer, tapering, with nothing behind it darkened.
+- `own`: how the visitor is, for an engine that draws it itself (in a
+  headset): the ring to aim by, the mark of a hit, their health, how red
+  the edge of their view is, and their item's counter. **On a flat screen
+  the page draws all of these over the canvas,** as it does the menu.
+- `clips`: animations of an item's own that began: play each by name on
+  what you drew.
+
+A thing sticks to whatever your engine's test says it met. Nothing of your
+world has to be an item.
+
+A world that draws items serves the locked box as `item-box.html` beside
+its page: write out `ITEM_BOX_HTML` from `@nswp/core`, serve it with exactly
+`ITEM_BOX_CSP`, and leave your site's other content rules off that page.
+Its page may reach any https address (`connect-src`), since a model is
+wherever its maker keeps it.
+
+**Making an item from an engine's own scene.** Write the scene out as a
+binary glTF and describe it:
+
+```
+nswp make-item thing.glb --title "Thing" --host https://your.site/items/
+```
+
+That reads the file as every world will, measures it, names it by its hash
+and writes a description ready for `nswp sign-item`. A material named
+`tint:<name>` (or `tint_<name>`) becomes a colour its holder may choose.
+The Godot addon has a script that writes any scene out for it
+(`nswp_item_model.gd`).
+
 ## What an engine draws for itself
 
 Its doors, and how its visitors move. An engine's side should take both from
@@ -199,7 +269,10 @@ way ([NSWP-05](../protocol/05-looks.md)), so that is allowed. It is also
 work.
 
 Rooms aren't in the script yet. The kit's room connection is JavaScript and
-passes more than text.
+passes more than text. So in a world drawn by another engine a visitor is
+by themself: what they hold and send out is theirs alone to see, and
+nothing reaches anyone. Hits, health between people and muting come with
+rooms.
 
 ## Godot
 
@@ -271,6 +344,25 @@ a flat screen:
 - A path pressed out as they walk, with a ring at each turn, and the view
   turning to face the way they walk.
 - A tab of the menu kept on the bar, as in every world.
+
+**Added 2026-11-20, things visitors carry** (`NswpItems`), run in Godot
+4.7.2 exported for the Web, in Chrome on a flat screen, signed in through
+a stand-in signer:
+
+- The Bag tab in the menu, and the dart blaster taken in hand: asked about
+  first, since it runs its maker's code; then drawn in the same place as in
+  a Three.js world, with its two animations and its counter.
+- Fire and Reload leading the bar. A dart flying with its streak of light,
+  sticking to the ground, letting go and gone.
+- A click on the view firing where it was clicked, R reloading, and a press
+  held still walking.
+- Accent and dart colours chosen in the Bag tab, showing on what Godot drew.
+- A mallet made in Godot itself (`nswp_item_model.gd`, then
+  `nswp make-item`) held here, and the same mallet held in a Three.js
+  world, where another visitor saw it in its holder's colour.
+
+Not tried there: aiming along the sight with the mouse (it is wired; a test
+can't take the pointer), a phone, a headset.
 
 **Not in the Godot addon:** moving in a headset (a session starts, and the
 visitor stands where they are), the view through a door, posting from a

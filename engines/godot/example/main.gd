@@ -21,6 +21,7 @@ const ACCENT := Color("3df5a0")
 const GROUND := Color("141b24")
 
 var _visitor: NswpVisitor
+var _items: NswpItems
 var _gate: NswpGate
 var _said: String = ""
 
@@ -37,6 +38,14 @@ func _ready() -> void:
 	add_child(_visitor)
 	# Where they asked to arrive, or the main entrance.
 	Nswp.place(_visitor)
+	# What visitors carry (NSWP-17): the Bag tab in the menu, the thing in their hand, and what it
+	# sends out. This world's announcement says items are allowed here; a world that says nothing
+	# of them leaves this node out. Everything but the drawing is the kit's own script.
+	_items = NswpItems.new()
+	_items.name = "Items"
+	_items.visitor = _visitor
+	_items.rule = "allowed"
+	add_child(_items)
 
 	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))
 	_add_door("The Workshop", WORKSHOP, "experience", Vector3(2.2, 0.0, -5.0))
@@ -182,4 +191,5 @@ func _report() -> void:
 		"floor_at": [roundi(floor_on_screen.x), roundi(floor_on_screen.y)],
 		"frame_corners": (_gate.get_node("Frame") as MeshInstance3D).mesh.get_faces().size(),
 		"sign": _gate.address_line(),
+		"items": _items.report(),
 	})

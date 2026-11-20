@@ -9,13 +9,14 @@
  */
 import { decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE } from "@nswp/core";
 import type { Bag } from "./bag.js";
-import { onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
+import { onItemsChange, setShowsItems, showsItems, type ItemStore } from "./item-store.js";
 import type { Keyboard } from "./keyboard.js";
 import type { Controls, UiAction } from "./ui/model.js";
 
 export interface BaggingOptions {
   bag: Bag;
-  items: Items;
+  /** What looks items up: only their descriptions are needed here, so nothing that draws. */
+  items: Pick<ItemStore, "known" | "describe">;
   /** The visitor's key here, or null: a guest carries nothing, and has no tab. */
   me(): string | null;
   /** What this place does with items: "none", "allowed" or "play". */

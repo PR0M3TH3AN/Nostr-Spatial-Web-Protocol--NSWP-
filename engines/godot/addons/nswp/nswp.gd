@@ -219,6 +219,54 @@ func _process(_delta: float) -> void:
 					listed.door.enter()
 
 
+# ------------------------------------------------------------------------ things visitors carry
+# The kit's own script does everything about an item that isn't drawing (NSWP-17). `NswpItems`
+# is the node that draws: a world adds that, and has no need to call these itself.
+
+## Begin: the Bag tab joins the menu, and what a visitor holds can be drawn. `rule` is what the
+## world's announcement says of items: "allowed" or "play". Call after `menu()`. Returns
+## `{ "ok": true }` once it has begun.
+func items(rule: String, options: Dictionary = {}) -> Dictionary:
+	if _js == null or not _menu:
+		return {"ok": false}
+	var asked := options.duplicate()
+	asked["rule"] = rule
+	var began: Variant = JSON.parse_string(str(_js.items(JSON.stringify(asked))))
+	return began if typeof(began) == TYPE_DICTIONARY else {"ok": false}
+
+
+## Every frame: say where the visitor is and what things ran into, and be told what to draw.
+func frame(view: Dictionary) -> Dictionary:
+	if _js == null:
+		return {}
+	var now: Variant = JSON.parse_string(str(_js.frame(JSON.stringify(view))))
+	return now if typeof(now) == TYPE_DICTIONARY else {}
+
+
+## A model's bytes, as base64, by the hash its file is named by: fetched, checked against that
+## hash and counted by the kit. "" while they are on their way; "!" where the file failed.
+func model(sha: String) -> String:
+	return "" if _js == null else str(_js.model(sha))
+
+
+## The view was pressed. True if that was the first press of the thing in the visitor's hand,
+## sent the way they pressed: then do nothing else with it.
+func item_tap(from: Vector3, dir: Vector3, held_ms: int) -> bool:
+	if _js == null:
+		return false
+	return bool(_js.itemTap(JSON.stringify({"from": [from.x, from.y, from.z], "dir": [dir.x, dir.y, dir.z], "heldMs": held_ms})))
+
+
+## The first press of the thing in the visitor's hand, and its second, from a control of the
+## world's own. False if nothing in their hand does anything.
+func item_use() -> bool:
+	return false if _js == null else bool(_js.itemUse())
+
+
+func item_second() -> bool:
+	return false if _js == null else bool(_js.itemSecond())
+
+
 ## Open the doors of the crossing's room: the world is ready to be stepped into.
 ##
 ## A visitor arrives standing in the crossing's room, the same one they left the last world

@@ -2,6 +2,18 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.54.0
+
+Items in a world made with another engine, and one item for every world.
+
+- **Items work in a world made with Godot** (`NswpItems` in the addon; `NSWP.items`, `frame`, `model`, `itemTap`, `itemUse` and `itemSecond` in the engine script; [docs/other-engines.md](docs/other-engines.md)). The Bag tab, taking something in hand, its locked box, the blaster's darts with their arc and trail, sticking and letting go, the counter, a holder's colours, a tap or click that fires where it was pressed, and aiming along the sight. Everything that isn't drawing is the same code a Three.js world runs: the engine draws, and says what a dart ran into. A dart sticks to anything with a collision shape.
+- **For one visitor by themself, for now.** A world made with Godot has no rooms yet, so nothing reaches anyone there and nobody sees what is held. Hits, health between people and muting come with rooms.
+- **One reader for every model** (`readGlb`, `measureGlb` and `MODEL_BUDGET` in core): a model is read, checked and counted before any engine is handed it, and one that names a file outside itself is refused. A material named `tint_<slot>` is a holder's colour as well as `tint:<slot>`, because some tools won't write a colon in a name.
+- **`nswp make-item thing.glb --title … --host …`:** describes an item from a model made in any tool. It reads the file as every world will, measures it, finds the colours it leaves to its holder, names it by its hash, and says plainly why a model that wouldn't be drawn wouldn't.
+- **Making an item in Godot:** `addons/nswp/nswp_item_model.gd` writes any scene out as the one file an item's model is. Made there, held in a Three.js world, and seen by someone else there in its holder's colour: there is nothing to convert.
+- The Foundry says its visitors' items are allowed, and serves the locked box. Its announcement is signed again; not published.
+- The engine script is larger (about 1.4 MB before the server squeezes it), since the flight of a dart is the kit's own.
+
 ## 0.53.0
 
 How the blaster feels, and how someone is shown.

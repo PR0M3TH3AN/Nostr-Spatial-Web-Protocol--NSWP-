@@ -30,7 +30,7 @@ const ADA = H("1");
 const BO = H("2");
 
 /** A bare place: a floor, a wall across the way at z = -6, the visitor standing at the middle, and two other people. */
-const place = (o: { rule?: string; mutes?: string[] } = {}) => {
+const place = (o: { rule?: string; mutes?: string[]; deferred?: boolean } = {}) => {
   const scene = new THREE.Scene();
   const floor = new THREE.Mesh(new THREE.BoxGeometry(60, 0.2, 60), new THREE.MeshBasicMaterial());
   floor.position.y = -0.1;
@@ -54,7 +54,7 @@ const place = (o: { rule?: string; mutes?: string[] } = {}) => {
   const people = [person(ADA, 0, 5), person(BO, 4, 0)];
   const told: string[] = [];
   const items = { known: (c: string): Item | null => (c === blaster.id ? blaster : null), sent: async () => new THREE.Group(), clips: () => [], sound: async () => null, script: async () => null } as unknown as Items;
-  const play = createPlay({ scene, camera, rig, items, rule: () => o.rule ?? "allowed", me: () => H("9"), people: () => people, itemsMuted: (k) => !!o.mutes?.includes(k), tell: (said) => void told.push(said) });
+  const play = createPlay({ scene, camera, rig, items, rule: () => o.rule ?? "allowed", me: () => H("9"), people: () => people, itemsMuted: (k) => !!o.mutes?.includes(k), tell: (said) => void told.push(said), ...(o.deferred ? { deferred: true } : {}) });
   /** Let so much time pass, a frame at a time. */
   const pass = async (seconds: number) => {
     for (let t = 0; t < seconds; t += 0.05) {
@@ -144,6 +144,71 @@ describe("a thing sent out", () => {
     const q = place();
     for (let i = 10; i < 40; i++) await q.hears(BO, shot(i, [4, 1.5, 0], [0, 2, -14]));
     expect(q.play.info().things.length).toBe(8);
+  });
+});
+
+describe("in a world drawn by another engine", () => {
+  it("looks for nothing itself: it says where each thing went, and stops it where that engine says it met something", async () => {
+    const p = place({ deferred: true });
+    await p.hears(BO, shot(1, [4, 1.5, 0], [0, 2, -14]));
+    await p.pass(0.3);
+    const first = p.play.snapshot();
+    expect(first.things.length).toBe(1);
+    const flying = first.things[0]!;
+    expect(flying.state).toBe("flying");
+    // A step to test, from where it was to where it is, and the model to draw it with.
+    expect(flying.test!.b[2]).toBeLessThan(flying.test!.a[2]);
+    expect(flying.model).toBe(H("b"));
+    expect(flying.size).toEqual([0.02, 0.02, 0.09]);
+    // The wall is there in this test's scene, and it is flown straight through: the shapes are the other engine's to know.
+    await p.pass(0.6);
+    expect(p.play.snapshot().things[0]!.state).toBe("flying");
+    // That engine says a step met something, part of the way along it.
+    const asked = p.play.snapshot().things[0]!.test!;
+    p.play.met(flying.key, asked.step, 0.5, [4, 2.2, -9], "Wall/Mesh");
+    await p.pass(0.1);
+    const stuck = p.play.snapshot().things[0]!;
+    expect([stuck.state, stuck.on, stuck.ref]).toEqual(["stuck", "world", "Wall/Mesh"]);
+    expect(stuck.at).toEqual([4, 2.2, -9]);
+    expect(stuck.test).toBeNull();
+    // An answer about a step it never took, or about nothing, changes nothing.
+    p.play.met(flying.key, 999, 0.5, [0, 0, 0]);
+    p.play.met("nobody:7", 1, 0.5, [0, 0, 0]);
+    expect(p.play.snapshot().things[0]!.at).toEqual([4, 2.2, -9]);
+  });
+
+  it("gives its streak of light as points along its middle, and asks where the floor is once it lets go", async () => {
+    const p = place({ deferred: true });
+    await p.hears(BO, shot(1, [4, 1.5, 0], [0, 2, -14]));
+    await p.pass(0.25);
+    const trail = p.play.snapshot().trails[0]!;
+    expect(trail.color).toBe("#35f0e0");
+    expect(trail.points.length).toBeGreaterThan(8);
+    // Bright at the thing, nothing at the far end, and running back the way it came.
+    expect(trail.points[0]![3]).toBeGreaterThan(0.5);
+    expect(trail.points.at(-1)![3]).toBeLessThan(0.05);
+    expect(trail.points[0]![2]).toBeLessThan(trail.points.at(-1)![2]);
+    const key = p.play.snapshot().things[0]!.key;
+    p.play.met(key, p.play.snapshot().things[0]!.test!.step, 1, [4, 2, -5]);
+    await p.pass(0.1);
+    await p.pass(3.2);
+    const falling = p.play.snapshot().things[0]!;
+    expect([falling.state, falling.down]).toEqual(["falling", true]);
+    p.play.floored(key, 0.5);
+    expect(p.play.snapshot().things[0]!.down).toBe(false);
+    await p.pass(1.5);
+    // It came to rest on the floor that engine named, not the one this test's scene has.
+    expect(p.play.snapshot().things).toEqual([]);
+  });
+
+  it("says how the visitor is, as numbers, for that engine to show in its own way", async () => {
+    const p = place({ deferred: true });
+    await p.hears(ADA, shot(1, [0, 1.4, 4.6], [0, 1, -14]));
+    await p.pass(0.6);
+    const own = p.play.snapshot().own;
+    expect(own.health).toMatchObject({ value: 4, full: 5, down: false });
+    expect(own.health.shown).toBeGreaterThan(0.5);
+    expect(own.red).toBeGreaterThan(0);
   });
 });
 
