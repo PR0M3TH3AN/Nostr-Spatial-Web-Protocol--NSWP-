@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.42.1
+
+- A visitor's messages are looked for as soon as it is known who is signed in. They waited a minute where the sign-in answered after the page had loaded, which is most of the time.
+
 ## 0.42.0
 
 Private messages, in every world and at the visitor's home.
