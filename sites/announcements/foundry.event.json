@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795154017,
+  "created_at": 1795157455,
   "tags": [
     [
       "d",
@@ -79,6 +79,10 @@
       "general"
     ],
     [
+      "category",
+      "experience"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -89,6 +93,6 @@
   ],
   "content": "For people who build with another engine: a small place made in Godot 4 with the NSWP addon. You arrive in the same room you left the last world from, move the same way, and sign in in the same window. It is about forty megabytes, since the engine comes with it.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "c47e9c9e05c42a5e5d8408805363da4ac1110d2796aa17e804b52fd2e39a743d",
-  "sig": "91e041bb155c638e4995d46dd50937385f798d5d928da8874e03afec0549e3569a5174ba324c129cfa77d21a0e77310b435178216f70e09fb228192d16649424"
+  "id": "f6912123cf7a5b16a677a151e08a15990e505ae8d9d9dd1a8d7e585edd2020c5",
+  "sig": "bec8caa7d76a10c2b63f3928c993ba3ff61fa0326395f3f77a7c3e823be195460bfeaab98dc9012bf616e6a64cb27a531ce7f49ac60343d22339d1fbeb51b247"
 }

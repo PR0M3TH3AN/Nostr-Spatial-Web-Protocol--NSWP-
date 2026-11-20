@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795030677,
+  "created_at": 1795157455,
   "tags": [
     [
       "d",
@@ -110,6 +110,10 @@
       "general"
     ],
     [
+      "category",
+      "game"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -120,6 +124,6 @@
   ],
   "content": "A small game: walk into twelve lanterns drifting over a field while a clock runs. The best time stays on your own device.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "2b000836f82cd687589f87d9ea997b90bd18c0b31dc6fffa92d1a1cc4ba9fb1b",
-  "sig": "a0040917df15497f492c206d4ca7ce77cc5bb4286f26834da367e85aa833c35839ebb9fe0aa01bfc21f241fa9af1ed8553fe0ef63eef27f27a4a17d80283ebce"
+  "id": "ba29fc8d71a133e3366877cc675d2f04815a547521c69ef27de2b6da8c9a3a33",
+  "sig": "ee50cc01f352629e573d1c395480d9e1e084dc31fad277b20b5709d903d8f79e2a365aed1abd9af9a525a091dba6ac04fa9d38eb4f9634ed0100ddda351f61a3"
 }

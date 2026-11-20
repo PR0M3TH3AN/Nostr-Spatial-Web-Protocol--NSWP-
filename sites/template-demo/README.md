@@ -23,6 +23,11 @@ Last made from template commit `a2d1457` (built with the signatures and preview 
 mirrored into `sites/previews/` by `node scripts/capture-previews.mjs
 --elsewhere-only`, so the Workshop's door can show it.
 
+On 2026-11-20 its announcement alone was signed again, to add `category:
+experience` (kit 0.36.0), from a clone of the template at `528135a`; the
+layout's signature is the one from before. That announcement has not been
+published to relays yet: publishing is the owner's to approve.
+
 On 2026-11-18 its announcement alone was signed again, to add `audience:
 general` (NSWP-01): nothing else in it changed, and the site was not built or
 deployed again. So `signed/world.event.json` here is newer than the copy the

@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795030680,
+  "created_at": 1795157455,
   "tags": [
     [
       "d",
@@ -110,6 +110,10 @@
       "general"
     ],
     [
+      "category",
+      "site"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -120,6 +124,6 @@
   ],
   "content": "A reading room. Eight notes on its walls explain worlds, doors, the page between them, signing, verifying, and what stays private.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "7c24ca27d9841326f11974c834087bae3baf58f3cd977f3d0e26e5d44d53c5de",
-  "sig": "bcbd83c8f9f17e3cb36ef9d6f2274aa6ec4c202b8fb53c5a25d3ee0b34f97ad8a64b1b0c0697e9951b76fad52db8cd4ff180e030ac553b2f154ebe2879512052"
+  "id": "321675e70080ca2cd0bd73e5eb3b92c7e63a88485a094c1a5a4821ab2f082eb1",
+  "sig": "2fd60406ba60791b86b07dbe7579debc704a3abdf1b86c70daf1c9d1efde5d11cee464afc8c9cef9192b09e309bd63ebee99fdecf2c34957a8a36cabb55d93b5"
 }
