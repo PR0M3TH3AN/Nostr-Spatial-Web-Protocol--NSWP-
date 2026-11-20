@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.41.0
+
+- **A Following tab in the menu every world has** ([NSWP-14](protocol/14-people-and-messages.md)): who the visitor follows, by name; choose one to see who they are and to unfollow them; follow someone by their key, copied, or typed on a headset's keyboard. The same in a world and at the visitor's home. It shows nothing, and asks no relay anything, until the visitor has let that place see to who they follow. `addFollowingControls`, `createProfiles`, `keyIn` in the kit; `addRoomControls` adds the tab and returns it as `following`.
+- **The left and right arrow keys turn** in the reference worlds, the casual way on a flat screen (owner's ask). They stepped to the side, as A and D still do. `KEY_TURN` in the kit. Game controls are as they were.
+
 ## 0.40.0
 
 A world can follow someone for its visitor, once they let it.
