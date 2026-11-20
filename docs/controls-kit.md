@@ -658,7 +658,7 @@ when it takes the new SDK and rebuilds.
 
 | Site | To update |
 |---|---|
-| Reference worlds, the Starter Home, BitPortal | All nine together, from here: `npm run release:all -- --go` (below), once BitPortal and the template carry this kit (`npm run vendor` in each) |
+| Reference worlds, the Starter Home, The Foundry, BitPortal | All ten together, from here: `npm run release:all -- --go` (below), once BitPortal and the template carry this kit (`npm run vendor` in each) |
 | A world from the template | `npm run update && npm run build` in a copy of the template (`npm run vendor` in the template's own repository beside this one), then upload `dist/` |
 
 Loading the kit live from one address into every world would mean one site's
@@ -680,12 +680,13 @@ is the case to avoid, so they are deployed in one sitting, by one command:
 
 ```
 npm run release:all            # a look: what is public, what would change, what stands in the way
-npm run release:all -- --go    # all nine sites: the worlds, the Starter Home, then BitPortal
+npm run release:all -- --go    # all ten sites: the worlds, the Starter Home, The Foundry, then BitPortal
 ```
 
 It starts only when this repo, BitPortal and the world template are each on
-main, clean, the same as GitHub, and carrying this repo's kit; when Vercel
-has room for nine deployments; and, with `--go`, after every test and build
+main, clean, the same as GitHub, and carrying this repo's kit; when Godot is
+here to export The Foundry; when Vercel has room for ten deployments; and,
+with `--go`, after every test and build
 has passed. Then it deploys the worlds first and BitPortal last, and checks
 what came up. If it stops part way it says which sites were deployed.
 Deploying is the owner's to approve each time: `--go` is run on their word.

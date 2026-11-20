@@ -176,21 +176,22 @@ and to the real addresses once deployed, with nothing to switch:
 
 ### Deploying the sites
 
-The nine public sites (the seven worlds, the Starter Home and BitPortal) are
-deployed together, from this repo, so that none is left on an older kit. The
-worlds deploy to Vercel projects listed in `sites/vercel-projects.json` (IDs,
-not secrets):
+The ten public sites (the seven worlds, the Starter Home, The Foundry and
+BitPortal) are deployed together, from this repo, so that none is left on an
+older kit. The worlds deploy to Vercel projects listed in
+`sites/vercel-projects.json` (IDs, not secrets):
 
 ```bash
 npm run release:all            # a look: what would be deployed. Changes nothing
 ```
 
 ```bash
-npm run release:all -- --go    # deploys all nine
+npm run release:all -- --go    # deploys all ten
 ```
 
 It needs this repo, BitPortal and the world template side by side, each on
-main and clean. `npm run kits` shows which kit each public site is on.
+main and clean, and Godot 4 with its web export templates, which exports The
+Foundry. `npm run kits` shows which kit each public site is on.
 
 The worlds' publisher key lives outside the repo, at
 `~/.config/nswp/reference-publisher.key`. Signed announcements are in

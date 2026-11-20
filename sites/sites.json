@@ -13,6 +13,7 @@
     "library": { "d": "library", "url": "https://library.bitblocks.network/" }
   },
   "elsewhere": {
-    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "was": "nswp-world-template.vercel.app" }
+    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "was": "nswp-world-template.vercel.app" },
+    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry" }
   }
 }

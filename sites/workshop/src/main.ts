@@ -40,8 +40,10 @@ void startWorld({
   palette: { ground: 0x0d0704, accent: 0xff8a3d, text: "#ffeede" },
   entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
   doors: [
-    { to: "starter", label: "The Starter Home", position: [-1.9, 0, -17], rotation: 0 },
-    { to: "gallery", label: "The Gallery", position: [1.9, 0, -17], rotation: 0 },
+    { to: "starter", label: "The Starter Home", position: [-3.8, 0, -17], rotation: 0 },
+    { to: "gallery", label: "The Gallery", position: [0, 0, -17], rotation: 0 },
+    // A world made in another engine: the Godot example, in engines/godot. The same door, the same crossing.
+    { to: "foundry", label: "The Foundry", position: [3.8, 0, -17], rotation: 0 },
   ],
   middle: [0, -6],
   reach: 26,

@@ -41,6 +41,8 @@ const sites = [
     .filter(([name]) => name !== "airlock")
     .map(([name, s]) => ({ name, url: s.url, world: true })),
   { name: "starter", url: projects.templateDemo.url, world: true },
+  // The Godot example, served as a world of its own.
+  ...(projects.godotDemo ? [{ name: "foundry", url: projects.godotDemo.url, world: true }] : []),
   { name: "portal", url: PORTAL, world: false },
 ];
 let behind = 0;

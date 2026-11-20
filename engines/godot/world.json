@@ -1,0 +1,37 @@
+{
+  "d": "foundry",
+  "title": "The Foundry",
+  "url": "https://foundry.bitblocks.network/",
+  "summary": "A world made in Godot, with the same doors, menu and sign-in as every other.",
+  "description": "For people who build with another engine: a small place made in Godot 4 with the NSWP addon. You arrive in the same room you left the last world from, move the same way, and sign in in the same window. It is about forty megabytes, since the engine comes with it.",
+  "modes": [
+    "inline-3d"
+  ],
+  "capabilities": [
+    "spatial-portals"
+  ],
+  "comfort": {
+    "locomotion": "teleport",
+    "intensity": "low",
+    "seated": "supported"
+  },
+  "inputs": [
+    "keyboard-mouse",
+    "touch"
+  ],
+  "perf": "desktop",
+  "topics": [
+    "godot",
+    "engines",
+    "building"
+  ],
+  "languages": [
+    "en"
+  ],
+  "status": "beta",
+  "audience": "general",
+  "entryPoints": [
+    "main-entrance",
+    "balcony"
+  ]
+}

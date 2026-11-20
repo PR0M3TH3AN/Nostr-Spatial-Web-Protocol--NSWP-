@@ -14,6 +14,9 @@ extends Node3D
 ## - `_add_door`: an `NswpGate`, which needs only to be told where it leads.
 
 const GALLERY := "https://gallery.bitblocks.network/"
+const WORKSHOP := "https://workshop.bitblocks.network/"
+## What this place is called: on the crossing's room as they arrive, over the menu, and in its announcement.
+const TITLE := "The Foundry"
 const ACCENT := Color("3df5a0")
 const GROUND := Color("141b24")
 
@@ -25,7 +28,7 @@ var _said: String = ""
 func _ready() -> void:
 	_build_place()
 	# The kit's menu and sounds. The way home, how to move, fullscreen and the volumes are in it.
-	Nswp.menu("A world in Godot", ACCENT, {"help": "A small world made in Godot with the NSWP addon. Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into the doorway to go to the Gallery: your own Airlock shows where it really leads, and asks, before you go."})
+	Nswp.menu(TITLE, ACCENT, {"help": "A small world made in Godot with the NSWP addon. Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into the doorway to go to the Gallery: your own Airlock shows where it really leads, and asks, before you go."})
 
 	_visitor = NswpVisitor.new()
 	_visitor.name = "Visitor"
@@ -35,11 +38,11 @@ func _ready() -> void:
 	# Where they asked to arrive, or the main entrance.
 	Nswp.place(_visitor)
 
-	_gate = _add_door("The Gallery", GALLERY, Vector3(0.0, 0.0, -5.0))
+	_gate = _add_door("The Gallery", GALLERY, Vector3(-2.2, 0.0, -5.0))
+	_add_door("The Workshop", WORKSHOP, Vector3(2.2, 0.0, -5.0))
 	Nswp.refused.connect(func(reason: String) -> void: _say("That door can't be gone through: %s." % reason))
 	_say(_arrival_words())
-	if bool(Nswp.arrival.get("arrived", false)):
-		Nswp.play("arrive")
+	# The sound of arriving is played by the crossing's room as its doors open.
 	_report()
 
 
@@ -68,15 +71,33 @@ func _build_place() -> void:
 	ground.name = "Ground"
 	var slab := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(24.0, 24.0)
+	plane.size = Vector2(60.0, 60.0)
 	slab.mesh = plane
-	var paint := StandardMaterial3D.new()
-	paint.albedo_color = GROUND
+	# The ground every NSWP world stands on: dark, ruled with lines of the place's own light that fade with
+	# distance (docs/grid-look.md). Drawn here by a few lines of shader, since Godot has no part of the kit's for it.
+	var paint := ShaderMaterial.new()
+	var ruled := Shader.new()
+	ruled.code = """shader_type spatial;
+render_mode unshaded;
+uniform vec3 ground : source_color;
+uniform vec3 light : source_color;
+varying vec3 at;
+void vertex() { at = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 cell = at.xz / 2.0;
+	vec2 edge = abs(fract(cell - 0.5) - 0.5) / fwidth(cell);
+	float line = 1.0 - min(min(edge.x, edge.y), 1.0);
+	float near = clamp(1.0 - length(at.xz - CAMERA_POSITION_WORLD.xz) / 46.0, 0.0, 1.0);
+	ALBEDO = mix(ground, light, line * near * 0.85);
+}"""
+	paint.shader = ruled
+	paint.set_shader_parameter("ground", GROUND)
+	paint.set_shader_parameter("light", ACCENT)
 	slab.material_override = paint
 	ground.add_child(slab)
 	var ground_shape := CollisionShape3D.new()
 	var ground_box := BoxShape3D.new()
-	ground_box.size = Vector3(24.0, 0.2, 24.0)
+	ground_box.size = Vector3(60.0, 0.2, 60.0)
 	ground_shape.shape = ground_box
 	ground_shape.position.y = -0.1
 	ground.add_child(ground_shape)
@@ -120,7 +141,7 @@ func _say(words: String) -> void:
 func _arrival_words() -> String:
 	var a := Nswp.arrival
 	if not bool(a.get("arrived", false)):
-		return "You came by an ordinary link. Walk into the door to go to the Gallery." if Nswp.is_live() else "Not in a browser: doors lead somewhere only on the web."
+		return "You came by an ordinary link. This place is made in Godot. Walk into a door to go on." if Nswp.is_live() else "Not in a browser: doors lead somewhere only on the web."
 	var who := "a guest" if bool(a.get("guest", true)) else str(a.get("name", ""))
 	var where := str(a.get("entry", ""))
 	return "You arrived as %s%s." % [who, "" if where == "" else " at %s" % where]
