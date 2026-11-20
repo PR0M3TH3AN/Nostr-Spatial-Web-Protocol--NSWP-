@@ -7,7 +7,7 @@
  *
  * It also has the visitor's one switch for all items: off, nothing of anyone's is fetched, drawn or run.
  */
-import { decodeNaddr, ITEM_KIND, itemCoordinate } from "@nswp/core";
+import { decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE } from "@nswp/core";
 import type { Bag } from "./bag.js";
 import { onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
 import type { Keyboard } from "./keyboard.js";
@@ -22,8 +22,10 @@ export interface BaggingOptions {
   rule(): string;
   /** What they hold now, by its coordinate, or "". */
   holding(): string;
-  /** Take one in hand, or put it away with "". */
-  hold(item: string): Promise<{ ok: boolean; said: string }>;
+  /** Take one in hand, in the colours they chose for it, or put it away with "". */
+  hold(item: string, tints?: Record<string, string>): Promise<{ ok: boolean; said: string }>;
+  /** They chose a colour for one of their things: where it is the one in their hand, it is recoloured now. */
+  tinted?: (item: string, tints: Record<string, string>) => void;
   /** Where this place hasn't yet been let change the bag: have the visitor asked, from a press. */
   ask?: (then: () => void) => string;
   /** Whether a change can be signed now. */
@@ -181,7 +183,28 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           tone: "primary",
           label: `Hold ${titleOf(item)}`,
           act: async () => {
-            say((await opts.hold(item)).said);
+            say((await opts.hold(item, bag.tints(item))).said);
+            refresh();
+          },
+        });
+      }
+      // Its colours, where its maker lets a holder choose any: each press steps to the next.
+      for (const tint of items.known(item)?.tints ?? []) {
+        const now = bag.tints(item)[tint.slot] ?? tint.color;
+        const at = TINT_PALETTE.findIndex((c) => c.color === now);
+        add({
+          id: `bag-tint-${tint.slot}`,
+          kind: "swatch",
+          color: now,
+          icon: "check",
+          label: `${tint.label}: ${TINT_PALETTE[at]?.name ?? "its maker's own"}`,
+          short: tint.label,
+          act: () => {
+            const next = TINT_PALETTE[(at + 1) % TINT_PALETTE.length]!;
+            const chosen = { ...bag.tints(item), [tint.slot]: next.color };
+            bag.setTints(item, chosen);
+            opts.tinted?.(item, chosen);
+            say(`${tint.label}: ${next.name}. ${bag.canChange() ? "It goes with it to every world." : "For this place. Choose it at your home to keep it everywhere."}`);
             refresh();
           },
         });

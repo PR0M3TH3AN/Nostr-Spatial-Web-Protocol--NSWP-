@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.52.0
+
+The blaster, as it was meant to look, and in your own colours.
+
+- **A new dart blaster:** a rounded toy of cream plastic with a coloured rear, muzzle ring and magazine, a raked grip, a flip-up sight, a chamber that glows, and a clear magazine with darts in it. Still made in code ([`scripts/blaster-model.mjs`](scripts/blaster-model.mjs)): rounded slabs, tubes and marks, shaded as round, with see-through and glowing parts. No picture is painted on it: its stripes and panels are shapes.
+- **A holder's own colours** ([NSWP-17](protocol/17-items.md)): an item may leave some of its colours to whoever holds it (`tint` in its description; `tint:<name>` materials in its models). The blaster leaves two: its accent, and its darts with everything on it that glows. Chosen in the Bag tab from a short list; the room is told, and sees the item, its darts and their trails in those colours. Written into the bag at the visitor's own client, so the choice goes to every world. `applyTints`, `cleanTints`, `tintBag`, `bagTints`; `setTints` on a presence.
+- **Darts glow, and leave a trail:** a streak of light that follows the arc the dart flew (`trail` on a thing sent out), bright at the dart and fading behind it, in the dart's colour. The kit draws it: an item can't say how wide or how bright.
+- The blaster is signed again with its new shapes. It has still never been published.
+
 ## 0.51.1
 
 - **The dart blaster has its sounds,** the owner's picks by ear: nine files in [`sites/items/sounds`](sites/items/sounds), with how each was made and its licence beside them. With them it is no longer a draft: it is described with the other starter items and signed.

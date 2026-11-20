@@ -855,11 +855,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     me: () => (signedInHere() ? worldSigner().pubkey : null),
     rule: () => itemsRule,
     holding: () => presence.holding,
-    hold: async (item) => {
-      const done = await presence.setHolding(item);
+    hold: async (item, tints) => {
+      const done = await presence.setHolding(item, tints);
       state.holding = presence.holding || null;
       return done;
     },
+    tinted: (item, tints) => void (presence.holding === item && presence.setTints(tints)),
     keyboard: () => panels?.keyboard ?? null,
     presenting: () => renderer.xr.isPresenting,
   });

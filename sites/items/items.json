@@ -189,13 +189,13 @@
     "title": "Dart blaster",
     "summary": "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
     "model": {
-      "url": "https://grove.bitblocks.network/items/cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9.glb",
-      "sha256": "cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9"
+      "url": "https://grove.bitblocks.network/items/da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0.glb",
+      "sha256": "da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0"
     },
     "size": [
-      0.05,
-      0.176,
-      0.311
+      0.075,
+      0.237,
+      0.306
     ],
     "behaviors": [
       "holdable"
@@ -250,18 +250,19 @@
       {
         "name": "dart",
         "model": {
-          "url": "https://grove.bitblocks.network/items/73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4.glb",
-          "sha256": "73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4"
+          "url": "https://grove.bitblocks.network/items/90e4ad4c595d0d995212ce69e082a068ff6bf4447214911f1300028663c68ff7.glb",
+          "sha256": "90e4ad4c595d0d995212ce69e082a068ff6bf4447214911f1300028663c68ff7"
         },
         "size": [
+          0.023,
           0.024,
-          0.024,
-          0.085
+          0.082
         ],
         "lands": "impact",
         "drops": "fall",
         "strikes": "hit",
-        "tells": "tick"
+        "tells": "tick",
+        "trail": 0.22
       }
     ],
     "effects": [
@@ -274,6 +275,18 @@
     "does": {
       "use": "Fire",
       "second": "Reload"
-    }
+    },
+    "tints": [
+      {
+        "slot": "accent",
+        "label": "Accent",
+        "color": "#f2691c"
+      },
+      {
+        "slot": "dart",
+        "label": "Darts",
+        "color": "#35f0e0"
+      }
+    ]
   }
 ]

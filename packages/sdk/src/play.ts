@@ -86,6 +86,11 @@ export interface PlayOptions {
   onChange?: () => void;
   /** Whether they are in a headset now: there, a thing goes where the hand points, and no ring is drawn. */
   presenting?: () => boolean;
+  /**
+   * The colours someone chose for what they hold: the visitor's own for their own key (or null, outside a room),
+   * anyone else's as they said them. Left out, everything is the colour its maker gave it.
+   */
+  tintsOf?: (pubkey: string | null) => Record<string, string>;
 }
 
 export interface Play {
@@ -145,6 +150,10 @@ interface Thing {
   agreeBy: number | null;
   /** Whether the person it reached has said so. */
   agreed: boolean;
+  /** The streak of light behind it, where its item gives it one, and how far into its flight it stopped. */
+  trail: THREE.Mesh | null;
+  trailSeconds: number;
+  landedAt: number | null;
   until: number;
   fall: number;
   floor: number;
@@ -376,7 +385,66 @@ export function createPlay(o: PlayOptions): Play {
     thing.fall = 0;
     thing.floor = floorUnder(thing.object.getWorldPosition(new THREE.Vector3()));
   };
+  // ---- A streak of light behind a thing, along the arc it flew: a ribbon that always faces the viewer, bright at
+  // the thing and fading to nothing behind it. It is worked out from the same arc the thing flies on, so it bends
+  // exactly as the flight did, and it draws itself in after the thing has stopped.
+  const TRAIL_STEPS = 14;
+  const TRAIL_WIDTH = 0.026;
+  const makeTrail = (color: string): THREE.Mesh => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+    const index: number[] = [];
+    for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    geometry.setIndex(index);
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    mesh.frustumCulled = false;
+    mesh.userData.nswpNoHit = true;
+    mesh.userData.base = new THREE.Color(color);
+    o.scene.add(mesh);
+    return mesh;
+  };
+  const dropTrail = (thing: Thing): void => {
+    if (!thing.trail) return;
+    thing.trail.removeFromParent();
+    thing.trail.geometry.dispose();
+    (thing.trail.material as THREE.Material).dispose();
+    thing.trail = null;
+  };
+  const eye = new THREE.Vector3();
+  const drawTrail = (thing: Thing): void => {
+    const mesh = thing.trail;
+    if (!mesh) return;
+    const head = thing.landedAt ?? thing.t;
+    const tail = Math.max(0, thing.t - thing.trailSeconds);
+    if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
+    mesh.visible = true;
+    o.camera.getWorldPosition(eye);
+    const position = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const color = mesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+    const base = mesh.userData.base as THREE.Color;
+    // How much of its full length is left: as it draws itself in, it dims as well.
+    const left = Math.min(1, (head - tail) / thing.trailSeconds);
+    const p = new THREE.Vector3();
+    const q = new THREE.Vector3();
+    const side = new THREE.Vector3();
+    for (let i = 0; i <= TRAIL_STEPS; i++) {
+      const f = i / TRAIL_STEPS;
+      const t = head - (head - tail) * f;
+      p.fromArray(shotAt(thing.shot, t));
+      q.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
+      side.copy(p).sub(q).cross(w.copy(eye).sub(p)).normalize().multiplyScalar((TRAIL_WIDTH / 2) * (1 - f * 0.85));
+      position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
+      position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
+      const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
+      color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
+      color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
+    }
+    position.needsUpdate = true;
+    color.needsUpdate = true;
+  };
   const gone = (thing: Thing): void => {
+    dropTrail(thing);
     thing.object.removeFromParent();
     const at = things.indexOf(thing);
     if (at >= 0) things.splice(at, 1);
@@ -386,7 +454,9 @@ export function createPlay(o: PlayOptions): Play {
     if (!send || !active()) return;
     const born = clock;
     pending.add(`${by}:${shot.id}`);
-    const inner = await o.items.sent(item, shot.name);
+    // In the colours whoever sent it chose for the item it came from.
+    const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
+    const inner = await o.items.sent(item, shot.name, tints);
     if (!active()) return void pending.delete(`${by}:${shot.id}`);
     // A model stands on its base. In the air it is carried by its middle, pointing the way it goes.
     inner.position.y -= send.size[1] / 2;
@@ -396,7 +466,10 @@ export function createPlay(o: PlayOptions): Play {
     object.position.fromArray(shot.from);
     o.scene.add(object);
     while (things.length >= PLAY_LIMITS.flown) gone(things[0]!);
-    const thing: Thing = { by, shot, send, item, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0 };
+    const trailSeconds = send.trail ?? 0;
+    // Its trail is the colour of the tint that has the thing's own name: a dart's, for a dart.
+    const trailColor = tints[send.name] ?? item.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
+    const thing: Thing = { by, shot, send, item, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null };
     things.push(thing);
     pending.delete(`${by}:${shot.id}`);
     // Its shape took a moment to fetch: it is flown on to where it would be by now, a little at a time, so that it
@@ -485,8 +558,13 @@ export function createPlay(o: PlayOptions): Play {
         };
       }
     }
+    const before = thing.t;
     thing.t += dt;
-    if (done) return done();
+    if (done) {
+      // Where along this step it stopped: its trail ends there, and not a step further on.
+      thing.landedAt = before + dt * Math.min(1, first);
+      return done();
+    }
     thing.object.position.copy(b);
     const going = new THREE.Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
     thing.object.lookAt(w.copy(b).add(going));
@@ -752,13 +830,17 @@ export function createPlay(o: PlayOptions): Play {
             fly(thing, step);
             left -= step;
           }
+          drawTrail(thing);
         } else if (thing.state === "stuck") {
           thing.t += dt;
+          drawTrail(thing);
           // Stuck to someone who never said it reached them: it drops off.
           if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
           else if (thing.t > thing.until) drop(thing);
           else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
         } else if (thing.state === "falling") {
+          thing.t += dt;
+          drawTrail(thing);
           thing.fall += GRAVITY * dt;
           thing.object.position.y -= thing.fall * dt;
           thing.object.rotation.x += dt * 5;

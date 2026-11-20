@@ -67,6 +67,29 @@ describe("the starter items", () => {
     expect(blaster.effects).toEqual([{ of: "dart", state: "health", take: 1 }]);
   });
 
+  it("draw the blaster in its holder's colours, and only theirs: another copy keeps its maker's", async () => {
+    const blaster = signed.map((e) => parseItem(e)!).find((i) => i.d === "dart-blaster");
+    if (!blaster) return;
+    const items = createItems({ relays: [], fetchBytes: async (url) => new Uint8Array(readFileSync(join(sites, "items", "models", url.split("/").pop()!))) });
+    const colours = (root: THREE.Object3D, slot: string) => {
+      const found = new Set<string>();
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        for (const m of mesh.isMesh ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : []) if (m.userData.nswpTint === slot) found.add((m as THREE.MeshStandardMaterial).color.getHexString());
+      });
+      return [...found];
+    };
+    const mine = await items.model(blaster, { accent: "#8b5cf6", dart: "#46d95a", barrel: "#000000" });
+    const theirs = await items.model(blaster);
+    expect(colours(mine, "accent")).toEqual(["8b5cf6"]);
+    expect(colours(mine, "dart")).toEqual(["46d95a"]);
+    expect(colours(theirs, "accent")).toEqual(["f2691c"]);
+    // A dart it sends out is the holder's colour too, and what isn't a tint is never touched.
+    expect(colours(await items.sent(blaster, "dart", { dart: "#46d95a" }), "dart")).toEqual(["46d95a"]);
+    expect(blaster.tints.map((t) => t.slot)).toEqual(["accent", "dart"]);
+    expect(blaster.sends[0]!.trail).toBeGreaterThan(0);
+  });
+
   it("are each drawn as themselves by the kit, not as a marker", async () => {
     for (const event of signed) {
       const item = parseItem(event)!;

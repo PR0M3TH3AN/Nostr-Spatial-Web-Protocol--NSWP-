@@ -61,6 +61,52 @@ export function newestBag(events: readonly NostrEvent[], pubkey: string): NostrE
  * no change asked for, something that isn't an item, one already there, one that isn't, or no bag to change
  * unless `fromNothing` says the person truly has none. Everything else in it is kept as it was.
  */
+/**
+ * The colours a person chose for the things in their bag, where they chose any: for each item, its tints by name.
+ * They are part of how they carry it, so they are in the bag: a `tint` line naming the item, then
+ * `<slot>=#rrggbb` for each. Only for items that are in the bag.
+ */
+export function bagTints(event: Pick<NostrEvent, "tags"> | null | undefined): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  if (!event || !Array.isArray(event.tags)) return out;
+  const has = new Set(bagIn(event));
+  for (const t of event.tags) {
+    if (!Array.isArray(t) || t[0] !== "tint") continue;
+    const item = itemCoordinate(t[1]);
+    if (!item || !has.has(item) || out[item]) continue;
+    const tints: Record<string, string> = {};
+    for (const word of t.slice(2, 6)) {
+      const [slot, color] = typeof word === "string" ? word.split("=") : [];
+      if (slot && /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color ?? "")) tints[slot] = color!;
+    }
+    out[item] = tints;
+  }
+  return out;
+}
+
+/**
+ * A bag with the colours of one thing in it changed, ready to be signed by its owner. Null when there is nothing
+ * to sign: no bag, a thing that isn't in it, or the colours it already has. Everything else is kept as it was.
+ */
+export function tintBag(newest: Pick<NostrEvent, "kind" | "created_at" | "tags"> | null, change: { item: string; tints: Record<string, string>; now: number }): EventTemplate | null {
+  if (!newest || newest.kind !== BAG_KIND || !Array.isArray(newest.tags)) return null;
+  const item = itemCoordinate(change.item);
+  if (!item || !bagIn(newest).includes(item)) return null;
+  const words = Object.entries(change.tints ?? {})
+    .filter(([slot, color]) => /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color))
+    .slice(0, 4)
+    .map(([slot, color]) => `${slot}=${color}`);
+  const was = bagTints(newest)[item] ?? {};
+  if (JSON.stringify(Object.entries(was).map(([s, c]) => `${s}=${c}`)) === JSON.stringify(words)) return null;
+  const kept = newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt" && !(t[0] === "tint" && itemCoordinate(t[1]) === item)).map((t) => [...t]);
+  return {
+    kind: BAG_KIND,
+    created_at: Math.max(Math.floor(change.now), newest.created_at + 1),
+    tags: [["d", BAG_D], ...kept, ...(words.length ? [["tint", item, ...words]] : []), ["alt", "A bag: the items this person has"]],
+    content: "",
+  };
+}
+
 export function changeBag(newest: Pick<NostrEvent, "kind" | "created_at" | "tags"> | null, change: { add?: string; remove?: string; relay?: string; now: number; fromNothing?: boolean }): EventTemplate | null {
   if (newest && (newest.kind !== BAG_KIND || !Array.isArray(newest.tags))) return null;
   if (!newest && !change.fromNothing) return null;
@@ -74,7 +120,7 @@ export function changeBag(newest: Pick<NostrEvent, "kind" | "created_at" | "tags
   const has = had.some(names);
   if (add ? has : !has) return null;
   if (add && bagIn({ tags: had }).length >= BAG_LIMITS.items) return null;
-  const kept = add ? [...had.map((t) => [...t]), ["a", add, ...(change.relay ? [change.relay] : [])]] : had.filter((t) => !names(t)).map((t) => [...t]);
+  const kept = add ? [...had.map((t) => [...t]), ["a", add, ...(change.relay ? [change.relay] : [])]] : had.filter((t) => !names(t) && !(t[0] === "tint" && itemCoordinate(t[1]) === which)).map((t) => [...t]);
   return {
     kind: BAG_KIND,
     created_at: Math.max(Math.floor(change.now), newest ? newest.created_at + 1 : 0),

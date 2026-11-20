@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { BLASTER_CLIPS, BLASTER_PARTS, DART_PARTS, MATERIALS as BLASTER_MATERIALS, TINTS as BLASTER_TINTS } from "./blaster-model.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "sites", "items");
@@ -216,7 +217,7 @@ function glb(shape) {
 // The first five items are one still shape each, and are written exactly as they were: their files are named by
 // their bytes, and those names are published. A thing with moving parts is written by this, apart: each part is a
 // node of its own, and an animation moves the nodes.
-function glbMoving(parts, clips) {
+function glbMoving(parts, clips, M) {
   const names = [...new Set(parts.flatMap((p) => p.shape.map((t) => t.material)))];
   const round = (x) => Math.round(x * 1e5) / 1e5;
   const json = {
@@ -225,7 +226,7 @@ function glbMoving(parts, clips) {
     scenes: [{ nodes: [0] }],
     nodes: [{ name: "all", children: parts.filter((p) => !p.under).map((p) => parts.indexOf(p) + 1) }, ...parts.map((p) => ({ name: p.name, mesh: parts.indexOf(p), ...(parts.some((c) => c.under === p.name) ? { children: parts.filter((c) => c.under === p.name).map((c) => parts.indexOf(c) + 1) } : {}) }))],
     meshes: [],
-    materials: names.map((name) => ({ name, pbrMetallicRoughness: { baseColorFactor: [...M[name].color, 1], metallicFactor: M[name].metal, roughnessFactor: M[name].rough }, ...(M[name].emit ? { emissiveFactor: M[name].emit } : {}) })),
+    materials: names.map((name) => ({ name, pbrMetallicRoughness: { baseColorFactor: [...M[name].color, M[name].alpha ?? 1], metallicFactor: M[name].metal, roughnessFactor: M[name].rough }, ...(M[name].emit ? { emissiveFactor: M[name].emit } : {}), ...(M[name].alpha === undefined ? {} : { alphaMode: "BLEND" }) })),
     animations: [],
     buffers: [{ byteLength: 0 }],
     bufferViews: [],
@@ -245,7 +246,8 @@ function glbMoving(parts, clips) {
       const tris = part.shape.filter((t) => t.material === name);
       if (!tris.length) continue;
       const pos = new Float32Array(tris.flatMap((t) => t.points.flat().map(round)));
-      const nor = new Float32Array(tris.flatMap((t) => { const n = unit(cross(sub(t.points[1], t.points[0]), sub(t.points[2], t.points[0]))).map(round); return [...n, ...n, ...n]; }));
+      // A shape that says which way each corner faces is shaded as round; one that doesn't, as flat faces.
+      const nor = new Float32Array(tris.flatMap((t) => { if (t.normals) return t.normals.flat().map(round); const n = unit(cross(sub(t.points[1], t.points[0]), sub(t.points[2], t.points[0]))).map(round); return [...n, ...n, ...n]; }));
       const count = tris.length * 3;
       const xs = [0, 1, 2].map((i) => Array.from({ length: count }, (_, k) => pos[k * 3 + i]));
       json.accessors.push({ bufferView: view(pos, 34962), componentType: 5126, count, type: "VEC3", min: xs.map((x) => Math.min(...x)), max: xs.map((x) => Math.max(...x)) });
@@ -302,46 +304,8 @@ const tip = (degrees) => [Math.sin((degrees * Math.PI) / 360), 0, 0, Math.cos((d
 // A toy: bright plastic, and nothing about it like a firearm. It points away from whoever holds it (toward -z).
 // What it does is its script's to say, below. Its sounds are the owner's to pick by ear before it is signed: until
 // then it is a draft, written to drafts.json and signed by nobody.
-M.toyOrange = { color: [0.98, 0.45, 0.1], metal: 0, rough: 0.55 };
-M.toyBlue = { color: [0.12, 0.42, 0.9], metal: 0, rough: 0.5 };
-M.toyYellow = { color: [1, 0.82, 0.16], metal: 0, rough: 0.5 };
-M.toyGrey = { color: [0.82, 0.84, 0.88], metal: 0, rough: 0.6 };
-M.foam = { color: [1, 0.55, 0.12], metal: 0, rough: 0.95 };
-M.rubber = { color: [0.1, 0.35, 0.8], metal: 0, rough: 0.8 };
-const BLASTER_PARTS = [
-  {
-    name: "gun",
-    shape: [
-      ...box("toyOrange", [0, 0.125, -0.03], [0.046, 0.06, 0.2]),
-      ...box("toyBlue", [0, 0.05, 0.055], [0.034, 0.1, 0.042]),
-      ...along("toyGrey", { r0: 0.018, y: 0.13, z0: -0.13, z1: -0.215 }),
-      ...along("toyOrange", { r0: 0.023, y: 0.13, z0: -0.215, z1: -0.235, sides: 10 }),
-      ...box("toyBlue", [0, 0.162, -0.11], [0.012, 0.014, 0.03]),
-      ...box("toyGrey", [0, 0.085, 0.012], [0.012, 0.03, 0.05]),
-    ],
-  },
-  { name: "slide", under: "gun", shape: box("toyYellow", [0, 0.165, 0.02], [0.05, 0.022, 0.1]) },
-  { name: "clip", under: "gun", shape: [...box("toyBlue", [0, 0.062, -0.05], [0.03, 0.072, 0.04]), ...box("foam", [0, 0.1, -0.05], [0.02, 0.008, 0.03])] },
-];
-const BLASTER_CLIPS = [
-  {
-    name: "reload",
-    moves: [
-      { node: "clip", path: "translation", times: [0, 0.3, 0.75, 1.05, 1.4], values: [[0, 0, 0], [0, -0.1, 0.01], [0, -0.1, 0.01], [0, 0, 0], [0, 0, 0]] },
-      { node: "slide", path: "translation", times: [0, 1.05, 1.2, 1.32, 1.4], values: [[0, 0, 0], [0, 0, 0], [0, 0, 0.055], [0, 0, 0], [0, 0, 0]] },
-      { node: "gun", path: "rotation", times: [0, 0.25, 0.9, 1.25, 1.4], values: [tip(0), tip(-22), tip(-22), tip(4), tip(0)] },
-    ],
-  },
-  {
-    name: "fire",
-    moves: [
-      { node: "gun", path: "rotation", times: [0, 0.04, 0.16], values: [tip(0), tip(9), tip(0)] },
-      { node: "slide", path: "translation", times: [0, 0.04, 0.16], values: [[0, 0, 0], [0, 0, 0.03], [0, 0, 0]] },
-    ],
-  },
-];
-// A dart lies along z with its tip at +z: the kit turns that way round to where it is going.
-const DART = [...along("foam", { r0: 0.008, y: 0.012, z0: -0.04, z1: 0.03, sides: 8 }), ...along("rubber", { r0: 0.012, y: 0.012, z0: 0.03, z1: 0.045, sides: 8 })];
+// The blaster has materials of its own (blaster-model.mjs): the ones above belong to the items already published,
+// whose files are named by their bytes, and are never touched.
 const BLASTER_SCRIPT = `// Dart blaster: five darts, then a reload. There is no end of darts.
 var FULL = 5;
 var darts = FULL;
@@ -433,15 +397,20 @@ const drafts = [
     d: "dart-blaster",
     title: "Dart blaster",
     summary: "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
-    model: keep(glbMoving(BLASTER_PARTS, BLASTER_CLIPS), "glb"),
+    model: keep(glbMoving(BLASTER_PARTS, BLASTER_CLIPS, BLASTER_MATERIALS), "glb"),
     size: boxOf(blasterShape),
     behaviors: ["holdable"],
     fits: ["hand-left", "hand-right"],
     script: keep(new TextEncoder().encode(BLASTER_SCRIPT), "js"),
     ...(Object.keys(picked).length ? { sounds: picked } : {}),
-    sends: [{ name: "dart", model: keep(glb(DART), "glb"), size: boxOf(DART), ...has("impact"), ...has("fall"), ...has("hit"), ...has("tick") }],
+    sends: [{ name: "dart", model: keep(glbMoving(DART_PARTS, [], BLASTER_MATERIALS), "glb"), size: boxOf(DART_PARTS[0].shape), ...has("impact"), ...has("fall"), ...has("hit"), ...has("tick"), trail: 0.22 }],
     effects: [{ of: "dart", state: "health", take: 1 }],
     does: { use: "Fire", second: "Reload" },
+    // Two colours are the holder's to choose: the rear, muzzle and magazine; and the darts, with everything that glows.
+    tints: [
+      { slot: "accent", label: "Accent", color: BLASTER_TINTS.accent },
+      { slot: "dart", label: "Darts", color: BLASTER_TINTS.dart },
+    ],
   },
 ];
 // With every sound picked it is no longer a draft: it is written with the rest, to be signed. Until then it waits.

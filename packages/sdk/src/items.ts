@@ -106,13 +106,13 @@ export interface Items {
    * Something to draw for an item: its own model where every check passes, and a plain marker of its size where
    * one doesn't, or where the visitor has items turned off. Each call gives a copy of its own.
    */
-  model(item: Item): Promise<THREE.Object3D>;
+  model(item: Item, tints?: Record<string, string>): Promise<THREE.Object3D>;
   /** A plain marker of an item's size. */
   marker(item: Pick<Item, "size">): THREE.Object3D;
   /** The animations an item's own model brings, by name. Empty until its model has been made, and for a marker. */
   clips(item: Item): THREE.AnimationClip[];
   /** Something to draw for one of the things an item sends out: checked and counted like its model, or a marker. */
-  sent(item: Item, name: string): Promise<THREE.Object3D>;
+  sent(item: Item, name: string, tints?: Record<string, string>): Promise<THREE.Object3D>;
   /** One of an item's own sounds, as its bytes: fetched and checked against its hash. Null if there is none, or it failed. */
   sound(item: Item, name: string): Promise<Uint8Array | null>;
   /** An item's script, as its text: fetched and checked against its hash. Null if it has none, or it failed. */
@@ -134,6 +134,46 @@ async function fetchWithin(url: string, most: number): Promise<Uint8Array | null
 }
 
 /** Count what a loaded model holds, and say whether it is within what may be drawn. */
+/**
+ * Colour the parts of a drawn item that its holder may choose (protocol/17-items.md, "A holder's own colours"):
+ * every material named `tint:<slot>` takes the colour chosen for that tint, or the one its maker gave it. A part
+ * that glows, glows in that colour. Call it again to change them. Nothing else about the model is touched.
+ */
+export function applyTints(root: THREE.Object3D, item: Pick<Item, "tints">, tints: Record<string, string> = {}): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      const slot = (material.userData.nswpTint as string | undefined) ?? "";
+      if (!slot) continue;
+      const color = tints[slot] ?? item.tints.find((t) => t.slot === slot)?.color;
+      if (!color || !/^#[0-9a-f]{6}$/.test(color)) continue;
+      const m = material as THREE.MeshStandardMaterial;
+      m.color?.set(color);
+      if (m.userData.nswpGlows) m.emissive?.set(color);
+    }
+  });
+}
+
+/** A copy of a model with materials of its own wherever a tint goes, coloured as its holder chose. */
+function tinted(root: THREE.Object3D, item: Pick<Item, "tints">, tints?: Record<string, string>): THREE.Object3D {
+  if (!item.tints.length) return root;
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const own = (material: THREE.Material): THREE.Material => {
+      const slot = /^tint:([a-z][a-z0-9-]{0,23})$/.exec(material.name)?.[1];
+      if (!slot || !item.tints.some((t) => t.slot === slot)) return material;
+      const copy = material.clone();
+      copy.userData = { ...copy.userData, nswpTint: slot, nswpGlows: ((material as THREE.MeshStandardMaterial).emissive?.getHex() ?? 0) !== 0 };
+      return copy;
+    };
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material);
+  });
+  applyTints(root, item, tints);
+  return root;
+}
+
 export function withinBudget(root: THREE.Object3D): boolean {
   let triangles = 0;
   let meshes = 0;
@@ -255,19 +295,19 @@ export function createItems(opts: ItemsOptions = {}): Items {
       return found;
     },
     known: (coordinate) => settled.get(itemCoordinate(coordinate)) ?? null,
-    async model(item) {
+    async model(item, tints) {
       if (!showsItems()) return marker(item);
       const made = await load(item);
-      return made ? made.clone(true) : marker(item);
+      return made ? tinted(made.clone(true), item, tints) : marker(item);
     },
     marker,
     clips: (item) => clipsOf.get(`${item.model.sha256}:${item.size.join(",")}`) ?? [],
-    async sent(item, name) {
+    async sent(item, name, tints) {
       const send = item.sends.find((s) => s.name === name);
       if (!send) return marker({ size: [0.03, 0.03, 0.1] });
       if (!showsItems()) return marker(send);
       const made = await load(send);
-      return made ? made.clone(true) : marker(send);
+      return made ? tinted(made.clone(true), item, tints) : marker(send);
     },
     async sound(item, name) {
       const named = item.sounds[name];

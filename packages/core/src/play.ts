@@ -130,6 +130,57 @@ export function parseDid(text: unknown): Did | null {
   return at > 0 && buildDid(did) ? did : null;
 }
 
+// ---------------------------------------------------------------- a holder's own colours
+
+/**
+ * The colours a visitor is offered for an item's tints. Whoever reads a colour takes any that is written as one;
+ * these are only what the kit's own menu steps through.
+ */
+export const TINT_PALETTE: readonly { name: string; color: string }[] = [
+  { name: "Orange", color: "#f2691c" },
+  { name: "Red", color: "#e8362c" },
+  { name: "Pink", color: "#f04f9a" },
+  { name: "Purple", color: "#8b5cf6" },
+  { name: "Blue", color: "#2f7df6" },
+  { name: "Cyan", color: "#35f0e0" },
+  { name: "Green", color: "#46d95a" },
+  { name: "Lime", color: "#b6ea2e" },
+  { name: "Yellow", color: "#f8c62c" },
+  { name: "White", color: "#f4f1ea" },
+];
+
+/** A holder's choice of colours, kept to the tints the item says it has and to colours written as colours. */
+export function cleanTints(item: { tints: readonly { slot: string }[] } | null | undefined, chosen: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!item || !chosen || typeof chosen !== "object" || Array.isArray(chosen)) return out;
+  for (const { slot } of item.tints) {
+    const color = (chosen as Record<string, unknown>)[slot];
+    if (typeof color === "string" && /^#[0-9a-f]{6}$/.test(color)) out[slot] = color;
+  }
+  return out;
+}
+
+/** The colours someone chose for what they hold, as they say them to a room: "tint:accent=f2691c,dart=35f0e0". */
+export function buildTints(chosen: Record<string, string>): string {
+  const parts = Object.entries(chosen ?? {})
+    .filter(([slot, color]) => NAME.test(slot) && /^#[0-9a-f]{6}$/.test(color))
+    .slice(0, 4)
+    .map(([slot, color]) => `${slot}=${color.slice(1)}`);
+  return `tint:${parts.join(",")}`;
+}
+
+/** Read them. Null for anything that isn't that; an empty choice is "as its maker made it". */
+export function parseTints(text: unknown): Record<string, string> | null {
+  if (typeof text !== "string" || !text.startsWith("tint:") || text.length > 120) return null;
+  const out: Record<string, string> = {};
+  for (const part of text.slice(5).split(",").filter(Boolean).slice(0, 4)) {
+    const [slot, color] = part.split("=");
+    if (!slot || !NAME.test(slot) || !/^[0-9a-f]{6}$/.test(color ?? "")) return null;
+    out[slot] = `#${color}`;
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- a person's state
 
 /**

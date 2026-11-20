@@ -17,7 +17,8 @@ const blaster = parseItem(
       model: { url: `https://items.example/${H("a")}.glb`, sha256: H("a") },
       size: [0.05, 0.18, 0.3],
       behaviors: ["holdable"],
-      sends: [{ name: "dart", model: { url: `https://items.example/${H("b")}.glb`, sha256: H("b") }, size: [0.02, 0.02, 0.09] }],
+      sends: [{ name: "dart", model: { url: `https://items.example/${H("b")}.glb`, sha256: H("b") }, size: [0.02, 0.02, 0.09], trail: 0.2 }],
+      tints: [{ slot: "dart", label: "Darts", color: "#35f0e0" }],
       effects: [{ of: "dart", state: "health", take: 1 }],
       does: { use: "Fire", second: "Reload" },
       now: 1_800_000_000,
@@ -93,6 +94,26 @@ describe("a thing sent out", () => {
     expect(p.play.info().stuck).toBe(0);
     await p.pass(3);
     expect(p.play.info().things).toEqual([]);
+  });
+
+  it("leaves a streak of light along its arc, which draws itself in once it has stopped", async () => {
+    const p = place();
+    const trails = () => p.scene.children.filter((c) => (c as THREE.Mesh).isMesh && (c as THREE.Mesh).material instanceof THREE.MeshBasicMaterial && ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).blending === THREE.AdditiveBlending) as THREE.Mesh[];
+    await p.hears(BO, shot(1, [4, 1.5, 0], [0, 2, -14]));
+    await p.pass(0.25);
+    expect(trails().length).toBe(1);
+    const trail = trails()[0]!;
+    expect(trail.visible).toBe(true);
+    // It is not a thing to hit, and it runs back from where the dart is now along where it has been.
+    expect(trail.userData.nswpNoHit).toBe(true);
+    const at = trail.geometry.getAttribute("position");
+    expect(at.getZ(0)).toBeLessThan(at.getZ(at.count - 1));
+    // In the colour whoever sent it chose, or the one its maker gave: here, the maker's.
+    expect((trail.userData.base as THREE.Color).getHexString()).toBe("35f0e0");
+    // It stuck after a little under half a second: a fifth of a second later the streak is gone, and the dart is not.
+    await p.pass(0.6);
+    expect(trails().length).toBe(0);
+    expect(p.play.info().stuck).toBe(1);
   });
 
   it("falls as it flies: aimed level it lands short of the wall, on the floor", async () => {

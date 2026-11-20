@@ -27,7 +27,24 @@ export const ITEM_LIMITS = {
   sends: 4,
   /** The most letters on one of its buttons. */
   label: 16,
+  /** How many of its colours a holder may choose. */
+  tints: 4,
+  /** The longest a trail behind a thing sent out may be, in seconds of its flight. */
+  trail: 0.6,
 } as const;
+
+/** A colour, as it is written: "#rrggbb". */
+export const HEX = /^#[0-9a-f]{6}$/;
+
+/**
+ * A colour of the item that whoever holds it may choose: its name (which is also the name its model's material
+ * goes by, as `tint:<slot>`), what a visitor is shown it as, and the colour it is until they choose.
+ */
+export interface ItemTint {
+  slot: string;
+  label: string;
+  color: string;
+}
 
 /** A sound, or a thing an item sends out, is named by a short plain word. */
 const PLAIN = /^[a-z][a-z0-9-]{0,23}$/;
@@ -47,6 +64,11 @@ export interface ItemSend {
   strikes?: string;
   /** Which is heard by whoever sent it, when it reaches a person: the tick that goes with a hit mark. */
   tells?: string;
+  /**
+   * A streak of light behind it as it flies, this many seconds of its flight long. It follows the arc the thing
+   * flew, in the colour of the tint that has the thing's own name, where there is one.
+   */
+  trail?: number;
 }
 
 /**
@@ -120,6 +142,7 @@ export interface ItemInput {
   sends?: ItemSend[];
   effects?: ItemEffect[];
   does?: ItemDoes;
+  tints?: ItemTint[];
   license?: string;
 }
 
@@ -140,6 +163,7 @@ export interface Item extends Required<Pick<ItemInput, "d" | "title" | "model" |
   sends: ItemSend[];
   effects: ItemEffect[];
   does: ItemDoes;
+  tints: ItemTint[];
   license: string;
   /** When its maker last described it, in seconds. */
   at: number;
@@ -199,6 +223,10 @@ function readSend(t: string[]): ItemSend | null {
   for (const word of t.slice(6)) {
     const [moment, sound] = word.split("=");
     if ((SEND_MOMENTS as readonly string[]).includes(moment ?? "") && sound && PLAIN.test(sound)) send[moment as (typeof SEND_MOMENTS)[number]] = sound;
+    if (moment === "trail") {
+      const seconds = Number(sound);
+      if (seconds > 0 && seconds <= ITEM_LIMITS.trail) send.trail = seconds;
+    }
   }
   return send;
 }
@@ -254,7 +282,8 @@ export function buildItem(o: ItemInput & { now: number }): EventTemplate | null 
     if (!s || !PLAIN.test(s.name) || !model || !Array.isArray(s.size) || s.size.length !== 3 || !s.size.every(within)) return null;
     const when = SEND_MOMENTS.filter((m) => s[m] !== undefined);
     if (when.some((m) => !PLAIN.test(s[m]!))) return null;
-    tags.push(["sends", s.name, model.url, "glb", model.sha256, said(s.size), ...when.map((m) => `${m}=${s[m]}`)]);
+    if (s.trail !== undefined && !(typeof s.trail === "number" && s.trail > 0 && s.trail <= ITEM_LIMITS.trail)) return null;
+    tags.push(["sends", s.name, model.url, "glb", model.sha256, said(s.size), ...when.map((m) => `${m}=${s[m]}`), ...(s.trail === undefined ? [] : [`trail=${said([s.trail])}`])]);
   }
   for (const e of (o.effects ?? []).slice(0, ITEM_LIMITS.sends)) {
     if (!e || !PLAIN.test(e.of) || e.state !== "health" || !Number.isInteger(e.take) || e.take < 1 || e.take > 5) return null;
@@ -263,6 +292,11 @@ export function buildItem(o: ItemInput & { now: number }): EventTemplate | null 
   for (const press of ["use", "second"] as const) {
     const label = cleanLine(o.does?.[press] ?? "", ITEM_LIMITS.label);
     if (label) tags.push(["does", press, label]);
+  }
+  for (const t of (o.tints ?? []).slice(0, ITEM_LIMITS.tints)) {
+    const label = cleanLine(t?.label ?? "", ITEM_LIMITS.label);
+    if (!t || !PLAIN.test(t.slot) || !label || !HEX.test(t.color)) return null;
+    tags.push(["tint", t.slot, label, t.color]);
   }
   const license = cleanLine(o.license ?? "", 40);
   if (license) tags.push(["license", license]);
@@ -331,6 +365,10 @@ export function parseItem(event: NostrEvent | null | undefined): Item | null {
         .map((t) => [t[1], cleanLine(t[2], ITEM_LIMITS.label)] as const)
         .filter((d) => d[1]),
     ),
+    tints: getTags(event, "tint")
+      .slice(0, ITEM_LIMITS.tints)
+      .map((t) => ({ slot: t[1] ?? "", label: cleanLine(t[2], ITEM_LIMITS.label), color: t[3] ?? "" }))
+      .filter((t, i, all) => PLAIN.test(t.slot) && t.label !== "" && HEX.test(t.color) && all.findIndex((x) => x.slot === t.slot) === i),
     license: cleanLine(tag("license")?.[1], 40),
     at: Number.isInteger(event.created_at) ? event.created_at : 0,
   };
