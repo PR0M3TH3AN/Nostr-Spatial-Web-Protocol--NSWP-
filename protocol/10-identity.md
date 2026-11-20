@@ -539,7 +539,9 @@ nobody takes one for the other.
   is said in the room.
 - **It says how a post is marked.** A world's signer marks every note with
   the world that asked ("Signing from a world"). The window says so where
-  the visitor writes: "Each post is marked as sent from" and the site.
+  the visitor writes: "Each post is marked as sent from" and the site. A
+  client that signs in its own room says the same where its own sign-in
+  marks what it signs (the kit's `RoomNotes.marked`).
 - **A post goes to the relays its writer says they write to.** That is
   their own relay list (NIP-65: kind 10002, `r` tags, a tag with no marker
   or marked `write`), the newest one, looked for on the reader's usual
