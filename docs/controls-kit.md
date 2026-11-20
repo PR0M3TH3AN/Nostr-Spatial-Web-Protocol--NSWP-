@@ -690,6 +690,30 @@ has passed. Then it deploys the worlds first and BitPortal last, and checks
 what came up. If it stops part way it says which sites were deployed.
 Deploying is the owner's to approve each time: `--go` is run on their word.
 
+### The latest, in a page that is already open
+
+`addViewControls` adds one more control, which shows only when it has
+something to say: **This place has been updated. Reload for the latest**, on
+the bar and under Help. The page asks its own site, now and then and
+whenever the visitor comes back to it, whether the page or its script has
+changed since it was loaded (`watchFresh`: a HEAD request for each, compared
+by the mark the host puts on a file). A visitor who comes back to the tab
+with nothing in hand is given the latest at once, and the plumbing puts them
+back where they stood. Someone in a room, in a headset or writing is told
+and left to choose.
+
+```js
+import { freshAction, watchFresh } from "nswp-sdk/three";
+
+controls.add(freshAction(controls, { busy: () => inTheMiddleOfMyGame() }));   // addViewControls does this already
+const fresh = watchFresh({ onStale: () => showMyOwnNotice() });                // or watch it yourself
+```
+
+It needs your host to put an `ETag` or `Last-Modified` on what it serves,
+which nearly all do. And it is the second half of a rule whose first half is
+your host's: serve your page and scripts with `Cache-Control: no-cache`
+([NSWP-09](../protocol/09-what-a-world-owes.md)).
+
 ## Not built
 
 - **A look that follows the visitor from world to world.** Today each site

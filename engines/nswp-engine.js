@@ -63,7 +63,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.34.0";
+  var KIT_VERSION = "0.35.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6330,6 +6330,120 @@ var NSWP = (() => {
   var JUMP_GRAVITY = 9.8;
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
+  // packages/sdk/src/fresh.ts
+  var LEAST_MS = 3e4;
+  var EVERY_MS = 10 * 6e4;
+  async function markOf(url) {
+    try {
+      const res = await fetch(url, { method: "HEAD", cache: "no-store", credentials: "same-origin" });
+      if (!res.ok) return null;
+      const mark = res.headers.get("etag") ?? res.headers.get("last-modified");
+      return mark ? `${mark}` : null;
+    } catch {
+      return null;
+    }
+  }
+  async function pageStamp() {
+    const page = `${location.origin}${location.pathname}`;
+    const script = document.querySelector('script[type="module"][src], script[src]')?.src ?? "";
+    const marks = await Promise.all([markOf(page), script && new URL(script).origin === location.origin ? markOf(script) : null]);
+    return marks.every((m) => m !== null) || !script && marks[0] ? marks.join("|") : null;
+  }
+  function watchFresh(o = {}) {
+    const stamp = o.stamp ?? pageStamp;
+    const now = o.now ?? (() => Date.now());
+    const reload = o.reload ?? (() => location.reload());
+    let first;
+    let stale = false;
+    let told = false;
+    let asked = -Infinity;
+    let asking = null;
+    let stopped = false;
+    const check2 = (returning = false) => {
+      if (stopped) return Promise.resolve(stale);
+      if (stale) {
+        if (returning && !o.busy?.()) reload();
+        return Promise.resolve(true);
+      }
+      if (asking) return asking;
+      if (now() - asked < LEAST_MS && first !== void 0) return Promise.resolve(false);
+      asked = now();
+      asking = stamp().catch(() => null).then((mark) => {
+        asking = null;
+        if (stopped) return stale;
+        if (first === void 0) {
+          first = mark;
+          return false;
+        }
+        if (first === null || mark === null || mark === first) return false;
+        stale = true;
+        if (returning && !o.busy?.()) reload();
+        else if (!told) {
+          told = true;
+          o.onStale?.();
+        }
+        return true;
+      });
+      return asking;
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check2(true);
+    };
+    const onShow = (e) => {
+      if (e.persisted) void check2(true);
+    };
+    let timer;
+    if (!o.manual && typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisible);
+      addEventListener("pageshow", onShow);
+      timer = setInterval(() => {
+        if (document.visibilityState === "visible") void check2(false);
+      }, EVERY_MS);
+      void check2(false);
+    }
+    return {
+      get stale() {
+        return stale;
+      },
+      check: check2,
+      reload,
+      stop() {
+        stopped = true;
+        clearInterval(timer);
+        if (typeof document !== "undefined") {
+          document.removeEventListener("visibilitychange", onVisible);
+          removeEventListener("pageshow", onShow);
+        }
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/fresh.ts
+  var writing = () => {
+    const at = typeof document !== "undefined" ? document.activeElement : null;
+    return !!at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable === true);
+  };
+  function freshAction(controls2, opts = {}) {
+    const fresh = opts.fresh ?? watchFresh({
+      busy: () => controls2.view().chat.ready || writing() || opts.busy?.() === true,
+      onStale: () => {
+        controls2.say("This place has been updated since you opened it. Reload for the latest: it is on your bar, and under Help.");
+        controls2.signal("fresh");
+      }
+    });
+    return {
+      id: "fresh",
+      section: "help",
+      icon: "turn",
+      hotbar: true,
+      tone: "primary",
+      label: "This place has been updated. Reload for the latest",
+      short: "Reload",
+      hidden: () => !fresh.stale,
+      act: () => fresh.reload()
+    };
+  }
+
   // packages/sdk/src/signer.ts
   var NONE2 = {
     state: "none",
@@ -8236,6 +8350,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
     });
     addSoundControls(c, s);
+    c.add(freshAction(c, { busy: () => vr.presenting }));
     const atHome = arrival.atHome();
     c.add({
       id: "home",

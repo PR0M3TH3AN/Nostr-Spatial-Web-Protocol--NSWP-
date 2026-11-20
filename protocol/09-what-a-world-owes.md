@@ -36,6 +36,29 @@ desk, two fingers held still on a touch screen, B or Y held in a headset
 using touch, for a mouse and keys if they were at a desk, and offered the
 way back into a headset if they left one ([NSWP-11](11-the-visitors-console.md)).
 
+**They always get the latest.** A world is a website, and a browser keeps
+copies of what a website sends. Left to itself it may go on using a kept
+copy of a world for hours after the world was updated, and then two people
+in one room are in two different worlds. So:
+
+- **A world's page and its scripts are served so that a browser asks before
+  it uses a copy it kept:** `Cache-Control: no-cache`, or `max-age=0`, or
+  `no-store`. Saying nothing is not enough: a browser then guesses how long
+  a copy is good for. A file whose name changes whenever its contents do
+  (one with a hash in it) may be kept for good, since it is never the stale
+  one.
+- **A page that is already open finds out.** It asks its own site, now and
+  then and whenever the visitor comes back to it, whether what it was made
+  from has changed. A visitor who comes back with nothing in hand is given
+  the latest at once, put back where they stood. One who is in a room, in a
+  headset or writing something is told, and reloads when they choose. No
+  world reloads under someone who is in the middle of something.
+- **Nothing is cleared.** A world never empties a visitor's storage to make
+  an update take: what they chose, and where they are signed in, are theirs.
+
+The reference kit does the second for every world built with it, and
+`nswp check` warns about the first.
+
 A world that says it can be someone's home ([NSWP-07](07-homes.md)) owes one
 thing more: wherever it offers the way home, it offers the way to the
 visitor's doors.

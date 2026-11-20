@@ -29,6 +29,7 @@ import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
 import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
+import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
@@ -139,6 +140,8 @@ export function menu(options?: string): string {
     ...(o.sounds && typeof o.sounds === "object" ? { theme: o.sounds as SoundTheme } : {}),
   }));
   addSoundControls(c, s);
+  // The latest, always, as in a Three.js world (ui/fresh.ts).
+  c.add(freshAction(c, { busy: () => vr.presenting }));
 
   // The way home, or to their doors from a world that is their home. The engine does the going: it may have a headset session to end first.
   const atHome = arrival.atHome();

@@ -255,6 +255,17 @@ Two things a world must never do (spec §6.2, §12.3):
   need one to let someone look around, and a place that asks looks exactly
   like a phishing page.
 
+One thing more, which is your host's to do and not your interface's:
+**serve the latest.** Send your page and your scripts with
+`Cache-Control: no-cache`, so a browser asks before it uses a copy it kept
+([NSWP-09](../protocol/09-what-a-world-owes.md), "They always get the
+latest"). Without it a visitor can be in last week's version of your world
+and never know. A file with a hash in its name may be kept for good.
+`nswp check https://your.site/` says which you are sending. Don't clear a
+visitor's storage to make an update take: nothing in it is yours. A page
+that is already open is the kit's to deal with: it notices the update and
+offers the latest, or loads it when the visitor comes back to the tab.
+
 If you would rather not draw the list yourself, the SDK's controls kit draws
 it, and can shrink to one small mark in a corner while your own interface has
 the screen: [`controls-kit.md`](controls-kit.md), "Sharing the screen with a
