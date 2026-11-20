@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AVATAR_KIND, CURATION_SET_KIND, MESSAGE_RELAYS_KIND, RATING_KIND, SCORE_KIND, SAVE_KIND, ENTRY_ASSERTION_KIND, HOME_LAYOUT_KIND, ITEM_KIND, LOOK_PARTS, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, WORLD_KIND } from "../src/index.js";
+import { ACHIEVEMENT_KIND, AVATAR_KIND, CURATION_SET_KIND, MESSAGE_RELAYS_KIND, RATING_KIND, SCORE_KIND, SAVE_KIND, ENTRY_ASSERTION_KIND, HOME_LAYOUT_KIND, ITEM_KIND, LOOK_PARTS, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, WORLD_KIND } from "../src/index.js";
 
 const root = join(import.meta.dirname, "../../..");
 const dir = join(root, "protocol");
@@ -36,7 +36,7 @@ describe("the protocol documents", () => {
   }
 
   it("name only kinds the library knows", () => {
-    const known = new Set([WORLD_KIND, AVATAR_KIND, HOME_LAYOUT_KIND, ITEM_KIND, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, ENTRY_ASSERTION_KIND, CURATION_SET_KIND, SAVE_KIND, RATING_KIND, MESSAGE_RELAYS_KIND, SCORE_KIND]);
+    const known = new Set([WORLD_KIND, AVATAR_KIND, HOME_LAYOUT_KIND, ITEM_KIND, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, ENTRY_ASSERTION_KIND, CURATION_SET_KIND, SAVE_KIND, RATING_KIND, MESSAGE_RELAYS_KIND, SCORE_KIND, ACHIEVEMENT_KIND]);
     for (const file of docs) {
       const kinds = /\*\*Kinds:\*\* ([^·\n]*)/.exec(read(file))?.[1] ?? "";
       for (const k of kinds.match(/\b\d{5}\b/g) ?? []) expect(known.has(Number(k)), `${file} names kind ${k}`).toBe(true);

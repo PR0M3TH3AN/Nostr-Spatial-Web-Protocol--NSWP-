@@ -42,6 +42,13 @@ void startWorld({
   title: "The Arcade",
   // One board: the fastest run. A time is counted in thousandths of a second, and less is better.
   boards: [{ id: "lantern-run", title: "Lantern Run", order: "low", format: "time" }],
+  // What this world marks. The last isn't named until someone has done it.
+  achievements: [
+    { id: "first-lantern", title: "First light", about: "Catch a lantern" },
+    { id: "all-twelve", title: "All twelve", about: "Catch every lantern in one run" },
+    { id: "under-a-minute", title: "Under a minute", about: "Catch all twelve in less than sixty seconds" },
+    { id: "under-thirty", title: "Lamplighter", about: "Catch all twelve in less than thirty seconds", hidden: true },
+  ],
   purpose: "Twelve lanterns are loose on the field. Walk into each one to catch it. The clock starts with your first.",
   palette: { ground: 0x0c0510, accent: 0xff5fa2, text: "#ffe6f1" },
   entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
@@ -150,12 +157,16 @@ void startWorld({
           l.group.visible = false;
           if (startedAt < 0) startedAt = now;
           caught++;
+          if (caught === 1) kit.achievements?.earn("first-lantern");
           kit.note("last", [Math.round(l.group.position.x * 10) / 10, Math.round(l.group.position.z * 10) / 10]);
           if (caught < COUNT) {
             show("Lantern Run", `${caught} of ${COUNT}. ${record()}`);
             continue;
           }
           const took = now - startedAt;
+          kit.achievements?.earn("all-twelve");
+          if (took < 60) kit.achievements?.earn("under-a-minute");
+          if (took < 30) kit.achievements?.earn("under-thirty");
           const was = best();
           const better = takeBest(took);
           show(better ? "A new best" : "All twelve", `${took.toFixed(1)} seconds. ${was && !better ? `Your best is ${was.toFixed(1)} s. ` : ""}Open the menu and choose "Start the run again" for another go.`);

@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanMessage, cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { isAchievementAsked, cleanMessage, cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -123,6 +123,12 @@ export interface WorldSigner {
    * signs no scores, or what came back isn't that score, by the key it holds, marked for this site.
    */
   score(world: string, board: string, score: number): Promise<NostrEvent | null>;
+  /**
+   * Have it signed that the visitor holds one of this world's achievements (protocol/16-achievements.md). Any
+   * world its visitor has unlocked may ask; it is public, so ask only when the visitor has said to show it. Null
+   * as for `score`.
+   */
+  achieve(world: string, achievement: string, title: string): Promise<NostrEvent | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
   /**
@@ -179,6 +185,7 @@ const NONE: WorldSigner = {
   unwrap: async () => null,
   reach: async () => null,
   score: async () => null,
+  achieve: async () => null,
   onChange: () => () => {},
   whenAnswered: async () => {},
   dispose() {},
@@ -497,6 +504,10 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     score(world, board, score) {
       if (state !== "unlocked" || !frame) return Promise.resolve(null);
       return askAbout({ t: "score", id: `c${++n}`, world, board, score }, (reply) => (reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, origin: location.origin }) ? reply.event : null));
+    },
+    achieve(world, achievement, title) {
+      if (state !== "unlocked" || !frame) return Promise.resolve(null);
+      return askAbout({ t: "achieve", id: `a${++n}`, world, achievement, title }, (reply) => (reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world, id: achievement, title, origin: location.origin }) ? reply.event : null));
     },
     onChange(fn) {
       watchers.add(fn);

@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.44.0";
+  var KIT_VERSION = "0.45.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4624,6 +4624,39 @@ var NSWP = (() => {
     return !!s && s.world === worldCoordinate(o.world) && s.board === o.board && s.score === o.score && s.askedAt.includes(cleanOrigin(o.origin));
   }
 
+  // packages/core/dist/achievement.js
+  var ACHIEVEMENT_KIND = 37307;
+  var ACHIEVEMENT_LIMITS = {
+    /** A world may have no more than this many signed in `perMs`, and in an hour. */
+    burst: 6,
+    perMs: 6e4,
+    hourly: 60,
+    /** The longest a title may be, and the words about it, in characters. */
+    title: 60,
+    about: 160
+  };
+  var NAME = /^[a-z0-9][a-z0-9-]{0,31}$/;
+  function cleanAchievementId(input) {
+    return typeof input === "string" && NAME.test(input) ? input : "";
+  }
+  function parseAchievement(event) {
+    if (!event || event.kind !== ACHIEVEMENT_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
+      return null;
+    const world = worldCoordinate(getTags(event, "a")[0]?.[1]);
+    const id = cleanAchievementId(getTags(event, "achievement")[0]?.[1]);
+    const title = cleanLine(getTags(event, "title")[0]?.[1], ACHIEVEMENT_LIMITS.title);
+    if (!world || !id || !title || getTags(event, "d")[0]?.[1] !== `${world}/${id}`)
+      return null;
+    const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
+    return { by: event.pubkey, world, id, title, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+  }
+  function isAchievementAsked(signed, o) {
+    if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
+      return false;
+    const a = parseAchievement(signed);
+    return !!a && a.world === worldCoordinate(o.world) && a.id === o.id && a.title === cleanLine(o.title, ACHIEVEMENT_LIMITS.title) && a.askedAt.includes(cleanOrigin(o.origin));
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -7110,6 +7143,7 @@ var NSWP = (() => {
     unwrap: async () => null,
     reach: async () => null,
     score: async () => null,
+    achieve: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -7385,6 +7419,10 @@ var NSWP = (() => {
       score(world, board, score) {
         if (state !== "unlocked" || !frame) return Promise.resolve(null);
         return askAbout({ t: "score", id: `c${++n}`, world, board, score }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, origin: location.origin }) ? reply.event : null);
+      },
+      achieve(world, achievement, title) {
+        if (state !== "unlocked" || !frame) return Promise.resolve(null);
+        return askAbout({ t: "achieve", id: `a${++n}`, world, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world, id: achievement, title, origin: location.origin }) ? reply.event : null);
       },
       onChange(fn) {
         watchers3.add(fn);
@@ -8881,6 +8919,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "messages", label: "Messages", icon: "chat" },
     // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
     { id: "scores", label: "Scores", icon: "list" },
+    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
+    { id: "achievements", label: "Achievements", icon: "check" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },
