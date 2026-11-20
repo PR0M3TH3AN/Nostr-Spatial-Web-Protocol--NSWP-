@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.42.2
+
+- **A signer may say what it offers** ([NSWP-10](protocol/10-identity.md), "Asking for more"): `offers` in its `state`, the names it has a question for. Where one is missing, a world built with the kit tells its visitor so and opens no window, where it used to open one that said nothing of it. A signer that doesn't say is asked as before. `offers` on the kit's `worldSigner()`.
+
 ## 0.42.1
 
 - A visitor's messages are looked for as soon as it is known who is signed in. They waited a minute where the sign-in answered after the page had loaded, which is most of the time.

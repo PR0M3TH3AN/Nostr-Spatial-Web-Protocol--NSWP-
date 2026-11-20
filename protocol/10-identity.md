@@ -476,6 +476,11 @@ trust is given to, and how, is the visitor's:
   the next time the window is opened, and can't be given it any other way.
 - **The signer says what was allowed** in `state`, as `more`. A world asks
   for nothing that isn't there.
+- **A signer may say what it offers** in `state`, locked or not, as
+  `offers`: the names it has a question for. A world doesn't ask for a name
+  that is missing, or open the window for it: it tells its visitor their
+  sign-in address doesn't offer that in worlds yet. A signer that says
+  nothing of `offers` is asked, as before.
 - **Ask when it is needed, not on arrival.** The reference kit sends `want`
   when the visitor presses the thing that needs it, and opens the window
   from that press.

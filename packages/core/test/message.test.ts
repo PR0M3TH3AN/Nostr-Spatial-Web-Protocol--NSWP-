@@ -246,3 +246,12 @@ describe("a world that was let handle its visitor's messages", () => {
     expect(readSignerReply(signerMessage({ t: "state", id: "s1", unlocked: true, pubkey: ann, more: ["messages", "all of it"] as never }))).toMatchObject({ more: ["messages"] });
   });
 });
+
+describe("a signer that says what it offers", () => {
+  it("is read as a list of names from the closed list, locked or not", () => {
+    expect(readSignerReply(signerMessage({ t: "state", id: "s1", unlocked: false, offers: ["follows", "anything"] as never }))).toEqual({ t: "state", id: "s1", unlocked: false, offers: ["follows"] });
+    expect(readSignerReply(signerMessage({ t: "state", id: "s1", unlocked: false, offers: [] }))).toEqual({ t: "state", id: "s1", unlocked: false, offers: [] });
+    // One that doesn't say is not taken to offer nothing.
+    expect(readSignerReply(signerMessage({ t: "state", id: "s1", unlocked: false }))).toEqual({ t: "state", id: "s1", unlocked: false });
+  });
+});

@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.42.1";
+  var KIT_VERSION = "0.42.2";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4602,7 +4602,9 @@ var NSWP = (() => {
         // Whether the signer will still be unlocked for this world on their next visit, where it says.
         ...pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {},
         // What the visitor let this world do beyond a note and a reaction. Nothing, from a signer that doesn't say.
-        ...pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {}
+        ...pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {},
+        // What this signer can be asked for at all, locked or not. Left out by one that doesn't say: then it is asked.
+        ...Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {}
       };
     }
     if (typeof d.id !== "string" || !ID.test(d.id))
@@ -6918,6 +6920,7 @@ var NSWP = (() => {
     remembered: null,
     host: null,
     more: [],
+    offers: null,
     unanswered: false,
     asking: false,
     retry: () => false,
@@ -6974,6 +6977,7 @@ var NSWP = (() => {
     let about = null;
     let remembered = null;
     let more = [];
+    let offers = null;
     let origin = "";
     let windowAt = "";
     let frame = null;
@@ -7030,6 +7034,7 @@ var NSWP = (() => {
         about = reply.unlocked ? reply.about ?? null : null;
         remembered = reply.unlocked ? reply.remembered ?? null : null;
         more = reply.unlocked ? cleanMore(reply.more) : [];
+        if (reply.offers) offers = reply.offers;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -7101,6 +7106,9 @@ var NSWP = (() => {
       },
       get more() {
         return more;
+      },
+      get offers() {
+        return offers;
       },
       get unanswered() {
         return named && waited && state === "none" && !disposed;
@@ -7178,7 +7186,7 @@ var NSWP = (() => {
         return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
       },
       want(asked) {
-        const wanted = cleanMore([...asked]);
+        const wanted = cleanMore([...asked]).filter((name2) => !offers || offers.includes(name2));
         if (state === "none" || !frame || wanted.length === 0) return false;
         tell2({ t: "want", id: `w${++n}`, more: wanted });
         return true;

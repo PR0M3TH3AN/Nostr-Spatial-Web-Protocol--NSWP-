@@ -229,7 +229,7 @@ export function cleanMore(input: unknown): SignerMore[] {
  */
 export type SignerReply =
   | { t: "ready" }
-  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[] }
+  | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean; more?: SignerMore[]; offers?: SignerMore[] }
   | { t: "signed"; id: string; event: NostrEvent }
   /** Answers `find`: the `d` of this world's save in that slot. */
   | { t: "found"; id: string; d: string }
@@ -292,6 +292,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
       ...(pubkey && d.unlocked && typeof d.remembered === "boolean" ? { remembered: d.remembered } : {}),
       // What the visitor let this world do beyond a note and a reaction. Nothing, from a signer that doesn't say.
       ...(pubkey && d.unlocked && cleanMore(d.more).length ? { more: cleanMore(d.more) } : {}),
+      // What this signer can be asked for at all, locked or not. Left out by one that doesn't say: then it is asked.
+      ...(Array.isArray(d.offers) ? { offers: cleanMore(d.offers) } : {}),
     };
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;
