@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.47.0";
+  var KIT_VERSION = "0.48.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4779,6 +4779,17 @@ var NSWP = (() => {
     return null;
   }
 
+  // packages/core/dist/layout.js
+  var LAYOUT_LIMITS = {
+    placements: 64,
+    publishedItems: 16,
+    /** Furthest a placement may be from the home's origin, in metres. */
+    reach: 50,
+    noteChars: 280,
+    /** A picture in a frame (spec §10.1). */
+    pictureBytes: 1024 * 1024
+  };
+
   // packages/core/dist/people.js
   var FOLLOWS_KIND = 3;
   function changeFollows(newest, change2) {
@@ -4810,17 +4821,6 @@ var NSWP = (() => {
       return false;
     return JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(want.tags);
   }
-
-  // packages/core/dist/layout.js
-  var LAYOUT_LIMITS = {
-    placements: 64,
-    publishedItems: 16,
-    /** Furthest a placement may be from the home's origin, in metres. */
-    reach: 50,
-    noteChars: 280,
-    /** A picture in a frame (spec §10.1). */
-    pictureBytes: 1024 * 1024
-  };
 
   // packages/core/dist/bridge.js
   var WORLD_GRANT_LIMITS = {

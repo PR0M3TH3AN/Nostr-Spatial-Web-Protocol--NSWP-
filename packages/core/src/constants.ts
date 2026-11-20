@@ -22,7 +22,7 @@ export const WELL_KNOWN_PATH = "/.well-known/nswp.json";
  * client can tell how old a world's controls are without loading the world
  * (protocol/01-worlds.md, "Which kit a world was built with").
  */
-export const KIT_VERSION = "0.47.0";
+export const KIT_VERSION = "0.48.0";
 
 /** A version as three numbers, or null for anything that isn't one. */
 export function parseKitVersion(v: unknown): [number, number, number] | null {
@@ -70,6 +70,30 @@ export type Audience = (typeof AUDIENCES)[number];
  * `game`: there is something to win, beat or finish. `experience`: a place to walk through and look at. `social`:
  * made for meeting other people. `app`: a tool that does a job. `site`: mostly words and pictures to read.
  */
+/**
+ * What a world does with the things its visitors carry (protocol/17-items.md), as its maker says: one word from a
+ * short closed list, so that a door and the Airlock can warn a visitor before they go in.
+ *
+ * `none`: nothing carried is drawn or works there. `allowed`: items work, and can affect other people; anyone
+ * may mute them. `play`: items are part of the game, and nobody there is out of their reach.
+ *
+ * A world that says nothing is `none`.
+ */
+export const ITEM_RULES = ["none", "allowed", "play"] as const;
+export type ItemsRule = (typeof ITEM_RULES)[number];
+/** A world's rule for items, as it may be used: one on the list, and `none` for anything else. */
+export function cleanItemsRule(rule: unknown): ItemsRule {
+  return typeof rule === "string" && (ITEM_RULES as readonly string[]).includes(rule) ? (rule as ItemsRule) : "none";
+}
+/**
+ * A world's rule for items as words for a visitor, on a door or at the Airlock. A place where items are part of
+ * the game is always said. One that only allows them is said too, more quietly. Null where there are none.
+ */
+export function itemsWords(rule: unknown): string | null {
+  const r = cleanItemsRule(rule);
+  return r === "play" ? "Items are part of play here" : r === "allowed" ? "Items work here" : null;
+}
+
 export const CATEGORIES = ["game", "experience", "social", "app", "site"] as const;
 export type Category = (typeof CATEGORIES)[number];
 const CATEGORY_WORDS: Record<Category, string> = { game: "A game", experience: "An experience", social: "A place to meet", app: "An app", site: "A site" };

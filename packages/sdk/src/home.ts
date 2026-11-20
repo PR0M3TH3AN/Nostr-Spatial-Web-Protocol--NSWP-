@@ -13,7 +13,7 @@
  * published item (§10.4) appears as a marker of its place.
  */
 import * as THREE from "three";
-import { categoryWords, checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portalTarget, WORLD_KIND, type Layout, type Placement, type PortalDestination } from "@nswp/core";
+import { categoryWords, itemsWords, checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portalTarget, WORLD_KIND, type Layout, type Placement, type PortalDestination } from "@nswp/core";
 import { createAlloy, type Alloy } from "./alloy.js";
 import { createEnvironment } from "./environment.js";
 import { MeshBuilder } from "./mesh.js";
@@ -49,6 +49,12 @@ export interface PortalGate {
    * (protocol/13-ratings.md). "" says nothing, which is what a door says when nobody they know has rated it.
    */
   setRating(mark: string): void;
+  /**
+   * Say on the sign what the place does with the things visitors carry, as its own announcement says
+   * (protocol/17-items.md): "Items are part of play here". A visitor is told before they go in. Anything but
+   * `allowed` or `play` says nothing.
+   */
+  setItems(rule: string | null | undefined): void;
   /** Show a preview of the destination through the portal (spec §5.8). Returns the window, for a world that needs to hide it while it photographs itself. */
   showThrough(pano: THREE.Texture): THREE.Mesh;
   update(t: number, dt: number): void;
@@ -213,6 +219,7 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
   let said = opts.label ?? "Portal";
   let category = opts.category ?? null;
   let rating = "";
+  let items: string | null = null;
   const setLabel = (label: string) => {
     said = label;
     if (sign) {
@@ -220,7 +227,7 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
       sign.material.map?.dispose();
       sign.material.dispose();
     }
-    sign = textSprite(`${label}\n${addressLine(destination, category)}${rating ? `\n${rating}` : ""}`, textColor, 2.2);
+    sign = textSprite(`${label}\n${addressLine(destination, category)}${rating ? `\n${rating}` : ""}${itemsWords(items) ? `\n${itemsWords(items)}` : ""}`, textColor, 2.2);
     sign.position.set(0, PORTAL_SIGN_HEIGHT, 0);
     group.add(sign);
   };
@@ -236,6 +243,11 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
     setCategory(next) {
       if ((next ?? null) === category) return;
       category = next ?? null;
+      setLabel(said);
+    },
+    setItems(next) {
+      if ((next ?? null) === items) return;
+      items = next ?? null;
       setLabel(said);
     },
     setRating(mark) {

@@ -1,0 +1,611 @@
+{
+  "description": "Items (protocol/17-items.md, kind 37303). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "reading": [
+    {
+      "name": "a_lantern",
+      "description": "A description with everything: a model, a picture, a hit box, animations, where it fits, and a script.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "brass-lantern"
+          ],
+          [
+            "title",
+            "Brass lantern"
+          ],
+          [
+            "summary",
+            "A lantern that swings as you walk."
+          ],
+          [
+            "model",
+            "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "thumb",
+            "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "size",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "collider",
+            "box",
+            "0 0.21 0",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "clip",
+            "idle",
+            "Swing"
+          ],
+          [
+            "clip",
+            "use",
+            "Flare"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "place",
+            "hand-left",
+            "hand-right"
+          ],
+          [
+            "script",
+            "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "license",
+            "CC-BY-4.0"
+          ],
+          [
+            "alt",
+            "Item: Brass lantern"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "da5314e33ca3c6ce6dc285633f3562922d635f1e9746997a5003331ce9f95bb3",
+        "sig": "8b752bd1141fe03cb00c86ab75841f3e270fbce041db8fa1c567d68e7441338dac604ea7a59b7e96152a48a6e7f99199d0706a20b2b6786d1ffa9ea7edd35903"
+      },
+      "expect": {
+        "maker": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern",
+        "d": "brass-lantern",
+        "title": "Brass lantern",
+        "summary": "A lantern that swings as you walk.",
+        "model": {
+          "url": "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "thumb": {
+          "url": "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "size": [
+          0.18,
+          0.42,
+          0.18
+        ],
+        "colliders": [
+          {
+            "shape": "box",
+            "centre": [
+              0,
+              0.21,
+              0
+            ],
+            "size": [
+              0.18,
+              0.42,
+              0.18
+            ]
+          }
+        ],
+        "clips": {
+          "idle": "Swing",
+          "use": "Flare"
+        },
+        "behaviors": [
+          "holdable"
+        ],
+        "fits": [
+          "place",
+          "hand-left",
+          "hand-right"
+        ],
+        "use": "anyone",
+        "script": {
+          "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "license": "CC-BY-4.0",
+        "at": 1794430800
+      }
+    },
+    {
+      "name": "a_chair",
+      "description": "The least a description can be, and what it can be.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "chair"
+          ],
+          [
+            "title",
+            "Chair"
+          ],
+          [
+            "model",
+            "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "size",
+            "0.5 0.9 0.5"
+          ],
+          [
+            "behavior",
+            "sittable"
+          ],
+          [
+            "fits",
+            "place"
+          ],
+          [
+            "alt",
+            "Item: Chair"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "2e6e04aa77138175bfdb45b158569ab7eb9e623e84c6b07db3f5952d4bfe22d2",
+        "sig": "1d5587456a06b99017f53179fbc18472b96ef208fc3140788e6253435148f4662f6471e8c9a4d628f61123e11e727405e9a90446a57ffe45fca0302661a5dbaa"
+      },
+      "expect": {
+        "maker": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:chair",
+        "d": "chair",
+        "title": "Chair",
+        "summary": "",
+        "model": {
+          "url": "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "thumb": null,
+        "size": [
+          0.5,
+          0.9,
+          0.5
+        ],
+        "colliders": [],
+        "clips": {},
+        "behaviors": [
+          "sittable"
+        ],
+        "fits": [
+          "place"
+        ],
+        "use": "anyone",
+        "script": null,
+        "license": "",
+        "at": 1794430800
+      }
+    },
+    {
+      "name": "things_nobody_knows",
+      "description": "A behaviour and a shape that aren't on the lists are left out; the item is still an item.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "brass-lantern"
+          ],
+          [
+            "title",
+            "Brass lantern"
+          ],
+          [
+            "summary",
+            "A lantern that swings as you walk."
+          ],
+          [
+            "model",
+            "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "thumb",
+            "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "size",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "collider",
+            "box",
+            "0 0.21 0",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "clip",
+            "idle",
+            "Swing"
+          ],
+          [
+            "clip",
+            "use",
+            "Flare"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "place",
+            "hand-left",
+            "hand-right"
+          ],
+          [
+            "script",
+            "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "license",
+            "CC-BY-4.0"
+          ],
+          [
+            "alt",
+            "Item: Brass lantern"
+          ],
+          [
+            "behavior",
+            "explodes"
+          ],
+          [
+            "collider",
+            "blob",
+            "0 0 0",
+            "1"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "da5314e33ca3c6ce6dc285633f3562922d635f1e9746997a5003331ce9f95bb3",
+        "sig": "8b752bd1141fe03cb00c86ab75841f3e270fbce041db8fa1c567d68e7441338dac604ea7a59b7e96152a48a6e7f99199d0706a20b2b6786d1ffa9ea7edd35903"
+      },
+      "expect": {
+        "maker": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern",
+        "d": "brass-lantern",
+        "title": "Brass lantern",
+        "summary": "A lantern that swings as you walk.",
+        "model": {
+          "url": "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "thumb": {
+          "url": "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "size": [
+          0.18,
+          0.42,
+          0.18
+        ],
+        "colliders": [
+          {
+            "shape": "box",
+            "centre": [
+              0,
+              0.21,
+              0
+            ],
+            "size": [
+              0.18,
+              0.42,
+              0.18
+            ]
+          }
+        ],
+        "clips": {
+          "idle": "Swing",
+          "use": "Flare"
+        },
+        "behaviors": [
+          "holdable"
+        ],
+        "fits": [
+          "place",
+          "hand-left",
+          "hand-right"
+        ],
+        "use": "anyone",
+        "script": {
+          "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "license": "CC-BY-4.0",
+        "at": 1794430800
+      }
+    },
+    {
+      "name": "no_model",
+      "description": "Names no model: not an item.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "brass-lantern"
+          ],
+          [
+            "title",
+            "Brass lantern"
+          ],
+          [
+            "summary",
+            "A lantern that swings as you walk."
+          ],
+          [
+            "thumb",
+            "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "size",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "collider",
+            "box",
+            "0 0.21 0",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "clip",
+            "idle",
+            "Swing"
+          ],
+          [
+            "clip",
+            "use",
+            "Flare"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "place",
+            "hand-left",
+            "hand-right"
+          ],
+          [
+            "script",
+            "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "license",
+            "CC-BY-4.0"
+          ],
+          [
+            "alt",
+            "Item: Brass lantern"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "da5314e33ca3c6ce6dc285633f3562922d635f1e9746997a5003331ce9f95bb3",
+        "sig": "8b752bd1141fe03cb00c86ab75841f3e270fbce041db8fa1c567d68e7441338dac604ea7a59b7e96152a48a6e7f99199d0706a20b2b6786d1ffa9ea7edd35903"
+      },
+      "expect": null
+    },
+    {
+      "name": "a_model_over_plain_http",
+      "description": "A file that isn't an https address: not an item.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "brass-lantern"
+          ],
+          [
+            "title",
+            "Brass lantern"
+          ],
+          [
+            "summary",
+            "A lantern that swings as you walk."
+          ],
+          [
+            "model",
+            "http://items.example/a.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "thumb",
+            "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "size",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "collider",
+            "box",
+            "0 0.21 0",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "clip",
+            "idle",
+            "Swing"
+          ],
+          [
+            "clip",
+            "use",
+            "Flare"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "place",
+            "hand-left",
+            "hand-right"
+          ],
+          [
+            "script",
+            "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "license",
+            "CC-BY-4.0"
+          ],
+          [
+            "alt",
+            "Item: Brass lantern"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "da5314e33ca3c6ce6dc285633f3562922d635f1e9746997a5003331ce9f95bb3",
+        "sig": "8b752bd1141fe03cb00c86ab75841f3e270fbce041db8fa1c567d68e7441338dac604ea7a59b7e96152a48a6e7f99199d0706a20b2b6786d1ffa9ea7edd35903"
+      },
+      "expect": null
+    },
+    {
+      "name": "too_big",
+      "description": "A side longer than four metres: not an item.",
+      "event": {
+        "kind": 37303,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "brass-lantern"
+          ],
+          [
+            "title",
+            "Brass lantern"
+          ],
+          [
+            "summary",
+            "A lantern that swings as you walk."
+          ],
+          [
+            "model",
+            "https://items.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.glb",
+            "glb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          [
+            "thumb",
+            "https://items.example/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          [
+            "size",
+            "0.2 9 0.2"
+          ],
+          [
+            "collider",
+            "box",
+            "0 0.21 0",
+            "0.18 0.42 0.18"
+          ],
+          [
+            "clip",
+            "idle",
+            "Swing"
+          ],
+          [
+            "clip",
+            "use",
+            "Flare"
+          ],
+          [
+            "behavior",
+            "holdable"
+          ],
+          [
+            "fits",
+            "place",
+            "hand-left",
+            "hand-right"
+          ],
+          [
+            "script",
+            "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "license",
+            "CC-BY-4.0"
+          ],
+          [
+            "alt",
+            "Item: Brass lantern"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "da5314e33ca3c6ce6dc285633f3562922d635f1e9746997a5003331ce9f95bb3",
+        "sig": "8b752bd1141fe03cb00c86ab75841f3e270fbce041db8fa1c567d68e7441338dac604ea7a59b7e96152a48a6e7f99199d0706a20b2b6786d1ffa9ea7edd35903"
+      },
+      "expect": null
+    }
+  ]
+}
