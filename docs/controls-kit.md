@@ -513,6 +513,17 @@ const got = await askWell(filter, { own: theirWriteRelays, usual: DEFAULT_RELAYS
   of them are up, the best of the usual relays are added, so what is sent is
   kept somewhere that is.
 - **If nothing takes it,** the rest of the usual relays are tried once.
+- **If still nothing, there is a backup** (NIP-66). Relay monitors publish
+  which relays they found working. The kit asks for that only then, takes
+  relays that at least two monitors found open to anyone (no proof of who
+  you are, no payment), and tries a few. The same when nothing answers a
+  question. One monitor is never believed alone, and nothing depends on
+  any of them: with no monitor to ask, everything is as it was.
+  `relayBackup(false)` turns it off for a page. A private message is never
+  sent to a backup: it goes where its reader said, or nowhere.
+- **For a page that calls relays itself,** `queryBacked` and
+  `publishBacked` (from `nswp-sdk/ui`) are called exactly as the core's
+  `queryRelays` and `publishEvent`, with the backup behind them.
 - What is remembered is about relays, never about a person, and is sent
   nowhere. A visitor's relay list is theirs: the kit never changes it.
 

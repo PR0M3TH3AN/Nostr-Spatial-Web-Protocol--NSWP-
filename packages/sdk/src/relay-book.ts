@@ -8,7 +8,7 @@
  * try elsewhere if nothing took it. What it learns stays on the device, is about relays and never about people,
  * and is never sent anywhere.
  */
-import { learnRelays, pickRelays, publishEvent, queryRelays, type Filter, type NostrEvent, type QueryResult, type RelayNotes } from "@nswp/core";
+import { DISCOVERY, DISCOVERY_RELAYS, learnRelays, pickDiscovered, pickRelays, publishEvent, queryRelays, RELAY_DISCOVERY_KIND, WRAP_KIND, type DiscoveredRelays, type Filter, type NostrEvent, type QueryResult, type RelayNotes } from "@nswp/core";
 
 const KEY = "nswp:relays";
 let notes: RelayNotes | null = null;
@@ -51,7 +51,7 @@ export interface SentWell {
  * Send something to the relays that are working. If none of the first choice takes it, the rest of the usual
  * relays are tried once: something signed should not be lost because the first few were down.
  */
-export async function sendWell(event: NostrEvent, o: { own: string[]; usual: string[]; publish?: typeof publishEvent; now?: () => number }): Promise<SentWell> {
+export async function sendWell(event: NostrEvent, o: { own: string[]; usual: string[]; publish?: typeof publishEvent; query?: typeof queryRelays; now?: () => number }): Promise<SentWell> {
   const publish = o.publish ?? publishEvent;
   const now = o.now ?? (() => Date.now());
   const first = relaysWell(o, now());
@@ -68,21 +68,132 @@ export async function sendWell(event: NostrEvent, o: { own: string[]; usual: str
       tried.push(...rest);
     }
   }
+  // Still nothing: a few relays that monitors have found working (NIP-66), once. Never a private message.
+  if (took === 0 && backup && event.kind !== WRAP_KIND) {
+    const more = (await foundRelays({ not: tried, now, ...(o.query ? { query: o.query } : {}) })).open.slice(0, BACKUP_AT_ONCE);
+    if (more.length) {
+      const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
+      learnFrom(last.relays, now());
+      took = Object.values(last.relays).filter((said) => said === "ok").length;
+      tried.push(...more);
+    }
+  }
   return { took, relays: tried, own: first.own };
 }
 
 /** Ask the relays that are working, and remember how each answered. */
 export async function askWell(filter: Filter, o: { own: string[]; usual: string[]; query?: typeof queryRelays; timeoutMs?: number; now?: () => number }): Promise<QueryResult> {
   const now = o.now ?? (() => Date.now());
-  const got = await (o.query ?? queryRelays)(relaysWell(o, now()).relays, filter, o.timeoutMs ?? 4000);
+  const asked = relaysWell(o, now()).relays;
+  // Where none of them answers, a few that monitors have found working are asked (NIP-66).
+  return queryBacked(asked, filter, o.timeoutMs ?? 4000, { ...(o.query ? { query: o.query } : {}), now });
+}
+
+// ---- A backup (NIP-66). When a person's own relays and the usual ones all fail, relays that monitors have found
+// working are tried once. Nothing depends on it: with no monitors to ask, everything is as it was.
+
+const FOUND_KEY = "nswp:relays:found";
+const FOUND_FOR_MS = 24 * 3600 * 1000;
+let backup = true;
+let found: { at: number; open: string[]; closed: string[] } | null = null;
+let finding: Promise<DiscoveredRelays> | null = null;
+
+/** Whether the backup is used, and the way to turn it off or on for this page. On unless turned off. */
+export function relayBackup(on?: boolean): boolean {
+  if (on !== undefined) backup = on;
+  return backup;
+}
+
+/**
+ * What relay monitors have found (NIP-66): relays to try as a backup, and relays that are closed to a stranger.
+ * Asked for once a day at most, from relays that keep monitors' notes, and kept on the device. It is asked for
+ * only when it is needed: when everything else has failed, or when a visitor is choosing where their private
+ * messages should reach them. Empty, never an error, when no monitor could be asked.
+ */
+export function foundRelays(o: { not?: readonly string[]; query?: typeof queryRelays; now?: () => number } = {}): Promise<DiscoveredRelays> {
+  const now = o.now ?? (() => Date.now());
+  const without = (all: DiscoveredRelays): DiscoveredRelays => ({ open: all.open.filter((r) => !(o.not ?? []).includes(r)), closed: all.closed });
+  if (!found) {
+    try {
+      const kept = JSON.parse(globalThis.localStorage?.getItem(FOUND_KEY) ?? "null") as { at?: unknown; open?: unknown; closed?: unknown } | null;
+      const list = (v: unknown) => (Array.isArray(v) ? v.filter((r): r is string => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : []);
+      if (kept && typeof kept.at === "number") found = { at: kept.at, open: list(kept.open), closed: list(kept.closed) };
+    } catch {
+      /* nothing kept */
+    }
+  }
+  if (found && now() - found.at < FOUND_FOR_MS) return Promise.resolve(without(found));
+  finding ??= (async () => {
+    const since = Math.floor(now() / 1000) - DISCOVERY.freshSec;
+    const got = await (o.query ?? queryRelays)([...DISCOVERY_RELAYS], { kinds: [RELAY_DISCOVERY_KIND], since, limit: 500 }, 5000).catch(() => null);
+    // More are kept than are ever tried at once, so that leaving out the ones already tried still leaves some.
+    const picked = pickDiscovered(got?.events ?? [], { now: Math.floor(now() / 1000), most: 24 });
+    // Nothing found is not kept for a day: it is asked for again the next time it is needed.
+    if (picked.open.length || picked.closed.length) {
+      found = { at: now(), ...picked };
+      try {
+        globalThis.localStorage?.setItem(FOUND_KEY, JSON.stringify(found));
+      } catch {
+        /* a private window: known for this page only */
+      }
+    }
+    return picked;
+  })().finally(() => {
+    finding = null;
+  });
+  return finding.then(without);
+}
+
+/** How many backup relays are tried at once. */
+const BACKUP_AT_ONCE = 4;
+
+/**
+ * Ask relays, and where none of them answers, ask a few that monitors have found working. The same call as the
+ * core's `queryRelays`: for anything that asks relays and would rather have an answer than none.
+ */
+export async function queryBacked(relays: string[], filter: Filter, timeoutMs = 4000, o: { query?: typeof queryRelays; now?: () => number } = {}): Promise<QueryResult> {
+  const query = o.query ?? queryRelays;
+  const now = o.now ?? (() => Date.now());
+  const got = await query(relays, filter, timeoutMs);
   learnFrom(got.relays, now());
-  return got;
+  if (!backup || Object.values(got.relays).some((said) => said === "eose")) return got;
+  const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
+  if (!more.length) return got;
+  const again = await query(more, filter, timeoutMs).catch(() => null);
+  if (!again) return got;
+  learnFrom(again.relays, now());
+  const byId = new Map([...got.events, ...again.events].map((e) => [e.id, e]));
+  return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
+}
+
+/**
+ * Send something to relays, and where none of them takes it, to a few that monitors have found working. The same
+ * call as the core's `publishEvent`.
+ *
+ * Never for a wrapped private message: that goes where its reader said their messages reach them, and nowhere
+ * else, or it is never read.
+ */
+export async function publishBacked(relays: string[], event: NostrEvent, o: { publish?: typeof publishEvent; query?: typeof queryRelays; now?: () => number } = {}): Promise<{ relays: Record<string, string> }> {
+  const publish = o.publish ?? publishEvent;
+  const now = o.now ?? (() => Date.now());
+  const sent = await publish(relays, event);
+  learnFrom(sent.relays, now());
+  if (!backup || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
+  const more = (await foundRelays({ not: relays, ...(o.query ? { query: o.query } : {}), now })).open.slice(0, BACKUP_AT_ONCE);
+  if (!more.length) return sent;
+  const again = await publish(more, event).catch(() => null);
+  if (!again) return sent;
+  learnFrom(again.relays, now());
+  return { relays: { ...sent.relays, ...again.relays } };
 }
 
 /** For tests: forget everything. */
 export function forgetRelays(): void {
   notes = {};
+  found = null;
+  backup = true;
   try {
+    globalThis.localStorage?.removeItem(FOUND_KEY);
     globalThis.localStorage?.removeItem(KEY);
   } catch {
     /* nothing kept */
