@@ -48,6 +48,9 @@ import {
   bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
+  achievementForWorld,
+  achievementsIn,
+  parseAchievement,
   buildRating,
   parseRating,
   parseScore,
@@ -1025,6 +1028,43 @@ const files: Record<string, unknown> = {
     events: all,
     reading,
     boards,
+  };
+}
+
+// ---- Achievements (protocol/16-achievements.md): what a signer signs for a world, and who holds what.
+{
+  const WORLD = `${WORLD_KIND}:${PK2}:arcade`;
+  const ORIGIN = "https://arcade.example";
+  const hold = (key: Uint8Array, id: string, o: { now?: number; origin?: string; title?: string } = {}) => sign(achievementForWorld({ world: WORLD, id, title: o.title ?? "All twelve", origin: o.origin ?? ORIGIN, now: o.now ?? T0 })!, key);
+  const a = hold(KEY1, "all-twelve");
+  const b = hold(KEY3, "all-twelve");
+  const first = hold(KEY3, "first-lantern", { title: "First light" });
+  const elsewhere = hold(KEY2, "all-twelve", { origin: "https://another.example" });
+  const badD = { ...a, tags: a.tags.map((t) => (t[0] === "d" ? ["d", `${WORLD}/another`] : t)) };
+  const reading = [
+    { name: "an_achievement", description: "As a signer makes it for a world: marked with the site that asked.", event: a },
+    { name: "kept_somewhere_else", description: "Its `d` says another achievement than its tag: not one.", event: badD },
+  ].map((v) => ({ ...v, expect: parseAchievement(v.event as NostrEvent) }));
+  const all = [a, b, first, elsewhere];
+  const got = achievementsIn(all, { world: WORLD, worldUrl: `${ORIGIN}/`, counted: [PK3], me: PK1 });
+  const holders = [...got.byId.values()].sort((x, y) => (x.id < y.id ? -1 : 1));
+  expectEqual("achievements/holders", holders, [
+    { id: "all-twelve", holders: 2, known: [PK3], mine: true },
+    { id: "first-lantern", holders: 1, known: [PK3], mine: false },
+  ]);
+  expectEqual("achievements/kept_somewhere_else", reading[1]!.expect, null);
+  files["achievements.json"] = {
+    description:
+      "Achievements (protocol/16-achievements.md, kind 37307). `signed`: what `achievementForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't one. `holders`: every event in `events` is handed to `achievementsIn` for `world` at `worldUrl`, with `counted` as who the reader has reason to know and `me` as the reader; the one asked for at another site is not counted.",
+    testKeys,
+    world: WORLD,
+    worldUrl: `${ORIGIN}/`,
+    signed: { id: "all-twelve", title: "All twelve", origin: ORIGIN, now: T0, expect: achievementForWorld({ world: WORLD, id: "all-twelve", title: "All twelve", origin: ORIGIN, now: T0 }) },
+    events: all,
+    reading,
+    counted: [PK3],
+    me: PK1,
+    holders,
   };
 }
 

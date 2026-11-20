@@ -417,6 +417,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
 | `reach`, with `relays` | `signed`, with the list of where the visitor's messages reach them (kind 10050); or `refused` |
 | `score`, with `world`, `board` and `score` | `signed`, with the visitor's score for that world's board; or `refused` ([NSWP-15](15-scores.md)) |
+| `achieve`, with `world`, `achievement` and `title` | `signed`, with a note that the visitor holds that achievement of that world; or `refused` ([NSWP-16](16-achievements.md)) |
 
 A world asks `state` once the frame has loaded, and again a few times: the
 answer is how it knows a signer is there. A signer never sends anything to

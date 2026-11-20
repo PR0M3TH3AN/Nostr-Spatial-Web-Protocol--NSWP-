@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.45.0
+
+Achievements, for a world that has them. Optional throughout, and built the way scores are.
+
+- **Something a visitor did that a world marks** ([NSWP-16](protocol/16-achievements.md), kind 37307): kept on their device as they earn it, and shown as theirs, signed by their own key, only when they say to. One note for each person for each achievement of a world, carrying what the world called it. `buildAchievement`, `parseAchievement`, `achievementsIn` in the core; `vectors/achievements.json`.
+- **It counts only if it was asked for at the world itself,** by the signer's mark, as a score does. One more message to the signer (`achieve`); the signer writes the note (`achievementForWorld`). `sign` still refuses the kind.
+- **In the kit:** `createAchievements` (`earn`, `show`, `holders`) and `addAchievementControls`, an Achievements tab: what the world marks, which of it the visitor has earned, the way to show it, and how many others show each, with the ones they follow counted apart. A hidden achievement isn't named until it is earned.
+- **The Arcade has four,** one of them hidden.
+- **Not built yet:** BitLogin's signer doesn't answer `achieve`. Achievements granted by a service a reader trusts (NIP-58 badges), and achievements on a person's card.
+
 ## 0.44.0
 
 Scores, for a world that keeps them. Optional throughout: a world that names no boards has none of this.

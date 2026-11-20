@@ -21,6 +21,7 @@ import { cleanSlot, fitsInSave } from "./save.js";
 import { cleanMessage, cleanRead, type Message, type SealedMessage } from "./message.js";
 import { worldCoordinate } from "./rating.js";
 import { cleanBoard, cleanScore } from "./score.js";
+import { ACHIEVEMENT_LIMITS, cleanAchievementId } from "./achievement.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -211,7 +212,12 @@ export type SignerRequest =
    * Sign my visitor's score (protocol/15-scores.md). The world gives its own coordinate, the board and the score,
    * and nothing else: the signer writes the note and marks it with the site that asked.
    */
-  | { t: "score"; id: string; world: string; board: string; score: number };
+  | { t: "score"; id: string; world: string; board: string; score: number }
+  /**
+   * Sign that my visitor holds one of my achievements (protocol/16-achievements.md). The world gives its own
+   * coordinate, the achievement's name and what it is called: the signer writes the note and marks it.
+   */
+  | { t: "achieve"; id: string; world: string; achievement: string; title: string };
 
 /**
  * What a world may ask its visitor to let it do, beyond a note and a reaction. A closed list: each is a thing a
@@ -270,6 +276,9 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
   if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
   if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)! };
+  if (d.t === "achieve" && worldCoordinate(d.world) && cleanAchievementId(d.achievement) && cleanLine(d.title, ACHIEVEMENT_LIMITS.title)) {
+    return { t: "achieve", id: d.id, world: worldCoordinate(d.world), achievement: cleanAchievementId(d.achievement), title: cleanLine(d.title, ACHIEVEMENT_LIMITS.title) };
+  }
   if (d.t === "seal" && isHex64(d.to) && cleanMessage(d.text)) return { t: "seal", id: d.id, to: d.to, text: cleanMessage(d.text) };
   if (d.t === "unwrap" && d.event && typeof d.event === "object") return { t: "unwrap", id: d.id, event: d.event as NostrEvent };
   if (d.t === "reach" && Array.isArray(d.relays) && d.relays.length <= 8 && d.relays.every((r) => typeof r === "string" && r.length <= 200)) return { t: "reach", id: d.id, relays: d.relays as string[] };

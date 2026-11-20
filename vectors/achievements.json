@@ -1,0 +1,309 @@
+{
+  "description": "Achievements (protocol/16-achievements.md, kind 37307). `signed`: what `achievementForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't one. `holders`: every event in `events` is handed to `achievementsIn` for `world` at `worldUrl`, with `counted` as who the reader has reason to know and `me` as the reader; the one asked for at another site is not counted.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+  "worldUrl": "https://arcade.example/",
+  "signed": {
+    "id": "all-twelve",
+    "title": "All twelve",
+    "origin": "https://arcade.example",
+    "now": 1794430800,
+    "expect": {
+      "kind": 37307,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/all-twelve"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "achievement",
+          "all-twelve"
+        ],
+        [
+          "title",
+          "All twelve"
+        ],
+        [
+          "alt",
+          "An achievement in a world: All twelve"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": ""
+    }
+  },
+  "events": [
+    {
+      "kind": 37307,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/all-twelve"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "achievement",
+          "all-twelve"
+        ],
+        [
+          "title",
+          "All twelve"
+        ],
+        [
+          "alt",
+          "An achievement in a world: All twelve"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "id": "dac8a62d7af34d924048f2c9fe1385674f6f0e710a91ea2813264c5b550b7563",
+      "sig": "4370beda3307907e6329634b6b895217ee3a6dc8c717eb414ecca834d407572c477aad0868d0341e1cc2d9a065a059174718dbf408aa8515bb27417bcd9bd043"
+    },
+    {
+      "kind": 37307,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/all-twelve"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "achievement",
+          "all-twelve"
+        ],
+        [
+          "title",
+          "All twelve"
+        ],
+        [
+          "alt",
+          "An achievement in a world: All twelve"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "id": "a356c5f28808a164088d2a7748923a27ac9efcf6b872dc3f9b5cfd6ed5484cf1",
+      "sig": "78106e5c1af26bf047fcd8e657162cc0bd1d1e4e963a32de887be48a4f8eb07d35b2e4e29bee5997edfe2c3fe7da28ebbf018cb453ee42a7a65aac63b2c86962"
+    },
+    {
+      "kind": 37307,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/first-lantern"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "achievement",
+          "first-lantern"
+        ],
+        [
+          "title",
+          "First light"
+        ],
+        [
+          "alt",
+          "An achievement in a world: First light"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "id": "9dfbfb96e2ca2f2fe1222b3f7c7cb05a328452ed85cb54ac8908d4d02c744965",
+      "sig": "392d4af6e06853f77172231ea405182edd0d0a478cd68301097896bdc73f285c408b4856ea16d3ec7562f105a6b5efbd37f0435cdabcd251dcaa5cc5987abbbd"
+    },
+    {
+      "kind": 37307,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/all-twelve"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "achievement",
+          "all-twelve"
+        ],
+        [
+          "title",
+          "All twelve"
+        ],
+        [
+          "alt",
+          "An achievement in a world: All twelve"
+        ],
+        [
+          "nswp:world",
+          "https://another.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "id": "b606053ce413ad56bd12b3413c0c777f01714b23b60423a0a27a46ae282b97f3",
+      "sig": "7c3040143a10e77c648c484ee864a55f8246db0658469901c08e7bafe46f3c32540bb386b7c5d70b50b0d4b9bd15951511fa1abdd93206047e40d90e7fd69e04"
+    }
+  ],
+  "reading": [
+    {
+      "name": "an_achievement",
+      "description": "As a signer makes it for a world: marked with the site that asked.",
+      "event": {
+        "kind": 37307,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/all-twelve"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "achievement",
+            "all-twelve"
+          ],
+          [
+            "title",
+            "All twelve"
+          ],
+          [
+            "alt",
+            "An achievement in a world: All twelve"
+          ],
+          [
+            "nswp:world",
+            "https://arcade.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "dac8a62d7af34d924048f2c9fe1385674f6f0e710a91ea2813264c5b550b7563",
+        "sig": "4370beda3307907e6329634b6b895217ee3a6dc8c717eb414ecca834d407572c477aad0868d0341e1cc2d9a065a059174718dbf408aa8515bb27417bcd9bd043"
+      },
+      "expect": {
+        "by": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+        "id": "all-twelve",
+        "title": "All twelve",
+        "at": 1794430800,
+        "askedAt": [
+          "https://arcade.example"
+        ]
+      }
+    },
+    {
+      "name": "kept_somewhere_else",
+      "description": "Its `d` says another achievement than its tag: not one.",
+      "event": {
+        "kind": 37307,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/another"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "achievement",
+            "all-twelve"
+          ],
+          [
+            "title",
+            "All twelve"
+          ],
+          [
+            "alt",
+            "An achievement in a world: All twelve"
+          ],
+          [
+            "nswp:world",
+            "https://arcade.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "dac8a62d7af34d924048f2c9fe1385674f6f0e710a91ea2813264c5b550b7563",
+        "sig": "4370beda3307907e6329634b6b895217ee3a6dc8c717eb414ecca834d407572c477aad0868d0341e1cc2d9a065a059174718dbf408aa8515bb27417bcd9bd043"
+      },
+      "expect": null
+    }
+  ],
+  "counted": [
+    "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+  ],
+  "me": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+  "holders": [
+    {
+      "id": "all-twelve",
+      "holders": 2,
+      "known": [
+        "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+      ],
+      "mine": true
+    },
+    {
+      "id": "first-lantern",
+      "holders": 1,
+      "known": [
+        "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+      ],
+      "mine": false
+    }
+  ]
+}

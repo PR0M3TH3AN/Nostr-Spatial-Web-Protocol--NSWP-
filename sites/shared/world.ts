@@ -10,9 +10,9 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND, type Board } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND, type Achievement, type Board } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addPanelControls, addRoomControls, addScoreControls, createScores, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -58,6 +58,12 @@ export interface WorldKit {
    */
   scores: Scores | null;
   /**
+   * This world's achievements (protocol/16-achievements.md), where it names some in its configuration; null where
+   * it names none. `achievements.earn(id)` keeps what a visitor earned on the device. Showing it is theirs to do,
+   * from the Achievements tab the kit adds to the menu.
+   */
+  achievements: Achievements | null;
+  /**
    * Make something a visitor in a headset can pick up: with a controller's
    * grip, or a pinch of tracked fingers. Give the object a `name` to tell it
    * apart. Nobody needs to pick anything up to get around.
@@ -99,6 +105,11 @@ export interface WorldConfig {
    * there is no Scores tab and nothing about scores anywhere.
    */
   boards?: Board[];
+  /**
+   * What this world marks, if it marks anything (protocol/16-achievements.md). Optional: left out, there is no
+   * Achievements tab and nothing about achievements anywhere.
+   */
+  achievements?: Achievement[];
   /** Positions in metres; yaw in degrees, 0 facing -Z. */
   entryPoints: Record<string, { position: V3; yaw: number }>;
   doors: Door[];
@@ -295,6 +306,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
         counted: () => (signedInHere() && worldSigner().more.includes("follows") ? (worldPeople().follows() ?? []) : []),
       })
     : null;
+  // Achievements, for a world that names some (protocol/16-achievements.md): kept on the device as they are
+  // earned, and shown as the visitor's only when they say to.
+  const achievements: Achievements | null = cfg.achievements?.length
+    ? createAchievements({
+        world: `${WORLD_KIND}:${sites.publisher}:${places[cfg.site]?.d ?? ""}`,
+        worldUrl: location.origin,
+        list: cfg.achievements,
+        hand: { pubkey: () => (signedInHere() ? worldSigner().pubkey : null), sign: (world, id, title) => worldSigner().achieve(world, id, title) },
+        counted: () => (signedInHere() && worldSigner().more.includes("follows") ? (worldPeople().follows() ?? []) : []),
+      })
+    : null;
   const kit: WorldKit = {
     scene,
     accent,
@@ -319,6 +341,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       state[key] = value;
     },
     scores,
+    achievements,
     grabbable(object, options) {
       if (input) input.grabbable(object, options);
       else toHold.push([object, options]);
@@ -775,6 +798,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       },
     });
     if (signerNamed()) worldSigner().onChange(() => scoring.refresh());
+  }
+  if (achievements) {
+    const achieving = addAchievementControls(controls, { achievements, signedIn: signedInHere });
+    if (signerNamed()) worldSigner().onChange(() => achieving.refresh());
   }
   hooks.roomInfo = () => presence.info();
   // How loud other people are is the visitor's to set, with the rest of their volumes.

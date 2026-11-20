@@ -595,6 +595,35 @@ scores.record("lantern-run", 42_500); // a run just ended
 - **A score is a claim.** Nothing checks it, and the tab says so. Don't call
   anyone a winner or a record holder on it.
 
+### Marking what they did
+
+Optional, and built like scores. Name your achievements, and say when a
+visitor earns one ([NSWP-16](../protocol/16-achievements.md)):
+
+```ts
+import { addAchievementControls, createAchievements, worldSigner } from "nswp-sdk/three";
+
+const achievements = createAchievements({
+  world: "37300:<your publisher key>:<your world's d>",
+  worldUrl: location.origin,
+  list: [
+    { id: "all-twelve", title: "All twelve", about: "Catch every lantern in one run" },
+    { id: "under-thirty", title: "Lamplighter", about: "In less than thirty seconds", hidden: true },
+  ],
+  hand: { pubkey: () => worldSigner().pubkey, sign: (w, id, title) => worldSigner().achieve(w, id, title) },
+});
+addAchievementControls(controls, { achievements, signedIn: () => worldSigner().state === "unlocked" });
+
+achievements.earn("all-twelve"); // they just did it
+```
+
+- **What they earn is kept on the device,** for anyone, and they are told
+  as it happens.
+- **Showing it as theirs is their choice,** from the Achievements tab this
+  adds. Shown, it is public.
+- **A hidden one isn't named** until it is earned.
+- **It is a claim.** Nothing checks it, and the tab says so.
+
 ### Keeping their progress
 
 A world with something to remember for a visitor keeps it as a save
