@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDid, buildHit, buildItem, buildShot, buildState, cleanAsk, createRate, finalizeEvent, GRAVITY, ITEM_BOX_CSP, ITEM_BOX_HTML, meetsPerson, parseDid, parseHit, parseItem, parseShot, parseState, PLAY_LIMITS, shotAt, struck } from "../src/index.js";
+import { BAG_KIND, bagIn, bagTints, buildDid, buildHit, buildItem, buildShot, buildState, buildTints, changeBag, cleanAsk, cleanTints, parseTints, tintBag, TINT_PALETTE, createRate, finalizeEvent, GRAVITY, ITEM_BOX_CSP, ITEM_BOX_HTML, meetsPerson, parseDid, parseHit, parseItem, parseShot, parseState, PLAY_LIMITS, shotAt, struck } from "../src/index.js";
 import { TEST_KEY_1 } from "./helpers.js";
 
 const H = (c: string) => c.repeat(64);
@@ -105,6 +105,53 @@ describe("what an item's script may ask for", () => {
   });
 });
 
+describe("a holder's own colours", () => {
+  const item = { tints: [{ slot: "accent" }, { slot: "dart" }] };
+
+  it("are kept to the tints the item has, and to colours written as colours", () => {
+    expect(cleanTints(item, { accent: "#8b5cf6", dart: "#46d95a", barrel: "#ffffff" })).toEqual({ accent: "#8b5cf6", dart: "#46d95a" });
+    expect(cleanTints(item, { accent: "purple", dart: "#46D95A" })).toEqual({});
+    expect(cleanTints(item, "red")).toEqual({});
+    expect(cleanTints(null, { accent: "#8b5cf6" })).toEqual({});
+  });
+
+  it("are said to a room and read back, and nothing else is read as them", () => {
+    const said = buildTints({ accent: "#8b5cf6", dart: "#46d95a" });
+    expect(said).toBe("tint:accent=8b5cf6,dart=46d95a");
+    expect(parseTints(said)).toEqual({ accent: "#8b5cf6", dart: "#46d95a" });
+    // None chosen is a thing to say too: "as its maker made it".
+    expect(parseTints(buildTints({}))).toEqual({});
+    for (const bad of ["tint:accent=red", "tint:ACCENT=8b5cf6", "tint:accent=8b5cf6;x", "hold:x", 7]) expect(parseTints(bad), String(bad)).toBeNull();
+  });
+
+  it("are offered from a short list, each a colour written as one", () => {
+    expect(TINT_PALETTE.length).toBeGreaterThanOrEqual(8);
+    for (const c of TINT_PALETTE) expect(c.color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(new Set(TINT_PALETTE.map((c) => c.color)).size).toBe(TINT_PALETTE.length);
+  });
+
+  it("go in the bag beside the thing they are for, and leave it when the thing does", () => {
+    const LANTERN = `37303:${H("a")}:brass-lantern`;
+    const BLASTER = `37303:${H("a")}:dart-blaster`;
+    const bag = { kind: BAG_KIND, created_at: 100, tags: [["d", "bag"], ["a", LANTERN], ["a", BLASTER], ["t", "kept"]], content: "" };
+    const coloured = tintBag(bag, { item: BLASTER, tints: { accent: "#8b5cf6", dart: "#46d95a" }, now: 50 })!;
+    expect(coloured.created_at).toBe(101);
+    expect(bagTints(coloured)).toEqual({ [BLASTER]: { accent: "#8b5cf6", dart: "#46d95a" } });
+    // Everything else in the bag is as it was.
+    expect(bagIn(coloured)).toEqual([LANTERN, BLASTER]);
+    expect(coloured.tags.some((t) => t[0] === "t" && t[1] === "kept")).toBe(true);
+    // The same colours again: nothing to sign. A thing that isn't in the bag: nothing to sign.
+    expect(tintBag(coloured, { item: BLASTER, tints: { accent: "#8b5cf6", dart: "#46d95a" }, now: 200 })).toBeNull();
+    expect(tintBag(bag, { item: `37303:${H("a")}:old-book`, tints: { accent: "#8b5cf6" }, now: 200 })).toBeNull();
+    // Changed again, there is still one line for it. Taken out of the bag, its colours go with it.
+    const again = tintBag(coloured, { item: BLASTER, tints: { accent: "#e8362c" }, now: 200 })!;
+    expect(again.tags.filter((t) => t[0] === "tint")).toEqual([["tint", BLASTER, "accent=#e8362c"]]);
+    expect(bagTints(changeBag(again, { remove: BLASTER, now: 300 })!)).toEqual({});
+    // Colours for a thing that isn't in the bag are not read.
+    expect(bagTints({ tags: [["d", "bag"], ["a", LANTERN], ["tint", BLASTER, "accent=#e8362c"]] })).toEqual({});
+  });
+});
+
 describe("an item that does something, as its description says it", () => {
   const blaster = {
     d: "dart-blaster",
@@ -115,7 +162,11 @@ describe("an item that does something, as its description says it", () => {
     fits: ["hand-right" as const],
     script: { url: `https://items.example/${H("b")}.js`, sha256: H("b") },
     sounds: { fire: { url: `https://items.example/${H("c")}.ogg`, sha256: H("c") }, impact: { url: `https://items.example/${H("d")}.ogg`, sha256: H("d") } },
-    sends: [{ name: "dart", model: { url: `https://items.example/${H("e")}.glb`, sha256: H("e") }, size: [0.02, 0.02, 0.09] as [number, number, number], lands: "impact", tells: "fire" }],
+    sends: [{ name: "dart", model: { url: `https://items.example/${H("e")}.glb`, sha256: H("e") }, size: [0.02, 0.02, 0.09] as [number, number, number], lands: "impact", tells: "fire", trail: 0.22 }],
+    tints: [
+      { slot: "accent", label: "Accent", color: "#f2691c" },
+      { slot: "dart", label: "Darts", color: "#35f0e0" },
+    ],
     effects: [{ of: "dart", state: "health" as const, take: 1 }],
     does: { use: "Fire", second: "Reload" },
   };
@@ -126,6 +177,7 @@ describe("an item that does something, as its description says it", () => {
     expect(item.sends).toEqual(blaster.sends);
     expect(item.effects).toEqual(blaster.effects);
     expect(item.does).toEqual(blaster.does);
+    expect(item.tints).toEqual(blaster.tints);
     expect(item.script).toEqual(blaster.script);
   });
 
@@ -133,6 +185,9 @@ describe("an item that does something, as its description says it", () => {
     expect(buildItem({ ...blaster, sounds: { fire: { url: "http://items.example/a.ogg", sha256: H("c") } }, now: 1 })).toBeNull();
     expect(buildItem({ ...blaster, effects: [{ of: "dart", state: "health", take: 50 }], now: 1 })).toBeNull();
     expect(buildItem({ ...blaster, sends: [{ ...blaster.sends[0]!, lands: "../x" }], now: 1 })).toBeNull();
+    // A trail longer than any may be, and a colour that isn't written as one.
+    expect(buildItem({ ...blaster, sends: [{ ...blaster.sends[0]!, trail: 30 }], now: 1 })).toBeNull();
+    expect(buildItem({ ...blaster, tints: [{ slot: "accent", label: "Accent", color: "orange" }], now: 1 })).toBeNull();
   });
 
   it("is read without what a reader doesn't understand: an effect on anything but health asks nothing", () => {

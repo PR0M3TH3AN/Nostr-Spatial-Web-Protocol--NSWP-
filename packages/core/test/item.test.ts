@@ -46,6 +46,7 @@ describe("an item's description", () => {
       sends: [],
       effects: [],
       does: {},
+      tints: [],
       license: "CC-BY-4.0",
       at: T,
     });

@@ -175,7 +175,7 @@ interface Peer {
 }
 
 /** What may be said of an item in play, and how much of it one member may say. */
-const PLAY_WORD = /^(shot|hit|did|st):/;
+const PLAY_WORD = /^(shot|hit|did|st|tint):/;
 const PLAY_SAID = { burst: 24, perSecond: 16 } as const;
 
 const DEFAULT_ICE: RTCIceServer[] = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
@@ -246,6 +246,8 @@ export class RoomSession {
   private pass: string | null = null;
   /** The item this visitor says they are holding, by its coordinate, or "". */
   private held = "";
+  /** The colours this visitor chose for what they hold, as they are said ("tint:…"), or "". */
+  private tints = "";
   private passUntil = 0;
   private recordingTimer: ReturnType<typeof setInterval> | undefined;
   /** This visitor's shared screen, while they share one. */
@@ -660,6 +662,8 @@ export class RoomSession {
         if (this.look) ch.send(`look:${this.look}`);
         if (this.pass) ch.send(`id:${this.pass}`);
         if (this.held) ch.send(`hold:${this.held}`);
+        // And the colours they chose for it, which go with it.
+        if (this.held && this.tints) ch.send(this.tints);
       } catch {
         /* the channel closed under us */
       }
@@ -942,6 +946,8 @@ export class RoomSession {
    */
   tellPlay(said: string): void {
     if (this.closed || typeof said !== "string" || said.length > 200 || !PLAY_WORD.test(said)) return;
+    // The colours of what they hold are said again to whoever comes in later.
+    if (said.startsWith("tint:")) this.tints = said;
     this.tellAll(said);
   }
 

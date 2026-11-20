@@ -11,7 +11,7 @@
  *
  * The `hand` is whatever can have the bag signed. Reading a bag needs none: a bag is public.
  */
-import { BAG_KIND, bagIn, changeBag, DEFAULT_RELAYS, itemCoordinate, newestBag, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, SITE_MARKS, verifyEvent, type NostrEvent } from "@nswp/core";
+import { BAG_KIND, bagIn, bagTints, changeBag, tintBag, DEFAULT_RELAYS, itemCoordinate, newestBag, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, SITE_MARKS, verifyEvent, type NostrEvent } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 
 export interface BagHand {
@@ -47,6 +47,16 @@ export interface Bag {
   canChange(): boolean;
   add(item: string, title?: string): Promise<BagResult>;
   remove(item: string, title?: string): Promise<BagResult>;
+  /**
+   * The colours they chose for one of their things (protocol/17-items.md, "A holder's own colours"): what this
+   * device keeps for this place, over what their bag says. Empty where they chose none.
+   */
+  tints(item: string): Record<string, string>;
+  /**
+   * Choose them. They are kept on this device at once. Where this place can change the bag, they are written into
+   * it a moment after the last change, so that they go with the thing to every world; elsewhere they are for here.
+   */
+  setTints(item: string, tints: Record<string, string>): void;
   onChange(fn: () => void): () => void;
 }
 
@@ -167,7 +177,54 @@ export function createBag(opts: BagOptions): Bag {
     return { ok: true, said: adding ? `${it} is in your bag. Anyone can see what is in it.` : `${it} is out of your bag.` };
   };
 
+  // ---- Colours. Kept on the device as they are chosen; written into the bag, where this place can, once the
+  // choosing has stopped for a moment, so that stepping through ten colours is one signature and not ten.
+  const TINTS_KEY = "nswp:tints";
+  const keptTints = (): Record<string, Record<string, string>> => {
+    try {
+      const kept = JSON.parse(store?.getItem(TINTS_KEY) ?? "{}") as unknown;
+      return kept && typeof kept === "object" && !Array.isArray(kept) ? (kept as Record<string, Record<string, string>>) : {};
+    } catch {
+      return {};
+    }
+  };
+  const tintTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const writeTints = async (item: string): Promise<void> => {
+    const who = opts.me();
+    if (!who || !opts.hand?.ready()) return;
+    await load(true);
+    const at = known && known.who === who ? known : null;
+    const made = at?.bag ? tintBag(at.bag, { item, tints: keptTints()[item] ?? {}, now: now() / 1000 }) : null;
+    const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
+    const same = signed && verifyEvent(signed) && signed.pubkey === who && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made!.tags);
+    if (!signed || !same) return;
+    keep(signed);
+    known = { who, bag: signed, answered: true, at: now() };
+    changed();
+    await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, query, now }).catch(() => null);
+  };
+
   return {
+    tints(itemIn) {
+      const item = itemCoordinate(itemIn);
+      const fromBag = known && known.who === opts.me() ? (bagTints(known.bag)[item] ?? {}) : {};
+      const here = keptTints()[item];
+      const clean = (o: unknown): Record<string, string> => Object.fromEntries(Object.entries(o && typeof o === "object" ? (o as Record<string, unknown>) : {}).filter((e): e is [string, string] => typeof e[1] === "string" && /^#[0-9a-f]{6}$/.test(e[1])));
+      return { ...fromBag, ...clean(here) };
+    },
+    setTints(itemIn, tints) {
+      const item = itemCoordinate(itemIn);
+      if (!item) return;
+      try {
+        store?.setItem(TINTS_KEY, JSON.stringify({ ...keptTints(), [item]: tints }));
+      } catch {
+        /* a private window: for this page only */
+      }
+      changed();
+      if (!opts.hand) return;
+      clearTimeout(tintTimers.get(item));
+      tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
+    },
     items: () => (known && known.who === opts.me() ? bagIn(known.bag) : null),
     load,
     canChange: () => !!opts.hand,

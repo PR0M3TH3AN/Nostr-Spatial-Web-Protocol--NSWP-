@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, cleanItemsRule, itemCoordinate, type Item, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform, type SignerMore } from "@nswp/core";
+import { bubbleSeconds, buildTints, CHAT_LIMITS, cleanItemsRule, cleanTints, itemCoordinate, parseTints, type Item, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
@@ -31,7 +31,7 @@ import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
-import { createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
+import { applyTints, createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
 import { allowScript, createPlay, scriptAllowed, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
@@ -141,7 +141,12 @@ export interface Presence {
    * the room. Refused, with a few words why, where the world has no items, the item can't be held, or it has to
    * be granted.
    */
-  setHolding(item: string): Promise<{ ok: boolean; said: string }>;
+  setHolding(item: string, tints?: Record<string, string>): Promise<{ ok: boolean; said: string }>;
+  /**
+   * Choose the colours of what is in hand (protocol/17-items.md, "A holder's own colours"): for each of the item's
+   * tints, a colour. It is recoloured at once, and the room is told. A tint left out is as its maker made it.
+   */
+  setTints(tints: Record<string, string>): void;
   /**
    * Items in play (play.ts): what the item in hand does on a press, the things sent out, and how this visitor is.
    * Null in a world that draws no items.
@@ -272,6 +277,8 @@ interface Avatar {
   /** The item they say they hold, and what is drawn for it. */
   heldItem?: string;
   held?: THREE.Object3D;
+  /** The colours they say they chose for it. */
+  tints?: Record<string, string>;
   /** Shown while they are being pointed out. */
   beam?: THREE.Sprite;
   beamUntil?: number;
@@ -406,6 +413,19 @@ export function createPresence(d: PresenceOptions): Presence {
   const canBeHeld = (item: Item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
   let mine = "";
   let mineModel: THREE.Object3D | null = null;
+  let mineTints: Record<string, string> = {};
+  /** Someone said the colours of what they hold: it is recoloured, and what they send out next is too. */
+  const heardTints = (a: Avatar | undefined, said: string): void => {
+    const described = a?.heldItem ? d.items?.known(a.heldItem) : null;
+    const tints = parseTints(said);
+    if (!a || !tints) return;
+    // Before what they hold has been read, their words are kept as they are, and tidied when it is drawn.
+    a.tints = described ? cleanTints(described, tints) : tints;
+    if (described && a.held) applyTints(a.held, described, a.tints);
+  };
+  const sayTints = (): void => {
+    if (mine) session?.tellPlay(buildTints(mineTints));
+  };
   /** An item whose script this visitor was just asked about: a second press lets it run. */
   let askedScript = "";
   const itemMutes = new Set<string>();
@@ -452,6 +472,7 @@ export function createPresence(d: PresenceOptions): Presence {
             .map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new THREE.Vector3()), body: a.torso, over: a.head, holding: a.heldItem ?? "", held: a.held ?? null })),
         itemsMuted: (pubkey) => itemMutes.has(pubkey),
         tell: (said) => session?.tellPlay(said),
+        tintsOf: (pubkey) => (pubkey === null ? mineTints : (avatars.get(pubkey)?.tints ?? {})),
         presenting: () => d.renderer.xr.isPresenting,
         // In a headset a thing goes where the hand that holds the item points.
         aim: () => {
@@ -468,6 +489,8 @@ export function createPresence(d: PresenceOptions): Presence {
     : null;
   const showHeld = async (a: Avatar | undefined, item: string) => {
     if (!a) return;
+    // Their colours were for what they held before: what they hold now comes as its maker made it, until they say.
+    if (a.heldItem !== item) delete a.tints;
     a.heldItem = item;
     a.held?.removeFromParent();
     delete a.held;
@@ -475,8 +498,10 @@ export function createPresence(d: PresenceOptions): Presence {
     if (!item || !d.items || itemsRule() === "none" || !showsItems()) return;
     const described = await d.items.describe(item);
     if (!described || a.heldItem !== item || !canBeHeld(described) || described.use === "granted") return;
-    const model = await d.items.model(described);
+    const model = await d.items.model(described, a.tints);
     if (a.heldItem !== item) return;
+    // They may have said their colours while it was being fetched.
+    if (a.tints) applyTints(model, described, a.tints);
     // At their right side, a little in front: where a hand that isn't being tracked rests.
     model.position.set(0.3, -0.12, -0.22);
     a.torso.add(model);
@@ -819,7 +844,8 @@ export function createPresence(d: PresenceOptions): Presence {
     });
     // What this visitor already holds is said to the room they have just joined.
     if (mine) s.setHolding(mine);
-    s.on("play", (m, said) => play?.heard(m.pubkey, said));
+    s.on("play", (m, said) => (said.startsWith("tint:") ? heardTints(avatars.get(m.pubkey), said) : play?.heard(m.pubkey, said)));
+    sayTints();
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
@@ -955,7 +981,15 @@ export function createPresence(d: PresenceOptions): Presence {
     get holding() {
       return mine;
     },
-    async setHolding(itemIn) {
+    setTints(tints) {
+      const described = mine ? d.items?.known(mine) : null;
+      if (!described) return;
+      mineTints = cleanTints(described, tints);
+      if (mineModel) applyTints(mineModel, described, mineTints);
+      sayTints();
+      changed();
+    },
+    async setHolding(itemIn, tints) {
       const item = itemCoordinate(itemIn);
       const put = () => {
         mine = "";
@@ -986,12 +1020,14 @@ export function createPresence(d: PresenceOptions): Presence {
         }
         allowScript(described.script.sha256);
       }
-      const model = await d.items.model(described);
+      mineTints = cleanTints(described, tints ?? {});
+      const model = await d.items.model(described, mineTints);
       put();
       mine = item;
       mineModel = model;
       placeMine();
       session?.setHolding(item);
+      sayTints();
       await play?.held(described, model);
       return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
     },
@@ -1204,6 +1240,7 @@ export function createPresence(d: PresenceOptions): Presence {
           // What they say they hold, and whether anything is drawn for it: for tests.
           holding: a.heldItem || null,
           heldDrawn: !!a.held,
+          tints: a.tints ?? null,
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
           saying: a.bubbleText ?? "",

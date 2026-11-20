@@ -103,12 +103,19 @@ What a thing is, is said once by its maker, in an addressable note
   model of its own, and its box. After those it may say which of the item's
   sounds go with what happens to it: `lands` (it stuck to something),
   `drops` (it let go and fell), `strikes` (it reached a person), and `tells`
-  (heard only by whoever sent it, when it reached a person). Four at most.
+  (heard only by whoever sent it, when it reached a person). And `trail`:
+  a streak of light behind it as it flies, so many seconds of its flight
+  long (0.6 at most). Four things at most.
 - **`effect`** is what one of those things asks of a person it reaches. It
   is words, never code: take 1 to 5 from their `health`. A reader ignores
   an effect on anything else.
 - **`does`** is what its two presses are called, for the buttons a visitor
   is shown: `use` and `second`, sixteen letters at most each.
+- **`tint`** is a colour of the item that whoever holds it may choose:
+  `["tint", "accent", "Accent", "#f2691c"]` is its name, what a visitor is
+  shown it as, and the colour it is until they choose. Four at most. Every
+  material in the item's models named `tint:<name>` takes that colour, and
+  a part that glows, glows in it. See "A holder's own colours".
 
 **One site can hold any number of items.** An item is a note and some
 files, and the files can be anywhere that serves them over `https`. A
@@ -225,6 +232,11 @@ the kit's, the same on every device.
   through, and a world may say what else isn't solid (`solid`).
 - **It lets go after its time** (ten seconds at most), drops to the floor,
   and is gone.
+- **Its trail follows its arc.** Where its item gives it one, a streak of
+  light runs back from it along the very path it flew, bright at the thing
+  and fading to nothing, in the colour of the tint that has the thing's own
+  name. It draws itself in once the thing has stopped. It is the kit's to
+  draw: how wide and how bright it is are not the item's to say.
 - **A world may be told what was struck** (`onStruck`), and decide what
   that means by its own rule: a target that counts, a bell that rings.
 
@@ -236,6 +248,7 @@ What is said in a room, on the connection poses use, each once:
 | `hit:<sender>,<n>,<dx>,<dy>,<dz>` | "That thing reached me", said by the person it reached, with where on them, from their feet |
 | `did:sound,<name>` or `did:clip,<name>` | The item in their hand made one of its sounds, or played one of its animations |
 | `st:health,<value>,<full>` | How they are |
+| `tint:<name>=<rrggbb>,…` | The colours they chose for what they hold. Said when they take it up, when they change them, and to whoever comes in later |
 
 A reader takes a thing sent out only from someone who holds an item that
 says it sends that thing, only if it starts where they stand, and no more
@@ -301,6 +314,24 @@ are played at the visitor's own volume for effects, each levelled as it is
 read so that none is louder than the kit's own, heard from where it
 happened, quieter and duller the further off, and not at all beyond 45
 metres. A ceiling of the visitor's own for items alone is not built.
+
+## A holder's own colours
+
+An item may leave some of its colours to whoever holds it (`tint`). A
+blaster's accent, and the colour of its darts.
+
+- **They choose in the Bag tab,** from a short list of colours
+  (`TINT_PALETTE`), wherever they are. It is recoloured at once.
+- **The others are told,** in the room, and see the item, what it sends
+  out and its trail in those colours. A reader takes only colours for
+  tints the item says it has, each written as a colour.
+- **The choice goes with the thing.** At the visitor's own client, which
+  can change their bag, it is written into the bag beside the item (a
+  `tint` line: the item's coordinate, then `<name>=#rrggbb` for each), a
+  moment after the choosing stops. In a world, which can't change a bag,
+  it is kept for that place on that device, over what the bag says.
+- **It is only ever a colour.** Nothing about how bright, how large or how
+  loud anything is can be chosen this way.
 
 ## A visitor's bag
 
