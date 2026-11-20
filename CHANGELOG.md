@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.43.1
+
+- **The relay backup never stands in for relays that were never named,** and is not used outside a browser unless the caller hands in what does the asking or sending. A call that names no relays sends nowhere, as it always did. Found the hard way: a unit test of BitPortal's, which sends a rating to an empty list of relays, reached the backup and published a made-up rating to two real relays.
+
 ## 0.43.0
 
 A backup for relays.

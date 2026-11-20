@@ -69,7 +69,7 @@ export async function sendWell(event: NostrEvent, o: { own: string[]; usual: str
     }
   }
   // Still nothing: a few relays that monitors have found working (NIP-66), once. Never a private message.
-  if (took === 0 && backup && event.kind !== WRAP_KIND) {
+  if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
     const more = (await foundRelays({ not: tried, now, ...(o.query ? { query: o.query } : {}) })).open.slice(0, BACKUP_AT_ONCE);
     if (more.length) {
       const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
@@ -148,6 +148,17 @@ export function foundRelays(o: { not?: readonly string[]; query?: typeof queryRe
 const BACKUP_AT_ONCE = 4;
 
 /**
+ * Whether the backup may be used for this call.
+ *
+ * - Not where the caller named no relays at all. "Send this nowhere" must never become "send it to relays nobody
+ *   chose": a backup stands in for relays that failed, not for relays that were never there.
+ * - Not outside a browser, unless the caller handed in what does the asking or the sending. A script or a test
+ *   that calls this in Node reaches no relay it didn't name. (A test of BitPortal's sent a made-up rating to two
+ *   real relays this way on 2026-11-20, in the hour this was first written.)
+ */
+const mayBackUp = (relays: readonly string[], injected: boolean): boolean => backup && relays.length > 0 && (injected || typeof document !== "undefined");
+
+/**
  * Ask relays, and where none of them answers, ask a few that monitors have found working. The same call as the
  * core's `queryRelays`: for anything that asks relays and would rather have an answer than none.
  */
@@ -156,7 +167,7 @@ export async function queryBacked(relays: string[], filter: Filter, timeoutMs = 
   const now = o.now ?? (() => Date.now());
   const got = await query(relays, filter, timeoutMs);
   learnFrom(got.relays, now());
-  if (!backup || Object.values(got.relays).some((said) => said === "eose")) return got;
+  if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said) => said === "eose")) return got;
   const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
   if (!more.length) return got;
   const again = await query(more, filter, timeoutMs).catch(() => null);
@@ -178,7 +189,7 @@ export async function publishBacked(relays: string[], event: NostrEvent, o: { pu
   const now = o.now ?? (() => Date.now());
   const sent = await publish(relays, event);
   learnFrom(sent.relays, now());
-  if (!backup || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
+  if (!mayBackUp(relays, !!o.publish) || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
   const more = (await foundRelays({ not: relays, ...(o.query ? { query: o.query } : {}), now })).open.slice(0, BACKUP_AT_ONCE);
   if (!more.length) return sent;
   const again = await publish(more, event).catch(() => null);

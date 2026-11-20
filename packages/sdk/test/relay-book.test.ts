@@ -171,6 +171,26 @@ describe("a backup from relay monitors (NIP-66)", () => {
     expect(n.kept).toEqual([]);
   });
 
+  it("never stands in for relays that were never named", async () => {
+    const n = net([]);
+    // Sent to nobody: it goes to nobody, monitors or no monitors.
+    const sent = await publishBacked([], note, { publish: n.publish, query: n.query, now: () => NOW });
+    expect(sent.relays).toEqual({});
+    expect(n.kept).toEqual([]);
+    expect((await queryBacked([], { kinds: [1] }, 1000, { query: n.query, now: () => NOW })).events).toEqual([]);
+    expect(n.asked.filter((r) => r.includes("wss://relay.nostr.watch"))).toEqual([]);
+  });
+
+  it("reaches nothing from a script or a test that didn't hand in what does the sending", async () => {
+    // No browser here, and nothing injected: the real network must not be touched. If it were, this would take
+    // seconds and might send; it returns at once, with nothing sent.
+    const began = Date.now();
+    const sent = await publishBacked(["wss://nobody-at-all.invalid"], note, { publish: undefined, now: () => NOW }).catch(() => ({ relays: {} as Record<string, string> }));
+    expect(Object.values(sent.relays).filter((said) => said === "ok")).toEqual([]);
+    expect(Object.keys(sent.relays).every((r) => r === "wss://nobody-at-all.invalid")).toBe(true);
+    expect(Date.now() - began).toBeLessThan(15000);
+  });
+
   it("can be turned off, and changes nothing where there are no monitors to ask", async () => {
     const n = net([...OWN, ...USUAL]);
     relayBackup(false);
