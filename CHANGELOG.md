@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.38.0
+
+- **What is sent goes to relays that are working.** The kit remembers, on the device, how each relay it has used answered, and leans on the ones that have been answering. A person's own relays (NIP-65) are always used, best first; if fewer than three of them are up, the best of the usual relays are added; if nothing takes what was sent, the rest are tried once. `sendWell`, `askWell`, `relaysWell` in the kit; `pickRelays`, `learnRelays`, `relayScore` in the core.
+- A visitor's posts and their saves are sent and looked for this way. What is remembered is about relays, never about people, and stays on the device.
+
 ## 0.37.0
 
 - **Ratings** ([NSWP-13](protocol/13-ratings.md), kind 37305): one to five stars from one person for one world, with a few words, replaced when they change their mind. `buildRating`, `parseRating`, `tallyRatings`, `tallyWords` in the core; `vectors/ratings.json`.

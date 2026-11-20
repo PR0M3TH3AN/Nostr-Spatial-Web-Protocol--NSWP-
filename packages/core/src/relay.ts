@@ -88,6 +88,86 @@ export function writeRelaysFor(list: RelayList | null, fallback: string[]): { re
   return { relays, own: own.length };
 }
 
+// ---- Which relays are working. A relay that is down, slow or refusing is no use to anyone, whoever chose it. So a
+// client keeps a note of how each relay it has used answered, and leans on the ones that have been answering.
+
+/** What is remembered of one relay: how often it answered and how often it didn't, lately, and when it was last tried. */
+export interface RelayNote {
+  ok: number;
+  failed: number;
+  /** When it was last tried, in milliseconds. */
+  at: number;
+}
+export type RelayNotes = Record<string, RelayNote>;
+
+export const RELAY_PICK = {
+  /** A person's own relays are used up to this many. */
+  most: 6,
+  /** There should be this many that are thought to be working, their own or not. */
+  least: 3,
+  /** Below this, a relay is thought not to be working. One nothing is known of scores 0.5. */
+  working: 0.34,
+  /** What is remembered of a relay fades: past this many tries, the counts are halved, so lately counts for more. */
+  remembered: 8,
+  /** A relay that hasn't been tried for this long is given another chance: what was known of it is forgotten. */
+  staleMs: 7 * 24 * 3600 * 1000,
+  /** No more relays than this are remembered. */
+  kept: 40,
+} as const;
+
+/** How far a relay can be counted on, 0 to 1, from what is remembered of it. Nothing known is 0.5. */
+export function relayScore(note: RelayNote | undefined, now: number): number {
+  if (!note || now - note.at > RELAY_PICK.staleMs) return 0.5;
+  return (note.ok + 1) / (note.ok + note.failed + 2);
+}
+
+/**
+ * What is remembered, after some relays were asked or sent to: `results` is what `queryRelays` or `publishEvent`
+ * said of each. "ok" and "eose" are an answer; anything else is none, or a refusal.
+ */
+export function learnRelays(notes: RelayNotes, results: Record<string, string>, now: number): RelayNotes {
+  const next: RelayNotes = { ...notes };
+  for (const [url, said] of Object.entries(results)) {
+    const clean = cleanRelayUrl(url);
+    if (!clean) continue;
+    const had = next[clean] && now - next[clean]!.at <= RELAY_PICK.staleMs ? next[clean]! : { ok: 0, failed: 0, at: now };
+    let { ok, failed } = had;
+    if (said === "ok" || said === "eose") ok++;
+    else failed++;
+    if (ok + failed > RELAY_PICK.remembered) {
+      ok = Math.round(ok / 2);
+      failed = Math.round(failed / 2);
+    }
+    next[clean] = { ok, failed, at: now };
+  }
+  // The longest untried are forgotten first.
+  const kept = Object.entries(next).sort((a, b) => b[1].at - a[1].at).slice(0, RELAY_PICK.kept);
+  return Object.fromEntries(kept);
+}
+
+/**
+ * Where to send something of a person's, and where to look for it.
+ *
+ * Their own relays come first, always: it is where they said they write, and where anyone looking for them will
+ * look. They are put in order of how well they have been answering. If fewer than `least` of them are thought to
+ * be working, the best of the usual relays are added, so that what is sent is kept somewhere that is up.
+ * `own` is how many of the result are the person's own; `added` is which were added.
+ */
+export function pickRelays(o: { own: string[]; usual: string[]; notes: RelayNotes; now: number }): { relays: string[]; own: number; added: string[] } {
+  const score = (url: string) => relayScore(o.notes[url], o.now);
+  // Best first; ties keep the order they were given in.
+  const best = (urls: string[]) => urls.map((url, i) => ({ url, i, s: score(url) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.url);
+  const own = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
+  const working = own.filter((url) => score(url) >= RELAY_PICK.working).length;
+  const added: string[] = [];
+  for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own.includes(u)))) {
+    if (working + added.length >= RELAY_PICK.least) break;
+    if (score(url) < RELAY_PICK.working && added.length > 0) continue;
+    added.push(url);
+  }
+  return { relays: [...own, ...added], own: own.length, added };
+}
+
 export interface QueryResult {
   events: NostrEvent[];
   /** Per relay: "eose", "timeout", or an error message. */
