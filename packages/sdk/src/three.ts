@@ -425,7 +425,9 @@ export function createPresence(d: PresenceOptions): Presence {
       // Low and to the right of what they see, far enough off that it is a thing in the hand and not a thing in
       // the way: and by the shape of the screen, so that it is in view on a tall narrow one too.
       const tall = Math.tan(THREE.MathUtils.degToRad(d.camera.fov / 2)) * 0.8;
-      mineModel.position.set(Math.min(0.34, tall * d.camera.aspect * 0.62), -Math.min(0.5, tall * 0.9), -0.8);
+      // On a screen taller than it is wide the bar and what is said take the bottom of the view: it sits higher.
+      const low = d.camera.aspect < 1 ? tall * 0.52 : Math.min(0.5, tall * 0.9);
+      mineModel.position.set(Math.min(0.34, tall * d.camera.aspect * 0.62), -low, -0.8);
     }
     if (now === inHand) return;
     inHand = now;

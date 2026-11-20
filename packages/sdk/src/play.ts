@@ -124,6 +124,8 @@ export interface PlayInfo {
   health: { value: number; full: number };
   words: string;
   script: "none" | "running" | "stopped";
+  /** Why the script last stopped, where it did: "silent", "asked", "no box", "failed". */
+  stoppedBecause: string;
   /** Whether the mark that says "you hit someone" is showing. */
   marked: boolean;
   bars: Record<string, { value: number; full: number }>;
@@ -292,9 +294,23 @@ export function createPlay(o: PlayOptions): Play {
     }
     return got;
   };
+  /**
+   * A sound may have more takes than one: `impact`, and beside it `impact-2` up to `impact-4`. One is chosen each
+   * time, and not the same twice running, so that five darts landing don't sound like one dart five times.
+   */
+  const lastTake = new Map<string, string>();
+  const take = (item: Item, name: string): string => {
+    const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item.sounds[n]);
+    if (takes.length < 2) return name;
+    const others = takes.filter((n) => n !== lastTake.get(`${item.id}:${name}`));
+    const chosen = others[Math.floor(Math.random() * others.length)]!;
+    lastTake.set(`${item.id}:${name}`, chosen);
+    return chosen;
+  };
   /** Heard from where it happened: quieter and duller the further off, and not at all a long way away. */
-  const hear = (item: Item, name: string | undefined, at: THREE.Vector3 | null): void => {
-    if (!name || !o.sounds || !active()) return;
+  const hear = (item: Item, said: string | undefined, at: THREE.Vector3 | null): void => {
+    if (!said || !o.sounds || !active()) return;
+    const name = take(item, said);
     void soundOf(item, name).then((sound) => {
       if (!sound || !o.sounds) return;
       if (!at) return o.sounds.playForeign(sound);
@@ -482,6 +498,7 @@ export function createPlay(o: PlayOptions): Play {
   let model: THREE.Object3D | null = null;
   let box: BoxRun | null = null;
   let scriptState: PlayInfo["script"] = "none";
+  let stoppedBecause = "";
   let words = "";
   let wordsSprite: THREE.Sprite | null = null;
   let holdingNo = 0;
@@ -569,6 +586,7 @@ export function createPlay(o: PlayOptions): Play {
       item = next;
       model = drawnFor;
       scriptState = "none";
+      stoppedBecause = "";
       words = "";
       refreshOwn();
       o.onChange?.();
@@ -585,10 +603,26 @@ export function createPlay(o: PlayOptions): Play {
       if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
       const text = await o.items.script(next);
       if (!text || no !== holdingNo) return;
-      const run = await runInBox(text, { ask: asked, stopped: () => void ((scriptState = "stopped"), (box = null), showWords("")) }, typeof o.scripts === "object" ? o.scripts : {});
+      // A box that ends is this item's box: one put away a moment ago, ending late, must not be taken for the one
+      // that has just been taken in hand.
+      const run = await runInBox(
+        text,
+        {
+          ask: (ask) => void (no === holdingNo && asked(ask)),
+          stopped: (why) => {
+            if (no !== holdingNo) return;
+            scriptState = "stopped";
+            stoppedBecause = why;
+            box = null;
+            showWords("");
+          },
+        },
+        typeof o.scripts === "object" ? o.scripts : {},
+      );
       if (no !== holdingNo) return run?.stop();
       box = run;
       scriptState = run ? "running" : "stopped";
+      if (!run) stoppedBecause = "no box";
       run?.tell("held");
       o.onChange?.();
     },
@@ -754,6 +788,7 @@ export function createPlay(o: PlayOptions): Play {
         health: { value: own.value, full: own.full },
         words,
         script: scriptState,
+        stoppedBecause,
         marked: mark.visible,
         bars: Object.fromEntries([...bars].map(([who, b]) => [who, { value: b.value, full: b.full }])),
       };

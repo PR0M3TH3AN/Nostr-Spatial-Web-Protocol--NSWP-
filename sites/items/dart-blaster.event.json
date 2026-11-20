@@ -1,0 +1,132 @@
+{
+  "kind": 37303,
+  "created_at": 1795202755,
+  "tags": [
+    [
+      "d",
+      "dart-blaster"
+    ],
+    [
+      "title",
+      "Dart blaster"
+    ],
+    [
+      "summary",
+      "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9.glb",
+      "glb",
+      "cf83bfb9ee67359cf168bfbaeb965d2d85bb08ab125df93538b780ed06c76fa9"
+    ],
+    [
+      "size",
+      "0.05 0.176 0.311"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "script",
+      "https://grove.bitblocks.network/items/d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba.js",
+      "d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba"
+    ],
+    [
+      "sound",
+      "equip",
+      "https://grove.bitblocks.network/items/cd091cacd633e1578839539f65dc8d7eba33626b6281954d9a74930fd9c2905d.ogg",
+      "cd091cacd633e1578839539f65dc8d7eba33626b6281954d9a74930fd9c2905d"
+    ],
+    [
+      "sound",
+      "unequip",
+      "https://grove.bitblocks.network/items/fd653c0c8efc9a1b5318f9f87c4c8e227ed095ca8734a0d2ab2df17134047c64.ogg",
+      "fd653c0c8efc9a1b5318f9f87c4c8e227ed095ca8734a0d2ab2df17134047c64"
+    ],
+    [
+      "sound",
+      "reload",
+      "https://grove.bitblocks.network/items/4812aabce45cdfe1ce4537955ba24b66dd242d607c453f9d219a6f526f14e658.ogg",
+      "4812aabce45cdfe1ce4537955ba24b66dd242d607c453f9d219a6f526f14e658"
+    ],
+    [
+      "sound",
+      "fire",
+      "https://grove.bitblocks.network/items/dabe30248748a30c869fb4848fce004bf97817358a1a077bec9ea8ab56bf4b94.ogg",
+      "dabe30248748a30c869fb4848fce004bf97817358a1a077bec9ea8ab56bf4b94"
+    ],
+    [
+      "sound",
+      "impact",
+      "https://grove.bitblocks.network/items/52486101e6301bbe9d99c8b646ee7bb7894dd8f6e96c2166437c68f0d9c704e4.ogg",
+      "52486101e6301bbe9d99c8b646ee7bb7894dd8f6e96c2166437c68f0d9c704e4"
+    ],
+    [
+      "sound",
+      "impact-2",
+      "https://grove.bitblocks.network/items/4b489e79aea1fa3696da9f07b8bff8bb4f227aa58aca2dd300243aac76328a68.ogg",
+      "4b489e79aea1fa3696da9f07b8bff8bb4f227aa58aca2dd300243aac76328a68"
+    ],
+    [
+      "sound",
+      "fall",
+      "https://grove.bitblocks.network/items/0da5c1679a7bb28febf60a2a8712726a0c76463514421087512955852cba84c8.ogg",
+      "0da5c1679a7bb28febf60a2a8712726a0c76463514421087512955852cba84c8"
+    ],
+    [
+      "sound",
+      "hit",
+      "https://grove.bitblocks.network/items/b5939c33f53402cf42e87983713eade30127ae77ca6084b8963ce0f4e60ac59d.ogg",
+      "b5939c33f53402cf42e87983713eade30127ae77ca6084b8963ce0f4e60ac59d"
+    ],
+    [
+      "sound",
+      "tick",
+      "https://grove.bitblocks.network/items/fdffb2316a9037d13e197f8da2da8a6eb62522b593df680284fa05370532af51.ogg",
+      "fdffb2316a9037d13e197f8da2da8a6eb62522b593df680284fa05370532af51"
+    ],
+    [
+      "sends",
+      "dart",
+      "https://grove.bitblocks.network/items/73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4.glb",
+      "glb",
+      "73c8b225cd372be1b2f1d1d47d49771239032eea9fb7f372ecdf8258874f79b4",
+      "0.024 0.024 0.085",
+      "lands=impact",
+      "drops=fall",
+      "strikes=hit",
+      "tells=tick"
+    ],
+    [
+      "effect",
+      "dart",
+      "health",
+      "-1"
+    ],
+    [
+      "does",
+      "use",
+      "Fire"
+    ],
+    [
+      "does",
+      "second",
+      "Reload"
+    ],
+    [
+      "alt",
+      "Item: Dart blaster"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "483ac403aacf2a6e760eee4b82c877ac52e094a07d52141469d7674e2eaf47fa",
+  "sig": "0bae486751eed8322f739dc22a002d61bd6b999ba662283d906a0a7bcbe4177e27b203c085735610e4c780a607b9a6b7fbc0c4caa3f0ec59a5873fd1f0c9aa4c"
+}
