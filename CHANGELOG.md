@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.56.0
+
+Items between people, in a world made with another engine. And two faults found on the way, fixed for every world.
+
+- **In a Godot world's room, items work between people:** what someone holds is seen in their hand, in their colours; what it sends out is seen by everyone and lands in the same place for each; a hit counts, with the mark for whoever sent it, health for whoever it reached, and a bar over their head for the others; one person's items can be muted. The engine's items now go through the same presence a Three.js world's do (`engine-presence.ts`), so none of this is new code: it is the code that was there.
+- **A dart sent from close by reached its target twice.** A thing is said to a room twice, 90 milliseconds apart, because the channel doesn't try again. One sent from under about two metres had arrived and gone before the second saying, which then counted as a new thing: two hits, and two of someone's health, for one dart. In every world since 0.53.0. Each thing is now remembered by its sender and number for as long as a second saying could come.
+- **On a device drawing few frames a second, a tap sent its thing to the middle of the view** and not where it was pressed. How long a tap's aim lasts was counted in frames while the item's own logic answers from its locked box in real time. It is counted on the clock now.
+- **An engine is given a long frame's flight as the curve it was** (`via` in a thing's `test`): the places it passed, a few hundredths of a second apart. Tested as one straight line, a thing landed a third of a metre from where the others saw it land, on a device drawing five frames a second.
+- `NSWP.itemsInfo()`, for tests.
+
 ## 0.55.0
 
 Other people, in a world made with another engine.

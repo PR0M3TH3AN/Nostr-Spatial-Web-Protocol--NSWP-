@@ -58,9 +58,14 @@ export function engineWorld(): EngineWorld {
 /** What a part of this script does each frame: it is given what the engine said, and returns its share of what to draw. */
 export type FramePart = (said: Record<string, unknown>, dt: number) => Record<string, unknown>;
 const parts: FramePart[] = [];
+const starts: ((said: Record<string, unknown>) => void)[] = [];
 /** Take part in every frame from now on. */
 export function addFramePart(part: FramePart): void {
   parts.push(part);
+}
+/** Hear what the engine said at the start of every frame, before any part does anything with it. */
+export function addFrameStart(start: (said: Record<string, unknown>) => void): void {
+  starts.push(start);
 }
 
 /**
@@ -94,6 +99,8 @@ export function frame(view?: string): string {
   w.scene.updateMatrixWorld(true);
   const dt = Math.min(0.5, Math.max(0, num(i.dt, 0.016)));
   const out: Record<string, unknown> = {};
+  // What the engine found out is taken in first, so that everything done this frame is done knowing it.
+  for (const start of starts) start(i);
   for (const part of parts) Object.assign(out, part(i, dt));
   // Where each voice comes from follows where its speaker was just put.
   w.scene.updateMatrixWorld(true);

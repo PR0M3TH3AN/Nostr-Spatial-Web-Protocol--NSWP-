@@ -45,6 +45,7 @@ var NSWP = (() => {
     itemTap: () => itemTap,
     itemUse: () => itemUse,
     items: () => items,
+    itemsInfo: () => itemsInfo,
     kit: () => kit,
     load: () => load2,
     loading: () => loading2,
@@ -75,7 +76,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.55.0";
+  var KIT_VERSION = "0.56.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4902,13 +4903,13 @@ var NSWP = (() => {
   }
   function learnRelays(notes2, results, now) {
     const next = { ...notes2 };
-    for (const [url, said] of Object.entries(results)) {
+    for (const [url, said2] of Object.entries(results)) {
       const clean3 = cleanRelayUrl(url);
       if (!clean3)
         continue;
       const had = next[clean3] && now - next[clean3].at <= RELAY_PICK.staleMs ? next[clean3] : { ok: 0, failed: 0, at: now };
       let { ok, failed: failed2 } = had;
-      if (said === "ok" || said === "eose")
+      if (said2 === "ok" || said2 === "eose")
         ok++;
       else
         failed2++;
@@ -5040,14 +5041,14 @@ var NSWP = (() => {
     const network = getTags(event, "n")[0]?.[1];
     if (!url || network !== void 0 && network !== "clearnet")
       return null;
-    const said = (name) => {
+    const said2 = (name) => {
       const values = getTags(event, "R").map((t) => t[1]);
       return values.includes(name) ? true : values.includes(`!${name}`) ? false : null;
     };
     const ms = Number(getTags(event, "rtt-open")[0]?.[1]);
     const wrote = Number(getTags(event, "rtt-write")[0]?.[1]);
     const refuses = getTags(event, "k").map((t) => t[1] ?? "").filter((k) => /^!\d{1,5}$/.test(k)).map((k) => Number(k.slice(1)));
-    return { url, monitor: event.pubkey, at: Number.isInteger(event.created_at) ? event.created_at : 0, auth: said("auth"), payment: said("payment"), restricted: said("writes"), pow: said("pow"), rttOpen: Number.isFinite(ms) && ms > 0 ? ms : null, rttWrite: Number.isFinite(wrote) && wrote > 0 ? wrote : null, refuses };
+    return { url, monitor: event.pubkey, at: Number.isInteger(event.created_at) ? event.created_at : 0, auth: said2("auth"), payment: said2("payment"), restricted: said2("writes"), pow: said2("pow"), rttOpen: Number.isFinite(ms) && ms > 0 ? ms : null, rttWrite: Number.isFinite(wrote) && wrote > 0 ? wrote : null, refuses };
   }
   function pickDiscovered(events2, o) {
     const newest = /* @__PURE__ */ new Map();
@@ -7138,14 +7139,14 @@ postMessage({ t: "started" });
       wall("right"),
       el2("div", "way", el2("div", "sign", name, address, status), el2("div", "line", got), el2("div", "leaves", el2("div", "leaf l"), el2("div", "leaf r")))
     );
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     let state = "arriving";
     let title = o.title;
     const set = (next) => {
       if (next === state) return;
       state = next;
       host.dataset.state = next;
-      for (const fn of watchers5) fn(next);
+      for (const fn of watchers6) fn(next);
     };
     const colour = (hex) => {
       const rgb2 = hex ? rgbOf(hex) : null;
@@ -7233,7 +7234,7 @@ postMessage({ t: "started" });
         }
       },
       onChange(fn) {
-        watchers5.add(fn);
+        watchers6.add(fn);
       }
     };
   }
@@ -7251,9 +7252,9 @@ postMessage({ t: "started" });
     const mouse = matches("(any-pointer: fine)");
     return { touch, mouse, main: matches("(pointer: fine)") ? "desk" : "touch" };
   }
-  function formFor(said, device) {
-    if (said === "touch" && device.touch) return "touch";
-    if (said === "desk" && device.mouse) return "desk";
+  function formFor(said2, device) {
+    if (said2 === "touch" && device.touch) return "touch";
+    if (said2 === "desk" && device.mouse) return "desk";
     return device.main;
   }
   var arrived;
@@ -7301,12 +7302,12 @@ postMessage({ t: "started" });
   function currentSettings() {
     let out = { ...arrived2 };
     for (const now of parts.values()) {
-      let said = {};
+      let said2 = {};
       try {
-        said = cleanSettings(now());
+        said2 = cleanSettings(now());
       } catch {
       }
-      out = { ...out, ...said, ...said.sound || out.sound ? { sound: { ...out.sound, ...said.sound } } : {} };
+      out = { ...out, ...said2, ...said2.sound || out.sound ? { sound: { ...out.sound, ...said2.sound } } : {} };
     }
     return cleanSettings(out);
   }
@@ -7535,10 +7536,10 @@ postMessage({ t: "started" });
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
     return Uint8Array.from(hex.match(/../g).map((b) => parseInt(b, 16)));
   };
-  function seenLook(member, said) {
-    const look = said?.look ?? generatedLook(member.pubkey);
+  function seenLook(member, said2) {
+    const look = said2?.look ?? generatedLook(member.pubkey);
     if (member.identity) return { ...look, mark: markFor(member.identity) };
-    if (said && claimsKey(said.seed)) return { ...look, mark: markFor(member.pubkey) };
+    if (said2 && claimsKey(said2.seed)) return { ...look, mark: markFor(member.pubkey) };
     return look;
   }
   var PASS_TRIES = 4;
@@ -7839,9 +7840,9 @@ postMessage({ t: "started" });
         }
         if (typeof e.data === "string") {
           if (e.data.startsWith("look:")) {
-            const said = decodeLook(e.data.slice(5));
-            if (said.ok) {
-              peer.said = said.value;
+            const said2 = decodeLook(e.data.slice(5));
+            if (said2.ok) {
+              peer.said = said2.value;
               this.redraw(peer);
             }
           } else if (e.data.startsWith("id:")) this.checkPass(peer, e.data.slice(3));
@@ -8202,11 +8203,11 @@ postMessage({ t: "started" });
      * Say something of an item in play to everyone: a thing sent out, a hit, a sound, this visitor's state
      * (`buildShot`, `buildHit`, `buildDid`, `buildState` in the core). Anything that isn't one of those is not sent.
      */
-    tellPlay(said) {
-      if (this.closed || typeof said !== "string" || said.length > 200 || !PLAY_WORD.test(said)) return;
-      if (said.startsWith("tint:")) this.tints = said;
-      this.tellAll(said);
-      if (!said.startsWith("did:")) setTimeout(() => !this.closed && this.tellAll(said), 90);
+    tellPlay(said2) {
+      if (this.closed || typeof said2 !== "string" || said2.length > 200 || !PLAY_WORD.test(said2)) return;
+      if (said2.startsWith("tint:")) this.tints = said2;
+      this.tellAll(said2);
+      if (!said2.startsWith("did:")) setTimeout(() => !this.closed && this.tellAll(said2), 90);
     }
     setRecording(on3) {
       if (on3 === this.self.recording) return;
@@ -28342,14 +28343,14 @@ postMessage({ t: "started" });
     const first = relaysWell(o, now());
     const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
     learnFrom(sent.relays, now());
-    let took = Object.values(sent.relays).filter((said) => said === "ok").length;
+    let took = Object.values(sent.relays).filter((said2) => said2 === "ok").length;
     const tried = [...first.relays];
     if (took === 0) {
       const rest = o.usual.filter((r) => !tried.includes(r));
       if (rest.length) {
         const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
         learnFrom(again.relays, now());
-        took = Object.values(again.relays).filter((said) => said === "ok").length;
+        took = Object.values(again.relays).filter((said2) => said2 === "ok").length;
         tried.push(...rest);
       }
     }
@@ -28360,7 +28361,7 @@ postMessage({ t: "started" });
         if (!batch.length) break;
         const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
         learnFrom(last.relays, now());
-        took = Object.values(last.relays).filter((said) => said === "ok").length;
+        took = Object.values(last.relays).filter((said2) => said2 === "ok").length;
         tried.push(...batch);
       }
     }
@@ -28417,7 +28418,7 @@ postMessage({ t: "started" });
     const now = o.now ?? (() => Date.now());
     const got = await query(relays, filter, timeoutMs);
     learnFrom(got.relays, now());
-    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said) => said === "eose")) return got;
+    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said2) => said2 === "eose")) return got;
     const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
     if (!more.length) return got;
     const again = await query(more, filter, timeoutMs).catch(() => null);
@@ -28436,7 +28437,7 @@ postMessage({ t: "started" });
     const query = opts.query ?? queryRelays;
     const publish = opts.publish ?? publishEvent;
     const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const store = (() => {
+    const store2 = (() => {
       if (opts.storage !== void 0) return opts.storage;
       try {
         return globalThis.localStorage ?? null;
@@ -28444,14 +28445,14 @@ postMessage({ t: "started" });
         return null;
       }
     })();
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers5) fn();
+      for (const fn of watchers6) fn();
     };
     const keyFor = (who2) => `nswp:follows:${who2}`;
     const readKept = (who2) => {
       try {
-        const kept2 = JSON.parse(store?.getItem(keyFor(who2)) ?? "null");
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
         return verifyEvent(kept2) && kept2.kind === FOLLOWS_KIND && kept2.pubkey === who2 ? kept2 : null;
       } catch {
         return null;
@@ -28460,8 +28461,8 @@ postMessage({ t: "started" });
     const keep5 = (list) => {
       try {
         const text = JSON.stringify(list);
-        if (text.length <= KEPT_MOST) store?.setItem(keyFor(list.pubkey), text);
-        else store?.removeItem(keyFor(list.pubkey));
+        if (text.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text);
+        else store2?.removeItem(keyFor(list.pubkey));
       } catch {
       }
     };
@@ -28479,7 +28480,7 @@ postMessage({ t: "started" });
       const kept2 = readKept(who2);
       const own = await ownRelays(who2);
       const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
       const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
       if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
@@ -28545,8 +28546,8 @@ postMessage({ t: "started" });
       follow: (pubkey, name = "") => change2(pubkey, true, name),
       unfollow: (pubkey, name = "") => change2(pubkey, false, name),
       onChange(fn) {
-        watchers5.add(fn);
-        return () => void watchers5.delete(fn);
+        watchers6.add(fn);
+        return () => void watchers6.delete(fn);
       }
     };
   }
@@ -28558,7 +28559,7 @@ postMessage({ t: "started" });
     const publish = opts.publish ?? publishEvent;
     const usual = () => opts.relays ?? DEFAULT_RELAYS;
     const signer = () => (typeof opts.signer === "function" ? opts.signer() : opts.signer) ?? null;
-    const store = (() => {
+    const store2 = (() => {
       if (opts.storage !== void 0) return opts.storage;
       try {
         return globalThis.localStorage ?? null;
@@ -28569,7 +28570,7 @@ postMessage({ t: "started" });
     const keyFor = (who2, slot) => `nswp:save:${who2 ?? "guest"}:${slot}`;
     const readLocal = (who2, slot) => {
       try {
-        const kept2 = JSON.parse(store?.getItem(keyFor(who2, slot)) ?? "null");
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2, slot)) ?? "null");
         return kept2 && typeof kept2.data === "string" && typeof kept2.at === "number" ? { data: kept2.data, at: kept2.at } : null;
       } catch {
         return null;
@@ -28577,8 +28578,8 @@ postMessage({ t: "started" });
     };
     const writeLocal = (who2, slot, kept2) => {
       try {
-        if (!store) return false;
-        store.setItem(keyFor(who2, slot), JSON.stringify(kept2));
+        if (!store2) return false;
+        store2.setItem(keyFor(who2, slot), JSON.stringify(kept2));
         return true;
       } catch {
         return false;
@@ -28693,7 +28694,7 @@ postMessage({ t: "started" });
     const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
     if (!real || typeof document === "undefined") return NONE2;
     const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     const pending = /* @__PURE__ */ new Map();
     const kept2 = /* @__PURE__ */ new Map();
     const askAbout = (request, read6) => new Promise((done) => {
@@ -28745,7 +28746,7 @@ postMessage({ t: "started" });
     const firstAnswer = /* @__PURE__ */ new Set();
     let n = 0;
     const changed = () => {
-      for (const fn of watchers5) fn();
+      for (const fn of watchers6) fn();
     };
     const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
     const onMessage = (e) => {
@@ -28944,9 +28945,9 @@ postMessage({ t: "started" });
         if (state !== "unlocked" || !frame2 || !more.includes("messages")) return Promise.resolve(null);
         return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
       },
-      score(world2, board2, score, said = {}) {
+      score(world2, board2, score, said2 = {}) {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        const more2 = { ...said.title ? { title: said.title } : {}, ...said.format === "time" ? { format: "time" } : {} };
+        const more2 = { ...said2.title ? { title: said2.title } : {}, ...said2.format === "time" ? { format: "time" } : {} };
         return askAbout({ t: "score", id: `c${++n}`, world: world2, board: board2, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world: world2, board: board2, score, ...more2, origin: location.origin }) ? reply.event : null);
       },
       achieve(world2, achievement, title) {
@@ -28954,8 +28955,8 @@ postMessage({ t: "started" });
         return askAbout({ t: "achieve", id: `a${++n}`, world: world2, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world: world2, id: achievement, title, origin: location.origin }) ? reply.event : null);
       },
       onChange(fn) {
-        watchers5.add(fn);
-        return () => void watchers5.delete(fn);
+        watchers6.add(fn);
+        return () => void watchers6.delete(fn);
       },
       whenAnswered(ms) {
         if (answered || disposed) return Promise.resolve();
@@ -29307,7 +29308,7 @@ postMessage({ t: "started" });
     let opts = null;
     let posts = [];
     let loading3 = false;
-    let said = "";
+    let said2 = "";
     let version = 0;
     let count = 0;
     let asked = 0;
@@ -29325,7 +29326,7 @@ postMessage({ t: "started" });
         opts = next;
         posts = [];
         loading3 = false;
-        said = "";
+        said2 = "";
         asked = 0;
         bump2();
       },
@@ -29334,7 +29335,7 @@ postMessage({ t: "started" });
         opts = null;
         posts = [];
         loading3 = false;
-        said = "";
+        said2 = "";
         bump2();
       },
       opened() {
@@ -29346,7 +29347,7 @@ postMessage({ t: "started" });
         void mine.load().catch(() => null).then((got) => {
           if (opts !== mine) return;
           loading3 = false;
-          if (!got) said = "Your earlier posts couldn't be fetched just now.";
+          if (!got) said2 = "Your earlier posts couldn't be fetched just now.";
           else {
             const seen = new Set(posts.map((p) => p.key));
             for (const p of got) {
@@ -29367,12 +29368,12 @@ postMessage({ t: "started" });
         if (!words2) return null;
         const post = { key: `new-${++count}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         posts.unshift(post);
-        said = "";
+        said2 = "";
         bump2();
         void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
           if (opts !== mine) return;
           post.state = how.ok ? "out" : "failed";
-          said = how.said;
+          said2 = how.said;
           bump2();
         });
         return null;
@@ -29380,7 +29381,7 @@ postMessage({ t: "started" });
       view() {
         const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
         const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading3, said, lead, limit: CHAT_LIMITS.chars, version };
+        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading3, said: said2, lead, limit: CHAT_LIMITS.chars, version };
       }
     };
   }
@@ -30432,7 +30433,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function createUiLetters(changed, now = () => Date.now()) {
     let opts = null;
     let waiting2 = [];
-    let said = "";
+    let said2 = "";
     let version = 0;
     let count = 0;
     const bump2 = () => {
@@ -30443,14 +30444,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       attach(next) {
         opts = next;
         waiting2 = [];
-        said = "";
+        said2 = "";
         bump2();
       },
       detach() {
         if (!opts) return;
         opts = null;
         waiting2 = [];
-        said = "";
+        said2 = "";
         bump2();
       },
       touch: bump2,
@@ -30464,13 +30465,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!words2) return null;
         const line = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         waiting2.push(line);
-        said = "";
+        said2 = "";
         bump2();
         void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
           if (opts !== mine) return;
           if (how.ok) waiting2 = waiting2.filter((l) => l !== line);
           else line.state = "failed";
-          said = how.said;
+          said2 = how.said;
           bump2();
         });
         return null;
@@ -30483,7 +30484,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           title: name ? `${name}, privately` : "Private messages",
           with: name,
           lines,
-          said,
+          said: said2,
           lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
           limit: MESSAGE_LIMITS.chars,
           version
@@ -30576,7 +30577,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
-    let presence2 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
     let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
     let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
     let claimed = false;
@@ -30614,11 +30615,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         changed();
       },
       get presence() {
-        return presence2;
+        return presence3;
       },
       setPresence(next) {
-        if (!PRESENCES.includes(next) || next === presence2) return;
-        presence2 = next;
+        if (!PRESENCES.includes(next) || next === presence3) return;
+        presence3 = next;
         changed();
       },
       setCorner(next) {
@@ -30698,7 +30699,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           }),
           pinsFull: (pins ?? []).length >= PINS_MOST,
           theme,
-          presence: presence2,
+          presence: presence3,
           corner,
           keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
           chat: chat.view(),
@@ -31040,8 +31041,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return world;
   }
   var parts2 = [];
+  var starts = [];
   function addFramePart(part) {
     parts2.push(part);
+  }
+  function addFrameStart(start2) {
+    starts.push(start2);
   }
   function frame(view2) {
     if (!world || !parts2.length) return "{}";
@@ -31063,6 +31068,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     w.scene.updateMatrixWorld(true);
     const dt = Math.min(0.5, Math.max(0, num3(i.dt, 0.016)));
     const out = {};
+    for (const start2 of starts) start2(i);
     for (const part of parts2) Object.assign(out, part(i, dt));
     w.scene.updateMatrixWorld(true);
     if (nudge) out.nudge = nudge;
@@ -31076,7 +31082,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const query = opts.query ?? queryRelays;
     const publish = opts.publish ?? publishEvent;
     const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const store = (() => {
+    const store2 = (() => {
       if (opts.storage !== void 0) return opts.storage;
       try {
         return globalThis.localStorage ?? null;
@@ -31084,14 +31090,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
     })();
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers5) fn();
+      for (const fn of watchers6) fn();
     };
     const keyFor = (who2) => `nswp:bag:${who2}`;
     const readKept = (who2) => {
       try {
-        const kept2 = JSON.parse(store?.getItem(keyFor(who2)) ?? "null");
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
         return verifyEvent(kept2) && kept2.kind === BAG_KIND && kept2.pubkey === who2 ? kept2 : null;
       } catch {
         return null;
@@ -31099,7 +31105,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const keep5 = (bag) => {
       try {
-        store?.setItem(keyFor(bag.pubkey), JSON.stringify(bag));
+        store2?.setItem(keyFor(bag.pubkey), JSON.stringify(bag));
       } catch {
       }
     };
@@ -31117,7 +31123,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const kept2 = readKept(who2);
       const own = await ownRelays(who2);
       const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
       const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const bag = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
       if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
@@ -31179,7 +31185,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const TINTS_KEY = "nswp:tints";
     const keptTints = () => {
       try {
-        const kept2 = JSON.parse(store?.getItem(TINTS_KEY) ?? "{}");
+        const kept2 = JSON.parse(store2?.getItem(TINTS_KEY) ?? "{}");
         return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
       } catch {
         return {};
@@ -31212,7 +31218,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const item = itemCoordinate(itemIn2);
         if (!item) return;
         try {
-          store?.setItem(TINTS_KEY, JSON.stringify({ ...keptTints(), [item]: tints }));
+          store2?.setItem(TINTS_KEY, JSON.stringify({ ...keptTints(), [item]: tints }));
         } catch {
         }
         changed();
@@ -31226,8 +31232,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       add: (item, title = "") => change2(item, true, title),
       remove: (item, title = "") => change2(item, false, title),
       onChange(fn) {
-        watchers5.add(fn);
-        return () => void watchers5.delete(fn);
+        watchers6.add(fn);
+        return () => void watchers6.delete(fn);
       }
     };
   }
@@ -31290,7 +31296,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const described = /* @__PURE__ */ new Map();
     const settled = /* @__PURE__ */ new Map();
     const files2 = /* @__PURE__ */ new Map();
-    const models = /* @__PURE__ */ new Map();
+    const models2 = /* @__PURE__ */ new Map();
     const file = (named, most) => {
       let got = files2.get(named.sha256);
       if (!got) {
@@ -31322,13 +31328,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       known: (coordinate2) => settled.get(itemCoordinate(coordinate2)) ?? null,
       modelBytes(named) {
         if (!showsItems()) return Promise.resolve(null);
-        let got = models.get(named.model.sha256);
+        let got = models2.get(named.model.sha256);
         if (!got) {
           got = file(named.model, ITEM_BUDGET.bytes).then((bytes) => {
             const read6 = bytes ? readGlb(bytes) : null;
             return bytes && read6?.ok ? { bytes, count: read6.count } : null;
           });
-          models.set(named.model.sha256, got);
+          models2.set(named.model.sha256, got);
         }
         return got;
       },
@@ -31563,1210 +31569,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     onItemsChange(soon2);
     refresh();
     return { refresh };
-  }
-
-  // packages/sdk/src/item-controls.ts
-  var TAP_MS = 320;
-  function addItemControls(controls2, o) {
-    let shown4 = "";
-    const does = () => o.play()?.does ?? null;
-    const refresh = () => {
-      const now = does();
-      const key = now ? `${now.use}|${now.second}` : "";
-      if (key === shown4) return;
-      shown4 = key;
-      controls2.remove("item-use");
-      controls2.remove("item-second");
-      if (!now) return;
-      if (now.use) controls2.add({ id: "item-use", section: "bag", icon: "check", tone: "primary", hotbar: true, lead: true, label: now.use, short: now.use, act: () => o.play()?.use() });
-      if (now.second) controls2.add({ id: "item-second", section: "bag", icon: "turn", hotbar: true, lead: true, label: now.second, short: now.second, act: () => o.play()?.second() });
-      if (now.use) controls2.say(`Tap or click where you want to ${now.use.toLowerCase()}. Hold a press to walk.`);
-    };
-    const typing = (e) => {
-      const at = e.target;
-      return !!at && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName ?? ""));
-    };
-    let sighting = false;
-    const sight = (on3) => {
-      if (on3 === sighting) return;
-      sighting = on3;
-      o.sight?.(on3);
-    };
-    const onDown = (e) => {
-      if (!document.pointerLockElement || !does()) return;
-      if (e.button === 0 && does()?.use) o.play()?.use();
-      else if (e.button === 2) sight(true);
-    };
-    const onUp = (e) => {
-      if (e.button === 2) sight(false);
-    };
-    const onMenu2 = (e) => {
-      if (document.pointerLockElement && does()) e.preventDefault();
-    };
-    const onLock = () => {
-      if (!document.pointerLockElement) sight(false);
-    };
-    const onKey = (e) => {
-      if (e.code === "KeyR" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e) && does()?.second) o.play()?.second();
-    };
-    o.dom?.addEventListener("mousedown", onDown);
-    o.dom?.addEventListener("contextmenu", onMenu2);
-    if (typeof addEventListener === "function") addEventListener("mouseup", onUp);
-    if (typeof document !== "undefined") document.addEventListener("pointerlockchange", onLock);
-    if (typeof addEventListener === "function") addEventListener("keydown", onKey);
-    refresh();
-    return {
-      refresh,
-      tap(ray, heldMs) {
-        if (heldMs >= TAP_MS || !does()?.use) return false;
-        o.play()?.use(ray.origin.clone().addScaledVector(ray.direction, 18));
-        return true;
-      },
-      trigger(hand) {
-        if (hand < 0 || hand !== o.holdingHand() || !does()?.use) return false;
-        o.play()?.use();
-        return true;
-      },
-      dispose() {
-        o.dom?.removeEventListener("mousedown", onDown);
-        o.dom?.removeEventListener("contextmenu", onMenu2);
-        if (typeof removeEventListener === "function") removeEventListener("mouseup", onUp);
-        if (typeof document !== "undefined") document.removeEventListener("pointerlockchange", onLock);
-        sight(false);
-        if (typeof removeEventListener === "function") removeEventListener("keydown", onKey);
-        controls2.remove("item-use");
-        controls2.remove("item-second");
-      }
-    };
-  }
-
-  // packages/sdk/src/item-box.ts
-  function runInBox(script, on3, opts = {}) {
-    if (typeof document === "undefined") return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const frame2 = document.createElement("iframe");
-      frame2.setAttribute("sandbox", "allow-scripts");
-      frame2.setAttribute("aria-hidden", "true");
-      frame2.tabIndex = -1;
-      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
-      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
-      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
-      let running = false;
-      let over = false;
-      let began = 0;
-      let ticking;
-      const say2 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
-      const end = (why) => {
-        if (over) return;
-        over = true;
-        const was = running;
-        running = false;
-        clearInterval(ticking);
-        clearTimeout(giveUp);
-        removeEventListener("message", heard);
-        frame2.remove();
-        if (was) on3.stopped?.(why);
-        else resolve(null);
-      };
-      const run2 = {
-        tell(event, arg) {
-          if (running) say2({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
-        },
-        stop: () => end("asked"),
-        get running() {
-          return running;
-        }
-      };
-      const heard = (e) => {
-        if (e.source !== frame2.contentWindow) return;
-        const m = e.data;
-        if (!m || m.nswpItemBox !== 1) return;
-        if (m.t === "ready") say2({ t: "run", script });
-        else if (m.t === "started" && !running && !over) {
-          running = true;
-          began = performance.now();
-          clearTimeout(giveUp);
-          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
-          resolve(run2);
-        } else if (m.t === "ask" && running) {
-          const ask = cleanAsk(m.name, m.args);
-          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
-        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
-        else if (m.t === "error" && !running) end("failed");
-      };
-      addEventListener("message", heard);
-      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
-      frame2.addEventListener("error", () => end("no box"));
-      document.body.append(frame2);
-    });
-  }
-
-  // packages/sdk/src/play.ts
-  var SCRIPT_KEPT = "nswp:item-scripts";
-  function scriptAllowed(sha2562) {
-    try {
-      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
-    } catch {
-      return false;
-    }
-  }
-  function allowScript(sha2562) {
-    try {
-      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
-      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
-    } catch {
-    }
-  }
-  function mayHold(described, o) {
-    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
-    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
-    if (!described) return { ok: false, said: "That item's description couldn't be found." };
-    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
-    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
-    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
-      if (o.asked.sha !== described.script.sha256) {
-        o.asked.sha = described.script.sha256;
-        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
-      }
-      allowScript(described.script.sha256);
-    }
-    return { ok: true };
-  }
-  function drawn(width, height, paint2) {
-    if (typeof document === "undefined") {
-      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
-      blank.userData.nswpNoHit = true;
-      return blank;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext("2d");
-    if (g) paint2(g);
-    const map = new CanvasTexture(canvas);
-    map.colorSpace = SRGBColorSpace;
-    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
-    sprite.renderOrder = 999;
-    sprite.userData.nswpNoHit = true;
-    return sprite;
-  }
-  var repaint = (sprite, paint2) => {
-    const map = sprite.material.map;
-    if (!map) return;
-    const canvas = map.image;
-    const g = canvas.getContext("2d");
-    if (!g) return;
-    g.clearRect(0, 0, canvas.width, canvas.height);
-    paint2(g, canvas.width, canvas.height);
-    map.needsUpdate = true;
-  };
-  var WARN = "#ff5d52";
-  var paintHealth = (g, w, h, o) => {
-    const low = o.value <= Math.ceil(o.full / 3);
-    const ink = o.down || low ? WARN : o.accent;
-    g.fillStyle = "rgba(10,12,16,0.8)";
-    g.beginPath();
-    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
-    g.fill();
-    g.globalAlpha = 0.5;
-    g.strokeStyle = ink;
-    g.lineWidth = 2.5;
-    g.stroke();
-    g.globalAlpha = 1;
-    let x0 = h * 0.42;
-    if (o.heart !== false) {
-      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
-      g.fillStyle = ink;
-      g.beginPath();
-      g.arc(cx - r, cy, r, Math.PI, 0);
-      g.arc(cx + r, cy, r, Math.PI, 0);
-      g.lineTo(cx, cy + r * 2.5);
-      g.closePath();
-      g.fill();
-      x0 = h * 1.02;
-    }
-    const x1 = w - h * 0.42;
-    if (o.down) {
-      g.fillStyle = WARN;
-      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
-      return;
-    }
-    const gap = h * 0.11;
-    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
-    const [top, tall] = [h * 0.3, h * 0.4];
-    for (let i = 0; i < o.full; i++) {
-      const x = x0 + i * (each + gap);
-      g.fillStyle = "rgba(255,255,255,0.14)";
-      g.beginPath();
-      g.roundRect(x, top, each, tall, tall / 3);
-      g.fill();
-      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
-      if (part <= 0) continue;
-      g.globalAlpha = i < o.value ? 1 : 0.55;
-      g.fillStyle = ink;
-      g.beginPath();
-      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
-      g.fill();
-      g.globalAlpha = 1;
-    }
-  };
-  function createPlay(o) {
-    const things = [];
-    const pending = /* @__PURE__ */ new Set();
-    const rates = /* @__PURE__ */ new Map();
-    const bars = /* @__PURE__ */ new Map();
-    const blinking = /* @__PURE__ */ new Set();
-    const mixers = /* @__PURE__ */ new Map();
-    const soundsOf = /* @__PURE__ */ new Map();
-    const ray = new Raycaster();
-    const v2 = new Vector3();
-    const w = new Vector3();
-    let clock = 0;
-    let lastAt = null;
-    let sent = 0;
-    let landed = 0;
-    let taken = 0;
-    let nextId = Math.floor(Math.random() * 1e3);
-    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
-    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
-    const hud2 = new Group();
-    hud2.userData.nswpNoHit = true;
-    if (!o.deferred) o.camera.add(hud2);
-    const cross = drawn(64, 64, (g) => {
-      g.strokeStyle = "rgba(255,255,255,0.9)";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(32, 32, 9, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = "rgba(255,255,255,0.9)";
-      g.fillRect(31, 31, 2, 2);
-    });
-    cross.position.set(0, 0, -1);
-    cross.scale.setScalar(0.035);
-    cross.visible = false;
-    const mark = drawn(64, 64, (g) => {
-      g.strokeStyle = "#ffffff";
-      g.lineWidth = 6;
-      g.lineCap = "round";
-      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
-        g.beginPath();
-        g.moveTo(a, b);
-        g.lineTo(c, e);
-        g.stroke();
-      }
-    });
-    mark.position.set(0, 0, -1);
-    mark.scale.setScalar(0.07);
-    mark.visible = false;
-    let markUntil = 0;
-    const accent = () => o.theme?.().accent ?? "#7be495";
-    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
-    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
-    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
-    ownBar.scale.set(0.3, 0.05, 1);
-    ownBar.material.opacity = 0;
-    ownBar.visible = false;
-    const edge = drawn(256, 256, (g) => {
-      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
-      fade.addColorStop(0, "rgba(255,70,60,0)");
-      fade.addColorStop(1, "rgba(255,70,60,0.95)");
-      g.fillStyle = fade;
-      g.fillRect(0, 0, 256, 256);
-    });
-    edge.position.set(0, 0, -0.6);
-    edge.renderOrder = 997;
-    edge.visible = false;
-    const glitch = drawn(8, 128, (g) => {
-      for (let y = 0; y < 128; ) {
-        const tall = 1 + Math.floor(Math.random() * 7);
-        const kind = Math.random();
-        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
-        g.fillRect(0, y, 8, tall);
-        y += tall;
-      }
-    });
-    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
-    glitch.position.set(0, 0, -0.58);
-    glitch.renderOrder = 998;
-    glitch.visible = false;
-    hud2.add(cross, mark, ownBar, edge, glitch);
-    const paintOwn = () => {
-      const down = own.downUntil > 0;
-      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
-      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
-      own.painted = clock;
-    };
-    const sayState = () => {
-      const said = buildState({ name: "health", value: own.value, full: own.full });
-      if (said && o.me()) o.tell(said);
-      paintOwn();
-      own.shownUntil = clock + 2.5;
-      o.onChange?.();
-    };
-    const soundOf = (item2, name) => {
-      const named = item2.sounds[name];
-      if (!named || !o.sounds) return Promise.resolve(null);
-      let got = soundsOf.get(named.sha256);
-      if (!got) {
-        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
-        soundsOf.set(named.sha256, got);
-      }
-      return got;
-    };
-    const lastTake = /* @__PURE__ */ new Map();
-    const take = (item2, name) => {
-      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
-      if (takes.length < 2) return name;
-      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
-      const chosen = others[Math.floor(Math.random() * others.length)];
-      lastTake.set(`${item2.id}:${name}`, chosen);
-      return chosen;
-    };
-    const hear = (item2, said, at) => {
-      if (!said || !o.sounds || !active()) return;
-      const name = take(item2, said);
-      void soundOf(item2, name).then((sound) => {
-        if (!sound || !o.sounds) return;
-        if (!at) return o.sounds.playForeign(sound);
-        o.camera.getWorldPosition(v2);
-        const to = w.copy(at).sub(v2);
-        const distance = to.length();
-        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
-        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
-        o.sounds.playForeign(sound, { distance, pan });
-      });
-    };
-    let clipsSaid = [];
-    const animate = (item2, model3, name, who2 = "") => {
-      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
-      if (!model3) return;
-      const clip = o.items.clips(item2).find((c) => c.name === name);
-      if (!clip) return;
-      let mixer = mixers.get(model3);
-      if (!mixer) {
-        mixer = new AnimationMixer(model3);
-        mixers.set(model3, mixer);
-      }
-      const action = mixer.clipAction(clip);
-      action.reset();
-      action.setLoop(LoopOnce, 1);
-      action.clampWhenFinished = false;
-      action.play();
-    };
-    let solids = [];
-    let solidsAt = -1e9;
-    const worldShapes = () => {
-      if (clock - solidsAt < 1.5) return solids;
-      solidsAt = clock;
-      const found2 = [];
-      const walk2 = (node) => {
-        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
-        const mesh = node;
-        if (mesh.isMesh && mesh.geometry) {
-          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
-          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
-        }
-        for (const child of node.children) walk2(child);
-      };
-      walk2(o.scene);
-      solids = found2;
-      return solids;
-    };
-    const floorUnder = (at) => {
-      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
-      ray.far = 60;
-      const hit = ray.intersectObjects(worldShapes(), false)[0];
-      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
-    };
-    const drop = (thing) => {
-      if (thing.state === "falling" || thing.state === "lying") return;
-      o.scene.attach(thing.object);
-      thing.state = "falling";
-      thing.fall = 0;
-      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
-    };
-    const TRAIL_STEPS = 14;
-    const TRAIL_WIDTH = 0.026;
-    const makeTrail = (color) => {
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      const index = [];
-      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
-      geometry.setIndex(index);
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
-      mesh.frustumCulled = false;
-      mesh.userData.nswpNoHit = true;
-      mesh.userData.base = new Color(color);
-      o.scene.add(mesh);
-      return mesh;
-    };
-    const dropTrail = (thing) => {
-      if (!thing.trail) return;
-      thing.trail.removeFromParent();
-      thing.trail.geometry.dispose();
-      thing.trail.material.dispose();
-      thing.trail = null;
-    };
-    const eye = new Vector3();
-    const drawTrail = (thing) => {
-      const mesh = thing.trail;
-      if (!mesh) return;
-      const head = thing.landedAt ?? thing.t;
-      const tail = Math.max(0, thing.t - thing.trailSeconds);
-      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
-      mesh.visible = true;
-      o.camera.getWorldPosition(eye);
-      const position = mesh.geometry.getAttribute("position");
-      const color = mesh.geometry.getAttribute("color");
-      const base = mesh.userData.base;
-      const left = Math.min(1, (head - tail) / thing.trailSeconds);
-      const p = new Vector3();
-      const q2 = new Vector3();
-      const side = new Vector3();
-      for (let i = 0; i <= TRAIL_STEPS; i++) {
-        const f = i / TRAIL_STEPS;
-        const t = head - (head - tail) * f;
-        p.fromArray(shotAt(thing.shot, t));
-        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
-        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
-        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
-        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
-        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
-        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
-        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
-      }
-      position.needsUpdate = true;
-      color.needsUpdate = true;
-    };
-    const gone = (thing) => {
-      dropTrail(thing);
-      thing.object.removeFromParent();
-      const at = things.indexOf(thing);
-      if (at >= 0) things.splice(at, 1);
-    };
-    const launch = async (by, item2, shot) => {
-      const send = item2.sends.find((s) => s.name === shot.name);
-      if (!send || !active()) return;
-      const born = clock;
-      pending.add(`${by}:${shot.id}`);
-      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
-      const inner = await o.items.sent(item2, shot.name, tints);
-      if (!active()) return void pending.delete(`${by}:${shot.id}`);
-      inner.position.y -= send.size[1] / 2;
-      const object = new Group();
-      object.userData.nswpNoHit = true;
-      object.add(inner);
-      object.position.fromArray(shot.from);
-      o.scene.add(object);
-      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
-      const trailSeconds = send.trail ?? 0;
-      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
-      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
-      things.push(thing);
-      pending.delete(`${by}:${shot.id}`);
-      const late = Math.min(PLAY_LIMITS.life, clock - born);
-      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
-    };
-    const stick = (thing, at, onto, on3) => {
-      thing.object.position.copy(at);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
-      if (onto) onto.attach(thing.object);
-      thing.state = "stuck";
-      thing.on = on3;
-      thing.until = thing.t + thing.shot.stick;
-    };
-    const self2 = () => {
-      const head = o.camera.getWorldPosition(new Vector3());
-      const floor = o.rig.getWorldPosition(new Vector3()).y;
-      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
-    };
-    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
-    const reached = (thing, at) => {
-      const me = self2();
-      taken++;
-      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
-      const said = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
-      if (said) o.tell(said);
-      hear(thing.item, thing.send.strikes, null);
-      if (effect && clock >= own.downUntil) {
-        own.value = struck(own.value, effect.take);
-        own.struckAt = clock;
-        own.regenAt = 0;
-        own.flash = 1;
-        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
-        sayState();
-      }
-      gone(thing);
-    };
-    const fly = (thing, dt) => {
-      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
-      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
-      const step = b.clone().sub(a);
-      const length = step.length();
-      let first = 1.0001;
-      let done = null;
-      if (o.deferred && thing.late) {
-        const late = thing.late;
-        thing.late = null;
-        thing.landedAt = late.t;
-        thing.ref = late.ref;
-        stick(thing, late.point, null, "world");
-        hear(thing.item, thing.send.lands, late.point);
-        return;
-      }
-      if (!o.deferred && length > 1e-6) {
-        ray.set(a, step.clone().divideScalar(length));
-        ray.far = length;
-        const hit = ray.intersectObjects(worldShapes(), false)[0];
-        if (hit) {
-          first = hit.distance / length;
-          done = () => {
-            stick(thing, hit.point, hit.object, "world");
-            hear(thing.item, thing.send.lands, hit.point);
-            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
-          };
-        }
-      }
-      const me = o.me();
-      if (me && thing.by !== me && !muted(thing.by)) {
-        const mine = self2();
-        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => reached(thing, a.clone().addScaledVector(step, t));
-        }
-      }
-      for (const p of o.people()) {
-        if (p.pubkey === thing.by) continue;
-        const shape = shapeOf2(p);
-        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => {
-            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
-            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
-          };
-        }
-      }
-      const before = thing.t;
-      thing.t += dt;
-      if (done) {
-        thing.landedAt = before + dt * Math.min(1, first);
-        return done();
-      }
-      thing.object.position.copy(b);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      thing.object.lookAt(w.copy(b).add(going));
-      if (thing.t > PLAY_LIMITS.life) gone(thing);
-    };
-    let item = null;
-    let model2 = null;
-    let box = null;
-    let scriptState = "none";
-    let stoppedBecause = "";
-    let words2 = "";
-    let wordsSprite = null;
-    let holdingNo = 0;
-    const showWords = (text) => {
-      words2 = text;
-      if (wordsSprite) {
-        repaint(wordsSprite, (g, cw, ch) => {
-          if (!text) return;
-          g.font = "600 44px system-ui, sans-serif";
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          const wide = Math.min(cw - 8, g.measureText(text).width + 36);
-          g.fillStyle = "rgba(8,10,14,0.72)";
-          g.beginPath();
-          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
-          g.fill();
-          g.fillStyle = "#ffffff";
-          g.fillText(text, cw / 2, ch / 2 + 2, cw - 24);
-        });
-      }
-      o.onChange?.();
-    };
-    let pointed = null;
-    const aim = (lift) => {
-      const said = o.aim?.();
-      let from;
-      let to;
-      const tapped = pointed && clock < pointed.until ? pointed.to : null;
-      pointed = null;
-      if (said) ({ from, to } = said);
-      else if (tapped || o.sighting?.()) {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
-        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      } else {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
-        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      }
-      const dir = to.clone().sub(from).normalize();
-      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
-      return { from, dir };
-    };
-    const asked = (ask) => {
-      if (!item || !active()) return;
-      if (ask.ask === "show") return showWords(ask.text);
-      if (ask.ask === "play") {
-        if (!item.sounds[ask.name]) return;
-        hear(item, ask.name, null);
-        const said2 = buildDid({ kind: "sound", name: ask.name });
-        if (said2 && o.me()) o.tell(said2);
-        return;
-      }
-      if (ask.ask === "clip") {
-        animate(item, model2, ask.name);
-        const said2 = buildDid({ kind: "clip", name: ask.name });
-        if (said2 && o.me()) o.tell(said2);
-        return;
-      }
-      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
-      const { from, dir } = aim(ask.lift);
-      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
-      const said = buildShot(shot);
-      const read6 = said ? parseShot(said) : null;
-      if (!said || !read6) return;
-      sent++;
-      void launch(o.me() ?? "", item, read6);
-      if (o.me()) o.tell(said);
-    };
-    const refreshOwn = () => {
-      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
-    };
-    const isPresenting = () => !!o.presenting?.();
-    return {
-      async held(next, drawnFor) {
-        const no = ++holdingNo;
-        if (box) {
-          box.tell("away");
-          const old = box;
-          box = null;
-          setTimeout(() => old.stop(), 250);
-        }
-        if (model2) mixers.delete(model2);
-        wordsSprite?.removeFromParent();
-        wordsSprite = null;
-        item = next;
-        model2 = drawnFor;
-        scriptState = "none";
-        stoppedBecause = "";
-        words2 = "";
-        refreshOwn();
-        o.onChange?.();
-        if (!next || !drawnFor || !active()) return;
-        if (next.does.use || next.script) {
-          wordsSprite = drawn(256, 72, () => {
-          });
-          wordsSprite.scale.set(0.1, 0.028, 1);
-          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
-          drawnFor.add(wordsSprite);
-        }
-        for (const s of next.sends) void o.items.sent(next, s.name);
-        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
-        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
-        const text = await o.items.script(next);
-        if (!text || no !== holdingNo) return;
-        const run2 = await runInBox(
-          text,
-          {
-            ask: (ask) => void (no === holdingNo && asked(ask)),
-            stopped: (why) => {
-              if (no !== holdingNo) return;
-              scriptState = "stopped";
-              stoppedBecause = why;
-              box = null;
-              showWords("");
-            }
-          },
-          typeof o.scripts === "object" ? o.scripts : {}
-        );
-        if (no !== holdingNo) return run2?.stop();
-        box = run2;
-        scriptState = run2 ? "running" : "stopped";
-        if (!run2) stoppedBecause = "no box";
-        run2?.tell("held");
-        o.onChange?.();
-      },
-      use(toward) {
-        if (!active() || !box) return;
-        pointed = toward ? { to: toward.clone(), until: clock + 0.6 } : null;
-        box.tell("use");
-      },
-      second() {
-        if (active()) box?.tell("second");
-      },
-      get does() {
-        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
-      },
-      get words() {
-        return words2;
-      },
-      get health() {
-        return { value: own.value, full: own.full };
-      },
-      heard(from, said) {
-        if (!active() || muted(from)) return;
-        const person = o.people().find((p) => p.pubkey === from);
-        if (!person) return;
-        const state = parseState(said);
-        if (state) {
-          let shown4 = bars.get(from);
-          if (!shown4) {
-            const sprite = drawn(320, 56, () => {
-            });
-            sprite.scale.set(0.44, 0.077, 1);
-            sprite.position.set(0, 0.62, 0);
-            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
-            bars.set(from, shown4);
-          }
-          shown4.value = state.value;
-          shown4.full = Math.min(state.full, 12);
-          shown4.until = clock + (state.value < state.full ? 30 : 2);
-          person.over.add(shown4.sprite);
-          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
-          return;
-        }
-        const hit = parseHit(said);
-        if (hit) {
-          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
-          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
-          thing.agreed = true;
-          const feet = shapeOf2(person).feet;
-          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
-          if (thing.on !== from) stick(thing, at, person.body, from);
-          thing.agreeBy = null;
-          hear(thing.item, thing.send.strikes, at);
-          if (hit.by === o.me()) {
-            hear(thing.item, thing.send.tells, null);
-            landed++;
-            mark.visible = true;
-            markUntil = clock + 0.22;
-            o.onChange?.();
-          }
-          return;
-        }
-        if (!person.holding) return;
-        const did = parseDid(said);
-        const shot = did ? null : parseShot(said);
-        if (!did && !shot) return;
-        if (shot) {
-          let rate = rates.get(from);
-          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
-          if (pending.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
-          if (!rate.take(clock * 1e3)) return;
-          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
-        }
-        const does = (holding) => {
-          if (!holding) return;
-          if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : void 0, person.head);
-          else if (did) animate(holding, person.held, did.name, from);
-          else if (shot) void launch(from, holding, shot);
-        };
-        const known = o.items.known(person.holding);
-        if (known) does(known);
-        else {
-          if (shot) pending.add(`${from}:${shot.id}`);
-          const born = clock;
-          void o.items.describe(person.holding).then((found2) => {
-            if (shot) pending.delete(`${from}:${shot.id}`);
-            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
-          });
-        }
-      },
-      left(pubkey) {
-        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
-        bars.get(pubkey)?.sprite.removeFromParent();
-        bars.delete(pubkey);
-        rates.delete(pubkey);
-      },
-      update(frame2) {
-        const at = typeof performance === "undefined" ? null : performance.now();
-        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
-        lastAt = at;
-        clock += dt;
-        for (const mixer of mixers.values()) mixer.update(dt);
-        if (mark.visible && clock > markUntil) mark.visible = false;
-        refreshOwn();
-        if (own.downUntil) {
-          if (clock >= own.downUntil) {
-            own.value = own.full;
-            own.downUntil = 0;
-            own.regenAt = 0;
-            sayState();
-          }
-        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
-          if (!own.regenAt) own.regenAt = clock;
-          if (clock - own.regenAt >= HEALTH.regenSeconds) {
-            own.value += 1;
-            own.regenAt = own.value < own.full ? clock : 0;
-            sayState();
-          }
-        }
-        const on3 = active();
-        const down = own.downUntil > 0;
-        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
-        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
-        const wide = tall * o.camera.aspect;
-        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
-        const scale = Math.min(0.3, wide * 0.62);
-        ownBar.scale.set(scale, scale / 6, 1);
-        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
-        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
-        ownBar.visible = own.shown > 0.02;
-        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
-        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
-        own.flash = Math.max(0, own.flash - dt / 0.55);
-        const low = !down && own.value < own.full && own.value <= 1;
-        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
-        edge.visible = red > 0.01;
-        edge.material.opacity = red;
-        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
-        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
-        if (glitch.visible) {
-          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
-          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
-          glitch.material.opacity = 0.18 + Math.random() * 0.3;
-          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
-        }
-        const people2 = o.people();
-        for (const [who2, shown4] of bars) {
-          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
-          const person = people2.find((x) => x.pubkey === who2);
-          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
-          if (person?.root) {
-            if (out && lively()) {
-              person.root.visible = person.root.visible && Math.random() > 0.3;
-              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
-              blinking.add(who2);
-            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
-          }
-        }
-        for (const thing of [...things]) {
-          if (thing.state === "flying") {
-            let left = Math.min(dt, 0.5);
-            const from = thing.t;
-            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
-              const step = Math.min(0.03, left);
-              fly(thing, step);
-              left -= step;
-            }
-            if (o.deferred && thing.state === "flying" && thing.t > from) {
-              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
-              if (thing.steps.length > 6) thing.steps.shift();
-            }
-            drawTrail(thing);
-          } else if (thing.state === "stuck") {
-            thing.t += dt;
-            drawTrail(thing);
-            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
-            else if (thing.t > thing.until) drop(thing);
-            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
-          } else if (thing.state === "falling") {
-            thing.t += dt;
-            drawTrail(thing);
-            thing.fall += GRAVITY * dt;
-            thing.object.position.y -= thing.fall * dt;
-            thing.object.rotation.x += dt * 5;
-            if (thing.object.position.y <= thing.floor + 0.02) {
-              thing.object.position.y = thing.floor + 0.02;
-              thing.state = "lying";
-              thing.until = 0.6;
-              hear(thing.item, thing.send.drops, thing.object.position);
-            }
-          } else {
-            thing.until -= dt;
-            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
-            if (thing.until <= 0) gone(thing);
-          }
-        }
-      },
-      snapshot() {
-        const clips = clipsSaid;
-        clipsSaid = [];
-        const q2 = new Quaternion();
-        const at = new Vector3();
-        const three2 = (x) => [x.x, x.y, x.z];
-        return {
-          things: things.map((t) => {
-            t.object.getWorldPosition(at);
-            t.object.getWorldQuaternion(q2);
-            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
-            return {
-              key: `${t.by}:${t.shot.id}`,
-              model: t.send.model.sha256,
-              size: t.send.size,
-              tints: t.tints,
-              state: t.state,
-              on: t.on,
-              ref: t.ref,
-              at: three2(at),
-              turn: [q2.x, q2.y, q2.z, q2.w],
-              scale: t.object.scale.x,
-              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1) } : null,
-              down: t.state === "falling" && !t.flooredAt
-            };
-          }),
-          trails: things.flatMap((t) => {
-            const mesh = t.trail;
-            if (!mesh || !mesh.visible) return [];
-            const position = mesh.geometry.getAttribute("position");
-            const color = mesh.geometry.getAttribute("color");
-            const base = mesh.userData.base;
-            const most = Math.max(base.r, base.g, base.b, 1e-6);
-            const points = [];
-            for (let i = 0; i < position.count; i += 2) {
-              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
-            }
-            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
-          }),
-          own: {
-            cross: cross.visible,
-            mark: mark.visible,
-            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
-            red: edge.visible ? edge.material.opacity : 0,
-            glitch: glitch.visible,
-            words: words2
-          },
-          clips
-        };
-      },
-      met(key, step, fraction, point, ref = "") {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        const tested = thing?.steps.find((s) => s.n === step);
-        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
-        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
-        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
-      },
-      floored(key, y) {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
-        thing.flooredAt = true;
-        thing.floor = y;
-      },
-      info() {
-        const count = (state) => things.filter((t) => t.state === state).length;
-        return {
-          flying: count("flying"),
-          stuck: count("stuck"),
-          falling: count("falling") + count("lying"),
-          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
-          sent,
-          landed,
-          taken,
-          health: { value: own.value, full: own.full },
-          words: words2,
-          script: scriptState,
-          stoppedBecause,
-          marked: mark.visible,
-          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
-        };
-      },
-      dispose() {
-        box?.stop();
-        for (const thing of [...things]) gone(thing);
-        for (const b of bars.values()) b.sprite.removeFromParent();
-        hud2.removeFromParent();
-      }
-    };
-  }
-
-  // packages/sdk/src/engine-items.ts
-  var on = null;
-  function want(named) {
-    const state = on;
-    if (!state || state.models.has(named.model.sha256)) return;
-    state.models.set(named.model.sha256, "");
-    void state.store.modelBytes(named).then((got) => state.models.set(named.model.sha256, got ? base642(got.bytes) : "!"));
-  }
-  function makeOverlay() {
-    if (typeof document === "undefined") return null;
-    const el2 = (css, tag2 = "div") => {
-      const e = document.createElement(tag2);
-      e.style.cssText = css;
-      return e;
-    };
-    const root = el2("position:fixed;inset:0;z-index:2147482000;pointer-events:none;overflow:hidden;contain:strict");
-    root.setAttribute("aria-hidden", "true");
-    const centre = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;";
-    const cross = el2(`${centre}width:16px;height:16px;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-sizing:border-box`);
-    const mark = el2(`${centre}width:34px;height:34px;background:linear-gradient(45deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%);-webkit-mask:radial-gradient(circle,transparent 5px,#000 6px);mask:radial-gradient(circle,transparent 5px,#000 6px)`);
-    const edge = el2("position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center,rgba(255,70,60,0) 52%,rgba(255,70,60,.95) 100%)");
-    const glitch = el2("position:absolute;left:0;right:0;height:40%;display:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 2px,transparent 2px 9px,rgba(80,240,255,.45) 9px 12px,transparent 12px 23px,rgba(255,70,160,.45) 23px 25px,transparent 25px 41px)");
-    const pill = el2("position:absolute;left:50%;bottom:104px;width:240px;height:40px;transform:translateX(-50%);opacity:0", "canvas");
-    pill.width = 384;
-    pill.height = 64;
-    const words2 = el2("position:absolute;right:17%;bottom:47%;padding:5px 13px;border-radius:13px;background:rgba(8,10,14,.72);color:#fff;font:600 20px system-ui,sans-serif;display:none");
-    root.append(edge, glitch, cross, mark, pill, words2);
-    document.body.append(root);
-    return { root, cross, mark, pill, edge, glitch, words: words2, painted: "" };
-  }
-  function paint(o, own, accent, presenting) {
-    o.root.style.display = presenting ? "none" : "block";
-    if (presenting) return;
-    o.cross.style.display = own.cross ? "block" : "none";
-    o.mark.style.display = own.mark ? "block" : "none";
-    o.edge.style.opacity = String(Math.round(own.red * 100) / 100);
-    o.glitch.style.display = own.glitch ? "block" : "none";
-    if (own.glitch) {
-      o.glitch.style.top = `${Math.round(Math.random() * 60)}%`;
-      o.glitch.style.opacity = String(0.2 + Math.random() * 0.3);
-    }
-    o.words.style.display = own.words ? "block" : "none";
-    if (o.words.textContent !== own.words) o.words.textContent = own.words;
-    const narrow = innerWidth < innerHeight;
-    o.pill.style.bottom = narrow ? "24%" : "104px";
-    o.pill.style.opacity = String(Math.round(own.health.shown * 100) / 100);
-    const what = `${own.health.value}/${own.health.full}/${Math.round(own.health.growing * 12)}/${own.health.down}/${accent}`;
-    if (what !== o.painted && own.health.shown > 0.02) {
-      o.painted = what;
-      const g = o.pill.getContext("2d");
-      if (g) {
-        g.clearRect(0, 0, o.pill.width, o.pill.height);
-        paintHealth(g, o.pill.width, o.pill.height, { value: own.health.value, full: own.health.full, accent, growing: own.health.growing, down: own.health.down });
-      }
-    }
-  }
-  function items(options) {
-    const parts3 = engineParts();
-    if (on) return JSON.stringify({ ok: true, rule: on.rule });
-    const o = read4(options);
-    const rule = cleanItemsRule(o.rule);
-    if (!parts3) return JSON.stringify({ ok: false, rule, why: "menu-first" });
-    if (rule === "none") return JSON.stringify({ ok: false, rule, why: "no-items" });
-    const relays = Array.isArray(o.relays) ? o.relays.filter((r) => typeof r === "string") : void 0;
-    const store = createItemStore(relays?.length ? { relays } : {});
-    const world2 = engineWorld();
-    const { scene, camera, rig } = world2;
-    const nothing = async () => new Group();
-    const shapeless = { ...store, model: nothing, sent: nothing, marker: () => new Group(), clips: () => [] };
-    const { controls: controls2, sounds: sounds2 } = parts3;
-    const me = () => hereAs()?.pubkey ?? null;
-    const state = on = {
-      rule,
-      store,
-      world: world2,
-      held: null,
-      asked: { sha: "" },
-      models: /* @__PURE__ */ new Map(),
-      wantSight: false,
-      accent: controls2.theme.accent,
-      overlay: makeOverlay(),
-      play: null,
-      presses: null
-    };
-    state.play = createPlay({
-      scene,
-      camera,
-      rig,
-      items: shapeless,
-      sounds: sounds2,
-      rule: () => rule,
-      ...o.box === false ? {} : { scripts: typeof o.box === "string" && o.box ? { url: o.box } : true },
-      // With nobody else to be seen yet in a world drawn this way, there is nobody to tell and nobody to reach.
-      me: () => null,
-      people: () => [],
-      tell: () => {
-      },
-      deferred: true,
-      presenting: () => world2.presenting,
-      sighting: () => world2.sighting,
-      theme: () => ({ accent: controls2.theme.accent, motion: controls2.theme.motion }),
-      onChange: () => state.presses?.refresh()
-    });
-    const hold = async (coordinate2, tints) => {
-      if (!coordinate2) {
-        const had = !!state.held;
-        state.held = null;
-        state.wantSight = false;
-        await state.play.held(null, null);
-        return { ok: true, said: had ? "Put away." : "You are holding nothing." };
-      }
-      const described = showsItems() ? await store.describe(coordinate2) : null;
-      const may = mayHold(described, { rule, scripts: o.box !== false, asked: state.asked });
-      if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
-      state.held = { item: described, tints: cleanTints(described, tints ?? {}) };
-      want(described);
-      for (const send of described.sends) want(send);
-      await state.play.held(described, new Group());
-      return { ok: true, said: `You are holding ${described.title}.` };
-    };
-    const bag = createBag({ me, ...relays?.length ? { relays } : {} });
-    const bagging = addBagControls(controls2, {
-      bag,
-      items: store,
-      me,
-      rule: () => rule,
-      holding: () => state.held?.item.id ?? "",
-      hold,
-      tinted: (item, tints) => {
-        if (state.held?.item.id === item) state.held = { item: state.held.item, tints: cleanTints(state.held.item, tints) };
-      },
-      presenting: () => world2.presenting
-    });
-    onHereAs(() => bagging.refresh());
-    state.presses = addItemControls(controls2, {
-      play: () => state.play,
-      holdingHand: () => -1,
-      dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
-      sight: (wanted) => void (state.wantSight = wanted)
-    });
-    addFramePart(itemsFrame);
-    return JSON.stringify({ ok: true, rule });
-  }
-  function itemsFrame(i, dt) {
-    const state = on;
-    if (!state) return {};
-    const presenting = state.world.presenting;
-    for (const m of Array.isArray(i.met) ? i.met.slice(0, 64) : []) {
-      const at = three(m?.at);
-      if (at && typeof m.key === "string") state.play.met(m.key, num3(m.step, -1), num3(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
-    }
-    for (const f of Array.isArray(i.floors) ? i.floors.slice(0, 64) : []) {
-      if (typeof f?.key === "string") state.play.floored(f.key, num3(f.y, NaN));
-    }
-    state.play.update(dt);
-    const now = state.play.snapshot();
-    for (const thing of now.things) if (!state.models.has(thing.model)) state.models.set(thing.model, "!");
-    if (state.overlay) paint(state.overlay, now.own, state.accent, presenting);
-    const held = state.held;
-    return {
-      rule: state.rule,
-      held: held ? { id: held.item.id, title: held.item.title, model: held.item.model.sha256, size: held.item.size, tints: Object.fromEntries(held.item.tints.map((t) => [t.slot, held.tints[t.slot] ?? t.color])), aim: held.item.aim, acts: !!state.play.does } : null,
-      sight: state.wantSight && !!held?.item.aim && !presenting,
-      ...now
-    };
-  }
-  function model(sha) {
-    return typeof sha === "string" ? on?.models.get(sha) ?? "" : "";
-  }
-  function itemTap(press) {
-    const p = read4(press);
-    const from = three(p.from);
-    const dir = three(p.dir);
-    if (!on || !from || !dir) return false;
-    return on.presses.tap({ origin: new Vector3().fromArray(from), direction: new Vector3().fromArray(dir).normalize() }, num3(p.heldMs, 0));
-  }
-  function itemUse(toward) {
-    if (!on?.play.does?.use) return false;
-    const to = three(read4(toward).to);
-    on.play.use(to ? new Vector3().fromArray(to) : void 0);
-    return true;
-  }
-  function itemSecond() {
-    if (!on?.play.does?.second) return false;
-    on.play.second();
-    return true;
   }
 
   // packages/sdk/src/alloy.ts
@@ -33377,6 +32179,961 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     });
   }
 
+  // packages/sdk/src/item-box.ts
+  function runInBox(script, on3, opts = {}) {
+    if (typeof document === "undefined") return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const frame2 = document.createElement("iframe");
+      frame2.setAttribute("sandbox", "allow-scripts");
+      frame2.setAttribute("aria-hidden", "true");
+      frame2.tabIndex = -1;
+      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
+      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
+      let running = false;
+      let over = false;
+      let began = 0;
+      let ticking;
+      const say2 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
+      const end = (why) => {
+        if (over) return;
+        over = true;
+        const was = running;
+        running = false;
+        clearInterval(ticking);
+        clearTimeout(giveUp);
+        removeEventListener("message", heard);
+        frame2.remove();
+        if (was) on3.stopped?.(why);
+        else resolve(null);
+      };
+      const run2 = {
+        tell(event, arg) {
+          if (running) say2({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
+        },
+        stop: () => end("asked"),
+        get running() {
+          return running;
+        }
+      };
+      const heard = (e) => {
+        if (e.source !== frame2.contentWindow) return;
+        const m = e.data;
+        if (!m || m.nswpItemBox !== 1) return;
+        if (m.t === "ready") say2({ t: "run", script });
+        else if (m.t === "started" && !running && !over) {
+          running = true;
+          began = performance.now();
+          clearTimeout(giveUp);
+          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
+          resolve(run2);
+        } else if (m.t === "ask" && running) {
+          const ask = cleanAsk(m.name, m.args);
+          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
+        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
+        else if (m.t === "error" && !running) end("failed");
+      };
+      addEventListener("message", heard);
+      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
+      frame2.addEventListener("error", () => end("no box"));
+      document.body.append(frame2);
+    });
+  }
+
+  // packages/sdk/src/play.ts
+  var SCRIPT_KEPT = "nswp:item-scripts";
+  function scriptAllowed(sha2562) {
+    try {
+      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
+    } catch {
+      return false;
+    }
+  }
+  function allowScript(sha2562) {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
+      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
+    } catch {
+    }
+  }
+  function mayHold(described, o) {
+    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+    if (!described) return { ok: false, said: "That item's description couldn't be found." };
+    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
+      if (o.asked.sha !== described.script.sha256) {
+        o.asked.sha = described.script.sha256;
+        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+      }
+      allowScript(described.script.sha256);
+    }
+    return { ok: true };
+  }
+  function drawn(width, height, paint2) {
+    if (typeof document === "undefined") {
+      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
+      blank.userData.nswpNoHit = true;
+      return blank;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const g = canvas.getContext("2d");
+    if (g) paint2(g);
+    const map = new CanvasTexture(canvas);
+    map.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
+    sprite.renderOrder = 999;
+    sprite.userData.nswpNoHit = true;
+    return sprite;
+  }
+  var repaint = (sprite, paint2) => {
+    const map = sprite.material.map;
+    if (!map) return;
+    const canvas = map.image;
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    paint2(g, canvas.width, canvas.height);
+    map.needsUpdate = true;
+  };
+  var WARN = "#ff5d52";
+  var paintHealth = (g, w, h, o) => {
+    const low = o.value <= Math.ceil(o.full / 3);
+    const ink = o.down || low ? WARN : o.accent;
+    g.fillStyle = "rgba(10,12,16,0.8)";
+    g.beginPath();
+    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
+    g.fill();
+    g.globalAlpha = 0.5;
+    g.strokeStyle = ink;
+    g.lineWidth = 2.5;
+    g.stroke();
+    g.globalAlpha = 1;
+    let x0 = h * 0.42;
+    if (o.heart !== false) {
+      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
+      g.fillStyle = ink;
+      g.beginPath();
+      g.arc(cx - r, cy, r, Math.PI, 0);
+      g.arc(cx + r, cy, r, Math.PI, 0);
+      g.lineTo(cx, cy + r * 2.5);
+      g.closePath();
+      g.fill();
+      x0 = h * 1.02;
+    }
+    const x1 = w - h * 0.42;
+    if (o.down) {
+      g.fillStyle = WARN;
+      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
+      return;
+    }
+    const gap = h * 0.11;
+    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
+    const [top, tall] = [h * 0.3, h * 0.4];
+    for (let i = 0; i < o.full; i++) {
+      const x = x0 + i * (each + gap);
+      g.fillStyle = "rgba(255,255,255,0.14)";
+      g.beginPath();
+      g.roundRect(x, top, each, tall, tall / 3);
+      g.fill();
+      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
+      if (part <= 0) continue;
+      g.globalAlpha = i < o.value ? 1 : 0.55;
+      g.fillStyle = ink;
+      g.beginPath();
+      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
+      g.fill();
+      g.globalAlpha = 1;
+    }
+  };
+  function viaOf(shot, t0, t1) {
+    const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
+    if (!(pieces > 1)) return {};
+    return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + (t1 - t0) * (i + 1) / pieces)) };
+  }
+  function createPlay(o) {
+    const things = [];
+    const pending = /* @__PURE__ */ new Set();
+    const heardShots = /* @__PURE__ */ new Map();
+    const rates = /* @__PURE__ */ new Map();
+    const bars = /* @__PURE__ */ new Map();
+    const blinking = /* @__PURE__ */ new Set();
+    const mixers = /* @__PURE__ */ new Map();
+    const soundsOf = /* @__PURE__ */ new Map();
+    const ray = new Raycaster();
+    const v2 = new Vector3();
+    const w = new Vector3();
+    let clock = 0;
+    let lastAt = null;
+    let sent = 0;
+    let landed = 0;
+    let taken = 0;
+    let nextId = Math.floor(Math.random() * 1e3);
+    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
+    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
+    const hud2 = new Group();
+    hud2.userData.nswpNoHit = true;
+    if (!o.deferred) o.camera.add(hud2);
+    const cross = drawn(64, 64, (g) => {
+      g.strokeStyle = "rgba(255,255,255,0.9)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(32, 32, 9, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = "rgba(255,255,255,0.9)";
+      g.fillRect(31, 31, 2, 2);
+    });
+    cross.position.set(0, 0, -1);
+    cross.scale.setScalar(0.035);
+    cross.visible = false;
+    const mark = drawn(64, 64, (g) => {
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 6;
+      g.lineCap = "round";
+      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
+        g.beginPath();
+        g.moveTo(a, b);
+        g.lineTo(c, e);
+        g.stroke();
+      }
+    });
+    mark.position.set(0, 0, -1);
+    mark.scale.setScalar(0.07);
+    mark.visible = false;
+    let markUntil = 0;
+    const accent = () => o.theme?.().accent ?? "#7be495";
+    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
+    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
+    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+    ownBar.scale.set(0.3, 0.05, 1);
+    ownBar.material.opacity = 0;
+    ownBar.visible = false;
+    const edge = drawn(256, 256, (g) => {
+      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
+      fade.addColorStop(0, "rgba(255,70,60,0)");
+      fade.addColorStop(1, "rgba(255,70,60,0.95)");
+      g.fillStyle = fade;
+      g.fillRect(0, 0, 256, 256);
+    });
+    edge.position.set(0, 0, -0.6);
+    edge.renderOrder = 997;
+    edge.visible = false;
+    const glitch = drawn(8, 128, (g) => {
+      for (let y = 0; y < 128; ) {
+        const tall = 1 + Math.floor(Math.random() * 7);
+        const kind = Math.random();
+        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
+        g.fillRect(0, y, 8, tall);
+        y += tall;
+      }
+    });
+    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
+    glitch.position.set(0, 0, -0.58);
+    glitch.renderOrder = 998;
+    glitch.visible = false;
+    hud2.add(cross, mark, ownBar, edge, glitch);
+    const paintOwn = () => {
+      const down = own.downUntil > 0;
+      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
+      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
+      own.painted = clock;
+    };
+    const sayState = () => {
+      const said2 = buildState({ name: "health", value: own.value, full: own.full });
+      if (said2 && o.me()) o.tell(said2);
+      paintOwn();
+      own.shownUntil = clock + 2.5;
+      o.onChange?.();
+    };
+    const soundOf = (item2, name) => {
+      const named = item2.sounds[name];
+      if (!named || !o.sounds) return Promise.resolve(null);
+      let got = soundsOf.get(named.sha256);
+      if (!got) {
+        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
+        soundsOf.set(named.sha256, got);
+      }
+      return got;
+    };
+    const lastTake = /* @__PURE__ */ new Map();
+    const take = (item2, name) => {
+      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
+      if (takes.length < 2) return name;
+      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
+      const chosen = others[Math.floor(Math.random() * others.length)];
+      lastTake.set(`${item2.id}:${name}`, chosen);
+      return chosen;
+    };
+    const hear = (item2, said2, at) => {
+      if (!said2 || !o.sounds || !active()) return;
+      const name = take(item2, said2);
+      void soundOf(item2, name).then((sound) => {
+        if (!sound || !o.sounds) return;
+        if (!at) return o.sounds.playForeign(sound);
+        o.camera.getWorldPosition(v2);
+        const to = w.copy(at).sub(v2);
+        const distance = to.length();
+        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
+        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
+        o.sounds.playForeign(sound, { distance, pan });
+      });
+    };
+    let clipsSaid = [];
+    const animate = (item2, model3, name, who2 = "") => {
+      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
+      if (!model3) return;
+      const clip = o.items.clips(item2).find((c) => c.name === name);
+      if (!clip) return;
+      let mixer = mixers.get(model3);
+      if (!mixer) {
+        mixer = new AnimationMixer(model3);
+        mixers.set(model3, mixer);
+      }
+      const action = mixer.clipAction(clip);
+      action.reset();
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = false;
+      action.play();
+    };
+    let solids = [];
+    let solidsAt = -1e9;
+    const worldShapes = () => {
+      if (clock - solidsAt < 1.5) return solids;
+      solidsAt = clock;
+      const found2 = [];
+      const walk2 = (node) => {
+        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
+        const mesh = node;
+        if (mesh.isMesh && mesh.geometry) {
+          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
+          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
+        }
+        for (const child of node.children) walk2(child);
+      };
+      walk2(o.scene);
+      solids = found2;
+      return solids;
+    };
+    const floorUnder = (at) => {
+      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
+      ray.far = 60;
+      const hit = ray.intersectObjects(worldShapes(), false)[0];
+      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
+    };
+    const drop = (thing) => {
+      if (thing.state === "falling" || thing.state === "lying") return;
+      o.scene.attach(thing.object);
+      thing.state = "falling";
+      thing.fall = 0;
+      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
+    };
+    const TRAIL_STEPS = 14;
+    const TRAIL_WIDTH = 0.026;
+    const makeTrail = (color) => {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      const index = [];
+      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geometry.setIndex(index);
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
+      mesh.frustumCulled = false;
+      mesh.userData.nswpNoHit = true;
+      mesh.userData.base = new Color(color);
+      o.scene.add(mesh);
+      return mesh;
+    };
+    const dropTrail = (thing) => {
+      if (!thing.trail) return;
+      thing.trail.removeFromParent();
+      thing.trail.geometry.dispose();
+      thing.trail.material.dispose();
+      thing.trail = null;
+    };
+    const eye = new Vector3();
+    const drawTrail = (thing) => {
+      const mesh = thing.trail;
+      if (!mesh) return;
+      const head = thing.landedAt ?? thing.t;
+      const tail = Math.max(0, thing.t - thing.trailSeconds);
+      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
+      mesh.visible = true;
+      o.camera.getWorldPosition(eye);
+      const position = mesh.geometry.getAttribute("position");
+      const color = mesh.geometry.getAttribute("color");
+      const base = mesh.userData.base;
+      const left = Math.min(1, (head - tail) / thing.trailSeconds);
+      const p = new Vector3();
+      const q2 = new Vector3();
+      const side = new Vector3();
+      for (let i = 0; i <= TRAIL_STEPS; i++) {
+        const f = i / TRAIL_STEPS;
+        const t = head - (head - tail) * f;
+        p.fromArray(shotAt(thing.shot, t));
+        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
+        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
+        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
+        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
+        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
+        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
+        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
+      }
+      position.needsUpdate = true;
+      color.needsUpdate = true;
+    };
+    const gone = (thing) => {
+      dropTrail(thing);
+      thing.object.removeFromParent();
+      const at = things.indexOf(thing);
+      if (at >= 0) things.splice(at, 1);
+    };
+    const launch = async (by, item2, shot) => {
+      const send = item2.sends.find((s) => s.name === shot.name);
+      if (!send || !active()) return;
+      const born = clock;
+      pending.add(`${by}:${shot.id}`);
+      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
+      const inner = await o.items.sent(item2, shot.name, tints);
+      if (!active()) return void pending.delete(`${by}:${shot.id}`);
+      inner.position.y -= send.size[1] / 2;
+      const object = new Group();
+      object.userData.nswpNoHit = true;
+      object.add(inner);
+      object.position.fromArray(shot.from);
+      o.scene.add(object);
+      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
+      const trailSeconds = send.trail ?? 0;
+      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
+      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
+      things.push(thing);
+      pending.delete(`${by}:${shot.id}`);
+      const late = Math.min(PLAY_LIMITS.life, clock - born);
+      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
+    };
+    const stick = (thing, at, onto, on3) => {
+      thing.object.position.copy(at);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
+      if (onto) onto.attach(thing.object);
+      thing.state = "stuck";
+      thing.on = on3;
+      thing.until = thing.t + thing.shot.stick;
+    };
+    const self2 = () => {
+      const head = o.camera.getWorldPosition(new Vector3());
+      const floor = o.rig.getWorldPosition(new Vector3()).y;
+      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
+    };
+    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
+    const reached = (thing, at) => {
+      const me = self2();
+      taken++;
+      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
+      const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
+      if (said2) o.tell(said2);
+      hear(thing.item, thing.send.strikes, null);
+      if (effect && clock >= own.downUntil) {
+        own.value = struck(own.value, effect.take);
+        own.struckAt = clock;
+        own.regenAt = 0;
+        own.flash = 1;
+        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
+        sayState();
+      }
+      gone(thing);
+    };
+    const fly = (thing, dt) => {
+      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
+      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
+      const step = b.clone().sub(a);
+      const length = step.length();
+      let first = 1.0001;
+      let done = null;
+      if (o.deferred && thing.late) {
+        const late = thing.late;
+        thing.late = null;
+        thing.landedAt = late.t;
+        thing.ref = late.ref;
+        stick(thing, late.point, null, "world");
+        hear(thing.item, thing.send.lands, late.point);
+        return;
+      }
+      if (!o.deferred && length > 1e-6) {
+        ray.set(a, step.clone().divideScalar(length));
+        ray.far = length;
+        const hit = ray.intersectObjects(worldShapes(), false)[0];
+        if (hit) {
+          first = hit.distance / length;
+          done = () => {
+            stick(thing, hit.point, hit.object, "world");
+            hear(thing.item, thing.send.lands, hit.point);
+            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
+          };
+        }
+      }
+      const me = o.me();
+      if (me && thing.by !== me && !muted(thing.by)) {
+        const mine = self2();
+        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => reached(thing, a.clone().addScaledVector(step, t));
+        }
+      }
+      for (const p of o.people()) {
+        if (p.pubkey === thing.by) continue;
+        const shape = shapeOf2(p);
+        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => {
+            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
+            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
+          };
+        }
+      }
+      const before = thing.t;
+      thing.t += dt;
+      if (done) {
+        thing.landedAt = before + dt * Math.min(1, first);
+        return done();
+      }
+      thing.object.position.copy(b);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      thing.object.lookAt(w.copy(b).add(going));
+      if (thing.t > PLAY_LIMITS.life) gone(thing);
+    };
+    let item = null;
+    let model2 = null;
+    let box = null;
+    let scriptState = "none";
+    let stoppedBecause = "";
+    let words2 = "";
+    let wordsSprite = null;
+    let holdingNo = 0;
+    const showWords = (text) => {
+      words2 = text;
+      if (wordsSprite) {
+        repaint(wordsSprite, (g, cw, ch) => {
+          if (!text) return;
+          g.font = "600 44px system-ui, sans-serif";
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          const wide = Math.min(cw - 8, g.measureText(text).width + 36);
+          g.fillStyle = "rgba(8,10,14,0.72)";
+          g.beginPath();
+          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
+          g.fill();
+          g.fillStyle = "#ffffff";
+          g.fillText(text, cw / 2, ch / 2 + 2, cw - 24);
+        });
+      }
+      o.onChange?.();
+    };
+    let pointed = null;
+    const wall = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+    const aim = (lift) => {
+      const said2 = o.aim?.();
+      let from;
+      let to;
+      const tapped = pointed && wall() < pointed.until ? pointed.to : null;
+      pointed = null;
+      if (said2) ({ from, to } = said2);
+      else if (tapped || o.sighting?.()) {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
+        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      } else {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
+        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      }
+      const dir = to.clone().sub(from).normalize();
+      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
+      return { from, dir };
+    };
+    const asked = (ask) => {
+      if (!item || !active()) return;
+      if (ask.ask === "show") return showWords(ask.text);
+      if (ask.ask === "play") {
+        if (!item.sounds[ask.name]) return;
+        hear(item, ask.name, null);
+        const said3 = buildDid({ kind: "sound", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask === "clip") {
+        animate(item, model2, ask.name);
+        const said3 = buildDid({ kind: "clip", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
+      const { from, dir } = aim(ask.lift);
+      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
+      const said2 = buildShot(shot);
+      const read6 = said2 ? parseShot(said2) : null;
+      if (!said2 || !read6) return;
+      sent++;
+      void launch(o.me() ?? "", item, read6);
+      if (o.me()) o.tell(said2);
+    };
+    const refreshOwn = () => {
+      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
+    };
+    const isPresenting = () => !!o.presenting?.();
+    return {
+      async held(next, drawnFor) {
+        const no = ++holdingNo;
+        if (box) {
+          box.tell("away");
+          const old = box;
+          box = null;
+          setTimeout(() => old.stop(), 250);
+        }
+        if (model2) mixers.delete(model2);
+        wordsSprite?.removeFromParent();
+        wordsSprite = null;
+        item = next;
+        model2 = drawnFor;
+        scriptState = "none";
+        stoppedBecause = "";
+        words2 = "";
+        refreshOwn();
+        o.onChange?.();
+        if (!next || !drawnFor || !active()) return;
+        if (next.does.use || next.script) {
+          wordsSprite = drawn(256, 72, () => {
+          });
+          wordsSprite.scale.set(0.1, 0.028, 1);
+          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
+          drawnFor.add(wordsSprite);
+        }
+        for (const s of next.sends) void o.items.sent(next, s.name);
+        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
+        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
+        const text = await o.items.script(next);
+        if (!text || no !== holdingNo) return;
+        const run2 = await runInBox(
+          text,
+          {
+            ask: (ask) => void (no === holdingNo && asked(ask)),
+            stopped: (why) => {
+              if (no !== holdingNo) return;
+              scriptState = "stopped";
+              stoppedBecause = why;
+              box = null;
+              showWords("");
+            }
+          },
+          typeof o.scripts === "object" ? o.scripts : {}
+        );
+        if (no !== holdingNo) return run2?.stop();
+        box = run2;
+        scriptState = run2 ? "running" : "stopped";
+        if (!run2) stoppedBecause = "no box";
+        run2?.tell("held");
+        o.onChange?.();
+      },
+      use(toward) {
+        if (!active() || !box) return;
+        pointed = toward ? { to: toward.clone(), until: wall() + 1500 } : null;
+        box.tell("use");
+      },
+      second() {
+        if (active()) box?.tell("second");
+      },
+      get does() {
+        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
+      },
+      get words() {
+        return words2;
+      },
+      get health() {
+        return { value: own.value, full: own.full };
+      },
+      heard(from, said2) {
+        if (!active() || muted(from)) return;
+        const person = o.people().find((p) => p.pubkey === from);
+        if (!person) return;
+        const state = parseState(said2);
+        if (state) {
+          let shown4 = bars.get(from);
+          if (!shown4) {
+            const sprite = drawn(320, 56, () => {
+            });
+            sprite.scale.set(0.44, 0.077, 1);
+            sprite.position.set(0, 0.62, 0);
+            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
+            bars.set(from, shown4);
+          }
+          shown4.value = state.value;
+          shown4.full = Math.min(state.full, 12);
+          shown4.until = clock + (state.value < state.full ? 30 : 2);
+          person.over.add(shown4.sprite);
+          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
+          return;
+        }
+        const hit = parseHit(said2);
+        if (hit) {
+          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
+          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
+          thing.agreed = true;
+          const feet = shapeOf2(person).feet;
+          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
+          if (thing.on !== from) stick(thing, at, person.body, from);
+          thing.agreeBy = null;
+          hear(thing.item, thing.send.strikes, at);
+          if (hit.by === o.me()) {
+            hear(thing.item, thing.send.tells, null);
+            landed++;
+            mark.visible = true;
+            markUntil = clock + 0.22;
+            o.onChange?.();
+          }
+          return;
+        }
+        if (!person.holding) return;
+        const did = parseDid(said2);
+        const shot = did ? null : parseShot(said2);
+        if (!did && !shot) return;
+        if (shot) {
+          let rate = rates.get(from);
+          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
+          if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+          if (!rate.take(clock * 1e3)) return;
+          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
+        }
+        if (shot) {
+          heardShots.set(`${from}:${shot.id}`, clock);
+          if (heardShots.size > 256) {
+            for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
+          }
+        }
+        const does = (holding) => {
+          if (!holding) return;
+          if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : void 0, person.head);
+          else if (did) animate(holding, person.held, did.name, from);
+          else if (shot) void launch(from, holding, shot);
+        };
+        const known = o.items.known(person.holding);
+        if (known) does(known);
+        else {
+          if (shot) pending.add(`${from}:${shot.id}`);
+          const born = clock;
+          void o.items.describe(person.holding).then((found2) => {
+            if (shot) pending.delete(`${from}:${shot.id}`);
+            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
+          });
+        }
+      },
+      left(pubkey) {
+        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
+        bars.get(pubkey)?.sprite.removeFromParent();
+        bars.delete(pubkey);
+        rates.delete(pubkey);
+        for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
+      },
+      update(frame2) {
+        const at = typeof performance === "undefined" ? null : performance.now();
+        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
+        lastAt = at;
+        clock += dt;
+        for (const mixer of mixers.values()) mixer.update(dt);
+        if (mark.visible && clock > markUntil) mark.visible = false;
+        refreshOwn();
+        if (own.downUntil) {
+          if (clock >= own.downUntil) {
+            own.value = own.full;
+            own.downUntil = 0;
+            own.regenAt = 0;
+            sayState();
+          }
+        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
+          if (!own.regenAt) own.regenAt = clock;
+          if (clock - own.regenAt >= HEALTH.regenSeconds) {
+            own.value += 1;
+            own.regenAt = own.value < own.full ? clock : 0;
+            sayState();
+          }
+        }
+        const on3 = active();
+        const down = own.downUntil > 0;
+        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
+        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
+        const wide = tall * o.camera.aspect;
+        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
+        const scale = Math.min(0.3, wide * 0.62);
+        ownBar.scale.set(scale, scale / 6, 1);
+        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
+        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
+        ownBar.visible = own.shown > 0.02;
+        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
+        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
+        own.flash = Math.max(0, own.flash - dt / 0.55);
+        const low = !down && own.value < own.full && own.value <= 1;
+        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+        edge.visible = red > 0.01;
+        edge.material.opacity = red;
+        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
+        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
+        if (glitch.visible) {
+          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
+          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
+          glitch.material.opacity = 0.18 + Math.random() * 0.3;
+          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
+        }
+        const people2 = o.people();
+        for (const [who2, shown4] of bars) {
+          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
+          const person = people2.find((x) => x.pubkey === who2);
+          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
+          if (person?.root) {
+            if (out && lively()) {
+              person.root.visible = person.root.visible && Math.random() > 0.3;
+              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
+              blinking.add(who2);
+            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
+          }
+        }
+        for (const thing of [...things]) {
+          if (thing.state === "flying") {
+            let left = Math.min(dt, 0.5);
+            const from = thing.t;
+            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
+              const step = Math.min(0.03, left);
+              fly(thing, step);
+              left -= step;
+            }
+            if (o.deferred && thing.state === "flying" && thing.t > from) {
+              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
+              if (thing.steps.length > 6) thing.steps.shift();
+            }
+            drawTrail(thing);
+          } else if (thing.state === "stuck") {
+            thing.t += dt;
+            drawTrail(thing);
+            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
+            else if (thing.t > thing.until) drop(thing);
+            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
+          } else if (thing.state === "falling") {
+            thing.t += dt;
+            drawTrail(thing);
+            thing.fall += GRAVITY * dt;
+            thing.object.position.y -= thing.fall * dt;
+            thing.object.rotation.x += dt * 5;
+            if (thing.object.position.y <= thing.floor + 0.02) {
+              thing.object.position.y = thing.floor + 0.02;
+              thing.state = "lying";
+              thing.until = 0.6;
+              hear(thing.item, thing.send.drops, thing.object.position);
+            }
+          } else {
+            thing.until -= dt;
+            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
+            if (thing.until <= 0) gone(thing);
+          }
+        }
+      },
+      snapshot() {
+        const clips = clipsSaid;
+        clipsSaid = [];
+        const q2 = new Quaternion();
+        const at = new Vector3();
+        const three2 = (x) => [x.x, x.y, x.z];
+        return {
+          things: things.map((t) => {
+            t.object.getWorldPosition(at);
+            t.object.getWorldQuaternion(q2);
+            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
+            return {
+              key: `${t.by}:${t.shot.id}`,
+              model: t.send.model.sha256,
+              size: t.send.size,
+              tints: t.tints,
+              state: t.state,
+              on: t.on,
+              ref: t.ref,
+              at: three2(at),
+              turn: [q2.x, q2.y, q2.z, q2.w],
+              scale: t.object.scale.x,
+              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
+              down: t.state === "falling" && !t.flooredAt
+            };
+          }),
+          trails: things.flatMap((t) => {
+            const mesh = t.trail;
+            if (!mesh || !mesh.visible) return [];
+            const position = mesh.geometry.getAttribute("position");
+            const color = mesh.geometry.getAttribute("color");
+            const base = mesh.userData.base;
+            const most = Math.max(base.r, base.g, base.b, 1e-6);
+            const points = [];
+            for (let i = 0; i < position.count; i += 2) {
+              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
+            }
+            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
+          }),
+          own: {
+            cross: cross.visible,
+            mark: mark.visible,
+            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
+            red: edge.visible ? edge.material.opacity : 0,
+            glitch: glitch.visible,
+            words: words2
+          },
+          clips
+        };
+      },
+      met(key, step, fraction, point, ref = "") {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        const tested = thing?.steps.find((s) => s.n === step);
+        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
+        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
+      },
+      floored(key, y) {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
+        thing.flooredAt = true;
+        thing.floor = y;
+      },
+      info() {
+        const count = (state) => things.filter((t) => t.state === state).length;
+        return {
+          flying: count("flying"),
+          stuck: count("stuck"),
+          falling: count("falling") + count("lying"),
+          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
+          sent,
+          landed,
+          taken,
+          health: { value: own.value, full: own.full },
+          words: words2,
+          script: scriptState,
+          stoppedBecause,
+          marked: mark.visible,
+          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
+        };
+      },
+      dispose() {
+        box?.stop();
+        for (const thing of [...things]) gone(thing);
+        for (const b of bars.values()) b.sprite.removeFromParent();
+        hud2.removeFromParent();
+      }
+    };
+  }
+
   // packages/sdk/src/presence.ts
   var SEND_EVERY_MS = 66;
   var FADE_START = 0.9;
@@ -33483,9 +33240,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let mine = "";
     let mineModel = null;
     let mineTints = {};
-    const heardTints = (a, said) => {
+    const heardTints = (a, said2) => {
       const described = a?.heldItem ? d.items?.known(a.heldItem) : null;
-      const tints = parseTints(said);
+      const tints = parseTints(said2);
       if (!a || !tints) return;
       a.tints = described ? cleanTints(described, tints) : tints;
       if (described && a.held) applyTints(a.held, described, a.tints);
@@ -33562,14 +33319,18 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       items: d.items,
       sounds: d.sounds ?? null,
       rule: () => itemsRule(),
-      ...d.itemScripts ? { scripts: d.itemScripts } : {},
+      // Asked each time it matters: an engine's world says whether items' own logic runs after this is made.
+      get scripts() {
+        return d.itemScripts ?? false;
+      },
+      ...d.deferredPlay ? { deferred: true } : {},
       me: () => session2?.self.pubkey ?? null,
       people: () => [...avatars.values()].filter((a) => a.target && a.root.visible).map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new Vector3()), body: a.torso, over: a.head, root: a.root, holding: a.heldItem ?? "", held: a.held ?? null })),
       itemsMuted: (pubkey) => itemMutes.has(pubkey),
-      tell: (said) => session2?.tellPlay(said),
+      tell: (said2) => session2?.tellPlay(said2),
       tintsOf: (pubkey) => pubkey === null ? mineTints : avatars.get(pubkey)?.tints ?? {},
       presenting: () => d.renderer.xr.isPresenting,
-      sighting: () => sightK > 0.5,
+      sighting: () => d.sighting ? d.sighting() : sightK > 0.5,
       ...d.theme ? { theme: d.theme } : {},
       // In a headset a thing goes where the hand that holds the item points.
       aim: () => {
@@ -33892,7 +33653,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         changed();
       });
       if (mine) s.setHolding(mine);
-      s.on("play", (m, said) => said.startsWith("tint:") ? heardTints(avatars.get(m.pubkey), said) : play2?.heard(m.pubkey, said));
+      s.on("play", (m, said2) => said2.startsWith("tint:") ? heardTints(avatars.get(m.pubkey), said2) : play2?.heard(m.pubkey, said2));
       sayTints();
       s.on("look", (m, look2) => {
         const a = avatars.get(m.pubkey);
@@ -34022,6 +33783,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       },
       get holding() {
         return mine;
+      },
+      get tints() {
+        return mineTints;
       },
       setTints(tints) {
         const described = mine ? d.items?.known(mine) : null;
@@ -34266,7 +34030,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           light: a.light?.visible ? a.light : null,
           beam: a.beam?.visible ? a.beam : null,
           holding: a.heldItem ?? "",
-          tints: a.tints ?? {}
+          tints: a.tints ?? {},
+          held: a.held ?? null
         }));
       },
       info() {
@@ -34304,6 +34069,323 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
   }
 
+  // packages/sdk/src/engine-presence.ts
+  var said = { rule: "none", scripts: false, relays: void 0 };
+  var store = null;
+  var presence2 = null;
+  var watchers5 = /* @__PURE__ */ new Set();
+  function engineItemStore() {
+    return store ?? (store = createItemStore(said.relays?.length ? { relays: said.relays } : {}));
+  }
+  function engineAllowsItems(rule, scripts, relays) {
+    said.rule = cleanItemsRule(rule);
+    said.scripts = scripts;
+    if (relays?.length && !store) said.relays = relays;
+    return said.rule;
+  }
+  function onEnginePresence(fn) {
+    watchers5.add(fn);
+  }
+  function enginePresence() {
+    if (presence2) return presence2;
+    const parts3 = engineParts();
+    if (!parts3) return null;
+    const world2 = engineWorld();
+    const { controls: controls2, sounds: sounds2 } = parts3;
+    const nothing = async () => new Group();
+    const shapeless = {
+      describe: (id) => engineItemStore().describe(id),
+      known: (id) => engineItemStore().known(id),
+      modelBytes: (named) => engineItemStore().modelBytes(named),
+      sound: (...a) => engineItemStore().sound(...a),
+      script: (...a) => engineItemStore().script(...a),
+      model: nothing,
+      sent: nothing,
+      marker: () => new Group(),
+      clips: () => []
+    };
+    presence2 = createPresence({
+      scene: world2.scene,
+      camera: world2.camera,
+      rig: world2.rig,
+      // No headset session is this script's to start: the engine says whether its visitor is in one.
+      renderer: {
+        xr: {
+          get isPresenting() {
+            return world2.presenting;
+          },
+          getSession: () => null
+        }
+      },
+      controllers: [],
+      items: shapeless,
+      itemsRule: () => said.rule,
+      get itemScripts() {
+        return said.scripts;
+      },
+      sounds: sounds2,
+      theme: () => ({ accent: controls2.theme.accent, motion: controls2.theme.motion }),
+      deferredPlay: true,
+      // The engine brings the thing in hand up to the eye, and says when it is there.
+      sighting: () => world2.sighting,
+      look: () => arrival.look(),
+      identity: () => arrival.identity(),
+      onChange: () => {
+        for (const fn of watchers5) fn();
+      }
+    });
+    const made = presence2;
+    addFramePart((_said, dt) => {
+      made.update(dt);
+      return {};
+    });
+    return presence2;
+  }
+
+  // packages/sdk/src/item-controls.ts
+  var TAP_MS = 320;
+  function addItemControls(controls2, o) {
+    let shown4 = "";
+    const does = () => o.play()?.does ?? null;
+    const refresh = () => {
+      const now = does();
+      const key = now ? `${now.use}|${now.second}` : "";
+      if (key === shown4) return;
+      shown4 = key;
+      controls2.remove("item-use");
+      controls2.remove("item-second");
+      if (!now) return;
+      if (now.use) controls2.add({ id: "item-use", section: "bag", icon: "check", tone: "primary", hotbar: true, lead: true, label: now.use, short: now.use, act: () => o.play()?.use() });
+      if (now.second) controls2.add({ id: "item-second", section: "bag", icon: "turn", hotbar: true, lead: true, label: now.second, short: now.second, act: () => o.play()?.second() });
+      if (now.use) controls2.say(`Tap or click where you want to ${now.use.toLowerCase()}. Hold a press to walk.`);
+    };
+    const typing = (e) => {
+      const at = e.target;
+      return !!at && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName ?? ""));
+    };
+    let sighting = false;
+    const sight = (on3) => {
+      if (on3 === sighting) return;
+      sighting = on3;
+      o.sight?.(on3);
+    };
+    const onDown = (e) => {
+      if (!document.pointerLockElement || !does()) return;
+      if (e.button === 0 && does()?.use) o.play()?.use();
+      else if (e.button === 2) sight(true);
+    };
+    const onUp = (e) => {
+      if (e.button === 2) sight(false);
+    };
+    const onMenu2 = (e) => {
+      if (document.pointerLockElement && does()) e.preventDefault();
+    };
+    const onLock = () => {
+      if (!document.pointerLockElement) sight(false);
+    };
+    const onKey = (e) => {
+      if (e.code === "KeyR" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e) && does()?.second) o.play()?.second();
+    };
+    o.dom?.addEventListener("mousedown", onDown);
+    o.dom?.addEventListener("contextmenu", onMenu2);
+    if (typeof addEventListener === "function") addEventListener("mouseup", onUp);
+    if (typeof document !== "undefined") document.addEventListener("pointerlockchange", onLock);
+    if (typeof addEventListener === "function") addEventListener("keydown", onKey);
+    refresh();
+    return {
+      refresh,
+      tap(ray, heldMs) {
+        if (heldMs >= TAP_MS || !does()?.use) return false;
+        o.play()?.use(ray.origin.clone().addScaledVector(ray.direction, 18));
+        return true;
+      },
+      trigger(hand) {
+        if (hand < 0 || hand !== o.holdingHand() || !does()?.use) return false;
+        o.play()?.use();
+        return true;
+      },
+      dispose() {
+        o.dom?.removeEventListener("mousedown", onDown);
+        o.dom?.removeEventListener("contextmenu", onMenu2);
+        if (typeof removeEventListener === "function") removeEventListener("mouseup", onUp);
+        if (typeof document !== "undefined") document.removeEventListener("pointerlockchange", onLock);
+        sight(false);
+        if (typeof removeEventListener === "function") removeEventListener("keydown", onKey);
+        controls2.remove("item-use");
+        controls2.remove("item-second");
+      }
+    };
+  }
+
+  // packages/sdk/src/engine-items.ts
+  var on = null;
+  var models = /* @__PURE__ */ new Map();
+  function want(named) {
+    if (models.has(named.model.sha256)) return;
+    models.set(named.model.sha256, "");
+    void engineItemStore().modelBytes(named).then((got) => models.set(named.model.sha256, got ? base642(got.bytes) : "!"));
+  }
+  function wantAll(item) {
+    want(item);
+    for (const send of item.sends) want(send);
+  }
+  function makeOverlay() {
+    if (typeof document === "undefined") return null;
+    const el2 = (css, tag2 = "div") => {
+      const e = document.createElement(tag2);
+      e.style.cssText = css;
+      return e;
+    };
+    const root = el2("position:fixed;inset:0;z-index:2147482000;pointer-events:none;overflow:hidden;contain:strict");
+    root.setAttribute("aria-hidden", "true");
+    const centre = "position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;";
+    const cross = el2(`${centre}width:16px;height:16px;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-sizing:border-box`);
+    const mark = el2(`${centre}width:34px;height:34px;background:linear-gradient(45deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%);-webkit-mask:radial-gradient(circle,transparent 5px,#000 6px);mask:radial-gradient(circle,transparent 5px,#000 6px)`);
+    const edge = el2("position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center,rgba(255,70,60,0) 52%,rgba(255,70,60,.95) 100%)");
+    const glitch = el2("position:absolute;left:0;right:0;height:40%;display:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 2px,transparent 2px 9px,rgba(80,240,255,.45) 9px 12px,transparent 12px 23px,rgba(255,70,160,.45) 23px 25px,transparent 25px 41px)");
+    const pill = el2("position:absolute;left:50%;bottom:104px;width:240px;height:40px;transform:translateX(-50%);opacity:0", "canvas");
+    pill.width = 384;
+    pill.height = 64;
+    const words2 = el2("position:absolute;right:17%;bottom:47%;padding:5px 13px;border-radius:13px;background:rgba(8,10,14,.72);color:#fff;font:600 20px system-ui,sans-serif;display:none");
+    root.append(edge, glitch, cross, mark, pill, words2);
+    document.body.append(root);
+    return { root, cross, mark, pill, edge, glitch, words: words2, painted: "" };
+  }
+  function paint(o, own, accent, presenting) {
+    o.root.style.display = presenting ? "none" : "block";
+    if (presenting) return;
+    o.cross.style.display = own.cross ? "block" : "none";
+    o.mark.style.display = own.mark ? "block" : "none";
+    o.edge.style.opacity = String(Math.round(own.red * 100) / 100);
+    o.glitch.style.display = own.glitch ? "block" : "none";
+    if (own.glitch) {
+      o.glitch.style.top = `${Math.round(Math.random() * 60)}%`;
+      o.glitch.style.opacity = String(0.2 + Math.random() * 0.3);
+    }
+    o.words.style.display = own.words ? "block" : "none";
+    if (o.words.textContent !== own.words) o.words.textContent = own.words;
+    const narrow = innerWidth < innerHeight;
+    o.pill.style.bottom = narrow ? "24%" : "104px";
+    o.pill.style.opacity = String(Math.round(own.health.shown * 100) / 100);
+    const what = `${own.health.value}/${own.health.full}/${Math.round(own.health.growing * 12)}/${own.health.down}/${accent}`;
+    if (what !== o.painted && own.health.shown > 0.02) {
+      o.painted = what;
+      const g = o.pill.getContext("2d");
+      if (g) {
+        g.clearRect(0, 0, o.pill.width, o.pill.height);
+        paintHealth(g, o.pill.width, o.pill.height, { value: own.health.value, full: own.health.full, accent, growing: own.health.growing, down: own.health.down });
+      }
+    }
+  }
+  function items(options) {
+    const parts3 = engineParts();
+    if (on) return JSON.stringify({ ok: true, rule: on.rule });
+    const o = read4(options);
+    if (!parts3) return JSON.stringify({ ok: false, rule: "none", why: "menu-first" });
+    const relays = Array.isArray(o.relays) ? o.relays.filter((r) => typeof r === "string") : void 0;
+    const rule = engineAllowsItems(o.rule, o.box === false ? false : typeof o.box === "string" && o.box ? { url: o.box } : true, relays);
+    const presence3 = rule === "none" ? null : enginePresence();
+    const play2 = presence3?.play;
+    if (!presence3 || !play2) return JSON.stringify({ ok: false, rule, why: "no-items" });
+    const world2 = engineWorld();
+    const { controls: controls2 } = parts3;
+    const me = () => hereAs()?.pubkey ?? null;
+    const state = on = {
+      rule,
+      world: world2,
+      presence: presence3,
+      play: play2,
+      wantSight: false,
+      accent: controls2.theme.accent,
+      overlay: makeOverlay(),
+      presses: null
+    };
+    const bag = createBag({ me, ...relays?.length ? { relays } : {} });
+    const bagging = addBagControls(controls2, {
+      bag,
+      items: engineItemStore(),
+      me,
+      rule: () => rule,
+      holding: () => presence3.holding,
+      hold: async (item, tints) => {
+        const done = await presence3.setHolding(item, tints);
+        if (!presence3.holding) state.wantSight = false;
+        return done;
+      },
+      tinted: (item, tints) => void (presence3.holding === item && presence3.setTints(tints)),
+      presenting: () => world2.presenting
+    });
+    onHereAs(() => bagging.refresh());
+    state.presses = addItemControls(controls2, {
+      play: () => play2,
+      holdingHand: () => -1,
+      dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
+      sight: (wanted) => void (state.wantSight = wanted)
+    });
+    onEnginePresence(() => state.presses.refresh());
+    addFrameStart(itemsHeard);
+    addFramePart(itemsFrame);
+    return JSON.stringify({ ok: true, rule });
+  }
+  function itemsHeard(i) {
+    const state = on;
+    if (!state) return;
+    for (const m of Array.isArray(i.met) ? i.met.slice(0, 64) : []) {
+      const at = three(m?.at);
+      if (at && typeof m.key === "string") state.play.met(m.key, num3(m.step, -1), num3(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
+    }
+    for (const f of Array.isArray(i.floors) ? i.floors.slice(0, 64) : []) {
+      if (typeof f?.key === "string") state.play.floored(f.key, num3(f.y, NaN));
+    }
+  }
+  function itemsFrame() {
+    const state = on;
+    if (!state) return {};
+    const presenting = state.world.presenting;
+    const store2 = engineItemStore();
+    const item = state.presence.holding ? store2.known(state.presence.holding) : null;
+    if (item) wantAll(item);
+    else state.wantSight = false;
+    for (const person of state.presence.drawn()) {
+      const theirs = person.holding && person.held ? store2.known(person.holding) : null;
+      if (theirs) wantAll(theirs);
+    }
+    const now = state.play.snapshot();
+    for (const thing of now.things) if (!models.has(thing.model)) models.set(thing.model, "!");
+    if (state.overlay) paint(state.overlay, now.own, state.accent, presenting);
+    const tints = state.presence.tints;
+    return {
+      rule: state.rule,
+      held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does } : null,
+      sight: state.wantSight && !!item?.aim && !presenting,
+      ...now
+    };
+  }
+  function model(sha) {
+    return typeof sha === "string" ? models.get(sha) ?? "" : "";
+  }
+  function itemTap(press) {
+    const p = read4(press);
+    const from = three(p.from);
+    const dir = three(p.dir);
+    if (!on || !from || !dir) return false;
+    return on.presses.tap({ origin: new Vector3().fromArray(from), direction: new Vector3().fromArray(dir).normalize() }, num3(p.heldMs, 0));
+  }
+  function itemUse(toward) {
+    if (!on?.play.does?.use) return false;
+    const to = three(read4(toward).to);
+    on.play.use(to ? new Vector3().fromArray(to) : void 0);
+    return true;
+  }
+  function itemsInfo() {
+    return JSON.stringify(on ? on.play.info() : null);
+  }
+  function itemSecond() {
+    if (!on?.play.does?.second) return false;
+    on.play.second();
+    return true;
+  }
+
   // packages/sdk/src/profiles.ts
   var KEY4 = "nswp:profiles";
   var MOST = 400;
@@ -34325,7 +34407,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   function createProfiles(opts = {}) {
     const now = opts.now ?? (() => Date.now());
     const query = opts.query ?? queryRelays;
-    const store = (() => {
+    const store2 = (() => {
       if (opts.storage !== void 0) return opts.storage;
       try {
         return globalThis.localStorage ?? null;
@@ -34333,13 +34415,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return null;
       }
     })();
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     let kept2 = null;
     const all = () => {
       if (kept2) return kept2;
       kept2 = {};
       try {
-        const read6 = JSON.parse(store?.getItem(KEY4) ?? "{}");
+        const read6 = JSON.parse(store2?.getItem(KEY4) ?? "{}");
         if (read6 && typeof read6 === "object" && !Array.isArray(read6)) {
           for (const [k, v2] of Object.entries(read6)) {
             if (!isHex64(k) || !v2 || typeof v2 !== "object") continue;
@@ -34354,7 +34436,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const entries = Object.entries(all());
       if (entries.length > MOST) kept2 = Object.fromEntries(entries.sort((a, b) => b[1].asked - a[1].asked).slice(0, MOST));
       try {
-        store?.setItem(KEY4, JSON.stringify(kept2));
+        store2?.setItem(KEY4, JSON.stringify(kept2));
       } catch {
       }
     };
@@ -34365,7 +34447,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         const wanted = [...new Set(pubkeys)].filter((k) => isHex64(k) && now() - (book[k]?.asked ?? 0) > FRESH_MS3).slice(0, AT_ONCE);
         if (wanted.length === 0) return;
         const got = await askWell({ kinds: [0], authors: wanted, limit: wanted.length * 2 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).catch(() => null);
-        const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+        const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
         for (const e of got?.events ?? []) {
           if (e.kind !== 0 || !wanted.includes(e.pubkey) || !verifyEvent(e)) continue;
           const had = book[e.pubkey];
@@ -34374,11 +34456,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         }
         if (answered) for (const k of wanted) book[k] = { ...book[k] ?? { name: "", picture: "", about: "", at: 0 }, asked: now() };
         save2();
-        for (const fn of watchers5) fn();
+        for (const fn of watchers6) fn();
       },
       onChange(fn) {
-        watchers5.add(fn);
-        return () => void watchers5.delete(fn);
+        watchers6.add(fn);
+        return () => void watchers6.delete(fn);
       }
     };
   }
@@ -34573,7 +34655,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const query = opts.query ?? queryRelays;
     const publish = opts.publish ?? publishEvent;
     const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const store = (() => {
+    const store2 = (() => {
       if (opts.storage !== void 0) return opts.storage;
       try {
         return globalThis.localStorage ?? null;
@@ -34581,10 +34663,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return null;
       }
     })();
-    const watchers5 = /* @__PURE__ */ new Set();
+    const watchers6 = /* @__PURE__ */ new Set();
     const newcomers = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers5) fn();
+      for (const fn of watchers6) fn();
     };
     let who2 = null;
     let state = "off";
@@ -34602,7 +34684,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (marks) return marks;
       marks = {};
       try {
-        const kept2 = JSON.parse(who2 && store?.getItem(seenKey(who2)) || "{}");
+        const kept2 = JSON.parse(who2 && store2?.getItem(seenKey(who2)) || "{}");
         if (kept2 && typeof kept2 === "object" && !Array.isArray(kept2)) {
           for (const [k, v2] of Object.entries(kept2)) if (isHex64(k) && typeof v2 === "number") marks[k] = v2;
         }
@@ -34637,7 +34719,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const look = async (me) => {
       const lists = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
       if (hand.pubkey() !== me) return;
-      const answered = !!lists && Object.values(lists.relays).some((said) => said === "eose");
+      const answered = !!lists && Object.values(lists.relays).some((said2) => said2 === "eose");
       const relayList = readRelayList(lists?.events ?? [], me);
       own = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
       const found2 = readMessageRelays(lists?.events ?? [], me);
@@ -34662,7 +34744,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (!first && message.from !== me) for (const fn of newcomers) fn(message);
       }
       first = false;
-      state = got && Object.values(got.relays).some((said) => said === "eose") ? "ready" : read6.size ? "ready" : "unreachable";
+      state = got && Object.values(got.relays).some((said2) => said2 === "eose") ? "ready" : read6.size ? "ready" : "unreachable";
       looked = now();
       changed();
     };
@@ -34719,7 +34801,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         const asked = await askWell({ kinds: [MESSAGE_RELAYS_KIND], authors: [to], limit: 4 }, { own: inbox, usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
         const theirs = readMessageRelays(asked?.events ?? [], to);
         if (!theirs.length) {
-          const answered = !!asked && Object.values(asked.relays).some((said) => said === "eose");
+          const answered = !!asked && Object.values(asked.relays).some((said2) => said2 === "eose");
           return { ok: false, said: answered ? `${name || "They"} ${name ? "hasn't" : "haven't"} said where private messages reach them, so one can't be sent. Nothing was sent.` : "No relay could be reached. Nothing was sent." };
         }
         const sealed = await hand.seal(to, text).catch(() => null);
@@ -34730,7 +34812,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (!forThem || !forMe) return { ok: false, said: "It couldn't be wrapped. Nothing was sent." };
         const sent = await publish(theirs, forThem).catch(() => null);
         if (sent) learnFrom(sent.relays, now());
-        if (!sent || !Object.values(sent.relays).some((said) => said === "ok")) return { ok: false, said: `None of the relays ${them === "them" ? "they use" : `${them} uses`} for messages took it. It wasn't sent.` };
+        if (!sent || !Object.values(sent.relays).some((said2) => said2 === "ok")) return { ok: false, said: `None of the relays ${them === "them" ? "they use" : `${them} uses`} for messages took it. It wasn't sent.` };
         tried.add(forMe.id);
         void publish(inbox, forMe).then((kept2) => learnFrom(kept2.relays, now())).catch(() => void 0);
         const m = sealed.message;
@@ -34744,7 +34826,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (!newest || (seenAt()[peer] ?? 0) >= newest) return;
         seenAt()[peer] = newest;
         try {
-          store?.setItem(seenKey(who2), JSON.stringify(seenAt()));
+          store2?.setItem(seenKey(who2), JSON.stringify(seenAt()));
         } catch {
         }
         changed();
@@ -34755,8 +34837,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return n;
       },
       onChange(fn) {
-        watchers5.add(fn);
-        return () => void watchers5.delete(fn);
+        watchers6.add(fn);
+        return () => void watchers6.delete(fn);
       },
       onNew(fn) {
         newcomers.add(fn);
@@ -35050,7 +35132,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return null;
   }
   var JOINED_KEY = () => `nswp:joined:${location.pathname}`;
-  function addRoomControls(controls2, presence2, opts = {}) {
+  function addRoomControls(controls2, presence3, opts = {}) {
     const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
     const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
     const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
@@ -35063,12 +35145,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       controls2.say(text);
     };
     const status = () => {
-      const s = presence2.session;
+      const s = presence3.session;
       if (!s) return last;
       const others = s.members.length;
       const who2 = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
       const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
-      return `${presence2.roomName ? "Private room" : "Open room"}: ${who2}.${as}${presence2.micOn ? " Your microphone is on." : ""}${presence2.musicOn ? ` Your music is offered to people near you: ${presence2.musicListeners === 0 ? "nobody is hearing it" : presence2.musicListeners === 1 ? "1 person is hearing it" : `${presence2.musicListeners} people are hearing it`}.` : ""}${presence2.screenOn ? ` You are sharing your screen: ${presence2.screenViewers === 0 ? "nobody is watching" : presence2.screenViewers === 1 ? "1 person is watching" : `${presence2.screenViewers} people are watching`}.` : ""}`;
+      return `${presence3.roomName ? "Private room" : "Open room"}: ${who2}.${as}${presence3.micOn ? " Your microphone is on." : ""}${presence3.musicOn ? ` Your music is offered to people near you: ${presence3.musicListeners === 0 ? "nobody is hearing it" : presence3.musicListeners === 1 ? "1 person is hearing it" : `${presence3.musicListeners} people are hearing it`}.` : ""}${presence3.screenOn ? ` You are sharing your screen: ${presence3.screenViewers === 0 ? "nobody is watching" : presence3.screenViewers === 1 ? "1 person is watching" : `${presence3.screenViewers} people are watching`}.` : ""}`;
     };
     const waitingFor = /* @__PURE__ */ new Map();
     let watchingSigner = false;
@@ -35138,9 +35220,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
     const followPress = (key, name, adding) => following.press(key, name, adding);
     const refresh = () => {
-      const s = presence2.session;
+      const s = presence3.session;
       opts.onState?.(
-        s ? { name: s.name, private: !!presence2.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence2.micOn, screen: presence2.screenOn, music: presence2.musicOn, musicListeners: presence2.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching2.keys()] } : null
+        s ? { name: s.name, private: !!presence3.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence3.micOn, screen: presence3.screenOn, music: presence3.musicOn, musicListeners: presence3.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching2.keys()] } : null
       );
       controls2.addSection({ id: "room", label: "Room", icon: "room", note: status });
       tendChat();
@@ -35150,15 +35232,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     const remember = () => {
       try {
-        if (presence2.session) sessionStorage.setItem(JOINED_KEY(), presence2.micOn ? "mic" : "joined");
+        if (presence3.session) sessionStorage.setItem(JOINED_KEY(), presence3.micOn ? "mic" : "joined");
         else if (!busy) sessionStorage.removeItem(JOINED_KEY());
       } catch {
       }
     };
     const microphone = async () => {
       try {
-        const track = useTone ? presence2.testTone() : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0];
-        await presence2.setMicrophone(track);
+        const track = useTone ? presence3.testTone() : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0];
+        await presence3.setMicrophone(track);
         return true;
       } catch {
         return false;
@@ -35170,13 +35252,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const w = watching2.get(pubkey);
       if (!w) return;
       watching2.delete(pubkey);
-      presence2.watch(pubkey, false);
+      presence3.watch(pubkey, false);
       w.video.srcObject = null;
       w.texture?.dispose();
       if (!panelGone) w.panel?.close();
     };
     const startWatching = (m) => {
-      const stream = presence2.screenOf(m.pubkey);
+      const stream = presence3.screenOf(m.pubkey);
       if (!opts.panels || !stream || watching2.has(m.pubkey)) return false;
       const video = document.createElement("video");
       video.muted = true;
@@ -35198,7 +35280,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       video.addEventListener("resize", show);
       void video.play().catch(() => {
       });
-      presence2.watch(m.pubkey, true);
+      presence3.watch(m.pubkey, true);
       return true;
     };
     const testScreen = () => {
@@ -35226,20 +35308,20 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let headcount = 0;
     let toldOfMusic = false;
     const blockedNote = () => {
-      const n = presence2.blocked().length;
-      const e = presence2.blockedElsewhere;
+      const n = presence3.blocked().length;
+      const e = presence3.blockedElsewhere;
       return `${n === 0 ? "" : `You have blocked ${n === 1 ? "1 person" : `${n} people`} here: you don't see or hear each other. Unblock anyone below. `}${e === 0 ? "" : `${e === 1 ? "1 person is" : `${e} people are`} blocked wherever you go: that list is kept by the place you set out from, and is changed there. `}`;
     };
-    if (opts.arrived?.blocked?.length) presence2.blockAlso(opts.arrived.blocked);
+    if (opts.arrived?.blocked?.length) presence3.blockAlso(opts.arrived.blocked);
     const recorders = /* @__PURE__ */ new Set();
     const choose = (m) => {
       chosen = m.pubkey;
       people2();
-      presence2.pointOut(m.pubkey);
+      presence3.pointOut(m.pubkey);
       controls2.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
     };
-    presence2.onPerson((pubkey) => {
-      const m = presence2.people().find((x) => x.pubkey === pubkey);
+    presence3.onPerson((pubkey) => {
+      const m = presence3.people().find((x) => x.pubkey === pubkey);
       if (!m) return;
       choose(m);
       controls2.signal("show:people");
@@ -35257,9 +35339,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
     });
     const people2 = () => {
-      const here = presence2.session ? presence2.people() : [];
-      if (presence2.session && here.length !== headcount) controls2.signal(here.length > headcount ? "join" : "leave");
-      headcount = presence2.session ? here.length : 0;
+      const here = presence3.session ? presence3.people() : [];
+      if (presence3.session && here.length !== headcount) controls2.signal(here.length > headcount ? "join" : "leave");
+      headcount = presence3.session ? here.length : 0;
       for (const id of [...listed, ...extras]) controls2.remove(id);
       extras = [];
       listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
@@ -35268,7 +35350,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         id: "people",
         label: "People",
         icon: "people",
-        note: () => `${blockedNote()}${!presence2.session ? "Join the room to see who else is here." : here.length === 0 ? "Nobody else is here yet." : here.some((m) => m.pubkey === chosen) ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told. Who you follow is public." : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one, or press the picture over their head, to see who they are, and to mute their voice or their music, or block them.`}`,
+        note: () => `${blockedNote()}${!presence3.session ? "Join the room to see who else is here." : here.length === 0 ? "Nobody else is here yet." : here.some((m) => m.pubkey === chosen) ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told. Who you follow is public." : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one, or press the picture over their head, to see who they are, and to mute their voice or their music, or block them.`}`,
         // Whoever was chosen, at the head of the section: who they are here, and what they say of themselves.
         card: () => {
           const who3 = here.find((m) => m.pubkey === chosen);
@@ -35289,7 +35371,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
               ...who3.recording ? ["Recording what they see"] : [],
               ...who3.sharing ? ["Sharing their screen"] : [],
               ...who3.music ? ["Sharing music"] : [],
-              ...presence2.isMuted(who3.pubkey) ? ["You have muted their voice"] : []
+              ...presence3.isMuted(who3.pubkey) ? ["You have muted their voice"] : []
             ]
           };
         }
@@ -35357,12 +35439,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           {
             id: "person-mute",
             section: "people",
-            icon: () => presence2.isMuted(who2.pubkey) ? "mic" : "micOff",
-            on: () => presence2.isMuted(who2.pubkey),
-            label: () => presence2.isMuted(who2.pubkey) ? `Unmute ${who2.name}'s voice` : `Mute ${who2.name}'s voice`,
+            icon: () => presence3.isMuted(who2.pubkey) ? "mic" : "micOff",
+            on: () => presence3.isMuted(who2.pubkey),
+            label: () => presence3.isMuted(who2.pubkey) ? `Unmute ${who2.name}'s voice` : `Mute ${who2.name}'s voice`,
             act: () => {
-              const now = !presence2.isMuted(who2.pubkey);
-              presence2.mute(who2.pubkey, now);
+              const now = !presence3.isMuted(who2.pubkey);
+              presence3.mute(who2.pubkey, now);
               controls2.say(now ? `You no longer hear ${who2.name} speak. They still see and hear you, and aren't told.` : `You hear ${who2.name} speak again.`);
             }
           },
@@ -35370,28 +35452,28 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             {
               id: "person-music",
               section: "people",
-              icon: (() => presence2.isMusicMuted(who2.pubkey) ? "sound" : "soundOff"),
-              on: () => presence2.isMusicMuted(who2.pubkey),
-              label: () => presence2.isMusicMuted(who2.pubkey) ? `Unmute ${who2.name}'s music` : `Mute ${who2.name}'s music`,
+              icon: (() => presence3.isMusicMuted(who2.pubkey) ? "sound" : "soundOff"),
+              on: () => presence3.isMusicMuted(who2.pubkey),
+              label: () => presence3.isMusicMuted(who2.pubkey) ? `Unmute ${who2.name}'s music` : `Mute ${who2.name}'s music`,
               act: () => {
-                const now = !presence2.isMusicMuted(who2.pubkey);
-                presence2.muteMusic(who2.pubkey, now);
+                const now = !presence3.isMusicMuted(who2.pubkey);
+                presence3.muteMusic(who2.pubkey, now);
                 controls2.say(
                   now ? `You won't hear music ${who2.name} shares. You still hear them speak.` : sounds2.levels.hearShared ? `You hear ${who2.name}'s music again when they share it and you are near.` : `${who2.name}'s music is no longer muted. To hear anyone's shared music, turn it on in Sound.`
                 );
               }
             }
           ] : [],
-          ...presence2.itemsRule === "allowed" ? [
+          ...presence3.itemsRule === "allowed" ? [
             {
               id: "person-mute-items",
               section: "people",
               icon: "close",
-              on: () => presence2.isItemsMuted(who2.pubkey),
-              label: () => presence2.isItemsMuted(who2.pubkey) ? `Unmute ${who2.name}'s items` : `Mute ${who2.name}'s items`,
+              on: () => presence3.isItemsMuted(who2.pubkey),
+              label: () => presence3.isItemsMuted(who2.pubkey) ? `Unmute ${who2.name}'s items` : `Mute ${who2.name}'s items`,
               act: () => {
-                const now = !presence2.isItemsMuted(who2.pubkey);
-                presence2.muteItems(who2.pubkey, now);
+                const now = !presence3.isItemsMuted(who2.pubkey);
+                presence3.muteItems(who2.pubkey, now);
                 controls2.say(now ? `What ${who2.name}'s items do can't reach you, and you won't see or hear it. They aren't told.` : `${who2.name}'s items are no longer muted.`);
               }
             }
@@ -35403,7 +35485,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             label: `Block ${who2.name}`,
             act: () => {
               stopWatching(who2.pubkey);
-              const name = presence2.block(who2.pubkey);
+              const name = presence3.block(who2.pubkey);
               if (!name) return;
               chosen = null;
               controls2.say(
@@ -35414,7 +35496,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           }
         );
       }
-      for (const b of presence2.blocked()) {
+      for (const b of presence3.blocked()) {
         const id = `unblock-${b.key.slice(0, 12)}`;
         extras.push(id);
         controls2.add({
@@ -35423,7 +35505,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           icon: "check",
           label: `Unblock ${b.name}${b.kept ? "" : " (blocked this visit)"}`,
           act: () => {
-            presence2.unblock(b.key);
+            presence3.unblock(b.key);
             controls2.say(`${b.name} is no longer blocked. You'll see each other again within half a minute if they are here.`);
             refresh();
           }
@@ -35550,7 +35632,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     controls2.subscribe(drawChatPanel);
     const tendChat = () => {
-      const s = presence2.session;
+      const s = presence3.session;
       if (s === chatFor) return;
       for (const stop of chatStops) stop();
       chatStops = [];
@@ -35565,7 +35647,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           if (how === "said" && s.members.length === 0) controls2.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
           return null;
         },
-        { title: presence2.roomName ? "Private room chat" : "Room chat" }
+        { title: presence3.roomName ? "Private room chat" : "Room chat" }
       );
       chatStops.push(
         s.on("said", (m, line) => {
@@ -35573,7 +35655,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           controls2.chat.add({ id: line.id, who: m.name, text: line.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
           if (mine || !showsChat()) return;
           controls2.signal("heard");
-          const where = presence2.whereIs(m.pubkey);
+          const where = presence3.whereIs(m.pubkey);
           opts.sounds?.play("chat", where ?? { distance: 3 });
         }),
         // Who comes and goes is said in the chat too. A moment is waited for a name: a pass is shown just after arriving.
@@ -35625,7 +35707,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const key = notes2.pubkey?.();
       if (!key) return [];
       const got = await askWell({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, { own: await ownRelays(key), usual: usualRelays(), timeoutMs: 5e3 });
-      if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
+      if (!got.events.length && !Object.values(got.relays).some((said2) => said2 === "eose")) return null;
       return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
     };
     let feedFor = null;
@@ -35749,7 +35831,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     controls2.subscribe(drawFeedPanel);
     const openFeed = () => {
-      if (presence2.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
+      if (presence3.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
       controls2.signal("toggle:feed");
     };
     notes2.onChange?.(() => {
@@ -35762,19 +35844,19 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     });
     let turning = false;
     const asWhoTheyAre = async () => {
-      const s = presence2.session;
+      const s = presence3.session;
       if (!s || busy || turning) return;
       const who2 = hereAs();
       if (!!who2 === !s.self.guest) return;
       turning = busy = true;
-      const mic = presence2.micOn;
-      const name = presence2.roomName;
+      const mic = presence3.micOn;
+      const name = presence3.roomName;
       for (const key of [...watching2.keys()]) stopWatching(key);
-      presence2.leave();
+      presence3.leave();
       try {
-        await presence2.join(name);
+        await presence3.join(name);
         if (mic) await microphone();
-        tell2(presence2.session?.self.guest ? "The room sees a guest now." : `The room sees you as ${presence2.session?.self.name} now.`);
+        tell2(presence3.session?.self.guest ? "The room sees a guest now." : `The room sees you as ${presence3.session?.self.name} now.`);
       } catch {
         tell2("You left the room, and joining it again didn't work. Join it again from here.");
       } finally {
@@ -35804,9 +35886,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           return n ? `Chat ${n}` : "Chat";
         },
         on: () => controls2.chat.view().unread > 0,
-        hidden: () => !presence2.session || !showsChat(),
+        hidden: () => !presence3.session || !showsChat(),
         act: () => {
-          if (presence2.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
+          if (presence3.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
           controls2.signal("toggle:chat");
         }
       },
@@ -35828,7 +35910,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           const why = notes2.unanswered?.();
           if (why) return tell2(why);
           const host = notes2.host?.() ?? "your sign-in address";
-          if (presence2.presenting) return tell2(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+          if (presence3.presenting) return tell2(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
           wantsFeed = !!notes2.unlock?.();
           tell2(
             wantsFeed ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.` : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`
@@ -35850,22 +35932,22 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         id: "room-join",
         section: "room",
         hotbar: true,
-        icon: () => presence2.session ? "leave" : "room",
-        label: () => presence2.session ? "Leave the room" : "Join the room",
-        short: () => presence2.session ? "Leave" : "Join",
-        on: () => !!presence2.session,
+        icon: () => presence3.session ? "leave" : "room",
+        label: () => presence3.session ? "Leave the room" : "Join the room",
+        short: () => presence3.session ? "Leave" : "Join",
+        on: () => !!presence3.session,
         hidden: () => busy,
         act: async () => {
-          if (presence2.session) {
+          if (presence3.session) {
             for (const key of [...watching2.keys()]) stopWatching(key);
-            presence2.leave();
+            presence3.leave();
             controls2.signal("leave");
             tell2("You left the room.");
             return refresh();
           }
           busy = true;
           try {
-            await presence2.join(invited);
+            await presence3.join(invited);
             controls2.signal("join");
           } catch (err) {
             tell2(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
@@ -35879,14 +35961,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         id: "room-mic",
         section: "room",
         hotbar: true,
-        icon: () => presence2.micOn ? "mic" : "micOff",
-        label: () => presence2.micOn ? "Turn microphone off" : "Turn microphone on",
+        icon: () => presence3.micOn ? "mic" : "micOff",
+        label: () => presence3.micOn ? "Turn microphone off" : "Turn microphone on",
         short: "Mic",
-        on: () => presence2.micOn,
-        hidden: () => !presence2.session,
+        on: () => presence3.micOn,
+        hidden: () => !presence3.session,
         act: async () => {
-          if (presence2.micOn) {
-            await presence2.setMicrophone(null);
+          if (presence3.micOn) {
+            await presence3.setMicrophone(null);
             controls2.signal("micOff");
           } else if (await microphone()) controls2.signal("micOn");
           else tell2("The microphone is blocked or unavailable.");
@@ -35898,18 +35980,18 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           id: "sound-share",
           section: "sound",
           icon: "sound",
-          on: () => presence2.musicOn,
-          label: () => presence2.musicOn ? "Sharing your music with people near you: on" : "Share your music with people near you",
-          hidden: () => !presence2.session || sounds2.jukebox.list().length === 0,
+          on: () => presence3.musicOn,
+          label: () => presence3.musicOn ? "Sharing your music with people near you: on" : "Share your music with people near you",
+          hidden: () => !presence3.session || sounds2.jukebox.list().length === 0,
           act: async () => {
-            if (presence2.musicOn) {
-              await presence2.shareMusic(null);
+            if (presence3.musicOn) {
+              await presence3.shareMusic(null);
               tell2("You stopped sharing your music.");
               return refresh();
             }
-            await presence2.shareMusic(sounds2.jukebox.output());
+            await presence3.shareMusic(sounds2.jukebox.output());
             tell2(
-              `Your music is offered to people near you. It reaches only those who have chosen to hear shared music, and fades with distance.${presence2.micOn ? " With your microphone on, wear headphones, or they hear it twice." : ""}`
+              `Your music is offered to people near you. It reaches only those who have chosen to hear shared music, and fades with distance.${presence3.micOn ? " With your microphone on, wear headphones, or they hear it twice." : ""}`
             );
             refresh();
           }
@@ -35938,19 +36020,19 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         id: "room-screen",
         section: "room",
         icon: "panel",
-        on: () => presence2.screenOn,
-        label: () => presence2.screenOn ? "Stop sharing your screen" : "Share your screen",
+        on: () => presence3.screenOn,
+        label: () => presence3.screenOn ? "Stop sharing your screen" : "Share your screen",
         // A phone or a headset's browser can't offer a screen. It can still watch one.
-        hidden: () => !presence2.session || !canShare,
+        hidden: () => !presence3.session || !canShare,
         act: async () => {
-          if (presence2.screenOn) {
-            await presence2.shareScreen(null);
+          if (presence3.screenOn) {
+            await presence3.shareScreen(null);
             tell2("You stopped sharing your screen.");
             return refresh();
           }
           try {
             const track = useTestScreen ? testScreen() : (await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false })).getVideoTracks()[0];
-            await presence2.shareScreen(track);
+            await presence3.shareScreen(track);
             tell2("Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.");
           } catch {
             tell2("Nothing was shared.");
@@ -35962,15 +36044,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         id: "room-invite",
         section: "room",
         icon: "link",
-        label: () => presence2.roomName ? "Copy invite link" : "Make a private room",
-        hidden: () => !presence2.session,
+        label: () => presence3.roomName ? "Copy invite link" : "Make a private room",
+        hidden: () => !presence3.session,
         act: async () => {
-          if (!presence2.roomName) {
+          if (!presence3.roomName) {
             const bytes = crypto.getRandomValues(new Uint8Array(9));
             const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
             history.replaceState(history.state, "", `${location.pathname}${location.search}#room=${code}`);
             invited = code;
-            await presence2.join(code);
+            await presence3.join(code);
           }
           try {
             await navigator.clipboard.writeText(location.href);
@@ -35983,8 +36065,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
     );
     (opts.sounds ?? null)?.onChange((l) => {
-      presence2.setVolume(l.off ? 0 : l.voices);
-      presence2.setHearShared(!!sounds2 && !l.off && l.hearShared, l.shared);
+      presence3.setVolume(l.off ? 0 : l.voices);
+      presence3.setHearShared(!!sounds2 && !l.off && l.hearShared, l.shared);
     });
     let kept2 = null;
     try {
@@ -35997,7 +36079,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       busy = true;
       void (async () => {
         try {
-          await presence2.join(carried2.from === "refresh" ? invited : null);
+          await presence3.join(carried2.from === "refresh" ? invited : null);
           const heard = carried2.mic ? await microphone() : false;
           const early = 2500 - performance.now();
           if (early > 0) await new Promise((done) => setTimeout(done, early));
@@ -36016,7 +36098,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       refresh,
       following,
       messaging,
-      travelling: () => ({ joined: !!presence2.session && !presence2.roomName, mic: !!presence2.session && !presence2.roomName && presence2.micOn, blocked: presence2.newlyBlocked() })
+      travelling: () => ({ joined: !!presence3.session && !presence3.roomName, mic: !!presence3.session && !presence3.roomName && presence3.micOn, blocked: presence3.newlyBlocked() })
     };
   }
 
@@ -36030,14 +36112,16 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     o.getWorldQuaternion(q);
     return { p: [round(v.x), round(v.y), round(v.z)], q: [round(q.x, 4), round(q.y, 4), round(q.z, 4), round(q.w, 4)] };
   };
-  function boardOf(state, sprite, opacity) {
-    const map = sprite?.material.map;
-    if (!sprite || !map || !sprite.visible) return null;
+  function boardOf(state, sprite) {
+    const map = sprite.material.map;
+    if (!map || !sprite.visible) return null;
+    const opacity = sprite.material.opacity;
     sprite.getWorldPosition(v);
-    state.boards.set(map.uuid, map);
+    const key = `${map.uuid}:${map.version}`;
+    state.boards.set(key, map);
     const tint = sprite.material.color.getHexString();
     return {
-      key: map.uuid,
+      key,
       at: [round(v.x), round(v.y), round(v.z)],
       w: round(sprite.scale.x),
       h: round(sprite.scale.y),
@@ -36053,14 +36137,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       state.figureNames.set(p.figure, name);
     }
     state.figures.set(name, p.figure);
-    const boards = [
-      boardOf(state, p.label, p.opacity),
-      boardOf(state, p.picture, p.opacity),
-      // What they wrote fades in and out by itself, and is never in the face of someone standing close.
-      boardOf(state, p.bubble, p.bubble?.material.opacity ?? 0),
-      boardOf(state, p.light, 1),
-      boardOf(state, p.beam, 1)
-    ].filter((b) => b !== null);
+    const boards = p.figure.head.children.filter((c) => c.isSprite === true).map((sprite) => boardOf(state, sprite)).filter((b) => b !== null);
+    const item = p.holding && p.held ? engineItemStore().known(p.holding) : null;
     return {
       key: p.pubkey,
       name: p.name,
@@ -36069,13 +36147,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       head: placed(p.figure.head),
       body: placed(p.figure.torso),
       hands: p.figure.hands.map((h) => h.visible ? placed(h) : null),
-      boards
+      boards,
+      ...item && p.held ? { held: { id: p.holding, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, p.tints[t.slot] ?? t.color])), ...placed(p.held) } } : {}
     };
   }
-  function peopleFrame(_said, dt) {
+  function peopleFrame() {
     const state = on2;
     if (!state) return {};
-    state.presence.update(dt);
     state.figures.clear();
     state.boards.clear();
     const people2 = state.presence.drawn().map((p) => personOf(state, p));
@@ -36085,27 +36163,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   function people(options) {
     if (on2) return JSON.stringify({ ok: true });
     const parts3 = engineParts();
-    if (!parts3) return JSON.stringify({ ok: false, why: "menu-first" });
+    const presence3 = enginePresence();
+    if (!parts3 || !presence3) return JSON.stringify({ ok: false, why: "menu-first" });
     const o = read4(options);
     const world2 = engineWorld();
     const { controls: controls2, sounds: sounds2 } = parts3;
-    let refresh = () => {
-    };
-    const presence2 = createPresence({
-      scene: world2.scene,
-      camera: world2.camera,
-      rig: world2.rig,
-      // No headset session is this script's to start: the engine says whether its visitor is in one.
-      renderer: { xr: { get isPresenting() {
-        return world2.presenting;
-      }, getSession: () => null } },
-      controllers: [],
-      ...typeof o.labels === "string" && /^#[0-9a-f]{6}$/i.test(o.labels) ? { labelColor: o.labels } : {},
-      look: () => arrival.look(),
-      identity: () => arrival.identity(),
-      onChange: () => refresh()
-    });
-    const room3 = addRoomControls(controls2, presence2, {
+    const room3 = addRoomControls(controls2, presence3, {
       arrived: arrival.read().context,
       // A screen someone shares is watched on a panel, and an engine has none of the kit's panels to open one on.
       panels: null,
@@ -36113,8 +36176,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       presenting: () => world2.presenting,
       ...o.sharedMusic === false ? { sharedMusic: false } : {}
     });
-    refresh = room3.refresh;
-    on2 = { world: world2, presence: presence2, travelling: room3.travelling, figureNames: /* @__PURE__ */ new WeakMap(), figures: /* @__PURE__ */ new Map(), boards: /* @__PURE__ */ new Map(), made: 0 };
+    onEnginePresence(room3.refresh);
+    on2 = { world: world2, presence: presence3, travelling: room3.travelling, figureNames: /* @__PURE__ */ new WeakMap(), figures: /* @__PURE__ */ new Map(), boards: /* @__PURE__ */ new Map(), made: 0 };
     addFramePart(peopleFrame);
     return JSON.stringify({ ok: true });
   }
@@ -36170,7 +36233,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 11;
+  var VERSION = 12;
   var KIT = KIT_VERSION;
   var read5 = (text) => {
     try {
@@ -36198,10 +36261,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var room2 = null;
   var holdDoors = false;
   if (typeof document !== "undefined" && tag?.dataset.crossing !== "off") {
-    const said = (name) => document.querySelector(`meta[name="nswp:${name}"]`)?.content ?? "";
-    const accent = said("accent") || tag?.dataset.accent || "";
+    const said2 = (name) => document.querySelector(`meta[name="nswp:${name}"]`)?.content ?? "";
+    const accent = said2("accent") || tag?.dataset.accent || "";
     room2 = createEngineCrossing({
-      title: (said("title") || tag?.dataset.title || document.title || location.host).slice(0, 80),
+      title: (said2("title") || tag?.dataset.title || document.title || location.host).slice(0, 80),
       address: location.host,
       ...accent ? { accent } : {},
       still: prefersStill2()

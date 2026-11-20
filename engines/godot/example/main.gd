@@ -52,6 +52,7 @@ func _ready() -> void:
 	_people = NswpPeople.new()
 	_people.name = "People"
 	_people.visitor = _visitor
+	_people.items = _items
 	add_child(_people)
 
 	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))

@@ -1,8 +1,8 @@
 # Godot: what is still to do
 
 **Status (2026-11-20):** a list, set down when the owner paused this work to
-look at sign-in. Part 1 (other people) is done, the same day: kit 0.55.0.
-The rest is not started. What Godot worlds already have is
+look at sign-in. Parts 1 and 2 (other people, and items between them) are
+done, the same day: kit 0.55.0 and 0.56.0. The rest is not started. What Godot worlds already have is
 in [other-engines.md](../other-engines.md), under "Godot".
 
 ## Where it stands
@@ -39,9 +39,15 @@ As it was listed:
 - Saying where this visitor is, at the room's rate.
 - The same bar entries as a Three.js world: Leave, Mic, Chat.
 
-### 2. Items between people
+### 2. Items between people: done in 0.56.0
 
-Needs rooms. Most of the logic is already shared, so this is wiring.
+It was wiring, as expected: the engine's items now go through the same
+presence a Three.js world's do (`engine-presence.ts`), so holding is told
+to the room and other people's things reach the visitor with no code of
+their own. Two faults in the kit itself were found on the way, both worse
+on a slow device, and fixed for every world (see the changelog).
+
+As it was listed:
 
 - What someone else holds, drawn in their hand, in their colours.
 - Darts others send, seen flying and landing in the same place.

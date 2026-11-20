@@ -234,12 +234,23 @@ func _draw_things(things: Variant) -> void:
 		# Where it went this frame: did it run into anything of this world's?
 		var test: Variant = thing.get("test")
 		if typeof(test) == TYPE_DICTIONARY:
-			var a := _vec(test.get("a"))
-			var b := _vec(test.get("b"))
-			var hit := _cast(space, a, b)
-			if not hit.is_empty():
-				var along := a.distance_to(b)
-				_met.append({"key": key, "step": int(test.get("step", -1)), "f": 0.0 if along <= 0.0001 else a.distance_to(hit.position) / along, "at": [hit.position.x, hit.position.y, hit.position.z], "ref": str((hit.collider as Node).get_path()) if hit.collider is Node else ""})
+			# A thing falls as it flies: a step that took a while is a curve, given as the places it
+			# passed. Each piece is tested in order, and the first meeting is the one.
+			var path: Array[Vector3] = [_vec(test.get("a"))]
+			var via: Variant = test.get("via")
+			if typeof(via) == TYPE_ARRAY:
+				for place: Variant in via:
+					path.append(_vec(place))
+			path.append(_vec(test.get("b")))
+			var pieces := path.size() - 1
+			for i in pieces:
+				var hit := _cast(space, path[i], path[i + 1])
+				if hit.is_empty():
+					continue
+				var along := path[i].distance_to(path[i + 1])
+				var within := 0.0 if along <= 0.0001 else path[i].distance_to(hit.position) / along
+				_met.append({"key": key, "step": int(test.get("step", -1)), "f": (float(i) + within) / float(pieces), "at": [hit.position.x, hit.position.y, hit.position.z], "ref": str((hit.collider as Node).get_path()) if hit.collider is Node else ""})
+				break
 		if bool(thing.get("down", false)):
 			var below := _cast(space, node.global_position + Vector3(0.0, 0.05, 0.0), node.global_position + Vector3(0.0, -60.0, 0.0))
 			if not below.is_empty():
@@ -314,6 +325,20 @@ func _draw_trails(trails: Variant, camera: Camera3D) -> void:
 
 
 # ------------------------------------------------------------------------ models
+
+## For whatever else draws an item here (`NswpPeople`, for what other people hold): something to
+## draw for a model, as `_instance` gives it; its holder's colours; and its animations.
+func instance_of(sha: String, size: Variant) -> Node3D:
+	return _instance(sha, _size_of(size))
+
+
+func tint(root: Node3D, tints: Variant) -> void:
+	_tint(root, tints)
+
+
+func player_in(root: Node) -> AnimationPlayer:
+	return _player_in(root)
+
 
 ## Something to draw for a model, fitted to its box: a copy of what its file holds, or a plain
 ## box of its size where the file failed a check. Null while its bytes are on their way. The
@@ -469,5 +494,7 @@ func report() -> Dictionary:
 		"colours": _colours(_held),
 		"words": str(last.get("own", {}).get("words", "")) if typeof(last.get("own")) == TYPE_DICTIONARY else "",
 		"acts": bool(_held_info.get("acts", false)) if _held != null else false,
+		"own": last.get("own", {}),
+		"on": (last.get("things", []) as Array).map(func(t: Variant) -> String: return str(t.get("on", "")) if typeof(t) == TYPE_DICTIONARY else ""),
 		"stuck": (last.get("things", []) as Array).filter(func(t: Variant) -> bool: return typeof(t) == TYPE_DICTIONARY and str(t.get("state", "")) == "stuck").size() if typeof(last.get("things")) == TYPE_ARRAY else 0,
 	}

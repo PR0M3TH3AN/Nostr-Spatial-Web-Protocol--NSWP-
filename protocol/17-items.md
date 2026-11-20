@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit: in full for worlds drawn with Three.js, and for one visitor by themself in worlds made with Godot, which have no rooms yet (so nothing reaches anyone there). Built: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, other people in a world made with Godot · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit: for worlds drawn with Three.js and for worlds made with Godot, on a flat screen (in a headset, only with Three.js). Built: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a headset in a world made with Godot · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -266,6 +266,12 @@ What is said in a room, on the connection poses use, each once:
 A reader takes a thing sent out only from someone who holds an item that
 says it sends that thing, only if it starts where they stand, and no more
 than six a second from one person.
+
+The channel these are said on doesn't try again, so everything but `did` is
+said twice, a moment apart, and **a reader takes each thing once, by its
+sender and its number**. It must remember that for a little while after the
+thing is gone: one sent from close by has arrived, and gone, before its
+second saying, which would otherwise be a second thing and a second hit.
 
 ## People as part of the game
 
