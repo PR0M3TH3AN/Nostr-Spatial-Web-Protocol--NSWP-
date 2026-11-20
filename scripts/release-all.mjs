@@ -25,8 +25,12 @@ const projects = JSON.parse(readFileSync(join(root, "sites", "vercel-projects.js
 const WORLDS = ["gallery", "grove", "tour", "arcade", "observatory", "workshop", "library"];
 /** How many deployments this makes: the worlds, the Starter Home, The Foundry, BitPortal. */
 const NEEDED = WORLDS.length + 3;
-/** The free plan's limit, in any 24 hours (sites/template-demo/README.md). */
-const DAILY = 100;
+/**
+ * How many deployments Vercel allows in any 24 hours, by the plan the team is on (vercel.com/docs/limits,
+ * "Deployments Created per Day"). The plan is asked for each time, and a plan this doesn't know, or one that
+ * couldn't be read, is counted as the free one: the careful answer.
+ */
+const DAILY_BY_PLAN = { hobby: 100, pro: 6000 };
 
 const run = (cmd, args, cwd, opts = {}) => execFileSync(cmd, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opts });
 const quiet = (cmd, args, cwd) => {
@@ -135,14 +139,31 @@ for (const [name, url] of [["starter", projects.templateDemo.url], ["foundry", p
 
 // ---------------------------------------------------------------- room to deploy
 console.log("\nRoom to deploy");
+let plan = "hobby";
+try {
+  const said = JSON.parse(run("vercel", ["api", `/v2/teams/${projects.orgId}`], root)).billing?.plan;
+  if (typeof said === "string" && said in DAILY_BY_PLAN) plan = said;
+} catch {
+  /* counted as the free plan */
+}
+const DAILY = DAILY_BY_PLAN[plan];
 let used = null;
 try {
   const since = Date.now() - 24 * 3600 * 1000;
-  used = JSON.parse(run("vercel", ["api", `/v6/deployments?teamId=${projects.orgId}&since=${since}&limit=100`], root)).deployments.length;
+  // A page at a time, a hundred to a page, until there are no more or there is plainly no room.
+  let until = "";
+  used = 0;
+  for (let page = 0; page < 80; page++) {
+    const got = JSON.parse(run("vercel", ["api", `/v6/deployments?teamId=${projects.orgId}&since=${since}&limit=100${until}`], root));
+    used += got.deployments.length;
+    const next = got.pagination?.next;
+    if (!next || got.deployments.length === 0 || used + NEEDED > DAILY) break;
+    until = `&until=${next}`;
+  }
 } catch {
-  /* said below */
+  used = null;
 }
-need(used !== null && used + NEEDED <= DAILY, used === null ? "Vercel couldn't be asked how many deployments were made today" : `${used} deployments in the last 24 hours; this makes ${NEEDED} more, of ${DAILY} allowed`, used === null ? "the Vercel CLI didn't answer: is it installed and logged in?" : `only ${DAILY - used} deployments are left today, and this needs ${NEEDED}`);
+need(used !== null && used + NEEDED <= DAILY, used === null ? "Vercel couldn't be asked how many deployments were made today" : `${used} deployments in the last 24 hours; this makes ${NEEDED} more, of ${DAILY} allowed on the ${plan} plan`, used === null ? "the Vercel CLI didn't answer: is it installed and logged in?" : `only ${DAILY - used} deployments are left today, and this needs ${NEEDED}`);
 
 if (problems.length) {
   console.log(`\nNothing was deployed. To put right first:\n${problems.map((p) => `  - ${p}`).join("\n")}\n`);
