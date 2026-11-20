@@ -195,8 +195,36 @@ to sign. A material named `tint_accent` (Godot won't keep a colon in a
 name) is a colour whoever holds it may choose. The item then works in
 every world that draws items, whatever each is made with.
 
-**Not here yet:** other people (so nothing reaches anyone, and nobody sees
-what you hold), and anything of this in a headset.
+**Not here yet:** what other people hold and send out (so nothing reaches
+anyone), and anything of this in a headset.
+
+## Other people
+
+A visitor may join the room of your world, and then sees and hears whoever
+else is there:
+
+```gdscript
+var people := NswpPeople.new()
+people.visitor = $Visitor      # an NswpVisitor, or the node that stands where they stand
+add_child(people)
+```
+
+The room's part of the menu is added (Join, the microphone, chat, who is
+here), and whoever has joined is drawn: the same figures, names and
+written words as in every other world, because the kit's script makes them
+and this node only draws what it is handed. Voices and chat are the page's
+own; there is nothing of sound to set up.
+
+Nobody is joined to anything until they ask, having been told what joining
+shows of them. Set `people.shared_music = false` for a place that wants
+none of its visitors' music shared.
+
+Two people who arrive in the same spot step apart. An `NswpVisitor` moves
+itself; for a visitor of your own, connect `Nswp.nudged` and add what it
+gives to where they stand.
+
+**Not here yet:** a screen someone shares, pressing a person's picture (the
+People tab has everyone), and anything of this in a headset.
 
 ## Using your own instead
 
@@ -225,6 +253,7 @@ yours to decide, and worth deciding on purpose.
 | `nswp_gate.gd` | `NswpGate`: the standard doorway. Set `category` and its sign says what kind of place it leads to. |
 | `nswp_visitor.gd` | `NswpVisitor`: a visitor who moves the way every world's do. |
 | `nswp_items.gd` | `NswpItems`: what a visitor holds, and what it sends out. |
+| `nswp_people.gd` | `NswpPeople`: the room, and everyone else in it. |
 | `nswp_item_model.gd` | Writes a scene out as an item's model. Run it from a terminal. |
 | `gate/frame.obj` | The doorway's frame. Made from the reference kit's modelling code; don't edit it here. |
 | `gate/*.gdshader` | The kit's metal, the field of light in a doorway and its glow, written for Godot. |
@@ -271,11 +300,9 @@ applies whatever the engine. The ones a Godot world is most likely to miss:
 ## Not here yet
 
 - **Items between people:** hits, health and seeing what someone else
-  holds. They come with rooms.
-- **Rooms:** other visitors, their voices, shared screens and music. The
-  kit's room connection is JavaScript and would need more than text passed
-  across. A world in Godot today is one a visitor is alone in, or one with
-  multiplayer of its own.
+  holds.
+- **A screen someone shares** in a room: it is watched on one of the kit's
+  panels, and there are none of those here yet.
 - **Moving in a headset**, and the menu there. The page's menu can't be seen
   in a session.
 - **The view through a door** of where it leads: a doorway here shows its

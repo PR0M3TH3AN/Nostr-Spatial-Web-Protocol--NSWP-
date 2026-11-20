@@ -91,20 +91,16 @@ func _process(delta: float) -> void:
 	if camera == null:
 		return
 	var size := get_viewport().get_visible_rect().size
-	var turn := camera.global_transform.basis.get_rotation_quaternion()
-	var at := camera.global_position
-	var now := Nswp.frame({
-		"dt": delta,
-		"head": [at.x, at.y, at.z],
-		"turn": [turn.x, turn.y, turn.z, turn.w],
-		"floor": visitor.global_position.y if visitor != null else at.y - 1.6,
-		"fov": camera.fov if _fov_base < 0.0 else _fov_base,
-		"aspect": size.x / maxf(1.0, size.y),
-		"presenting": Nswp.in_headset(),
-		"sighting": _sight_k > 0.5,
-		"met": _met,
-		"floors": _floors,
-	})
+	# What this node knows that the camera doesn't: how wide they see when they aren't aiming, and
+	# what each thing ran into since the kit last asked.
+	if _fov_base >= 0.0:
+		Nswp.frame_say("fov", _fov_base)
+	Nswp.frame_say("sighting", _sight_k > 0.5)
+	if not _met.is_empty():
+		Nswp.frame_say("met", _met)
+	if not _floors.is_empty():
+		Nswp.frame_say("floors", _floors)
+	var now := Nswp.frame(Nswp.view_of(camera, visitor, delta))
 	last = now
 	_met = []
 	_floors = []

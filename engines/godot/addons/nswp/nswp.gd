@@ -61,6 +61,9 @@ signal loaded(slot: String, found: bool, data: String, from: String)
 ## What was handed to `save()` has been kept: `kept` is "account", "device" or "nowhere", and `said`
 ## is words for the visitor ("Saved to your account").
 signal saved(slot: String, kept: String, said: String)
+## The kit moved the visitor a little along the floor: they arrived on top of someone. An
+## `NswpVisitor` moves itself; a visitor of your own adds `by` to where it stands.
+signal nudged(by: Vector3)
 
 ## The project setting that names the Airlock to send a visitor through when they arrived
 ## without one of their own. A visitor who came through an Airlock always goes back through theirs.
@@ -149,6 +152,10 @@ var kit: Dictionary = {
 }
 
 var _js: JavaScriptObject = null
+## The frame the page was last asked about, what it answered, and what is to be said with the next.
+var _frame_at: int = -1
+var _frame_now: Dictionary = {}
+var _frame_said: Dictionary = {}
 var _menu: bool = false
 ## Doors listed in the menu, by id: each a node with `enter()`, and what it is called.
 var _doors: Dictionary = {}
@@ -243,12 +250,79 @@ func items(rule: String, options: Dictionary = {}) -> Dictionary:
 	return began if typeof(began) == TYPE_DICTIONARY else {"ok": false}
 
 
-## Every frame: say where the visitor is and what things ran into, and be told what to draw.
+## Every frame: say where the visitor is, and be told what to draw. It is asked of the page once
+## a frame however many nodes call it: the first call asks, and the rest are given the same answer.
+## `view` is what `view_of()` makes. What a node has found out since the last frame goes with it
+## (`frame_say`).
 func frame(view: Dictionary) -> Dictionary:
 	if _js == null:
 		return {}
-	var now: Variant = JSON.parse_string(str(_js.frame(JSON.stringify(view))))
-	return now if typeof(now) == TYPE_DICTIONARY else {}
+	var n := Engine.get_process_frames()
+	if n == _frame_at:
+		return _frame_now
+	_frame_at = n
+	var said := view.duplicate()
+	said.merge(_frame_said, true)
+	_frame_said = {}
+	var now: Variant = JSON.parse_string(str(_js.frame(JSON.stringify(said))))
+	_frame_now = now if typeof(now) == TYPE_DICTIONARY else {}
+	# Two people who arrive in the same spot step apart: the kit says how far to move this one.
+	var nudge: Variant = _frame_now.get("nudge")
+	if typeof(nudge) == TYPE_ARRAY and nudge.size() == 2:
+		nudged.emit(Vector3(float(nudge[0]), 0.0, float(nudge[1])))
+	return _frame_now
+
+
+## Something to say with the next frame: what the kit asked a node to find out (for items, what
+## each thing ran into), or a number of the view a node knows better than the camera does.
+func frame_say(key: String, value: Variant) -> void:
+	_frame_said[key] = value
+
+
+## Where the visitor is, for `frame()`: their view and which way it faces, the floor under them,
+## and how wide they see. `visitor` is the node that stands where they stand.
+func view_of(camera: Camera3D, visitor: Node3D, delta: float) -> Dictionary:
+	var size := camera.get_viewport().get_visible_rect().size
+	var turn := camera.global_transform.basis.get_rotation_quaternion()
+	var at := camera.global_position
+	return {
+		"dt": delta,
+		"head": [at.x, at.y, at.z],
+		"turn": [turn.x, turn.y, turn.z, turn.w],
+		"floor": visitor.global_position.y if visitor != null else at.y - 1.6,
+		"fov": camera.fov,
+		"aspect": size.x / maxf(1.0, size.y),
+		"presenting": in_headset(),
+	}
+
+
+## Begin: the room's part of the menu is added (Join, the microphone, chat, who is here), and
+## other people can be drawn. Call after `menu()`. Nobody is joined to anything until they ask.
+## Returns `{ "ok": true }` once it has begun.
+func people(options: Dictionary = {}) -> Dictionary:
+	if _js == null or not _menu:
+		return {"ok": false}
+	var began: Variant = JSON.parse_string(str(_js.people(JSON.stringify(options))))
+	return began if typeof(began) == TYPE_DICTIONARY else {"ok": false}
+
+
+## What to draw a person's figure with, by the name a frame gave: three shapes and the colours of
+## the kit's metal. Empty for a name no longer in use.
+func figure(figure_name: String) -> Dictionary:
+	if _js == null:
+		return {}
+	var got: Variant = JSON.parse_string(str(_js.figure(figure_name)))
+	return got if typeof(got) == TYPE_DICTIONARY else {}
+
+
+## A board's picture, as a PNG in base64, by the key a frame gave. "" for a key no longer in use.
+func board(key: String) -> String:
+	return "" if _js == null else str(_js.board(key))
+
+
+## What this visitor sees of each person: for tests.
+func people_info() -> Variant:
+	return null if _js == null else JSON.parse_string(str(_js.peopleInfo()))
 
 
 ## A model's bytes, as base64, by the hash its file is named by: fetched, checked against that

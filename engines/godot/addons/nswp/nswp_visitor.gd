@@ -110,6 +110,8 @@ func _ready() -> void:
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
 	Nswp.jump_pressed.connect(jump)
+	# Two people who arrive in the same spot step apart: the kit says how far this one moves.
+	Nswp.nudged.connect(func(by: Vector3) -> void: global_position += by)
 	# How wide the visitor asked to see at a desk, in every world. Left alone, it is this world's own.
 	_own_fov = flat_camera.fov
 	Nswp.console_changed.connect(_apply_fov)

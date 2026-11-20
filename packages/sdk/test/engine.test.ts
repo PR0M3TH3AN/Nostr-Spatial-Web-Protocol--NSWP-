@@ -52,6 +52,45 @@ describe("what another engine takes from the kit", () => {
   });
 });
 
+describe("one frame for everything an engine draws", () => {
+  it("says nothing until some part has something to draw, then gives each part's share", async () => {
+    const world = await import("../src/engine-world.js");
+    expect(world.frame("{}")).toBe("{}");
+    const w = world.engineWorld();
+    world.addFramePart((said, dt) => ({ heard: said.word ?? null, dt }));
+    world.addFramePart(() => ({ more: 1 }));
+    const out = JSON.parse(world.frame(JSON.stringify({ head: [1, 1.6, 2], turn: [0, 0, 0, 1], floor: 0, dt: 0.02, word: "hello" })));
+    expect(out).toEqual({ heard: "hello", dt: 0.02, more: 1 });
+    // The visitor's view is where the engine said, and they stand under it on the floor.
+    expect(w.camera.position.toArray()).toEqual([1, 1.6, 2]);
+    expect(w.rig.position.toArray()).toEqual([1, 0, 2]);
+  });
+  it("tells the engine when the kit has moved its visitor, once, and never of its own placing", async () => {
+    const world = await import("../src/engine-world.js");
+    const w = world.engineWorld();
+    const at = (x: number, z: number) => JSON.parse(world.frame(JSON.stringify({ head: [x, 1.6, z], turn: [0, 0, 0, 1], floor: 0 })));
+    at(0, 0);
+    expect(at(3, 4).nudge).toBeUndefined();
+    // Two people arrived in the same spot: the kit steps this one aside between frames.
+    w.rig.position.x += 0.5;
+    w.rig.position.z -= 0.25;
+    const told = at(3, 4).nudge as number[];
+    expect(told[0]).toBeCloseTo(0.5, 6);
+    expect(told[1]).toBeCloseTo(-0.25, 6);
+    expect(at(3.5, 3.75).nudge).toBeUndefined();
+  });
+  it("takes nothing that isn't a number for a place, and keeps what it sees within reason", async () => {
+    const world = await import("../src/engine-world.js");
+    const w = world.engineWorld();
+    world.frame(JSON.stringify({ head: [1, 2, 3], turn: [0, 0, 0, 1], fov: 70 }));
+    world.frame(JSON.stringify({ head: ["x", null, {}], turn: "round", fov: 9999, aspect: -3, dt: "soon" }));
+    expect(w.camera.position.toArray()).toEqual([1, 2, 3]);
+    expect(w.camera.fov).toBe(140);
+    expect(w.camera.aspect).toBe(0.1);
+    expect(() => world.frame("not json")).not.toThrow();
+  });
+});
+
 describe("crossing into a world made in another engine", () => {
   const src = (file: string) => readFileSync(join(root, "packages", "sdk", "src", file), "utf8");
   it("has no room where there is no page, and says so plainly", async () => {
@@ -63,7 +102,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(10);
+    expect(engine.VERSION).toBe(11);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");

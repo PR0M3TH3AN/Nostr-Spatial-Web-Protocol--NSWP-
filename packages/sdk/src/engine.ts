@@ -34,10 +34,13 @@ import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
 export { bump, check, claim, door, events, headset, kit, load, menu, moved, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
-export { frame, items, itemSecond, itemTap, itemUse, model } from "./engine-items.js";
+export { frame } from "./engine-world.js";
+export { items, itemSecond, itemTap, itemUse, model } from "./engine-items.js";
+export { board, figure, people, peopleInfo } from "./engine-people.js";
+import { travellingNow } from "./engine-people.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 10;
+export const VERSION = 11;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 
@@ -133,11 +136,15 @@ function leaveThen(to: { title: string; address: string }, going: () => void): v
 /** What the visitor's state adds to the link that takes them on, from what the engine says of it. Nothing unknown passes. */
 function stateOf(text: unknown): GoOptions {
   const s = read(text);
+  // Where this script keeps the room (engine-people.ts), it knows whether they are joined, and says so itself.
+  const room = travellingNow();
+  const joined = s.joined === true || room.joined === true;
+  const blocked = [...(Array.isArray(s.blocked) ? s.blocked.filter((k): k is string => typeof k === "string") : []), ...(room.blocked ?? [])];
   return {
     immersive: s.immersive === true,
-    ...(s.joined === true ? { joined: true, ...(s.mic === true ? { mic: true } : {}) } : {}),
+    ...(joined ? { joined: true, ...(s.mic === true || room.mic === true ? { mic: true } : {}) } : {}),
     ...(s.moving === "intense" ? { moving: "intense" as const } : {}),
-    ...(Array.isArray(s.blocked) ? { blocked: s.blocked.filter((k): k is string => typeof k === "string") } : {}),
+    ...(blocked.length ? { blocked: [...new Set(blocked)] } : {}),
   };
 }
 

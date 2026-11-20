@@ -14,7 +14,7 @@
  * Like the rest of this script, every call takes text and gives text back.
  *
  *   NSWP.items('{"rule":"allowed"}');                       // once, after NSWP.menu
- *   const now = JSON.parse(NSWP.frame(JSON.stringify(view)));  // every frame: what to draw
+ *   const now = JSON.parse(NSWP.frame(JSON.stringify(view)));  // every frame: what to draw (engine-world.ts)
  *   NSWP.model(now.held.model);                              // a model's checked bytes, as base64
  *
  * On a flat screen the ring to aim by, the mark of a hit, how the visitor is and their item's counter are drawn
@@ -25,22 +25,13 @@ import * as THREE from "three";
 import { createBag } from "./bag.js";
 import { addBagControls } from "./bagging.js";
 import { engineParts } from "./engine-menu.js";
+import { addFramePart, base64, engineWorld, num, read, three, type EngineWorld } from "./engine-world.js";
 import { addItemControls, type ItemControls } from "./item-controls.js";
 import { createItemStore, showsItems, type ItemStore, type ModelNamed } from "./item-store.js";
 import type { Items } from "./items.js";
 import { createPlay, mayHold, paintHealth, type Play, type PlaySnapshot } from "./play.js";
 import { hereAs, onHereAs } from "./ui/identity.js";
 
-const read = (text: unknown): Record<string, unknown> => {
-  try {
-    const v: unknown = typeof text === "string" && text ? JSON.parse(text) : text;
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-};
-const three = (v: unknown): [number, number, number] | null => (Array.isArray(v) && v.length === 3 && v.every((x) => typeof x === "number" && Number.isFinite(x)) ? (v as [number, number, number]) : null);
-const num = (v: unknown, otherwise: number): number => (typeof v === "number" && Number.isFinite(v) ? v : otherwise);
 
 interface Held {
   item: Item;
@@ -63,26 +54,15 @@ let on: {
   store: ItemStore;
   play: Play;
   presses: ItemControls;
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  rig: THREE.Group;
+  world: EngineWorld;
   held: Held | null;
   asked: { sha: string };
   /** A model's checked bytes, as text an engine can take: by the hash its file is named by. "!" where it failed. */
   models: Map<string, string>;
   wantSight: boolean;
-  sighting: boolean;
-  presenting: boolean;
   accent: string;
   overlay: Overlay | null;
 } | null = null;
-
-/** Bytes as base64, a piece at a time: a model is too long to hand to the browser in one go. */
-function base64(bytes: Uint8Array): string {
-  let text = "";
-  for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
-  return btoa(text);
-}
 
 /** Have a model's bytes fetched and checked, to be handed over when the engine asks. */
 function want(named: ModelNamed): void {
@@ -164,10 +144,8 @@ export function items(options?: string): string {
   if (rule === "none") return JSON.stringify({ ok: false, rule, why: "no-items" });
   const relays = Array.isArray(o.relays) ? o.relays.filter((r): r is string => typeof r === "string") : undefined;
   const store = createItemStore(relays?.length ? { relays } : {});
-  const scene = new THREE.Scene();
-  const rig = new THREE.Group();
-  const camera = new THREE.PerspectiveCamera(70, 1.6, 0.1, 100);
-  scene.add(rig, camera);
+  const world = engineWorld();
+  const { scene, camera, rig } = world;
   // What this script holds of a thing is where it is and which way it faces: the engine has its shape.
   const nothing = async () => new THREE.Group();
   const shapeless = { ...store, model: nothing, sent: nothing, marker: () => new THREE.Group(), clips: () => [] } as unknown as Items;
@@ -176,15 +154,11 @@ export function items(options?: string): string {
   const state = (on = {
     rule,
     store,
-    scene,
-    camera,
-    rig,
+    world,
     held: null as Held | null,
     asked: { sha: "" },
     models: new Map<string, string>(),
     wantSight: false as boolean,
-    sighting: false as boolean,
-    presenting: false as boolean,
     accent: controls.theme.accent,
     overlay: makeOverlay(),
     play: null as unknown as Play,
@@ -203,8 +177,8 @@ export function items(options?: string): string {
     people: () => [],
     tell: () => {},
     deferred: true,
-    presenting: () => state.presenting,
-    sighting: () => state.sighting,
+    presenting: () => world.presenting,
+    sighting: () => world.sighting,
     theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }),
     onChange: () => state.presses?.refresh(),
   });
@@ -236,7 +210,7 @@ export function items(options?: string): string {
     tinted: (item, tints) => {
       if (state.held?.item.id === item) state.held = { item: state.held.item, tints: cleanTints(state.held.item, tints) };
     },
-    presenting: () => state.presenting,
+    presenting: () => world.presenting,
   });
   onHereAs(() => bagging.refresh());
   state.presses = addItemControls(controls, {
@@ -245,35 +219,22 @@ export function items(options?: string): string {
     dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
     sight: (wanted) => void (state.wantSight = wanted),
   });
+  addFramePart(itemsFrame);
   return JSON.stringify({ ok: true, rule });
 }
 
 /**
- * Every frame. `view` is JSON saying where the visitor is and what the engine found: `dt`, seconds since the last;
- * `head` and `turn`, where their view is and which way it faces (x, y, z, w); `floor`, how high the floor under
- * them is; `fov` and `aspect`; `presenting`, in a headset; `sighting`, whether their item is up at their eye; and
- * `met` and `floors`, the engine's answers about what things ran into and where the floor is under them.
+ * The items' share of a frame (engine-world.ts, `frame`). Of what the engine said, it takes `met` and `floors`:
+ * the engine's answers about what things ran into and where the floor is under them.
  *
- * Returns everything there is to draw, as JSON: `held` (the thing in their hand: its model, box, colours, where
- * its sight is and whether it does anything), `sight` (whether they are holding the press that aims), and the
- * things, streaks of light and the visitor's own state, as `PlaySnapshot` has them.
+ * It gives back `held` (the thing in their hand: its model, box, colours, where its sight is and whether it does
+ * anything), `sight` (whether they are holding the press that aims), and the things, streaks of light and the
+ * visitor's own state, as `PlaySnapshot` has them.
  */
-export function frame(view?: string): string {
+function itemsFrame(i: Record<string, unknown>, dt: number): Record<string, unknown> {
   const state = on;
-  if (!state) return "{}";
-  const i = read(view);
-  const head = three(i.head);
-  const turn = Array.isArray(i.turn) && i.turn.length === 4 && i.turn.every((x) => typeof x === "number" && Number.isFinite(x)) ? (i.turn as number[]) : null;
-  if (head) {
-    state.camera.position.fromArray(head);
-    state.rig.position.set(head[0], num(i.floor, head[1] - 1.6), head[2]);
-  }
-  if (turn) state.camera.quaternion.fromArray(turn).normalize();
-  state.camera.fov = Math.min(140, Math.max(10, num(i.fov, state.camera.fov)));
-  state.camera.aspect = Math.min(8, Math.max(0.1, num(i.aspect, state.camera.aspect)));
-  state.presenting = i.presenting === true;
-  state.sighting = i.sighting === true;
-  state.scene.updateMatrixWorld(true);
+  if (!state) return {};
+  const presenting = state.world.presenting;
   for (const m of Array.isArray(i.met) ? (i.met as Record<string, unknown>[]).slice(0, 64) : []) {
     const at = three(m?.at);
     if (at && typeof m.key === "string") state.play.met(m.key, num(m.step, -1), num(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
@@ -281,20 +242,20 @@ export function frame(view?: string): string {
   for (const f of Array.isArray(i.floors) ? (i.floors as Record<string, unknown>[]).slice(0, 64) : []) {
     if (typeof f?.key === "string") state.play.floored(f.key, num(f.y, NaN));
   }
-  state.play.update(Math.min(0.5, Math.max(0, num(i.dt, 0.016))));
+  state.play.update(dt);
   const now = state.play.snapshot();
   // Whatever is in the air is something to draw: its model is fetched and checked, to be handed over when asked for.
   for (const thing of now.things) if (!state.models.has(thing.model)) state.models.set(thing.model, "!");
-  if (state.overlay) paint(state.overlay, now.own, state.accent, state.presenting);
+  if (state.overlay) paint(state.overlay, now.own, state.accent, presenting);
   const held = state.held;
-  return JSON.stringify({
+  return {
     rule: state.rule,
     held: held
       ? { id: held.item.id, title: held.item.title, model: held.item.model.sha256, size: held.item.size, tints: Object.fromEntries(held.item.tints.map((t) => [t.slot, held.tints[t.slot] ?? t.color])), aim: held.item.aim, acts: !!state.play.does }
       : null,
-    sight: state.wantSight && !!held?.item.aim && !state.presenting,
+    sight: state.wantSight && !!held?.item.aim && !presenting,
     ...now,
-  });
+  };
 }
 
 /**
