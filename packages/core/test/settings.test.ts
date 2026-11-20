@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAirlockUrl, buildWayUrl, cleanSettings, decodeArrival, decodeSettings, encodeArrival, encodeSettings, parseAirlockFragment, SETTINGS_LINK_LIMIT, wayWithoutDestination, type TravelSettings } from "../src/index.js";
+import { buildAirlockUrl, buildWayUrl, cleanSettings, PINS_MOST, decodeArrival, decodeSettings, encodeArrival, encodeSettings, parseAirlockFragment, SETTINGS_LINK_LIMIT, wayWithoutDestination, type TravelSettings } from "../src/index.js";
 
 const mine: TravelSettings = { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true, intense: true, look: 1.5, fov: 90 };
 
@@ -55,5 +55,42 @@ describe("settings that travel", () => {
     expect(cleanSettings({ intense: "yes", look: 0, fov: 12.4 })).toEqual({ look: 0.25, fov: 50 });
     expect(cleanSettings({ look: "fast", fov: null })).toEqual({});
     expect(cleanSettings({ fov: 84.6 })).toEqual({ fov: 85 });
+  });
+});
+
+describe("the tabs a visitor keeps on their bar", () => {
+  it("travel as short plain names, four at most, each once, in the order they were pinned", () => {
+    expect(cleanSettings({ pins: ["people", "sound"] })).toEqual({ pins: ["people", "sound"] });
+    expect(cleanSettings({ pins: ["people", "people", "sound", "display", "camera", "help"] }).pins).toEqual(["people", "sound", "display", "camera"]);
+    expect(PINS_MOST).toBe(4);
+  });
+  it("carry nothing that isn't a tab's name: no sentences, no addresses, nothing long", () => {
+    expect(cleanSettings({ pins: ["People", "two words", "https://x.example", "a".repeat(13), "", 7, null, { id: "room" }, "<b>", "room"] }).pins).toEqual(["room"]);
+    expect(cleanSettings({ pins: "people" })).toEqual({});
+    expect(cleanSettings({ pins: { 0: "people" } })).toEqual({});
+  });
+  it("say so when they took every tab off: none is a choice, and it travels", () => {
+    expect(cleanSettings({ pins: [] })).toEqual({ pins: [] });
+    expect(decodeSettings(encodeSettings({ pins: [] }))).toEqual({ pins: [] });
+  });
+  it("go on a link with everything else, and come off it the same", () => {
+    const all: TravelSettings = { ...mine, pictures: true, chat: true, pins: ["people", "sound", "display", "camera"] };
+    const sent = encodeSettings(all);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.length).toBeLessThanOrEqual(SETTINGS_LINK_LIMIT);
+    expect(decodeSettings(sent)).toEqual(all);
+  });
+  it("are the first thing left behind if a link would be too long, so the rest still travels", () => {
+    // The longest names there can be, with every other setting said: more than a link holds.
+    const most: TravelSettings = { ...mine, sound: { off: false, effects: 0.77, music: 0.33, voices: 0.99, hum: false }, look: 1.25, text: 1.15, pictures: false, chat: false, pins: ["abcdefghijkl", "bcdefghijklm", "cdefghijklmn", "defghijklmno"] };
+    const whole = JSON.stringify(cleanSettings(most));
+    const sent = encodeSettings(most);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.length).toBeLessThanOrEqual(SETTINGS_LINK_LIMIT);
+    const got = decodeSettings(sent);
+    // Either it all fitted, or the pins are what was left out and nothing else.
+    if (Math.ceil((whole.length * 4) / 3) > SETTINGS_LINK_LIMIT) expect(got).toEqual({ ...cleanSettings(most), pins: undefined });
+    else expect(got).toEqual(cleanSettings(most));
+    expect(got.text).toBe(1.15);
   });
 });

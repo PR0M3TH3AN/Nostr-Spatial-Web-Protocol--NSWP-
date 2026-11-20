@@ -12,6 +12,7 @@
  * Adding a button, a section, or a whole new kind of control later means
  * adding to this list. Nothing about either renderer has to change.
  */
+import { cleanSettings, PINS_MOST } from "@nswp/core";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import { createUiChat, type ChatView, type UiChat } from "./chat.js";
 import { createUiFeed, type FeedView, type UiFeed } from "./feed.js";
@@ -103,6 +104,17 @@ export interface UiSectionView {
   note: string;
   card: UiCard | null;
   items: UiItemView[];
+  /** The visitor keeps this tab on their bar. */
+  pinned: boolean;
+}
+/** A tab of the menu the visitor keeps on their bar: pressing it brings the menu up on that tab. */
+export interface UiPinView {
+  /** The tab's id. */
+  id: string;
+  label: string;
+  icon: IconName | null;
+  /** The number key that presses it, or "". */
+  key: string;
 }
 /** Everything a renderer needs to draw, with every word already worked out. */
 /**
@@ -138,6 +150,10 @@ export interface UiView {
   keys: UiKeys;
   sections: UiSectionView[];
   hotbar: UiItemView[];
+  /** The tabs they keep on the bar, after its own keys, in the order they pinned them. Only tabs this place has. */
+  pins: UiPinView[];
+  /** They have pinned as many as may be: another can't be until one is taken off. */
+  pinsFull: boolean;
   theme: UiTheme;
   /** What the people in the room have written (ui/chat.ts). */
   chat: ChatView;
@@ -172,6 +188,13 @@ export interface Controls {
   setCorner(corner: Corner): void;
   /** Which keys the HUD answers to. */
   setKeys(keys: Partial<UiKeys>): void;
+  /** The tabs the visitor keeps on their bar, by id, in order. They go with them to the next world (settings.ts). */
+  readonly pins: readonly string[];
+  /**
+   * Pin a tab of the menu to the bar, or take it off. It is the visitor's own doing, from the menu: a world
+   * doesn't pin for them. False if it couldn't be: the bar holds `PINS_MOST`, or there is no such tab.
+   */
+  setPinned(section: string, pinned: boolean): boolean;
   /**
    * Take every key for the world, or give them back. While claimed, the HUD
    * answers to no key at all; its mark can still be clicked. For play that
@@ -262,6 +285,24 @@ const inOrder = <T extends { id: string }>(list: T[]): T[] =>
     .sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1])
     .map((x) => x[0]);
 
+const PINS_KEY = "nswp:ui:pins";
+/** The tabs this visitor keeps on their bar, as this site remembers them. Null if they have never chosen. */
+function loadPins(): string[] | null {
+  try {
+    const kept = globalThis.localStorage?.getItem(PINS_KEY);
+    return kept === null || kept === undefined ? null : (cleanSettings({ pins: JSON.parse(kept) }).pins ?? null);
+  } catch {
+    return null;
+  }
+}
+function savePins(pins: string[]): void {
+  try {
+    globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
+  } catch {
+    /* storage unavailable: the choice lasts for this visit */
+  }
+}
+
 export function createControls(opts: ControlsOptions): Controls {
   const sections: UiSection[] = STANDARD.map((s) => ({ ...s }));
   for (const s of opts.sections ?? []) addSection(s);
@@ -280,6 +321,13 @@ export function createControls(opts: ControlsOptions): Controls {
   }
   // Only what they chose themselves goes on with them. A world's own setting, or a device's, is not theirs to carry.
   reportSettings("look", () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }));
+  // The tabs they keep on their bar. Null until they have chosen: then nothing is said of it to the next world.
+  let pins: string[] | null = loadPins();
+  if (came.pins !== undefined) {
+    pins = [...came.pins];
+    savePins(pins);
+  }
+  reportSettings("pins", () => (pins ? { pins } : {}));
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
   let detail: string[] = [];
@@ -371,6 +419,18 @@ export function createControls(opts: ControlsOptions): Controls {
       theme = resolveTheme({ ...opts.theme, ...(keep ? {} : patch) }, visitor);
       changed();
     },
+    get pins() {
+      return pins ?? [];
+    },
+    setPinned(section, pinned) {
+      const now = pins ?? [];
+      if (pinned === now.includes(section)) return true;
+      if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
+      pins = pinned ? [...now, section] : now.filter((id) => id !== section);
+      savePins(pins);
+      changed();
+      return true;
+    },
     view() {
       const showing = inOrder(actions.filter((a) => !a.hidden?.()));
       const bar = showing.filter((a) => a.hotbar).slice(0, 6);
@@ -380,15 +440,23 @@ export function createControls(opts: ControlsOptions): Controls {
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);
+      const shown = [...sections, ...extra]
+        .map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) }))
+        .filter((s) => s.items.length > 0 || s.note || s.card);
       return {
         title: opts.title,
         address: opts.address ?? "",
         target,
         detail,
-        sections: [...sections, ...extra]
-          .map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) }))
-          .filter((s) => s.items.length > 0 || s.note || s.card),
+        sections: shown,
         hotbar: bar.map(item),
+        // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
+        pins: (pins ?? []).flatMap((id, i) => {
+          const tab = shown.find((x) => x.id === id);
+          const n = bar.length + i + 1;
+          return tab ? [{ id, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+        }),
+        pinsFull: (pins ?? []).length >= PINS_MOST,
         theme,
         presence,
         corner,

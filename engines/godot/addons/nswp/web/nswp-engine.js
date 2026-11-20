@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.32.1";
+  var KIT_VERSION = "0.33.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -3698,6 +3698,8 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/settings.js
+  var PINS_MOST = 4;
+  var PIN_NAME = /^[a-z][a-z0-9-]{0,11}$/;
   var LOOK_RANGE = [0.25, 3];
   var FOV_RANGE = [50, 110];
   var SETTINGS_LINK_LIMIT = 400;
@@ -3746,6 +3748,8 @@ var NSWP = (() => {
       out.pictures = s.pictures;
     if (typeof s.chat === "boolean")
       out.chat = s.chat;
+    if (Array.isArray(s.pins))
+      out.pins = [...new Set(s.pins.filter((name) => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
@@ -3761,7 +3765,13 @@ var NSWP = (() => {
     if (!hasSettings(clean2))
       return "";
     const text = toBase64Url(JSON.stringify(clean2));
-    return text.length <= SETTINGS_LINK_LIMIT ? text : "";
+    if (text.length <= SETTINGS_LINK_LIMIT)
+      return text;
+    if (clean2.pins) {
+      const { pins: _left, ...rest } = clean2;
+      return encodeSettings(rest);
+    }
+    return "";
   }
 
   // packages/core/dist/avatar.js
@@ -6435,6 +6445,7 @@ var NSWP = (() => {
     door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
     link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
     save: "M7 4h10v17l-5-3.5L7 21V4Z",
+    pin: "M9 4h6l-1 6 3 3H7l3-3-1-6ZM12 13v7",
     step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
     size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
     motion: "M3 12h4l3-7 4 14 3-7h4",
@@ -6762,8 +6773,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .target.card b { font-weight: 650; }
 .target.card span { opacity: 0.86; font-size: 0.93em; line-height: 1.35; }
 .target.card span:last-child { opacity: 1; color: rgb(var(--accent)); }
-.hotbar { pointer-events: auto; display: flex; align-items: flex-start; justify-content: center; gap: 10px; padding: 12px 14px 8px; border-radius: 20px 20px 10px 10px; }
-.key { position: relative; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
+.hotbar { pointer-events: auto; display: flex; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 12px 14px 8px; border-radius: 20px 20px 10px 10px;
+  /* As wide as its keys, and no wider than the screen: with tabs pinned to it on a phone, it is slid along. */
+  max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.hotbar::-webkit-scrollbar { display: none; }
+.key { position: relative; flex: none; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
+/* Between the place's own keys and the tabs the visitor pinned: a line, so it is plain which are theirs. */
+.hotbar .theirs { flex: none; align-self: stretch; width: 1px; margin: 2px 2px 8px; background: rgba(var(--ink), .2); }
+.key.pin .arch { border-style: dashed; }
 /* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
 .key .arch { width: 52px; height: 54px; display: grid; place-items: center; border-radius: 26px 26px 7px 7px;
   background: rgba(var(--accent), .08); border: 1px solid rgba(var(--accent), .42); transition: background .15s, border-color .15s, transform .15s; }
@@ -6895,7 +6912,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 .note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
 .note:empty { display: none; }
-.foot { display: flex; justify-content: flex-end; padding: 0 12px 12px; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
+/* Keeping this tab on the bar: a quiet button, opposite Close. */
+.pin-it { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); color: rgba(var(--ink), .82); font-size: .93em; }
+.pin-it svg { width: 16px; height: 16px; }
+.pin-it:hover:not(:disabled), .pin-it:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.pin-it[aria-pressed="true"] { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); background: rgba(var(--accent), .12); }
+.pin-it:disabled { opacity: .5; cursor: default; }
 .close { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); }
 .close:hover { border-color: rgb(var(--ink)); }
 
@@ -7037,7 +7060,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const rows = el("div", { class: "rows" });
     const note = el("p", { class: "note" });
     const close = el("button", { class: "close", type: "button" }, "Close");
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, close));
+    const pinWords = el("span");
+    const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
     const chatTitle = el("b");
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
     const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
@@ -7060,6 +7085,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let chose = false;
     let drawn = "";
     const press = (item) => controls2.run(item.id);
+    const openPin = (id2) => {
+      controls2.signal("press");
+      if (open2 && section === id2) setOpen(false);
+      else setOpen(true, id2);
+    };
     const drawCard = (card) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
       if (card.color) face.style.setProperty("--c", card.color);
@@ -7300,9 +7330,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       drawChat(view2);
       if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
-      const now = JSON.stringify([view2.hotbar, view2.sections, section, open2, view2.presence]);
+      const now = JSON.stringify([view2.hotbar, view2.pins, view2.pinsFull, view2.sections, section, open2, view2.presence]);
       if (now === drawn) return;
       drawn = now;
+      const here = view2.sections.find((s) => s.id === section);
+      pinIt.hidden = !here;
+      pinIt.setAttribute("aria-pressed", String(!!here?.pinned));
+      pinIt.disabled = !here?.pinned && view2.pinsFull;
+      pinWords.textContent = here?.pinned ? "On your bar. Take it off" : view2.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
+      pinIt.title = here?.pinned ? "" : view2.pinsFull ? "Take a tab off your bar to keep another on it." : "It stays on your bar in every world that has this tab.";
       hotbar.replaceChildren(
         ...view2.hotbar.map((item, i) => {
           const b = el(
@@ -7316,9 +7352,23 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           b.style.setProperty("--i", String(i));
           b.addEventListener("click", () => press(item));
           return b;
+        }),
+        ...view2.pins.length && view2.hotbar.length ? [el("i", { class: "theirs", "aria-hidden": "true" })] : [],
+        ...view2.pins.map((pin, i) => {
+          const b = el(
+            "button",
+            { class: "key pin normal", type: "button", "aria-label": `${pin.label}: a tab you keep on your bar`, "aria-pressed": String(open2 && section === pin.id) },
+            el("span", { class: "arch" }, icon(pin.icon ?? "menu")),
+            el("span", { class: "sill" }),
+            el("span", { class: "name" }, pin.label),
+            el("kbd", { class: "num mono" }, pin.key)
+          );
+          b.style.setProperty("--i", String(view2.hotbar.length + i));
+          b.addEventListener("click", () => openPin(pin.id));
+          return b;
         })
       );
-      hotbar.hidden = view2.hotbar.length === 0;
+      hotbar.hidden = view2.hotbar.length === 0 && view2.pins.length === 0;
       tabs.replaceChildren(
         ...view2.sections.map((s) => {
           const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
@@ -7405,6 +7455,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     menu2.addEventListener("click", () => setOpen(!open2));
     quiet.addEventListener("click", () => setOpen(!open2));
     close.addEventListener("click", () => setOpen(false));
+    pinIt.addEventListener("click", () => {
+      const here = controls2.view().sections.find((s) => s.id === section);
+      if (!here) return;
+      if (!controls2.setPinned(here.id, !here.pinned)) return controls2.say("Your bar is full. Take a tab off it to keep another on it.");
+      controls2.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
+    });
     const onKey = (e) => {
       if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
@@ -7418,7 +7474,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       if (!view2.keys.hotbar || view2.presence !== "full") return;
       const item = view2.hotbar.find((i) => i.key === e.key);
-      if (item) press(item);
+      if (item) return press(item);
+      const pin = view2.pins.find((p) => p.key && p.key === e.key);
+      if (pin) openPin(pin.id);
     };
     addEventListener("keydown", onKey);
     const onSummonKey = (e) => {
@@ -7632,6 +7690,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return i === -1 ? STANDARD_ORDER.length : i;
   };
   var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
+  var PINS_KEY = "nswp:ui:pins";
+  function loadPins() {
+    try {
+      const kept = globalThis.localStorage?.getItem(PINS_KEY);
+      return kept === null || kept === void 0 ? null : cleanSettings({ pins: JSON.parse(kept) }).pins ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function savePins(pins) {
+    try {
+      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
+    } catch {
+    }
+  }
   function createControls(opts) {
     const sections = STANDARD.map((s) => ({ ...s }));
     for (const s of opts.sections ?? []) addSection(s);
@@ -7647,6 +7720,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       saveVisitorTheme(visitor);
     }
     reportSettings("look", () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }));
+    let pins = loadPins();
+    if (came.pins !== void 0) {
+      pins = [...came.pins];
+      savePins(pins);
+    }
+    reportSettings("pins", () => pins ? { pins } : {});
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
@@ -7734,6 +7813,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         theme = resolveTheme({ ...opts.theme, ...keep5 ? {} : patch }, visitor);
         changed();
       },
+      get pins() {
+        return pins ?? [];
+      },
+      setPinned(section, pinned) {
+        const now = pins ?? [];
+        if (pinned === now.includes(section)) return true;
+        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
+        pins = pinned ? [...now, section] : now.filter((id) => id !== section);
+        savePins(pins);
+        changed();
+        return true;
+      },
       view() {
         const showing = inOrder(actions.filter((a) => !a.hidden?.()));
         const bar = showing.filter((a) => a.hotbar).slice(0, 6);
@@ -7743,13 +7834,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
+        const shown3 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
         return {
           title: opts.title,
           address: opts.address ?? "",
           target: target2,
           detail,
-          sections: [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item) })).filter((s) => s.items.length > 0 || s.note || s.card),
+          sections: shown3,
           hotbar: bar.map(item),
+          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
+          pins: (pins ?? []).flatMap((id, i) => {
+            const tab = shown3.find((x) => x.id === id);
+            const n = bar.length + i + 1;
+            return tab ? [{ id, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+          }),
+          pinsFull: (pins ?? []).length >= PINS_MOST,
           theme,
           presence: presence2,
           corner,

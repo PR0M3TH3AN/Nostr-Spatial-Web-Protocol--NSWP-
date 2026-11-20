@@ -2,6 +2,12 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.33.0
+
+- **A tab of the menu can be kept on the bar.** Each tab has "Keep this tab on your bar" beside Close. A pinned tab stands on the bar after the place's own keys, with the tab's own picture and name and the next number key; pressing it brings the menu up on that tab, and pressing it again puts the menu away. Four may be pinned. Nothing is pinned until the visitor pins it, and a world never pins for them.
+- **What is on their bar goes with them.** `pins` joins the settings that travel ([NSWP-11](protocol/11-the-visitors-console.md), "Settings that travel"): the tabs' names, as short plain words, four at most. A world shows the ones it has a tab for and passes the rest on. If the settings would be too long for a link, the pins are left off first and everything else still travels.
+- **In the kit:** `controls.pins`, `controls.setPinned(tab, pinned)`; the view has `pins`, `pinsFull` and `pinned` on each tab; `PINS_MOST`; a `pin` icon. On a narrow screen the bar slides sideways when it is wider than the screen.
+
 ## 0.32.1
 
 - **The card about what is pointed at is one column again.** Since the profile card arrived (0.27.0) the two shared a style name, so a door or a thing pointed at had its lines laid out in two squeezed columns, as a picture and a name are. The profile card has a name of its own now.
