@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.38.0";
+  var KIT_VERSION = "0.39.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4537,6 +4537,16 @@ var NSWP = (() => {
       return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
     return null;
   }
+
+  // packages/core/dist/message.js
+  var MESSAGE_LIMITS = {
+    /** The most characters in one message as this library writes and shows it. */
+    chars: 2e3,
+    /** How far back a wrap's time may be moved, in seconds, so that a relay can't tell when it was sent. */
+    backdateSec: 2 * 24 * 3600,
+    /** No more than this many relays are taken from someone's list. */
+    relays: 4
+  };
 
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {

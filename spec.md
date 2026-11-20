@@ -772,6 +772,8 @@ The project reuses existing NIPs wherever possible and defines new kinds only fo
 
 The client uses NIP-02 follows (kind 3), NIP-65 relay lists (kind 10002) and NIP-51 lists to recommend worlds. A follow graph is a recommendation signal, never an access rule.
 
+Following and unfollowing someone, and writing to them privately (NIP-17), are done at the visitor's own client and never by a world ([NSWP-14](protocol/14-people-and-messages.md)). A follow list is changed from the newest that can be found, one line at a time, and never written from nothing.
+
 ### 8.2 Recommendations and reviews
 
 - **Ratings:** one to five stars from one person for one world, kind 37305 ([NSWP-13](protocol/13-ratings.md)). A client counts the people its visitor has reason to trust, never everyone.
