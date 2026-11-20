@@ -48,6 +48,9 @@ import {
   bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
+  buildRating,
+  parseRating,
+  tallyRatings,
   getConversationKey,
   openSave,
   saveAddress,
@@ -820,6 +823,56 @@ const files: Record<string, unknown> = {
     addresses: address,
     sealed: { world: ARCADE, slot: "main", data: '{"level":3}', now: T0, event: good },
     opening: vectors,
+  };
+}
+
+// ---- Ratings (protocol/13-ratings.md): what a reader takes from each, and what a tally comes to.
+{
+  const WORLD = `${WORLD_KIND}:${PK2}:arcade`;
+  const URL_ = "https://arcade.example/";
+  const rate = (key: Uint8Array, stars: number, o: { now?: number; words?: string; extra?: string[][]; world?: string } = {}) => {
+    const made = buildRating({ world: o.world ?? WORLD, stars, words: o.words, now: o.now ?? T0 })!;
+    return sign({ ...made, tags: [...made.tags, ...(o.extra ?? [])] }, key);
+  };
+  const a = rate(KEY1, 4, { words: "Caught all twelve." });
+  const aLater = rate(KEY1, 5, { now: T0 + 60 });
+  const b = rate(KEY3, 3);
+  const fromInside = rate(KEY3, 5, { now: T0 + 120, extra: [["bitlogin:site", "https://arcade.example"]] });
+  const itsMaker = rate(KEY2, 5);
+  const badStars = { ...a, tags: a.tags.map((t) => (t[0] === "rating" ? ["rating", "9"] : t)) };
+  const twoWorlds = { ...a, tags: a.tags.map((t) => (t[0] === "a" ? ["a", `${WORLD_KIND}:${PK2}:grove`] : t)) };
+  const reading = [
+    { name: "four_stars", description: "A rating with a few words.", event: a },
+    { name: "asked_for_by_the_world", description: "A signer marked the site that asked: the world it rates. Read, with that noted; a tally leaves it out.", event: fromInside },
+    { name: "nine_stars", description: "Stars outside one to five: not a rating.", event: badStars },
+    { name: "about_another_world", description: "Kept at one world's address and about another: not a rating.", event: twoWorlds },
+  ].map((v) => ({ ...v, expect: parseRating(v.event as NostrEvent) }));
+  const tally = (name: string, description: string, events: NostrEvent[], counted: string[], me: string | null) => {
+    const t = tallyRatings(events, { world: WORLD, counted, me, worldUrl: URL_ });
+    return { name, description, events: events.map((e) => e.id), counted, me, expect: { count: t.count, average: t.average, mine: t.mine } };
+  };
+  const all = [a, aLater, b, fromInside, itsMaker];
+  const tallies = [
+    tally("two_people", "Each person's newest. The one the world asked for itself is left out, so the third key's earlier rating stands.", all, [PK1, PK3], null),
+    tally("nobody_counted", "The same ratings, and nobody the reader counts: nothing.", all, [], null),
+    tally("the_visitor_always_counts", "Nobody else counted, and the visitor is the first key.", all, [], PK1),
+    tally("its_own_maker", "The world's publisher is counted by the reader, and still not for its own world.", all, [PK2], null),
+  ];
+  expectEqual("ratings/two_people", tallies[0]!.expect, { count: 2, average: 4, mine: 0 });
+  expectEqual("ratings/nobody_counted", tallies[1]!.expect, { count: 0, average: 0, mine: 0 });
+  expectEqual("ratings/the_visitor", tallies[2]!.expect, { count: 1, average: 5, mine: 5 });
+  expectEqual("ratings/its_own_maker", tallies[3]!.expect, { count: 0, average: 0, mine: 0 });
+  expectEqual("ratings/nine_stars", reading[2]!.expect, null);
+  expectEqual("ratings/about_another_world", reading[3]!.expect, null);
+  files["ratings.json"] = {
+    description:
+      "Ratings (protocol/13-ratings.md, kind 37305). `reading`: what a reader takes from one event, or null where it isn't a rating. `tallies`: the events are named by id from `events`; `counted` is who the reader counts, `me` is the visitor, and the world's address is `worldUrl`. `expect` is the tally: how many, their average to one place, and the visitor's own. Signatures are checked as part of a tally.",
+    testKeys,
+    world: WORLD,
+    worldUrl: URL_,
+    events: all,
+    reading,
+    tallies,
   };
 }
 

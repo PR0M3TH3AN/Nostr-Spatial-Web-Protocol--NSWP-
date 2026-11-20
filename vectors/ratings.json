@@ -1,0 +1,384 @@
+{
+  "description": "Ratings (protocol/13-ratings.md, kind 37305). `reading`: what a reader takes from one event, or null where it isn't a rating. `tallies`: the events are named by id from `events`; `counted` is who the reader counts, `me` is the visitor, and the world's address is `worldUrl`. `expect` is the tally: how many, their average to one place, and the visitor's own. Signatures are checked as part of a tally.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+  "worldUrl": "https://arcade.example/",
+  "events": [
+    {
+      "kind": 37305,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "rating",
+          "4"
+        ],
+        [
+          "alt",
+          "A rating of a world: 4 of 5"
+        ]
+      ],
+      "content": "Caught all twelve.",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "id": "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+      "sig": "a5826b3f9761b16560effa0d4ce712ef8de0143a6bf7c0b5a54fa5fadb702c5ca9530d211a8b2c0962a5940727e05db3984ba5c70a0438135fb194979d631dc7"
+    },
+    {
+      "kind": 37305,
+      "created_at": 1794430860,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "rating",
+          "5"
+        ],
+        [
+          "alt",
+          "A rating of a world: 5 of 5"
+        ]
+      ],
+      "content": "",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "id": "456c772a2d80ee31fce7683cc05c8d7398b34324343dfbfd7c89d15718057205",
+      "sig": "9cbf587b97a8f937ab69a1e4ad00513d094dce3d4ad8a4b9cb157ff6f5e37356ac5fc3c20fdc2ce5e18b027581c7ae0468a8145b15da70c6cf6b35fed2e0b740"
+    },
+    {
+      "kind": 37305,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "rating",
+          "3"
+        ],
+        [
+          "alt",
+          "A rating of a world: 3 of 5"
+        ]
+      ],
+      "content": "",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "id": "d87e69999a408ca21562105b5ea2a226dfe9bb31a61d1b3b3c667c99efe939dc",
+      "sig": "5c53a637f32ad69e694f7146444ddae5029bdefbc1c31c6ee79467a893fc3007aca55a709c61a3a7c534a33a87e311c6af4a160525445a1fadc96b1d44644fdb"
+    },
+    {
+      "kind": 37305,
+      "created_at": 1794430920,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "rating",
+          "5"
+        ],
+        [
+          "alt",
+          "A rating of a world: 5 of 5"
+        ],
+        [
+          "bitlogin:site",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "id": "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+      "sig": "9500c28abfad139d6986f4701b651a8429b7e0e15c63e3f0cb3555d9ce25c5a6aa088b131e12c04c900fc6bcbb3efda2b8e02902a77bde525148b488c65a4b7b"
+    },
+    {
+      "kind": 37305,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "rating",
+          "5"
+        ],
+        [
+          "alt",
+          "A rating of a world: 5 of 5"
+        ]
+      ],
+      "content": "",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "id": "3bb264ab3c5a5e099a5f96769bb917d4440bec52c85c64cfa197e5bdbb79802b",
+      "sig": "8439264a9b10069d6b7e1d33827992f7376be0b76f8cf38f9fd8a1e31aeb3fbf9e84a261e96a727d939ff8a7d05499e70530b860d8851e6f3e207cc2de3a3748"
+    }
+  ],
+  "reading": [
+    {
+      "name": "four_stars",
+      "description": "A rating with a few words.",
+      "event": {
+        "kind": 37305,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "rating",
+            "4"
+          ],
+          [
+            "alt",
+            "A rating of a world: 4 of 5"
+          ]
+        ],
+        "content": "Caught all twelve.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "sig": "a5826b3f9761b16560effa0d4ce712ef8de0143a6bf7c0b5a54fa5fadb702c5ca9530d211a8b2c0962a5940727e05db3984ba5c70a0438135fb194979d631dc7"
+      },
+      "expect": {
+        "by": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+        "stars": 4,
+        "words": "Caught all twelve.",
+        "at": 1794430800,
+        "askedAt": []
+      }
+    },
+    {
+      "name": "asked_for_by_the_world",
+      "description": "A signer marked the site that asked: the world it rates. Read, with that noted; a tally leaves it out.",
+      "event": {
+        "kind": 37305,
+        "created_at": 1794430920,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "rating",
+            "5"
+          ],
+          [
+            "alt",
+            "A rating of a world: 5 of 5"
+          ],
+          [
+            "bitlogin:site",
+            "https://arcade.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "id": "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+        "sig": "9500c28abfad139d6986f4701b651a8429b7e0e15c63e3f0cb3555d9ce25c5a6aa088b131e12c04c900fc6bcbb3efda2b8e02902a77bde525148b488c65a4b7b"
+      },
+      "expect": {
+        "by": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+        "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+        "stars": 5,
+        "words": "",
+        "at": 1794430920,
+        "askedAt": [
+          "https://arcade.example"
+        ]
+      }
+    },
+    {
+      "name": "nine_stars",
+      "description": "Stars outside one to five: not a rating.",
+      "event": {
+        "kind": 37305,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "rating",
+            "9"
+          ],
+          [
+            "alt",
+            "A rating of a world: 4 of 5"
+          ]
+        ],
+        "content": "Caught all twelve.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "sig": "a5826b3f9761b16560effa0d4ce712ef8de0143a6bf7c0b5a54fa5fadb702c5ca9530d211a8b2c0962a5940727e05db3984ba5c70a0438135fb194979d631dc7"
+      },
+      "expect": null
+    },
+    {
+      "name": "about_another_world",
+      "description": "Kept at one world's address and about another: not a rating.",
+      "event": {
+        "kind": 37305,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:grove"
+          ],
+          [
+            "rating",
+            "4"
+          ],
+          [
+            "alt",
+            "A rating of a world: 4 of 5"
+          ]
+        ],
+        "content": "Caught all twelve.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "sig": "a5826b3f9761b16560effa0d4ce712ef8de0143a6bf7c0b5a54fa5fadb702c5ca9530d211a8b2c0962a5940727e05db3984ba5c70a0438135fb194979d631dc7"
+      },
+      "expect": null
+    }
+  ],
+  "tallies": [
+    {
+      "name": "two_people",
+      "description": "Each person's newest. The one the world asked for itself is left out, so the third key's earlier rating stands.",
+      "events": [
+        "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "456c772a2d80ee31fce7683cc05c8d7398b34324343dfbfd7c89d15718057205",
+        "d87e69999a408ca21562105b5ea2a226dfe9bb31a61d1b3b3c667c99efe939dc",
+        "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+        "3bb264ab3c5a5e099a5f96769bb917d4440bec52c85c64cfa197e5bdbb79802b"
+      ],
+      "counted": [
+        "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+      ],
+      "me": null,
+      "expect": {
+        "count": 2,
+        "average": 4,
+        "mine": 0
+      }
+    },
+    {
+      "name": "nobody_counted",
+      "description": "The same ratings, and nobody the reader counts: nothing.",
+      "events": [
+        "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "456c772a2d80ee31fce7683cc05c8d7398b34324343dfbfd7c89d15718057205",
+        "d87e69999a408ca21562105b5ea2a226dfe9bb31a61d1b3b3c667c99efe939dc",
+        "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+        "3bb264ab3c5a5e099a5f96769bb917d4440bec52c85c64cfa197e5bdbb79802b"
+      ],
+      "counted": [],
+      "me": null,
+      "expect": {
+        "count": 0,
+        "average": 0,
+        "mine": 0
+      }
+    },
+    {
+      "name": "the_visitor_always_counts",
+      "description": "Nobody else counted, and the visitor is the first key.",
+      "events": [
+        "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "456c772a2d80ee31fce7683cc05c8d7398b34324343dfbfd7c89d15718057205",
+        "d87e69999a408ca21562105b5ea2a226dfe9bb31a61d1b3b3c667c99efe939dc",
+        "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+        "3bb264ab3c5a5e099a5f96769bb917d4440bec52c85c64cfa197e5bdbb79802b"
+      ],
+      "counted": [],
+      "me": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "expect": {
+        "count": 1,
+        "average": 5,
+        "mine": 5
+      }
+    },
+    {
+      "name": "its_own_maker",
+      "description": "The world's publisher is counted by the reader, and still not for its own world.",
+      "events": [
+        "4a98be66dcc7dd1697b93d5cc720e1deec6a4d4ab80fe4f133917ce21e87ca24",
+        "456c772a2d80ee31fce7683cc05c8d7398b34324343dfbfd7c89d15718057205",
+        "d87e69999a408ca21562105b5ea2a226dfe9bb31a61d1b3b3c667c99efe939dc",
+        "7dbf405e6010a8449a23f9f4b053882302771a0eab3ed88eef31932bd31e8e79",
+        "3bb264ab3c5a5e099a5f96769bb917d4440bec52c85c64cfa197e5bdbb79802b"
+      ],
+      "counted": [
+        "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+      ],
+      "me": null,
+      "expect": {
+        "count": 0,
+        "average": 0,
+        "mine": 0
+      }
+    }
+  ]
+}

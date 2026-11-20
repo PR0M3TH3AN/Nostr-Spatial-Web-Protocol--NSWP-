@@ -774,6 +774,7 @@ The client uses NIP-02 follows (kind 3), NIP-65 relay lists (kind 10002) and NIP
 
 ### 8.2 Recommendations and reviews
 
+- **Ratings:** one to five stars from one person for one world, kind 37305 ([NSWP-13](protocol/13-ratings.md)). A client counts the people its visitor has reason to trust, never everyone.
 - **Reviews and comments:** NIP-22 comments (kind 1111) scoped to the world coordinate.
 - **Reactions:** NIP-25 (kind 7) on the world event.
 - **Tips:** NIP-57 zaps to the publisher (§16). Zap totals from followed accounts are a strong discovery signal.

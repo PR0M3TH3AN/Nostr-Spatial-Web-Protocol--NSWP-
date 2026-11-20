@@ -20,6 +20,7 @@ and says plainly what is built and what is only proposed.
 | **See all of it at once:** what is required, what comes ready-made, what you may replace | [`docs/integrating.md`](../docs/integrating.md) | |
 | **Build a game** with an interface of its own | [11](11-the-visitors-console.md) | [09](09-what-a-world-owes.md) |
 | **Keep a visitor's progress,** on every device they use | [12](12-saves.md) | [10](10-identity.md) |
+| **Show what people thought** of a world, or let them say | [13](13-ratings.md) | [08](08-lists.md) |
 | **Draw people** your own way | [05](05-looks.md), "What a world may change" | |
 | **Know why** it is built this way | [`spec.md`](../spec.md) | |
 | **Build a browser,** or see where a browser could take this | [`browser/spec.md`](../browser/spec.md): a plan, not part of the protocol | [02](02-doors.md), [10](10-identity.md) |
@@ -40,6 +41,7 @@ and says plainly what is built and what is only proposed.
 | [10 Who someone is](10-identity.md) | Going by name without a world ever holding a key: passes, names, the proven mark | Implemented, in part | 27300 |
 | [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; arriving in the form they left in; and the settings that go with them | Implemented, in part | |
 | [12 Saves](12-saves.md) | What a world keeps for its visitor: on their own relays, readable only by them, reachable only by the world it belongs to | Implemented; a signer's side is not built in BitLogin yet | 37304 |
+| [13 Ratings](13-ratings.md) | What a visitor thought of a world, and whose ratings a client counts: never a crowd of strangers | Implemented, in part | 37305 |
 
 ## What "status" means
 

@@ -2,6 +2,12 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.37.0
+
+- **Ratings** ([NSWP-13](protocol/13-ratings.md), kind 37305): one to five stars from one person for one world, with a few words, replaced when they change their mind. `buildRating`, `parseRating`, `tallyRatings`, `tallyWords` in the core; `vectors/ratings.json`.
+- **A tally counts only the people a client was told to count:** the visitor, and whoever it gives (the people they follow, the curators whose lists they use). A crowd of keys nobody knows changes nothing. It leaves out a world's own publisher, and any rating a signer marked as asked for by the world it rates.
+- A rating is given at the visitor's own client. A world's signer refuses the kind, as it does every kind but a note and a reaction.
+
 ## 0.36.0
 
 What kind of place a world is, and what a world keeps for its visitor.
