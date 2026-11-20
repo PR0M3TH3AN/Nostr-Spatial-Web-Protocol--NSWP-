@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.46.0
+
+What someone has done, on their card.
+
+- **A person's card says where they stand and what they show** ([NSWP-15](protocol/15-scores.md), [NSWP-16](protocol/16-achievements.md), "On a person's card"): in People and in Following, for a world that keeps score or marks achievements. "Lantern Run: 41.2 s, 2nd of 14 here". It comes from the world's own boards, asked of relays by world: no relay is asked about the person. `worldPersonLines` in the kit; `about` on `addRoomControls`. Optional.
+- **A score says what its board is called and how it counts,** so that it can be shown where the world isn't: `["board", id, title]` and `["score", n, "time"]`. The `score` message to the signer may carry `title` and `format`. One that says neither is a plain number, as before. `parseScore` gives `title` and `format`.
+- `scores.standingOf(board, pubkey)` and `achievements.heldBy(pubkey)`, from what was last read.
+- The reference worlds do it, so the Arcade's cards say both.
+- **The relay backup tries up to three rounds of found relays when sending,** where it tried one. A monitor finding a relay open says little about whether it takes a note from a key it doesn't know: probed by the BitLogin session on 2026-11-20, most of the relays monitors listed as open refused one, and some that took a note had dropped it within minutes. The backup remains a last resort and no promise.
+
 ## 0.45.0
 
 Achievements, for a world that has them. Optional throughout, and built the way scores are.

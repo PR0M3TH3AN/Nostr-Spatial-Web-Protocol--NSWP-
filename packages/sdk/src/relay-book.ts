@@ -70,12 +70,14 @@ export async function sendWell(event: NostrEvent, o: { own: string[]; usual: str
   }
   // Still nothing: a few relays that monitors have found working (NIP-66), once. Never a private message.
   if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
-    const more = (await foundRelays({ not: tried, now, ...(o.query ? { query: o.query } : {}) })).open.slice(0, BACKUP_AT_ONCE);
-    if (more.length) {
-      const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
+    const more = (await foundRelays({ not: tried, now, ...(o.query ? { query: o.query } : {}) })).open;
+    for (let round = 0; round < BACKUP_ROUNDS && took === 0; round++) {
+      const batch = more.slice(round * BACKUP_AT_ONCE, (round + 1) * BACKUP_AT_ONCE);
+      if (!batch.length) break;
+      const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
       learnFrom(last.relays, now());
       took = Object.values(last.relays).filter((said) => said === "ok").length;
-      tried.push(...more);
+      tried.push(...batch);
     }
   }
   return { took, relays: tried, own: first.own };
@@ -146,6 +148,12 @@ export function foundRelays(o: { not?: readonly string[]; query?: typeof queryRe
 
 /** How many backup relays are tried at once. */
 const BACKUP_AT_ONCE = 4;
+/**
+ * How many rounds of them are tried when sending. A monitor finding a relay open says little about whether it
+ * takes a note from a key it doesn't know: probed on 2026-11-20, most of the relays monitors listed as open
+ * refused one. So a refusal is expected, and the next few are tried, before giving up.
+ */
+const BACKUP_ROUNDS = 3;
 
 /**
  * Whether the backup may be used for this call.
@@ -190,12 +198,18 @@ export async function publishBacked(relays: string[], event: NostrEvent, o: { pu
   const sent = await publish(relays, event);
   learnFrom(sent.relays, now());
   if (!mayBackUp(relays, !!o.publish) || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
-  const more = (await foundRelays({ not: relays, ...(o.query ? { query: o.query } : {}), now })).open.slice(0, BACKUP_AT_ONCE);
-  if (!more.length) return sent;
-  const again = await publish(more, event).catch(() => null);
-  if (!again) return sent;
-  learnFrom(again.relays, now());
-  return { relays: { ...sent.relays, ...again.relays } };
+  const more = (await foundRelays({ not: relays, ...(o.query ? { query: o.query } : {}), now })).open;
+  const all = { ...sent.relays };
+  for (let round = 0; round < BACKUP_ROUNDS; round++) {
+    const batch = more.slice(round * BACKUP_AT_ONCE, (round + 1) * BACKUP_AT_ONCE);
+    if (!batch.length) break;
+    const again = await publish(batch, event).catch(() => null);
+    if (!again) continue;
+    learnFrom(again.relays, now());
+    Object.assign(all, again.relays);
+    if (Object.values(again.relays).some((said) => said === "ok")) break;
+  }
+  return { relays: all };
 }
 
 /** For tests: forget everything. */

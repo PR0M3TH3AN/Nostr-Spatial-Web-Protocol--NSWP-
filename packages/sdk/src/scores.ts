@@ -18,8 +18,8 @@ import { askWell, sendWell } from "./relay-book.js";
 export interface ScoreHand {
   /** Who is signed in here, or null for a guest. */
   pubkey(): string | null;
-  /** Have a score signed for this world. Null if it couldn't be. */
-  sign(world: string, board: string, score: number): Promise<NostrEvent | null>;
+  /** Have a score signed for this world, saying what the board is called and how it counts. Null if it couldn't be. */
+  sign(world: string, board: string, score: number, said: { title: string; format: Board["format"] }): Promise<NostrEvent | null>;
 }
 
 export interface ScoresOptions {
@@ -52,6 +52,11 @@ export interface Scores {
   standings(board: string, fresh?: boolean): Promise<Standings | null>;
   /** A score in the board's own words: "42.5 s". */
   words(board: string, score: number): string;
+  /**
+   * Where someone stands on a board, from what was last read of it: for saying so on their card. Null where they
+   * aren't on it, or it hasn't been read. Nothing is asked of a relay by this.
+   */
+  standingOf(board: string, pubkey: string): { score: number; rank: number; of: number } | null;
   onChange(fn: () => void): () => void;
 }
 
@@ -159,7 +164,7 @@ export function createScores(opts: ScoresOptions): Scores {
       const kept = of(who);
       const had = cleanScore(kept[id]?.posted);
       if (had !== null && !better(b, mine, had)) return { ok: true, said: `Your best, ${scoreWords(b, mine)}, is already on the board.` };
-      const signed = await opts.hand.sign(world, id, mine).catch(() => null);
+      const signed = await opts.hand.sign(world, id, mine, { title: b.title, format: b.format }).catch(() => null);
       if (!signed) return { ok: false, said: "It couldn't be signed, so nothing was posted. Your best is still kept on this device." };
       const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, query, now }).catch(() => null);
       if (!sent || sent.took === 0) return { ok: false, said: "No relay took it. Your best is still kept on this device: try again in a moment." };
@@ -175,6 +180,12 @@ export function createScores(opts: ScoresOptions): Scores {
       await fetchAll(fresh);
       if (!answered && events.length === 0) return null;
       return rankScores(events, { world, board: id, order: b.order, worldUrl: opts.worldUrl, counted: opts.counted?.() ?? [], me: opts.hand.pubkey() });
+    },
+    standingOf(id, pubkey) {
+      const b = boardOf(id);
+      if (!world || !b || events.length === 0) return null;
+      const ranked = rankScores(events, { world, board: id, order: b.order, worldUrl: opts.worldUrl, me: pubkey });
+      return ranked.mine ? { score: ranked.mine.score, rank: ranked.mine.rank, of: ranked.count } : null;
     },
     words: (id, score) => {
       const b = boardOf(id);

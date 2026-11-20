@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.45.0";
+  var KIT_VERSION = "0.46.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4596,7 +4596,9 @@ var NSWP = (() => {
     perMs: 6e4,
     hourly: 60,
     /** The most a score may be. A whole number from 0 to this: what it counts is the board's to say. */
-    most: 9007199254740991
+    most: 9007199254740991,
+    /** The longest a board's title may be, in characters. */
+    title: 60
   };
   var BOARD = /^[a-z0-9][a-z0-9-]{0,31}$/;
   function cleanBoard(input) {
@@ -4615,13 +4617,17 @@ var NSWP = (() => {
     if (!world || !board || score === null || getTags(event, "d")[0]?.[1] !== `${world}/${board}`)
       return null;
     const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
-    return { by: event.pubkey, world, board, score, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+    const title = cleanLine(getTags(event, "board")[0]?.[2] ?? "", SCORE_LIMITS.title);
+    const format = getTags(event, "score")[0]?.[2] === "time" ? "time" : "number";
+    return { by: event.pubkey, world, board, score, title, format, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
   }
   function isScoreAsked(signed, o) {
     if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
       return false;
     const s = parseScore(signed);
-    return !!s && s.world === worldCoordinate(o.world) && s.board === o.board && s.score === o.score && s.askedAt.includes(cleanOrigin(o.origin));
+    if (!s || s.world !== worldCoordinate(o.world) || s.board !== o.board || s.score !== o.score || !s.askedAt.includes(cleanOrigin(o.origin)))
+      return false;
+    return s.title === cleanLine(o.title ?? "", SCORE_LIMITS.title) && s.format === (o.format === "time" ? "time" : "number");
   }
 
   // packages/core/dist/achievement.js
@@ -6957,12 +6963,14 @@ var NSWP = (() => {
       }
     }
     if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
-      const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open.slice(0, BACKUP_AT_ONCE);
-      if (more.length) {
-        const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
+      const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open;
+      for (let round = 0; round < BACKUP_ROUNDS && took === 0; round++) {
+        const batch = more.slice(round * BACKUP_AT_ONCE, (round + 1) * BACKUP_AT_ONCE);
+        if (!batch.length) break;
+        const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
         learnFrom(last.relays, now());
         took = Object.values(last.relays).filter((said) => said === "ok").length;
-        tried.push(...more);
+        tried.push(...batch);
       }
     }
     return { took, relays: tried, own: first.own };
@@ -7007,6 +7015,7 @@ var NSWP = (() => {
     return finding.then(without);
   }
   var BACKUP_AT_ONCE = 4;
+  var BACKUP_ROUNDS = 3;
   var mayBackUp = (relays, injected) => backup && relays.length > 0 && (injected || typeof document !== "undefined");
   async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
     const query = o.query ?? queryRelays;
@@ -7416,9 +7425,10 @@ var NSWP = (() => {
         if (state !== "unlocked" || !frame || !more.includes("messages")) return Promise.resolve(null);
         return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
       },
-      score(world, board, score) {
+      score(world, board, score, said = {}) {
         if (state !== "unlocked" || !frame) return Promise.resolve(null);
-        return askAbout({ t: "score", id: `c${++n}`, world, board, score }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, origin: location.origin }) ? reply.event : null);
+        const more2 = { ...said.title ? { title: said.title } : {}, ...said.format === "time" ? { format: "time" } : {} };
+        return askAbout({ t: "score", id: `c${++n}`, world, board, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, ...more2, origin: location.origin }) ? reply.event : null);
       },
       achieve(world, achievement, title) {
         if (state !== "unlocked" || !frame) return Promise.resolve(null);

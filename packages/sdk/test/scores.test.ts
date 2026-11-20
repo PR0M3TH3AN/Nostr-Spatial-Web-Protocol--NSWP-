@@ -41,9 +41,9 @@ const visitor = (net: ReturnType<typeof relays>, who: number, o: { storage?: Ret
     boards: BOARDS,
     hand: {
       pubkey: () => (v.who ? pk(v.who) : null),
-      sign: async (world, board, score) => {
+      sign: async (world, board, score, said) => {
         v.signed++;
-        return finalizeEvent(scoreForWorld({ world, board, score, origin: ORIGIN, now: T / 1000 })!, key(v.who));
+        return finalizeEvent(scoreForWorld({ world, board, score, ...said, origin: ORIGIN, now: T / 1000 })!, key(v.who));
       },
     },
     counted: () => o.counted ?? [],
@@ -124,6 +124,10 @@ describe("the board a world shows", () => {
     expect(board.known.map((s) => [s.by, s.rank])).toEqual([[pk(1), 3], [pk(4), 4]]);
     expect(board.others.map((s) => s.by)).toEqual([pk(2), pk(3)]);
     expect(board.mine?.rank).toBe(3);
+    // Where anyone stands, for saying so on their card: from what was read, with nothing more asked.
+    expect(me.scores.standingOf("lantern-run", pk(2))).toEqual({ score: 39_500, rank: 1, of: 4 });
+    expect(me.scores.standingOf("lantern-run", pk(77))).toBeNull();
+    expect(net.kept.every((e) => e.tags.some((t) => t[0] === "board" && t[2] === "Lantern Run"))).toBe(true);
   });
 
   it("is nothing where no relay answered, and has no boards a world didn't name", async () => {

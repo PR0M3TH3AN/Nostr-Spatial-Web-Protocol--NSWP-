@@ -20,7 +20,7 @@ import { cleanAbout, cleanPicture } from "./pass.js";
 import { cleanSlot, fitsInSave } from "./save.js";
 import { cleanMessage, cleanRead, type Message, type SealedMessage } from "./message.js";
 import { worldCoordinate } from "./rating.js";
-import { cleanBoard, cleanScore } from "./score.js";
+import { cleanBoard, cleanScore, SCORE_LIMITS } from "./score.js";
 import { ACHIEVEMENT_LIMITS, cleanAchievementId } from "./achievement.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
@@ -212,7 +212,7 @@ export type SignerRequest =
    * Sign my visitor's score (protocol/15-scores.md). The world gives its own coordinate, the board and the score,
    * and nothing else: the signer writes the note and marks it with the site that asked.
    */
-  | { t: "score"; id: string; world: string; board: string; score: number }
+  | { t: "score"; id: string; world: string; board: string; score: number; title?: string; format?: "number" | "time" }
   /**
    * Sign that my visitor holds one of my achievements (protocol/16-achievements.md). The world gives its own
    * coordinate, the achievement's name and what it is called: the signer writes the note and marks it.
@@ -275,7 +275,10 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
   if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
-  if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)! };
+  if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) {
+    const title = cleanLine(d.title, SCORE_LIMITS.title);
+    return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)!, ...(title ? { title } : {}), ...(d.format === "time" ? { format: "time" as const } : {}) };
+  }
   if (d.t === "achieve" && worldCoordinate(d.world) && cleanAchievementId(d.achievement) && cleanLine(d.title, ACHIEVEMENT_LIMITS.title)) {
     return { t: "achieve", id: d.id, world: worldCoordinate(d.world), achievement: cleanAchievementId(d.achievement), title: cleanLine(d.title, ACHIEVEMENT_LIMITS.title) };
   }

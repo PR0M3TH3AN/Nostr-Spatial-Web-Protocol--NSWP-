@@ -624,6 +624,22 @@ achievements.earn("all-twelve"); // they just did it
 - **A hidden one isn't named** until it is earned.
 - **It is a claim.** Nothing checks it, and the tab says so.
 
+### What someone has done, on their card
+
+Optional. Where your world keeps score or marks achievements, a person's
+card (in People, and in Following) can say where they stand and what they
+show:
+
+```ts
+import { worldPersonLines } from "nswp-sdk/three";
+
+const about = worldPersonLines({ scores, achievements });
+addRoomControls(controls, presence, { about });
+```
+
+It reads your world's own boards and achievements, once, when a card is
+first shown, and asks no relay about the person on it.
+
 ### Keeping their progress
 
 A world with something to remember for a visitor keeps it as a save

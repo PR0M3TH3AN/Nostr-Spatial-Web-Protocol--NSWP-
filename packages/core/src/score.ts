@@ -15,6 +15,7 @@
  *
  * A score that has been checked by someone a reader trusts is a later thing, laid over this one.
  */
+import { cleanLine } from "./chat.js";
 import { cleanOrigin } from "./destination.js";
 import { getTags, isHex64, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
 import { SITE_MARKS, worldCoordinate } from "./rating.js";
@@ -29,6 +30,8 @@ export const SCORE_LIMITS = {
   hourly: 60,
   /** The most a score may be. A whole number from 0 to this: what it counts is the board's to say. */
   most: 9_007_199_254_740_991,
+  /** The longest a board's title may be, in characters. */
+  title: 60,
 } as const;
 
 /** One of a world's boards, as the world describes it. */
@@ -69,20 +72,23 @@ export function scoreWords(board: Pick<Board, "format">, score: number): string 
  * A score, ready to be signed by the person who made it. Null if the world isn't a world's coordinate, the board
  * isn't a board's name, or the score isn't one. `relay` is a hint: where the world's announcement can be found.
  */
-export function buildScore(o: { world: string; board: string; score: number; relay?: string; now: number }): EventTemplate | null {
+export function buildScore(o: { world: string; board: string; score: number; title?: string; format?: Board["format"]; relay?: string; now: number }): EventTemplate | null {
   const world = worldCoordinate(o.world);
   const board = cleanBoard(o.board);
   const score = cleanScore(o.score);
   if (!world || !board || score === null) return null;
+  // What the board is called and how it counts go with the score, so that it can be shown anywhere, by a client
+  // that has never been to the world: "Lantern Run: 42.5 s".
+  const title = cleanLine(o.title ?? "", SCORE_LIMITS.title);
   return {
     kind: SCORE_KIND,
     created_at: Math.floor(o.now),
     tags: [
       ["d", `${world}/${board}`],
       ["a", world, ...(o.relay ? [o.relay] : [])],
-      ["board", board],
-      ["score", String(score)],
-      ["alt", `A score in a world: ${score}`],
+      ["board", board, ...(title ? [title] : [])],
+      ["score", String(score), ...(o.format === "time" ? ["time"] : [])],
+      ["alt", `A score in a world: ${title ? `${title}: ` : ""}${scoreWords({ format: o.format === "time" ? "time" : "number" }, score)}`],
     ],
     content: "",
   };
@@ -92,9 +98,12 @@ export function buildScore(o: { world: string; board: string; score: number; rel
  * What a signer does when a world asks for its visitor's score to be signed: the same note, marked with the site
  * that asked, which the signer takes from the browser and never from the world. Null for anything malformed.
  */
-export function scoreForWorld(o: { world: unknown; board: unknown; score: unknown; origin: string; now: number }): EventTemplate | null {
+export function scoreForWorld(o: { world: unknown; board: unknown; score: unknown; title?: unknown; format?: unknown; origin: string; now: number }): EventTemplate | null {
   const origin = cleanOrigin(o.origin);
-  const made = typeof o.world === "string" && typeof o.board === "string" && cleanScore(o.score) !== null ? buildScore({ world: o.world, board: o.board, score: cleanScore(o.score)!, now: o.now }) : null;
+  const made =
+    typeof o.world === "string" && typeof o.board === "string" && cleanScore(o.score) !== null
+      ? buildScore({ world: o.world, board: o.board, score: cleanScore(o.score)!, ...(typeof o.title === "string" ? { title: o.title } : {}), ...(o.format === "time" ? { format: "time" as const } : {}), now: o.now })
+      : null;
   if (!origin || !made) return null;
   return { ...made, tags: [...made.tags, [SITE_MARKS[0]!, origin]] };
 }
@@ -106,6 +115,10 @@ export interface Score {
   world: string;
   board: string;
   score: number;
+  /** What the board is called, as the score says, or "". The poster's word for what the world called it. */
+  title: string;
+  /** How the board counts, as the score says: a plain number where it doesn't say. */
+  format: Board["format"];
   /** When it was posted, in seconds. */
   at: number;
   /** The sites a signer says asked for it, as origins. Empty when no signer said. */
@@ -124,17 +137,20 @@ export function parseScore(event: NostrEvent | null | undefined): Score | null {
     .filter((t) => SITE_MARKS.includes(t[0] ?? ""))
     .map((t) => cleanOrigin(t[1]))
     .filter(Boolean);
-  return { by: event.pubkey, world, board, score, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+  const title = cleanLine(getTags(event, "board")[0]?.[2] ?? "", SCORE_LIMITS.title);
+  const format: Board["format"] = getTags(event, "score")[0]?.[2] === "time" ? "time" : "number";
+  return { by: event.pubkey, world, board, score, title, format, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
 }
 
 /**
  * Whether a signed score is the one that was asked for: by the key the signer holds, really signed, for that
  * world and board with that score, and marked with this site.
  */
-export function isScoreAsked(signed: unknown, o: { pubkey: string | null; world: string; board: string; score: number; origin: string }): signed is NostrEvent {
+export function isScoreAsked(signed: unknown, o: { pubkey: string | null; world: string; board: string; score: number; title?: string; format?: Board["format"]; origin: string }): signed is NostrEvent {
   if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey) return false;
   const s = parseScore(signed);
-  return !!s && s.world === worldCoordinate(o.world) && s.board === o.board && s.score === o.score && s.askedAt.includes(cleanOrigin(o.origin));
+  if (!s || s.world !== worldCoordinate(o.world) || s.board !== o.board || s.score !== o.score || !s.askedAt.includes(cleanOrigin(o.origin))) return false;
+  return s.title === cleanLine(o.title ?? "", SCORE_LIMITS.title) && s.format === (o.format === "time" ? "time" : "number");
 }
 
 /** Someone's place on a board. */

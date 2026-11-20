@@ -993,7 +993,7 @@ const files: Record<string, unknown> = {
 {
   const WORLD = `${WORLD_KIND}:${PK2}:arcade`;
   const ORIGIN = "https://arcade.example";
-  const post = (key: Uint8Array, score: number, o: { now?: number; origin?: string; board?: string } = {}) => sign(scoreForWorld({ world: WORLD, board: o.board ?? "lantern-run", score, origin: o.origin ?? ORIGIN, now: o.now ?? T0 })!, key);
+  const post = (key: Uint8Array, score: number, o: { now?: number; origin?: string; board?: string } = {}) => sign(scoreForWorld({ world: WORLD, board: o.board ?? "lantern-run", score, title: "Lantern Run", format: "time", origin: o.origin ?? ORIGIN, now: o.now ?? T0 })!, key);
   const a = post(KEY1, 42_500);
   const aBetter = post(KEY1, 41_000, { now: T0 + 60 });
   const b = post(KEY3, 39_500);
@@ -1020,11 +1020,12 @@ const files: Record<string, unknown> = {
   expectEqual("scores/kept_somewhere_else", reading[1]!.expect, null);
   files["scores.json"] = {
     description:
-      "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
+      "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`, where the world said what the board is called and that it counts a time; `signedPlain`: where it said neither. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
     testKeys,
     world: WORLD,
     worldUrl: `${ORIGIN}/`,
-    signed: { board: "lantern-run", score: 42_500, origin: ORIGIN, now: T0, expect: scoreForWorld({ world: WORLD, board: "lantern-run", score: 42_500, origin: ORIGIN, now: T0 }) },
+    signed: { board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time", origin: ORIGIN, now: T0, expect: scoreForWorld({ world: WORLD, board: "lantern-run", score: 42_500, title: "Lantern Run", format: "time", origin: ORIGIN, now: T0 }) },
+    signedPlain: { board: "main", score: 7, origin: ORIGIN, now: T0, expect: scoreForWorld({ world: WORLD, board: "main", score: 7, origin: ORIGIN, now: T0 }) },
     events: all,
     reading,
     boards,
