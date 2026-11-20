@@ -693,6 +693,14 @@ addBagControls(controls, {
   - `addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement })`
     for the two presses, and a call to its `trigger(hand)` where you handle
     a headset's trigger, after your own console.
+- Where you handle a press on the view yourself, call
+  `itemControls.tap(raycaster.ray, heldMs)` after your own panels and before
+  anything else: it returns true when the press was the item's (a tap, with
+  something in hand that does something), and you do nothing more with it.
+  A press held (`TAP_MS` or longer) is still yours, for walking.
+- Pass `sight: (on) => presence.setSighting(on)` to `addItemControls` for
+  aiming along an item's sight, and `theme` to `createPresence` so that how
+  a visitor is shown is in your world's colour.
 - Things an item sends out stick to any mesh of your scene. Nothing of
   yours has to be an item. Give `solid` to say what isn't solid, and
   `onStruck` to be told what was struck and decide what that means.

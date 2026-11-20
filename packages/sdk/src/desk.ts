@@ -77,6 +77,13 @@ const change = (next: DeskPrefs): void => {
 
 /** How much faster or slower than the kit's own speed the view turns under their hand. */
 export const lookScale = (): number => load().look;
+/**
+ * How much slower the view turns while the visitor aims along a sight: the same share by which they see narrower,
+ * so that what they aim at moves under the mark as it did before. 1 when they aren't aiming.
+ */
+let aimScaleNow = 1;
+export const aimScale = (): number => aimScaleNow;
+export const setAimScale = (k: number): void => void (aimScaleNow = Number.isFinite(k) ? Math.min(1, Math.max(0.3, k)) : 1);
 export const setLookScale = (v: number): void => change({ ...load(), look: clampLook(v) });
 /** How wide they have asked to see, in degrees top to bottom, or null for each world's own. Only ever at a desk. */
 export const visitorFov = (): number | null => (currentForm() === "desk" ? load().fov : null);

@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BLASTER_CLIPS, BLASTER_PARTS, DART_PARTS, MATERIALS as BLASTER_MATERIALS, TINTS as BLASTER_TINTS } from "./blaster-model.mjs";
+import { BLASTER_CLIPS, BLASTER_PARTS, DART_PARTS, MATERIALS as BLASTER_MATERIALS, SIGHT as BLASTER_SIGHT, TINTS as BLASTER_TINTS } from "./blaster-model.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "sites", "items");
@@ -385,6 +385,13 @@ const boxOf = (shape) => {
   return [0, 1, 2].map((i) => Math.round((Math.max(...points.map((p) => p[i])) - Math.min(...points.map((p) => p[i]))) * 1000) / 1000);
 };
 const blasterShape = BLASTER_PARTS.flatMap((p) => p.shape);
+// Where its sight is, as the kit draws it: a model is stood on the middle of its base, so the point is said from there.
+const sightAt = (() => {
+  const points = blasterShape.flatMap((t) => t.points);
+  const [lo, hi] = [0, 1, 2].reduce((acc, i) => [[...acc[0], Math.min(...points.map((p) => p[i]))], [...acc[1], Math.max(...points.map((p) => p[i]))]], [[], []]);
+  const mm = (x) => Math.round(x * 1000) / 1000;
+  return [mm(0 - (lo[0] + hi[0]) / 2), mm(BLASTER_SIGHT.v - lo[1]), mm(-BLASTER_SIGHT.u - (lo[2] + hi[2]) / 2)];
+})();
 // Sounds the owner has picked are kept beside the models, each under the name the script and the dart use.
 // A sound may have more takes than one, named `<name>-2` up to `<name>-4`: the kit plays one of them each time.
 const SOUND_NAMES = ["equip", "unequip", "reload", "fire", "impact", "impact-2", "fall", "hit", "tick"];
@@ -406,6 +413,8 @@ const drafts = [
     sends: [{ name: "dart", model: keep(glbMoving(DART_PARTS, [], BLASTER_MATERIALS), "glb"), size: boxOf(DART_PARTS[0].shape), ...has("impact"), ...has("fall"), ...has("hit"), ...has("tick"), trail: 0.22 }],
     effects: [{ of: "dart", state: "health", take: 1 }],
     does: { use: "Fire", second: "Reload" },
+    // Aimed by its sight: an eye brought to that point sees a little narrower, as through a toy scope.
+    aim: { at: sightAt, zoom: 0.6 },
     // Two colours are the holder's to choose: the rear, muzzle and magazine; and the darts, with everything that glows.
     tints: [
       { slot: "accent", label: "Accent", color: BLASTER_TINTS.accent },

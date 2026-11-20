@@ -1,6 +1,6 @@
 {
   "kind": 37303,
-  "created_at": 1795203754,
+  "created_at": 1795205716,
   "tags": [
     [
       "d",
@@ -16,13 +16,13 @@
     ],
     [
       "model",
-      "https://grove.bitblocks.network/items/da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0.glb",
+      "https://grove.bitblocks.network/items/1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be.glb",
       "glb",
-      "da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0"
+      "1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be"
     ],
     [
       "size",
-      "0.075 0.237 0.306"
+      "0.075 0.24 0.306"
     ],
     [
       "behavior",
@@ -122,6 +122,11 @@
       "Reload"
     ],
     [
+      "aim",
+      "0 0.217 -0.076",
+      "0.6"
+    ],
+    [
       "tint",
       "accent",
       "Accent",
@@ -140,6 +145,6 @@
   ],
   "content": "",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "f5e3c77cf8008b9ba85f64a2d52572c7e65a243f8f6108d84bbe72dbfb28326c",
-  "sig": "ca6be1462843fdab64b048df61a90529f8b000c277a842ec619deed67c663233bb91d84032e29f8d2d3e6713736438ec88fdb1230d78eacc7f25633601ed6e82"
+  "id": "493e5d069f14f9f7a11657a8feefaad2983fc01e391c07b218b9b55bda3f8e77",
+  "sig": "4b831c9366a7e70fa1b0d4dbe40d1a4028b0fa55c70d3922113fa477556065a3f7506ccdef583d8c72916852c4b8990c8b4367293196523b2af8f931a01fdf85"
 }

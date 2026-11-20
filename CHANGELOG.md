@@ -2,6 +2,19 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.53.0
+
+How the blaster feels, and how someone is shown.
+
+- **Health, shown the kit's way:** a pill in the look of the kit's other controls and the world's own colour, low in the view, with a block for each of what someone has and the next one filling as it comes back. The edge of the view reddens for a moment when something reaches them. With none left their view breaks up, their figure blinks to the others, and it says "Tagged out" until it is back. Nothing flashes in a headset, or for anyone who asked for stillness.
+- **Health comes back one at a time:** after four seconds with nothing reaching them, one each second. With none left, nothing more reaches them for three seconds, then all of it is back. Nobody dies, is moved or made to watch unless a world's rules say so.
+- **A tap or a click fires where it was pressed** (`tap` on `addItemControls`; `use(toward)` on play). A press held is still how they walk. So a blaster that reloads on a press when empty is reloaded by a tap.
+- **Aiming along a sight** (`aim` in an item's description; `setSighting` on a presence): moving the intense way at a desk, the other mouse button brings the item up to the eye and narrows the view by what the item asks, never below a little under half. The look slows by the same share.
+- **The blaster has a real sight:** an upright frame with clear glass and a ring and dot of light, in the dart's colour.
+- **What is held sits where a hand would hold it:** sized to about a third of the view, to the right and clear of the bar; smaller and above the bar on a screen taller than it is wide.
+- **Darts, hits, health and colours are said twice** in a room, because its channel doesn't try again. A reader takes the first.
+- The blaster is signed again. Still never published.
+
 ## 0.52.0
 
 The blaster, as it was meant to look, and in your own colours.

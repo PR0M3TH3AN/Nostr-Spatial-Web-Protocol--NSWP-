@@ -111,6 +111,11 @@ What a thing is, is said once by its maker, in an addressable note
   an effect on anything else.
 - **`does`** is what its two presses are called, for the buttons a visitor
   is shown: `use` and `second`, sixteen letters at most each.
+- **`aim`** is how it is aimed, where it has a sight: the point of the
+  sight in the item's own space as it is drawn (metres from the middle of
+  its base, its front toward -z), and how much narrower the holder sees
+  while they aim, from just over 0 to 1. It asks; a renderer decides, and
+  none goes narrower than a little under half.
 - **`tint`** is a colour of the item that whoever holds it may choose:
   `["tint", "accent", "Accent", "#f2691c"]` is its name, what a visitor is
   shown it as, and the colour it is until they choose. Four at most. Every
@@ -279,10 +284,26 @@ and drops off if they never say it reached them. Nobody can say they were
 reached by a thing that never flew, or say so twice.
 
 **Where a world has no rule of its own,** a person has `health`: five, of
-which a thing takes what its `effect` says. It comes back by itself after
-six seconds with nothing reaching them, and three seconds after there was
-none left. Nothing else happens to them: nobody is moved, sent away or
-stopped. A bar shows it, to them and over their head to the others.
+which a thing takes what its `effect` says.
+
+- **It comes back by itself:** after four seconds with nothing reaching
+  them, one each second until they are full.
+- **With none left,** they are out for three seconds: nothing more reaches
+  them, their figure blinks to everyone else, and their own view breaks up
+  for a moment. Then it is all back.
+- **Nothing else happens to them.** Nobody dies, is moved, sent away,
+  made to watch or stopped from doing anything, unless the world's own
+  rules say so.
+
+**How it is shown is the kit's, never an item's.** Several people's items
+may reach someone at once, and an item's code doesn't run on the device of
+the person it reaches: so there is one display of how someone is, in the
+look of the kit's other controls and the world's own colour. To them: a
+pill low in their view, a block for each of what they have, the next one
+filling as it comes back; the edge of their view reddening for a moment
+when something reaches them. To the others: a bar over their head. In a
+headset, and for anyone who has asked for stillness, nothing flashes or
+breaks up. An item says only how much a thing takes.
 
 That is honest in the way a claimed score is honest ([NSWP-15](15-scores.md)):
 someone who alters their own page could shrug off a hit. It is enough for
@@ -314,6 +335,34 @@ are played at the visitor's own volume for effects, each levelled as it is
 read so that none is louder than the kit's own, heard from where it
 happened, quieter and duller the further off, and not at all beyond 45
 metres. A ceiling of the visitor's own for items alone is not built.
+
+## What is the item's, and what is not
+
+As little as possible is fixed for everyone, and as much as possible is
+the item's own.
+
+- **Said the same by everyone** (the least there can be): what people must
+  agree on to see the same thing, and the ceilings. A thing left from here
+  going this way; it reached me; how I am; the colours I chose.
+- **The kit's, and a world may do it differently:** drawing, how someone's
+  state is shown, and turning a tap, a click or a trigger into one of the
+  item's two presses.
+- **The item's:** its shape, its sounds, its numbers and its logic. How
+  many darts, how long a reload, what a press does when it is empty, where
+  its sight is and how far it asks to zoom.
+
+An item never sees a tap, a key or where anyone is looking. It hears
+"use" and "second", and anything it wants of the view (a zoom) it asks
+for in its description, for a renderer to grant within a ceiling.
+
+**The two presses, in the kit:**
+
+- A tap or a click on the view is the first press, and what it sends out
+  goes where the visitor pressed. A press held is still how they walk.
+- Moving the intense way at a desk, the mouse button is the first press
+  and the other mouse button, held, aims along the item's sight.
+- R is the second press at a desk; both are on the bar everywhere.
+- In a headset, the trigger of the hand that holds it.
 
 ## A holder's own colours
 

@@ -189,12 +189,12 @@
     "title": "Dart blaster",
     "summary": "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
     "model": {
-      "url": "https://grove.bitblocks.network/items/da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0.glb",
-      "sha256": "da230202e2a61eb3b91da98b1edbc60efbf7071f7fc9d809d000c736b4a896c0"
+      "url": "https://grove.bitblocks.network/items/1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be.glb",
+      "sha256": "1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be"
     },
     "size": [
       0.075,
-      0.237,
+      0.24,
       0.306
     ],
     "behaviors": [
@@ -275,6 +275,14 @@
     "does": {
       "use": "Fire",
       "second": "Reload"
+    },
+    "aim": {
+      "at": [
+        0,
+        0.217,
+        -0.076
+      ],
+      "zoom": 0.6
     },
     "tints": [
       {

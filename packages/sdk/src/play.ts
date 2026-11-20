@@ -53,6 +53,8 @@ export interface PlayPerson {
   body: THREE.Object3D;
   /** Their head, to put a bar over. */
   over: THREE.Object3D;
+  /** The whole of their figure, which blinks while they have nothing left. */
+  root?: THREE.Object3D;
   /** The item they say they hold, by its coordinate, and what is drawn for it. */
   holding: string;
   held: THREE.Object3D | null;
@@ -86,6 +88,10 @@ export interface PlayOptions {
   onChange?: () => void;
   /** Whether they are in a headset now: there, a thing goes where the hand points, and no ring is drawn. */
   presenting?: () => boolean;
+  /** The world's own colour, for what is drawn of how the visitor is, and whether things may move for them. */
+  theme?: () => { accent?: string; motion?: boolean };
+  /** Whether they are aiming along their item's sight now: then its own mark is what they aim by, and no ring is drawn. */
+  sighting?: () => boolean;
   /**
    * The colours someone chose for what they hold: the visitor's own for their own key (or null, outside a room),
    * anyone else's as they said them. Left out, everything is the colour its maker gave it.
@@ -96,8 +102,11 @@ export interface PlayOptions {
 export interface Play {
   /** This visitor took an item in hand, with what is drawn for it; or put it away, with nulls. */
   held(item: Item | null, model: THREE.Object3D | null): Promise<void>;
-  /** The item's first press, and its second: what they do is its own to say. */
-  use(): void;
+  /**
+   * The item's first press, and its second: what they do is its own to say. With `toward`, whatever the first
+   * press sends out goes that way: where a visitor tapped or clicked.
+   */
+  use(toward?: THREE.Vector3): void;
   second(): void;
   /** Whether what they hold does anything on a press, and what its presses are called. */
   readonly does: { use: string; second: string } | null;
@@ -209,18 +218,63 @@ const repaint = (sprite: THREE.Sprite, paint: (g: CanvasRenderingContext2D, w: n
   paint(g, canvas.width, canvas.height);
   map.needsUpdate = true;
 };
-const bar = (g: CanvasRenderingContext2D, w: number, h: number, value: number, full: number): void => {
-  const gap = 6;
-  const each = (w - gap * (full + 1)) / full;
-  g.fillStyle = "rgba(8,10,14,0.72)";
+/**
+ * How someone is, drawn the way the rest of the kit's controls are: a dark glass pill with an edge of the world's
+ * own colour, a small heart, and a block for each of what they have. The block that is coming back fills as it
+ * comes. With nothing left it says so, in the colour of a warning.
+ */
+const WARN = "#ff5d52";
+const bar = (g: CanvasRenderingContext2D, w: number, h: number, o: { value: number; full: number; accent: string; growing?: number; down?: boolean; heart?: boolean }): void => {
+  const low = o.value <= Math.ceil(o.full / 3);
+  const ink = o.down || low ? WARN : o.accent;
+  g.fillStyle = "rgba(10,12,16,0.8)";
   g.beginPath();
-  g.roundRect(0, 0, w, h, h / 3);
+  g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
   g.fill();
-  for (let i = 0; i < full; i++) {
-    g.fillStyle = i < value ? (value <= full / 3 ? "#ff6b5e" : "#7be495") : "rgba(255,255,255,0.16)";
+  g.globalAlpha = 0.5;
+  g.strokeStyle = ink;
+  g.lineWidth = 2.5;
+  g.stroke();
+  g.globalAlpha = 1;
+  let x0 = h * 0.42;
+  if (o.heart !== false) {
+    // A heart, at the left: two rounds and a point.
+    const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
+    g.fillStyle = ink;
     g.beginPath();
-    g.roundRect(gap + i * (each + gap), gap, each, h - gap * 2, 4);
+    g.arc(cx - r, cy, r, Math.PI, 0);
+    g.arc(cx + r, cy, r, Math.PI, 0);
+    g.lineTo(cx, cy + r * 2.5);
+    g.closePath();
     g.fill();
+    x0 = h * 1.02;
+  }
+  const x1 = w - h * 0.42;
+  if (o.down) {
+    g.fillStyle = WARN;
+    g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
+    return;
+  }
+  const gap = h * 0.11;
+  const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
+  const [top, tall] = [h * 0.3, h * 0.4];
+  for (let i = 0; i < o.full; i++) {
+    const x = x0 + i * (each + gap);
+    g.fillStyle = "rgba(255,255,255,0.14)";
+    g.beginPath();
+    g.roundRect(x, top, each, tall, tall / 3);
+    g.fill();
+    const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
+    if (part <= 0) continue;
+    g.globalAlpha = i < o.value ? 1 : 0.55;
+    g.fillStyle = ink;
+    g.beginPath();
+    g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
+    g.fill();
+    g.globalAlpha = 1;
   }
 };
 
@@ -230,6 +284,8 @@ export function createPlay(o: PlayOptions): Play {
   const pending = new Set<string>();
   const rates = new Map<string, ReturnType<typeof createRate>>();
   const bars = new Map<string, { value: number; full: number; sprite: THREE.Sprite; until: number }>();
+  /** Whose figure is blinking, to put it right again after. */
+  const blinking = new Set<string>();
   const mixers = new Map<THREE.Object3D, THREE.AnimationMixer>();
   const soundsOf = new Map<string, Promise<ForeignSound | null>>();
   const ray = new THREE.Raycaster();
@@ -277,17 +333,52 @@ export function createPlay(o: PlayOptions): Play {
   mark.scale.setScalar(0.07);
   mark.visible = false;
   let markUntil = 0;
-  const own = { value: HEALTH.full as number, full: HEALTH.full as number, struckAt: -1e9, downUntil: 0, shownUntil: 0 };
-  const ownBar = drawn(256, 40, (g) => bar(g, 256, 40, own.value, own.full));
-  ownBar.position.set(0, 0.3, -1);
-  ownBar.scale.set(0.26, 0.04, 1);
+  const accent = (): string => o.theme?.().accent ?? "#7be495";
+  /** Whether things may move for this visitor: not where they asked for none of it, and gently in a headset. */
+  const lively = (): boolean => (o.theme?.().motion ?? true) && !isPresenting();
+  const own = { value: HEALTH.full as number, full: HEALTH.full as number, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
+  const ownBar = drawn(384, 64, (g) => bar(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+  ownBar.scale.set(0.3, 0.05, 1);
+  ownBar.material.opacity = 0;
   ownBar.visible = false;
-  hud.add(cross, mark, ownBar);
+  // The edge of the view, reddened for a moment when something reaches them, and while they have next to nothing.
+  const edge = drawn(256, 256, (g) => {
+    const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
+    fade.addColorStop(0, "rgba(255,70,60,0)");
+    fade.addColorStop(1, "rgba(255,70,60,0.95)");
+    g.fillStyle = fade;
+    g.fillRect(0, 0, 256, 256);
+  });
+  edge.position.set(0, 0, -0.6);
+  edge.renderOrder = 997;
+  edge.visible = false;
+  // With nothing left, the view breaks up for a moment: bands of light that jump about. Not for anyone who has
+  // asked for stillness, and not in a headset.
+  const glitch = drawn(8, 128, (g) => {
+    for (let y = 0; y < 128; ) {
+      const tall = 1 + Math.floor(Math.random() * 7);
+      const kind = Math.random();
+      g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
+      g.fillRect(0, y, 8, tall);
+      y += tall;
+    }
+  });
+  if (glitch.material.map) glitch.material.map.wrapT = THREE.RepeatWrapping;
+  glitch.position.set(0, 0, -0.58);
+  glitch.renderOrder = 998;
+  glitch.visible = false;
+  hud.add(cross, mark, ownBar, edge, glitch);
+  const paintOwn = (): void => {
+    const down = own.downUntil > 0;
+    const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
+    repaint(ownBar, (g, cw, ch) => bar(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
+    own.painted = clock;
+  };
 
   const sayState = () => {
     const said = buildState({ name: "health", value: own.value, full: own.full });
     if (said && o.me()) o.tell(said);
-    repaint(ownBar, (g, cw, ch) => bar(g, cw, ch, own.value, own.full));
+    paintOwn();
     own.shownUntil = clock + 2.5;
     o.onChange?.();
   };
@@ -507,6 +598,8 @@ export function createPlay(o: PlayOptions): Play {
     if (effect && clock >= own.downUntil) {
       own.value = struck(own.value, effect.take);
       own.struckAt = clock;
+      own.regenAt = 0;
+      own.flash = 1;
       if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
       sayState();
     }
@@ -599,11 +692,22 @@ export function createPlay(o: PlayOptions): Play {
     }
     o.onChange?.();
   };
+  /** Where the next thing sent out is to go, for a moment after a tap or a click said so. */
+  let pointed: { to: THREE.Vector3; until: number } | null = null;
   const aim = (lift: number): { from: THREE.Vector3; dir: THREE.Vector3 } => {
     const said = o.aim?.();
     let from: THREE.Vector3;
     let to: THREE.Vector3;
+    const tapped = pointed && clock < pointed.until ? pointed.to : null;
+    pointed = null;
     if (said) ({ from, to } = said);
+    else if (tapped || o.sighting?.()) {
+      // Where they tapped or clicked; or, aiming along the sight, straight out through its mark.
+      const q = o.camera.getWorldQuaternion(new THREE.Quaternion());
+      const eye = o.camera.getWorldPosition(new THREE.Vector3());
+      from = eye.clone().add(new THREE.Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q));
+      to = tapped ?? eye.clone().add(new THREE.Vector3(0, 0, -18).applyQuaternion(q));
+    }
     else {
       // From just beside the view, toward the middle of what it looks at: a thing lands where the ring is.
       const q = o.camera.getWorldQuaternion(new THREE.Quaternion());
@@ -645,7 +749,7 @@ export function createPlay(o: PlayOptions): Play {
 
   const refreshOwn = (): void => {
     // The ring that says where a thing will go: only while something that sends things out is in hand.
-    cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting();
+    cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
   };
   const isPresenting = (): boolean => !!o.presenting?.();
 
@@ -671,8 +775,8 @@ export function createPlay(o: PlayOptions): Play {
       if (!next || !drawnFor || !active()) return;
       if (next.does.use || next.script) {
         wordsSprite = drawn(256, 72, () => {});
-        wordsSprite.scale.set(0.16, 0.045, 1);
-        wordsSprite.position.set(0, next.size[1] + 0.05, 0);
+        wordsSprite.scale.set(0.1, 0.028, 1);
+        wordsSprite.position.set(0, next.size[1] + 0.028, 0);
         drawnFor.add(wordsSprite);
       }
       // What it sends out and what it sounds like are fetched now, so the first one isn't late.
@@ -704,8 +808,10 @@ export function createPlay(o: PlayOptions): Play {
       run?.tell("held");
       o.onChange?.();
     },
-    use() {
-      if (active()) box?.tell("use");
+    use(toward) {
+      if (!active() || !box) return;
+      pointed = toward ? { to: toward.clone(), until: clock + 0.6 } : null;
+      box.tell("use");
     },
     second() {
       if (active()) box?.tell("second");
@@ -727,8 +833,8 @@ export function createPlay(o: PlayOptions): Play {
       if (state) {
         let shown = bars.get(from);
         if (!shown) {
-          const sprite = drawn(256, 40, () => {});
-          sprite.scale.set(0.42, 0.065, 1);
+          const sprite = drawn(320, 56, () => {});
+          sprite.scale.set(0.44, 0.077, 1);
           sprite.position.set(0, 0.62, 0);
           shown = { value: state.value, full: state.full, sprite, until: 0 };
           bars.set(from, shown);
@@ -737,7 +843,7 @@ export function createPlay(o: PlayOptions): Play {
         shown.full = Math.min(state.full, 12);
         shown.until = clock + (state.value < state.full ? 30 : 2);
         person.over.add(shown.sprite);
-        repaint(shown.sprite, (g, cw, ch) => bar(g, cw, ch, Math.min(shown!.value, shown!.full), shown!.full));
+        repaint(shown.sprite, (g, cw, ch) => bar(g, cw, ch, { value: Math.min(shown!.value, shown!.full), full: shown!.full, accent: accent(), down: shown!.value === 0, heart: false }));
         return;
       }
       const hit = parseHit(said);
@@ -770,7 +876,9 @@ export function createPlay(o: PlayOptions): Play {
         // No more of them than anyone may send, and each only once.
         let rate = rates.get(from);
         if (!rate) rates.set(from, (rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond)));
-        if (!rate.take(clock * 1000) || pending.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+        // Said twice, because the channel may lose one: the second is the same thing, and counts for nothing.
+        if (pending.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+        if (!rate.take(clock * 1000)) return;
         // It leaves from where they are: a thing said to start far from its sender isn't theirs to send.
         if (person.head.distanceTo(v.fromArray(shot.from)) > 3) return;
       }
@@ -810,15 +918,67 @@ export function createPlay(o: PlayOptions): Play {
       for (const mixer of mixers.values()) mixer.update(dt);
       if (mark.visible && clock > markUntil) mark.visible = false;
       refreshOwn();
-      // Health comes back by itself: after a rest, or a little while after there was none left.
-      if (own.value < own.full && ((own.downUntil && clock >= own.downUntil) || (!own.downUntil && clock - own.struckAt > HEALTH.restSeconds))) {
-        own.value = own.full;
-        own.downUntil = 0;
-        sayState();
+      // Health comes back by itself: one at a time after a rest, and all at once a little while after there was
+      // none left. Nothing else happens to anyone here: what running out means beyond this is a world's own rule.
+      if (own.downUntil) {
+        if (clock >= own.downUntil) {
+          own.value = own.full;
+          own.downUntil = 0;
+          own.regenAt = 0;
+          sayState();
+        }
+      } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
+        if (!own.regenAt) own.regenAt = clock;
+        if (clock - own.regenAt >= HEALTH.regenSeconds) {
+          own.value += 1;
+          own.regenAt = own.value < own.full ? clock : 0;
+          sayState();
+        }
       }
-      ownBar.visible = active() && (own.value < own.full || clock < own.shownUntil);
+      const on = active();
+      const down = own.downUntil > 0;
+      // Its counter is out of the way while they aim along its sight.
+      if (wordsSprite) wordsSprite.visible = !o.sighting?.();
+      // The pill: where the kit's other controls leave room for it, low in the middle of the view; lower still in
+      // a headset, where it is out of the way. It comes and goes softly, and is redrawn as a block fills.
+      const tall = Math.tan(THREE.MathUtils.degToRad(o.camera.fov / 2));
+      const wide = tall * o.camera.aspect;
+      ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
+      const scale = Math.min(0.3, wide * 0.62);
+      ownBar.scale.set(scale, scale / 6, 1);
+      const want = on && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
+      own.shown += (want - own.shown) * Math.min(1, dt * 9);
+      ownBar.visible = own.shown > 0.02;
+      ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
+      if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
+      // The edge of the view: a flash when something reaches them, a slow pulse while they have next to nothing.
+      own.flash = Math.max(0, own.flash - dt / 0.55);
+      const low = !down && own.value < own.full && own.value <= 1;
+      const red = on && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+      edge.visible = red > 0.01;
+      edge.material.opacity = red;
+      edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
+      // With nothing left, the view breaks up, for as long as it takes to come back.
+      glitch.visible = on && down && lively() && Math.random() < 0.8;
+      if (glitch.visible) {
+        glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
+        glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
+        glitch.material.opacity = 0.18 + Math.random() * 0.3;
+        if (glitch.material.map) glitch.material.map.offset.y = Math.random();
+      }
+      // Everyone else: their bar, and their figure blinking while they have nothing left.
+      const people = o.people();
       for (const [who, shown] of bars) {
-        shown.sprite.visible = active() && clock < shown.until && !muted(who);
+        shown.sprite.visible = on && clock < shown.until && !muted(who);
+        const person = people.find((x) => x.pubkey === who);
+        const out = on && shown.value === 0 && clock < shown.until && !muted(who);
+        if (person?.root) {
+          if (out && lively()) {
+            person.root.visible = person.root.visible && Math.random() > 0.3;
+            person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
+            blinking.add(who);
+          } else if (blinking.delete(who)) person.root.scale.set(1, 1, 1);
+        }
       }
       for (const thing of [...things]) {
         if (thing.state === "flying") {

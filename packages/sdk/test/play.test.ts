@@ -163,6 +163,38 @@ describe("a thing that reaches someone", () => {
     expect(p.told.at(-1)).toBe("st:health,5,5");
   });
 
+  it("comes back one at a time after a rest, and all at once a little while after there was none left", async () => {
+    const p = place();
+    const at = (id: number) => p.hears(ADA, shot(id, [0, 1.4, 4.6], [0, 1, -14]));
+    await at(1);
+    await p.pass(0.5);
+    await at(2);
+    await p.pass(0.5);
+    expect(p.play.health.value).toBe(3);
+    // Nothing for four seconds; then one comes back after each second more.
+    await p.pass(3.3);
+    expect(p.play.health.value).toBe(3);
+    await p.pass(1.8);
+    expect(p.play.health.value).toBe(4);
+    await p.pass(1.1);
+    expect(p.play.health.value).toBe(5);
+    // All five: nothing left, said to the room. While it is so, nothing more reaches them. Then it is all back.
+    for (let id = 10; id < 15; id++) {
+      await at(id);
+      await p.pass(0.5);
+    }
+    expect(p.play.health.value).toBe(0);
+    expect(p.told).toContain("st:health,0,5");
+    const taken = p.told.filter((t) => t.startsWith("st:")).length;
+    await at(20);
+    await p.pass(0.5);
+    expect(p.play.health.value).toBe(0);
+    expect(p.told.filter((t) => t.startsWith("st:")).length).toBe(taken);
+    await p.pass(2.4);
+    expect(p.play.health.value).toBe(5);
+    expect(p.told.at(-1)).toBe("st:health,5,5");
+  });
+
   it("can't reach someone who has muted its sender's items, where items are only allowed", async () => {
     const p = place({ mutes: [ADA] });
     await p.hears(ADA, shot(1, [0, 1.4, 4.6], [0, 1, -14]));
