@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.43.0
+
+A backup for relays.
+
+- **When a person's own relays and the usual ones all fail, relays that monitors have found working are tried** (NIP-66, kind 30166; owner's ask: "so there is always a backup"). Asked for only then, once a day at most, and kept on the device. A relay is taken only where at least two monitors found it open to anyone lately: one monitor is never believed alone, as the NIP asks, and nothing depends on any of them. `readRelayFinding`, `pickDiscovered`, `DISCOVERY_RELAYS` in the core; `foundRelays`, `relayBackup` in the kit.
+- **Everywhere the kit sends or asks** (`sendWell`, `askWell`: posts, saves, follow lists, profiles, relay lists) has it behind it. `queryBacked` and `publishBacked`, from `nswp-sdk/ui`, are called as the core's `queryRelays` and `publishEvent` are, for a page that calls relays itself.
+- **Never for a private message.** A wrapped message goes where its reader said their messages reach them, and nowhere else.
+- **Where a visitor's messages should reach them:** the relays offered now leave out any a monitor found asks a reader to prove who they are, or to pay, and are made up from ones found open. A relay that hands messages only to someone who has proved who they are is no use to a client that doesn't.
+- `relayBackup(false)` turns it off for a page.
+
 ## 0.42.2
 
 - **A signer may say what it offers** ([NSWP-10](protocol/10-identity.md), "Asking for more"): `offers` in its `state`, the names it has a question for. Where one is missing, a world built with the kit tells its visitor so and opens no window, where it used to open one that said nothing of it. A signer that doesn't say is asked as before. `offers` on the kit's `worldSigner()`.

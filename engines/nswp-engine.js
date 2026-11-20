@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.42.2";
+  var KIT_VERSION = "0.43.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4268,6 +4268,72 @@ var NSWP = (() => {
     return { relays: status };
   }
 
+  // packages/core/dist/relay-discovery.js
+  var RELAY_DISCOVERY_KIND = 30166;
+  var DISCOVERY_RELAYS = ["wss://relay.nostr.watch", "wss://relaypag.es", "wss://monitorlizard.nostr1.com"];
+  var DISCOVERY = {
+    /** A finding older than this says nothing about now, in seconds. */
+    freshSec: 3 * 86400,
+    /** A relay is taken only where this many different monitors found it working. */
+    agree: 2,
+    /** No more than this many are offered as a backup. */
+    most: 6,
+    /** A relay slower to open than this, by every monitor's count, is no backup, in milliseconds. */
+    slowMs: 2500
+  };
+  function readRelayFinding(event) {
+    if (!event || event.kind !== RELAY_DISCOVERY_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
+      return null;
+    const url = cleanRelayUrl(getTags(event, "d")[0]?.[1]);
+    const network = getTags(event, "n")[0]?.[1];
+    if (!url || network !== void 0 && network !== "clearnet")
+      return null;
+    const said = (name) => {
+      const values = getTags(event, "R").map((t) => t[1]);
+      return values.includes(name) ? true : values.includes(`!${name}`) ? false : null;
+    };
+    const ms = Number(getTags(event, "rtt-open")[0]?.[1]);
+    const wrote = Number(getTags(event, "rtt-write")[0]?.[1]);
+    const refuses = getTags(event, "k").map((t) => t[1] ?? "").filter((k) => /^!\d{1,5}$/.test(k)).map((k) => Number(k.slice(1)));
+    return { url, monitor: event.pubkey, at: Number.isInteger(event.created_at) ? event.created_at : 0, auth: said("auth"), payment: said("payment"), restricted: said("writes"), pow: said("pow"), rttOpen: Number.isFinite(ms) && ms > 0 ? ms : null, rttWrite: Number.isFinite(wrote) && wrote > 0 ? wrote : null, refuses };
+  }
+  function pickDiscovered(events2, o) {
+    const newest = /* @__PURE__ */ new Map();
+    for (const event of events2) {
+      const f = readRelayFinding(event);
+      if (!f || f.at > o.now + 600 || o.now - f.at > DISCOVERY.freshSec)
+        continue;
+      const key = `${f.url} ${f.monitor}`;
+      const had = newest.get(key);
+      if (!had || had.at < f.at)
+        newest.set(key, f);
+    }
+    const byRelay = /* @__PURE__ */ new Map();
+    for (const f of newest.values())
+      byRelay.set(f.url, [...byRelay.get(f.url) ?? [], f]);
+    const not = new Set(o.not ?? []);
+    const open2 = [];
+    const closed = [];
+    for (const [url, found2] of byRelay) {
+      const shut = found2.some((f) => f.auth === true || f.payment === true);
+      if (shut)
+        closed.push(url);
+      if (shut || not.has(url) || found2.length < DISCOVERY.agree)
+        continue;
+      if (found2.some((f) => f.restricted === true || f.pow === true || o.kind !== void 0 && f.refuses.includes(o.kind)))
+        continue;
+      const times = found2.map((f) => f.rttOpen).filter((n) => n !== null).sort((a, b) => a - b);
+      const rtt = times.length ? times[Math.floor(times.length / 2)] : DISCOVERY.slowMs;
+      if (times.length && times[0] > DISCOVERY.slowMs)
+        continue;
+      const sure = found2.filter((f) => f.auth === false && f.payment === false).length;
+      const wrote = found2.filter((f) => f.rttWrite !== null).length;
+      open2.push({ url, monitors: found2.length, sure, wrote, rtt });
+    }
+    open2.sort((a, b) => Math.min(b.sure, 4) - Math.min(a.sure, 4) || Math.min(b.wrote, 2) - Math.min(a.wrote, 2) || Math.min(b.monitors, 6) - Math.min(a.monitors, 6) || a.rtt - b.rtt || (a.url < b.url ? -1 : 1));
+    return { open: open2.slice(0, o.most ?? DISCOVERY.most).map((r) => r.url), closed: closed.sort() };
+  }
+
   // packages/core/dist/nip44.js
   var SALT = utf8ToBytes("nip44-v2");
   var decoder3 = new TextDecoder("utf-8", { fatal: true });
@@ -6810,13 +6876,70 @@ var NSWP = (() => {
         tried.push(...rest);
       }
     }
+    if (took === 0 && backup && event.kind !== WRAP_KIND) {
+      const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open.slice(0, BACKUP_AT_ONCE);
+      if (more.length) {
+        const last = await publish(more, event).catch(() => ({ relays: Object.fromEntries(more.map((r) => [r, "error: not sent"])) }));
+        learnFrom(last.relays, now());
+        took = Object.values(last.relays).filter((said) => said === "ok").length;
+        tried.push(...more);
+      }
+    }
     return { took, relays: tried, own: first.own };
   }
   async function askWell(filter, o) {
     const now = o.now ?? (() => Date.now());
-    const got = await (o.query ?? queryRelays)(relaysWell(o, now()).relays, filter, o.timeoutMs ?? 4e3);
+    const asked = relaysWell(o, now()).relays;
+    return queryBacked(asked, filter, o.timeoutMs ?? 4e3, { ...o.query ? { query: o.query } : {}, now });
+  }
+  var FOUND_KEY = "nswp:relays:found";
+  var FOUND_FOR_MS = 24 * 3600 * 1e3;
+  var backup = true;
+  var found = null;
+  var finding = null;
+  function foundRelays(o = {}) {
+    const now = o.now ?? (() => Date.now());
+    const without = (all) => ({ open: all.open.filter((r) => !(o.not ?? []).includes(r)), closed: all.closed });
+    if (!found) {
+      try {
+        const kept2 = JSON.parse(globalThis.localStorage?.getItem(FOUND_KEY) ?? "null");
+        const list = (v) => Array.isArray(v) ? v.filter((r) => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : [];
+        if (kept2 && typeof kept2.at === "number") found = { at: kept2.at, open: list(kept2.open), closed: list(kept2.closed) };
+      } catch {
+      }
+    }
+    if (found && now() - found.at < FOUND_FOR_MS) return Promise.resolve(without(found));
+    finding ?? (finding = (async () => {
+      const since = Math.floor(now() / 1e3) - DISCOVERY.freshSec;
+      const got = await (o.query ?? queryRelays)([...DISCOVERY_RELAYS], { kinds: [RELAY_DISCOVERY_KIND], since, limit: 500 }, 5e3).catch(() => null);
+      const picked = pickDiscovered(got?.events ?? [], { now: Math.floor(now() / 1e3), most: 24 });
+      if (picked.open.length || picked.closed.length) {
+        found = { at: now(), ...picked };
+        try {
+          globalThis.localStorage?.setItem(FOUND_KEY, JSON.stringify(found));
+        } catch {
+        }
+      }
+      return picked;
+    })().finally(() => {
+      finding = null;
+    }));
+    return finding.then(without);
+  }
+  var BACKUP_AT_ONCE = 4;
+  async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
+    const query = o.query ?? queryRelays;
+    const now = o.now ?? (() => Date.now());
+    const got = await query(relays, filter, timeoutMs);
     learnFrom(got.relays, now());
-    return got;
+    if (!backup || Object.values(got.relays).some((said) => said === "eose")) return got;
+    const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
+    if (!more.length) return got;
+    const again = await query(more, filter, timeoutMs).catch(() => null);
+    if (!again) return got;
+    learnFrom(again.relays, now());
+    const byId = new Map([...got.events, ...again.events].map((e) => [e.id, e]));
+    return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
   }
 
   // packages/sdk/src/saves.ts
@@ -6855,9 +6978,9 @@ var NSWP = (() => {
     let relaysKept = null;
     const ownRelays = (key) => {
       if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found };
-      return found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: now(), found: found2 };
+      return found2;
     };
     const fromAccount = async (slot) => {
       const s = signer();
@@ -6893,7 +7016,7 @@ var NSWP = (() => {
       const signed = await s.save(slot, data).catch(() => null);
       if (!signed) return false;
       writeLocal(who2, slot, { data, at: signed.created_at });
-      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, now }).catch(() => null);
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
       return !!sent && sent.took > 0;
     };
     const save2 = async (data, slotIn) => {

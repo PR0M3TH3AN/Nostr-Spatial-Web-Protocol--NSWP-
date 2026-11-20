@@ -126,7 +126,7 @@ export function createPeople(opts: PeopleOptions): People {
     const found = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who);
     const list = found && kept ? (kept.created_at > found.created_at ? kept : found) : (found ?? kept);
     // The device has a newer one than any relay: it was signed here and never arrived. It is sent again.
-    if (kept && list === kept && answered && (!found || found.id !== kept.id)) void sendWell(kept, { own, usual: usual(), publish, now }).catch(() => null);
+    if (kept && list === kept && answered && (!found || found.id !== kept.id)) void sendWell(kept, { own, usual: usual(), publish, query, now }).catch(() => null);
     if (list && list !== kept) keep(list);
     if (hand.pubkey() !== who) return;
     known = { who, list, answered, at: now() };
@@ -182,7 +182,7 @@ export function createPeople(opts: PeopleOptions): People {
     keep(signed);
     known = { who, list: signed, answered: true, at: now() };
     changed();
-    const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, now }).catch(() => null);
+    const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, query, now }).catch(() => null);
     if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };
     return { ok: true, said: adding ? `You follow ${them}. Anyone can see who you follow.` : `You no longer follow ${them}.` };
   };

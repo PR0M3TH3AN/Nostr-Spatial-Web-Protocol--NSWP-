@@ -14,7 +14,7 @@
  * A relay is told who a message is for, and nothing of who sent it or what it says.
  */
 import { DEFAULT_RELAYS, isHex64, looksLikeWrap, MESSAGE_RELAYS_KIND, publishEvent, queryRelays, readMessageRelays, readRelayList, RELAY_LIST_KIND, WRAP_KIND, wrapSeal, writtenWith, type Message, type NostrEvent, type SealedMessage } from "@nswp/core";
-import { askWell, learnFrom, sendWell } from "./relay-book.js";
+import { askWell, foundRelays, learnFrom, relayBackup, sendWell } from "./relay-book.js";
 
 export interface MessageHand {
   /** Whose messages: the key signed in here, or null for a guest. */
@@ -111,6 +111,8 @@ export function createMessages(opts: MessagesOptions): Messages {
   let state: MessagesState = "off";
   let inbox: string[] = [];
   let own: { read: string[]; write: string[] } = { read: [], write: [] };
+  /** What relay monitors have found (NIP-66), asked for when the visitor is choosing where messages reach them. */
+  let monitors: { open: string[]; closed: string[] } = { open: [], closed: [] };
   const read = new Map<string, Message>();
   /** Wraps that have been handed to the signer: each is opened once. */
   const tried = new Set<string>();
@@ -169,6 +171,10 @@ export function createMessages(opts: MessagesOptions): Messages {
     const found = readMessageRelays(lists?.events ?? [], me);
     if (found.length) inbox = found;
     if (!inbox.length) {
+      // They are about to be offered relays for their messages. A relay that asks a reader to prove who they
+      // are is no use for that here, so what monitors have found is asked for now, and only now.
+      if (answered && relayBackup()) monitors = await foundRelays({ query, now }).catch(() => monitors);
+      if (hand.pubkey() !== me) return;
       state = answered ? "no-inbox" : "unreachable";
       looked = now();
       return changed();
@@ -206,7 +212,17 @@ export function createMessages(opts: MessagesOptions): Messages {
     await looking;
   };
 
-  const offered = (): string[] => (own.read.length ? own.read : usual()).slice(0, 3);
+  /**
+   * Where to have messages reach them: their own relays, or the usual ones, leaving out any a monitor found asks
+   * for proof of who is reading, or for payment; made up to three from relays monitors found open to anyone.
+   * With nothing known from monitors, it is their own or the usual ones, as before.
+   */
+  const offered = (): string[] => {
+    const first = (own.read.length ? own.read : usual()).filter((r) => !monitors.closed.includes(r));
+    const rest = monitors.open.filter((r) => !first.includes(r));
+    const out = [...first, ...rest].slice(0, 3);
+    return out.length ? out : (own.read.length ? own.read : usual()).slice(0, 3);
+  };
 
   return {
     state: () => (hand.ready() && hand.pubkey() === who && who ? state : "off"),
@@ -219,7 +235,7 @@ export function createMessages(opts: MessagesOptions): Messages {
       const relays = offered();
       const signed = await hand.reach(relays).catch(() => null);
       if (!signed) return { ok: false, said: "It couldn't be signed. Nothing was changed." };
-      const sent = await sendWell(signed, { own: own.write, usual: usual(), publish, now }).catch(() => null);
+      const sent = await sendWell(signed, { own: own.write, usual: usual(), publish, query, now }).catch(() => null);
       if (!sent || sent.took === 0) return { ok: false, said: "No relay took it. Try again in a moment." };
       inbox = relays;
       state = "ready";

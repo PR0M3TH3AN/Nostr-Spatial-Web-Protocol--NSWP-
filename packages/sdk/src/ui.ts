@@ -13,3 +13,6 @@ export { ICONS, type IconName } from "./ui/icons.js";
 export { createHeldButton, createHoldWatch, SUMMON_HOLD, SUMMON_KEY, SUMMON_SLOP } from "./ui/summon.js";
 // People's own pictures, for a page that draws them itself: the same loader, limits and switch as a world's.
 export { loadPicture, onPicturesChange, PICTURE_LIMITS, PICTURES_KEY, setShowsPictures, showsPictures } from "./picture.js";
+// Which relays are working, and a backup when none a person chose is (relay-book.ts): for a page that asks or
+// sends for itself. `queryBacked` and `publishBacked` are called as the core's `queryRelays` and `publishEvent` are.
+export { askWell, foundRelays, learnFrom, publishBacked, queryBacked, relayBackup, relaysWell, sendWell, type SentWell } from "./relay-book.js";

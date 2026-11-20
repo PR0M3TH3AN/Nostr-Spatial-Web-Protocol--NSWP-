@@ -1,6 +1,8 @@
-import { learnRelays, pickRelays, RELAY_PICK, relayScore, type NostrEvent, type RelayNotes } from "@nswp/core";
+import { finalizeEvent, learnRelays, pickRelays, RELAY_DISCOVERY_KIND, RELAY_PICK, relayScore, type Filter, type NostrEvent, type RelayNotes } from "@nswp/core";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { forgetRelays, learnFrom, relaysWell, sendWell } from "../src/relay-book.js";
+import { askWell, forgetRelays, learnFrom, publishBacked, queryBacked, relayBackup, relaysWell, sendWell } from "../src/relay-book.js";
 
 const A = "wss://a.example";
 const B = "wss://b.example";
@@ -109,5 +111,74 @@ describe("sending well", () => {
   it("says plainly when nothing took it anywhere", async () => {
     const publish = async (to: string[]) => ({ relays: Object.fromEntries(to.map((r) => [r, "timeout"])) });
     expect((await sendWell(event, { own: [], usual, publish: publish as never, now: () => t })).took).toBe(0);
+  });
+});
+
+describe("a backup from relay monitors (NIP-66)", () => {
+  beforeEach(() => forgetRelays());
+  const key = (n: number) => sha256(utf8ToBytes(`nswp relay-book monitor ${n}`));
+  const NOW = 1_800_000_000_000;
+  const finding = (by: number, url: string) => finalizeEvent({ kind: RELAY_DISCOVERY_KIND, created_at: NOW / 1000 - 600, tags: [["d", url], ["n", "clearnet"], ["R", "!auth"], ["R", "!payment"], ["rtt-open", "150"]], content: "" }, key(by));
+  const monitors = [finding(1, "wss://spare.example"), finding(2, "wss://spare.example"), finding(1, "wss://lonely.example")];
+  const note = finalizeEvent({ kind: 1, created_at: NOW / 1000, tags: [], content: "Hello." }, key(9));
+  /** Relays where the named ones are down, and the rest keep what they are sent. Monitors' notes are on the discovery relays. */
+  const net = (down: string[]) => {
+    const n = {
+      kept: [] as { relay: string; event: NostrEvent }[],
+      asked: [] as string[][],
+      query: async (relays: string[], filter: Filter) => {
+        n.asked.push(relays);
+        const up = relays.filter((r) => !down.includes(r));
+        const events = filter.kinds?.includes(RELAY_DISCOVERY_KIND) ? monitors : n.kept.filter((k) => up.includes(k.relay) && (!filter.kinds || filter.kinds.includes(k.event.kind))).map((k) => k.event);
+        return { events: up.length ? events : [], relays: Object.fromEntries(relays.map((r) => [r, down.includes(r) ? "timeout" : "eose"])) };
+      },
+      publish: async (relays: string[], event: NostrEvent) => {
+        for (const r of relays) if (!down.includes(r)) n.kept.push({ relay: r, event });
+        return { relays: Object.fromEntries(relays.map((r) => [r, down.includes(r) ? "timeout" : "ok"])) };
+      },
+    };
+    return n;
+  };
+  const USUAL = ["wss://usual-a.example", "wss://usual-b.example"];
+  const OWN = ["wss://mine.example"];
+
+  it("is not asked for while anything the person chose is working", async () => {
+    const n = net(["wss://mine.example"]);
+    const sent = await sendWell(note, { own: OWN, usual: USUAL, publish: n.publish, query: n.query, now: () => NOW });
+    expect(sent.took).toBeGreaterThan(0);
+    expect(n.asked).toEqual([]);
+  });
+
+  it("takes what is sent when everything they chose is down: a relay two monitors found, never one found by one", async () => {
+    const n = net([...OWN, ...USUAL]);
+    const sent = await sendWell(note, { own: OWN, usual: USUAL, publish: n.publish, query: n.query, now: () => NOW });
+    expect(sent.took).toBe(1);
+    expect(n.kept.map((k) => k.relay)).toEqual(["wss://spare.example"]);
+    expect(sent.relays).toContain("wss://spare.example");
+    expect(sent.relays).not.toContain("wss://lonely.example");
+    // And what was sent there is found there, the same way.
+    const got = await askWell({ kinds: [1] }, { own: OWN, usual: USUAL, query: n.query, now: () => NOW });
+    expect(got.events.map((e) => e.id)).toEqual([note.id]);
+    // The monitors were asked once: what they said is kept.
+    expect(n.asked.filter((r) => r.includes("wss://relay.nostr.watch")).length).toBe(1);
+  });
+
+  it("is never used for a wrapped private message", async () => {
+    const n = net([...OWN, ...USUAL]);
+    const wrap = finalizeEvent({ kind: 1059, created_at: NOW / 1000, tags: [["p", "a".repeat(64)]], content: "sealed" }, key(8));
+    const sent = await publishBacked(USUAL, wrap, { publish: n.publish, query: n.query, now: () => NOW });
+    expect(Object.keys(sent.relays)).toEqual(USUAL);
+    expect(n.kept).toEqual([]);
+  });
+
+  it("can be turned off, and changes nothing where there are no monitors to ask", async () => {
+    const n = net([...OWN, ...USUAL]);
+    relayBackup(false);
+    expect((await sendWell(note, { own: OWN, usual: USUAL, publish: n.publish, query: n.query, now: () => NOW })).took).toBe(0);
+    expect(n.asked).toEqual([]);
+    relayBackup(true);
+    const silent = { ...n, query: async (relays: string[]) => ({ events: [], relays: Object.fromEntries(relays.map((r) => [r, "timeout"])) }) };
+    expect((await sendWell(note, { own: OWN, usual: USUAL, publish: n.publish, query: silent.query, now: () => NOW })).took).toBe(0);
+    expect((await queryBacked(USUAL, { kinds: [1] }, 1000, { query: silent.query, now: () => NOW })).events).toEqual([]);
   });
 });

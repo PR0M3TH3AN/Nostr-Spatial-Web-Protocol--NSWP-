@@ -156,7 +156,7 @@ export function createSaves(opts: SavesOptions = {}): Saves {
     if (!signed) return false;
     // The signer's own time is the save's: this device's copy is given it, so the two compare as one.
     writeLocal(who, slot, { data, at: signed.created_at });
-    const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, now }).catch(() => null);
+    const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, query, now }).catch(() => null);
     return !!sent && sent.took > 0;
   };
 
