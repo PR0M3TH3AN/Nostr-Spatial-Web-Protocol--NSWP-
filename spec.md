@@ -1278,7 +1278,7 @@ Statements in this part about what each block does today were checked against th
 
 - **Anonymous:** no assertion.
 - **Main:** the BitLogin account.
-- **Alternate:** a second account the user signs into on purpose, or any NIP-07/NIP-46 signer. BitLogin's multi-account switching is not shipped, so today this means signing out and in again.
+- **Alternate:** a second account the user signs into on purpose, or any NIP-07/NIP-46 signer. BitLogin's window has an account chooser (2026-11-20): BitPortal's "Be someone else" opens it, and BitPortal stays signed in as before until another account is allowed there.
 
 Deriving a fresh key per world automatically would touch BitLogin's derivation chain, which is a frozen compatibility contract, so it is out of scope here (Q1).
 
@@ -1299,7 +1299,7 @@ So the plan is:
 3. **Test matrix in Phase 2:** password on the virtual keyboard, and passkey PRF, on each target headset browser. Whatever works is the documented path.
 4. **Pairing without a QR** is the real fix: the headset shows a short code, and the user approves it on a device where they're already signed in. A short code alone is guessable, so this needs a proper key-exchange design. It belongs in BitLogin, not in BitPortal (Q12).
 
-**Requests for BitLogin** (each needs the owner's approval in that repository): a headset profile that reorders methods; persistent NIP-46 sessions; code-based pairing; multi-account switching.
+**Requests for BitLogin** (each needs the owner's approval in that repository): a headset profile that reorders methods; persistent NIP-46 sessions; code-based pairing. (Multi-account switching, once on this list, shipped on 2026-11-20.)
 
 ## 14. Discovery: BitFeed ("what do you see")
 
@@ -2061,7 +2061,7 @@ Linking 3D places like web pages has been tried before, and so has serverless mu
 | LiveKit, mediasoup and other open-source media forwarding servers | Candidates for the reference room server and its interface (Q19) |
 | Yjs, Automerge and other conflict-free replicated data type libraries | Shared objects with no device in charge (§9.4) |
 
-*This is a conceptual technical proposal. As of this draft, NSWP is not an adopted Nostr Improvement Proposal, a W3C standard or an implemented interoperability protocol, and BitPortal is not yet built.*
+*NSWP is not an adopted Nostr Improvement Proposal or a W3C standard. It is implemented: by the reference client, BitPortal, at portal.bitblocks.network, by the reference worlds under bitblocks.network, and by the kit in this repository. Nobody else is known to implement it yet, so its interoperability has been tried only between parts made here.*
 
 ---
 
