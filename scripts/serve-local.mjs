@@ -53,7 +53,7 @@ const sites = [
   ["BitPortal", join(root, "..", "bitportal", "dist"), "/walk/ is the room, / the list", "https://portal.bitblocks.network"],
   ...["gallery", "grove", "tour", "arcade", "observatory", "workshop", "library"].map((name) => [`The ${name[0].toUpperCase()}${name.slice(1)}`, join(root, "sites", name, "dist"), "", realOrigin(join(root, "sites", name, "world.json"))]),
   ["The world template", join(root, "..", "nswp-world-template", "dist"), "", realOrigin(join(root, "..", "nswp-world-template", "world.json"))],
-  ["A world in Godot", join(root, "engines", "godot", "dist"), "about 40 MB to load", ""],
+  ["The Foundry (made in Godot)", join(root, "engines", "godot", "dist"), "about 40 MB to load", "https://foundry.bitblocks.network"],
   // Not a world: a plain website that signs in by the window, to try what that is like (docs/plans/signin-demo).
   ["Notebook, a flat demo of signing in", join(root, "docs", "plans", "signin-demo", "dist"), "needs https; build it with node docs/plans/signin-demo/build.mjs", ""],
   // BitLogin's own site: the sign-in address Notebook asks. Its headers are written beside its packages, not in its build.

@@ -1,8 +1,9 @@
-// Every public site, moved together: the seven reference worlds, the Starter Home and BitPortal.
+// Every public site, moved together: the seven reference worlds, the Starter Home, The Foundry (the Godot example)
+// and BitPortal.
 //
 // Each of them is a site of its own with its own copy of the kit, so nothing keeps them alike but deploying them
 // alike. This is the one command for that. It refuses to start unless all three repositories are on the same
-// kit, and it deploys all nine sites or says exactly which it did before it stopped.
+// kit, and it deploys all ten sites or says exactly which it did before it stopped.
 //
 //   npm run release:all            say what would be deployed, and why not if it can't be. Changes nothing.
 //   npm run release:all -- --go    do it. Deploying is the owner's to approve, each time: run this on their word.
@@ -10,8 +11,9 @@
 // Needs the Vercel CLI, logged in, and the three repositories side by side:
 //   ../bitportal   ../nswp-world-template
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { lookup } from "node:dns/promises";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,8 +23,8 @@ const portal = join(root, "..", "bitportal");
 const template = join(root, "..", "nswp-world-template");
 const projects = JSON.parse(readFileSync(join(root, "sites", "vercel-projects.json"), "utf8"));
 const WORLDS = ["gallery", "grove", "tour", "arcade", "observatory", "workshop", "library"];
-/** How many deployments this makes: the worlds, the Starter Home, BitPortal. */
-const NEEDED = WORLDS.length + 2;
+/** How many deployments this makes: the worlds, the Starter Home, The Foundry, BitPortal. */
+const NEEDED = WORLDS.length + 3;
 /** The free plan's limit, in any 24 hours (sites/template-demo/README.md). */
 const DAILY = 100;
 
@@ -95,12 +97,40 @@ const live = async (url) => {
     return null;
   }
 };
-const sites = [...WORLDS.map((name) => [name, new URL("/.well-known/nswp.json", projects.sites[name].url).href]), ["starter", new URL("/.well-known/nswp.json", projects.templateDemo.url).href], ["portal", "https://portal.bitblocks.network/version.json"]];
+const sites = [
+  ...WORLDS.map((name) => [name, new URL("/.well-known/nswp.json", projects.sites[name].url).href]),
+  ["starter", new URL("/.well-known/nswp.json", projects.templateDemo.url).href],
+  ["foundry", new URL("/.well-known/nswp.json", projects.godotDemo.url).href],
+  ["portal", "https://portal.bitblocks.network/version.json"],
+];
 let behindNow = 0;
 for (const [name, url] of sites) {
   const has = await live(url);
   if (has !== kit) behindNow++;
   console.log(`  ${has === kit ? "=" : "→"}  ${name.padEnd(12)} ${has ? `kit ${has}` : "didn't say"}${has === kit ? "" : `   would become ${kit}`}`);
+}
+
+// ---------------------------------------------------------------- what the deploy itself needs
+console.log("\nWhat the deploy needs");
+// The Foundry is exported by Godot, on this machine: without it there is no tenth site to deploy.
+const hasGodot = (() => {
+  if (process.env.GODOT) return existsSync(process.env.GODOT);
+  if (quiet("godot", ["--version"], root) !== null || quiet("godot4", ["--version"], root) !== null) return true;
+  try {
+    return readdirSync(join(homedir(), "Applications")).some((d) => /^godot/i.test(d));
+  } catch {
+    return false;
+  }
+})();
+need(hasGodot, "Godot is here, to export The Foundry", "Godot 4 with its web export templates isn't on this machine, and The Foundry is exported by it: install it, or set GODOT to its path");
+// Every address a door here leads to answers: nothing is deployed that points somewhere that isn't there.
+for (const [name, url] of [["starter", projects.templateDemo.url], ["foundry", projects.godotDemo.url]]) {
+  const host = new URL(url).host;
+  const there = await lookup(host).then(
+    () => true,
+    () => false,
+  );
+  need(there, `${host} has an address`, `${host} has no DNS record yet: add it before a deploy puts doors to ${name} in the other worlds`);
 }
 
 // ---------------------------------------------------------------- room to deploy
@@ -123,7 +153,7 @@ if (!go) {
   process.exit(0);
 }
 
-// ---------------------------------------------------------------- tests, then all nine
+// ---------------------------------------------------------------- tests, then all ten
 const step = (words, fn) => {
   process.stdout.write(`  …  ${words}`);
   try {
@@ -147,6 +177,7 @@ try {
     run("npm", ["run", "vendor:check"], portal);
   });
   step("BitPortal: build", () => run("npm", ["run", "build"], portal));
+  step("The Foundry: exported from Godot", () => run("npm", ["run", "build:godot"], root));
   // The Starter Home is the template itself, as someone starting from it gets it, with this demo's own files.
   work = mkdtempSync(join(tmpdir(), "starter-home-"));
   const home = join(work, "home");
@@ -168,6 +199,7 @@ try {
   // The worlds first and BitPortal last: a portal is never on a newer kit than the worlds it sends people to.
   for (const name of WORLDS) deploy(name, join(root, "sites", name, "dist"), projects.sites[name].projectId);
   deploy("starter", join(home, "dist"), projects.templateDemo.projectId);
+  deploy("foundry", join(root, "engines", "godot", "dist"), projects.godotDemo.projectId);
   const portalProject = JSON.parse(readFileSync(join(portal, "vercel-project.json"), "utf8"));
   deploy("portal", join(portal, "dist"), portalProject.projectId);
 } catch {

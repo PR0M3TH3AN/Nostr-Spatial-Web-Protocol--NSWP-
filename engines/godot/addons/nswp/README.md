@@ -175,7 +175,8 @@ yours to decide, and worth deciding on purpose.
 ## The example
 
 [`../../example/`](../../example/) is a small world that uses all of the
-above: two entry points, a door and a floor. The project file beside it
+above: two entry points, two doors and a floor. It is public as The Foundry,
+at <https://foundry.bitblocks.network>, with a door to it in the Workshop. The project file beside it
 (`engines/godot/project.godot`) opens in Godot 4.
 
 To export it and try it in a browser, from the repository's root:
@@ -187,7 +188,11 @@ node scripts/serve-local.mjs
 
 The first needs Godot 4 and its web export templates (`GODOT=/path/to/godot`
 if it isn't on the PATH). The export is about 40 MB, nearly all of it Godot
-itself, and isn't kept in the repository. On that server its door leads to
+itself, and isn't kept in the repository. The same command writes the
+world's manifest and its site's headers beside the export, from
+`engines/godot/world.json`: a Godot world of your own needs the same two
+things ([`scripts/build-godot-example.mjs`](../../../../scripts/build-godot-example.mjs)
+shows both, and `nswp check <address>` says whether a site has them right). On that server its door leads to
 the copies of the other sites served there
 ([`docs/local-server.md`](../../../../docs/local-server.md)).
 

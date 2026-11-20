@@ -202,11 +202,16 @@ Each default can be replaced. A world that wants its own door uses
 them, as any world does ([controls-kit.md](controls-kit.md), "Sound").
 
 There is an example world beside it
-([`engines/godot/example/`](../engines/godot/example/)): two entry points, a
-door and nothing else of its own. `npm run build:godot` exports it, given
-Godot 4 and its web export templates, and
-[`node scripts/serve-local.mjs`](local-server.md) serves it with the other
-sites.
+([`engines/godot/example/`](../engines/godot/example/)): **The Foundry**, at
+<https://foundry.bitblocks.network>. It has two entry points, a door to the
+Gallery and one to the Workshop, and nothing else of its own; the Workshop
+has a door back to it, so the trip between a Three.js world and a Godot one
+can be made both ways. `npm run build:godot` exports it, given Godot 4 and
+its web export templates, and writes beside the export what any world's
+site carries: its manifest (`.well-known/nswp.json`, from
+[`engines/godot/world.json`](../engines/godot/world.json)) and the headers
+it is served with. [`node scripts/serve-local.mjs`](local-server.md) serves
+it with the other sites, and `npm run release:all` deploys it with them.
 
 **Status (2026-11-18):** run in Godot 4.7.2, exported for the Web, in Chrome
 on a flat screen, with a mouse and keyboard:

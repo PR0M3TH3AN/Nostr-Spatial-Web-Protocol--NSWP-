@@ -16,5 +16,11 @@
     "project": "nswp-world-template",
     "url": "https://starter.bitblocks.network/",
     "note": "The Starter Home: deployed from a copy of the nswp-world-template repo; see sites/template-demo/README.md."
+  },
+  "godotDemo": {
+    "projectId": "prj_z9GrBbOPhOY9OpvrMiW4DqCHwhEI",
+    "project": "nswp-foundry",
+    "url": "https://foundry.bitblocks.network/",
+    "note": "The Foundry: the Godot example in engines/godot, exported by npm run build:godot. Needs Godot 4 and its web export templates on the machine that deploys."
   }
 }

@@ -10,6 +10,7 @@ Always the latest.
 - **The kit tells a visitor whose page is older than the world.** `addViewControls` and an engine's menu add a control that shows only then: "This place has been updated. Reload for the latest". Someone coming back to the tab with nothing in hand is given the latest at once; someone in a room, in a headset or writing is told and left to choose. `watchFresh`, `freshAction`.
 - **`nswp check`** says whether a page is served that way, and warns when it isn't. `servedFresh(cacheControl)` in the core.
 - **The reference worlds, BitPortal and the template say `Cache-Control: no-cache` outright** for everything not named by a hash, where they had left it to their host's habit.
+- **The Godot example is a public world: The Foundry**, at `foundry.bitblocks.network`. `npm run build:godot` writes its manifest and its site's headers beside the export; the Workshop has a door to it and it has one back, so the trip between a Three.js world and a Godot one can be made both ways. `npm run release:all` deploys ten sites, and won't start without Godot here or while an address its doors lead to has no DNS record. No change to the kit.
 
 ## 0.34.0
 
