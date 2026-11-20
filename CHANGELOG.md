@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.39.0
+
+People and messages, in the library. Nothing a visitor can see yet.
+
+- **Following and unfollowing** ([NSWP-14](protocol/14-people-and-messages.md); NIP-02, kind 3): `changeFollows` makes a follow list with one person added or taken out, from the newest list that could be found. Everything else in it is kept as it was: other people, the relay and name each was written with, other tags, the content. It signs nothing when no list was found, unless told the person follows nobody yet. `followsIn`, `newestFollows`.
+- **Private messages** (NIP-17): `buildMessage`, `sealTemplate`, `wrapSeal` to send one; `readSeal`, `readMessage` to check what a signer opened; `openWrap` for a client that holds a key. A message that says it is from one person and was sealed by another is dropped. `readMessageRelays`, `buildMessageRelays` for where someone's messages reach them (kind 10050). `vectors/people.json`.
+- **NSWP adds no kinds for these.** They are done at the visitor's own client. A world's signer refuses a follow list and every part of a message, as before.
+- **Not built:** any of it in BitPortal, and what a world's card about a person may offer.
+
 ## 0.38.0
 
 - **What is sent goes to relays that are working.** The kit remembers, on the device, how each relay it has used answered, and leans on the ones that have been answering. A person's own relays (NIP-65) are always used, best first; if fewer than three of them are up, the best of the usual relays are added; if nothing takes what was sent, the rest are tried once. `sendWell`, `askWell`, `relaysWell` in the kit; `pickRelays`, `learnRelays`, `relayScore` in the core.

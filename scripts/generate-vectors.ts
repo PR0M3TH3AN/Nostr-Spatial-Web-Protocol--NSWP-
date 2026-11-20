@@ -55,6 +55,14 @@ import {
   openSave,
   saveAddress,
   sealSave,
+  buildMessage,
+  changeFollows,
+  followsIn,
+  nip44Encrypt,
+  openWrap,
+  sealTemplate,
+  wrapSeal,
+  FOLLOWS_KIND,
   type EventTemplate,
   type NostrEvent,
 } from "../packages/core/src/index.js";
@@ -873,6 +881,76 @@ const files: Record<string, unknown> = {
     events: all,
     reading,
     tallies,
+  };
+}
+
+// ---- People and messages (protocol/14-people-and-messages.md): a follow list changed without losing any of it,
+// and a private message through its three layers, with what a reader must drop.
+{
+  const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  const ONCE = sha256(utf8ToBytes("nswp test vector throwaway key"));
+  const N1 = sha256(utf8ToBytes("nswp test vector message nonce 1"));
+  const N2 = sha256(utf8ToBytes("nswp test vector message nonce 2"));
+  const CY = "c".repeat(64);
+  const had = sign({ kind: FOLLOWS_KIND, created_at: T0, tags: [["p", PK2, "wss://relay.example", "Second"], ["t", "worlds"], ["p", CY]], content: '{"wss://old.example":{"read":true,"write":true}}' });
+  const change = (name: string, description: string, list: NostrEvent | null, c: { add?: string; remove?: string; now: number; fromNothing?: boolean }) => {
+    const next = changeFollows(list, c);
+    return { name, description, list: list?.id ?? null, change: c, expect: next, follows: next ? followsIn(next) : null };
+  };
+  const follows = [
+    change("follow", "One line added at the end. Every other tag, and the content, as it was.", had, { add: PK3, now: T0 + 60 }),
+    change("unfollow", "Every line naming that person taken out, and nothing else.", had, { remove: PK2, now: T0 + 60 }),
+    change("never_older", "Asked for at a time before the list it replaces: written one second after it.", had, { add: PK3, now: T0 - 500 }),
+    change("already_followed", "Nothing to change: nothing to sign.", had, { add: CY, now: T0 + 60 }),
+    change("oneself", "Nobody follows themselves here.", had, { add: PK1, now: T0 + 60 }),
+    change("no_list_found", "No list was found, which is not the same as following nobody: refused.", null, { add: PK2, now: T0 + 60 }),
+    change("a_first_list", "The person has said they follow nobody yet: a first list.", null, { add: PK2, now: T0 + 60, fromNothing: true }),
+  ];
+  expectEqual("people/follow", follows[0]!.expect?.tags, [...had.tags, ["p", PK3]]);
+  expectEqual("people/follow_content", follows[0]!.expect?.content, had.content);
+  expectEqual("people/unfollow", follows[1]!.follows, [CY]);
+  expectEqual("people/never_older", follows[2]!.expect?.created_at, T0 + 1);
+  expectEqual("people/already_followed", follows[3]!.expect, null);
+  expectEqual("people/oneself", follows[4]!.expect, null);
+  expectEqual("people/no_list_found", follows[5]!.expect, null);
+  expectEqual("people/a_first_list", follows[6]!.follows, [PK2]);
+
+  // The first key writes to the second. The seal is what the writer's signer makes; the wrap is the client's.
+  const sealed = (written: unknown, from: Uint8Array, to: string) => sign(sealTemplate(nip44Encrypt(JSON.stringify(written), getConversationKey(from, to), N1), T0), from);
+  const wrapped = (seal: NostrEvent, to: string) => wrapSeal(seal, to, { now: T0, secretKey: ONCE, nonce: N2, random: 0.25, auxRand: AUX })!;
+  const written = buildMessage({ from: PK1, to: PK2, text: "See you at the Arcade?\nI'll be by the door.", now: T0 })!;
+  const good = wrapped(sealed(written, KEY1, PK2), PK2);
+  const mine = wrapped(sealed(written, KEY1, PK1), PK1);
+  const forged = buildMessage({ from: PK1, to: PK2, text: "Send me your key.", now: T0 })!;
+  const passedOff = wrapped(sealed(forged, KEY3, PK2), PK2);
+  const toSomeoneElse = wrapped(sealed(buildMessage({ from: PK1, to: PK3, text: "For the third key.", now: T0 })!, KEY1, PK2), PK2);
+  const taggedSeal = sign({ kind: 13, created_at: T0, tags: [["p", PK2]], content: nip44Encrypt(JSON.stringify(written), getConversationKey(KEY1, PK2), N1) });
+  const withTaggedSeal = sign({ kind: 1059, created_at: T0, tags: [["p", PK2]], content: nip44Encrypt(JSON.stringify(taggedSeal), getConversationKey(ONCE, PK2), N2) }, ONCE);
+  const aNote = { ...written, kind: 1 };
+  const notAMessage = wrapped(sealed(aNote, KEY1, PK2), PK2);
+  const open = (name: string, description: string, wrap: NostrEvent, readerKey: Uint8Array, reader: string) => ({ name, description, wrap, reader, expect: openWrap(wrap, readerKey) });
+  const messages = [
+    open("to_its_reader", "The second key opens a message from the first.", good, KEY2, "key2"),
+    open("its_writers_copy", "The same message, sealed and wrapped for its writer, who reads back what they sent.", mine, KEY1, "key1"),
+    open("not_for_this_reader", "The session key is handed the second key's wrap: it can't be opened.", good, KEY3, "session"),
+    open("passed_off", "Says it is from the first key, sealed by the session key: dropped.", passedOff, KEY2, "key2"),
+    open("to_someone_else", "A real message from the first key to the session key, sealed and wrapped for the second: dropped.", toSomeoneElse, KEY2, "key2"),
+    open("a_seal_with_tags", "A seal carries no tags. One that does is not a seal.", withTaggedSeal, KEY2, "key2"),
+    open("not_a_message", "What was sealed is a note, not a message: dropped.", notAMessage, KEY2, "key2"),
+  ];
+  expectEqual("people/to_its_reader", messages[0]!.expect, { id: written.id, from: PK1, to: [PK2], text: "See you at the Arcade?\nI'll be by the door.", at: T0 });
+  expectEqual("people/its_writers_copy", messages[1]!.expect, messages[0]!.expect);
+  for (const m of messages.slice(2)) expectEqual(`people/${m.name}`, m.expect, null);
+  expectEqual("people/wrap_by_throwaway", good.pubkey, getPublicKey(ONCE));
+  expectEqual("people/wrap_moved_back", good.created_at, T0 - 12 * 3600);
+  files["people.json"] = {
+    description:
+      "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
+    testKeys: { ...testKeys, throwaway: { label: "nswp test vector throwaway key", secretKey: hex(ONCE), pubkey: getPublicKey(ONCE) } },
+    followList: had,
+    follows,
+    written,
+    messages,
   };
 }
 
