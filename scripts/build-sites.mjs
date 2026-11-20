@@ -14,7 +14,17 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   const read = JSON.parse(readFileSync(file, "utf8"));
   const own = (read.world ?? read).category;
   if (said !== own) throw new Error(`sites.json says ${name} is "${said}", and its own world.json says "${own}". They must agree.`);
+  // And what it does with the things visitors carry (protocol/17-items.md): a door warns of a place where items
+  // are part of play, so that word must be the place's own too.
+  const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "none";
+  const ownCarried = (read.world ?? read).items ?? "none";
+  if (carried !== ownCarried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its own world.json says "${ownCarried}". They must agree.`);
 }
+/** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */
+const carries = (s) => {
+  const rule = config.worlds[s.name]?.items;
+  return rule === "allowed" || rule === "play";
+};
 // Every world in sites.json, and the reference Airlock. Pass names to build only those.
 const only = process.argv.slice(2);
 const sites = [...Object.keys(config.worlds).map((name) => ({ name, entry: "src/main.ts", world: true })), { name: "airlock", entry: "src/airlock.ts", world: false }].filter(
@@ -119,7 +129,10 @@ for (const s of sites) {
     // A visitor's own files, played from where the browser keeps them: their music, and video on a panel.
     "media-src 'self' blob:",
     // Worlds reach Nostr relays (wss) for the room handshake; the Airlock also fetches manifests (https).
-    s.world ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
+    // A world that draws what its visitors carry (protocol/17-items.md) fetches each item's model from wherever its
+    // maker keeps it, so it may reach any https address. Every file is checked against the hash its description
+    // gives before it is used. A world with no items reaches only itself and relays, as before.
+    s.world && !carries(s) ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
     // A world embeds one thing from elsewhere: its visitor's own client's signer, which it can't read
     // (protocol/10-identity.md, "Signing from a world"). Which client that is, is the visitor's choice.
     ...(s.world ? ["frame-src 'self' https:"] : []),

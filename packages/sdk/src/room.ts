@@ -40,6 +40,7 @@ import {
   verifyRoomPass,
   type Look,
   type VerifiedPass,
+  itemCoordinate,
 } from "@nswp/core";
 
 export interface Member {
@@ -60,6 +61,8 @@ export interface Member {
   look: Look;
   /** They have said they are recording what they see (spec §9). */
   recording: boolean;
+  /** The item they say they are holding, by its coordinate (protocol/17-items.md). Left out when they hold nothing. */
+  holding?: string;
   /** They are offering their screen to the room. It is sent only to members who ask to watch. */
   sharing?: boolean;
   /** They are offering their music to people near them. It is sent only to members who ask to hear it. */
@@ -105,6 +108,8 @@ interface Events {
   identity: (member: Member) => void;
   /** A member started or stopped recording what they see. */
   recording: (member: Member, on: boolean) => void;
+  /** A member took an item in hand, or put it away: its coordinate, or "". */
+  holding: (member: Member, item: string) => void;
   audio: (member: Member, stream: MediaStream) => void;
   /** A member started or stopped offering their screen. */
   screen: (member: Member, on: boolean) => void;
@@ -215,6 +220,7 @@ export class RoomSession {
     look: new Set(),
     identity: new Set(),
     recording: new Set(),
+    holding: new Set(),
     screen: new Set(),
     video: new Set(),
     tune: new Set(),
@@ -228,6 +234,8 @@ export class RoomSession {
   private readonly origin: string;
   /** This visitor's own pass, as it is said to the others, and when it stops. */
   private pass: string | null = null;
+  /** The item this visitor says they are holding, by its coordinate, or "". */
+  private held = "";
   private passUntil = 0;
   private recordingTimer: ReturnType<typeof setInterval> | undefined;
   /** This visitor's shared screen, while they share one. */
@@ -517,6 +525,15 @@ export class RoomSession {
             this.redraw(peer);
           }
         } else if (e.data.startsWith("id:")) this.checkPass(peer, e.data.slice(3));
+        else if (e.data.startsWith("hold:")) {
+          // What they hold, by its coordinate: anything that isn't an item's coordinate is "nothing".
+          const item = itemCoordinate(e.data.slice(5));
+          if ((peer.member.holding ?? "") !== item) {
+            if (item) peer.member.holding = item;
+            else delete peer.member.holding;
+            this.emit("holding", peer.member, item);
+          }
+        }
         else if (e.data.startsWith("say:")) {
           // A few words to the room. Each is sent several times; the first is taken, and no more than a few in a while.
           const line = parseSay(e.data);
@@ -619,13 +636,14 @@ export class RoomSession {
    * over the first seconds.
    */
   private introduce(ch: RTCDataChannel): void {
-    if (!this.look && !this.pass) return;
+    if (!this.look && !this.pass && !this.held) return;
     let left = 4;
     const say = () => {
       if (this.closed || ch.readyState !== "open") return;
       try {
         if (this.look) ch.send(`look:${this.look}`);
         if (this.pass) ch.send(`id:${this.pass}`);
+        if (this.held) ch.send(`hold:${this.held}`);
       } catch {
         /* the channel closed under us */
       }
@@ -874,6 +892,33 @@ export class RoomSession {
    * shown a light on your figure while it is true. An honest client says so
    * whenever it records other people; nothing can make a dishonest one.
    */
+  /**
+   * Say what this visitor is holding, or "" for nothing (protocol/17-items.md). The others are told its
+   * coordinate and nothing else: each fetches and checks the item for themselves, or draws nothing.
+   */
+  setHolding(item: string): void {
+    const next = itemCoordinate(item);
+    if (next === this.held) return;
+    this.held = next;
+    if (next) this.self.holding = next;
+    else delete this.self.holding;
+    // Said a few times, because the channel doesn't try again.
+    let left = 3;
+    const say = () => {
+      if (this.closed || this.held !== next) return;
+      for (const peer of this.peers.values()) {
+        if (!peer.open || peer.pose?.readyState !== "open") continue;
+        try {
+          peer.pose.send(`hold:${next}`);
+        } catch {
+          /* that connection is closing */
+        }
+      }
+      if (--left > 0) setTimeout(say, 700);
+    };
+    say();
+  }
+
   setRecording(on: boolean): void {
     if (on === this.self.recording) return;
     this.self.recording = on;

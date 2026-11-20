@@ -10,9 +10,9 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND, type Achievement, type Board } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, WORLD_KIND, type Achievement, type Board, type ItemsRule } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addBagControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -105,6 +105,11 @@ export interface WorldConfig {
    * there is no Scores tab and nothing about scores anywhere.
    */
   boards?: Board[];
+  /**
+   * What this world does with the things visitors carry (protocol/17-items.md): "allowed" or "play". Left out,
+   * nothing carried is drawn or works here. It must be what the world's announcement says.
+   */
+  items?: ItemsRule;
   /**
    * What this world marks, if it marks anything (protocol/16-achievements.md). Optional: left out, there is no
    * Achievements tab and nothing about achievements anywhere.
@@ -782,7 +787,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Other visitors appear only after someone presses Join (spec §9.4).
   let refreshRoom = () => {};
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
+  // What this world does with items. `?items=allowed` is for trying it on a copy of a world that has none, on the
+  // maker's own network: a published world is what its announcement says and nothing a link can change, or a
+  // link could put someone in a place where items work with no warning on any door.
+  const onMyNetwork = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+  const itemsRule = cleanItemsRule((onMyNetwork ? new URLSearchParams(location.search).get("items") : null) ?? cfg.items);
+  const items = createItems();
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());
@@ -827,6 +838,24 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     worldPeople().onChange(paintRatings);
     look();
   }
+  // Their bag, and the one thing in their hand (protocol/17-items.md). It is looked through here, and changed
+  // at their home. In a world that draws nothing carried, it says so.
+  const bag = createBag({ me: () => (signedInHere() ? worldSigner().pubkey : null) });
+  const bagging = addBagControls(controls, {
+    bag,
+    items,
+    me: () => (signedInHere() ? worldSigner().pubkey : null),
+    rule: () => itemsRule,
+    holding: () => presence.holding,
+    hold: async (item) => {
+      const done = await presence.setHolding(item);
+      state.holding = presence.holding || null;
+      return done;
+    },
+    keyboard: () => panels?.keyboard ?? null,
+    presenting: () => renderer.xr.isPresenting,
+  });
+  if (signerNamed()) worldSigner().onChange(() => bagging.refresh());
   if (achievements) {
     const achieving = addAchievementControls(controls, { achievements, signedIn: signedInHere });
     if (signerNamed()) worldSigner().onChange(() => achieving.refresh());

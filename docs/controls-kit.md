@@ -647,6 +647,42 @@ rating; the people they follow are counted once they have let your world
 see who that is. Your world only shows ratings: giving one is done at the
 visitor's own client.
 
+### What they carry, and hold
+
+Optional. A world that says `allowed` or `play` for items in its
+announcement ([NSWP-17](../protocol/17-items.md)) can draw the one thing
+each person holds, and let its visitor take something from their bag:
+
+```ts
+import { addBagControls, createBag, createItems, createPresence, worldSigner } from "nswp-sdk/three";
+
+const items = createItems();
+const presence = createPresence({ scene, camera, items, itemsRule: () => "allowed" /* …the rest */ });
+const me = () => (worldSigner().state === "unlocked" ? worldSigner().pubkey : null);
+addBagControls(controls, {
+  bag: createBag({ me }),
+  items,
+  me,
+  rule: () => "allowed",
+  holding: () => presence.holding,
+  hold: (item) => presence.setHolding(item),
+});
+```
+
+- A guest has no Bag tab. Someone signed in looks through theirs and holds
+  one thing; everyone in the room sees it.
+- Your world can't change a bag. Things are put in and taken out at the
+  visitor's own client.
+- Each person fetches what another holds for themselves, checks it against
+  its hash, and counts it (`ITEM_BUDGET`). Where it fails, a plain marker of
+  its size is drawn.
+- **Your page has to be let fetch models from wherever makers keep them:**
+  `connect-src` with `https:`. A world with no items shouldn't have that.
+- The visitor's own switch, "Items: off", holds in every world
+  (`showsItems`).
+- In a world that says nothing about items, the tab still shows the bag,
+  says nothing carried works there, and offers nothing to hold.
+
 ### What someone has done, on their card
 
 Optional. Where your world keeps score or marks achievements, a person's
@@ -923,8 +959,8 @@ your host's: serve your page and scripts with `Cache-Control: no-cache`
 - **Controls that aren't buttons:** a compass of where the doors are, a
   slider, a map. The `kind` mechanism is where they go.
 - **A layout a visitor can rearrange.**
-- **Things two people can hand each other,** and anything held being seen by
-  the rest of a room.
+- **Things two people can hand each other.** One thing held is seen by the
+  rest of a room ([NSWP-17](../protocol/17-items.md)); it does nothing yet.
 - **A hand drawn as a hand.** Tracked hands are shown as their joints.
 - **Controllers drawn as the ones in the visitor's hands.** That needs each
   make's model served from the world's own site.

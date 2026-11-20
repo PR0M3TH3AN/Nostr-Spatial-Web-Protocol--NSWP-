@@ -1,0 +1,192 @@
+import { BAG_KIND, bagIn, buildItem, changeBag, finalizeEvent, getPublicKey, type Filter, type NostrEvent } from "@nswp/core";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
+import * as THREE from "three";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createBag, type BagHand } from "../src/bag.js";
+import { addBagControls, itemIn } from "../src/bagging.js";
+import { createItems, fitToSize, ITEM_BUDGET, withinBudget } from "../src/items.js";
+import { forgetRelays } from "../src/relay-book.js";
+import type { Controls, UiAction } from "../src/ui/model.js";
+
+const KEY = sha256(utf8ToBytes("nswp sdk bag test key"));
+const MAKER = sha256(utf8ToBytes("nswp sdk bag test maker"));
+const me = getPublicKey(KEY);
+const maker = getPublicKey(MAKER);
+const LANTERN = `37303:${maker}:brass-lantern`;
+const BOOK = `37303:${maker}:old-book`;
+let T = 1_800_000_000_000;
+const clock = () => (T += 1000);
+const relays = () => {
+  const net = {
+    kept: [] as NostrEvent[],
+    down: false,
+    full: false,
+    query: async (asked: string[], filter: Filter) => ({
+      events: net.down ? [] : net.kept.filter((e) => (!filter.kinds || filter.kinds.includes(e.kind)) && (!filter.authors || filter.authors.includes(e.pubkey)) && (!filter["#d"] || e.tags.some((t) => t[0] === "d" && filter["#d"]!.includes(t[1]!)))),
+      relays: Object.fromEntries(asked.map((r) => [r, net.down ? "timeout" : "eose"])),
+    }),
+    publish: async (to: string[], event: NostrEvent) => {
+      const took = !net.down && !net.full;
+      if (took) net.kept.push(event);
+      return { relays: Object.fromEntries(to.map((r) => [r, took ? "ok" : "timeout"])) };
+    },
+  };
+  return net;
+};
+const memory = () => {
+  const m = new Map<string, string>();
+  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+};
+const hand = () => {
+  const h = { allowed: true, signed: 0, ready: () => h.allowed, sign: async (bag: Parameters<BagHand["sign"]>[0]) => (h.signed++, finalizeEvent(bag, KEY)) };
+  return h;
+};
+const bagEvent = (items: string[], at = T / 1000 - 100) => finalizeEvent({ kind: BAG_KIND, created_at: at, tags: [["d", "bag"], ...items.map((i) => ["a", i])], content: "" }, KEY);
+const set = (o: { had?: NostrEvent; readOnly?: boolean } = {}) => {
+  const net = relays();
+  if (o.had) net.kept.push(o.had);
+  const h = hand();
+  const bag = createBag({ me: () => me, ...(o.readOnly ? {} : { hand: h }), relays: ["wss://one.example"], storage: memory(), now: clock, query: net.query, publish: net.publish });
+  return { bag, net, h };
+};
+
+beforeEach(() => forgetRelays());
+
+describe("a visitor's bag", () => {
+  it("is read from their own newest, and can be looked through anywhere", async () => {
+    const { bag } = set({ had: bagEvent([LANTERN, BOOK]), readOnly: true });
+    expect(bag.items()).toBeNull();
+    expect(await bag.load()).toEqual([LANTERN, BOOK]);
+    expect(bag.canChange()).toBe(false);
+    expect((await bag.add(BOOK)).why).toBe("read-only");
+  });
+
+  it("has an item put in and taken out, keeping the rest", async () => {
+    const { bag, net } = set({ had: bagEvent([LANTERN]) });
+    expect(await bag.add(BOOK, "Old book")).toEqual({ ok: true, said: "Old book is in your bag. Anyone can see what is in it." });
+    expect(bagIn(net.kept.at(-1)!)).toEqual([LANTERN, BOOK]);
+    expect((await bag.remove(LANTERN, "Brass lantern")).said).toBe("Brass lantern is out of your bag.");
+    expect(bagIn(net.kept.at(-1)!)).toEqual([BOOK]);
+    expect((await bag.add(BOOK)).why).toBe("already");
+  });
+
+  it("changes nothing when no relay could be reached, and starts a first bag only on a second press", async () => {
+    const down = set({ had: bagEvent([LANTERN]) });
+    down.net.down = true;
+    expect((await down.bag.add(BOOK)).why).toBe("unreachable");
+    expect(down.h.signed).toBe(0);
+    const none = set();
+    expect((await none.bag.add(LANTERN)).why).toBe("no-bag");
+    expect(none.h.signed).toBe(0);
+    expect((await none.bag.add(LANTERN)).ok).toBe(true);
+    expect(bagIn(none.net.kept.at(-1)!)).toEqual([LANTERN]);
+  });
+
+  it("isn't taken from a hand that gives back another bag, and is kept when no relay took it", async () => {
+    const wrong = set({ had: bagEvent([LANTERN]) });
+    wrong.h.sign = async () => finalizeEvent(changeBag(bagEvent([]), { add: BOOK, now: T / 1000 + 50 })!, KEY);
+    expect((await wrong.bag.add(BOOK)).why).toBe("refused");
+    const full = set({ had: bagEvent([LANTERN]) });
+    full.net.full = true;
+    expect((await full.bag.add(BOOK)).why).toBe("not-sent");
+    expect(full.bag.items()).toEqual([LANTERN, BOOK]);
+  });
+});
+
+describe("an item's address, copied or typed", () => {
+  it("is found as a coordinate among other words, and is nothing when it isn't an item", () => {
+    expect(itemIn(`Take this: ${LANTERN} thanks`)).toBe(LANTERN);
+    for (const bad of ["", "hello", `37300:${maker}:a-world`, `37303:${maker}:Not A Name`, 5]) expect(itemIn(bad), String(bad)).toBe("");
+  });
+});
+
+describe("the Bag tab", () => {
+  /** A menu that only keeps what it is given, to press by name. */
+  const menu = () => {
+    const actions = new Map<string, UiAction>();
+    const said: string[] = [];
+    const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), addSection: () => {}, say: (t: string) => void said.push(t) } as unknown as Controls;
+    return { controls, actions, said, press: (id: string) => actions.get(id)?.act?.() };
+  };
+  const tab = async (rule: string) => {
+    const { bag } = set({ had: bagEvent([LANTERN]), readOnly: true });
+    const m = menu();
+    let held = "";
+    const items = { known: () => null, describe: async () => null } as unknown as Parameters<typeof addBagControls>[1]["items"];
+    const bagging = addBagControls(m.controls, { bag, items, me: () => me, rule: () => rule, holding: () => held, hold: async (item) => ((held = item), { ok: true, said: item ? "Held." : "Put away." }) });
+    await bag.load();
+    bagging.refresh();
+    m.press(`bag-${maker.slice(0, 8)}-brass-lantern`);
+    return { ...m, held: () => held };
+  };
+
+  it("offers to hold a thing only in a place that draws what is held", async () => {
+    const allowed = await tab("allowed");
+    expect(allowed.actions.has("bag-hold")).toBe(true);
+    await allowed.press("bag-hold");
+    expect(allowed.held()).toBe(LANTERN);
+
+    const none = await tab("none");
+    expect(none.actions.has(`bag-${maker.slice(0, 8)}-brass-lantern`)).toBe(true);
+    expect(none.actions.has("bag-hold")).toBe(false);
+  });
+
+  it("changes nothing from a world: a bag is changed at its owner's home", async () => {
+    const t = await tab("allowed");
+    expect(t.actions.has("bag-add")).toBe(false);
+    expect(t.actions.has("bag-remove")).toBe(false);
+  });
+});
+
+describe("fetching an item", () => {
+  const bytes = new Uint8Array([1, 2, 3, 4]);
+  const hash = Array.from(sha256(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+  const described = (o: { sha256?: string } = {}) => finalizeEvent(buildItem({ d: "brass-lantern", title: "Brass lantern", model: { url: "https://items.example/a.glb", sha256: o.sha256 ?? hash }, size: [0.2, 0.4, 0.2], behaviors: ["holdable"], now: T / 1000 })!, MAKER);
+
+  it("takes a description only from the maker its coordinate names, really signed", async () => {
+    const net = relays();
+    net.kept.push(described());
+    const items = createItems({ relays: ["wss://one.example"], query: net.query, now: clock });
+    expect((await items.describe(LANTERN))?.title).toBe("Brass lantern");
+    expect(items.known(LANTERN)?.id).toBe(LANTERN);
+    expect(await items.describe(`37303:${me}:brass-lantern`)).toBeNull();
+    expect(await items.describe("not an item")).toBeNull();
+    const forged = relays();
+    forged.kept.push({ ...finalizeEvent(buildItem({ d: "brass-lantern", title: "Forged", model: { url: "https://items.example/a.glb", sha256: hash }, size: [0.2, 0.4, 0.2], now: T / 1000 })!, KEY), pubkey: maker });
+    expect(await createItems({ relays: ["wss://one.example"], query: forged.query, now: clock }).describe(LANTERN)).toBeNull();
+  });
+
+  it("draws a plain marker of the item's size where its file is missing or isn't what was promised", async () => {
+    const net = relays();
+    net.kept.push(described({ sha256: "f".repeat(64) }));
+    const fetched: string[] = [];
+    const items = createItems({ relays: ["wss://one.example"], query: net.query, now: clock, fetchBytes: async (url) => (fetched.push(url), bytes) });
+    const item = (await items.describe(LANTERN))!;
+    const drawn = await items.model(item);
+    expect(fetched).toEqual(["https://items.example/a.glb"]);
+    // Not the file's own shape: a box of the size its description gives, standing on its floor.
+    const box = new THREE.Box3().setFromObject(drawn);
+    expect(box.getSize(new THREE.Vector3()).toArray().map((n) => Math.round(n * 100) / 100)).toEqual([0.2, 0.4, 0.2]);
+    expect(box.min.y).toBeCloseTo(0, 3);
+    const none = createItems({ relays: ["wss://one.example"], query: net.query, now: clock, fetchBytes: async () => null });
+    expect((await none.model(item)).children.length).toBe(1);
+  });
+
+  it("counts what a model holds, and fits one into the box its description gives", () => {
+    const small = new THREE.Group();
+    small.add(new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), new THREE.MeshBasicMaterial()));
+    expect(withinBudget(small)).toBe(true);
+    const fitted = fitToSize(small, [0.2, 0.4, 0.2]);
+    const box = new THREE.Box3().setFromObject(fitted);
+    expect(box.getSize(new THREE.Vector3()).toArray().map((n) => Math.round(n * 100) / 100)).toEqual([0.2, 0.4, 0.2]);
+    expect(box.min.y).toBeCloseTo(0, 3);
+    const heavy = new THREE.Group();
+    heavy.add(new THREE.Mesh(new THREE.SphereGeometry(1, 200, 200), new THREE.MeshBasicMaterial()));
+    expect(withinBudget(heavy)).toBe(false);
+    const crowded = new THREE.Group();
+    for (let i = 0; i <= ITEM_BUDGET.meshes; i++) crowded.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+    expect(withinBudget(crowded)).toBe(false);
+    expect(withinBudget(new THREE.Group())).toBe(false);
+  });
+});

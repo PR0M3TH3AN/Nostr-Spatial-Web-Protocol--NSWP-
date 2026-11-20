@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform, type SignerMore } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, cleanItemsRule, itemCoordinate, type Item, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
@@ -31,6 +31,7 @@ import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
+import { createItems, onItemsChange, setShowsItems, showsItems, type Items } from "./items.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
 import { createMessages } from "./messages.js";
 import type { PersonLines } from "./person-lines.js";
@@ -51,6 +52,13 @@ export interface PresenceOptions {
   controllers: THREE.Object3D[];
   /** CSS colour for name labels. */
   labelColor?: string;
+  /**
+   * What fetches and checks items (items.ts), for a world that lets visitors carry things in
+   * (protocol/17-items.md). Left out, nothing anyone holds is drawn.
+   */
+  items?: Items | null;
+  /** What this world does with items: "none", "allowed" or "play". Asked each time. Left out, none. */
+  itemsRule?: () => string;
   /**
    * The visitor's own look, in its inline form (spec §4.2), for the others in a
    * room to draw them by: usually `arrival.look()`. A function is asked each
@@ -113,6 +121,14 @@ export interface Presence {
   testTone(): MediaStreamTrack;
   /** Tell the others you are recording what you see, or have stopped. They are shown a light on your figure. */
   setRecording(on: boolean): void;
+  /** The item this visitor is holding, by its coordinate, or "". */
+  readonly holding: string;
+  /**
+   * Take an item in hand, or put it away with "" (protocol/17-items.md). It is drawn for the visitor and said to
+   * the room. Refused, with a few words why, where the world has no items, the item can't be held, or it has to
+   * be granted.
+   */
+  setHolding(item: string): Promise<{ ok: boolean; said: string }>;
   /** How this visitor looks to the others: for a selfie, or a mirror. */
   selfLook(): Member["look"] | string;
   /** Show for a few seconds where one member is: a column of light over their head. */
@@ -228,6 +244,9 @@ interface Avatar {
   bubbleUntil?: number;
   /** Shown while they say they are recording. */
   light?: THREE.Sprite;
+  /** The item they say they hold, and what is drawn for it. */
+  heldItem?: string;
+  held?: THREE.Object3D;
   /** Shown while they are being pointed out. */
   beam?: THREE.Sprite;
   beamUntil?: number;
@@ -356,6 +375,29 @@ export function createPresence(d: PresenceOptions): Presence {
     }
   };
 
+  // ---- What people hold (protocol/17-items.md). Each visitor says only an item's coordinate. Everyone who sees
+  // them fetches the description and the model for themselves, checks both, and draws it or draws nothing.
+  const itemsRule = () => cleanItemsRule(d.itemsRule?.());
+  const canBeHeld = (item: Item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
+  let mine = "";
+  let mineModel: THREE.Object3D | null = null;
+  const showHeld = async (a: Avatar | undefined, item: string) => {
+    if (!a) return;
+    a.heldItem = item;
+    a.held?.removeFromParent();
+    delete a.held;
+    // Nothing of anyone's is fetched or drawn where the world has no items, or the visitor has turned them off.
+    if (!item || !d.items || itemsRule() === "none" || !showsItems()) return;
+    const described = await d.items.describe(item);
+    if (!described || a.heldItem !== item || !canBeHeld(described) || described.use === "granted") return;
+    const model = await d.items.model(described);
+    if (a.heldItem !== item) return;
+    // At their right side, a little in front: where a hand that isn't being tracked rests.
+    model.position.set(0.3, -0.12, -0.22);
+    a.torso.add(model);
+    a.held = model;
+  };
+
   /** Put a member's figure together from how they look, in place of any they had. */
   const dress = (a: Avatar, look: Member["look"]) => {
     const was = a.figure;
@@ -377,6 +419,8 @@ export function createPresence(d: PresenceOptions): Presence {
       was.dispose();
     }
     if (a.light) figure.head.add(a.light);
+    // What they hold stays in their hand through a change of look.
+    if (a.held) figure.torso.add(a.held);
     if (a.beam) figure.head.add(a.beam);
     if (a.bubble) figure.head.add(a.bubble);
     a.root.add(figure.group);
@@ -681,6 +725,12 @@ export function createPresence(d: PresenceOptions): Presence {
       if (a) showRecording(a, on);
       changed();
     });
+    s.on("holding", (m, item) => {
+      void showHeld(avatars.get(m.pubkey), item);
+      changed();
+    });
+    // What this visitor already holds is said to the room they have just joined.
+    if (mine) s.setHolding(mine);
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
@@ -812,6 +862,40 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     setRecording(on) {
       session?.setRecording(on);
+    },
+    get holding() {
+      return mine;
+    },
+    async setHolding(itemIn) {
+      const item = itemCoordinate(itemIn);
+      const put = () => {
+        mine = "";
+        mineModel?.removeFromParent();
+        mineModel = null;
+        session?.setHolding("");
+      };
+      if (!item) {
+        const had = !!mine;
+        put();
+        return { ok: true, said: had ? "Put away." : "You are holding nothing." };
+      }
+      if (!d.items || itemsRule() === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+      if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+      const described = await d.items.describe(item);
+      if (!described) return { ok: false, said: "That item's description couldn't be found." };
+      if (!canBeHeld(described)) return { ok: false, said: `${described.title} isn't something to hold.` };
+      // An item that must be granted needs its maker's grant checked, which nothing here does yet.
+      if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+      const model = await d.items.model(described);
+      put();
+      mine = item;
+      mineModel = model;
+      // In the hand a visitor sees it from: low and to the right of their view, far enough off that it is a thing
+      // in the hand and not a thing in the way.
+      model.position.set(0.34, -0.5, -0.8);
+      d.camera.add(model);
+      session?.setHolding(item);
+      return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
     },
     selfLook() {
       if (session) return session.self.look;
@@ -1000,6 +1084,9 @@ export function createPresence(d: PresenceOptions): Presence {
           visible: a.root.visible,
           opacity: Math.round((a.materials[0]?.material.opacity ?? 1) * 100) / 100,
           head: a.target?.head.position.map((n) => Math.round(n * 100) / 100) ?? null,
+          // What they say they hold, and whether anything is drawn for it: for tests.
+          holding: a.heldItem || null,
+          heldDrawn: !!a.held,
           hands: [!!a.target?.left, !!a.target?.right] as [boolean, boolean],
           audioLevel: Math.round(level * 1000) / 1000,
           saying: a.bubbleText ?? "",
@@ -2587,6 +2674,9 @@ export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions
 export { foundRelays, publishBacked, queryBacked, relayBackup } from "./relay-book.js";
 export { createScores, type ScoreHand, type Scores, type ScoresOptions } from "./scores.js";
 export { addScoreControls, type Scoring, type ScoringOptions } from "./scoring.js";
+export { createItems, fitToSize, ITEM_BUDGET, onItemsChange, setShowsItems, showsItems, withinBudget, type Items, type ItemsOptions } from "./items.js";
+export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } from "./bag.js";
+export { addBagControls, itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
 export { createDoorRatings, type DoorRatings, type DoorRatingsOptions } from "./door-ratings.js";
 export { ordinal, someOf, worldPersonLines, type PersonLines } from "./person-lines.js";
 export { createAchievements, type AchievementHand, type Achievements, type AchievementsOptions } from "./achievements.js";

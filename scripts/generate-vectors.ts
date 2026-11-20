@@ -48,6 +48,9 @@ import {
   bridgeTopic,
   CURATION_SET_KIND,
   WORLD_KIND,
+  BAG_KIND,
+  bagIn,
+  changeBag,
   buildItem,
   parseItem,
   achievementForWorld,
@@ -1111,11 +1114,30 @@ const files: Record<string, unknown> = {
   expectEqual("items/a_chair", [reading[1]!.expect?.behaviors, reading[1]!.expect?.script], [["sittable"], null]);
   expectEqual("items/things_nobody_knows", [reading[2]!.expect?.behaviors, reading[2]!.expect?.colliders.length], [["holdable"], 1]);
   for (const v of reading.slice(3)) expectEqual(`items/${v.name}`, v.expect, null);
+  // A bag (kind 37308): what is read from one, and what a change to one gives its owner to sign.
+  const LANTERN = `37303:${PK1}:brass-lantern`;
+  const BOOK = `37303:${PK1}:old-book`;
+  const had = { kind: BAG_KIND, created_at: T0, tags: [["d", "bag"], ["a", LANTERN], ["t", "kept"], ["a", "37300:" + PK1 + ":not-an-item"], ["bitlogin:site", "https://somewhere.example"], ["alt", "A bag: the items this person has"]], content: "" };
+  const bagReading = { description: "Only items are read from it, each once, in order.", event: had, expect: bagIn(had) };
+  expectEqual("bag/reading", bagReading.expect, [LANTERN]);
+  const changing = [
+    { name: "put_one_in", description: "Everything else is kept; a signer's own mark on the last one isn't carried along; the time moves on.", newest: had, change: { add: BOOK, now: T0 } },
+    { name: "take_one_out", description: "Only that item goes.", newest: had, change: { remove: LANTERN, now: T0 + 50 } },
+    { name: "already_there", description: "Nothing to sign.", newest: had, change: { add: LANTERN, now: T0 + 50 } },
+    { name: "not_an_item", description: "A coordinate of another kind: nothing to sign.", newest: had, change: { add: "37300:" + PK1 + ":a-world", now: T0 + 50 } },
+    { name: "no_bag_found", description: "No bag could be found, and the person hasn't said they have none: nothing to sign.", newest: null, change: { add: BOOK, now: T0 } },
+    { name: "a_first_bag", description: "The person has said they have none: a first one.", newest: null, change: { add: BOOK, now: T0, fromNothing: true } },
+  ].map((v) => ({ ...v, expect: changeBag(v.newest, v.change) }));
+  expectEqual("bag/put_one_in", [bagIn(changing[0]!.expect), changing[0]!.expect?.created_at, changing[0]!.expect?.tags.some((t) => t[0] === "bitlogin:site"), changing[0]!.expect?.tags.some((t) => t[0] === "t")], [[LANTERN, BOOK], T0 + 1, false, true]);
+  expectEqual("bag/take_one_out", bagIn(changing[1]!.expect), []);
+  for (const v of changing.slice(2, 5)) expectEqual(`bag/${v.name}`, v.expect, null);
+  expectEqual("bag/a_first_bag", bagIn(changing[5]!.expect), [BOOK]);
   files["items.json"] = {
     description:
-      "Items (protocol/17-items.md, kind 37303). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it.",
+      "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign.",
     testKeys,
     reading,
+    bag: { reading: bagReading, changing },
   };
 }
 
