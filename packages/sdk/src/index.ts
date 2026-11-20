@@ -14,6 +14,7 @@ import {
   buildArrivalUrl,
   buildWayUrl,
   checkDestination,
+  signerAt,
   decodeArrival,
   doorFor,
   fromLocal,
@@ -50,13 +51,30 @@ const PASS_KEY = "nswp:pass";
 const HOME_KEY = "nswp:at-home";
 
 let defaultAirlock: string | undefined;
+/** The signer this world offers a visitor no client brought (protocol/10-identity.md, "One sign-in"). */
+let defaultSigner: string | undefined;
 let cached: { context: Arrival | null; warnings: Issue[] } | undefined;
 
-export function configure(opts: { defaultAirlock?: string }): void {
+export function configure(opts: {
+  defaultAirlock?: string;
+  /**
+   * Where the signer is that this world offers someone who opened its address themselves, with no client to
+   * say where theirs is: an https address with `signer/` and `connect/` under it. Null or "" for none. A
+   * visitor a client brought is never given this one: their client's word stands, whatever it was.
+   */
+  defaultSigner?: string | null;
+}): void {
   if (opts.defaultAirlock !== undefined) {
     const chk = checkDestination(opts.defaultAirlock);
     if (!chk.ok) throw new Error(`nswp-sdk: defaultAirlock must be an https URL (${chk.error.code})`);
     defaultAirlock = chk.value.url;
+  }
+  if (opts.defaultSigner !== undefined) {
+    if (!opts.defaultSigner) defaultSigner = undefined;
+    else {
+      if (!signerAt(opts.defaultSigner)) throw new Error("nswp-sdk: defaultSigner must be an https address");
+      defaultSigner = opts.defaultSigner;
+    }
   }
 }
 
@@ -204,15 +222,22 @@ export const arrival = {
   },
 
   /**
-   * Where the visitor's client said their signer is, or undefined: then it
-   * is beside the Airlock (protocol/10-identity.md, "Signing from a world").
+   * Where the visitor's signer is. Their client's word first. A client that
+   * brought them and named none keeps its own beside its Airlock
+   * (protocol/10-identity.md, "Signing from a world"): undefined. And for
+   * someone no client brought, who opened this world's address themselves,
+   * the one this world offers (`configure({ defaultSigner })`), so that
+   * signing in is the same however they came ("One sign-in").
    */
   signer(): string | undefined {
     try {
-      return session()?.getItem(SIGNER_KEY) ?? undefined;
+      const named = session()?.getItem(SIGNER_KEY);
+      if (named) return named;
+      if (session()?.getItem(RETURN_KEY)) return undefined;
     } catch {
-      return undefined;
+      /* storage may be unavailable: then nobody brought them, as far as can be told */
     }
+    return defaultSigner;
   },
 
   returnAirlock(): string | undefined {

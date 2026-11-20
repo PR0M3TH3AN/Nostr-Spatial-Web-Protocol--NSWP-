@@ -214,7 +214,7 @@ function wrap(text: string, width: number): string[] {
 export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Read and scrub the arrival context before anything else (spec §4.4).
   const { context, warnings } = arrival.read();
-  configure({ defaultAirlock: sites.airlock });
+  configure({ defaultAirlock: sites.airlock, defaultSigner: sites.signer });
 
   const emulate = new URLSearchParams(location.search).get("xr") === "emulate";
   const state: Record<string, unknown> = { world: cfg.title, arrival: context, arrivalWarnings: warnings, emulate, xr: "idle", ready: false };

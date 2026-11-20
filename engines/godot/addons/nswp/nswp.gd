@@ -66,6 +66,11 @@ signal saved(slot: String, kept: String, said: String)
 ## without one of their own. A visitor who came through an Airlock always goes back through theirs.
 const AIRLOCK_SETTING := "nswp/airlock"
 const DEFAULT_AIRLOCK := "https://portal.bitblocks.network/go/"
+## The project setting that names where a visitor signs in when no client brought them: they opened
+## your world's address themselves. A visitor a client brought signs in where that client says.
+## Set it to "" to offer none.
+const SIGNER_SETTING := "nswp/signer"
+const DEFAULT_SIGNER := "https://bitlogin.network/"
 ## Nodes in this group are places a visitor can arrive: each is named for its entry point.
 const ENTRY_GROUP := "nswp_entry"
 const MAIN_ENTRANCE := "main-entrance"
@@ -155,7 +160,10 @@ func _ready() -> void:
 		if _js == null:
 			push_warning("NSWP: nswp-engine.js isn't on the page. Add it to the export's Head Include; see addons/nswp/README.md.")
 		else:
-			var options := {"airlock": str(ProjectSettings.get_setting(AIRLOCK_SETTING, DEFAULT_AIRLOCK))}
+			var options := {
+				"airlock": str(ProjectSettings.get_setting(AIRLOCK_SETTING, DEFAULT_AIRLOCK)),
+				"signer": str(ProjectSettings.get_setting(SIGNER_SETTING, DEFAULT_SIGNER)),
+			}
 			var read: Variant = JSON.parse_string(str(_js.start(JSON.stringify(options))))
 			if typeof(read) == TYPE_DICTIONARY:
 				arrival.merge(read, true)

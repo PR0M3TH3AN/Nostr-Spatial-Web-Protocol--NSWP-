@@ -104,6 +104,12 @@ Signed in, the card at the head of You has their picture, name and key, and
 (`{"type":"who", ...}`), and `NSWP.who()` says who they are now. A name is
 theirs only while they are signed in here: write none over a guest.
 
+It is the same row however the visitor came. Someone a client brought signs
+in where that client says. Someone who opened your address themselves signs
+in at the address you pass as `signer` to `NSWP.start` (the Godot addon:
+the project setting `nswp/signer`, which is BitLogin's unless you change
+it; `""` offers none).
+
 ## Keeping a visitor's progress
 
 A world with something to remember keeps it as a save

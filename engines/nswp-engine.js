@@ -71,7 +71,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.54.0";
+  var KIT_VERSION = "0.54.1";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6121,12 +6121,20 @@ postMessage({ t: "started" });
   var PASS_KEY = "nswp:pass";
   var HOME_KEY = "nswp:at-home";
   var defaultAirlock;
+  var defaultSigner;
   var cached;
   function configure(opts) {
     if (opts.defaultAirlock !== void 0) {
       const chk = checkDestination(opts.defaultAirlock);
       if (!chk.ok) throw new Error(`nswp-sdk: defaultAirlock must be an https URL (${chk.error.code})`);
       defaultAirlock = chk.value.url;
+    }
+    if (opts.defaultSigner !== void 0) {
+      if (!opts.defaultSigner) defaultSigner = void 0;
+      else {
+        if (!signerAt(opts.defaultSigner)) throw new Error("nswp-sdk: defaultSigner must be an https address");
+        defaultSigner = opts.defaultSigner;
+      }
     }
   }
   function session() {
@@ -6253,15 +6261,21 @@ postMessage({ t: "started" });
       }
     },
     /**
-     * Where the visitor's client said their signer is, or undefined: then it
-     * is beside the Airlock (protocol/10-identity.md, "Signing from a world").
+     * Where the visitor's signer is. Their client's word first. A client that
+     * brought them and named none keeps its own beside its Airlock
+     * (protocol/10-identity.md, "Signing from a world"): undefined. And for
+     * someone no client brought, who opened this world's address themselves,
+     * the one this world offers (`configure({ defaultSigner })`), so that
+     * signing in is the same however they came ("One sign-in").
      */
     signer() {
       try {
-        return session()?.getItem(SIGNER_KEY) ?? void 0;
+        const named = session()?.getItem(SIGNER_KEY);
+        if (named) return named;
+        if (session()?.getItem(RETURN_KEY)) return void 0;
       } catch {
-        return void 0;
       }
+      return defaultSigner;
     },
     returnAirlock() {
       try {
@@ -29363,6 +29377,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function start(options) {
     const o = read5(options);
     if (typeof o.airlock === "string" && o.airlock) configure({ defaultAirlock: o.airlock });
+    if (typeof o.signer === "string") {
+      try {
+        configure({ defaultSigner: o.signer });
+      } catch {
+      }
+    }
     return arrival2();
   }
   function go(destination, state) {
