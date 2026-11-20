@@ -13,7 +13,7 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
@@ -32,6 +32,8 @@ import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
+import { createMessages } from "./messages.js";
+import { addMessagingControls, type Messaging, type MessagingHand } from "./messaging.js";
 import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldPeople, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
@@ -1304,10 +1306,15 @@ export function addRoomControls(
      * the page's own signer, once the visitor has let this world do so. A visitor's own client gives its own.
      */
     follows?: RoomFollows;
+    /**
+     * What sends and reads the visitor's private messages (protocol/14-people-and-messages.md). Left out, the
+     * page's own signer, once the visitor has let this world do so. A visitor's own client gives its own.
+     */
+    messages?: MessagingHand;
     /** Whether the visitor is in a headset: a window that opens can't be seen from in there. */
     presenting?: () => boolean;
   } = {},
-): { refresh(): void; travelling(): Travelling; following: Following } {
+): { refresh(): void; travelling(): Travelling; following: Following; messaging: Messaging } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
   // For tests: a drawn picture that changes, in place of the browser's screen picker.
   const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
@@ -1334,33 +1341,55 @@ export function addRoomControls(
   // ---- Following (protocol/14-people-and-messages.md). A world follows for its visitor only once they have let
   // it, at their own sign-in address. So the first press here says what is wanted and opens that address's window;
   // what they pressed is done when the answer comes back.
-  const worldFollows = (): RoomFollows => {
-    let waiting: { then: () => void; at: number } | null = null;
-    let watched = false;
-    return {
-      people: worldPeople(),
-      pubkey: () => (signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null),
-      allowed: () => worldSigner().more.includes("follows"),
-      ask(then) {
-        const signer = worldSigner();
-        if (!watched) {
-          watched = true;
-          signer.onChange(() => {
-            const was = waiting;
-            if (!was || !signer.more.includes("follows")) return;
-            waiting = null;
-            // A say-so that comes long after the press isn't acted on: they may have forgotten what they pressed.
-            if (Date.now() - was.at < 300_000) was.then();
-          });
+  /**
+   * Ask the visitor to let this world do one thing more: say what is wanted, and open their sign-in address's
+   * window, from the press that needed it. What they pressed is done when their answer comes back.
+   */
+  const waitingFor = new Map<SignerMore, { then: () => void; at: number }>();
+  let watchingSigner = false;
+  const askSigner = (what: SignerMore, to: string, then: () => void): string => {
+    const signer = worldSigner();
+    if (!watchingSigner) {
+      watchingSigner = true;
+      signer.onChange(() => {
+        for (const [name, was] of [...waitingFor]) {
+          if (!signer.more.includes(name)) continue;
+          waitingFor.delete(name);
+          // A say-so that comes long after the press isn't acted on: they may have forgotten what they pressed.
+          if (Date.now() - was.at < 300_000) was.then();
         }
-        const where = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return `This world needs your say before it can change who you follow, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
-        waiting = { then, at: Date.now() };
-        signer.want(["follows"]);
-        return signer.unlock() ? `This world needs your say before it can change who you follow: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
-      },
-    };
+      });
+    }
+    const where = signer.host ?? "your sign-in address";
+    if (opts.presenting?.()) return `This world needs your say before it can ${to}, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
+    waitingFor.set(what, { then, at: Date.now() });
+    // Everything they have let it do already is asked for again beside it: an answer is for the whole of it.
+    signer.want([...signer.more, what]);
+    return signer.unlock() ? `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
   };
+  const signedInHere = () => (signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null);
+  const worldFollows = (): RoomFollows => ({
+    people: worldPeople(),
+    pubkey: signedInHere,
+    allowed: () => worldSigner().more.includes("follows"),
+    ask: (then) => askSigner("follows", "change who you follow", then),
+  });
+  const worldMessages = (): MessagingHand => ({
+    messages: createMessages({
+      hand: {
+        pubkey: signedInHere,
+        ready: () => worldSigner().more.includes("messages"),
+        seal: (to, text) => worldSigner().seal(to, text),
+        open: (wrap) => worldSigner().unwrap(wrap),
+        reach: (relays) => worldSigner().reach(relays),
+      },
+      known: (pubkey) => !!follows().people.follows()?.includes(pubkey),
+      ...(opts.noteRelays ? { relays: opts.noteRelays } : {}),
+    }),
+    pubkey: signedInHere,
+    allowed: () => worldSigner().more.includes("messages"),
+    ask: (then) => askSigner("messages", "send and read your private messages", then),
+  });
   let followsKept: RoomFollows | null = null;
   const follows = (): RoomFollows => (followsKept ??= opts.follows ?? worldFollows());
   // Who they follow, in a tab of its own: the same in every world and at their home (following.ts).
@@ -1369,9 +1398,22 @@ export function addRoomControls(
     ...(opts.noteRelays ? { relays: opts.noteRelays } : {}),
     keyboard: () => opts.panels?.keyboard ?? null,
     ...(opts.presenting ? { presenting: opts.presenting } : {}),
+    more: (who) => [{ id: "following-write", icon: "chat", label: `Write to ${who.name}, privately`, act: () => messaging.write(who.pubkey) }],
   });
-  // Signed in, signed out, or let do more: what the tab offers changes with it.
-  if (!opts.follows && signerNamed()) worldSigner().onChange(() => following.refresh());
+  // Their private messages, in a tab of their own, and a conversation on its own panel (messaging.ts).
+  const messaging: Messaging = addMessagingControls(controls, {
+    hand: opts.messages ?? worldMessages(),
+    profiles: following.profiles,
+    panels: opts.panels ?? null,
+    ...(opts.presenting ? { presenting: opts.presenting } : {}),
+  });
+  // Signed in, signed out, or let do more: what the tabs offer changes with it.
+  if (signerNamed()) {
+    worldSigner().onChange(() => {
+      if (!opts.follows) following.refresh();
+      if (!opts.messages) messaging.refresh();
+    });
+  }
   const followPress = (key: string, name: string, adding: boolean) => following.press(key, name, adding);
 
   const refresh = () => {
@@ -1619,6 +1661,12 @@ export function addRoomControls(
         label: () => (people.isFollowing(them) ? `Unfollow ${who.name}` : `Follow ${who.name}`),
         act: () => followPress(them, who.name, !people.isFollowing(them)),
       });
+    }
+    // Writing to them privately: to someone who came by name, from a visitor who is signed in.
+    if (who?.identity && me && who.identity !== me) {
+      const them = who.identity;
+      extras.push("person-write");
+      controls.add({ id: "person-write", section: "people", icon: "chat", label: `Write to ${who.name}, privately`, act: () => messaging.write(them) });
     }
     if (who) {
       extras.push("person-mute", "person-music", "person-block");
@@ -2342,6 +2390,7 @@ export function addRoomControls(
   return {
     refresh,
     following,
+    messaging,
     travelling: () => ({ joined: !!presence.session && !presence.roomName, mic: !!presence.session && !presence.roomName && presence.micOn, blocked: presence.newlyBlocked() }),
   };
 }
@@ -2524,6 +2573,8 @@ export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsP
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
 export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldPeople, worldSaves, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions } from "./saves.js";
+export { createMessages, type Conversation, type MessageHand, type Messages, type MessagesOptions, type MessagesState } from "./messages.js";
+export { addMessagingControls, type Messaging, type MessagingHand, type MessagingOptions } from "./messaging.js";
 export { addFollowingControls, keyIn, type Following, type FollowingHand, type FollowingOptions } from "./following.js";
 export { createProfiles, readProfile, type Profile, type Profiles } from "./profiles.js";
 export { createPeople, type FollowHand, type FollowResult, type FollowWhy, type People, type PeopleOptions } from "./people.js";

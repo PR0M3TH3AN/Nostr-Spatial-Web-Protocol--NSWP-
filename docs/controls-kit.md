@@ -546,6 +546,13 @@ The menu also has a **Following** tab: who they follow, by name, with
 unfollowing and following by a copied key. It is there for a visitor who is
 signed in, and asks them once before it shows anything.
 
+There is a **Messages** tab as well: their private messages (NIP-17), and a
+conversation with one person on a panel of its own, beside the room's chat.
+A person's card and the Following tab each have "Write to them, privately".
+It asks them once, in their sign-in address's window, before your world can
+send or read anything. You add nothing; and there is nothing for your code
+to read: the kit holds the messages, and shows them to the visitor.
+
 Where they haven't let your world yet, call `worldSigner().want(["follows"])`
 and then `worldSigner().unlock()`, both from the same press. Don't ask on
 arrival: ask when they press the thing that needs it.

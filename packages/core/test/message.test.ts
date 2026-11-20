@@ -3,6 +3,14 @@ import {
   buildMessage,
   buildMessageRelays,
   cleanMessage,
+  cleanMore,
+  cleanRead,
+  isReachAsked,
+  isSealAsked,
+  readSignerReply,
+  readSignerRequest,
+  sealMessage,
+  signerMessage,
   finalizeEvent,
   getConversationKey,
   getPublicKey,
@@ -179,5 +187,62 @@ describe("a world", () => {
   it("never has any of it signed for it", () => {
     for (const kind of [MESSAGE_KIND, SEAL_KIND, WRAP_KIND]) expect(signClass(kind)).toBe("never");
     expect(signClass(MESSAGE_RELAYS_KIND)).toBe("careful");
+  });
+});
+
+describe("a world that was let handle its visitor's messages", () => {
+  it("asks for it by name, from a short closed list", () => {
+    expect(cleanMore(["messages", "follows", "everything", 5])).toEqual(["follows", "messages"]);
+  });
+
+  it("has a message written and sealed twice by the signer, and can read neither seal", () => {
+    const sealed = sealMessage({ secretKey: TEST_KEY_1, to: bo, text: "  See you there.  ", now: T })!;
+    expect(sealed.message).toMatchObject({ kind: MESSAGE_KIND, pubkey: ann, content: "See you there.", tags: [["p", bo]] });
+    expect(isSealAsked(sealed, { pubkey: ann, to: bo, text: "See you there." })).toBe(true);
+    // The reader opens theirs, and the writer reads theirs back.
+    expect(openWrap(wrapSeal(sealed.seals[0], bo, { now: T })!, TEST_KEY_2)?.text).toBe("See you there.");
+    expect(openWrap(wrapSeal(sealed.seals[1], ann, { now: T })!, TEST_KEY_1)?.to).toEqual([bo]);
+    expect(openWrap(wrapSeal(sealed.seals[0], cy, { now: T })!, TEST_KEY_3)).toBeNull();
+    expect(sealMessage({ secretKey: TEST_KEY_1, to: ann, text: "To myself.", now: T })).toBeNull();
+    expect(sealMessage({ secretKey: TEST_KEY_1, to: bo, text: " ", now: T })).toBeNull();
+  });
+
+  it("takes back only the message it asked for", () => {
+    const sealed = sealMessage({ secretKey: TEST_KEY_1, to: bo, text: "Hello.", now: T })!;
+    expect(isSealAsked(sealed, { pubkey: ann, to: cy, text: "Hello." })).toBe(false);
+    expect(isSealAsked(sealed, { pubkey: ann, to: bo, text: "Goodbye." })).toBe(false);
+    expect(isSealAsked(sealed, { pubkey: bo, to: bo, text: "Hello." })).toBe(false);
+    expect(isSealAsked({ ...sealed, seals: [sealed.seals[0]] }, { pubkey: ann, to: bo, text: "Hello." })).toBe(false);
+    const byAnother = sealMessage({ secretKey: TEST_KEY_3, to: bo, text: "Hello.", now: T })!;
+    expect(isSealAsked({ message: sealed.message, seals: byAnother.seals }, { pubkey: ann, to: bo, text: "Hello." })).toBe(false);
+    expect(isSealAsked({ message: { ...sealed.message, id: "f".repeat(64) }, seals: sealed.seals }, { pubkey: ann, to: bo, text: "Hello." })).toBe(false);
+    expect(isSealAsked(null, { pubkey: ann, to: bo, text: "Hello." })).toBe(false);
+  });
+
+  it("has the list of where messages reach them signed, and checks it is that list", () => {
+    const relays = ["wss://a.example", "wss://b.example"];
+    const signed = finalizeEvent(buildMessageRelays(relays, T)!, TEST_KEY_1);
+    expect(isReachAsked(signed, { pubkey: ann, relays })).toBe(true);
+    expect(isReachAsked(signed, { pubkey: ann, relays: ["wss://a.example"] })).toBe(false);
+    expect(isReachAsked(signed, { pubkey: bo, relays })).toBe(false);
+    // A mark a signer added is allowed for; another relay is not.
+    expect(isReachAsked(finalizeEvent({ ...buildMessageRelays(relays, T)!, tags: [...buildMessageRelays(relays, T)!.tags, ["bitlogin:site", "https://portal.example"]] }, TEST_KEY_1), { pubkey: ann, relays })).toBe(true);
+    expect(isReachAsked(finalizeEvent({ ...buildMessageRelays(relays, T)!, tags: [...buildMessageRelays(relays, T)!.tags, ["relay", "wss://spy.example"]] }, TEST_KEY_1), { pubkey: ann, relays })).toBe(false);
+  });
+
+  it("says it in messages a signer can read, and reads the answers", () => {
+    expect(readSignerRequest(signerMessage({ t: "seal", id: "m1", to: bo, text: " Hello. " }))).toEqual({ t: "seal", id: "m1", to: bo, text: "Hello." });
+    expect(readSignerRequest(signerMessage({ t: "seal", id: "m1", to: "nobody", text: "Hello." }))).toBeNull();
+    expect(readSignerRequest(signerMessage({ t: "seal", id: "m1", to: bo, text: "  " }))).toBeNull();
+    expect(readSignerRequest(signerMessage({ t: "reach", id: "m2", relays: ["wss://a.example"] }))).toEqual({ t: "reach", id: "m2", relays: ["wss://a.example"] });
+    expect(readSignerRequest({ ...signerMessage({ t: "reach", id: "m2", relays: [] }), relays: "wss://a.example" })).toBeNull();
+    const sealed = sealMessage({ secretKey: TEST_KEY_1, to: bo, text: "Hello.", now: T })!;
+    expect(readSignerRequest(signerMessage({ t: "unwrap", id: "m3", event: wrapSeal(sealed.seals[0], bo, { now: T })! }))?.t).toBe("unwrap");
+    expect(readSignerReply(signerMessage({ t: "sealed", id: "m1", ...sealed }))?.t).toBe("sealed");
+    const read = { id: sealed.message.id, from: ann, to: [bo], text: "Hello.", at: T };
+    expect(readSignerReply(signerMessage({ t: "message", id: "m3", message: read }))).toEqual({ t: "message", id: "m3", message: read });
+    expect(readSignerReply(signerMessage({ t: "message", id: "m3", message: { ...read, from: "nobody" } }))).toBeNull();
+    expect(cleanRead({ ...read, text: "a\u202eb" })?.text).toBe("a b");
+    expect(readSignerReply(signerMessage({ t: "state", id: "s1", unlocked: true, pubkey: ann, more: ["messages", "all of it"] as never }))).toMatchObject({ more: ["messages"] });
   });
 });

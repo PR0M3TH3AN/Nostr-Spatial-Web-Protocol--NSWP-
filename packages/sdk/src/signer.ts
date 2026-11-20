@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { cleanMessage, cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -100,6 +100,17 @@ export interface WorldSigner {
    * locked, or they haven't allowed it, or it refused, or what came back isn't that list with that one change.
    */
   follow(list: NostrEvent | null, change: { add: string } | { remove: string }): Promise<NostrEvent | null>;
+  /**
+   * Have a private message written and sealed, for a visitor who let this world send them
+   * (protocol/14-people-and-messages.md). What comes back is the message and its two seals: one for its reader,
+   * one for the visitor to read back. This page wraps each and sends it. Null if it is locked, or they haven't
+   * allowed it, or it refused, or what came back isn't that message, sealed by the key it holds.
+   */
+  seal(to: string, text: string): Promise<SealedMessage | null>;
+  /** Have a wrapped message opened: one a relay gave this page, sent to the visitor. Null as for `seal`, or if it isn't a message for them. */
+  unwrap(wrap: NostrEvent): Promise<Message | null>;
+  /** Have the list of where their private messages reach them signed. Null as for `seal`. */
+  reach(relays: readonly string[]): Promise<NostrEvent | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
   /**
@@ -151,6 +162,9 @@ const NONE: WorldSigner = {
   open: async () => null,
   want: () => false,
   follow: async () => null,
+  seal: async () => null,
+  unwrap: async () => null,
+  reach: async () => null,
   onChange: () => () => {},
   whenAnswered: async () => {},
   dispose() {},
@@ -445,6 +459,20 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       // What comes back is checked as anything that arrives is: their own list, really signed, and exactly the one
       // handed over with that one change. A signer can't slip anyone else in, and nor can anything between.
       return askAbout({ t: "follow", id: `w${++n}`, list, ...(add ? { add } : { remove: remove! }) }, (reply) => (reply.t === "signed" && isFollowAsked(reply.event, { list, ...(add ? { add } : { remove: remove! }), pubkey }) ? reply.event : null));
+    },
+    seal(to, text) {
+      const words = cleanMessage(text);
+      if (state !== "unlocked" || !frame || !more.includes("messages") || !isHex64(to) || !words) return Promise.resolve(null);
+      return askAbout({ t: "seal", id: `m${++n}`, to, text: words }, (reply) => (reply.t === "sealed" && isSealAsked(reply, { pubkey, to, text: words }) ? { message: reply.message, seals: reply.seals } : null));
+    },
+    unwrap(wrap) {
+      if (state !== "unlocked" || !frame || !more.includes("messages") || !looksLikeWrap(wrap, pubkey ?? "")) return Promise.resolve(null);
+      // The signer opened it and checked who wrote it. It is taken only if it is to or from the key it holds.
+      return askAbout({ t: "unwrap", id: `m${++n}`, event: wrap }, (reply) => (reply.t === "message" && (reply.message.from === pubkey || reply.message.to.includes(pubkey ?? "")) ? reply.message : null));
+    },
+    reach(relays) {
+      if (state !== "unlocked" || !frame || !more.includes("messages")) return Promise.resolve(null);
+      return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => (reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null));
     },
     onChange(fn) {
       watchers.add(fn);

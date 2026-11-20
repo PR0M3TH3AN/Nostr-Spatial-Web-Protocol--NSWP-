@@ -59,6 +59,7 @@ import {
   changeFollows,
   followForWorld,
   followsIn,
+  sealMessage,
   nip44Encrypt,
   openWrap,
   sealTemplate,
@@ -965,15 +966,20 @@ const files: Record<string, unknown> = {
   expectEqual("people/world_own", fromAWorld[0]!.expect?.tags, [...had.tags, ["p", PK3]]);
   for (const v of fromAWorld.slice(1, 5)) expectEqual(`people/world_${v.name}`, v.expect, null);
   expectEqual("people/world_first", fromAWorld[5]!.expect?.tags, [["p", PK3]]);
+  // What a signer hands a world that asked for a message to be sent: the message, and a seal for each of the two.
+  const forAWorld = sealMessage({ secretKey: KEY1, to: PK2, text: "Sent from a world.", now: T0, nonces: [N1, N2], auxRand: AUX })!;
+  expectEqual("people/sealed_reader", openWrap(wrapSeal(forAWorld.seals[0], PK2, { now: T0, secretKey: ONCE, nonce: N2, random: 0, auxRand: AUX })!, KEY2)?.text, "Sent from a world.");
+  expectEqual("people/sealed_writer", openWrap(wrapSeal(forAWorld.seals[1], PK1, { now: T0, secretKey: ONCE, nonce: N2, random: 0, auxRand: AUX })!, KEY1)?.to, [PK2]);
   files["people.json"] = {
     description:
-      "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
+      "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `sealedForAWorld`: what `sealMessage` gives for the first key writing to the second, with those nonces: the message as written, a seal the second key can open and one the first can. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
     testKeys: { ...testKeys, throwaway: { label: "nswp test vector throwaway key", secretKey: hex(ONCE), pubkey: getPublicKey(ONCE) } },
     followList: had,
     follows,
     fromAWorld,
     written,
     messages,
+    sealedForAWorld: { to: PK2, text: "Sent from a world.", now: T0, nonces: [hex(N1), hex(N2)], expect: forAWorld },
   };
 }
 

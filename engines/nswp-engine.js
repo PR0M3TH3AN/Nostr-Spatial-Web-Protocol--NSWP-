@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.41.0";
+  var KIT_VERSION = "0.42.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4436,6 +4436,78 @@ var NSWP = (() => {
     return !!event && event.kind === SAVE_KIND && !!pubkey && event.pubkey === pubkey && typeof event.content === "string" && isHex64(getTags(event, "d")[0]?.[1]);
   }
 
+  // packages/core/dist/message.js
+  var MESSAGE_KIND = 14;
+  var SEAL_KIND = 13;
+  var WRAP_KIND = 1059;
+  var MESSAGE_RELAYS_KIND = 10050;
+  var MESSAGE_LIMITS = {
+    /** The most characters in one message as this library writes and shows it. */
+    chars: 2e3,
+    /** How far back a wrap's time may be moved, in seconds, so that a relay can't tell when it was sent. */
+    backdateSec: 2 * 24 * 3600,
+    /** No more than this many relays are taken from someone's list. */
+    relays: 4
+  };
+  var UNSEEN2 = [
+    [0, 9],
+    [11, 31],
+    [127, 159],
+    [8203, 8204],
+    [8206, 8207],
+    [8232, 8239],
+    [8288, 8303],
+    [65279, 65279],
+    [65529, 65531]
+  ];
+  function cleanMessage(text) {
+    if (typeof text !== "string")
+      return "";
+    let out = "";
+    for (const ch of text.slice(0, MESSAGE_LIMITS.chars * 8).normalize("NFC")) {
+      const code = ch.codePointAt(0);
+      out += UNSEEN2.some(([from, to]) => code >= from && code <= to) ? " " : ch;
+    }
+    out = out.replace(/[^\S\n]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    return [...out].slice(0, MESSAGE_LIMITS.chars).join("").trim();
+  }
+  function looksLikeWrap(event, reader) {
+    return !!event && event.kind === WRAP_KIND && typeof event.content === "string" && event.tags.some((t) => t[0] === "p" && t[1] === reader) && verifyEvent(event);
+  }
+  function isSealAsked(sealed, o) {
+    const s = sealed;
+    if (!o.pubkey || !s || typeof s !== "object" || !Array.isArray(s.seals) || s.seals.length !== 2)
+      return false;
+    const m = s.message;
+    if (!m || typeof m !== "object" || m.kind !== MESSAGE_KIND || m.pubkey !== o.pubkey || m.content !== cleanMessage(o.text) || !m.content)
+      return false;
+    if (!Array.isArray(m.tags) || m.tags.length !== 1 || m.tags[0]?.[0] !== "p" || m.tags[0]?.[1] !== o.to || typeof m.created_at !== "number")
+      return false;
+    if (m.id !== getEventHash({ kind: MESSAGE_KIND, pubkey: o.pubkey, created_at: m.created_at, tags: m.tags, content: m.content }))
+      return false;
+    return s.seals.every((seal) => verifyEvent(seal) && seal.kind === SEAL_KIND && seal.pubkey === o.pubkey && seal.tags.length === 0);
+  }
+  function isReachAsked(signed, o) {
+    const want = buildMessageRelays(o.relays, 0);
+    if (!o.pubkey || !want || !verifyEvent(signed) || signed.kind !== MESSAGE_RELAYS_KIND || signed.pubkey !== o.pubkey)
+      return false;
+    return JSON.stringify(signed.tags.filter((t) => t[0] === "relay")) === JSON.stringify(want.tags);
+  }
+  function cleanRead(input) {
+    const m = input;
+    if (!m || typeof m !== "object" || !isHex64(m.id) || !isHex64(m.from) || !Array.isArray(m.to) || typeof m.at !== "number" || !Number.isFinite(m.at))
+      return null;
+    const to = [...new Set(m.to.filter((k) => isHex64(k)))];
+    const text = cleanMessage(m.text);
+    return to.length && text ? { id: m.id, from: m.from, to, text, at: m.at } : null;
+  }
+  function buildMessageRelays(relays, now) {
+    const clean2 = [...new Set(relays.map(cleanRelayUrl).filter(Boolean))].slice(0, MESSAGE_LIMITS.relays);
+    if (clean2.length === 0)
+      return null;
+    return { kind: MESSAGE_RELAYS_KIND, created_at: Math.floor(now), tags: clean2.map((url) => ["relay", url]), content: "" };
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -4495,7 +4567,7 @@ var NSWP = (() => {
       return null;
     }
   }
-  var SIGNER_MORE = ["follows"];
+  var SIGNER_MORE = ["follows", "messages"];
   function cleanMore(input) {
     if (!Array.isArray(input))
       return [];
@@ -4541,6 +4613,10 @@ var NSWP = (() => {
       return { t: "signed", id: d.id, event: d.event };
     if (d.t === "found" && isHex64(d.d))
       return { t: "found", id: d.id, d: d.d };
+    if (d.t === "sealed" && d.message && typeof d.message === "object" && Array.isArray(d.seals) && d.seals.length === 2)
+      return { t: "sealed", id: d.id, message: d.message, seals: d.seals };
+    if (d.t === "message" && cleanRead(d.message))
+      return { t: "message", id: d.id, message: cleanRead(d.message) };
     if (d.t === "opened" && cleanSlot(d.slot) && fitsInSave(d.data) && typeof d.at === "number" && Number.isFinite(d.at))
       return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
     return null;
@@ -4580,16 +4656,6 @@ var NSWP = (() => {
       return false;
     return JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(want.tags);
   }
-
-  // packages/core/dist/message.js
-  var MESSAGE_LIMITS = {
-    /** The most characters in one message as this library writes and shows it. */
-    chars: 2e3,
-    /** How far back a wrap's time may be moved, in seconds, so that a relay can't tell when it was sent. */
-    backdateSec: 2 * 24 * 3600,
-    /** No more than this many relays are taken from someone's list. */
-    relays: 4
-  };
 
   // packages/core/dist/layout.js
   var LAYOUT_LIMITS = {
@@ -6866,6 +6932,9 @@ var NSWP = (() => {
     open: async () => null,
     want: () => false,
     follow: async () => null,
+    seal: async () => null,
+    unwrap: async () => null,
+    reach: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -7119,6 +7188,19 @@ var NSWP = (() => {
         const remove = "remove" in change2 ? change2.remove : void 0;
         if (state !== "unlocked" || !frame || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
         return askAbout({ t: "follow", id: `w${++n}`, list, ...add ? { add } : { remove } }, (reply) => reply.t === "signed" && isFollowAsked(reply.event, { list, ...add ? { add } : { remove }, pubkey }) ? reply.event : null);
+      },
+      seal(to, text) {
+        const words2 = cleanMessage(text);
+        if (state !== "unlocked" || !frame || !more.includes("messages") || !isHex64(to) || !words2) return Promise.resolve(null);
+        return askAbout({ t: "seal", id: `m${++n}`, to, text: words2 }, (reply) => reply.t === "sealed" && isSealAsked(reply, { pubkey, to, text: words2 }) ? { message: reply.message, seals: reply.seals } : null);
+      },
+      unwrap(wrap) {
+        if (state !== "unlocked" || !frame || !more.includes("messages") || !looksLikeWrap(wrap, pubkey ?? "")) return Promise.resolve(null);
+        return askAbout({ t: "unwrap", id: `m${++n}`, event: wrap }, (reply) => reply.t === "message" && (reply.message.from === pubkey || reply.message.to.includes(pubkey ?? "")) ? reply.message : null);
+      },
+      reach(relays) {
+        if (state !== "unlocked" || !frame || !more.includes("messages")) return Promise.resolve(null);
+        return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
       },
       onChange(fn) {
         watchers3.add(fn);
@@ -7663,7 +7745,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
 .chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
 .chat .hint:empty { display: none; }
-.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; }
+/* Three sides may be up at once: the strip slides under a finger sooner than run under the button that puts the panel away. */
+.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.chat header .tabs2::-webkit-scrollbar { display: none; }
+.chat header .tabs2 .tab { flex: 0 0 auto; white-space: nowrap; }
 .chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
 .chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
 .chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
@@ -7678,7 +7763,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
 .chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
 .chat li.post:last-child { border-bottom: 0; }
-.chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
+.chat li.letter { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat li.letter.sending { opacity: .6; }
+.chat li.letter.failed small { color: rgb(var(--warn)); opacity: 1; }
+.chat li.letter small, .chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
 .chat li.post.failed small { color: rgb(var(--warn)); }
 .chat li.post.sending { opacity: .7; }
 .chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
@@ -7901,7 +7989,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatTitle = el("b");
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
     const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
-    const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabFeed);
+    const tabLetters = el("button", { type: "button", class: "tab", role: "tab" }, "Private messages");
+    const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabLetters, tabFeed);
     const feedLead = el("p", { class: "lead" });
     const feedSaid = el("p", { class: "said", role: "status" });
     const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
@@ -7979,8 +8068,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const drawChat = (view2) => {
       const c = view2.chat;
       const f = view2.feed;
-      if (chatState === "open" && !(dockTab === "feed" ? f.ready : c.ready)) {
-        if (dockTab === "feed" ? c.ready : f.ready) dockTab = dockTab === "feed" ? "room" : "feed";
+      const l = view2.letters;
+      const readyOf = (tab) => tab === "feed" ? f.ready : tab === "letters" ? l.ready : c.ready;
+      if (chatState === "open" && !readyOf(dockTab)) {
+        const other = ["room", "letters", "feed"].find(readyOf);
+        if (other) dockTab = other;
         else setChatState("closed");
       }
       if (chatState === "peek" && !c.ready) setChatState("closed");
@@ -7988,23 +8080,28 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
       chatNewest = newest;
       const showing = chatState === "open" ? dockTab : "room";
-      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : 0]);
+      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
       if (now === chatDrawn) return;
       chatDrawn = now;
       chat.dataset.state = chatState;
       chat.dataset.tab = showing;
-      chat.setAttribute("aria-label", showing === "feed" ? f.title : "Room chat");
-      const both = c.ready && f.ready;
+      chat.setAttribute("aria-label", showing === "feed" ? f.title : showing === "letters" ? l.title : "Room chat");
+      const both = [c.ready, f.ready, l.ready].filter(Boolean).length > 1;
       chatTabs.hidden = !both;
       chatTitle.hidden = both;
-      chatTitle.textContent = showing === "feed" ? f.title : c.title;
+      chatTitle.textContent = showing === "feed" ? f.title : showing === "letters" ? l.title : c.title;
+      tabRoom.hidden = !c.ready;
+      tabFeed.hidden = !f.ready;
+      tabLetters.hidden = !l.ready;
+      tabLetters.textContent = l.title;
+      tabLetters.setAttribute("aria-selected", String(showing === "letters"));
       tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
       tabRoom.setAttribute("aria-selected", String(showing === "room"));
       tabFeed.setAttribute("aria-selected", String(showing === "feed"));
-      feedLead.hidden = showing !== "feed";
-      feedSaid.hidden = showing !== "feed";
-      chatField.maxLength = showing === "feed" ? f.limit : c.limit;
-      const words2 = showing === "feed" ? "Write a post" : "Write to the room";
+      feedLead.hidden = showing === "room";
+      feedSaid.hidden = showing === "room";
+      chatField.maxLength = showing === "feed" ? f.limit : showing === "letters" ? l.limit : c.limit;
+      const words2 = showing === "feed" ? "Write a post" : showing === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
       chatField.placeholder = words2;
       chatField.setAttribute("aria-label", words2);
       chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
@@ -8016,6 +8113,23 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         chatEmpty.textContent = f.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
         chatEmpty.hidden = f.posts.length > 0;
         chatLines.hidden = f.posts.length === 0;
+        return;
+      }
+      if (showing === "letters") {
+        feedLead.textContent = l.lead;
+        feedSaid.textContent = l.said;
+        const nowSec = Math.floor(Date.now() / 1e3);
+        const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+        chatLines.replaceChildren(
+          ...l.lines.map(
+            (line) => el("li", { class: `letter ${line.mine ? "mine" : ""} ${line.state}` }, el("b", {}, line.mine ? "You" : line.who), " ", line.text, el("small", {}, line.state === "sending" ? "Sending\u2026" : line.state === "failed" ? "Not sent" : ago(line.at, nowSec)))
+          )
+        );
+        chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
+        chatEmpty.hidden = l.lines.length > 0;
+        chatLines.hidden = l.lines.length === 0;
+        if (wasAtEnd || l.lines[l.lines.length - 1]?.mine) chatLines.scrollTop = chatLines.scrollHeight;
+        controls2.letters.seen();
         return;
       }
       const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
@@ -8037,8 +8151,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (next) {
         const c = controls2.chat.view();
         const f = controls2.feed.view();
-        const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : "feed");
-        if (!(want === "feed" ? f.ready : c.ready) || host.hidden || controls2.view().presence === "hidden") return;
+        const l = controls2.letters.view();
+        const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : l.ready ? "letters" : "feed");
+        if (!(want === "feed" ? f.ready : want === "letters" ? l.ready : c.ready) || host.hidden || controls2.view().presence === "hidden") return;
         const was = chatState === "open";
         if (was && want === dockTab) return;
         dockTab = want;
@@ -8068,11 +8183,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     chatClose.addEventListener("click", () => setChatOpen(false));
     tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
     tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
+    tabLetters.addEventListener("click", () => setChatOpen(true, "letters"));
     chatForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const text = chatField.value;
       if (!text.trim()) return setChatOpen(false);
-      const trouble = dockTab === "feed" ? controls2.feed.send(text) : controls2.chat.send(text);
+      const trouble = dockTab === "feed" ? controls2.feed.send(text) : dockTab === "letters" ? controls2.letters.send(text) : controls2.chat.send(text);
       chatHint.textContent = trouble ?? "";
       if (!trouble) chatField.value = "";
       if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
@@ -8348,6 +8464,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
       if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
       if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
+      if (name === "open:letters" && !host.hidden) setChatOpen(true, "letters");
     });
     const tick = setInterval(draw, 400);
     host.classList.add("arriving");
@@ -8490,6 +8607,70 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
   }
 
+  // packages/sdk/src/ui/letters.ts
+  function createUiLetters(changed, now = () => Date.now()) {
+    let opts = null;
+    let waiting2 = [];
+    let said = "";
+    let version = 0;
+    let count = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    return {
+      attach(next) {
+        opts = next;
+        waiting2 = [];
+        said = "";
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        waiting2 = [];
+        said = "";
+        bump2();
+      },
+      touch: bump2,
+      seen() {
+        opts?.seen?.();
+      },
+      send(text) {
+        const mine = opts;
+        if (!mine) return "There is nobody to write to: choose someone first.";
+        const words2 = cleanMessage(text);
+        if (!words2) return null;
+        const line = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        waiting2.push(line);
+        said = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) waiting2 = waiting2.filter((l) => l !== line);
+          else line.state = "failed";
+          said = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
+        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting2].sort((a, b) => a.at - b.at) : [];
+        return {
+          ready: !!opts,
+          title: name ? `${name}, privately` : "Private messages",
+          with: name,
+          lines,
+          said,
+          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
+          limit: MESSAGE_LIMITS.chars,
+          version
+        };
+      }
+    };
+  }
+
   // packages/sdk/src/ui/model.ts
   var PRESENCES = ["full", "quiet", "hidden"];
   var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
@@ -8512,6 +8693,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "people", label: "People", icon: "people" },
     // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
     { id: "following", label: "Following", icon: "list" },
+    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
+    { id: "messages", label: "Messages", icon: "chat" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },
@@ -8575,6 +8758,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const chat = createUiChat(changed);
     const feed = createUiFeed(changed);
+    const letters = createUiLetters(changed);
     function addSection(s) {
       const i = sections.findIndex((x) => x.id === s.id);
       if (i === -1) sections.push({ ...s });
@@ -8691,7 +8875,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           corner,
           keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
           chat: chat.view(),
-          feed: feed.view()
+          feed: feed.view(),
+          letters: letters.view()
         };
       },
       subscribe(fn) {
@@ -8715,7 +8900,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return () => sayers.delete(fn);
       },
       chat,
-      feed
+      feed,
+      letters
     };
     const keep4 = (patch) => controls2.setTheme(patch, true);
     controls2.add(

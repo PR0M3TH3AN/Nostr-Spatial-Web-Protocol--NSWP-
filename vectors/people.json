@@ -1,5 +1,5 @@
 {
-  "description": "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
+  "description": "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `sealedForAWorld`: what `sealMessage` gives for the first key writing to the second, with those nonces: the message as written, a seal the second key can open and one the first can. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -523,5 +523,49 @@
       "reader": "key2",
       "expect": null
     }
-  ]
+  ],
+  "sealedForAWorld": {
+    "to": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+    "text": "Sent from a world.",
+    "now": 1794430800,
+    "nonces": [
+      "0791646afbefa7623a8726beb9e7c9a7f1ff12ac5633511c661c4b6778b5f706",
+      "d0bf22da164044371b9517a156405fd8a74c7db7669382d7217d88bf07004bab"
+    ],
+    "expect": {
+      "message": {
+        "kind": 14,
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "p",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ]
+        ],
+        "content": "Sent from a world.",
+        "id": "360ebeef8c053fb325c073ad378fad163bfdf059c6b3623fb253ade0ebd0c954"
+      },
+      "seals": [
+        {
+          "kind": 13,
+          "created_at": 1794430800,
+          "tags": [],
+          "content": "AgeRZGr776diOocmvrnnyafx/xKsVjNRHGYcS2d4tfcG4OjRDTIbK/VQ0r/L2gHnNxgPI607Nrovm8HNakcLMdywMgZ7ObbvVF3BqpmYryYJvbgcvChp0ip6NMnTflUPtTkS0wSn8DOLEmy0sqm4B0YEAol0hjlYzYNy1qpfpKfh0hgmLdBBZRAJI4TDCotqjlrQpIRM3Ac2W+HIQHE42kmRxtrZ2ITDoSCwJDYMA43sKobdBXu3+LZGJmTUdDtyDZ53wvzq58NJANn6En9tFJ0BjfhPg6kpGt4e2b9UsxClWPporztbEOrP+juhH7rxd2u6bKi8vlcnDIDklqBSji7zQsKw5K6D7JHop6qDek3/jX8zo5qaf9LHw59CnbMtfeQAetiw4rFWHjOLJ31cP2+axtgh+FG2ct5Z6J6LV5KZ2VTzGG4PLrvZ79k+1ZYtkaY8zj6hJEmBxBZIgxPgMgmZQiRC0QIULDJ1F0VVF1du/R9+E0ka8swSzWYuDqSezluK",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "3f6b8186e3e9ce46a529a719f09afeb3069f1af4987a87d8e120cbf0d39236f7",
+          "sig": "47d333512d2958cfba6ce2b385b71d3a914ce988d365dd842f9b5615d224788fd4a939bfef79218119d153838a141f8d2d11ec9ebbebc74b7651561451960a9d"
+        },
+        {
+          "kind": 13,
+          "created_at": 1794430800,
+          "tags": [],
+          "content": "AtC/ItoWQEQ3G5UXoVZAX9inTH23ZpOC1yF9iL8HAEurZfBjD9pz7mvHEcTGZ9lEUnCyVWQqzP0r9qCIlQ6UHL4KAoZJN5MVEr9iPCcwc0r0eQohBRbJk1cBWILcc5BU6YvYo5AFPThwlrjEUmxjB6UtL61uqKfefGTxgr7dgzklBOIqd2tigacCCWm6LmS3h7EAm+8SZ0qabVNlRfF/iX+pzADsIiCWWBPe6aUByizEqNf1mCxZVvBROfbTnDy16y/yRlGUzEEoU+iuayKAu+ZcLhEMtXmX/6UM3pi/NcU67sFT1Qq07IXdzDmbam4RHIGaehAU1ho80ywSo2GXV7BtGPu8FS5DE7ol4qpngTD14BCGFcGhHOgCKe6dx5FGjUH/kzznsPUOomSkMlp5AKOoFmVE9FORxTbBmIZXbuOVvN0fHaToSv//6peEDSJsL8KoX+YpcYB53j7Q7P1lQ30jJGohSEkr9+QVUPV9vyvwuGywfwy9mus/n6wxlEEzfA6d",
+          "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "id": "07222d686323f4e83d897c869444177ff5110ba0fdc9c163f3d684fa0a2768a6",
+          "sig": "7fff7fa6a5d0803b65f38b26c14b7764b0d66e1d2e80e9c61f37ce18222a124ce13685cc1f03edb0be88969693dbdb9fc3c91246beab76af8e8c00f0de958688"
+        }
+      ]
+    }
+  }
 }

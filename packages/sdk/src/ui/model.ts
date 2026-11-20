@@ -16,6 +16,7 @@ import { cleanSettings, PINS_MOST } from "@nswp/core";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import { createUiChat, type ChatView, type UiChat } from "./chat.js";
 import { createUiFeed, type FeedView, type UiFeed } from "./feed.js";
+import { createUiLetters, type LettersView, type UiLetters } from "./letters.js";
 import type { IconName } from "./icons.js";
 import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRESETS, type UiTheme } from "./theme.js";
 
@@ -159,6 +160,8 @@ export interface UiView {
   chat: ChatView;
   /** The visitor's own public posts, and the place to send out another (ui/feed.ts). */
   feed: FeedView;
+  /** A private conversation with one person (ui/letters.ts). */
+  letters: LettersView;
 }
 
 export interface Controls {
@@ -217,6 +220,8 @@ export interface Controls {
   readonly chat: UiChat;
   /** The visitor's own public posts (ui/feed.ts). The room fills it once something signs for them; every renderer draws it. */
   readonly feed: UiFeed;
+  /** A private conversation with one person (ui/letters.ts). Whoever holds the visitor's messages fills it; every renderer draws it. */
+  readonly letters: UiLetters;
 }
 
 export interface ControlsOptions {
@@ -259,6 +264,8 @@ const STANDARD: UiSection[] = [
   { id: "people", label: "People", icon: "people" },
   // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
   { id: "following", label: "Following", icon: "list" },
+  // Their private messages (messaging.ts). Empty, and not shown, for a guest.
+  { id: "messages", label: "Messages", icon: "chat" },
   { id: "camera", label: "Camera", icon: "camera" },
   { id: "panels", label: "Panels", icon: "panel" },
   { id: "view", label: "View", icon: "vr" },
@@ -342,6 +349,7 @@ export function createControls(opts: ControlsOptions): Controls {
   };
   const chat = createUiChat(changed);
   const feed = createUiFeed(changed);
+  const letters = createUiLetters(changed);
 
   function addSection(s: UiSection): void {
     const i = sections.findIndex((x) => x.id === s.id);
@@ -465,6 +473,7 @@ export function createControls(opts: ControlsOptions): Controls {
         keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
         chat: chat.view(),
         feed: feed.view(),
+        letters: letters.view(),
       };
     },
     subscribe(fn) {
@@ -490,6 +499,7 @@ export function createControls(opts: ControlsOptions): Controls {
     },
     chat,
     feed,
+    letters,
   };
 
   // The Look section comes with the kit, so every world lets a visitor change it the same way.

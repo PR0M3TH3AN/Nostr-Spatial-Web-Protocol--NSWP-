@@ -206,6 +206,67 @@ export function readMessageRelays(events: readonly NostrEvent[], pubkey: string)
   return out;
 }
 
+/**
+ * A world may be let send and read its visitor's private messages (protocol/14-people-and-messages.md, "Messages
+ * from inside a world"). How often it may have one sealed: the pace of a person writing.
+ */
+export const MESSAGE_WORLD_LIMITS = { burst: 10, perMs: 60_000, hourly: 200 } as const;
+
+/** A message written and sealed twice: once for its reader, and once for its writer to read back. */
+export interface SealedMessage {
+  message: WrittenMessage;
+  /** For the reader, then for the writer. Each is wrapped for the one it is for, by whoever sends it. */
+  seals: [NostrEvent, NostrEvent];
+}
+
+/**
+ * What a signer does when it is asked to send a message, with the writer's key in hand: write it, and seal it to
+ * its reader and to its writer. Whoever asked wraps each seal (`wrapSeal`) and sends it; they never see a key.
+ * Null if the reader isn't a key, is the writer, or there are no words.
+ *
+ * `nonces` and `auxRand` exist for reproducible test vectors: leave them unset for anything real.
+ */
+export function sealMessage(o: { secretKey: Uint8Array; to: unknown; text: unknown; now: number; nonces?: [Uint8Array, Uint8Array]; auxRand?: Uint8Array }): SealedMessage | null {
+  const from = getPublicKey(o.secretKey);
+  if (typeof o.to !== "string" || typeof o.text !== "string") return null;
+  const message = buildMessage({ from, to: o.to, text: o.text, now: o.now });
+  if (!message) return null;
+  const inside = JSON.stringify(message);
+  const seal = (reader: string, nonce?: Uint8Array) => finalizeEvent(sealTemplate(nip44Encrypt(inside, getConversationKey(o.secretKey, reader), nonce), o.now), o.secretKey, o.auxRand);
+  return { message, seals: [seal(o.to, o.nonces?.[0]), seal(from, o.nonces?.[1])] };
+}
+
+/**
+ * Whether what a signer handed back is the message that was asked for, as far as whoever asked can tell: written
+ * by the key the signer holds, to that reader, with those words, and sealed twice by that key. What is inside a
+ * seal can't be read here, and doesn't need to be.
+ */
+export function isSealAsked(sealed: unknown, o: { pubkey: string | null; to: string; text: string }): sealed is SealedMessage {
+  const s = sealed as Partial<SealedMessage> | null;
+  if (!o.pubkey || !s || typeof s !== "object" || !Array.isArray(s.seals) || s.seals.length !== 2) return false;
+  const m = s.message as Partial<WrittenMessage> | undefined;
+  if (!m || typeof m !== "object" || m.kind !== MESSAGE_KIND || m.pubkey !== o.pubkey || m.content !== cleanMessage(o.text) || !m.content) return false;
+  if (!Array.isArray(m.tags) || m.tags.length !== 1 || m.tags[0]?.[0] !== "p" || m.tags[0]?.[1] !== o.to || typeof m.created_at !== "number") return false;
+  if (m.id !== getEventHash({ kind: MESSAGE_KIND, pubkey: o.pubkey, created_at: m.created_at, tags: m.tags, content: m.content })) return false;
+  return s.seals.every((seal) => verifyEvent(seal) && seal.kind === SEAL_KIND && seal.pubkey === o.pubkey && seal.tags.length === 0);
+}
+
+/** Whether a signed list of where messages reach someone is the one that was asked for: theirs, and exactly those relays. */
+export function isReachAsked(signed: unknown, o: { pubkey: string | null; relays: readonly string[] }): signed is NostrEvent {
+  const want = buildMessageRelays(o.relays, 0);
+  if (!o.pubkey || !want || !verifyEvent(signed) || signed.kind !== MESSAGE_RELAYS_KIND || signed.pubkey !== o.pubkey) return false;
+  return JSON.stringify(signed.tags.filter((t) => t[0] === "relay")) === JSON.stringify(want.tags);
+}
+
+/** A message as it is handed about once read: every part checked again, the words tidied. Null for anything else. */
+export function cleanRead(input: unknown): Message | null {
+  const m = input as Partial<Message> | null;
+  if (!m || typeof m !== "object" || !isHex64(m.id) || !isHex64(m.from) || !Array.isArray(m.to) || typeof m.at !== "number" || !Number.isFinite(m.at)) return null;
+  const to = [...new Set(m.to.filter((k): k is string => isHex64(k)))];
+  const text = cleanMessage(m.text);
+  return to.length && text ? { id: m.id, from: m.from, to, text, at: m.at } : null;
+}
+
 /** A list of where someone's private messages reach them, ready to be signed by them. Null with no usable relay. */
 export function buildMessageRelays(relays: readonly string[], now: number): EventTemplate | null {
   const clean = [...new Set(relays.map(cleanRelayUrl).filter(Boolean))].slice(0, MESSAGE_LIMITS.relays);
