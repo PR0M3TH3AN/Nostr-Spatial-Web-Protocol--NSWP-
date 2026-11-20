@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.47.0
+
+- **Ratings on a world's own doors** ([NSWP-13](protocol/13-ratings.md), "On a world's own doors"): a door's sign can say what the people its visitor follows thought of where it leads, "★ 4.5 from 3". The visitor's own rating always counts; the people they follow do where the visitor has let that world see who they follow. Asked of relays by world; nothing for a guest. `createDoorRatings` in the kit, `setRating` on a door, `tallyMark` in the core. The reference worlds do it, and say it in full when a door is pointed at. Optional.
+- Giving a rating is unchanged: at the visitor's own client, never from inside a world.
+
 ## 0.46.0
 
 What someone has done, on their card.

@@ -134,6 +134,11 @@ export function tallyRatings(events: readonly NostrEvent[], o: { world: string; 
   return { count: ratings.length, average: ratings.length ? Math.round((sum / ratings.length) * 10) / 10 : 0, mine: (o.me && newest.get(o.me)?.stars) || 0, ratings };
 }
 
+/** A tally as a door's sign says it: "★ 4.5 from 12". "" when nobody counted has rated it: never "0 stars". */
+export function tallyMark(tally: Pick<Tally, "count" | "average"> | null | undefined): string {
+  return tally && tally.count ? `★ ${tally.average.toFixed(1)} from ${tally.count}` : "";
+}
+
 /** A tally as a few words: "4.5 of 5, from 12". "" when nobody counted has rated it. */
 export function tallyWords(tally: Pick<Tally, "count" | "average">): string {
   return tally.count ? `${tally.average.toFixed(1)} of ${RATING_LIMITS.most}, from ${tally.count}` : "";
