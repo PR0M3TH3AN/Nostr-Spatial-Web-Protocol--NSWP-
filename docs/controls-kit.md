@@ -389,6 +389,15 @@ They are what the visitor chose, not how things stand: `prefersFullscreen()`
 stays true after Escape, and the next world fills the screen again. Never
 report `full` from `document.fullscreenElement`.
 
+A visitor can keep a tab of the menu on their bar: each tab has "Keep this
+tab on your bar" beside Close, and a pinned tab stands after your own keys
+and brings the menu up on it. Four at most. It is theirs: `controls.pins`
+says which, and `controls.setPinned(tab, pinned)` is what the button calls,
+but don't pin for them. What they pinned travels with their other settings,
+so a tab pinned in one world is on their bar in the next that has it. Give a
+tab of your own a short plain id (a lowercase word of twelve letters at
+most) and it can be pinned and travel too.
+
 ### People's names and pictures
 
 Someone who came by name is shown by the name and the picture from their

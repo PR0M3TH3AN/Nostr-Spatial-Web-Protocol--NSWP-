@@ -56,7 +56,18 @@ export interface TravelSettings {
    * Turned off, nothing anyone writes is shown to them, and nobody is told.
    */
   chat?: boolean;
+  /**
+   * Which tabs of the menu they keep on their bar, by name, in the order they pinned them: `PINS_MOST` at most.
+   * An empty list is a choice too: they took them all off. A name a world has no tab for is simply not shown
+   * there. Only they pin: a world never does it for them.
+   */
+  pins?: string[];
 }
+
+/** The most tabs of the menu a visitor may keep on their bar. */
+export const PINS_MOST = 4;
+/** A tab's name as it may travel: a short plain word, so a link can carry nothing else in its place. */
+const PIN_NAME = /^[a-z][a-z0-9-]{0,11}$/;
 
 /** The slowest and fastest the view may be set to turn, and the narrowest and widest it may be set to see. */
 export const LOOK_RANGE = [0.25, 3] as const;
@@ -95,6 +106,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.fov === "number" && Number.isFinite(s.fov)) out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
   if (typeof s.chat === "boolean") out.chat = s.chat;
+  if (Array.isArray(s.pins)) out.pins = [...new Set(s.pins.filter((name): name is string => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
   return out;
 }
 
@@ -117,7 +129,13 @@ export function encodeSettings(settings: TravelSettings | undefined): string {
   const clean = cleanSettings(settings);
   if (!hasSettings(clean)) return "";
   const text = toBase64Url(JSON.stringify(clean));
-  return text.length <= SETTINGS_LINK_LIMIT ? text : "";
+  if (text.length <= SETTINGS_LINK_LIMIT) return text;
+  // Too long to send whole: what is on their bar is the least of it, and goes first, so the rest still travels.
+  if (clean.pins) {
+    const { pins: _left, ...rest } = clean;
+    return encodeSettings(rest);
+  }
+  return "";
 }
 
 /** Settings read off a link. Anything unreadable is no settings at all. */

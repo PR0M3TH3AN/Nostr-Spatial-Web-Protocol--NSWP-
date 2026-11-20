@@ -223,6 +223,7 @@ settings now go with them instead, the same way the form they are in does:
 | How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
 | Whether they see other people's pictures | `pictures`. Left out, they do | A picture is fetched from its owner's own host, which learns the viewer's address ([NSWP-10](10-identity.md), "Pictures") |
 | Whether they see what people write in a room | `chat`. Left out, they do | Turned off, nothing anyone writes is shown to them and they write nothing ([NSWP-06](06-rooms.md), "Words") |
+| Which tabs of the console they keep on their bar | `pins`: the tabs' names, in the order they pinned them, four at most. Each is a short plain word: a lowercase letter, then up to eleven more letters, digits or hyphens. An empty list says they took them all off | A world shows the ones it has a tab for and keeps the rest to pass on. Only the visitor pins: a world never adds to the list. If the settings would be too long for a link, these are left off first |
 
 **They say what the visitor prefers, not what happened to be so when they
 left.** Someone who prefers a filled screen and pressed Escape for a moment
