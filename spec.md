@@ -500,7 +500,7 @@ Relays provide discoverability. They don't guarantee that a referenced site is u
 
 ### 5.6 Relay strategy
 
-- **Publishing.** A world event goes to the publisher's NIP-65 write relays. `naddr` references carry relay hints.
+- **Publishing.** A world event goes to the publisher's NIP-65 write relays. `naddr` references carry relay hints. What a world sends for a visitor goes to the visitor's own write relays, the ones that have been answering first, with a few well-known relays added when too few of theirs are up ([controls-kit.md](docs/controls-kit.md), "Which relays").
 - **Follow-graph discovery** uses the outbox model: read each followed author's events from that author's write relays.
 - **Global discovery** needs relays that hold many world events. Clients keep a visible, editable list of discovery relays. Anyone can run an index relay that accepts only kind 37300; a client's default list is a convenience, not an authority.
 - **Verification is local.** Clients check every signature themselves and never trust a relay's word for an event.

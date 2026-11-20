@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.37.0";
+  var KIT_VERSION = "0.38.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4115,7 +4115,7 @@ var NSWP = (() => {
     if (!latest)
       return null;
     const write = [];
-    const read4 = [];
+    const read5 = [];
     for (const t of latest.tags) {
       if (t[0] !== "r")
         continue;
@@ -4124,23 +4124,65 @@ var NSWP = (() => {
         continue;
       if ((t[2] === void 0 || t[2] === "" || t[2] === "write") && !write.includes(url) && write.length < max)
         write.push(url);
-      if ((t[2] === void 0 || t[2] === "" || t[2] === "read") && !read4.includes(url) && read4.length < max)
-        read4.push(url);
+      if ((t[2] === void 0 || t[2] === "" || t[2] === "read") && !read5.includes(url) && read5.length < max)
+        read5.push(url);
     }
-    return { write, read: read4 };
+    return { write, read: read5 };
   }
-  function writeRelaysFor(list, fallback) {
-    const own = (list?.write ?? []).slice(0, 6);
-    if (own.length >= 2)
-      return { relays: own, own: own.length };
-    const relays = [...own];
-    for (const url of fallback) {
-      if (relays.length >= 4)
-        break;
-      if (!relays.includes(url))
-        relays.push(url);
+  var RELAY_PICK = {
+    /** A person's own relays are used up to this many. */
+    most: 6,
+    /** There should be this many that are thought to be working, their own or not. */
+    least: 3,
+    /** Below this, a relay is thought not to be working. One nothing is known of scores 0.5. */
+    working: 0.34,
+    /** What is remembered of a relay fades: past this many tries, the counts are halved, so lately counts for more. */
+    remembered: 8,
+    /** A relay that hasn't been tried for this long is given another chance: what was known of it is forgotten. */
+    staleMs: 7 * 24 * 3600 * 1e3,
+    /** No more relays than this are remembered. */
+    kept: 40
+  };
+  function relayScore(note, now) {
+    if (!note || now - note.at > RELAY_PICK.staleMs)
+      return 0.5;
+    return (note.ok + 1) / (note.ok + note.failed + 2);
+  }
+  function learnRelays(notes2, results, now) {
+    const next = { ...notes2 };
+    for (const [url, said] of Object.entries(results)) {
+      const clean2 = cleanRelayUrl(url);
+      if (!clean2)
+        continue;
+      const had = next[clean2] && now - next[clean2].at <= RELAY_PICK.staleMs ? next[clean2] : { ok: 0, failed: 0, at: now };
+      let { ok, failed: failed2 } = had;
+      if (said === "ok" || said === "eose")
+        ok++;
+      else
+        failed2++;
+      if (ok + failed2 > RELAY_PICK.remembered) {
+        ok = Math.round(ok / 2);
+        failed2 = Math.round(failed2 / 2);
+      }
+      next[clean2] = { ok, failed: failed2, at: now };
     }
-    return { relays, own: own.length };
+    const kept2 = Object.entries(next).sort((a, b) => b[1].at - a[1].at).slice(0, RELAY_PICK.kept);
+    return Object.fromEntries(kept2);
+  }
+  function pickRelays(o) {
+    const score = (url) => relayScore(o.notes[url], o.now);
+    const best = (urls) => urls.map((url, i) => ({ url, i, s: score(url) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.url);
+    const own = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
+    const working = own.filter((url) => score(url) >= RELAY_PICK.working).length;
+    const added = [];
+    for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own.includes(u)))) {
+      if (working + added.length >= RELAY_PICK.least)
+        break;
+      if (score(url) < RELAY_PICK.working && added.length > 0)
+        continue;
+      added.push(url);
+    }
+    return { relays: [...own, ...added], own: own.length, added };
   }
   async function queryRelays(relays, filter, timeoutMs = 4e3) {
     const byId = /* @__PURE__ */ new Map();
@@ -5800,7 +5842,7 @@ var NSWP = (() => {
     const theme = cleanTheme2(o.theme, base);
     const levelsKey = o.keep?.levels ?? "nswp:sound";
     const songsKey = o.keep?.songs ?? "nswp:jukebox";
-    const read4 = (key) => {
+    const read5 = (key) => {
       try {
         return JSON.parse(localStorage.getItem(key) ?? "null");
       } catch {
@@ -5814,8 +5856,8 @@ var NSWP = (() => {
       }
     };
     const came = arrivedSettings().sound;
-    let levels = cleanLevels({ ...read4(levelsKey), ...came });
-    let songs = cleanSongs(read4(songsKey));
+    let levels = cleanLevels({ ...read5(levelsKey), ...came });
+    let songs = cleanSongs(read5(songsKey));
     let disposed = false;
     if (came) write(levelsKey, levels);
     const stopReporting = reportSettings("sound", () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }));
@@ -6607,6 +6649,55 @@ var NSWP = (() => {
     };
   }
 
+  // packages/sdk/src/relay-book.ts
+  var KEY2 = "nswp:relays";
+  var notes = null;
+  var read = () => {
+    if (notes) return notes;
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(KEY2) ?? "{}");
+      notes = kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
+    } catch {
+      notes = {};
+    }
+    return notes;
+  };
+  function learnFrom(results, now = Date.now()) {
+    notes = learnRelays(read(), results, now);
+    try {
+      globalThis.localStorage?.setItem(KEY2, JSON.stringify(notes));
+    } catch {
+    }
+  }
+  function relaysWell(o, now = Date.now()) {
+    return pickRelays({ ...o, notes: read(), now });
+  }
+  async function sendWell(event, o) {
+    const publish = o.publish ?? publishEvent;
+    const now = o.now ?? (() => Date.now());
+    const first = relaysWell(o, now());
+    const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
+    learnFrom(sent.relays, now());
+    let took = Object.values(sent.relays).filter((said) => said === "ok").length;
+    const tried = [...first.relays];
+    if (took === 0) {
+      const rest = o.usual.filter((r) => !tried.includes(r));
+      if (rest.length) {
+        const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
+        learnFrom(again.relays, now());
+        took = Object.values(again.relays).filter((said) => said === "ok").length;
+        tried.push(...rest);
+      }
+    }
+    return { took, relays: tried, own: first.own };
+  }
+  async function askWell(filter, o) {
+    const now = o.now ?? (() => Date.now());
+    const got = await (o.query ?? queryRelays)(relaysWell(o, now()).relays, filter, o.timeoutMs ?? 4e3);
+    learnFrom(got.relays, now());
+    return got;
+  }
+
   // packages/sdk/src/saves.ts
   function createSaves(opts = {}) {
     const now = opts.now ?? (() => Date.now());
@@ -6641,9 +6732,9 @@ var NSWP = (() => {
       }
     };
     let relaysKept = null;
-    const relaysFor = (key) => {
+    const ownRelays = (key) => {
       if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found = query(usual(), { kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, 2500).then((got) => writeRelaysFor(readRelayList(got.events, key), usual()).relays).catch(() => usual());
+      const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
       relaysKept = { key, at: now(), found };
       return found;
     };
@@ -6653,7 +6744,7 @@ var NSWP = (() => {
       if (!s || !who2) return null;
       const d = await s.find(slot);
       if (!d) return null;
-      const got = await query(await relaysFor(who2), { kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, 3500).catch(() => null);
+      const got = await askWell({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, { own: await ownRelays(who2), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
       const newest = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
       if (!newest) return null;
       const opened = await s.open(newest);
@@ -6681,8 +6772,8 @@ var NSWP = (() => {
       const signed = await s.save(slot, data).catch(() => null);
       if (!signed) return false;
       writeLocal(who2, slot, { data, at: signed.created_at });
-      const sent = await publish(await relaysFor(who2), signed).catch(() => null);
-      return !!sent && Object.values(sent.relays).some((said) => said === "ok");
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, now }).catch(() => null);
+      return !!sent && sent.took > 0;
     };
     const save2 = async (data, slotIn) => {
       const slot = cleanSlot(slotIn ?? SAVE_SLOT);
@@ -6743,12 +6834,12 @@ var NSWP = (() => {
     const watchers3 = /* @__PURE__ */ new Set();
     const pending = /* @__PURE__ */ new Map();
     const kept2 = /* @__PURE__ */ new Map();
-    const askAbout = (request, read4) => new Promise((done) => {
+    const askAbout = (request, read5) => new Promise((done) => {
       const timer = setTimeout(() => {
         kept2.delete(request.id);
         done(null);
       }, 8e3);
-      kept2.set(request.id, { answer: (reply) => done(reply ? read4(reply) : null), timer });
+      kept2.set(request.id, { answer: (reply) => done(reply ? read5(reply) : null), timer });
       tell2(request);
     });
     let state = "none";
@@ -8336,7 +8427,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
     return out;
   }
-  var read = (t) => typeof t === "function" ? t() : t ?? "";
+  var read2 = (t) => typeof t === "function" ? t() : t ?? "";
   var STANDARD = [
     { id: "travel", label: "Travel", icon: "door" },
     // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
@@ -8501,11 +8592,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const bar = showing.filter((a) => a.hotbar).slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
-          return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color) };
+          return { id: a.id, label: read2(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read2(a.short) || read2(a.label), kind: a.kind ?? "button", color: read2(a.color) };
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
-        const shown3 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
+        const shown3 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read2(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
         return {
           title: opts.title,
           address: opts.address ?? "",
@@ -8576,7 +8667,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine-menu.ts
-  var read2 = (text) => {
+  var read3 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
       return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -8631,7 +8722,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function menu(options) {
     if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
-    const o = read2(options);
+    const o = read3(options);
     const title = words(o.title, 80) || "A world";
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
     const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
@@ -8787,7 +8878,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     controls?.setTarget(words(name, 120), lines);
   }
   function headset(state) {
-    const s = read2(state);
+    const s = read3(state);
     vr.supported = s.supported === true;
     vr.presenting = s.presenting === true;
     hud?.setHidden(vr.presenting);
@@ -8819,7 +8910,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     controls?.claimInput(on === true || on === "true" || on === "1" || on === 1);
   }
   function door(entry) {
-    const d = read2(entry);
+    const d = read3(entry);
     const id = words(d.id, 60);
     if (!id || !controls) return;
     const menuId = `door-${id}`;
@@ -8836,7 +8927,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   // packages/sdk/src/engine.ts
   var VERSION = 9;
   var KIT = KIT_VERSION;
-  var read3 = (text) => {
+  var read4 = (text) => {
     try {
       const v = typeof text === "string" && text ? JSON.parse(text) : text;
       return v && typeof v === "object" && !Array.isArray(v) ? v : {};
@@ -8897,7 +8988,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     void room2.leave(to).then(going, going);
   }
   function stateOf(text) {
-    const s = read3(text);
+    const s = read4(text);
     return {
       immersive: s.immersive === true,
       ...s.joined === true ? { joined: true, ...s.mic === true ? { mic: true } : {} } : {},
@@ -8928,12 +9019,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
   }
   function start(options) {
-    const o = read3(options);
+    const o = read4(options);
     if (typeof o.airlock === "string" && o.airlock) configure({ defaultAirlock: o.airlock });
     return arrival2();
   }
   function go(destination, state) {
-    const d = read3(destination);
+    const d = read4(destination);
     const dest = {
       ...typeof d.url === "string" ? { url: d.url } : {},
       ...typeof d.naddr === "string" ? { naddr: d.naddr } : {},

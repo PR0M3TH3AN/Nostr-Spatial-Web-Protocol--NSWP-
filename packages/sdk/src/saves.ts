@@ -13,7 +13,8 @@
  * signer works that out from this site's address. A guest's save stays on the device, and is taken up by their
  * account the first time it is loaded after they sign in.
  */
-import { cleanSlot, DEFAULT_RELAYS, fitsInSave, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, SAVE_KIND, SAVE_SLOT, verifyEvent, writeRelaysFor, type NostrEvent } from "@nswp/core";
+import { cleanSlot, DEFAULT_RELAYS, fitsInSave, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, SAVE_KIND, SAVE_SLOT, verifyEvent, type NostrEvent } from "@nswp/core";
+import { askWell, sendWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 
 export interface Saved {
@@ -91,13 +92,17 @@ export function createSaves(opts: SavesOptions = {}): Saves {
     }
   };
 
-  /** Where this person's saves go and are read from: the relays they say they write to, or the usual ones. Asked once, kept ten minutes. */
+  /**
+   * The relays this person says they write to (NIP-65), or none if they have published no list. Asked once, kept
+   * ten minutes. Which of them are used, and which of the usual ones beside them, is chosen each time by how well
+   * each has been answering (relay-book.ts).
+   */
   let relaysKept: { key: string; at: number; found: Promise<string[]> } | null = null;
-  const relaysFor = (key: string): Promise<string[]> => {
+  const ownRelays = (key: string): Promise<string[]> => {
     if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 600_000) return relaysKept.found;
-    const found = query(usual(), { kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, 2500)
-      .then((got) => writeRelaysFor(readRelayList(got.events, key), usual()).relays)
-      .catch(() => usual());
+    const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now })
+      .then((got) => readRelayList(got.events, key)?.write ?? [])
+      .catch(() => []);
     relaysKept = { key, at: now(), found };
     return found;
   };
@@ -109,7 +114,7 @@ export function createSaves(opts: SavesOptions = {}): Saves {
     if (!s || !who) return null;
     const d = await s.find(slot);
     if (!d) return null;
-    const got = await query(await relaysFor(who), { kinds: [SAVE_KIND], authors: [who], "#d": [d], limit: 4 }, 3500).catch(() => null);
+    const got = await askWell({ kinds: [SAVE_KIND], authors: [who], "#d": [d], limit: 4 }, { own: await ownRelays(who), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
     // The newest that is really theirs, of this kind, at that address. The signer checks the rest when it opens it.
     const newest = (got?.events ?? [])
       .filter((e: NostrEvent) => e.kind === SAVE_KIND && e.pubkey === who && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e))
@@ -151,8 +156,8 @@ export function createSaves(opts: SavesOptions = {}): Saves {
     if (!signed) return false;
     // The signer's own time is the save's: this device's copy is given it, so the two compare as one.
     writeLocal(who, slot, { data, at: signed.created_at });
-    const sent = await publish(await relaysFor(who), signed).catch(() => null);
-    return !!sent && Object.values(sent.relays).some((said) => said === "ok");
+    const sent = await sendWell(signed, { own: await ownRelays(who), usual: usual(), publish, now }).catch(() => null);
+    return !!sent && sent.took > 0;
   };
 
   const save = async (data: string, slotIn?: string): Promise<SaveResult> => {

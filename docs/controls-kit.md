@@ -492,6 +492,34 @@ if (note) await publishEvent(relays, note);                               // sen
 - Your site's security policy must let the client be embedded:
   `frame-src 'self' https:`.
 
+### Which relays
+
+Whatever a world sends for a visitor (a post, a save) goes to the relays
+they say they write to, in their own relay list (NIP-65): that is where
+anyone looking for it will look. The kit adds one thing, which is knowing
+which relays are working.
+
+```ts
+import { askWell, sendWell } from "nswp-sdk/three";
+
+const sent = await sendWell(event, { own: theirWriteRelays, usual: DEFAULT_RELAYS }); // { took, relays, own }
+const got = await askWell(filter, { own: theirWriteRelays, usual: DEFAULT_RELAYS });
+```
+
+- **It remembers how each relay answered,** on the device, and puts the ones
+  that have been answering first. Lately counts for more, and a relay that
+  hasn't been tried for a week is given another chance.
+- **Their own relays are never dropped** for being down. If fewer than three
+  of them are up, the best of the usual relays are added, so what is sent is
+  kept somewhere that is.
+- **If nothing takes it,** the rest of the usual relays are tried once.
+- What is remembered is about relays, never about a person, and is sent
+  nowhere. A visitor's relay list is theirs: the kit never changes it.
+
+Not built: taking a relay monitor's word (NIP-66) for relays the device has
+never tried. A monitor's report is someone's claim, so it would only ever be
+a first guess.
+
 ### Keeping their progress
 
 A world with something to remember for a visitor keeps it as a save

@@ -13,7 +13,8 @@
  * address to the other members, so join only after the visitor has agreed.
  */
 import * as THREE from "three";
-import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, publishEvent, queryRelays, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, writeRelaysFor, type NostrEvent, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, CHAT_LIMITS, decodeLook, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, spawnOffset, verifyEvent, type NostrEvent, type Pose, type Transform } from "@nswp/core";
+import { askWell, sendWell } from "./relay-book.js";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -1810,13 +1811,13 @@ export function addRoomControls(
    * (NIP-65, kind 10002), looked for on the usual relays. Asked for when they open their feed or send a post,
    * and kept for ten minutes. Like their posts, it is their own key's, asked of a relay only then.
    */
-  let relaysKept: { key: string; at: number; found: Promise<{ relays: string[]; own: number }> } | null = null;
-  const relaysFor = (key: string | null | undefined): Promise<{ relays: string[]; own: number }> => {
-    if (!key) return Promise.resolve(writeRelaysFor(null, usualRelays()));
+  let relaysKept: { key: string; at: number; found: Promise<string[]> } | null = null;
+  const ownRelays = (key: string | null | undefined): Promise<string[]> => {
+    if (!key) return Promise.resolve([]);
     if (relaysKept && relaysKept.key === key && Date.now() - relaysKept.at < 600_000) return relaysKept.found;
-    const found = queryRelays(usualRelays(), { kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, 2500)
-      .then((got) => writeRelaysFor(readRelayList(got.events, key), usualRelays()))
-      .catch(() => writeRelaysFor(null, usualRelays()));
+    const found = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usualRelays(), timeoutMs: 2500 })
+      .then((got) => readRelayList(got.events, key)?.write ?? [])
+      .catch(() => []);
     relaysKept = { key, at: Date.now(), found };
     return found;
   };
@@ -1827,12 +1828,14 @@ export function addRoomControls(
     // Whatever signed it, what is sent on is checked first: a real signature, on a note, saying what was written.
     const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words ? signed : null;
     if (!note) return { ok: false, said: "That wasn't sent: your sign-in said no." };
-    const to = await relaysFor(note.pubkey);
-    const sent = await publishEvent(to.relays, note).catch(() => null);
-    const kept = sent ? Object.values(sent.relays).filter((said) => said === "ok").length : 0;
+    // Their own relays, the ones that have been answering first, and a few of the usual ones if too few of theirs
+    // are up (relay-book.ts).
+    const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
+    const kept = to?.took ?? 0;
     // Whose relays they were is said: their own list's, or the usual ones for someone who has published none.
-    const n = to.relays.length;
-    const where = to.own === n ? `${kept} of your ${n} relays` : to.own ? `${kept} of ${n} relays: yours, and the usual ones because your own list is short` : `${kept} of the ${n} usual relays: you have published no relay list of your own`;
+    const n = to?.relays.length ?? 0;
+    const own = to?.own ?? 0;
+    const where = own === n ? `${kept} of your ${n} relays` : own ? `${kept} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept} of the ${n} usual relays: you have published no relay list of your own`;
     return kept ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
   };
   /**
@@ -1842,8 +1845,7 @@ export function addRoomControls(
   const loadPosts = async (): Promise<FeedSource[] | null> => {
     const key = notes.pubkey?.();
     if (!key) return [];
-    const from = await relaysFor(key);
-    const got = await queryRelays(from.relays, { kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, 5000);
+    const got = await askWell({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, { own: await ownRelays(key), usual: usualRelays(), timeoutMs: 5000 });
     if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
     // Their posts, and not their replies to other people: out of its thread a reply reads as nonsense.
     return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
@@ -2447,6 +2449,7 @@ export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsP
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
 export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldSaves, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions } from "./saves.js";
+export { askWell, learnFrom, relaysWell, sendWell, type SentWell } from "./relay-book.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";
 export { createFps, heldKey, lookAfter, strideOf, LOOK_SPEED, PITCH_LIMIT, SPRINT, type Fps, type FpsOptions, type Held } from "./fps.js";
