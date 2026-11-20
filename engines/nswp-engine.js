@@ -58,7 +58,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.30.3";
+  var KIT_VERSION = "0.31.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6075,6 +6075,8 @@ var NSWP = (() => {
     remembered: null,
     host: null,
     unanswered: false,
+    asking: false,
+    retry: () => false,
     copy: null,
     unlock: () => false,
     lock() {
@@ -6116,10 +6118,29 @@ var NSWP = (() => {
     let disposed = false;
     const named = !!opts.at || !!signerAt(opts.under);
     let waited = false;
-    setTimeout(() => {
-      waited = true;
-      if (state === "none") changed();
-    }, 1e4);
+    let asking = false;
+    let again = 0;
+    let waiting2;
+    let signerUrl = "";
+    const reload = () => {
+      if (frame && signerUrl) frame.src = signerUrl;
+    };
+    const wait = () => {
+      waited = false;
+      clearTimeout(waiting2);
+      waiting2 = setTimeout(() => {
+        if (state !== "none" || disposed) return;
+        if (again === 0) {
+          again = 1;
+          reload();
+          return wait();
+        }
+        waited = true;
+        asking = false;
+        changed();
+      }, 1e4);
+    };
+    wait();
     let answered = false;
     const firstAnswer = /* @__PURE__ */ new Set();
     let n = 0;
@@ -6132,12 +6153,14 @@ var NSWP = (() => {
       const reply = readSignerReply(e.data);
       if (!reply) return;
       if (reply.t === "ready") {
+        asking = false;
         if (state === "none") state = "locked";
         tell2({ t: "state", id: `s${++n}` });
         return changed();
       }
       if (reply.t === "state") {
         answered = true;
+        asking = false;
         state = reply.unlocked ? "unlocked" : "locked";
         pubkey = reply.unlocked ? reply.pubkey ?? null : null;
         name = reply.unlocked ? reply.name ?? null : null;
@@ -6147,24 +6170,24 @@ var NSWP = (() => {
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
-      const waiting2 = pending.get(reply.id);
-      if (!waiting2) return;
+      const waiting3 = pending.get(reply.id);
+      if (!waiting3) return;
       pending.delete(reply.id);
-      clearTimeout(waiting2.timer);
-      if (reply.t === "refused") return waiting2.done(null);
+      clearTimeout(waiting3.timer);
+      if (reply.t === "refused") return waiting3.done(null);
       const signed = reply.event;
-      if (waiting2.session) {
-        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting2.session });
-        return waiting2.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
+      if (waiting3.session) {
+        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting3.session });
+        return waiting3.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
       }
-      if (!waiting2.asked) return waiting2.done(null);
+      if (!waiting3.asked) return waiting3.done(null);
       const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
-      waiting2.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting2.asked, signed) ? signed : null);
+      waiting3.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting3.asked, signed) ? signed : null);
     };
     void (async () => {
       try {
         const there = opts.at ? async (address) => address : toLocal;
-        const signerUrl = await there(real.signer);
+        signerUrl = await there(real.signer);
         windowAt = await there(real.window);
         origin = new URL(signerUrl).origin;
         if (disposed) return;
@@ -6209,6 +6232,18 @@ var NSWP = (() => {
       },
       get unanswered() {
         return named && waited && state === "none" && !disposed;
+      },
+      get asking() {
+        return asking && state === "none" && !disposed;
+      },
+      retry() {
+        if (!named || state !== "none" || disposed || !frame) return false;
+        again++;
+        asking = true;
+        reload();
+        wait();
+        changed();
+        return true;
       },
       get copy() {
         return origin && origin !== real.origin ? origin : null;
@@ -6277,6 +6312,7 @@ var NSWP = (() => {
       dispose() {
         disposed = true;
         for (const go2 of [...firstAnswer]) go2();
+        clearTimeout(waiting2);
         removeEventListener("message", onMessage);
         frame?.remove();
         frame = null;
@@ -6879,6 +6915,29 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Keys the world has switched off aren't advertised. */
 :host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
 
+/* Who they are signed in as, said once when it becomes so: top centre, in one place, and gone again. It is never
+   pressed and never in the way: it can't be clicked, and what is under it can. */
+.as { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px;
+  padding: 6px 18px 6px 6px; border-radius: 999px; max-width: min(72vw, 380px); opacity: 0; visibility: hidden; pointer-events: none; }
+.as.plain { padding-left: 18px; }
+.as .face { flex: none; width: calc(36px * var(--s)); height: calc(36px * var(--s)); border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  background: rgba(var(--accent), .16); color: rgb(var(--accent)); font-weight: 650; box-shadow: 0 0 0 2px rgba(var(--accent), .75); }
+.as.plain .face { display: none; }
+.as .face canvas { width: 100%; height: 100%; display: block; }
+.as .who { min-width: 0; }
+.as small { display: block; font-size: .8em; line-height: 1.15; color: rgba(var(--ink), .72); white-space: nowrap; }
+.as b { display: block; font-weight: 650; font-size: 1.06em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as.shown { opacity: 1; visibility: visible; }
+/* It comes into focus where it stands and goes out the same way: nothing slides across the view. */
+:host(.moving) .as { transform: scale(.9); filter: blur(8px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s linear .5s; }
+:host(.moving) .as.shown { transform: none; filter: none; transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s; }
+:host(.moving) .as.shown .face { animation: as-ring 1.2s ease-out .15s both; }
+:host(.moving) .as.shown b { animation: as-name .5s ease-out .12s both; }
+@keyframes as-ring { from { box-shadow: 0 0 0 2px rgba(var(--accent), .95), 0 0 0 0 rgba(var(--accent), .55); } to { box-shadow: 0 0 0 2px rgba(var(--accent), .75), 0 0 0 14px rgba(var(--accent), 0); } }
+@keyframes as-name { from { opacity: 0; letter-spacing: .08em; } }
+/* On a narrow screen the place's name and the menu take the top row: it stands just under them. */
+@media (max-width: 760px) { .as { top: calc(max(12px, env(safe-area-inset-top)) + 60px * var(--s)); } }
+
 /* ---- one moment of motion: things arrive. Nothing loops. */
 @keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
 @keyframes chat-in { from { opacity: 0; transform: translateX(8px); } }
@@ -6945,6 +7004,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const target2 = el("div", { class: "target glass", "aria-live": "polite" });
     const hotbar = el("nav", { class: "hotbar glass", "aria-label": "Controls" });
     const says = el("div", { class: "says", role: "status" });
+    const asFace = el("span", { class: "face", "aria-hidden": "true" });
+    const asLead = el("small");
+    const asName = el("b");
+    const asWho = el("div", { class: "as glass", role: "status" }, asFace, el("span", { class: "who" }, asLead, asName));
     const tabs = el("div", { class: "tabs", role: "tablist" });
     const tabsBack = el("button", { class: "more left", type: "button", "aria-label": "Earlier sections", hidden: "" }, "\u2039");
     const tabsOn = el("button", { class: "more right", type: "button", "aria-label": "More sections", hidden: "" }, "\u203A");
@@ -6989,7 +7052,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
@@ -7166,6 +7229,49 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     vv?.addEventListener("resize", onViewport);
     vv?.addEventListener("scroll", onViewport);
+    let asKey = null;
+    let asPicture = "";
+    let asTimer;
+    const AS_SHOWN_MS = 5200;
+    const sayWho = (card) => {
+      const key = card ? card.copy || card.title : "";
+      const first = asKey === null;
+      const changed = key !== asKey;
+      asKey = key;
+      if (card) {
+        asLead.textContent = "Signed in as";
+        asName.textContent = card.title;
+        if (changed || card.picture !== asPicture) {
+          asPicture = card.picture;
+          asFace.replaceChildren([...card.title][0]?.toUpperCase() ?? "");
+          const want = card.picture;
+          if (want) {
+            void loadPicture(want).then((drawn2) => {
+              if (!drawn2 || asPicture !== want) return;
+              const copy = document.createElement("canvas");
+              copy.width = drawn2.width;
+              copy.height = drawn2.height;
+              copy.getContext("2d")?.drawImage(drawn2, 0, 0);
+              asFace.replaceChildren(copy);
+            });
+          }
+        }
+      }
+      if (!changed || first && !card) return;
+      if (!card) {
+        asPicture = "";
+        asLead.textContent = "Signed out";
+        asName.textContent = "You are a guest here";
+      }
+      if (host.hidden) {
+        const words2 = card ? `Signed in as ${card.title}.` : "Signed out. You are a guest here.";
+        return queueMicrotask(() => controls2.say(words2));
+      }
+      asWho.classList.toggle("plain", !card);
+      asWho.classList.add("shown");
+      clearTimeout(asTimer);
+      asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
+    };
     const draw = () => {
       const view2 = controls2.view();
       const t = view2.theme;
@@ -7183,6 +7289,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
       title.textContent = view2.title;
       address.textContent = view2.address;
+      sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
       const shown3 = [view2.target, ...view2.detail].join("\n");
       if (target2.dataset.shown !== shown3) {
         target2.dataset.shown = shown3;
@@ -7384,6 +7491,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       remove() {
         clearInterval(tick);
+        clearTimeout(asTimer);
         tabsWatch?.disconnect();
         clearTimeout(peekTimer);
         clearTimeout(goingTimer);

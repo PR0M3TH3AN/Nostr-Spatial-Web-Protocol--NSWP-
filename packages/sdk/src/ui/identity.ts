@@ -201,7 +201,7 @@ export function unansweredWords(signer: WorldSigner): string {
   const host = signer.host ?? "your signer";
   const copy = signer.copy
     ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.`
-    : " Reloading the page tries again.";
+    : " Press this again to ask once more, or reload the page.";
   return `This world asked ${host} for your sign-in and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
 }
 
@@ -229,6 +229,7 @@ export function worldSigner(): WorldSigner {
 export function signerAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
   const signer = worldSigner();
   let was = signer.state;
+  let wasAsking = false;
   const short = () => shortNpub(signer.pubkey ?? "");
   signer.onChange(() => {
     if (signer.state === "unlocked" && was !== "unlocked") {
@@ -244,6 +245,10 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
       });
     }
     if (signer.state === "locked" && was === "unlocked") controls.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
+    // Asked again at their press, and silent again: said, with what is left to try.
+    if (wasAsking && !signer.asking && signer.unanswered) controls.say(unansweredWords(signer));
+    if (wasAsking && !signer.asking && signer.state === "locked") controls.say(`${signer.host ?? "Your sign-in address"} answered. You can sign in now.`);
+    wasAsking = signer.asking;
     was = signer.state;
     controls.signal("signer");
   });
@@ -256,18 +261,23 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
     label: () =>
       signer.state === "unlocked"
         ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here`
-        : signer.unanswered
-          ? `Signing in isn't available: ${signer.host ?? "your signer"} didn't answer`
-          : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+        : signer.asking
+          ? `Asking ${signer.host ?? "your signer"} again…`
+          : signer.unanswered
+            ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again`
+            : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
     short: () => (signer.state === "unlocked" ? "Sign out" : "Sign in"),
     on: () => signer.state === "unlocked",
     // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
     // a row that isn't there can't be asked about.
-    hidden: () => signer.state === "none" && !signer.unanswered,
+    hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
     act: () => {
       if (signer.state === "unlocked") return signer.lock();
       const host = signer.host ?? "your own client";
+      if (signer.asking) return;
       if (signer.unanswered) {
+        // Asked again, there and then: a frame that failed to load once often loads the second time.
+        if (signer.retry()) return controls.say(`Asking ${host} again. It has ten seconds to answer.`);
         return controls.say(unansweredWords(signer));
       }
       // A headset draws nothing but the world, so no window of the client's can open in one.

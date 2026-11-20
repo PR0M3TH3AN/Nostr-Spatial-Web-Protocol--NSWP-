@@ -428,6 +428,16 @@ with no pass for that key, the kit asks their signer for one
 where `arrival.identity()` finds it; `onHereAs(fn)` says when who they are
 here has changed.
 
+When who they are here changes, the HUD says so once at the top centre of
+the view: their picture and name under "Signed in as", for a few seconds, and
+"Signed out" the same way. It reads the card at the head of You, so a client
+that fills that card in its own room (`card` on the section) gets the same
+badge. Nothing is shown to a guest who never signed in.
+
+A signer that was named and says nothing is loaded once more by the kit
+before anyone is told. After that the row reads "bitlogin.network didn't
+answer. Press to ask again", and a press does (`signer.retry()`).
+
 ```js
 const signer = worldSigner();        // the page's one signer: where the visitor's client said, or beside its Airlock
 // or, for a site that isn't a world: createWorldSigner({ at: { signer, window } })
@@ -653,9 +663,20 @@ npm run kits -- --local   # the copies on the development server
 ```
 
 It lists each site with its kit, marks any that differ from this repo's, and
-exits 1 if any do. Run it before a deploy to see what is behind, and after
-one to see that it took. A portal on a newer kit than the worlds it sends
-people to is the case to avoid: deploy them in one sitting.
+exits 1 if any do. A portal on a newer kit than the worlds it sends people to
+is the case to avoid, so they are deployed in one sitting, by one command:
+
+```
+npm run release:all            # a look: what is public, what would change, what stands in the way
+npm run release:all -- --go    # all nine sites: the worlds, the Starter Home, then BitPortal
+```
+
+It starts only when this repo, BitPortal and the world template are each on
+main, clean, the same as GitHub, and carrying this repo's kit; when Vercel
+has room for nine deployments; and, with `--go`, after every test and build
+has passed. Then it deploys the worlds first and BitPortal last, and checks
+what came up. If it stops part way it says which sites were deployed.
+Deploying is the owner's to approve each time: `--go` is run on their word.
 
 ## Not built
 
