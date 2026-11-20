@@ -33,10 +33,10 @@ import { onMenu, play as playCue, tellEngine } from "./engine-menu.js";
 import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, claim, door, events, headset, kit, menu, moved, open, play, presence, run, say, target, view, who } from "./engine-menu.js";
+export { bump, check, claim, door, events, headset, kit, load, menu, moved, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 8;
+export const VERSION = 9;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 

@@ -7,6 +7,14 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { KIT_VERSION } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
+// A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
+for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
+  const said = (config.worlds[name] ?? config.elsewhere[name])?.category;
+  // The Starter Home's file is the template's, which keeps a world's own details under "world".
+  const read = JSON.parse(readFileSync(file, "utf8"));
+  const own = (read.world ?? read).category;
+  if (said !== own) throw new Error(`sites.json says ${name} is "${said}", and its own world.json says "${own}". They must agree.`);
+}
 // Every world in sites.json, and the reference Airlock. Pass names to build only those.
 const only = process.argv.slice(2);
 const sites = [...Object.keys(config.worlds).map((name) => ({ name, entry: "src/main.ts", world: true })), { name: "airlock", entry: "src/airlock.ts", world: false }].filter(

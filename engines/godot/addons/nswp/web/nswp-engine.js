@@ -39,6 +39,7 @@ var NSWP = (() => {
     headset: () => headset,
     home: () => home,
     kit: () => kit,
+    load: () => load2,
     loading: () => loading2,
     menu: () => menu,
     moved: () => moved,
@@ -47,6 +48,7 @@ var NSWP = (() => {
     presence: () => presence,
     ready: () => ready,
     run: () => run,
+    save: () => save,
     say: () => say,
     signIn: () => signIn,
     start: () => start,
@@ -63,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.35.0";
+  var KIT_VERSION = "0.36.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -3575,6 +3577,16 @@ var NSWP = (() => {
       return null;
     }
   }
+  function cleanOrigin(input) {
+    if (typeof input !== "string" || input.length > 300)
+      return "";
+    try {
+      const u = new URL(input);
+      return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
+    } catch {
+      return "";
+    }
+  }
 
   // packages/core/dist/manifest.js
   var stringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -4079,6 +4091,141 @@ var NSWP = (() => {
     return u.href;
   }
 
+  // packages/core/dist/relay.js
+  var DEFAULT_RELAYS = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"];
+  var RELAY_LIST_KIND = 10002;
+  function cleanRelayUrl(url) {
+    if (typeof url !== "string" || url.length > 200)
+      return "";
+    try {
+      const u = new URL(url.trim());
+      const host = u.hostname;
+      if (u.protocol !== "wss:" || u.username || u.password)
+        return "";
+      if (!host.includes(".") || host.startsWith("[") || /^[0-9.]+$/.test(host) || /\.(local|localhost|internal|lan|home)$/i.test(host))
+        return "";
+      u.hash = "";
+      return u.href.replace(/\/$/, "");
+    } catch {
+      return "";
+    }
+  }
+  function readRelayList(events2, pubkey, max = 8) {
+    const latest = events2.filter((e) => e.kind === RELAY_LIST_KIND && e.pubkey === pubkey).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+    if (!latest)
+      return null;
+    const write = [];
+    const read4 = [];
+    for (const t of latest.tags) {
+      if (t[0] !== "r")
+        continue;
+      const url = cleanRelayUrl(t[1]);
+      if (!url)
+        continue;
+      if ((t[2] === void 0 || t[2] === "" || t[2] === "write") && !write.includes(url) && write.length < max)
+        write.push(url);
+      if ((t[2] === void 0 || t[2] === "" || t[2] === "read") && !read4.includes(url) && read4.length < max)
+        read4.push(url);
+    }
+    return { write, read: read4 };
+  }
+  function writeRelaysFor(list, fallback) {
+    const own = (list?.write ?? []).slice(0, 6);
+    if (own.length >= 2)
+      return { relays: own, own: own.length };
+    const relays = [...own];
+    for (const url of fallback) {
+      if (relays.length >= 4)
+        break;
+      if (!relays.includes(url))
+        relays.push(url);
+    }
+    return { relays, own: own.length };
+  }
+  async function queryRelays(relays, filter, timeoutMs = 4e3) {
+    const byId = /* @__PURE__ */ new Map();
+    const status = {};
+    await Promise.all([...new Set(relays)].map((url) => new Promise((resolve) => {
+      let ws;
+      const subId = `nswp-${Math.random().toString(36).slice(2, 10)}`;
+      const done = (s) => {
+        if (status[url])
+          return;
+        status[url] = s;
+        clearTimeout(timer);
+        try {
+          if (ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify(["CLOSE", subId]));
+          ws.close();
+        } catch {
+        }
+        resolve();
+      };
+      const timer = setTimeout(() => done("timeout"), timeoutMs);
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        done(`error: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+      ws.onopen = () => ws.send(JSON.stringify(["REQ", subId, filter]));
+      ws.onerror = () => done("error: connection failed");
+      ws.onclose = () => done("closed");
+      ws.onmessage = (msg) => {
+        let data;
+        try {
+          data = JSON.parse(String(msg.data));
+        } catch {
+          return;
+        }
+        if (!Array.isArray(data) || data[1] !== subId)
+          return;
+        if (data[0] === "EVENT" && verifyEvent(data[2]))
+          byId.set(data[2].id, data[2]);
+        else if (data[0] === "EOSE")
+          done("eose");
+        else if (data[0] === "CLOSED")
+          done(`closed: ${String(data[2] ?? "")}`);
+      };
+    })));
+    return { events: [...byId.values()], relays: status };
+  }
+  async function publishEvent(relays, event, timeoutMs = 6e3) {
+    const status = {};
+    await Promise.all([...new Set(relays)].map((url) => new Promise((resolve) => {
+      let ws;
+      const done = (s) => {
+        if (status[url])
+          return;
+        status[url] = s;
+        clearTimeout(timer);
+        try {
+          ws.close();
+        } catch {
+        }
+        resolve();
+      };
+      const timer = setTimeout(() => done("timeout"), timeoutMs);
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        done(`error: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+      ws.onopen = () => ws.send(JSON.stringify(["EVENT", event]));
+      ws.onerror = () => done("error: connection failed");
+      ws.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(String(msg.data));
+          if (Array.isArray(data) && data[0] === "OK" && data[1] === event.id)
+            done(data[2] ? "ok" : `rejected: ${String(data[3] ?? "")}`);
+        } catch {
+        }
+      };
+    })));
+    return { relays: status };
+  }
+
   // packages/core/dist/nip44.js
   var SALT = utf8ToBytes("nip44-v2");
   var decoder3 = new TextDecoder("utf-8", { fatal: true });
@@ -4225,6 +4372,28 @@ var NSWP = (() => {
     return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, about, expiresAt, id: event.id });
   }
 
+  // packages/core/dist/save.js
+  var SAVE_KIND = 37304;
+  var SAVE_LIMITS = {
+    /** The most a save may hold, in bytes of UTF-8. It has to fit in one note that any relay will take. */
+    dataBytes: 32768,
+    /** A world may write no more than this many saves in `perMs`, and in an hour: often enough to keep up with a game, not to flood. */
+    burst: 6,
+    perMs: 6e4,
+    hourly: 60
+  };
+  var SAVE_SLOT = "main";
+  var SLOT = /^[a-z0-9][a-z0-9-]{0,31}$/;
+  function cleanSlot(input) {
+    return typeof input === "string" && SLOT.test(input) ? input : "";
+  }
+  function fitsInSave(data) {
+    return typeof data === "string" && utf8ToBytes(data).length <= SAVE_LIMITS.dataBytes;
+  }
+  function looksLikeSave(event, pubkey) {
+    return !!event && event.kind === SAVE_KIND && !!pubkey && event.pubkey === pubkey && typeof event.content === "string" && isHex64(getTags(event, "d")[0]?.[1]);
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -4249,16 +4418,6 @@ var NSWP = (() => {
     passHourly: 10
   };
   var WORLD_TAG = "nswp:world";
-  function cleanOrigin(input) {
-    if (typeof input !== "string" || input.length > 300)
-      return "";
-    try {
-      const u = new URL(input);
-      return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
-    } catch {
-      return "";
-    }
-  }
   function isWhatWasAsked(asked, signed) {
     if (signed.kind !== asked.kind || signed.content !== asked.content)
       return false;
@@ -4330,6 +4489,10 @@ var NSWP = (() => {
       return { t: "refused", id: d.id };
     if (d.t === "signed" && d.event && typeof d.event === "object")
       return { t: "signed", id: d.id, event: d.event };
+    if (d.t === "found" && isHex64(d.d))
+      return { t: "found", id: d.id, d: d.d };
+    if (d.t === "opened" && cleanSlot(d.slot) && fitsInSave(d.data) && typeof d.at === "number" && Number.isFinite(d.at))
+      return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
     return null;
   }
 
@@ -4795,13 +4958,13 @@ var NSWP = (() => {
   };
   function load() {
     if (prefs) return prefs;
-    let kept = {};
+    let kept2 = {};
     try {
-      kept = JSON.parse(localStorage.getItem(DESK_PREFS_KEY) ?? "{}") ?? {};
+      kept2 = JSON.parse(localStorage.getItem(DESK_PREFS_KEY) ?? "{}") ?? {};
     } catch {
     }
     const came = arrivedSettings();
-    prefs = { look: clampLook(came.look ?? kept.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept.fov) };
+    prefs = { look: clampLook(came.look ?? kept2.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept2.fov) };
     if (came.look !== void 0 || came.fov !== void 0) keep(prefs);
     reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
     return prefs;
@@ -4924,12 +5087,12 @@ var NSWP = (() => {
     if (resumed || typeof document === "undefined") return;
     resumed = true;
     const came = arrivedSettings().full;
-    let kept = false;
+    let kept2 = false;
     try {
-      kept = localStorage.getItem(FULL_KEY) === "1";
+      kept2 = localStorage.getItem(FULL_KEY) === "1";
     } catch {
     }
-    if (came === void 0) prefers = kept;
+    if (came === void 0) prefers = kept2;
     else keepFull(came);
     reportSettings("screen", () => ({ full: prefers }));
     waiting = prefers && document.fullscreenEnabled && !document.fullscreenElement;
@@ -5079,15 +5242,15 @@ var NSWP = (() => {
      */
     identity() {
       try {
-        const kept = JSON.parse(session()?.getItem(PASS_KEY) ?? "null");
-        if (!kept?.pass || typeof kept.sessionKey !== "string") return void 0;
-        const checked = verifyRoomPass(kept.pass, { origin: location.origin });
+        const kept2 = JSON.parse(session()?.getItem(PASS_KEY) ?? "null");
+        if (!kept2?.pass || typeof kept2.sessionKey !== "string") return void 0;
+        const checked = verifyRoomPass(kept2.pass, { origin: location.origin });
         if (!checked.ok) {
           session()?.removeItem(PASS_KEY);
           return void 0;
         }
         const { pubkey, name, picture, about } = checked.value;
-        return { pubkey, name, ...picture ? { picture } : {}, ...about ? { about } : {}, pass: kept.pass, sessionKey: kept.sessionKey };
+        return { pubkey, name, ...picture ? { picture } : {}, ...about ? { about } : {}, pass: kept2.pass, sessionKey: kept2.sessionKey };
       } catch {
         return void 0;
       }
@@ -6076,8 +6239,8 @@ var NSWP = (() => {
         const refusal = songRefusal({ type: file.type, size: file.size, ...file.name ? { name: file.name } : {} }, songs.length);
         if (refusal) return refusal;
         const id = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-        const kept = await fileStore("readwrite", (s) => s.put(file, `song:${id}`));
-        if (kept === void 0) return "This browser couldn't keep that file.";
+        const kept2 = await fileStore("readwrite", (s) => s.put(file, `song:${id}`));
+        if (kept2 === void 0) return "This browser couldn't keep that file.";
         songs = cleanSongs([...songs, { id, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
         keepSongs();
         changed();
@@ -6444,6 +6607,97 @@ var NSWP = (() => {
     };
   }
 
+  // packages/sdk/src/saves.ts
+  function createSaves(opts = {}) {
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const signer = () => (typeof opts.signer === "function" ? opts.signer() : opts.signer) ?? null;
+    const store = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const keyFor = (who2, slot) => `nswp:save:${who2 ?? "guest"}:${slot}`;
+    const readLocal = (who2, slot) => {
+      try {
+        const kept2 = JSON.parse(store?.getItem(keyFor(who2, slot)) ?? "null");
+        return kept2 && typeof kept2.data === "string" && typeof kept2.at === "number" ? { data: kept2.data, at: kept2.at } : null;
+      } catch {
+        return null;
+      }
+    };
+    const writeLocal = (who2, slot, kept2) => {
+      try {
+        if (!store) return false;
+        store.setItem(keyFor(who2, slot), JSON.stringify(kept2));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let relaysKept = null;
+    const relaysFor = (key) => {
+      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found = query(usual(), { kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, 2500).then((got) => writeRelaysFor(readRelayList(got.events, key), usual()).relays).catch(() => usual());
+      relaysKept = { key, at: now(), found };
+      return found;
+    };
+    const fromAccount = async (slot) => {
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      if (!s || !who2) return null;
+      const d = await s.find(slot);
+      if (!d) return null;
+      const got = await query(await relaysFor(who2), { kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, 3500).catch(() => null);
+      const newest = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+      if (!newest) return null;
+      const opened = await s.open(newest);
+      return opened && opened.slot === slot ? { data: opened.data, at: opened.at } : null;
+    };
+    const load3 = async (slotIn) => {
+      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
+      if (!slot) return null;
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      const here = [readLocal(who2, slot), who2 ? readLocal(null, slot) : null].filter((x) => !!x).sort((a, b) => b.at - a.at)[0] ?? null;
+      const there = who2 ? await fromAccount(slot).catch(() => null) : null;
+      const newest = there && (!here || there.at >= here.at) ? { ...there, from: "account" } : here ? { ...here, from: "device" } : null;
+      if (newest?.from === "account") writeLocal(who2, slot, { data: newest.data, at: newest.at });
+      if (who2 && newest?.from === "device" && !taking.has(slot)) {
+        taking.add(slot);
+        void toAccount(newest.data, slot, who2).catch(() => false).then(() => taking.delete(slot));
+      }
+      return newest && newest.data !== "" ? newest : null;
+    };
+    const taking = /* @__PURE__ */ new Set();
+    const toAccount = async (data, slot, who2) => {
+      const s = signer();
+      if (!s || s.state !== "unlocked" || s.pubkey !== who2) return false;
+      const signed = await s.save(slot, data).catch(() => null);
+      if (!signed) return false;
+      writeLocal(who2, slot, { data, at: signed.created_at });
+      const sent = await publish(await relaysFor(who2), signed).catch(() => null);
+      return !!sent && Object.values(sent.relays).some((said) => said === "ok");
+    };
+    const save2 = async (data, slotIn) => {
+      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
+      if (!slot || !fitsInSave(data)) return { kept: "nowhere", said: "That is too much to save, or not a slot's name." };
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      const at = Math.floor(now() / 1e3);
+      const here = writeLocal(who2, slot, { data, at });
+      if (!s || !who2) return here ? { kept: "device", said: "Saved on this device. Sign in to keep it with your account." } : { kept: "nowhere", said: "This browser wouldn't keep it." };
+      if (await toAccount(data, slot, who2).catch(() => false)) return { kept: "account", said: "Saved to your account." };
+      return here ? { kept: "device", said: "Saved on this device. It didn't reach your account this time." } : { kept: "nowhere", said: "That wasn't saved." };
+    };
+    return { load: load3, save: save2, clear: (slot) => save2("", slot) };
+  }
+
   // packages/sdk/src/signer.ts
   var NONE2 = {
     state: "none",
@@ -6462,6 +6716,9 @@ var NSWP = (() => {
     },
     sign: async () => null,
     pass: async () => null,
+    save: async () => null,
+    find: async () => null,
+    open: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -6485,6 +6742,15 @@ var NSWP = (() => {
     const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
     const watchers3 = /* @__PURE__ */ new Set();
     const pending = /* @__PURE__ */ new Map();
+    const kept2 = /* @__PURE__ */ new Map();
+    const askAbout = (request, read4) => new Promise((done) => {
+      const timer = setTimeout(() => {
+        kept2.delete(request.id);
+        done(null);
+      }, 8e3);
+      kept2.set(request.id, { answer: (reply) => done(reply ? read4(reply) : null), timer });
+      tell2(request);
+    });
     let state = "none";
     let pubkey = null;
     let name = null;
@@ -6549,11 +6815,17 @@ var NSWP = (() => {
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
+      const question = kept2.get(reply.id);
+      if (question) {
+        kept2.delete(reply.id);
+        clearTimeout(question.timer);
+        return question.answer(reply.t === "refused" ? null : reply);
+      }
       const waiting3 = pending.get(reply.id);
       if (!waiting3) return;
       pending.delete(reply.id);
       clearTimeout(waiting3.timer);
-      if (reply.t === "refused") return waiting3.done(null);
+      if (reply.t !== "signed") return waiting3.done(null);
       const signed = reply.event;
       if (waiting3.session) {
         const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting3.session });
@@ -6672,6 +6944,18 @@ var NSWP = (() => {
           tell2({ t: "pass", id, session: session2 });
         });
       },
+      save(slot, data) {
+        if (state !== "unlocked" || !frame || !cleanSlot(slot) || !fitsInSave(data)) return Promise.resolve(null);
+        return askAbout({ t: "save", id: `s${++n}`, slot, data }, (reply) => reply.t === "signed" && verifyEvent(reply.event) && looksLikeSave(reply.event, pubkey) ? reply.event : null);
+      },
+      find(slot) {
+        if (state !== "unlocked" || !frame || !cleanSlot(slot)) return Promise.resolve(null);
+        return askAbout({ t: "find", id: `f${++n}`, slot }, (reply) => reply.t === "found" ? reply.d : null);
+      },
+      open(event) {
+        if (state !== "unlocked" || !frame || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
+        return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
+      },
       onChange(fn) {
         watchers3.add(fn);
         return () => void watchers3.delete(fn);
@@ -6700,6 +6984,11 @@ var NSWP = (() => {
           w.done(null);
         }
         pending.clear();
+        for (const k of kept2.values()) {
+          clearTimeout(k.timer);
+          k.answer(null);
+        }
+        kept2.clear();
         state = "none";
       }
     };
@@ -6805,6 +7094,10 @@ var NSWP = (() => {
     if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 6e4);
     return signer;
   }
+  var kept = null;
+  function worldSaves() {
+    return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
+  }
   function signerAction(controls2, opts = {}) {
     const signer = worldSigner();
     let was = signer.state;
@@ -6900,12 +7193,12 @@ var NSWP = (() => {
   function showsPictures() {
     if (shown !== null) return shown;
     const came = arrivedSettings().pictures;
-    let kept = null;
+    let kept2 = null;
     try {
-      kept = localStorage.getItem(PICTURES_KEY);
+      kept2 = localStorage.getItem(PICTURES_KEY);
     } catch {
     }
-    shown = came ?? kept !== "0";
+    shown = came ?? kept2 !== "0";
     if (came !== void 0) keep2(shown);
     reportSettings("pictures", () => ({ pictures: showsPictures() }));
     return shown;
@@ -6995,8 +7288,8 @@ var NSWP = (() => {
     };
     const sort = () => {
       posts.sort((a, b) => b.at - a.at);
-      const kept = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
-      posts = kept;
+      const kept2 = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
+      posts = kept2;
     };
     return {
       attach(next) {
@@ -7954,12 +8247,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function showsChat() {
     if (shown2 !== null) return shown2;
     const came = arrivedSettings().chat;
-    let kept = null;
+    let kept2 = null;
     try {
-      kept = localStorage.getItem(CHAT_KEY);
+      kept2 = localStorage.getItem(CHAT_KEY);
     } catch {
     }
-    shown2 = came ?? kept !== "0";
+    shown2 = came ?? kept2 !== "0";
     if (came !== void 0) keep3(shown2);
     reportSettings("chat", () => ({ chat: showsChat() }));
     return shown2;
@@ -8071,8 +8364,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var PINS_KEY = "nswp:ui:pins";
   function loadPins() {
     try {
-      const kept = globalThis.localStorage?.getItem(PINS_KEY);
-      return kept === null || kept === void 0 ? null : cleanSettings({ pins: JSON.parse(kept) }).pins ?? null;
+      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
+      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
     } catch {
       return null;
     }
@@ -8457,6 +8750,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function who() {
     return JSON.stringify(whoNow());
   }
+  function save(data, slot) {
+    const name = slot || "main";
+    void worldSaves().save(String(data ?? ""), name).catch(() => ({ kept: "nowhere", said: "That wasn't saved." })).then((r) => tell({ type: "saved", slot: name, kept: r.kept, said: r.said }));
+  }
+  function load2(slot) {
+    const name = slot || "main";
+    void worldSaves().load(name).catch(() => null).then((got) => tell(got ? { type: "loaded", slot: name, found: true, data: got.data, at: got.at, from: got.from } : { type: "loaded", slot: name, found: false, data: "", at: 0, from: "" }));
+  }
   function events() {
     if (!queue.length) return "[]";
     const out = JSON.stringify(queue);
@@ -8533,7 +8834,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 8;
+  var VERSION = 9;
   var KIT = KIT_VERSION;
   var read3 = (text) => {
     try {

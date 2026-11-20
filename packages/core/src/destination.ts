@@ -106,3 +106,14 @@ export function normalizeUrl(v: string): string | null {
     return null;
   }
 }
+
+/** A place as it may be named in a tag or shown to someone: an http(s) origin, or "". */
+export function cleanOrigin(input: unknown): string {
+  if (typeof input !== "string" || input.length > 300) return "";
+  try {
+    const u = new URL(input);
+    return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
+  } catch {
+    return "";
+  }
+}

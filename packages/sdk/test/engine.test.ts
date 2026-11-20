@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CATEGORIES, categoryWords } from "@nswp/core";
 import { describe, expect, it } from "vitest";
 import { check, kit } from "../src/engine-menu.js";
 import { LOOK_SPEED, PITCH_LIMIT, SPRINT } from "../src/fps.js";
@@ -20,6 +21,12 @@ describe("what another engine takes from the kit", () => {
     expect(k.topSpeed).toBeCloseTo(WALK_SPEED * SPRINT, 9);
     expect(godot("nswp.gd")).toContain(`"topSpeed": ${k.topSpeed}`);
     expect(k.cues).toEqual([...CUES]);
+  });
+
+  it("has the same words for each kind of place on the Godot doorway's sign", () => {
+    const block = /const CATEGORY_WORDS := \{([\s\S]*?)\n\}/.exec(godot("nswp_gate.gd"))?.[1] ?? "";
+    const written = Object.fromEntries([...block.matchAll(/"(\w+)":\s*"([^"]+)",/g)].map((m) => [m[1]!, m[2]!]));
+    expect(written).toEqual(Object.fromEntries(CATEGORIES.map((c) => [c, categoryWords(c)])));
   });
 
   it("has the same numbers written into the Godot addon, for where there is no browser", () => {
@@ -56,11 +63,25 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(8);
+    expect(engine.VERSION).toBe(9);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");
     expect(JSON.parse(who())).toEqual({ guest: true, name: "", pubkey: "", picture: "", about: "" });
+  });
+  it("keeps and gives back a world's save as events, and says plainly when nothing could be kept", async () => {
+    const { save, load, events } = await import("../src/engine-menu.js");
+    events();
+    save('{"level":2}');
+    load("run-2");
+    await new Promise((done) => setTimeout(done, 20));
+    const said = JSON.parse(events()) as { type: string; slot: string; kept?: string; found?: boolean }[];
+    // No browser here, so nowhere to keep it: the engine is told so, and never left waiting.
+    expect(said.find((e) => e.type === "saved")).toMatchObject({ slot: "main", kept: "nowhere" });
+    expect(said.find((e) => e.type === "loaded")).toMatchObject({ slot: "run-2", found: false });
+    // The Godot addon has both, by the names its docs give.
+    expect(godot("nswp.gd")).toMatch(/func save\(data: String, slot: String = "main"\)/);
+    expect(godot("nswp.gd")).toMatch(/func load_save\(slot: String = "main"\)/);
   });
   it("draws the room as the page, with nothing in it to press and nothing that claims a check", () => {
     const room = src("engine-crossing.ts");

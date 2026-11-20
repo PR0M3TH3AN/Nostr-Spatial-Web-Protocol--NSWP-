@@ -1196,6 +1196,233 @@
       }
     },
     {
+      "name": "a_game",
+      "description": "Says what kind of place it is, from the closed list.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "category",
+            "game"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "1c43f5663089e6133ceb11e8677e8e6892a2d35ed11ae0ac6221ac656d857b2c",
+        "sig": "fa6c272a9268190dbf52209215aab937f105b3c4ddf7cf867e5ee09fa23058d3410a9d0f9912b71115a3159f203eeab52ff4ae453ec6a6e36632feac6c20c06c"
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": true,
+        "errors": [],
+        "warnings": [],
+        "category": "game"
+      }
+    },
+    {
+      "name": "a_category_nobody_knows",
+      "description": "A category that isn't on the list is treated as not stated.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ],
+          [
+            "category",
+            "casino"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions."
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": null,
+        "errors": [],
+        "warnings": [
+          "unknown_category"
+        ],
+        "category": null
+      }
+    },
+    {
       "name": "tampered_content",
       "description": "Content changed after signing: the structure is valid but the signature is not.",
       "event": {

@@ -55,6 +55,7 @@ how everything else refers to the world.
 | `L`, `l` | | Language and other NIP-32 labels |
 | `content-warning` | | NIP-36, with a reason |
 | `audience` | | Who it is for, as its maker says: `kids`, `general` or `adult` |
+| `category` | | What kind of place it is, as its maker says: `game`, `experience`, `social`, `app` or `site`. One. See below |
 | `status` | | `live`, `beta`, `maintenance`, `retired` |
 | `p` | | Co-creators |
 | `a` | | Linked things, such as an access product |
@@ -65,6 +66,29 @@ permissions.
 
 A newer event with the same coordinate replaces the older one. To close a
 world, publish it with `status` `retired`.
+
+### What kind of place it is
+
+`category` is the maker's own word for what kind of place a world is: one
+value from a short closed list, so that a door, a list and the Airlock all
+say it the same way.
+
+| Value | Means | Said as |
+|---|---|---|
+| `game` | There is something to win, beat or finish | A game |
+| `experience` | A place to walk through and look at | An experience |
+| `social` | Made for meeting other people | A place to meet |
+| `app` | A tool that does a job | An app |
+| `site` | Mostly words and pictures to read | A site |
+
+- **One, or none.** A world that fits two picks the one a visitor would
+  expect at the door; topics (`t`) say the rest. A value that isn't on the
+  list is treated as not stated.
+- **It is a claim,** like everything a world says of itself. A list's
+  curator may say otherwise in their own list, and a client may show theirs.
+- **A door says it under the name:** "A game at example.com". A door is told
+  by whoever placed it, from the destination's announcement; it never asks
+  the destination while a visitor stands there.
 
 ### Who it is for
 

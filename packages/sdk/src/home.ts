@@ -13,7 +13,7 @@
  * published item (§10.4) appears as a marker of its place.
  */
 import * as THREE from "three";
-import { checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portalTarget, WORLD_KIND, type Layout, type Placement, type PortalDestination } from "@nswp/core";
+import { categoryWords, checkDestination, checkPictureBytes, encodeNaddr, LAYOUT_LIMITS, portalTarget, WORLD_KIND, type Layout, type Placement, type PortalDestination } from "@nswp/core";
 import { createAlloy, type Alloy } from "./alloy.js";
 import { createEnvironment } from "./environment.js";
 import { MeshBuilder } from "./mesh.js";
@@ -24,6 +24,11 @@ import { createPortalWindow, textSprite } from "./three.js";
 export interface PortalGateOptions {
   /** First line of the sign above the portal. The address is always shown beneath it. */
   label?: string;
+  /**
+   * What kind of place it leads to, as that place's own announcement says: one of the core's `CATEGORIES`. The
+   * sign then reads "A game at example.com". Left out, or anything else, and the sign says only the address.
+   */
+  category?: string | null;
   color?: THREE.ColorRepresentation;
   textColor?: string;
 }
@@ -37,16 +42,24 @@ export interface PortalGate {
   /** 1 while a visitor is aiming at the portal, 0 otherwise. The glow follows it. */
   aimed: number;
   setLabel(label: string): void;
+  /** Say what kind of place it leads to, on the sign: one of the core's `CATEGORIES`. Anything else says nothing. */
+  setCategory(category: string | null | undefined): void;
   /** Show a preview of the destination through the portal (spec §5.8). Returns the window, for a world that needs to hide it while it photographs itself. */
   showThrough(pano: THREE.Texture): THREE.Mesh;
   update(t: number, dt: number): void;
 }
 
-/** Where a destination leads, as a visitor should read it: the registrable domain, never a name alone. */
-function addressLine(dest: PortalDestination): string {
-  if (!dest.url) return "A world on Nostr";
+/**
+ * Where a destination leads, as a visitor should read it: the registrable domain, never a name alone. With what
+ * kind of place it is, when the door was told: "A game at example.com".
+ */
+function addressLine(dest: PortalDestination, category?: string | null): string {
+  const kind = categoryWords(category);
+  if (!dest.url) return kind ? `${kind} on Nostr` : "A world on Nostr";
   const chk = checkDestination(dest.url);
-  return chk.ok ? (chk.value.registrableDomain ?? chk.value.hostname) : "invalid address";
+  if (!chk.ok) return "invalid address";
+  const at = chk.value.registrableDomain ?? chk.value.hostname;
+  return kind ? `${kind} at ${at}` : at;
 }
 
 
@@ -192,17 +205,20 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
   group.add(frame, target, glow.group);
 
   let sign: THREE.Sprite | null = null;
+  let said = opts.label ?? "Portal";
+  let category = opts.category ?? null;
   const setLabel = (label: string) => {
+    said = label;
     if (sign) {
       group.remove(sign);
       sign.material.map?.dispose();
       sign.material.dispose();
     }
-    sign = textSprite(`${label}\n${addressLine(destination)}`, textColor, 2.2);
+    sign = textSprite(`${label}\n${addressLine(destination, category)}`, textColor, 2.2);
     sign.position.set(0, PORTAL_SIGN_HEIGHT, 0);
     group.add(sign);
   };
-  setLabel(opts.label ?? "Portal");
+  setLabel(said);
 
   let aim = 0;
   const gate: PortalGate = {
@@ -211,6 +227,11 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
     destination,
     aimed: 0,
     setLabel,
+    setCategory(next) {
+      if ((next ?? null) === category) return;
+      category = next ?? null;
+      setLabel(said);
+    },
     showThrough(pano) {
       const through = createPortalWindow(plane, pano, { mask: archMaskTexture() });
       through.position.z = 0.004; // just in front of the veil, which stays as the fallback and the target

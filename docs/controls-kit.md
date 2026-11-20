@@ -492,6 +492,34 @@ if (note) await publishEvent(relays, note);                               // sen
 - Your site's security policy must let the client be embedded:
   `frame-src 'self' https:`.
 
+### Keeping their progress
+
+A world with something to remember for a visitor keeps it as a save
+([NSWP-12](../protocol/12-saves.md)):
+
+```ts
+import { worldSaves } from "nswp-sdk/three";
+
+const saves = worldSaves();
+const last = await saves.load();                    // { data, at, from: "account" | "device" } or null
+const r = await saves.save(JSON.stringify(state));  // { kept: "account" | "device" | "nowhere", said }
+```
+
+- **A save is text,** the world's own, 32 KB at most, in a slot (`"main"`
+  unless you name another). `saves.clear(slot)` empties one.
+- **It is kept on the device at once,** whoever they are. For a visitor who
+  is signed in here it is also kept with their account, on their own relays,
+  encrypted so that only they can read it. `load` gives the newer of the two.
+- **A world reaches its own saves and nobody else's.** It never says where
+  one is kept: their signer works that out from the site's address.
+- **Say where it went** when it matters: `r.said` is words for them ("Saved
+  to your account", "Saved on this device. Sign in to keep it with your
+  account").
+- **Load again when they sign in** (`worldSigner().onChange`): they may have
+  a save from another device. The Arcade does this for its best time.
+- A signer has to implement its side. Until the visitor's does, `kept` is
+  `"device"`, and nothing else changes for the world.
+
 ### Who someone is
 
 Choosing someone, from People or by the picture over their head, puts a card
@@ -951,6 +979,13 @@ if (!jump.airborne) sounds.moved(metresWalked);
 ## Signs
 
 A sign is a size in a visitor's view, not in the world.
+
+A door's sign says where it leads, and what kind of place that is when the
+door was told: `createPortalGate(destination, { label: "The Arcade",
+category: "game" })` reads "The Arcade" over "A game at example.com". The
+category is the destination's own word, from its announcement
+([NSWP-01](../protocol/01-worlds.md), "What kind of place it is"): copy it
+when you place the door, as you copy its picture.
 
 - **On a flat screen,** say what is pointed at beside the controls:
   `controls.setTarget("The Tour, at tour.example", ["Five stops that teach

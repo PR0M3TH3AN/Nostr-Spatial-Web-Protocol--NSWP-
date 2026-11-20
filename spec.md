@@ -463,6 +463,7 @@ This shows the unsigned body; signing adds `id`, `pubkey` and `sig`.
 | `t` | | ✓ | Topics |
 | `L` / `l` | | ✓ | Language and other NIP-32 self-labels (`l` always with its `L` namespace) |
 | `content-warning` | | | NIP-36 content warning, with a reason |
+| `category` | | | What kind of place it is: `game`, `experience`, `social`, `app` or `site`; one ([NSWP-01](protocol/01-worlds.md)) |
 | `status` | | | `live`, `beta`, `maintenance`, `retired` |
 | `manifest` | | | Only if the manifest isn't at the well-known path (§7.1); such a manifest can't verify the publisher |
 | `p` | | ✓ | Co-creators |

@@ -4,6 +4,8 @@ import {
   buildWayUrl,
   wayWithoutDestination,
   audienceOf,
+  CATEGORIES,
+  categoryWords,
   arrivalParam,
   buildAirlockUrl,
   buildArrivalUrl,
@@ -442,6 +444,19 @@ describe("who a world is for", () => {
     expect(read({ ...base, audience: "kids" }).audience).toBe("kids");
     expect(read({ ...base, audience: "general" }).audience).toBe("general");
     expect(read(base).audience).toBeUndefined();
+  });
+
+  it("says what kind of place it is, from a closed list", () => {
+    expect(read({ ...base, category: "game" }).category).toBe("game");
+    expect(read(base).category).toBeUndefined();
+    const odd = buildWorldEvent(base);
+    odd.tags.push(["category", "casino"]);
+    const r = parseWorldEvent(odd);
+    expect(r.ok && r.value.category).toBeUndefined();
+    expect(r.warnings.map((w) => w.code)).toContain("unknown_category");
+    expect(categoryWords("game")).toBe("A game");
+    expect(categoryWords("casino")).toBeNull();
+    expect(CATEGORIES.every((c) => categoryWords(c))).toBe(true);
   });
 
   it("gives an adult world the warning other clients already read", () => {

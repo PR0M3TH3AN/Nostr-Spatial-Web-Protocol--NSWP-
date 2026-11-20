@@ -164,9 +164,9 @@ yours to decide, and worth deciding on purpose.
 
 | File | What it is |
 |---|---|
-| `nswp.gd` | The `Nswp` autoload. |
+| `nswp.gd` | The `Nswp` autoload. It also keeps a visitor's progress with their account: `save()`, `load_save()` and the signals `saved` and `loaded` ([NSWP-12](../../../../protocol/12-saves.md)). |
 | `nswp_portal.gd` | `NswpPortal`: a door with nothing drawn. |
-| `nswp_gate.gd` | `NswpGate`: the standard doorway. |
+| `nswp_gate.gd` | `NswpGate`: the standard doorway. Set `category` and its sign says what kind of place it leads to. |
 | `nswp_visitor.gd` | `NswpVisitor`: a visitor who moves the way every world's do. |
 | `gate/frame.obj` | The doorway's frame. Made from the reference kit's modelling code; don't edit it here. |
 | `gate/*.gdshader` | The kit's metal, the field of light in a doorway and its glow, written for Godot. |

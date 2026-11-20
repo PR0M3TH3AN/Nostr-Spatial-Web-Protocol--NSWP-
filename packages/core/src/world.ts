@@ -2,6 +2,7 @@
 import {
   AUDIENCES,
   CAPABILITIES,
+  CATEGORIES,
   COMFORT,
   INPUTS,
   LIMITS,
@@ -13,6 +14,7 @@ import {
   WELL_KNOWN_PATH,
   WORLD_KIND,
   type Audience,
+  type Category,
 } from "./constants.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -58,6 +60,8 @@ export interface WorldInput {
   contentWarning?: string | true;
   /** Who it is for: `kids`, `general` or `adult`. An adult world is given a content warning if it has none. */
   audience?: Audience;
+  /** What kind of place it is: one of `CATEGORIES`. */
+  category?: Category;
   status?: string;
   /** Only when the manifest is not at the well-known path (it then can't verify). */
   manifest?: string;
@@ -89,6 +93,8 @@ export interface World {
   contentWarning?: string;
   /** Who its maker says it is for. Left out when they didn't say, or said something else. */
   audience?: Audience;
+  /** What kind of place its maker says it is. Left out when they didn't say, or said something else. */
+  category?: Category;
   status: string;
   manifest?: string;
   coCreators: string[];
@@ -141,6 +147,7 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
   const warning = w.contentWarning ?? (w.audience === "adult" ? "adult" : undefined);
   if (warning !== undefined) tags.push(warning === true ? ["content-warning"] : ["content-warning", warning]);
   if (w.audience) tags.push(["audience", w.audience]);
+  if (w.category) tags.push(["category", w.category]);
   if (w.status) tags.push(["status", w.status]);
   if (w.manifest) tags.push(["manifest", w.manifest]);
   for (const p of w.coCreators ?? []) tags.push(["p", p, "", "co-creator"]);
@@ -310,6 +317,12 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
     if ((AUDIENCES as readonly string[]).includes(said)) audience = said as Audience;
     else c.warn("unknown_audience", "tags.audience", `Unknown audience "${said}"; treated as not stated.`);
   }
+  let category: Category | undefined;
+  const kindOfPlace = getTags({ tags }, "category")[0]?.[1];
+  if (kindOfPlace !== undefined) {
+    if ((CATEGORIES as readonly string[]).includes(kindOfPlace)) category = kindOfPlace as Category;
+    else c.warn("unknown_category", "tags.category", `Unknown category "${kindOfPlace}"; treated as not stated.`);
+  }
   if (audience === "adult" && contentWarning === undefined) c.warn("adult_without_warning", "tags.audience", "An adult world should also carry a content-warning, which other clients read.");
   if (audience === "kids" && contentWarning !== undefined) c.warn("kids_with_warning", "tags.audience", "A world for kids carries a content warning. One of the two is wrong.");
 
@@ -359,6 +372,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (perf) world.perf = perf;
   if (contentWarning !== undefined) world.contentWarning = contentWarning;
   if (audience) world.audience = audience;
+  if (category) world.category = category;
   if (manifest) world.manifest = manifest;
   if (access) world.access = access;
   return c.result(world);

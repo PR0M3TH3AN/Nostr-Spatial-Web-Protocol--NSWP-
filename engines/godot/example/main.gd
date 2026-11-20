@@ -38,8 +38,8 @@ func _ready() -> void:
 	# Where they asked to arrive, or the main entrance.
 	Nswp.place(_visitor)
 
-	_gate = _add_door("The Gallery", GALLERY, Vector3(-2.2, 0.0, -5.0))
-	_add_door("The Workshop", WORKSHOP, Vector3(2.2, 0.0, -5.0))
+	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))
+	_add_door("The Workshop", WORKSHOP, "experience", Vector3(2.2, 0.0, -5.0))
 	Nswp.refused.connect(func(reason: String) -> void: _say("That door can't be gone through: %s." % reason))
 	_say(_arrival_words())
 	# The sound of arriving is played by the crossing's room as its doors open.
@@ -117,11 +117,12 @@ func _add_entry(entry_name: String, at: Vector3) -> void:
 
 
 ## A door: the standard doorway, told where it leads and what colour this place is.
-func _add_door(label: String, url: String, at: Vector3) -> NswpGate:
+func _add_door(label: String, url: String, category: String, at: Vector3) -> NswpGate:
 	var gate := NswpGate.new()
 	gate.name = label
 	gate.url = url
 	gate.label = label
+	gate.category = category
 	gate.accent = ACCENT
 	gate.ground = GROUND
 	gate.visitor_group = "visitor"

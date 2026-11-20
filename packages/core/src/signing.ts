@@ -14,8 +14,10 @@
  */
 import type { EventTemplate, NostrEvent } from "./event.js";
 import { cleanLine } from "./chat.js";
+import { cleanOrigin } from "./destination.js";
 import { isHex64 } from "./event.js";
 import { cleanAbout, cleanPicture } from "./pass.js";
+import { cleanSlot, fitsInSave } from "./save.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -72,17 +74,6 @@ export function signClass(kind: unknown): SignClass {
 
 /** The tag a signer puts on every note it signs for a world: which world asked. A world can't leave it off. */
 export const WORLD_TAG = "nswp:world";
-
-/** A place as it may be named in a tag or shown to someone: an http(s) origin, or "". */
-export function cleanOrigin(input: unknown): string {
-  if (typeof input !== "string" || input.length > 300) return "";
-  try {
-    const u = new URL(input);
-    return (u.protocol === "https:" || u.protocol === "http:") && u.origin !== "null" ? u.origin : "";
-  } catch {
-    return "";
-  }
-}
 
 /**
  * What a world asked to have signed, as it may be signed for that world: an
@@ -184,7 +175,16 @@ export type SignerRequest =
    * A room pass for this world, for the session key named (protocol/10-identity.md, "A pass from the signer").
    * The world gives the session's public key and nothing else: the signer writes the rest.
    */
-  | { t: "pass"; id: string; session: string };
+  | { t: "pass"; id: string; session: string }
+  /**
+   * Keep this for me (protocol/12-saves.md). The world gives a slot's name and the words to keep, and nothing
+   * else: the signer works out where it is kept from the world's own address, encrypts it, and signs it.
+   */
+  | { t: "save"; id: string; slot: string; data: string }
+  /** Where is my save in this slot kept? So the world can ask a relay for it. */
+  | { t: "find"; id: string; slot: string }
+  /** Open this save, which a relay gave me. Opened only if it is this world's. */
+  | { t: "open"; id: string; event: NostrEvent };
 
 /**
  * From the signer. `ready` is said once, unasked, when it has loaded. `state`
@@ -195,6 +195,10 @@ export type SignerReply =
   | { t: "ready" }
   | { t: "state"; id?: string; unlocked: boolean; pubkey?: string; name?: string; picture?: string; about?: string; until?: number; remembered?: boolean }
   | { t: "signed"; id: string; event: NostrEvent }
+  /** Answers `find`: the `d` of this world's save in that slot. */
+  | { t: "found"; id: string; d: string }
+  /** Answers `open`: what was kept, in which slot, and when. */
+  | { t: "opened"; id: string; slot: string; data: string; at: number }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -214,6 +218,9 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "lock") return { t: "lock", id: d.id };
   if (d.t === "sign" && d.event && typeof d.event === "object") return { t: "sign", id: d.id, event: d.event as { kind: number; content: string; tags: string[][] } };
   if (d.t === "pass" && isHex64(d.session)) return { t: "pass", id: d.id, session: d.session };
+  if (d.t === "save" && cleanSlot(d.slot) && fitsInSave(d.data)) return { t: "save", id: d.id, slot: cleanSlot(d.slot), data: d.data };
+  if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
+  if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
   return null;
 }
 
@@ -241,6 +248,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;
   if (d.t === "refused") return { t: "refused", id: d.id };
   if (d.t === "signed" && d.event && typeof d.event === "object") return { t: "signed", id: d.id, event: d.event as NostrEvent };
+  if (d.t === "found" && isHex64(d.d)) return { t: "found", id: d.id, d: d.d };
+  if (d.t === "opened" && cleanSlot(d.slot) && fitsInSave(d.data) && typeof d.at === "number" && Number.isFinite(d.at)) return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
   return null;
 }
 

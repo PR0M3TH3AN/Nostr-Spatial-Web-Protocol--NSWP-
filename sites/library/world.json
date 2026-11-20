@@ -36,6 +36,7 @@
   ],
   "status": "beta",
   "audience": "general",
+  "category": "site",
   "entryPoints": [
     "main-entrance"
   ],

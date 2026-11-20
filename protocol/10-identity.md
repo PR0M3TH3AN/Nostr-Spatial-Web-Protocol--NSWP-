@@ -410,6 +410,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `sign`, with `event`: `kind`, `content`, `tags` | `signed`, with the whole signed note; or `refused` |
 | `pass`, with `session`: a session public key | `signed`, with a room pass the signer wrote; or `refused` ("A pass from the signer", below) |
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
+| `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
 
 A world asks `state` once the frame has loaded, and again a few times: the
 answer is how it knows a signer is there. A signer never sends anything to

@@ -15,7 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
-import { cleanOrigin, isWhatWasAsked, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent } from "@nswp/core";
+import { cleanOrigin, cleanSlot, fitsInSave, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -72,6 +72,16 @@ export interface WorldSigner {
    * that makes none, or what came back isn't a pass by the key it holds, for this site and that session.
    */
   pass(session: string): Promise<NostrEvent | null>;
+  /**
+   * Ask for something to be kept for this world, in a slot (protocol/12-saves.md). What comes back is a signed
+   * save that only the visitor can read: this page sends it to their relays. Null if it is locked, or it
+   * refused, or it is a signer that keeps nothing, or what came back isn't a save by the key it holds.
+   */
+  save(slot: string, data: string): Promise<NostrEvent | null>;
+  /** Where this world's save in a slot is kept: the `d` to ask a relay for. Null as for `save`. */
+  find(slot: string): Promise<string | null>;
+  /** Have a save opened. Null if it isn't this world's, or isn't theirs, or as for `save`. */
+  open(event: NostrEvent): Promise<{ slot: string; data: string; at: number } | null>;
   /** Be told when its state changes. Returns how to stop. */
   onChange(fn: () => void): () => void;
   /**
@@ -117,6 +127,9 @@ const NONE: WorldSigner = {
   lock() {},
   sign: async () => null,
   pass: async () => null,
+  save: async () => null,
+  find: async () => null,
+  open: async () => null,
   onChange: () => () => {},
   whenAnswered: async () => {},
   dispose() {},
@@ -141,6 +154,17 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
   const watchers = new Set<() => void>();
   const pending = new Map<string, { asked?: { kind: number; content: string; tags: string[][] }; session?: string; done: (e: NostrEvent | null) => void; timer: ReturnType<typeof setTimeout> }>();
+  /** Questions about saves, each with what its answer must be. A signer that keeps nothing says nothing: then there is none. */
+  const kept = new Map<string, { answer: (reply: SignerReply | null) => void; timer: ReturnType<typeof setTimeout> }>();
+  const askAbout = <T>(request: SignerRequest, read: (reply: SignerReply) => T | null): Promise<T | null> =>
+    new Promise((done) => {
+      const timer = setTimeout(() => {
+        kept.delete(request.id);
+        done(null);
+      }, 8000);
+      kept.set(request.id, { answer: (reply) => done(reply ? read(reply) : null), timer });
+      tell(request);
+    });
   let state: SignerState = "none";
   let pubkey: string | null = null;
   let name: string | null = null;
@@ -223,11 +247,18 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       for (const go of [...firstAnswer]) go();
       return changed();
     }
+    const question = kept.get(reply.id);
+    if (question) {
+      kept.delete(reply.id);
+      clearTimeout(question.timer);
+      return question.answer(reply.t === "refused" ? null : reply);
+    }
     const waiting = pending.get(reply.id);
     if (!waiting) return;
     pending.delete(reply.id);
     clearTimeout(waiting.timer);
-    if (reply.t === "refused") return waiting.done(null);
+    // Only a signed note answers these: an answer about a save that nothing here asked for is dropped.
+    if (reply.t !== "signed") return waiting.done(null);
     // What comes back is checked like anything else that arrives: a real signature, by the key it said it holds,
     // on the note that was asked for, marked for this world.
     const signed = reply.event;
@@ -361,6 +392,20 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
         tell({ t: "pass", id, session });
       });
     },
+    save(slot, data) {
+      if (state !== "unlocked" || !frame || !cleanSlot(slot) || !fitsInSave(data)) return Promise.resolve(null);
+      // The world can't read what comes back, and doesn't need to: it checks that it is a save, really signed, by
+      // the key this signer holds.
+      return askAbout({ t: "save", id: `s${++n}`, slot, data }, (reply) => (reply.t === "signed" && verifyEvent(reply.event) && looksLikeSave(reply.event, pubkey) ? reply.event : null));
+    },
+    find(slot) {
+      if (state !== "unlocked" || !frame || !cleanSlot(slot)) return Promise.resolve(null);
+      return askAbout({ t: "find", id: `f${++n}`, slot }, (reply) => (reply.t === "found" ? reply.d : null));
+    },
+    open(event) {
+      if (state !== "unlocked" || !frame || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
+      return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => (reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null));
+    },
     onChange(fn) {
       watchers.add(fn);
       return () => void watchers.delete(fn);
@@ -389,6 +434,11 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
         w.done(null);
       }
       pending.clear();
+      for (const k of kept.values()) {
+        clearTimeout(k.timer);
+        k.answer(null);
+      }
+      kept.clear();
       state = "none";
     },
   };

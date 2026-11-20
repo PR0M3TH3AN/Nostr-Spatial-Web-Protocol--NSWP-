@@ -22,7 +22,7 @@ export const WELL_KNOWN_PATH = "/.well-known/nswp.json";
  * client can tell how old a world's controls are without loading the world
  * (protocol/01-worlds.md, "Which kit a world was built with").
  */
-export const KIT_VERSION = "0.35.0";
+export const KIT_VERSION = "0.36.0";
 
 /** A version as three numbers, or null for anything that isn't one. */
 export function parseKitVersion(v: unknown): [number, number, number] | null {
@@ -63,6 +63,20 @@ export const CAPABILITIES = [
  */
 export const AUDIENCES = ["kids", "general", "adult"] as const;
 export type Audience = (typeof AUDIENCES)[number];
+/**
+ * What kind of place a world is, as its maker says: one word from a short closed list, so that a door, a list and
+ * the Airlock can all say it the same way.
+ *
+ * `game`: there is something to win, beat or finish. `experience`: a place to walk through and look at. `social`:
+ * made for meeting other people. `app`: a tool that does a job. `site`: mostly words and pictures to read.
+ */
+export const CATEGORIES = ["game", "experience", "social", "app", "site"] as const;
+export type Category = (typeof CATEGORIES)[number];
+const CATEGORY_WORDS: Record<Category, string> = { game: "A game", experience: "An experience", social: "A place to meet", app: "An app", site: "A site" };
+/** A category as words for a visitor: "A game". Null for none, or one this doesn't know. */
+export function categoryWords(category: unknown): string | null {
+  return typeof category === "string" && (CATEGORIES as readonly string[]).includes(category) ? CATEGORY_WORDS[category as Category] : null;
+}
 export const COMFORT = {
   locomotion: ["stationary", "teleport", "smooth", "vehicle"],
   intensity: ["low", "medium", "high"],
