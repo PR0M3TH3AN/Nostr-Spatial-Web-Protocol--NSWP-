@@ -11,7 +11,7 @@ client, and a world gets the newest of it the day the client does:
 
 | Always the client's | So a world never has to update for |
 |---|---|
-| Signing in, and being signed in everywhere | A new way to sign in, or a change to sign-in |
+| Signing in, at the sign-in address their client names | A new way to sign in, or a change to sign-in |
 | A visitor's look, and changing it | New parts, a new editor |
 | The Airlock: what is checked and shown at a door | New checks and warnings |
 | Lists, saved doors, blocks | How they are kept or shown |

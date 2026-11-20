@@ -1,6 +1,6 @@
 # NSWP-10: Who someone is
 
-**Status:** Passes, names in rooms, the proven mark, signing in from inside a world and being signed in everywhere are implemented; profile cards beyond a name, hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
+**Status:** Passes, names and pictures in rooms, the proven mark, profile cards, signing in at a world in the signer's window, a pass from the signer and posting from a world are implemented, with signing in from inside a world and being signed in everywhere for a client that names no signer; hosted rooms that check passes, and taking a pass back early are proposed · **Kinds:** 27300 (pass) · **Schema:** [`pass`](../schemas/pass.schema.json) · **Vectors:** [`passes`](../vectors/passes.json) · **Code:** [`pass.ts`](../packages/core/src/pass.ts), SDK [`room.ts`](../packages/sdk/src/room.ts)
 
 A world is someone else's website. It must never hold a visitor's key, and it
 doesn't need to: what it needs is to know, when the visitor wants it known,
@@ -12,8 +12,10 @@ without the key ever leaving the visitor's own client.
 1. **A world never gets a key that matters.** No world asks for one, and no
    client gives one. A world that asks a visitor to sign in is doing
    something this protocol has no use for ([NSWP-09](09-what-a-world-owes.md)).
-   What a world may do is offer the way to the visitor's own client, which
-   asks ("Signing in from inside a world", below).
+   What a world may do is open a window at the visitor's own sign-in
+   address, or offer the way to their own client: either asks, and the
+   world doesn't ("Signing from a world" and "Signing in from inside a
+   world", below).
 2. **Going by name is the visitor's choice, made in their own client and
    kept by it.** A client may take signing in as that choice for every world,
    if it says so plainly where they sign in and lets them go as a guest
@@ -211,14 +213,19 @@ A client says this in plain words before a visitor first goes by name.
 
 ## What a client does at the Airlock
 
-The reference client offers, on each trip to a world that has adopted the
-protocol:
+A client that names no signer may offer, on each trip to a world that has
+adopted the protocol:
 
 | Choice | What goes with the visitor |
 |---|---|
 | By name | A pass and its session key, and their look |
 | As a guest, wearing their look | Their look ([NSWP-05](05-looks.md)) |
 | Plain | Nothing |
+
+The reference client names a signer, and offers the last two: a guest's
+look, or plain. It never offers "by name". It says at the door that to be
+known by name a visitor signs in at the world ("A pass from the signer",
+below). The rest of this section is for a client that offers all three.
 
 - **"By name" is offered only to someone already signed in.** The Airlock
   never asks anyone to sign in: a sign-in prompt in the middle of a crossing
@@ -228,18 +235,18 @@ protocol:
   client's sign-in page, which is a page of its own and says so.
 - **Only for a verified world.** A pass names the visitor's key for good, so
   it goes only to a site that has proved it is the one its announcement says.
-- **The choice is the visitor's and it stands.** In the reference client,
-  someone signed in goes by name until they say otherwise ("Signed in
-  everywhere", below). Someone who isn't signed in is never sent by name.
+- **The choice is the visitor's and it stands.** A client may send someone
+  signed in by name until they say otherwise ("Signed in everywhere",
+  below). Someone who isn't signed in is never sent by name.
 - **A new session key every trip.** Two passes can't be linked by their
   session keys, only by the identity that signed them.
 
 ## Signed in everywhere
 
-A visitor signs in once, in their own client, and is signed in wherever they
-go. No world has a sign-in of its own, so there is nothing to sign in to one
-by one: the client hands each world a pass as they arrive
-("The pass", above), and the next world another.
+A client that names no signer may have a visitor sign in once, in that
+client, and be signed in wherever they go. No world has a sign-in of its
+own, so there is nothing to sign in to one by one: the client hands each
+world a pass as they arrive ("The pass", above), and the next world another.
 
 A client that does this:
 
@@ -259,24 +266,27 @@ A client that does this:
 Where the client names a signer, a pass it hands over counts in a world only
 once the visitor has signed in there ("One sign-in", below), and such a
 client need hand over none: the signer makes it ("A pass from the signer").
-The reference client names one, so what follows describes a client that
-doesn't.
+The reference client names one and hands over none, so this section
+describes a client that doesn't name one.
 
-The reference client does this. Going by name is the default for someone
-signed in; "Go to worlds as myself" is a tick on the sign-in page, on until
-they untick it; and choosing "a guest" at the Airlock unticks it.
+The reference client did this until 0.30.1, and doesn't now. Someone signed
+in to it signs in at each world, once, in their sign-in address's window.
+The tick on its sign-in page, "Go by my name in my own room", is for the
+client's own room and for no world.
 
 ## Signing in from inside a world
 
 A visitor shouldn't have to go home to sign in. And no world may show a
 sign-in. Both hold, because what a world offers is not a sign-in: it is the
-way to the visitor's own client, and back.
+way to the visitor's own client, and back. This is the way for a client
+that names no signer. Where one is named, a visitor signs in without
+leaving the world ("Signing from a world" and "One sign-in", below).
 
 1. **The world has a control that says who the visitor is here,** from what
    it was told on arrival and nothing else: "You are a guest here. Sign in",
    or "Here as Alice. Switch profile, or go as a guest". The reference kit
-   puts it in the console of every world, under "You", and a world may draw
-   it anywhere in an interface of its own
+   puts it in the console, under "You", wherever the visitor's client named
+   no signer, and a world may draw it anywhere in an interface of its own
    ([NSWP-11](11-the-visitors-console.md), "Drawing it yourself"). It says
    where pressing it leads: the host of the visitor's own client.
 2. **Pressing it leaves the world.** The world sends the visitor to their
@@ -323,14 +333,17 @@ back through the door.
 In the reference client, the Airlock sends a `who=1` door to its sign-in
 page, which is drawn as a place: the client's own ground and sky, the
 crossing's room opening as the visitor arrives and closing as they leave,
-and BitLogin on a panel in front of them. In a headset the panel is seen on
+and the page on a panel in front of them. In a headset the panel is seen on
 the headset's flat screen: an immersive session can't show a page, and no
-client can change that. The page offers "Back to *the world*, by name" to someone signed in,
-with what that gives away written under it, and "Go back as a guest" to
-anyone. The Airlock then goes straight through to a place the visitor knows,
-or shows its whole screen if anything about the door needs to be seen. If
-they asked to go by name and can't (the site hasn't proved it is who it
-says), the screen is shown and says so.
+client can change that. Nothing is typed on that page. It has a button that
+opens a window at BitLogin's own address, and the visitor signs in there.
+The page offers "Back to *the world*", and never "by name": the reference
+client sends no pass, and to be known by name a visitor signs in at the
+world ("A pass from the signer", below). The Airlock then goes straight
+through to a place the visitor knows, or shows its whole screen if anything
+about the door needs to be seen. A world built with the reference kit
+doesn't send the reference client's visitors this way: where a signer is
+named, the control is not shown ("One sign-in", below).
 
 ## Signing from a world
 
@@ -358,8 +371,8 @@ An arrival is something anyone can write, so a link can name a signer of
 its own making, as it can an Airlock. What that gains is little, and a
 world keeps it so:
 
-- **A world says whose window will open, before it is pressed:** "Sign in
-  to sign notes, at *that address*". It is the address the client named,
+- **A world says whose window will open, before it is pressed:** "Sign in,
+  at *that address*". It is the address the client named,
   never a development server's copy of it.
 - **A signer the visitor never signed in at can sign nothing as them.** A
   world checks what comes back against the key the signer said it holds,
@@ -438,8 +451,10 @@ why.
 world; the visitor's passkey, without leaving the world; a signer of their
 own (a browser extension, a phone that approves); their password in the
 client's window; and, where no window can open (a headset), the trip by the
-crossing's room, which brings back a pass and not a signer. **Built: the
-window.** The rest are in
+crossing's room, which brings back a pass and not a signer, from a client
+that sends one. **Built: the window.** In a headset the reference kit says
+that none can open there, and to leave the headset view for a moment to
+sign in. The rest are in
 [`docs/plans/signing-in-worlds.md`](../docs/plans/signing-in-worlds.md).
 
 The reference signer is BitLogin's own site. The key moves from the
@@ -454,7 +469,7 @@ it is that one. A world never says "you are here as Alice" to someone who
 hasn't signed in there.
 
 - **A pass counts once the signer is unlocked for that world, as the same
-  person.** The client still hands the pass over on arrival. A reader holds
+  person.** A client may still hand the pass over on arrival. A reader holds
   it, and joins a room by name only while the signer is unlocked there and
   the key it reports is the key that signed the pass. Until then the visitor
   is a guest: to the room, and in everything the world says about them.
@@ -563,6 +578,16 @@ nobody takes one for the other.
 ## In code
 
 ```js
+import { hereAs } from "nswp-sdk/three";
+
+controls.run("signer");   // where their client named a signer: opens its window, or signs them out. They stay in the world
+hereAs();                 // who they are here now, checked, or undefined for a guest
+// The kit's console has the row already, under "You" (addViewControls).
+```
+
+Where their client named no signer:
+
+```js
 import { arrival, portal } from "nswp-sdk";
 
 portal.signIn();   // "who are you here?": leaves for the visitor's own client, and comes back
@@ -584,10 +609,6 @@ above, for a world that draws its own rooms.
 
 ## Proposed, not built
 
-- **A profile card with more than a name.** A picture or a bio means fetching
-  from addresses the other person chose, which would show every member's IP
-  address to those hosts. That belongs in the visitor's own client, reached by
-  a hand-off the way a door is.
 - **Taking a pass back early.** Today it lasts until it expires.
 - **A pass for one room,** naming a room event, once rooms have them; and
   **hosted rooms** that check passes at the door (spec §9.1 to §9.5).

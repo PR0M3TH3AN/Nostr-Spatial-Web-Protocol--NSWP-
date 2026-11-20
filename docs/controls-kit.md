@@ -344,21 +344,25 @@ await addViewControls(controls, { renderer, rig, camera, hud,
 
 ## Who the visitor is, and signing in
 
-`addViewControls` adds a control under "You" that says who the visitor is
-here and offers the way to change it: "You are a guest here. Sign in", or
-"Here as Alice. Switch profile, or go as a guest". A world writes nothing
-for it. Pressed, it leaves for the visitor's own client (`portal.signIn()`),
-which asks them on its own page and brings them back to this world, by name
-if they chose that ([NSWP-10](../protocol/10-identity.md), "Signing in from
-inside a world").
+`addViewControls` adds what says who the visitor is here, under "You".
+Where their client named a signer, as the reference client does, it is the
+signer's row, "Sign in, at bitlogin.network", and they never leave your
+world ("Signing as the visitor", below). Where it named none, it is a
+control that offers the way to change it: "You are a guest here. Sign in",
+or "Here as Alice. Switch profile, or go as a guest". A world writes nothing
+for either. Pressed, the second leaves for the visitor's own client
+(`portal.signIn()`), which asks them on its own page and brings them back to
+this world, by name if they chose that
+([NSWP-10](../protocol/10-identity.md), "Signing in from inside a world").
 
 - Pass `leaving` to `addViewControls` to send their state along, so they
   come back as they left: `leaving: () => ({ ...travelling(), moving })`.
 - To put the button somewhere of your own, press the same one:
-  `controls.run("identity")`. `identityWords()` has its words, and
+  `controls.run("signer")` for the signer's row, `controls.run("identity")`
+  for the other. `identityWords()` has the second's words, and
   `identityHost()` the host it leads to.
-- It is absent when there is no Airlock to go back to, and where the
-  visitor's client named a signer: then signing in is the signer's row
+- The second is absent when there is no Airlock to go back to, and where
+  the visitor's client named a signer: then signing in is the signer's row
   ("Signing as the visitor", below), and there is one sign-in, not two.
 - When they come back, `arrival.identity()` has their name and key, checked.
 
@@ -615,8 +619,8 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
   console yet: there, offer the way home, leaving VR, the room and the
   microphone, and turning and stepping somewhere of your own.
 - **Settings that travel.** A visitor's volumes, the size of their text,
-  whether things move, their hands in a headset and whether their screen was
-  filled go with them from world to world
+  whether things move, their hands in a headset, whether their screen was
+  filled and the tabs they keep on their bar go with them from world to world
   ([NSWP-11](../protocol/11-the-visitors-console.md)). The kit does all of
   it: `arrival.read()` takes them in, each part begins from them, and
   `portal.go()` and `portal.home()` send on what the visitor has now. A
@@ -637,8 +641,8 @@ Three sources, weakest first:
 1. The kit's defaults.
 2. What the world asks for: `createControls({ theme })`. The template passes
    the home's accent, so the console takes the colour of the place.
-3. What the visitor chose, in the Look section every world gets. It is kept in
-   that browser, for that site.
+3. What the visitor chose, in the Display section every world gets. It is
+   kept in that browser, for that site.
 
 The visitor wins, because the controls are theirs to read. Someone whose
 device asks for less motion gets less without choosing it.
@@ -654,8 +658,7 @@ when it takes the new SDK and rebuilds.
 
 | Site | To update |
 |---|---|
-| Reference worlds | `npm run build && npm run deploy:sites` here |
-| BitPortal | `npm run vendor && npm run build && npm run deploy` there |
+| Reference worlds, the Starter Home, BitPortal | All nine together, from here: `npm run release:all -- --go` (below), once BitPortal and the template carry this kit (`npm run vendor` in each) |
 | A world from the template | `npm run vendor && npm run build`, then upload `dist/` |
 
 Loading the kit live from one address into every world would mean one site's
@@ -875,8 +878,9 @@ client owes the people in a room"). Two things in your own boot code keep it
 true:
 
 - **A press on the floor is always a walk on a flat screen:**
-  `stroll.to(...reachOf(...))`, on a phone as at a desk, whether Motion is on
-  or off. Never move a visitor there at once outside a headset. A phone that
+  `stroll.tap(x, z)`, on a phone as at a desk, whether Motion is on or off.
+  (`stroll.to` is for a walk the page starts itself, up to a door, say.)
+  Never move a visitor there at once outside a headset. A phone that
   asks for less motion used to get an instant step of up to six metres for
   every tap, and tapping fast was many times a run.
 - **A step in a headset is paced:**
@@ -910,9 +914,10 @@ if (!jump.airborne) sounds.moved(metresWalked);
 // in your own key walking:  pace = WALK_SPEED * (shiftHeld ? RUN : 1)
 ```
 
-- `createStroll` runs by itself: `stroll.to(x, z)` asked twice within
-  `DOUBLE_TAP` milliseconds is a run, and so is each tap after while they
-  are still running. `stroll.to(x, z, true)` runs at once.
+- `createStroll` runs by itself: `stroll.tap(x, z)` twice within
+  `DOUBLE_TAP` milliseconds is a run, and each tap after, while they are
+  still running, adds to the path at a run. `stroll.to(x, z, true)`, for a
+  walk the page starts itself, runs at once.
 - A jump changes nothing about where a visitor may stand. They come down
   where the floor is.
 - Space stands down while the menu is open, while the visitor is typing, and

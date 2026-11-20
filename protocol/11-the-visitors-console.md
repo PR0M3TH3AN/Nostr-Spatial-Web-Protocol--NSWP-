@@ -132,16 +132,20 @@ button, not a copy of it:
 - **It never looks like an Airlock or a sign-in.** Those are the visitor's
   client's own pages and no world draws them
   ([NSWP-09](09-what-a-world-owes.md)). A world may draw the button that
-  *leads* to the sign-in, wherever it likes: `identity`, below. Pressed, it
-  leaves for the visitor's own client and comes back
-  ([NSWP-10](10-identity.md), "Signing in from inside a world").
+  *leads* to the sign-in, wherever it likes: `signer`, below, where the
+  visitor's client named a signer, and `identity` where it named none.
+  Pressed, `signer` opens a window at their sign-in address, and they stay
+  in the world; `identity` leaves for the visitor's own client and comes
+  back ([NSWP-10](10-identity.md), "One sign-in" and "Signing in from
+  inside a world").
 
 The things a visitor has, by the names a world presses them by:
 
 | Name | What it does |
 |---|---|
 | `home` | Takes them home (or to their doors, in a world that is their home) |
-| `identity` | Says who they are here, and leaves for their own client to sign in, switch profile or go on as a guest. Then brings them back |
+| `signer` | Where their client named a signer: signs them in here, in a window at their sign-in address, and signs them out again. They never leave the world ([NSWP-10](10-identity.md), "One sign-in") |
+| `identity` | Says who they are here, and leaves for their own client to sign in, switch profile or go on as a guest. Then brings them back. Absent where their client named a signer |
 | `figure` | Leaves for their own client to change how they look, and brings them back wearing it ([NSWP-05](05-looks.md), "Changing a look") |
 | `vr` | Into a headset session, or out of one |
 | `fullscreen` | Whether they prefer a filled screen, in every world; fills it, or gives it back |
@@ -154,6 +158,7 @@ The things a visitor has, by the names a world presses them by:
 | `room-join`, `room-mic` | Joining the room here, and their microphone |
 | `room-chat` | What the people in the room have written, and a place to write ([NSWP-06](06-rooms.md), "Words") |
 | `room-chat-show` | Whether they see what people write at all |
+| `feed` | Their own public posts, and a place to send one out, where they have a signer ([NSWP-10](10-identity.md), "Posting from a world") |
 | `people-pictures` | Whether they see other people's pictures |
 | `look-size`, `look-motion` | The size of their text, and whether things move |
 

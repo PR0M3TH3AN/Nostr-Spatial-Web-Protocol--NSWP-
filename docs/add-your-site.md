@@ -213,14 +213,20 @@ The SDK's room code does all of this for you:
 
 ### Who your visitors are
 
-Most are guests, and that is fine. A visitor who chose to go by name arrives
-with a **pass**: their own client's signed word that a throwaway key speaks
-for them on your site for a few hours
-([NSWP-10](../protocol/10-identity.md)). You never see their real key, and you
-must never ask for it.
+Most are guests, and that is fine. A visitor is known by name once your
+site holds a **pass** for them: their own key's signed word that a throwaway
+key speaks for them on your site for a few hours
+([NSWP-10](../protocol/10-identity.md)). From BitPortal nobody arrives with
+one. A visitor signs in at your site, in a window at their own sign-in
+address, and their signer makes the pass: the kit's menu has the row for it,
+under "You" ([controls-kit.md](controls-kit.md), "Signing as the visitor").
+A client that names no signer may send the pass with the visitor on arrival.
+You never see their real key, and you must never ask for it.
 
 ```js
-const who = arrival.identity();   // { pubkey, name } once checked, or undefined for a guest
+import { hereAs } from "nswp-sdk/three";
+
+const who = hereAs();   // { pubkey, name } once checked, or undefined for a guest
 if (who) greet(who.name || "friend");
 ```
 

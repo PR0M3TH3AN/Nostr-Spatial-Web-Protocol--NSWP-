@@ -4,7 +4,7 @@ An open protocol for linking independently hosted 3D and VR worlds through
 Nostr. A world is a website, a door is a link, and who runs what is said with
 signed events, so there is no index to be listed in and no platform to ask.
 
-**Building something? Start at [`protocol/`](protocol/README.md):** ten short
+**Building something? Start at [`protocol/`](protocol/README.md):** eleven short
 documents, one per part of the protocol, each saying what is built and what is
 only proposed.
 
@@ -21,7 +21,7 @@ only proposed.
 [BitBlocks](https://bitblocks.network/) stack. The protocol does not depend on
 either.
 
-Status: spec v0.15.0, an exploratory draft. Worlds, doors, the Airlock,
+Status: spec v0.34.0, an exploratory draft. Worlds, doors, the Airlock,
 previews, looks, lists, a first version of rooms, going by name in a room,
 hands in a headset, and home layouts are built and live. Published items, hosted rooms, and finding worlds
 through the people you follow are design only. Nothing here is an adopted NIP or standard, and every
@@ -61,14 +61,17 @@ you can talk.
    or open it in a second window to see yourself.
 3. Press **Turn microphone on** to talk. Do this before **Enter VR**.
 
-This is the Phase 4b spike: guests only, no accounts, no moderation, and no
-fallback for networks that block direct connections (spec §9, §20).
+This is the Phase 4b spike. A visitor is a guest, or known by name once they
+sign in at a world, in a window at their own sign-in address. A world has no
+accounts of its own. There is no moderation beyond each visitor's own mutes
+and blocks, and no fallback for networks that block direct connections
+(spec §9, §20).
 
 ## What's here
 
 | Path | What it is | License |
 |---|---|---|
-| `protocol/` | The protocol, as ten short documents an implementer reads | CC0 1.0 |
+| `protocol/` | The protocol, as eleven short documents an implementer reads | CC0 1.0 |
 | `spec.md` | The full design: reasoning, the reference app, the roadmap, open questions | CC0 1.0 |
 | `browser/spec.md` | A plan, built in stages: [a browser of the visitor's own](browser/spec.md), for what a website isn't allowed to do. Crossings with no flat pages, an Airlock inside the headset, web pages and programs on panels | CC0 1.0 |
 | `browser/bridge.md`, `packages/bridge` | [The Bridge](browser/bridge.md): a small program on your own computer that answers your key, so you can open a terminal on it from a panel in your home. What it trusts is the first thing in that document | CC0 1.0, MIT |
@@ -160,24 +163,34 @@ each with your own.
 ### Trying the sites on your own machine
 
 ```bash
-npm run build && node scripts/serve-local.mjs
+npm run build && node scripts/serve-local.mjs --lan --https
 ```
 
-Each built site is served on a port of its own (BitPortal and the world
+Each built site is served at one `https` address: this machine's address on
+the network, on a port of its own from 4300 up (BitPortal and the world
 template too, from their repositories beside this one, if they are built).
-Add `--lan` to reach them from another device on the same network. Links
-between the sites lead to the copies served there, and to the real addresses
-once deployed, with nothing to switch:
+It is the same address from this machine and from a phone or a headset on
+the same network. Links between the sites lead to the copies served there,
+and to the real addresses once deployed, with nothing to switch:
 [docs/local-server.md](docs/local-server.md).
 
 ### Deploying the sites
 
-The sites deploy to Vercel projects listed in
-`sites/vercel-projects.json` (IDs, not secrets):
+The nine public sites (the seven worlds, the Starter Home and BitPortal) are
+deployed together, from this repo, so that none is left on an older kit. The
+worlds deploy to Vercel projects listed in `sites/vercel-projects.json` (IDs,
+not secrets):
 
 ```bash
-npm run build && npm run deploy:sites
+npm run release:all            # a look: what would be deployed. Changes nothing
 ```
+
+```bash
+npm run release:all -- --go    # deploys all nine
+```
+
+It needs this repo, BitPortal and the world template side by side, each on
+main and clean. `npm run kits` shows which kit each public site is on.
 
 The worlds' publisher key lives outside the repo, at
 `~/.config/nswp/reference-publisher.key`. Signed announcements are in

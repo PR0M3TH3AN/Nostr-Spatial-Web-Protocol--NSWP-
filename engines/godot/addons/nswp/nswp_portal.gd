@@ -42,9 +42,9 @@ func enter() -> void:
 		return
 	_gone = true
 	leaving.emit(self)
-	# The sound of a crossing: the world's own, or the kit's.
-	Nswp.play("cross")
-	if not Nswp.go(url, naddr, entry_point):
+	# The crossing's room comes up round the visitor, naming this door, and its sound is played: the kit's script
+	# does both, the same for every engine.
+	if not Nswp.go(url, naddr, entry_point, label):
 		_gone = false
 
 

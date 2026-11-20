@@ -28,11 +28,11 @@ import { DOOR_REACH, PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WI
 import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
-import { DOUBLE_TAP, DRAG_LOOK, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
+import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
-import { identityHost, identitySection, identityWords } from "./ui/identity.js";
+import { hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -51,6 +51,11 @@ const queue: Record<string, unknown>[] = [];
 const tell = (event: Record<string, unknown>): void => {
   if (queue.length < 64) queue.push(event);
 };
+/** For the rest of the engine's script to tell the engine something the same way. */
+export const tellEngine = tell;
+/** Told once, when the world asks for its menu: its name and colour, and whether it will open the crossing's doors itself. */
+const menuWatchers = new Set<(look: { title: string; accent?: string; hold: boolean }) => void>();
+export const onMenu = (fn: (look: { title: string; accent?: string; hold: boolean }) => void): void => void menuWatchers.add(fn);
 
 let controls: Controls | null = null;
 let hud: Hud | null = null;
@@ -80,6 +85,8 @@ export function kit(): string {
     fov: visitorFov() ?? 0,
     pitchLimit: PITCH_LIMIT,
     doubleTap: DOUBLE_TAP,
+    pathMost: PATH_MOST,
+    faceRate: FACE_RATE,
     jumpHeight: JUMP_HEIGHT,
     jumpGravity: JUMP_GRAVITY,
     gateWidth: PORTAL_WIDTH,
@@ -124,6 +131,7 @@ export function menu(options?: string): string {
   const title = words(o.title, 80) || "A world";
   const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : undefined;
   const c = (controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) }));
+  for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
   const h = (hud = mountHud(c));
   const s = (sounds = createSounds({
     seed: title,
@@ -151,8 +159,14 @@ export function menu(options?: string): string {
     c.addSection(identitySection());
     c.add(
       { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
-      { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, act: () => tell({ type: "identity" }) },
+      // Where their client named a signer there is one sign-in, and it is that one, below: this row would be a second.
+      { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, hidden: () => signerNamed(), act: () => tell({ type: "identity" }) },
+      // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
+      // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
+      signerAction(c, { presenting: () => vr.presenting }),
     );
+    // Who they are here has changed: the engine is told, so it can write a name over them or take it away.
+    onHereAs(() => tell({ type: "who", ...whoNow() }));
   }
 
   // How they move at a desk. The same control, the same words and the same memory as in a Three.js world (fps.ts).
@@ -243,6 +257,21 @@ export function menu(options?: string): string {
     if (performance.now() - closedAt > 80) h.setOpen(true);
   });
   return JSON.stringify({ moving, mouse: hasMouse() });
+}
+
+/** Who the visitor is here, as plain fields: a guest, or someone signed in with a name, a key, a picture and a line about them. */
+const whoNow = (): { guest: boolean; name: string; pubkey: string; picture: string; about: string } => {
+  const me = hereAs();
+  return { guest: !me, name: me?.name ?? "", pubkey: me?.pubkey ?? "", picture: me?.picture ?? "", about: me?.about ?? "" };
+};
+
+/**
+ * Who the visitor is here, now, as JSON: `guest` true, or `name`, `pubkey`, `picture` (an address, to be fetched the
+ * way the kit fetches one or not at all) and `about`. It changes when they sign in or out in the menu: a `who`
+ * event says so, with the same fields. A name is theirs only while they are signed in here.
+ */
+export function who(): string {
+  return JSON.stringify(whoNow());
 }
 
 /** What happened since the engine last asked, as a JSON list, oldest first. Ask every frame. */

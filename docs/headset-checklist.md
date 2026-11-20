@@ -20,8 +20,9 @@ Open each address in the headset's own browser. No account is needed.
 | 1.3 | Point at a door | Light its frame and show a panel with its address and a line about it |
 | 1.4 | Point at the floor a few metres ahead | Show a ring on the floor where you are pointing |
 | 1.5 | Pull the trigger (or pinch) on the floor | Put you there at once, with no sliding |
-| 1.6 | Point at a door's **Save** button and select it | Save that door, and say so in front of you. The other doors stay where they were |
-| 1.7 | Try 1.6 from the middle of the room | Work without hitting the door by mistake. **How many tries did it take?** |
+| 1.6 | Stand at a door, or point at it, and look at its jamb | Show a small **Save** tag there, at the height of a hand, on that door and no other |
+| 1.6a | Select the tag | Save that door, and say so in front of you. The other doors stay where they were |
+| 1.7 | Go to the middle of the room and point at no door | Show no tag on any door. Then point at a door and select its tag from there. **How many tries did it take?** |
 | 1.8 | Look down and a little ahead for a small arched **Menu** button | Be there, low, out of the way of the doors |
 | 1.9 | Select **Menu** | Open the console in front of you: sections down the left, buttons beside them |
 | 1.9a | Close it, then raise your left wrist in front of your face | Bring the same console up above your wrist. **Did it also appear when you didn't mean it to, while pointing at doors?** |
@@ -51,7 +52,7 @@ Open each address in the headset's own browser. No account is needed.
 | 3.3 | Step close to a doorway and read its sign | Show the world's name and, under it, its address |
 | 3.4 | Walk or step through a doorway | Leave for the Airlock |
 | 3.5 | Open the console | Offer Join the room under Room, and Turn around and Leave VR under View |
-| 3.6 | Open **Look** and choose another colour | Change the console's colour at once, and keep it next time you visit this world |
+| 3.6 | Open **Display** and choose another colour | Change the console's colour at once, and keep it next time you visit this world |
 
 ## 4. The shared room (needs a second person or device)
 

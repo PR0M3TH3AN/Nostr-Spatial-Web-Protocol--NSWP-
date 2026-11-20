@@ -44,3 +44,57 @@ describe("what another engine takes from the kit", () => {
     expect(JSON.parse(check(undefined as unknown as string))).toMatchObject({ ok: false });
   });
 });
+
+describe("crossing into a world made in another engine", () => {
+  const src = (file: string) => readFileSync(join(root, "packages", "sdk", "src", file), "utf8");
+  it("has no room where there is no page, and says so plainly", async () => {
+    const engine = await import("../src/engine.js");
+    expect(engine.crossing()).toBe("none");
+    // Nothing to open, fill or fail: none of these throws for want of a page.
+    expect(() => {
+      engine.loading(0.5);
+      engine.ready();
+      engine.failed("no");
+    }).not.toThrow();
+    expect(engine.VERSION).toBe(8);
+  });
+  it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
+    const { who } = await import("../src/engine-menu.js");
+    expect(JSON.parse(who())).toEqual({ guest: true, name: "", pubkey: "", picture: "", about: "" });
+  });
+  it("draws the room as the page, with nothing in it to press and nothing that claims a check", () => {
+    const room = src("engine-crossing.ts");
+    // Words are set as text, never as markup.
+    expect(room).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
+    // No control of any kind, and no word that would stand in for the Airlock's check.
+    expect(room).not.toMatch(/createElement\("(button|a|input|form)"\)|el\("(button|a|input|form)"/);
+    expect(room.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/[`"'][^`"']*\bverified\b[^`"']*[`"']/i);
+  });
+  it("brings the room up before a visitor leaves by any way out, and names a sign-in address's row over the old one", () => {
+    const engine = src("engine.ts");
+    for (const way of ["portal.go(dest, st)", "portal.home(st)", "portal.doors(st)"]) expect(engine).toContain(`leaveThen(`), expect(engine).toContain(way);
+    const menu = src("engine-menu.ts");
+    expect(menu).toContain("signerAction(c,");
+    expect(menu).toContain("hidden: () => signerNamed()");
+  });
+  it("gives Godot a page with no loading screen of the engine's, and nothing run from the page itself", () => {
+    const shell = godot("web/shell.html");
+    expect(shell).not.toMatch(/status-splash|status-progress|\$GODOT_SPLASH/);
+    // Every script on it is a file, or data: no script is written into the page.
+    const scripts = [...shell.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+    expect(scripts.length).toBe(4);
+    for (const [, attrs, body] of scripts) expect(/\bsrc=/.test(attrs!) || /type="application\/json"/.test(attrs!), `${attrs} ${body!.slice(0, 40)}`).toBe(true);
+    // The world's own tags come before the kit's script, so the room wears its name and colour from the start.
+    expect(shell.indexOf("$GODOT_HEAD_INCLUDE")).toBeLessThan(shell.indexOf('src="nswp-engine.js"'));
+    expect(godot("web/nswp-godot.js")).toContain("room.loading(");
+    expect(readFileSync(join(root, "engines", "godot", "export_presets.cfg"), "utf8")).toContain('html/custom_html_shell="res://addons/nswp/web/shell.html"');
+  });
+  it("has the Godot visitor walk a pressed-out path at the kit's numbers", () => {
+    const k = JSON.parse(kit());
+    expect(k.pathMost).toBe(12);
+    expect(k.faceRate).toBeCloseTo(2.8, 9);
+    const visitor = godot("nswp_visitor.gd");
+    expect(visitor).toContain("_path.append(next)");
+    expect(visitor).toContain('Nswp.kit.get("faceRate"');
+  });
+});
