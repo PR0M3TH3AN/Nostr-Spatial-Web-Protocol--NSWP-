@@ -42,6 +42,10 @@ describe("an item's description", () => {
       fits: ["place", "hand-left", "hand-right"],
       use: "anyone",
       script: lantern.script,
+      sounds: {},
+      sends: [],
+      effects: [],
+      does: {},
       license: "CC-BY-4.0",
       at: T,
     });

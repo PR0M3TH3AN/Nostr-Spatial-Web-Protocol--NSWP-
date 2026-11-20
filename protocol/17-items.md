@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in part. Implemented in the reference library and kit: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item in a hand, and the visitor's switch for all items. The Grove draws what its visitors hold, and keeps five starter items ([`sites/items`](../sites/items)). The rest is the agreed design, not yet built: an item's own logic, people as part of a world's game, muting one person's items, granted items, and a world giving an item · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit for worlds drawn with Three.js: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); a dart blaster is drafted there and not yet signed. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a world drawn by another engine · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -63,6 +63,11 @@ What a thing is, is said once by its maker, in an addressable note
     ["behavior", "holdable"],
     ["fits", "place", "hand-left", "hand-right"],
     ["script", "https://items.example/<sha256>.js", "<sha256>"],
+    ["sound", "fire", "https://items.example/<sha256>.ogg", "<sha256>"],
+    ["sends", "dart", "https://items.example/<sha256>.glb", "glb", "<sha256>", "0.02 0.02 0.09", "lands=impact", "strikes=hit"],
+    ["effect", "dart", "health", "-1"],
+    ["does", "use", "Fire"],
+    ["does", "second", "Reload"],
     ["license", "CC-BY-4.0"],
     ["alt", "Item: Brass lantern"]
   ],
@@ -90,6 +95,18 @@ What a thing is, is said once by its maker, in an addressable note
   maker has granted it to.
 - **`script`** is what it does of its own, where it does anything. See
   below.
+- **`sound`** is one of its own sounds, by a short plain name: twelve at
+  most, each a small file (150 KB) no longer than four seconds.
+- **`sends`** is a thing it may send out: a dart, a ball. It has a name, a
+  model of its own, and its box. After those it may say which of the item's
+  sounds go with what happens to it: `lands` (it stuck to something),
+  `drops` (it let go and fell), `strikes` (it reached a person), and `tells`
+  (heard only by whoever sent it, when it reached a person). Four at most.
+- **`effect`** is what one of those things asks of a person it reaches. It
+  is words, never code: take 1 to 5 from their `health`. A reader ignores
+  an effect on anything else.
+- **`does`** is what its two presses are called, for the buttons a visitor
+  is shown: `use` and `second`, sixteen letters at most each.
 
 **One site can hold any number of items.** An item is a note and some
 files, and the files can be anywhere that serves them over `https`. A
@@ -139,6 +156,88 @@ One form serves every engine: the script is JavaScript, run in the
 browser's own locked box, and the kit passes what it asks for to whichever
 engine is drawing the world.
 
+### The box
+
+The box is a page of its own (`ITEM_BOX_HTML` in the core), which a world
+that runs items' logic serves as `item-box.html`.
+
+- **It may reach nothing.** It is served with exactly these content rules,
+  and with none of the world's own: `default-src 'none'; script-src
+  'unsafe-inline' blob:; worker-src blob:; frame-ancestors 'self'`. No
+  address may be fetched, and nothing may be worked out from text as code.
+- **It is nobody.** The world frames it with `sandbox="allow-scripts"`: an
+  origin of its own that is no site's, with no storage and no way to the
+  page that holds it.
+- **The script runs in a worker inside it,** given one object, `item`. The
+  names it might reach anything else by are empty for it.
+- **A script that stops answering is ended,** after a second and a half.
+  It can hang nothing but itself.
+- Where the page isn't served, or is served under other rules, no script
+  runs there, and an item is a shape.
+
+### What a script is given
+
+```js
+item.on("held", fn)      // taken in hand
+item.on("away", fn)      // put away
+item.on("use", fn)       // its first press
+item.on("second", fn)    // its second press
+item.on("tick", fn)      // ten times a second, with the milliseconds since it began
+item.play("fire")        // one of its own sounds, by name
+item.clip("reload")      // one of the animations in its own model, by name
+item.send("dart", { speed: 14, stick: 3 })   // one of the things it described
+item.show("4 / 5")       // its own few words: a counter, shown on it
+item.after(1400, fn)     // later, by the kit's clock
+```
+
+That is all of it. Each ask has a ceiling (`ITEM_ASKS`): six sounds, four
+animations, six things sent out and eight changes of its words a second,
+after a small burst. What it shows is 24 plain characters at most, so it
+can't pass for anything of the kit's. It is told nothing of the visitor,
+the world, or anyone in it: not even whether what it sent out reached
+anything.
+
+### Two switches, as built
+
+- **The world's:** `itemScripts` on its presence. Left out, items are
+  shapes there.
+- **The visitor's:** the first time they take in hand an item that has a
+  script, they are told so, and who made it; a second press lets it. It is
+  remembered by the script's hash, so a changed script is asked about
+  again.
+
+## Things sent out
+
+A script decides *when* something is sent out. Everything after that is
+the kit's, the same on every device.
+
+- **It flies on an arc.** Straight on from where it left, and falling at
+  9.8 m/s². So it only goes so far, and has to be aimed higher to go
+  further (`shotAt`). 40 m/s is the fastest anything may leave.
+- **It leaves from the carrier,** toward the middle of what they see; in a
+  headset, from the hand that holds the item, the way it points.
+- **It sticks to whatever solid shape it meets.** Any mesh of the world: a
+  wall, a bench, the floor. **Nothing of a world has to be an item** for
+  items to meet it. A sky drawn from the inside and a glow are passed
+  through, and a world may say what else isn't solid (`solid`).
+- **It lets go after its time** (ten seconds at most), drops to the floor,
+  and is gone.
+- **A world may be told what was struck** (`onStruck`), and decide what
+  that means by its own rule: a target that counts, a bell that rings.
+
+What is said in a room, on the connection poses use, each once:
+
+| | |
+|---|---|
+| `shot:<n>,<name>,<x>,<y>,<z>,<vx>,<vy>,<vz>,<stick>` | A thing sent out: its number, which of the item's things, where from, how fast in metres a second, and how long it sticks |
+| `hit:<sender>,<n>,<dx>,<dy>,<dz>` | "That thing reached me", said by the person it reached, with where on them, from their feet |
+| `did:sound,<name>` or `did:clip,<name>` | The item in their hand made one of its sounds, or played one of its animations |
+| `st:health,<value>,<full>` | How they are |
+
+A reader takes a thing sent out only from someone who holds an item that
+says it sends that thing, only if it starts where they stand, and no more
+than six a second from one person.
+
 ## People as part of the game
 
 For an item to matter, a world has to be able to treat a visitor as it
@@ -155,6 +254,19 @@ picture of a person:
 there is no referee. **The person something was done to decides what it
 did to them, by the world's own rules running on their own device**, and
 tells the room. Nobody's code runs on anyone else's device for it.
+
+As built: a person is a standing capsule, from their feet to the top of
+their head. A thing that crosses it has reached them, **if their own
+device says so**: it says `hit`, and only then is whoever sent it shown the
+mark that says so. To everyone else the thing looks stuck to them at once,
+and drops off if they never say it reached them. Nobody can say they were
+reached by a thing that never flew, or say so twice.
+
+**Where a world has no rule of its own,** a person has `health`: five, of
+which a thing takes what its `effect` says. It comes back by itself after
+six seconds with nothing reaching them, and three seconds after there was
+none left. Nothing else happens to them: nobody is moved, sent away or
+stopped. A bar shows it, to them and over their head to the others.
 
 That is honest in the way a claimed score is honest ([NSWP-15](15-scores.md)):
 someone who alters their own page could shrug off a hit. It is enough for
@@ -179,6 +291,13 @@ that is what the door said. A visitor can still leave.
 - A ceiling on how loud and how bright anything an item does may be, set by
   the visitor, holds.
 - Blocking a person removes them and everything of theirs.
+
+As built: muting one person's items is on their card in a place that
+allows items, and isn't offered where items are the game. An item's sounds
+are played at the visitor's own volume for effects, each levelled as it is
+read so that none is louder than the kit's own, heard from where it
+happened, quieter and duller the further off, and not at all beyond 45
+metres. A ceiling of the visitor's own for items alone is not built.
 
 ## A visitor's bag
 
@@ -262,7 +381,9 @@ world too.
    on a door.
 2. **Done:** a visitor's bag, and holding one thing in a hand, drawn in
    worlds that allow it; the switch for all items.
-3. A person's body and state, and things done to them, with the affected
-   person deciding.
-4. Muting, and the ceilings.
-5. An item's own logic, in its locked box.
+3. **Done:** a person's body and state, and things done to them, with the
+   affected person deciding.
+4. **Done in part:** muting one person's items. The visitor's own ceilings
+   for items are not built.
+5. **Done:** an item's own logic, in its locked box; the things it sends
+   out.

@@ -17,7 +17,7 @@
  * Fetching a model tells the place that keeps it the visitor's address, as fetching a picture does. A visitor
  * who would rather not has one switch for all items (`showsItems`).
  */
-import { DEFAULT_RELAYS, ITEM_KIND, itemCoordinate, parseItem, queryRelays, verifyEvent, type Item } from "@nswp/core";
+import { DEFAULT_RELAYS, ITEM_KIND, itemCoordinate, parseItem, queryRelays, SCRIPT_LIMITS, verifyEvent, type Item } from "@nswp/core";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import * as THREE from "three";
@@ -34,6 +34,8 @@ export const ITEM_BUDGET = {
   materials: 16,
   /** The longest side of any picture a model's surfaces may use, in pixels. */
   texture: 1024,
+  /** The most one of an item's sounds may weigh, in bytes. */
+  sound: 150_000,
 } as const;
 
 const ITEMS_KEY = "nswp:items";
@@ -107,6 +109,14 @@ export interface Items {
   model(item: Item): Promise<THREE.Object3D>;
   /** A plain marker of an item's size. */
   marker(item: Pick<Item, "size">): THREE.Object3D;
+  /** The animations an item's own model brings, by name. Empty until its model has been made, and for a marker. */
+  clips(item: Item): THREE.AnimationClip[];
+  /** Something to draw for one of the things an item sends out: checked and counted like its model, or a marker. */
+  sent(item: Item, name: string): Promise<THREE.Object3D>;
+  /** One of an item's own sounds, as its bytes: fetched and checked against its hash. Null if there is none, or it failed. */
+  sound(item: Item, name: string): Promise<Uint8Array | null>;
+  /** An item's script, as its text: fetched and checked against its hash. Null if it has none, or it failed. */
+  script(item: Item): Promise<string | null>;
 }
 
 /** Fetch a file's bytes, giving up on one that says it is too large, or turns out to be. */
@@ -169,6 +179,19 @@ export function createItems(opts: ItemsOptions = {}): Items {
   const described = new Map<string, Promise<Item | null>>();
   const settled = new Map<string, Item | null>();
   const models = new Map<string, Promise<THREE.Object3D | null>>();
+  const clipsOf = new Map<string, THREE.AnimationClip[]>();
+  const files = new Map<string, Promise<Uint8Array | null>>();
+  /** A small file of an item's, once: fetched, and taken only if it is what its description promised. */
+  const file = (named: { url: string; sha256: string }, most: number): Promise<Uint8Array | null> => {
+    let got = files.get(named.sha256);
+    if (!got) {
+      got = fetchBytes(named.url)
+        .then((bytes) => (bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named.sha256 ? bytes : null))
+        .catch(() => null);
+      files.set(named.sha256, got);
+    }
+    return got;
+  };
 
   const marker = (item: Pick<Item, "size">): THREE.Object3D => {
     const [w, h, d] = item.size;
@@ -180,7 +203,7 @@ export function createItems(opts: ItemsOptions = {}): Items {
   };
 
   /** The model itself, once: fetched, checked against its hash, read, counted and fitted. Null where any of that fails. */
-  const load = (item: Item): Promise<THREE.Object3D | null> => {
+  const load = (item: { model: { url: string; sha256: string }; size: [number, number, number] }): Promise<THREE.Object3D | null> => {
     const key = `${item.model.sha256}:${item.size.join(",")}`;
     let made = models.get(key);
     if (!made) {
@@ -195,7 +218,9 @@ export function createItems(opts: ItemsOptions = {}): Items {
             if ((o as THREE.Light).isLight || (o as THREE.Camera).isCamera) extra.push(o);
           });
           for (const o of extra) o.removeFromParent();
-          return withinBudget(read.scene) ? fitToSize(read.scene, item.size) : null;
+          if (!withinBudget(read.scene)) return null;
+          clipsOf.set(key, (read.animations ?? []).slice(0, 8));
+          return fitToSize(read.scene, item.size);
         } catch {
           return null;
         }
@@ -236,5 +261,26 @@ export function createItems(opts: ItemsOptions = {}): Items {
       return made ? made.clone(true) : marker(item);
     },
     marker,
+    clips: (item) => clipsOf.get(`${item.model.sha256}:${item.size.join(",")}`) ?? [],
+    async sent(item, name) {
+      const send = item.sends.find((s) => s.name === name);
+      if (!send) return marker({ size: [0.03, 0.03, 0.1] });
+      if (!showsItems()) return marker(send);
+      const made = await load(send);
+      return made ? made.clone(true) : marker(send);
+    },
+    async sound(item, name) {
+      const named = item.sounds[name];
+      return named && showsItems() ? file(named, ITEM_BUDGET.sound) : null;
+    },
+    async script(item) {
+      if (!item.script || !showsItems()) return null;
+      const bytes = await file(item.script, SCRIPT_LIMITS.bytes);
+      try {
+        return bytes ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : null;
+      } catch {
+        return null;
+      }
+    },
   };
 }

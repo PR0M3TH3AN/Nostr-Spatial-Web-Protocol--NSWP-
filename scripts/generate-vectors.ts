@@ -50,6 +50,16 @@ import {
   WORLD_KIND,
   BAG_KIND,
   bagIn,
+  buildHit,
+  buildShot,
+  cleanAsk,
+  parseDid,
+  parseHit,
+  parseShot,
+  parseState,
+  PLAY_LIMITS,
+  shotAt,
+  struck,
   changeBag,
   buildItem,
   parseItem,
@@ -1132,12 +1142,50 @@ const files: Record<string, unknown> = {
   expectEqual("bag/take_one_out", bagIn(changing[1]!.expect), []);
   for (const v of changing.slice(2, 5)) expectEqual(`bag/${v.name}`, v.expect, null);
   expectEqual("bag/a_first_bag", bagIn(changing[5]!.expect), [BOOK]);
+  // Items in play: what is said in a room, the arc, and what a script may ask for.
+  const shotSaid = buildShot({ id: 7, name: "dart", from: [1, 1.4, -2], velocity: [0, 3, -12], stick: 3 })!;
+  const play = {
+    said: [
+      { name: "a_thing_sent_out", text: shotSaid },
+      { name: "too_fast", description: "Slowed to the fastest anything may go, and stuck no longer than anything may.", text: "shot:1,dart,0,1,0,0,0,-900,99" },
+      { name: "going_nowhere", text: "shot:1,dart,0,1,0,0,0,0,3" },
+      { name: "a_name_that_isnt_one", text: "shot:1,DART,0,1,0,0,0,-9,3" },
+      { name: "a_hit", text: buildHit({ by: PK1, id: 7, at: [0.1, 1.2, -0.05] })! },
+      { name: "a_hit_nowhere_on_a_person", text: `hit:${PK1},7,0,99,0` },
+      { name: "a_sound", text: "did:sound,fire" },
+      { name: "an_animation", text: "did:clip,reload" },
+      { name: "a_sound_that_is_a_path", text: "did:sound,../etc" },
+      { name: "health", text: "st:health,3,5" },
+      { name: "more_than_full", text: "st:health,6,5" },
+    ].map((v) => ({ ...v, expect: { shot: parseShot(v.text), hit: parseHit(v.text), did: parseDid(v.text), state: parseState(v.text) } })),
+    arc: [0, 0.25, 0.5, 1].map((t) => ({ shot: shotSaid, t, expect: shotAt(parseShot(shotSaid)!, t).map((n) => Math.round(n * 1e6) / 1e6) })),
+    asks: (
+      [
+        ["play", ["fire"]],
+        ["send", ["dart", { speed: 14, stick: 3 }]],
+        ["send", ["dart", { speed: 9999, stick: 9999 }]],
+        ["show", ["5 / 5 <b>"]],
+        ["fetch", ["https://items.example/"]],
+        ["play", ["../x"]],
+      ] as const
+    ).map(([name, args]) => ({ name, args, expect: cleanAsk(name, args) })),
+    health: [[5, 1], [1, 3], [5, 99]].map(([value, by]) => ({ value, by, expect: struck(value!, by!) })),
+  };
+  expectEqual("play/a_thing_sent_out", play.said[0]!.expect.shot?.velocity, [0, 3, -12]);
+  expectEqual("play/too_fast", [Math.round(Math.hypot(...play.said[1]!.expect.shot!.velocity)), play.said[1]!.expect.shot!.stick], [PLAY_LIMITS.speed, PLAY_LIMITS.stick]);
+  for (const i of [2, 3]) expectEqual(`play/${play.said[i]!.name}`, play.said[i]!.expect.shot, null);
+  expectEqual("play/a_hit", play.said[4]!.expect.hit?.id, 7);
+  expectEqual("play/a_hit_nowhere", play.said[5]!.expect.hit, null);
+  expectEqual("play/a_sound_that_is_a_path", play.said[8]!.expect.did, null);
+  expectEqual("play/more_than_full", play.said[10]!.expect.state, null);
+  expectEqual("play/asks", play.asks.map((a) => a.expect?.ask ?? null), ["play", "send", "send", "show", null, null]);
   files["items.json"] = {
     description:
-      "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign.",
+      "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign. `play.said`: what each thing said in a room is read as (`parseShot`, `parseHit`, `parseDid`, `parseState`), null where it isn't one. `play.arc`: where a thing is `t` seconds after it was sent out (`shotAt`). `play.asks`: what a script's ask is taken as (`cleanAsk`), or null. `play.health`: what is left after a thing takes `by` (`struck`).",
     testKeys,
     reading,
     bag: { reading: bagReading, changing },
+    play,
   };
 }
 

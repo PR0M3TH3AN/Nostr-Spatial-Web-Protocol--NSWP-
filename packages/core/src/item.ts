@@ -22,7 +22,50 @@ export const ITEM_LIMITS = {
   clips: 8,
   /** The longest an address may be. */
   url: 300,
+  /** How many sounds of its own it may name, and how many things it may send out. */
+  sounds: 12,
+  sends: 4,
+  /** The most letters on one of its buttons. */
+  label: 16,
 } as const;
+
+/** A sound, or a thing an item sends out, is named by a short plain word. */
+const PLAIN = /^[a-z][a-z0-9-]{0,23}$/;
+
+/**
+ * A thing an item may send out: a dart, a ball. It is a shape of its own, and it says, by name, which of the
+ * item's sounds go with what happens to it. What it does to a person it reaches is said apart, in `effects`.
+ */
+export interface ItemSend {
+  name: string;
+  model: ItemFile;
+  /** Its box in metres. */
+  size: [number, number, number];
+  /** Which of the item's sounds is heard when it lands and sticks, when it drops off, and when it reaches a person. */
+  lands?: string;
+  drops?: string;
+  strikes?: string;
+  /** Which is heard by whoever sent it, when it reaches a person: the tick that goes with a hit mark. */
+  tells?: string;
+}
+
+/**
+ * What one of an item's things asks of a person it reaches. It is words, never code: "take 1 from their health".
+ * The person's own device does it, by the rules of the world they are in, and may do nothing.
+ */
+export interface ItemEffect {
+  /** Which of the things it sends out. */
+  of: string;
+  state: "health";
+  /** How much is taken. A whole number from 1 to 5. */
+  take: number;
+}
+
+/** What its two presses are called, for the buttons a visitor is shown: "Fire", "Reload". */
+export interface ItemDoes {
+  use?: string;
+  second?: string;
+}
 
 /**
  * What an item can be, as its description says. A closed list: a world knows what each means, and ignores one it
@@ -72,6 +115,11 @@ export interface ItemInput {
    * but its own item (protocol/17-items.md, "An item's own logic"). Named here, and run by nothing yet.
    */
   script?: ItemFile;
+  /** Its own sounds, by name. Each is a small file, fetched and checked like its model. */
+  sounds?: Record<string, ItemFile>;
+  sends?: ItemSend[];
+  effects?: ItemEffect[];
+  does?: ItemDoes;
   license?: string;
 }
 
@@ -88,6 +136,10 @@ export interface Item extends Required<Pick<ItemInput, "d" | "title" | "model" |
   fits: ItemFit[];
   use: "anyone" | "granted";
   script: ItemFile | null;
+  sounds: Record<string, ItemFile>;
+  sends: ItemSend[];
+  effects: ItemEffect[];
+  does: ItemDoes;
   license: string;
   /** When its maker last described it, in seconds. */
   at: number;
@@ -137,6 +189,20 @@ function readCollider(t: string[]): ItemCollider | null {
   return t[1] === "capsule" && height !== undefined && within(height) ? { shape: "capsule", centre, radius, height } : null;
 }
 
+const SEND_MOMENTS = ["lands", "drops", "strikes", "tells"] as const;
+
+function readSend(t: string[]): ItemSend | null {
+  const model = t[3] === "glb" ? cleanFile(t[2], t[4]) : null;
+  const size = numbers(t[5], 3) as [number, number, number] | null;
+  if (typeof t[1] !== "string" || !PLAIN.test(t[1]) || !model || !size || !size.every(within)) return null;
+  const send: ItemSend = { name: t[1], model, size };
+  for (const word of t.slice(6)) {
+    const [moment, sound] = word.split("=");
+    if ((SEND_MOMENTS as readonly string[]).includes(moment ?? "") && sound && PLAIN.test(sound)) send[moment as (typeof SEND_MOMENTS)[number]] = sound;
+  }
+  return send;
+}
+
 /**
  * An item's description, ready to be signed by its maker. Null if anything in it couldn't be used: a name that
  * isn't one, no title, a file that isn't an `https` address with a hash, or a size out of bounds.
@@ -177,6 +243,26 @@ export function buildItem(o: ItemInput & { now: number }): EventTemplate | null 
     const script = cleanFile(o.script.url, o.script.sha256);
     if (!script) return null;
     tags.push(["script", script.url, script.sha256]);
+  }
+  for (const [name, file] of Object.entries(o.sounds ?? {}).slice(0, ITEM_LIMITS.sounds)) {
+    const sound = cleanFile(file?.url, file?.sha256);
+    if (!PLAIN.test(name) || !sound) return null;
+    tags.push(["sound", name, sound.url, sound.sha256]);
+  }
+  for (const s of (o.sends ?? []).slice(0, ITEM_LIMITS.sends)) {
+    const model = cleanFile(s?.model?.url, s?.model?.sha256);
+    if (!s || !PLAIN.test(s.name) || !model || !Array.isArray(s.size) || s.size.length !== 3 || !s.size.every(within)) return null;
+    const when = SEND_MOMENTS.filter((m) => s[m] !== undefined);
+    if (when.some((m) => !PLAIN.test(s[m]!))) return null;
+    tags.push(["sends", s.name, model.url, "glb", model.sha256, said(s.size), ...when.map((m) => `${m}=${s[m]}`)]);
+  }
+  for (const e of (o.effects ?? []).slice(0, ITEM_LIMITS.sends)) {
+    if (!e || !PLAIN.test(e.of) || e.state !== "health" || !Number.isInteger(e.take) || e.take < 1 || e.take > 5) return null;
+    tags.push(["effect", e.of, e.state, String(-e.take)]);
+  }
+  for (const press of ["use", "second"] as const) {
+    const label = cleanLine(o.does?.[press] ?? "", ITEM_LIMITS.label);
+    if (label) tags.push(["does", press, label]);
   }
   const license = cleanLine(o.license ?? "", 40);
   if (license) tags.push(["license", license]);
@@ -225,6 +311,26 @@ export function parseItem(event: NostrEvent | null | undefined): Item | null {
     use: tag("use")?.[1] === "granted" ? "granted" : "anyone",
     // Named, and run by nothing yet: where it runs, and what it may ask for, is protocol/17-items.md.
     script: sc ? cleanFile(sc[1], sc[2]) : null,
+    sounds: Object.fromEntries(
+      getTags(event, "sound")
+        .slice(0, ITEM_LIMITS.sounds)
+        .map((t) => [t[1], cleanFile(t[2], t[3])] as const)
+        .filter((s): s is [string, ItemFile] => typeof s[0] === "string" && PLAIN.test(s[0]) && s[1] !== null),
+    ),
+    sends: getTags(event, "sends").slice(0, ITEM_LIMITS.sends).map(readSend).filter((s): s is ItemSend => s !== null),
+    effects: getTags(event, "effect")
+      .slice(0, ITEM_LIMITS.sends)
+      .map((t): ItemEffect | null => {
+        const take = -Number(t[3]);
+        return typeof t[1] === "string" && PLAIN.test(t[1]) && t[2] === "health" && Number.isInteger(take) && take >= 1 && take <= 5 ? { of: t[1], state: "health", take } : null;
+      })
+      .filter((e): e is ItemEffect => e !== null),
+    does: Object.fromEntries(
+      getTags(event, "does")
+        .filter((t) => t[1] === "use" || t[1] === "second")
+        .map((t) => [t[1], cleanLine(t[2], ITEM_LIMITS.label)] as const)
+        .filter((d) => d[1]),
+    ),
     license: cleanLine(tag("license")?.[1], 40),
     at: Number.isInteger(event.created_at) ? event.created_at : 0,
   };

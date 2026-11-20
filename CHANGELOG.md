@@ -2,6 +2,23 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.51.0
+
+Items that do something: a dart blaster, drafted, and everything it needs.
+
+- **An item's own logic runs in a locked box** ([NSWP-17](protocol/17-items.md)): a page of its own (`item-box.html`, `ITEM_BOX_HTML` in the core) that may reach nothing, framed with no rights but to run script, with the script in a worker that is ended if it stops answering. Only on the device of whoever carries the item. `runInBox`; `itemScripts` on a presence. A visitor is told an item has a script, and who made it, the first time they hold it.
+- **What a script may ask for is a closed list,** each with a ceiling: play one of its own sounds, play one of its own animations, send out one of the things it described, show a few words. `cleanAsk`, `ITEM_ASKS`.
+- **Things sent out fly on an arc,** the same on every device: straight on and falling, so aimed higher they go further. They stick to any solid mesh of the world, let go after their time, drop and are gone. Nothing of a world has to be an item. `shotAt`, `createPlay`; a world can say what isn't solid and be told what was struck.
+- **A person is reached only if their own device says so** (`hit`). Whoever sent it gets a mark and a sound when they do. Nobody can say they were reached by something that never flew.
+- **Health, where a world has no rule of its own:** five, back by itself after a rest. A bar for the person and over their head for the others.
+- **Mute one person's items,** on their card, in a place that only allows items: none of it reaches you, or is seen or heard. Not offered where items are the game.
+- **An item's own sounds** (`sound` tags): fetched and checked like its model, levelled, played from where they happen, quieter and duller with distance, silent beyond 45 m.
+- **An item says more of itself:** `sound`, `sends`, `effect`, `does` in its description.
+- **The two presses on every device** (`addItemControls`): they lead the bar while the item is in hand (a tap on a phone, keys 1 and 2 at a desk), the mouse button and R at a desk, the trigger of the holding hand in a headset. In a headset the item is in that hand, and a thing leaves the way it points.
+- **A dart blaster is drafted** in `sites/items/drafts.json`: its model with a reload animation, its dart and its script. It is signed by nobody: its sounds are the owner's to pick by ear first.
+- The held item is placed by the shape of the screen, so it is in view on a tall narrow one.
+- **Not built:** the same for a world drawn by another engine (The Foundry); a ceiling of the visitor's own for items; granted items. **Not tested:** any headset.
+
 ## 0.50.0
 
 Five things to carry, and somewhere to carry them.

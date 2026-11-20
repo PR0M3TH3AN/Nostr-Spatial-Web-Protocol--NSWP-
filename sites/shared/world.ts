@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, WORLD_KIND, type Achievement, type Board, type ItemsRule } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addBagControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -140,6 +140,10 @@ type TestHooks = {
   /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
+  /** Items in play: what is in the air and stuck, this visitor's health, what their item shows. For tests. */
+  play?: () => unknown;
+  itemUse?: () => void;
+  itemSecond?: () => void;
   /** What the visitor's hands are doing, as the input layer reads them. */
   input?: () => unknown;
   /** The panels hanging here. */
@@ -686,6 +690,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       const key = panels!.keyboard.pick(raycaster);
       const button = key ? null : xrConsole.pick(raycaster);
       const onPanel = key ?? (button ? null : panels!.pick(raycaster));
+      // The hand that holds something that does something: its trigger is the item's, on anything but the console.
+      if (!button && !key && !onPanel && itemControls?.trigger(i)) return void input?.pulse(i, 0.4, 25);
       const person = button || onPanel ? null : presence.personAt(raycaster);
       if (button || onPanel || person || door >= 0) input?.pulse(i, 0.5, 30);
       if (button) xrConsole.press(button);
@@ -786,6 +792,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // ------------------------------------------------------------- the room
   // Other visitors appear only after someone presses Join (spec §9.4).
   let refreshRoom = () => {};
+  let itemControls: ItemControls | null = null;
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
   // What this world does with items. `?items=allowed` is for trying it on a copy of a world that has none, on the
   // maker's own network: a published world is what its announcement says and nothing a link can change, or a
@@ -793,7 +800,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const onMyNetwork = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
   const itemsRule = cleanItemsRule((onMyNetwork ? new URLSearchParams(location.search).get("items") : null) ?? cfg.items);
   const items = createItems();
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
+  // An item's own logic runs here, in its locked box, where this world draws items at all.
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());
@@ -856,6 +864,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     presenting: () => renderer.xr.isPresenting,
   });
   if (signerNamed()) worldSigner().onChange(() => bagging.refresh());
+  // What is in their hand, pressed: on the bar, by the mouse and R at a desk, by the trigger in a headset.
+  itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement });
+  hooks.play = () => presence.play?.info() ?? null;
+  hooks.itemUse = () => presence.play?.use();
+  hooks.itemSecond = () => presence.play?.second();
   if (achievements) {
     const achieving = addAchievementControls(controls, { achievements, signedIn: signedInHere });
     if (signerNamed()) worldSigner().onChange(() => achieving.refresh());

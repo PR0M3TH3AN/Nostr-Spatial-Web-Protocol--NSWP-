@@ -1,5 +1,5 @@
 {
-  "description": "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign.",
+  "description": "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign. `play.said`: what each thing said in a room is read as (`parseShot`, `parseHit`, `parseDid`, `parseState`), null where it isn't one. `play.arc`: where a thing is `t` seconds after it was sent out (`shotAt`). `play.asks`: what a script's ask is taken as (`cleanAsk`), or null. `play.health`: what is left after a thing takes `by` (`struck`).",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -149,6 +149,10 @@
           "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
           "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         },
+        "sounds": {},
+        "sends": [],
+        "effects": [],
+        "does": {},
         "license": "CC-BY-4.0",
         "at": 1794430800
       }
@@ -222,6 +226,10 @@
         ],
         "use": "anyone",
         "script": null,
+        "sounds": {},
+        "sends": [],
+        "effects": [],
+        "does": {},
         "license": "",
         "at": 1794430800
       }
@@ -366,6 +374,10 @@
           "url": "https://items.example/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.js",
           "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         },
+        "sounds": {},
+        "sends": [],
+        "effects": [],
+        "does": {},
         "license": "CC-BY-4.0",
         "at": 1794430800
       }
@@ -897,6 +909,292 @@
           ],
           "content": ""
         }
+      }
+    ]
+  },
+  "play": {
+    "said": [
+      {
+        "name": "a_thing_sent_out",
+        "text": "shot:7,dart,1,1.4,-2,0,3,-12,3",
+        "expect": {
+          "shot": {
+            "id": 7,
+            "name": "dart",
+            "from": [
+              1,
+              1.4,
+              -2
+            ],
+            "velocity": [
+              0,
+              3,
+              -12
+            ],
+            "stick": 3
+          },
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "too_fast",
+        "description": "Slowed to the fastest anything may go, and stuck no longer than anything may.",
+        "text": "shot:1,dart,0,1,0,0,0,-900,99",
+        "expect": {
+          "shot": {
+            "id": 1,
+            "name": "dart",
+            "from": [
+              0,
+              1,
+              0
+            ],
+            "velocity": [
+              0,
+              0,
+              -40
+            ],
+            "stick": 10
+          },
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "going_nowhere",
+        "text": "shot:1,dart,0,1,0,0,0,0,3",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "a_name_that_isnt_one",
+        "text": "shot:1,DART,0,1,0,0,0,-9,3",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "a_hit",
+        "text": "hit:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6,7,0.1,1.2,-0.05",
+        "expect": {
+          "shot": null,
+          "hit": {
+            "by": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            "id": 7,
+            "at": [
+              0.1,
+              1.2,
+              -0.05
+            ]
+          },
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "a_hit_nowhere_on_a_person",
+        "text": "hit:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6,7,0,99,0",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "a_sound",
+        "text": "did:sound,fire",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": {
+            "kind": "sound",
+            "name": "fire"
+          },
+          "state": null
+        }
+      },
+      {
+        "name": "an_animation",
+        "text": "did:clip,reload",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": {
+            "kind": "clip",
+            "name": "reload"
+          },
+          "state": null
+        }
+      },
+      {
+        "name": "a_sound_that_is_a_path",
+        "text": "did:sound,../etc",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      },
+      {
+        "name": "health",
+        "text": "st:health,3,5",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": {
+            "name": "health",
+            "value": 3,
+            "full": 5
+          }
+        }
+      },
+      {
+        "name": "more_than_full",
+        "text": "st:health,6,5",
+        "expect": {
+          "shot": null,
+          "hit": null,
+          "did": null,
+          "state": null
+        }
+      }
+    ],
+    "arc": [
+      {
+        "shot": "shot:7,dart,1,1.4,-2,0,3,-12,3",
+        "t": 0,
+        "expect": [
+          1,
+          1.4,
+          -2
+        ]
+      },
+      {
+        "shot": "shot:7,dart,1,1.4,-2,0,3,-12,3",
+        "t": 0.25,
+        "expect": [
+          1,
+          1.84375,
+          -5
+        ]
+      },
+      {
+        "shot": "shot:7,dart,1,1.4,-2,0,3,-12,3",
+        "t": 0.5,
+        "expect": [
+          1,
+          1.675,
+          -8
+        ]
+      },
+      {
+        "shot": "shot:7,dart,1,1.4,-2,0,3,-12,3",
+        "t": 1,
+        "expect": [
+          1,
+          -0.5,
+          -14
+        ]
+      }
+    ],
+    "asks": [
+      {
+        "name": "play",
+        "args": [
+          "fire"
+        ],
+        "expect": {
+          "ask": "play",
+          "name": "fire"
+        }
+      },
+      {
+        "name": "send",
+        "args": [
+          "dart",
+          {
+            "speed": 14,
+            "stick": 3
+          }
+        ],
+        "expect": {
+          "ask": "send",
+          "name": "dart",
+          "speed": 14,
+          "stick": 3,
+          "lift": 0
+        }
+      },
+      {
+        "name": "send",
+        "args": [
+          "dart",
+          {
+            "speed": 9999,
+            "stick": 9999
+          }
+        ],
+        "expect": {
+          "ask": "send",
+          "name": "dart",
+          "speed": 40,
+          "stick": 10,
+          "lift": 0
+        }
+      },
+      {
+        "name": "show",
+        "args": [
+          "5 / 5 <b>"
+        ],
+        "expect": {
+          "ask": "show",
+          "text": "5 / 5 b"
+        }
+      },
+      {
+        "name": "fetch",
+        "args": [
+          "https://items.example/"
+        ],
+        "expect": null
+      },
+      {
+        "name": "play",
+        "args": [
+          "../x"
+        ],
+        "expect": null
+      }
+    ],
+    "health": [
+      {
+        "value": 5,
+        "by": 1,
+        "expect": 4
+      },
+      {
+        "value": 1,
+        "by": 3,
+        "expect": 0
+      },
+      {
+        "value": 5,
+        "by": 99,
+        "expect": 0
       }
     ]
   }

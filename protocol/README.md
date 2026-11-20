@@ -49,7 +49,7 @@ and says plainly what is built and what is only proposed.
 | [14 People and messages](14-people-and-messages.md) | Following someone and writing to them privately: Nostr's own, done only at the visitor's own client, and a follow list changed without losing it | Implemented in the kit; a signer's side for worlds is not built in BitLogin yet | |
 | [15 Scores](15-scores.md) | A score a visitor made in a world, posted when they say to, and the board it stands on: claims, with the people a reader knows listed first | Implemented as claims; a signer's side is not built in BitLogin yet | 37306 |
 | [16 Achievements](16-achievements.md) | Something a visitor did that a world marks, shown as theirs when they say to: claims, like scores | Implemented as claims; a signer's side is not built in BitLogin yet | 37307 |
-| [17 Items](17-items.md) | Things a person carries from world to world, what they may do, and how a world lets them reach the people in it | Decided; built in part: descriptions, a world's rule, the bag, holding | 37303, 37308 |
+| [17 Items](17-items.md) | Things a person carries from world to world, what they may do, and how a world lets them reach the people in it | Decided; built for Three.js worlds: descriptions, the bag, holding, an item's own logic, things sent out, hits, muting | 37303, 37308 |
 
 ## What "status" means
 

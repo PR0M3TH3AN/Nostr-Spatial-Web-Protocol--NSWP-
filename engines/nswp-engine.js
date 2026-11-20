@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.50.0";
+  var KIT_VERSION = "0.51.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4792,6 +4792,137 @@ var NSWP = (() => {
     pictureBytes: 1024 * 1024
   };
 
+  // packages/core/dist/play.js
+  var PLAY_LIMITS = {
+    /** The fastest anything may be sent out, in metres a second. */
+    speed: 40,
+    /** The longest a thing may stay stuck where it landed, in seconds. */
+    stick: 10,
+    /** The longest a thing may fly before it is gone, in seconds. */
+    life: 5,
+    /** How far from the middle of a world anything may be said to start, in metres. */
+    far: 1e4,
+    /** How many things one person may send out: a burst, and then so many a second. */
+    burst: 8,
+    perSecond: 6,
+    /** How many of anyone's things are flown or left lying at once. The oldest go first. */
+    flown: 48,
+    /** How long a hit may wait for the person hit to say so, in seconds, before the thing drops off them. */
+    agree: 0.6,
+    /** The most an item's own words may be: its counter. */
+    words: 24
+  };
+  var ITEM_ASKS = {
+    /** Play one of its own sounds, by name. */
+    play: { burst: 6, perSecond: 6 },
+    /** Play one of its own animations, by name. */
+    clip: { burst: 4, perSecond: 4 },
+    /** Send out one of the things it has described. */
+    send: { burst: PLAY_LIMITS.burst, perSecond: PLAY_LIMITS.perSecond },
+    /** Show its own words: a counter. */
+    show: { burst: 8, perSecond: 8 }
+  };
+  var ITEM_EVENTS = ["held", "away", "use", "second", "tick"];
+  var SCRIPT_LIMITS = { bytes: 64e3, silentMs: 1500 };
+
+  // packages/core/dist/item-box.js
+  var WORKER_HEAD = `"use strict";
+const __on = Object.create(null);
+let __timers = [];
+let __now = 0;
+const __ask = (name, args) => postMessage({ t: "ask", name, args });
+const item = Object.freeze({
+  on(event, fn) { if (typeof fn === "function") __on[String(event)] = fn; },
+  play(name) { __ask("play", [String(name)]); },
+  clip(name) { __ask("clip", [String(name)]); },
+  send(name, how) { __ask("send", [String(name), { speed: Number(how && how.speed), stick: Number(how && how.stick), lift: Number(how && how.lift) }]); },
+  show(text) { __ask("show", [String(text)]); },
+  after(ms, fn) { if (typeof fn === "function" && __timers.length < 32) __timers.push({ at: __now + Math.max(0, Number(ms) || 0), fn }); },
+});
+const __run = (fn, arg) => { try { fn(arg); } catch (err) { postMessage({ t: "error", text: String(err).slice(0, 200) }); } };
+onmessage = (e) => {
+  const m = e.data;
+  if (!m || m.t !== "event") return;
+  if (m.name === "tick") {
+    __now = Number(m.arg) || 0;
+    const due = __timers.filter((x) => x.at <= __now);
+    __timers = __timers.filter((x) => x.at > __now);
+    for (const x of due) __run(x.fn);
+  }
+  if (__on[m.name]) __run(__on[m.name], m.arg);
+  postMessage({ t: "beat", n: m.n });
+};
+try {
+(function (item, self, globalThis, postMessage, onmessage, navigator, location, fetch, XMLHttpRequest, WebSocket, EventSource, BroadcastChannel, indexedDB, caches, importScripts, Worker, close) {
+`;
+  var WORKER_TAIL = `
+})(item);
+postMessage({ t: "started" });
+} catch (err) { postMessage({ t: "error", text: String(err).slice(0, 200) }); }
+`;
+  var ITEM_BOX_HTML = `<!doctype html>
+<meta charset="utf-8">
+<title>An item's locked box</title>
+<script>
+"use strict";
+(() => {
+  const EVENTS = ${JSON.stringify(ITEM_EVENTS)};
+  const SILENT = ${SCRIPT_LIMITS.silentMs};
+  const MOST = ${SCRIPT_LIMITS.bytes};
+  const HEAD = ${JSON.stringify(WORKER_HEAD)};
+  const TAIL = ${JSON.stringify(WORKER_TAIL)};
+  let worker = null;
+  let sent = 0;
+  let answered = 0;
+  // When the script last answered anything, or last had nothing to answer. It is ended only if something has been
+  // waiting on it since then for too long: a busy device, with one thing always on its way in, is not a hung script.
+  let lastWord = 0;
+  const up = (m) => parent.postMessage(Object.assign({ nswpItemBox: 1 }, m), "*");
+  const stop = (why) => {
+    if (!worker) return;
+    worker.terminate();
+    worker = null;
+    up({ t: "stopped", why });
+  };
+  const start = (script) => {
+    stop("replaced");
+    if (typeof script !== "string" || script.length > MOST) return up({ t: "stopped", why: "too long" });
+    try {
+      worker = new Worker(URL.createObjectURL(new Blob([HEAD, script, TAIL], { type: "text/javascript" })));
+    } catch (err) {
+      return up({ t: "stopped", why: "no worker" });
+    }
+    sent = answered = 0;
+    lastWord = performance.now();
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (!m) return;
+      if (m.t === "beat") { answered = Math.max(answered, Number(m.n) || 0); lastWord = performance.now(); }
+      else if (m.t === "ask") up({ t: "ask", name: String(m.name), args: m.args });
+      else if (m.t === "started") up({ t: "started" });
+      else if (m.t === "error") up({ t: "error", text: String(m.text).slice(0, 200) });
+    };
+    worker.onerror = (e) => { up({ t: "error", text: String(e && e.message).slice(0, 200) }); stop("failed"); };
+  };
+  addEventListener("message", (e) => {
+    if (e.source !== parent) return;
+    const m = e.data;
+    if (!m || m.nswpItemBox !== 1) return;
+    if (m.t === "run") start(m.script);
+    else if (m.t === "stop") stop("asked");
+    else if (m.t === "event" && worker && EVENTS.includes(m.name)) {
+      if (answered >= sent) lastWord = performance.now();
+      sent += 1;
+      worker.postMessage({ t: "event", name: m.name, arg: m.arg, n: sent });
+    }
+  });
+  // A script that has stopped answering is ended: it can hang nothing but itself.
+  setInterval(() => { if (worker && sent > answered && performance.now() - lastWord > SILENT) stop("silent"); }, 250);
+  up({ t: "ready" });
+})();
+<\/script>
+`;
+
   // packages/core/dist/people.js
   var FOLLOWS_KIND = 3;
   function changeFollows(newest, change2) {
@@ -6108,6 +6239,7 @@ var NSWP = (() => {
   }
 
   // packages/sdk/src/sound.ts
+  var FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 };
   var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
   var STRIDE = 0.75;
   var JUMP = 1.2;
@@ -6288,6 +6420,7 @@ var NSWP = (() => {
       } else level2.connect(effects);
       return soft;
     };
+    let foreignPlayed = 0;
     const play2 = (cue, from) => {
       if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
       if (theme.cues[cue] === null) return;
@@ -6644,6 +6777,34 @@ var NSWP = (() => {
       },
       get hasHum() {
         return !!humAddress;
+      },
+      async decode(bytes) {
+        try {
+          const buffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          if (!(buffer.duration > 0) || buffer.duration > FOREIGN_SOUND.seconds) return null;
+          let peak = 0;
+          for (let c = 0; c < buffer.numberOfChannels; c++) for (const x of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
+          return { buffer, gain: peak > 0 ? Math.min(1, FOREIGN_SOUND.peak / peak) : 1 };
+        } catch {
+          return null;
+        }
+      },
+      playForeign(sound, from) {
+        if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+        const far = from && Number.isFinite(from.distance) ? Math.max(0, from.distance) : 0;
+        const reach = far <= FOREIGN_SOUND.fades ? 1 : Math.max(0, 1 - (far - FOREIGN_SOUND.fades) / (FOREIGN_SOUND.gone - FOREIGN_SOUND.fades));
+        if (reach <= 0) return;
+        const src = ctx.createBufferSource();
+        src.buffer = sound.buffer;
+        const level2 = ctx.createGain();
+        level2.gain.value = sound.gain * reach;
+        src.connect(level2);
+        level2.connect(from ? shaped(heardFrom(from)) : effects);
+        src.start();
+        foreignPlayed++;
+      },
+      get foreignPlayed() {
+        return foreignPlayed;
       },
       loudness() {
         meter.getFloatTimeDomainData(samples);
@@ -9088,7 +9249,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       view() {
         const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-        const bar = showing.filter((a) => a.hotbar).slice(0, 6);
+        const bar = [...showing.filter((a) => a.hotbar && a.lead), ...showing.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
           return { id: a.id, label: read2(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read2(a.short) || read2(a.label), kind: a.kind ?? "button", color: read2(a.color) };
