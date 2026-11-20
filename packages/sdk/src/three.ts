@@ -31,7 +31,8 @@ import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
-import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldSigner, type Leaving } from "./ui/identity.js";
+import type { People } from "./people.js";
+import { byName, figureAction, hereAs, identityAction, identityHost, identitySection, onHereAs, signerAction, signerNamed, unansweredWords, worldPeople, worldSigner, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 import type { Panel, Panels } from "./panels.js";
 import type { Sounds } from "./sound.js";
@@ -1260,6 +1261,17 @@ export interface RoomNotes {
   marked?(): string | null;
 }
 
+/** What follows and unfollows someone for the visitor, from a person's card in a room (protocol/14-people-and-messages.md). */
+export interface RoomFollows {
+  people: People;
+  /** The visitor's key here, or null: nobody is followed for a guest. */
+  pubkey(): string | null;
+  /** Whether the visitor has let this place change who they follow. */
+  allowed(): boolean;
+  /** From a press: have the visitor asked. Returns what to say meanwhile; `then` is run once they have allowed it. */
+  ask(then: () => void): string;
+}
+
 export function addRoomControls(
   controls: Controls,
   presence: Presence,
@@ -1295,6 +1307,13 @@ export function addRoomControls(
      * visitor's own client, in a room of its own where they are already signed in, gives its own.
      */
     notes?: RoomNotes;
+    /**
+     * What follows and unfollows someone when the visitor asks (protocol/14-people-and-messages.md). Left out,
+     * the page's own signer, once the visitor has let this world do so. A visitor's own client gives its own.
+     */
+    follows?: RoomFollows;
+    /** Whether the visitor is in a headset: a window that opens can't be seen from in there. */
+    presenting?: () => boolean;
   } = {},
 ): { refresh(): void; travelling(): Travelling } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
@@ -1320,6 +1339,50 @@ export function addRoomControls(
     const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
     return `${presence.roomName ? "Private room" : "Open room"}: ${who}.${as}${presence.micOn ? " Your microphone is on." : ""}${presence.musicOn ? ` Your music is offered to people near you: ${presence.musicListeners === 0 ? "nobody is hearing it" : presence.musicListeners === 1 ? "1 person is hearing it" : `${presence.musicListeners} people are hearing it`}.` : ""}${presence.screenOn ? ` You are sharing your screen: ${presence.screenViewers === 0 ? "nobody is watching" : presence.screenViewers === 1 ? "1 person is watching" : `${presence.screenViewers} people are watching`}.` : ""}`;
   };
+  // ---- Following (protocol/14-people-and-messages.md). A world follows for its visitor only once they have let
+  // it, at their own sign-in address. So the first press here says what is wanted and opens that address's window;
+  // what they pressed is done when the answer comes back.
+  const worldFollows = (): RoomFollows => {
+    let waiting: { then: () => void; at: number } | null = null;
+    let watched = false;
+    return {
+      people: worldPeople(),
+      pubkey: () => (signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null),
+      allowed: () => worldSigner().more.includes("follows"),
+      ask(then) {
+        const signer = worldSigner();
+        if (!watched) {
+          watched = true;
+          signer.onChange(() => {
+            const was = waiting;
+            if (!was || !signer.more.includes("follows")) return;
+            waiting = null;
+            // A say-so that comes long after the press isn't acted on: they may have forgotten what they pressed.
+            if (Date.now() - was.at < 300_000) was.then();
+          });
+        }
+        const where = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return `This world needs your say before it can change who you follow, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
+        waiting = { then, at: Date.now() };
+        signer.want(["follows"]);
+        return signer.unlock() ? `This world needs your say before it can change who you follow: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+      },
+    };
+  };
+  let followsKept: RoomFollows | null = null;
+  const follows = (): RoomFollows => (followsKept ??= opts.follows ?? worldFollows());
+  const followPress = (key: string, name: string, adding: boolean) => {
+    const f = follows();
+    const now = async () => {
+      const done = await (adding ? f.people.follow(key, name) : f.people.unfollow(key, name));
+      controls.say(done.said);
+      refresh();
+    };
+    if (!f.pubkey()) return controls.say("Sign in to follow people: it is under You.");
+    if (f.allowed()) return void now();
+    controls.say(f.ask(() => void now()));
+  };
+
   const refresh = () => {
     const s = presence.session;
     opts.onState?.(
@@ -1478,7 +1541,7 @@ export function addRoomControls(
           : here.length === 0
             ? "Nobody else is here yet."
             : here.some((m) => m.pubkey === chosen)
-              ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told."
+              ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told. Who you follow is public."
               : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one, or press the picture over their head, to see who they are, and to mute their voice or their music, or block them.`
         }`,
       // Whoever was chosen, at the head of the section: who they are here, and what they say of themselves.
@@ -1544,6 +1607,26 @@ export function addRoomControls(
           else controls.say(`${who.name}'s screen can't be shown here.`);
           refresh();
         },
+      });
+    }
+    // Following them (protocol/14-people-and-messages.md): only someone who came by name can be followed, and
+    // only by a visitor who is signed in here. It is their own Nostr follow list that changes, the same one every
+    // other Nostr client reads. The first time in a world, their sign-in address asks whether this world may.
+    const me = follows().pubkey();
+    if (who?.identity && me && who.identity !== me) {
+      const them = who.identity;
+      const people = follows().people;
+      // Who they follow is looked for only where they have let this place change it: until then nothing is asked
+      // of a relay about them, and the control says "Follow".
+      if (follows().allowed() && people.follows() === null) void people.load().then(() => refresh());
+      extras.push("person-follow");
+      controls.add({
+        id: "person-follow",
+        section: "people",
+        icon: "check",
+        on: () => people.isFollowing(them) === true,
+        label: () => (people.isFollowing(them) ? `Unfollow ${who.name}` : `Follow ${who.name}`),
+        act: () => followPress(them, who.name, !people.isFollowing(them)),
       });
     }
     if (who) {
@@ -2447,8 +2530,9 @@ export { arrivedSettings, arriveWith, currentSettings, reportSettings, type Trav
 export { fullscreenWaiting, prefersFullscreen, resumeFullscreen } from "./ui/fullscreen.js";
 export { loadPicture, onPicturesChange, PICTURE_LIMITS, setShowsPictures, showsPictures } from "./picture.js";
 export { addDeskControls, FOV_STEPS, LOOK_STEPS, lookScale, onDeskChange, setLookScale, setVisitorFov, visitorFov, watchFov } from "./desk.js";
-export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldSaves, worldSigner, youCard, type Leaving } from "./ui/identity.js";
+export { byName, figureAction, hereAs, identityAction, identityHost, identitySection, identityWords, onHereAs, seekPass, signerAction, signerNamed, worldPeople, worldSaves, worldSigner, youCard, type Leaving } from "./ui/identity.js";
 export { createSaves, type Saved, type SaveResult, type Saves, type SavesOptions } from "./saves.js";
+export { createPeople, type FollowHand, type FollowResult, type FollowWhy, type People, type PeopleOptions } from "./people.js";
 export { askWell, learnFrom, relaysWell, sendWell, type SentWell } from "./relay-book.js";
 export { createWorldSigner, type SignerState, type WorldSigner } from "./signer.js";
 export { currentForm, deviceForms, formFor, startingForm, usedForm, type DeviceForms, type Form } from "./form.js";

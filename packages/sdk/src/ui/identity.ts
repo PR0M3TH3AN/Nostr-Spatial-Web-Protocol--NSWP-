@@ -14,6 +14,7 @@
  */
 import { encodeNpub, getPublicKey, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
 import { arrival, portal, type GoOptions } from "../index.js";
+import { createPeople, type People } from "../people.js";
 import { createSaves, type Saves } from "../saves.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
 import type { Controls, UiAction, UiCard, UiSection } from "./model.js";
@@ -229,6 +230,23 @@ let kept: Saves | null = null;
  */
 export function worldSaves(): Saves {
   return (kept ??= createSaves({ signer: () => (signerNamed() ? worldSigner() : null) }));
+}
+
+let followed: People | null = null;
+/**
+ * Who this world's visitor follows, and following for them (people.ts, protocol/14-people-and-messages.md): for a
+ * visitor who is signed in here and has let this world do so. One for the page, using the page's one signer.
+ * Nothing is asked of a relay about them until this is used.
+ */
+export function worldPeople(): People {
+  const signer = () => (signerNamed() ? worldSigner() : null);
+  return (followed ??= createPeople({
+    hand: {
+      pubkey: () => (signer()?.state === "unlocked" ? signer()!.pubkey : null),
+      ready: () => !!signer()?.more.includes("follows"),
+      change: (list, change) => signer()?.follow(list, change) ?? Promise.resolve(null),
+    },
+  }));
 }
 
 /**

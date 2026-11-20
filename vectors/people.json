@@ -1,5 +1,5 @@
 {
-  "description": "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
+  "description": "People and messages (protocol/14-people-and-messages.md; NIP-02 and NIP-17). `follows`: `list` is the follow list a change starts from (`followList`, or null where none was found), `change` is what was asked, `expect` is the list to be signed, or null where nothing is signed, and `follows` is who it names. `fromAWorld`: what a signer does when a world it was let asks for one change (`followForWorld`): `list` is what the world handed over, `seen` the time of the newest list the signer has seen, and `expect` the list it signs for the first key, or null where it refuses. `messages`: `wrap` is a kind 1059 event and `reader` names the test key that tries to open it; `expect` is the message, or null where a reader must drop it. The wraps here are signed by a fixed throwaway key with fixed nonces so that they are reproducible: a real one uses a new key each time.",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -209,6 +209,148 @@
       "follows": [
         "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
       ]
+    }
+  ],
+  "fromAWorld": [
+    {
+      "name": "their_own_list",
+      "description": "The first key's own list and one change: signed.",
+      "list": {
+        "kind": 3,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "p",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+            "wss://relay.example",
+            "Second"
+          ],
+          [
+            "t",
+            "worlds"
+          ],
+          [
+            "p",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "{\"wss://old.example\":{\"read\":true,\"write\":true}}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "f1439fdc5036090aaef1704e656636f59327d8e207c0e13c7a6bfe47b411a066",
+        "sig": "cd287141fea0ca841fa72680d7eca682bb55e8538cd98bf7aaa8d1aaf34593b07a10802b3a3462e6873f6b6dc10bf2c5d8e749debdf0b861cda066a6b97651a1"
+      },
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "kind": 3,
+        "created_at": 1794430860,
+        "tags": [
+          [
+            "p",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+            "wss://relay.example",
+            "Second"
+          ],
+          [
+            "t",
+            "worlds"
+          ],
+          [
+            "p",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "p",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ]
+        ],
+        "content": "{\"wss://old.example\":{\"read\":true,\"write\":true}}"
+      }
+    },
+    {
+      "name": "a_list_the_world_made",
+      "description": "The same list with its lines changed by the world: the signature no longer holds. Refused.",
+      "list": {
+        "kind": 3,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "p",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "{\"wss://old.example\":{\"read\":true,\"write\":true}}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "f1439fdc5036090aaef1704e656636f59327d8e207c0e13c7a6bfe47b411a066",
+        "sig": "cd287141fea0ca841fa72680d7eca682bb55e8538cd98bf7aaa8d1aaf34593b07a10802b3a3462e6873f6b6dc10bf2c5d8e749debdf0b861cda066a6b97651a1"
+      },
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": null
+    },
+    {
+      "name": "someone_elses_list",
+      "description": "A real list, by another key. Refused.",
+      "list": {
+        "kind": 3,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "p",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "id": "0a3de728bac6edf738ba435216e8a18628997a55a0d2e2174b5102d24d883ae6",
+        "sig": "3a3feba1fff810b6400fc7b94bf7b452fcf9903fdb756d6d31d544d301b8b690810639451fca34edecd966dfa5400403daa9b8a1a6f861683276c2ca898579b1"
+      },
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": null
+    },
+    {
+      "name": "older_than_seen",
+      "description": "A real list of theirs, older than one the signer has seen. Refused.",
+      "list": {
+        "kind": 3,
+        "created_at": 1794427200,
+        "tags": [
+          [
+            "p",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "b9d6dd7ec625df8cd08f9a640e51dbfbebadadf3dc10da37c48c7237ada7a38c",
+        "sig": "72d1f7e1c3d285b76c3def4f4fc6498d6b4e6c7a7bcb70ba3b9bfbdc01c7abf6435657e30ab47746bbc9f65089a12426101e8120c09395999e354ba98e11faa5"
+      },
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "seen": 1794430800,
+      "expect": null
+    },
+    {
+      "name": "none_once_one_was_seen",
+      "description": "The world says they have no list; the signer has seen one. Refused.",
+      "list": null,
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "seen": 1794430800,
+      "expect": null
+    },
+    {
+      "name": "a_first_list",
+      "description": "The world says they have no list, and the signer has seen none: a first list.",
+      "list": null,
+      "add": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "expect": {
+        "kind": 3,
+        "created_at": 1794430860,
+        "tags": [
+          [
+            "p",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ]
+        ],
+        "content": ""
+      }
     }
   ],
   "written": {

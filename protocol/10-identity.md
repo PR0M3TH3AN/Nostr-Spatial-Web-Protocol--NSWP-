@@ -411,6 +411,8 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `pass`, with `session`: a session public key | `signed`, with a room pass the signer wrote; or `refused` ("A pass from the signer", below) |
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
 | `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
+| `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
+| `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 
 A world asks `state` once the frame has loaded, and again a few times: the
 answer is how it knows a signer is there. A signer never sends anything to
@@ -423,7 +425,7 @@ why.
 | | Kinds | When |
 |---|---|---|
 | Ordinary | A note (1), a reaction (7) | Once the visitor has allowed that world |
-| Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | Only with their say each time, on a surface their client draws. **Not built: refused** |
+| Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | `sign` refuses them. Who they follow is changed by `follow`, for a world they let ("Asking for more") |
 | Never | Private messages and their wrappings (4, 13, 14, 15, 1059, 1060), passes and room signals (27300, 27301), proofs of identity to a relay or a server (22242, 27235), wallet and remote-signer traffic (13194, 23194, 23195, 24133), application data (30078) | Refused, whatever anyone says |
 
 - **The note is the signer's to finish.** It sets the time itself, and adds
@@ -447,6 +449,40 @@ why.
   asked for, marked for this world.
 - **The world sends the note to relays itself.** The signer reaches no
   network.
+
+## Asking for more
+
+A world is a Nostr client like any other, and a visitor may trust one with
+more than a note and a reaction (owner's decision, 2026-11-20). What that
+trust is given to, and how, is the visitor's:
+
+- **Nothing more by default.** A world the visitor unlocked can have a note
+  and a reaction signed, as before. Everything here is beside that.
+- **A world asks, by name.** It sends `want` with `more`, a list of names
+  from a short closed list. Each is one thing a person can be asked in a few
+  plain words. None is "sign whatever I hand you".
+
+  | Name | What the visitor is asked | What the world can then do |
+  |---|---|---|
+  | `follows` | "Change who you follow" | Follow and unfollow people for them, one at a time, with `follow` |
+
+- **The visitor is shown it in their signer's own window,** the same one
+  that unlocks it, in the signer's words, for that one world. `want`
+  approves nothing. A world that was unlocked for less is shown the rest
+  the next time the window is opened, and can't be given it any other way.
+- **The signer says what was allowed** in `state`, as `more`. A world asks
+  for nothing that isn't there.
+- **Ask when it is needed, not on arrival.** The reference kit sends `want`
+  when the visitor presses the thing that needs it, and opens the window
+  from that press.
+- **It lasts as long as the unlock does,** and locking ends it.
+- **What is never on the list:** private keys, proofs of identity to a
+  relay or a server, passes, wallet and remote-signer traffic, application
+  data. Those stay refused whatever anyone says.
+
+A signer that offers none of this says nothing of `more`, and refuses
+`follow`. A world then says that following is done at the visitor's own
+client.
 
 **Ways to unlock, the most seamless first.** Already unlocked for this
 world; the visitor's passkey, without leaving the world; a signer of their

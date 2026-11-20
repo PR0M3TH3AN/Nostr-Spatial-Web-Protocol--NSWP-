@@ -520,6 +520,32 @@ Not built: taking a relay monitor's word (NIP-66) for relays the device has
 never tried. A monitor's report is someone's claim, so it would only ever be
 a first guess.
 
+### Following people
+
+A person's card in a room has **Follow** on it, for someone who came by
+name, when your visitor is signed in. There is nothing for you to add: it
+comes with `addRoomControls`. It changes their own Nostr follow list
+([NSWP-14](../protocol/14-people-and-messages.md)), the same one every other
+Nostr client reads.
+
+The first time in your world, their sign-in address asks them whether your
+world may change who they follow. After that it works there without asking.
+To use it yourself, say for a leaderboard row:
+
+```ts
+import { worldPeople, worldSigner } from "nswp-sdk/three";
+
+const people = worldPeople();
+if (worldSigner().more.includes("follows")) {
+  const done = await people.follow(theirKey, "Ada"); // { ok, why, said }
+  controls.say(done.said);
+}
+```
+
+Where they haven't let your world yet, call `worldSigner().want(["follows"])`
+and then `worldSigner().unlock()`, both from the same press. Don't ask on
+arrival: ask when they press the thing that needs it.
+
 ### Keeping their progress
 
 A world with something to remember for a visitor keeps it as a save

@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.40.0
+
+A world can follow someone for its visitor, once they let it.
+
+- **A world is a Nostr client, and may be trusted as one** ([NSWP-10](protocol/10-identity.md), "Asking for more"; owner's decision). A world asks its visitor's signer for more than a note and a reaction, by name from a short closed list. The visitor is shown it in their signer's own window, for that one world. Nothing more is allowed by default. `SIGNER_MORE`, `cleanMore`; `want` and `more` on the kit's `worldSigner()`.
+- **Follow and unfollow on a person's card,** in every world built with the kit, for someone who came by name, on a phone, at a desk and in a headset. The first press in a world opens the signer's window; after that it just works there. `worldPeople()`, `createPeople()` in the kit.
+- **A world never builds the follow list** ([NSWP-14](protocol/14-people-and-messages.md)). It hands the signer the visitor's newest list and one change (`follow`); the signer makes the change (`followForWorld`), and the kit checks that what comes back is that list with that change and no other (`isFollowAsked`).
+- **Nothing is changed when no relay could be reached,** and a first list is written only when relays answered with none and the visitor pressed twice. A list no relay took is kept on the device and sent again.
+- A follow list drops the mark a signer put on the last one, so it doesn't carry where its owner last was.
+- **Not built:** BitLogin's side of `want` and `follow`. Until then, Follow in a world asks and is never answered. Nor BitPortal's home.
+
 ## 0.39.0
 
 People and messages, in the library. Nothing a visitor can see yet.
