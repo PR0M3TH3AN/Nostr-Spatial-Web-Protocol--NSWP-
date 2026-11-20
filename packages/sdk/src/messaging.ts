@@ -278,9 +278,9 @@ export function addMessagingControls(controls: Controls, opts: MessagingOptions)
     }
     add({ id: "messages-look", icon: "turn", label: "Look for new messages", short: "Look", act: () => void m.load(true).then(refresh) });
     const row = (c: (typeof all)[number]): UiAction => ({
+      // A row each, in order: the people they would expect, then, under their own heading, anyone else.
       id: `messages-${c.with.slice(0, 16)}`,
-      kind: "swatch",
-      color: `#${c.with.slice(0, 6)}`,
+      icon: "chat",
       on: () => withWhom === c.with,
       label: () => `${nameOf(c.with)}${c.unread ? `, ${c.unread} new` : ""}`,
       act: () => open(c.with),

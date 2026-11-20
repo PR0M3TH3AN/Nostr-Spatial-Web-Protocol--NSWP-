@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.43.1";
+  var KIT_VERSION = "0.44.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -2660,6 +2660,11 @@ var NSWP = (() => {
     const npub = encodeNpub(pubkey);
     return `${npub.slice(0, 10)}\u2026${npub.slice(-4)}`;
   }
+  var COORD = /^(\d+):([0-9a-f]{64}):(.*)$/s;
+  function parseCoordinate(s) {
+    const m = COORD.exec(s);
+    return m ? { kind: Number(m[1]), pubkey: m[2], identifier: m[3] } : null;
+  }
 
   // node_modules/tldts-core/dist/es6/src/domain.js
   function shareSameDomainSuffix(hostname, vhost) {
@@ -4574,6 +4579,51 @@ var NSWP = (() => {
     return { kind: MESSAGE_RELAYS_KIND, created_at: Math.floor(now), tags: clean2.map((url) => ["relay", url]), content: "" };
   }
 
+  // packages/core/dist/rating.js
+  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
+  function worldCoordinate(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const c = parseCoordinate(input);
+    return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
+  }
+
+  // packages/core/dist/score.js
+  var SCORE_KIND = 37306;
+  var SCORE_LIMITS = {
+    /** A world may have no more than this many scores signed in `perMs`, and in an hour. */
+    burst: 6,
+    perMs: 6e4,
+    hourly: 60,
+    /** The most a score may be. A whole number from 0 to this: what it counts is the board's to say. */
+    most: 9007199254740991
+  };
+  var BOARD = /^[a-z0-9][a-z0-9-]{0,31}$/;
+  function cleanBoard(input) {
+    return typeof input === "string" && BOARD.test(input) ? input : "";
+  }
+  function cleanScore(input) {
+    const n = typeof input === "string" && /^\d{1,16}$/.test(input) ? Number(input) : input;
+    return typeof n === "number" && Number.isSafeInteger(n) && n >= 0 && n <= SCORE_LIMITS.most ? n : null;
+  }
+  function parseScore(event) {
+    if (!event || event.kind !== SCORE_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
+      return null;
+    const world = worldCoordinate(getTags(event, "a")[0]?.[1]);
+    const board = cleanBoard(getTags(event, "board")[0]?.[1]);
+    const score = cleanScore(getTags(event, "score")[0]?.[1]);
+    if (!world || !board || score === null || getTags(event, "d")[0]?.[1] !== `${world}/${board}`)
+      return null;
+    const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
+    return { by: event.pubkey, world, board, score, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+  }
+  function isScoreAsked(signed, o) {
+    if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
+      return false;
+    const s = parseScore(signed);
+    return !!s && s.world === worldCoordinate(o.world) && s.board === o.board && s.score === o.score && s.askedAt.includes(cleanOrigin(o.origin));
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -4689,9 +4739,6 @@ var NSWP = (() => {
       return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
     return null;
   }
-
-  // packages/core/dist/rating.js
-  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
 
   // packages/core/dist/people.js
   var FOLLOWS_KIND = 3;
@@ -7062,6 +7109,7 @@ var NSWP = (() => {
     seal: async () => null,
     unwrap: async () => null,
     reach: async () => null,
+    score: async () => null,
     onChange: () => () => {
     },
     whenAnswered: async () => {
@@ -7333,6 +7381,10 @@ var NSWP = (() => {
       reach(relays) {
         if (state !== "unlocked" || !frame || !more.includes("messages")) return Promise.resolve(null);
         return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
+      },
+      score(world, board, score) {
+        if (state !== "unlocked" || !frame) return Promise.resolve(null);
+        return askAbout({ t: "score", id: `c${++n}`, world, board, score }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, origin: location.origin }) ? reply.event : null);
       },
       onChange(fn) {
         watchers3.add(fn);
@@ -8827,6 +8879,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "following", label: "Following", icon: "list" },
     // Their private messages (messaging.ts). Empty, and not shown, for a guest.
     { id: "messages", label: "Messages", icon: "chat" },
+    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
+    { id: "scores", label: "Scores", icon: "list" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },

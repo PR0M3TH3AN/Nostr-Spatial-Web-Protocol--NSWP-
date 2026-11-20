@@ -1,0 +1,395 @@
+{
+  "description": "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+  "worldUrl": "https://arcade.example/",
+  "signed": {
+    "board": "lantern-run",
+    "score": 42500,
+    "origin": "https://arcade.example",
+    "now": 1794430800,
+    "expect": {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "lantern-run"
+        ],
+        [
+          "score",
+          "42500"
+        ],
+        [
+          "alt",
+          "A score in a world: 42500"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": ""
+    }
+  },
+  "events": [
+    {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "lantern-run"
+        ],
+        [
+          "score",
+          "42500"
+        ],
+        [
+          "alt",
+          "A score in a world: 42500"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
+      "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+    },
+    {
+      "kind": 37306,
+      "created_at": 1794430860,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "lantern-run"
+        ],
+        [
+          "score",
+          "41000"
+        ],
+        [
+          "alt",
+          "A score in a world: 41000"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "id": "f3ca2e76b739a85a91ad632170711bfc37d414bba76e04b65f87c741fd28b674",
+      "sig": "46a246a552ef5b45d487729e43ed32e649debe2d706947ce759b2bd8ea85900fe87da0c5738adcfe16b36dee5ee5fdf21d53b8c31e514410e860b932b4b230bb"
+    },
+    {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "lantern-run"
+        ],
+        [
+          "score",
+          "39500"
+        ],
+        [
+          "alt",
+          "A score in a world: 39500"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+      "id": "656570e80d63d66573ee10460599ffb11e5763dfb5c56f75b1706038b3427ff7",
+      "sig": "a19ac59bce74528b18da69dfe332d0f734fe2c83495ad85cc2423b0cddcf775efec21ba91879a92790d45416983d267632f093ae1a9c2cae6a9a8f3bee96097c"
+    },
+    {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "lantern-run"
+        ],
+        [
+          "score",
+          "1"
+        ],
+        [
+          "alt",
+          "A score in a world: 1"
+        ],
+        [
+          "nswp:world",
+          "https://another.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "id": "311fc2c54617bd73d644395422516a0e766f61472a69c9add469c97ec515ba48",
+      "sig": "593cf8ce2e2beaa49fb5af8ab86c990834ecb16e850a0cb2b362b45f9d1e5fd762f089cf1af7d945d199bd9f26b8af1e1caa0f0a931e50d3f69a793514b424fd"
+    },
+    {
+      "kind": 37306,
+      "created_at": 1794430800,
+      "tags": [
+        [
+          "d",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/another"
+        ],
+        [
+          "a",
+          "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+        ],
+        [
+          "board",
+          "another"
+        ],
+        [
+          "score",
+          "5"
+        ],
+        [
+          "alt",
+          "A score in a world: 5"
+        ],
+        [
+          "nswp:world",
+          "https://arcade.example"
+        ]
+      ],
+      "content": "",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+      "id": "0a87382ab498fd4d9283b018d9a8285f174cb6163d78c69af02314916a5cb986",
+      "sig": "2425019480bd017462ab550efbe0686bb361898204f911d7d5bdcb352bb8f1ff85b4ee68e38e3735dc6ae8b97f26847dd2761defb367e293bedcf71193f9a569"
+    }
+  ],
+  "reading": [
+    {
+      "name": "a_score",
+      "description": "A score as a signer makes it for a world: marked with the site that asked.",
+      "event": {
+        "kind": 37306,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/lantern-run"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "board",
+            "lantern-run"
+          ],
+          [
+            "score",
+            "42500"
+          ],
+          [
+            "alt",
+            "A score in a world: 42500"
+          ],
+          [
+            "nswp:world",
+            "https://arcade.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
+        "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+      },
+      "expect": {
+        "by": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "world": "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade",
+        "board": "lantern-run",
+        "score": 42500,
+        "at": 1794430800,
+        "askedAt": [
+          "https://arcade.example"
+        ]
+      }
+    },
+    {
+      "name": "kept_somewhere_else",
+      "description": "Its `d` says another board than its `board` tag: not a score.",
+      "event": {
+        "kind": 37306,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade/another"
+          ],
+          [
+            "a",
+            "37300:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:arcade"
+          ],
+          [
+            "board",
+            "lantern-run"
+          ],
+          [
+            "score",
+            "42500"
+          ],
+          [
+            "alt",
+            "A score in a world: 42500"
+          ],
+          [
+            "nswp:world",
+            "https://arcade.example"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "3efb841d5898926dab7d4a116f34809f4252a8de1f55206b5edbca8e32415049",
+        "sig": "b52167de588bfa2af1cec148db50b3dda292671c72b58f307045c3f55f63b4dbcc643dd5660d572c2b4f85ac738b307f7c77891fa84c4ff2d048aa77e0e6ab78"
+      },
+      "expect": null
+    }
+  ],
+  "boards": [
+    {
+      "name": "less_is_better",
+      "description": "Each person's newest. The one asked for at another site, and the one on another board, are not on it.",
+      "counted": [],
+      "me": null,
+      "order": "low",
+      "expect": {
+        "known": [],
+        "others": [
+          [
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+            39500,
+            1
+          ],
+          [
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            41000,
+            2
+          ]
+        ],
+        "count": 2
+      }
+    },
+    {
+      "name": "someone_they_know",
+      "description": "The first key is someone the reader follows: listed apart, with their place among everyone.",
+      "counted": [
+        "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+      ],
+      "me": null,
+      "order": "low",
+      "expect": {
+        "known": [
+          [
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            41000,
+            2
+          ]
+        ],
+        "others": [
+          [
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+            39500,
+            1
+          ]
+        ],
+        "count": 2
+      }
+    },
+    {
+      "name": "more_is_better",
+      "description": "The same scores on a board where more is better.",
+      "counted": [],
+      "me": null,
+      "order": "high",
+      "expect": {
+        "known": [],
+        "others": [
+          [
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            41000,
+            1
+          ],
+          [
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f",
+            39500,
+            2
+          ]
+        ],
+        "count": 2
+      }
+    }
+  ]
+}

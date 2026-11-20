@@ -17,11 +17,17 @@ const FIELD: [number, number] = [0, -9];
  */
 let fastest = 0;
 const best = (): number => fastest;
+/**
+ * Their best is also their score on this world's board (protocol/15-scores.md): kept on the device by the kit, and
+ * posted only if they say to, from the Scores tab. Set once the world is built.
+ */
+let onBoard: ((seconds: number) => void) | null = null;
 const saves = worldSaves();
 /** Take up a time from somewhere else if it is faster than the one in hand. True if it was. */
 function takeBest(seconds: unknown): boolean {
   if (typeof seconds !== "number" || !(seconds > 0) || (fastest && seconds >= fastest)) return false;
   fastest = seconds;
+  onBoard?.(seconds);
   return true;
 }
 try {
@@ -34,6 +40,8 @@ try {
 void startWorld({
   site: "arcade",
   title: "The Arcade",
+  // One board: the fastest run. A time is counted in thousandths of a second, and less is better.
+  boards: [{ id: "lantern-run", title: "Lantern Run", order: "low", format: "time" }],
   purpose: "Twelve lanterns are loose on the field. Walk into each one to catch it. The clock starts with your first.",
   palette: { ground: 0x0c0510, accent: 0xff5fa2, text: "#ffe6f1" },
   entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
@@ -46,6 +54,9 @@ void startWorld({
   welcome: [0, 3.9, -4.5],
   quiet: true,
   build(kit) {
+    // A time on the board is counted in thousandths of a second.
+    onBoard = (seconds) => void kit.scores?.record("lantern-run", Math.round(seconds * 1000));
+    if (fastest) onBoard(fastest);
     const field = kit.builder;
     const [fx, fz] = FIELD;
     // The edge of the field: a line of light, and a pylon every thirty degrees.

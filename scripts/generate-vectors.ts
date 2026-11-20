@@ -50,6 +50,9 @@ import {
   WORLD_KIND,
   buildRating,
   parseRating,
+  parseScore,
+  rankScores,
+  scoreForWorld,
   tallyRatings,
   getConversationKey,
   openSave,
@@ -980,6 +983,48 @@ const files: Record<string, unknown> = {
     written,
     messages,
     sealedForAWorld: { to: PK2, text: "Sent from a world.", now: T0, nonces: [hex(N1), hex(N2)], expect: forAWorld },
+  };
+}
+
+// ---- Scores (protocol/15-scores.md): what a signer signs for a world, what a reader takes from each, and a board.
+{
+  const WORLD = `${WORLD_KIND}:${PK2}:arcade`;
+  const ORIGIN = "https://arcade.example";
+  const post = (key: Uint8Array, score: number, o: { now?: number; origin?: string; board?: string } = {}) => sign(scoreForWorld({ world: WORLD, board: o.board ?? "lantern-run", score, origin: o.origin ?? ORIGIN, now: o.now ?? T0 })!, key);
+  const a = post(KEY1, 42_500);
+  const aBetter = post(KEY1, 41_000, { now: T0 + 60 });
+  const b = post(KEY3, 39_500);
+  const elsewhere = post(KEY2, 1, { origin: "https://another.example" });
+  const otherBoard = post(KEY2, 5, { board: "another" });
+  const badD = { ...a, tags: a.tags.map((t) => (t[0] === "d" ? ["d", `${WORLD}/another`] : t)) };
+  const reading = [
+    { name: "a_score", description: "A score as a signer makes it for a world: marked with the site that asked.", event: a },
+    { name: "kept_somewhere_else", description: "Its `d` says another board than its `board` tag: not a score.", event: badD },
+  ].map((v) => ({ ...v, expect: parseScore(v.event as NostrEvent) }));
+  const all = [a, aBetter, b, elsewhere, otherBoard];
+  const board = (name: string, description: string, o: { counted: string[]; me: string | null; order: "high" | "low" }) => {
+    const r = rankScores(all, { world: WORLD, board: "lantern-run", worldUrl: `${ORIGIN}/`, ...o });
+    return { name, description, ...o, expect: { known: r.known.map((s) => [s.by, s.score, s.rank]), others: r.others.map((s) => [s.by, s.score, s.rank]), count: r.count } };
+  };
+  const boards = [
+    board("less_is_better", "Each person's newest. The one asked for at another site, and the one on another board, are not on it.", { counted: [], me: null, order: "low" }),
+    board("someone_they_know", "The first key is someone the reader follows: listed apart, with their place among everyone.", { counted: [PK1], me: null, order: "low" }),
+    board("more_is_better", "The same scores on a board where more is better.", { counted: [], me: null, order: "high" }),
+  ];
+  expectEqual("scores/less_is_better", boards[0]!.expect, { known: [], others: [[PK3, 39_500, 1], [PK1, 41_000, 2]], count: 2 });
+  expectEqual("scores/someone_they_know", boards[1]!.expect, { known: [[PK1, 41_000, 2]], others: [[PK3, 39_500, 1]], count: 2 });
+  expectEqual("scores/more_is_better", boards[2]!.expect.others, [[PK1, 41_000, 1], [PK3, 39_500, 2]]);
+  expectEqual("scores/kept_somewhere_else", reading[1]!.expect, null);
+  files["scores.json"] = {
+    description:
+      "Scores (protocol/15-scores.md, kind 37306). `signed`: what `scoreForWorld` gives a signer to sign, for the world at `origin`. `reading`: what a reader takes from one event, or null where it isn't a score. `boards`: every event in `events` is handed to `rankScores` for board `lantern-run` of `world` at `worldUrl`; `counted` is who the reader has reason to know, and `expect` lists [who, score, place among everyone] for the known and for the others.",
+    testKeys,
+    world: WORLD,
+    worldUrl: `${ORIGIN}/`,
+    signed: { board: "lantern-run", score: 42_500, origin: ORIGIN, now: T0, expect: scoreForWorld({ world: WORLD, board: "lantern-run", score: 42_500, origin: ORIGIN, now: T0 }) },
+    events: all,
+    reading,
+    boards,
   };
 }
 

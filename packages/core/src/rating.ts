@@ -46,7 +46,7 @@ export interface Rating {
 }
 
 /** A world's coordinate as a rating may name it, or "". */
-function worldCoordinate(input: unknown): string {
+export function worldCoordinate(input: unknown): string {
   if (typeof input !== "string" || input.length > 200) return "";
   const c = parseCoordinate(input);
   return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
