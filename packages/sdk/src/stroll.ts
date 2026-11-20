@@ -5,17 +5,28 @@
  * is how a headset moves (a slide there turns stomachs) and is wrong for a
  * phone or a desk: the room lurches, and a visitor loses where they were. So
  * on a flat screen a tap is a walk, at the pace the keys walk, to a spot no
- * further than a few metres away. A second tap changes where they are headed.
+ * further than a few metres away.
  *
- * Two taps close together are a run: the same few steps, taken at a run, and
- * each tap after that keeps them running until they arrive somewhere. It is
- * the only way to run for a visitor with no keys to hold.
+ * **A path, clicked out.** A tap while they are already walking doesn't start
+ * again from their feet: it adds a stretch to the way they are going, from
+ * where the last tap ended. So a visitor taps out a path as they walk it,
+ * round a corner or between things, and the line on the floor is that path.
+ *
+ * **They face the way they walk.** While a walk is on, the view turns to
+ * look along the stretch being walked, at an easy rate (`face`). Tapping
+ * ahead is then always tapping where they are looking.
+ *
+ * Two taps close together are a run, straight to that spot, whatever was
+ * planned: the way to change one's mind, and the only way to run for a
+ * visitor with no keys to hold. Each tap after that keeps them running until
+ * they arrive somewhere.
  *
  *   const stroll = createStroll({ where: () => [head.x, head.z], canStand, move: (dx, dz) => { rig.position.x += dx; rig.position.z += dz; } });
  *   // a tap on the floor, outside a headset:
- *   stroll.to(...reachOf(head.x, head.z, spot.x, spot.z));
+ *   stroll.tap(spot.x, spot.z);
  *   // every frame:
  *   stroll.update(dt);
+ *   if (stroll.going && !dragging) rig.rotation.y = stroll.face(rig.rotation.y, dt);
  *   // a key was pressed, a door was taken, a headset session began:
  *   stroll.stop();
  */
@@ -40,6 +51,11 @@ export const DOUBLE_TAP = 400;
  * at the keys' pace and never a jump, and it is shown before it is taken, so it surprises nobody.
  */
 export const TAP_REACH = 6;
+
+/** How many stretches a path may have waiting. More taps than this are not added until some are walked. */
+export const PATH_MOST = 12;
+/** How fast the view turns to face the way they walk, at most, in radians a second: a little under half a turn. */
+export const FACE_RATE = 2.8;
 
 /** How far dragging turns a visitor on a flat screen, in radians a pixel. Dragging right brings what was on the left round. */
 export const DRAG_LOOK = 0.005;
@@ -116,14 +132,32 @@ export function createStepPace(o: { speed?: number; now?: () => number } = {}): 
 
 export interface Stroll {
   /**
-   * Start walking to (x, z), from wherever the visitor is. Asked twice close together, or while already
-   * running, or with `run` true, they run there.
+   * Start walking to (x, z), from wherever the visitor is, and forget any path they had tapped out. Asked twice
+   * close together, or while already running, or with `run` true, they run there. For a walk the page starts
+   * itself (up to a door, say). A press on the floor is `tap`.
    */
   to(x: number, z: number, run?: boolean): void;
+  /**
+   * A press on the floor at (x, z). Standing still, it starts a walk towards it, no further than one press
+   * reaches. Already walking, it adds a stretch to the path, from where the path ends, as far as one press
+   * reaches from there. Two presses close together are a run straight to the spot, with the rest forgotten.
+   */
+  tap(x: number, z: number): void;
+  /** Where a press at (x, z) would lead: for the ring under the pointer. From the end of the path while walking. */
+  reach(x: number, z: number): [number, number];
   /** Whether they are running to where they are headed. */
   readonly running: boolean;
-  /** Where they are headed, or null: for showing them, and nobody else, where a tap is taking them. */
+  /** Where they will end up, or null: the end of the path. */
   readonly target: readonly [number, number] | null;
+  /** The way they are going: each spot still to be walked to, in order. Empty when they are standing. */
+  readonly path: readonly (readonly [number, number])[];
+  /**
+   * The way they are walking now, as a turn about the vertical for something that looks down -Z (a three.js
+   * camera's rig), in radians. Null when they are standing.
+   */
+  readonly heading: number | null;
+  /** `yaw`, turned a little towards the way they are walking: call it every frame of a walk with their own turn. */
+  face(yaw: number, dt: number): number;
   /** Stop where they are. */
   stop(): void;
   /** Call every frame with the seconds since the last. */
@@ -141,67 +175,118 @@ export function createStroll(o: {
   move(dx: number, dz: number): void;
   /** Metres a second. */
   speed?: number;
+  /** How far one press reaches, in metres. `TAP_REACH` when left out. */
+  reach?: number;
   /** Called when something in the way stopped the walk short. */
   onBlocked?: () => void;
   /** The time now, in milliseconds. For tests. */
   now?: () => number;
 }): Stroll {
   const speed = o.speed ?? WALK_SPEED;
+  const reach = o.reach ?? TAP_REACH;
   const now = o.now ?? (() => performance.now());
-  let target: [number, number] | null = null;
+  let path: [number, number][] = [];
   let running = false;
   let asked = -Infinity;
+  let heading: number | null = null;
+  /** The turn that faces from one spot towards another. Kept as it was when the two are all but the same spot. */
+  const aim = (fx: number, fz: number, tx: number, tz: number) => {
+    const dx = tx - fx;
+    const dz = tz - fz;
+    if (Math.hypot(dx, dz) > 0.3) heading = Math.atan2(-dx, -dz);
+  };
+  const halt = () => {
+    path = [];
+    running = false;
+    heading = null;
+  };
   return {
     to(x, z, run) {
       const t = now();
       const again = t - asked <= DOUBLE_TAP;
       asked = t;
-      const wasRunning = target !== null && running;
-      target = Number.isFinite(x) && Number.isFinite(z) ? [x, z] : null;
-      running = target !== null && (run === true || again || wasRunning);
+      const wasRunning = path.length > 0 && running;
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return halt();
+      path = [[x, z]];
+      running = run === true || again || wasRunning;
+      aim(...o.where(), x, z);
     },
-    stop() {
-      target = null;
-      running = false;
+    tap(x, z) {
+      const t = now();
+      const again = t - asked <= DOUBLE_TAP;
+      asked = t;
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+      const [hx, hz] = o.where();
+      if (again || path.length === 0) {
+        // Standing, a walk begins. Pressed twice quickly, it is a run straight there and nothing else.
+        const wasRunning = path.length > 0 && running;
+        path = [reachOf(hx, hz, x, z, reach)];
+        running = again || wasRunning;
+        aim(hx, hz, path[0]![0], path[0]![1]);
+        return;
+      }
+      // Walking already: the path goes on from where it ended.
+      const end = path[path.length - 1]!;
+      const next = reachOf(end[0], end[1], x, z, reach);
+      if (path.length < PATH_MOST && Math.hypot(next[0] - end[0], next[1] - end[1]) > 0.3) path.push(next);
     },
+    reach(x, z) {
+      const from = path.length ? path[path.length - 1]! : o.where();
+      return reachOf(from[0], from[1], x, z, reach);
+    },
+    stop: halt,
     update(dt) {
-      if (!target) return;
+      const next = path[0];
+      if (!next) return;
       const [x, z] = o.where();
-      const dx = target[0] - x;
-      const dz = target[1] - z;
+      const dx = next[0] - x;
+      const dz = next[1] - z;
       const far = Math.hypot(dx, dz);
+      aim(x, z, next[0], next[1]);
       // A long frame (a tab that was away) is not a reason to leap.
       const step = Math.min(far, speed * (running ? RUN : 1) * Math.min(Math.max(dt, 0), 0.1));
+      /** At a spot on the path: on to the next, or done. */
+      const arrived = () => {
+        path.shift();
+        if (path.length === 0) halt();
+      };
       if (far < 0.02 || step <= 0) {
-        if (far < 0.02) {
-          target = null;
-          running = false;
-        }
+        if (far < 0.02) arrived();
         return;
       }
       const sx = (dx / far) * step;
       const sz = (dz / far) * step;
-      // Stop at the first place they may not stand: a wall, an edge, a chamber's side.
+      // Stop at the first place they may not stand: a wall, an edge, a chamber's side. The rest of the path goes too.
       if (!o.canStand(x + sx, z + sz)) {
-        target = null;
-        running = false;
+        halt();
         o.onBlocked?.();
         return;
       }
       o.move(sx, sz);
-      if (far - step < 0.02) {
-        target = null;
-        running = false;
-      }
+      if (far - step < 0.02) arrived();
+    },
+    face(yaw, dt) {
+      if (heading === null || !(dt > 0)) return yaw;
+      // The short way round.
+      const turn = ((((heading - yaw + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+      const most = FACE_RATE * Math.min(dt, 0.1);
+      // Eased as it nears, so it settles and doesn't snap; never faster than the rate.
+      return yaw + Math.max(-most, Math.min(most, turn * Math.min(1, dt * 7)));
     },
     get going() {
-      return target !== null;
+      return path.length > 0;
     },
     get running() {
       return running;
     },
     get target() {
-      return target;
+      return path.length ? path[path.length - 1]! : null;
+    },
+    get path() {
+      return path;
+    },
+    get heading() {
+      return heading;
     },
   };
 }
