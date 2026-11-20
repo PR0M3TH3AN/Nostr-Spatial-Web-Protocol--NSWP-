@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.50.0
+
+Five things to carry, and somewhere to carry them.
+
+- **Starter items** ([`sites/items`](sites/items)): a brass lantern, an old book, a tin mug, a lantern-tree seedling and a paper pinwheel. Each is made in code by `scripts/make-items.mjs` (boxes and prisms, so the same script gives the same bytes), named by its hash, and described in a note signed by the reference publisher. A test holds what is signed to what is served.
+- **The Grove draws what its visitors hold** (`"items": "allowed"`), and keeps the starter items' files at `/items/<sha256>.glb`, served for any world to fetch. Its page may reach any https address for the models other makers keep elsewhere; the other worlds still reach only themselves and relays. The build checks a world's code, its `world.json` and `sites.json` say the same about items.
+- **`nswp sign-item`:** sign an item's description, or a list of them.
+- **A place that can change a bag may offer a few items** to put in with one press (`offered` on `addBagControls`): a client's starter items. Nothing is offered where the bag can't be changed, so never in a world.
+- The Grove's announcement is signed again with `items`. **Neither it nor the items are published until the owner says.**
+
 ## 0.49.1
 
 - **"Items: off" goes with a visitor from world to world.** It was kept by each site apart, so someone who turned items off in one world had them back on in the next. It is now one of the settings that travel ([NSWP-11](protocol/11-the-visitors-console.md)): `items`.

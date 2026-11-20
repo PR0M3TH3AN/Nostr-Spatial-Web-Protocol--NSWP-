@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795157455,
+  "created_at": 1795195781,
   "tags": [
     [
       "d",
@@ -114,6 +114,10 @@
       "social"
     ],
     [
+      "items",
+      "allowed"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -124,6 +128,6 @@
   ],
   "content": "A ring of seats round a hearth in a clearing of lantern trees. Press Join to see and hear whoever else is there.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "d01563e8f45c924b9e00f0908814a8032e26cfa5ba9d330c74644fc8cfefb065",
-  "sig": "954f7da199c234cec01e389dc077104ecadcca1989cac23cfafca96c8d900081c9572ea9962402b3eda152c7f2ec280a736367139eff4511024422d0ad9a32fc"
+  "id": "9eb8de94c3c154ddb8d915243fbfbe2384fa02c5d9d514fd29bed5774569c2f8",
+  "sig": "ed1f92d40b61ba205c6ad59d826651b1ea919e603a0450689f0fb13edef4499aa6d4e9d1e4a05e4c8685192ec47b66e779b44374fa39fd3d1317751df5df0f3b"
 }

@@ -10,6 +10,9 @@ const HEARTH: [number, number] = [0, -2];
 void startWorld({
   site: "grove",
   title: "The Grove",
+  // What people carry is drawn here: the one thing each holds (protocol/17-items.md). It is what this world's
+  // announcement says, and the build checks that the two agree.
+  items: "allowed",
   purpose: "Somewhere to sit and talk. Joined, you see and hear whoever else is here, and they see you. Not joined, nobody does.",
   palette: { ground: 0x0d0804, accent: 0xffb703, text: "#fff3d6" },
   entryPoints: {

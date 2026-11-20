@@ -7,6 +7,7 @@
  *   nswp keygen <key-file>
  *   nswp sign-world <world-input.json> --key-file <path> [--out <file>]
  *   nswp sign-list <list-input.json> --key-file <path> [--out <file>]
+ *   nswp sign-item <item-input.json> --key-file <path> [--out <file> | --out-dir <dir>]
  *   nswp worlds [--relays ...] [--verify] [--not-on <list-event.json>] [--json]
  *   nswp publish <event.json> [--relays ...]
  */
@@ -15,6 +16,7 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import {
+  buildItem,
   buildListEvent,
   buildWorldEvent,
   checkDestination,
@@ -28,6 +30,7 @@ import {
   getPublicKey,
   hasEventShape,
   latestAddressable,
+  parseItem,
   parseListEvent,
   parseManifest,
   parsePortal,
@@ -39,6 +42,7 @@ import {
   verifyOrigin,
   WORLD_KIND,
   type Issue,
+  type ItemInput,
   type ListInput,
   type WorldInput,
   kitAge,
@@ -224,6 +228,45 @@ function keygen(path: string): number {
   return 0;
 }
 
+/**
+ * Sign an item's description (protocol/17-items.md), or each of a list of them. The file is what `buildItem`
+ * takes: `d`, `title`, `model` with its address and SHA-256, `size`, and whatever else it says of itself. The
+ * model's own bytes aren't looked at here: whoever fetches it checks them against the hash.
+ */
+function signItem(inputPath: string): number {
+  const keyFile = flag("key-file");
+  if (!keyFile) {
+    console.log(`${BAD} --key-file is required`);
+    return 1;
+  }
+  const read = JSON.parse(readFileSync(inputPath, "utf8")) as ItemInput | ItemInput[];
+  const inputs = Array.isArray(read) ? read : [read];
+  const outPath = flag("out");
+  const outDir = flag("out-dir");
+  if (inputs.length > 1 && !outDir) {
+    console.log(`${BAD} a list of items needs --out-dir: each is written to <d>.event.json there`);
+    return 1;
+  }
+  const key = readKey(keyFile);
+  const now = Date.now() / 1000;
+  for (const input of inputs) {
+    const made = buildItem({ ...input, now });
+    const event = made ? finalizeEvent(made, key) : null;
+    const item = parseItem(event);
+    if (!event || !item) {
+      console.log(`${BAD} ${String(input?.d ?? "an item")} isn't an item as it stands: it needs a plain name, a title, a model at an https address with its SHA-256, and a size of at most 4 metres a side.`);
+      return 1;
+    }
+    const text = `${JSON.stringify(event, null, 2)}\n`;
+    const to = outDir ? `${outDir.replace(/\/$/, "")}/${item.d}.event.json` : outPath;
+    if (to) {
+      writeFileSync(to, text);
+      console.log(`${OK} Signed ${item.id.slice(0, 14)}…:${item.d} → ${to}`);
+    } else process.stdout.write(text);
+  }
+  return 0;
+}
+
 function signWorld(inputPath: string): number {
   const keyFile = flag("key-file");
   if (!keyFile) {
@@ -364,6 +407,9 @@ async function main(): Promise<number> {
     case "sign-list":
       if (arg) return signList(arg);
       break;
+    case "sign-item":
+      if (arg) return signItem(arg);
+      break;
     case "worlds":
       return worlds();
     case "publish":
@@ -383,6 +429,8 @@ async function main(): Promise<number> {
   nswp keygen <key-file>                                  create a publisher key (hex, mode 600)
   nswp sign-world <input.json> --key-file <f> [--out f]   sign a world announcement from a WorldInput file
   nswp sign-list <input.json> --key-file <f> [--out f]    sign a list of worlds: { "d", "title", "description", "worlds": [addresses] }
+  nswp sign-item <input.json> --key-file <f> [--out f | --out-dir d]
+                                                          sign an item's description, or a list of them (NSWP-17)
   nswp worlds [--verify] [--not-on <list.json>] [--json]  every world announced on the relays, newest first
   nswp publish <event.json> [--relays ...]                publish a signed event`);
   return cmd ? 1 : 0;

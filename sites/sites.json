@@ -3,9 +3,10 @@
   "relays": ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.snort.social", "wss://nostr.mom"],
   "lobby": "https://portal.bitblocks.network/",
   "airlock": "https://portal.bitblocks.network/go/",
+  "keepsItems": "grove",
   "worlds": {
     "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "category": "experience", "was": "nswp-world-a.vercel.app" },
-    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "category": "social", "was": "nswp-world-b.vercel.app" },
+    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "category": "social", "items": "allowed", "was": "nswp-world-b.vercel.app" },
     "tour": { "d": "tour", "url": "https://tour.bitblocks.network/", "category": "experience" },
     "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/", "category": "game" },
     "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/", "category": "experience" },

@@ -1,0 +1,52 @@
+{
+  "kind": 37303,
+  "created_at": 1795195780,
+  "tags": [
+    [
+      "d",
+      "old-book"
+    ],
+    [
+      "title",
+      "Old book"
+    ],
+    [
+      "summary",
+      "A worn book with a leather cover. Nobody has said what is in it."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/8f4a19dcc5077283d28329460d3334e4122a3eaa20b0b5f244157a814679e912.glb",
+      "glb",
+      "8f4a19dcc5077283d28329460d3334e4122a3eaa20b0b5f244157a814679e912"
+    ],
+    [
+      "size",
+      "0.17 0.24 0.046"
+    ],
+    [
+      "collider",
+      "box",
+      "0 0.12 0",
+      "0.17 0.24 0.046"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "place",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "alt",
+      "Item: Old book"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "47572a066907d3a1436b8705c5c70efcb987ccab64af3ac56aa79023264ed0ea",
+  "sig": "ba85cc908066da1f1be5cfa4946425da31756cc0add18652889470b8faf1c53836f41b85e612b47ffa6dbe987068bfeb6d644b2d6a67cf1a876427baf5b644c0"
+}

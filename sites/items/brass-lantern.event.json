@@ -1,0 +1,52 @@
+{
+  "kind": 37303,
+  "created_at": 1795195780,
+  "tags": [
+    [
+      "d",
+      "brass-lantern"
+    ],
+    [
+      "title",
+      "Brass lantern"
+    ],
+    [
+      "summary",
+      "A small lantern with a warm light, like the ones in the Grove's trees."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/122d191c5372ea64284e10f1e74bf30bf4744cd05f40b24fdb59d8986ce4c504.glb",
+      "glb",
+      "122d191c5372ea64284e10f1e74bf30bf4744cd05f40b24fdb59d8986ce4c504"
+    ],
+    [
+      "size",
+      "0.16 0.4 0.16"
+    ],
+    [
+      "collider",
+      "box",
+      "0 0.2 0",
+      "0.16 0.4 0.16"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "place",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "alt",
+      "Item: Brass lantern"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "92484ed931092823542db76e3631022ec8219f7f3fd01b3fa0756bd9a5c91353",
+  "sig": "dd48abbd882c42b0dd42dbf49545cd24dc86610e9c5e4795dc39bbf863c1dab6d9ab49196dbd2c1f02dd400f306d513070d49346fb48228a76e625aae8b36ab8"
+}

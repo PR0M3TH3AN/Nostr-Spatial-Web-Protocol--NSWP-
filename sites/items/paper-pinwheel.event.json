@@ -1,0 +1,52 @@
+{
+  "kind": 37303,
+  "created_at": 1795195780,
+  "tags": [
+    [
+      "d",
+      "paper-pinwheel"
+    ],
+    [
+      "title",
+      "Paper pinwheel"
+    ],
+    [
+      "summary",
+      "A pinwheel of folded paper on a stick."
+    ],
+    [
+      "model",
+      "https://grove.bitblocks.network/items/c1dfc471a99657992a83e547ecb7d7e1f4d80ff602263d169797fae09c0a244d.glb",
+      "glb",
+      "c1dfc471a99657992a83e547ecb7d7e1f4d80ff602263d169797fae09c0a244d"
+    ],
+    [
+      "size",
+      "0.223 0.452 0.028"
+    ],
+    [
+      "collider",
+      "box",
+      "0 0.226 0.008",
+      "0.223 0.452 0.028"
+    ],
+    [
+      "behavior",
+      "holdable"
+    ],
+    [
+      "fits",
+      "place",
+      "hand-left",
+      "hand-right"
+    ],
+    [
+      "alt",
+      "Item: Paper pinwheel"
+    ]
+  ],
+  "content": "",
+  "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
+  "id": "f6d1d3c0842975f661c3f30aede11fe8c7b165937688f65f97c04342e3b2a6ef",
+  "sig": "d77d1fc67bfed8375bb3ff36bafc9e6446190c27cec590a32779545249fd32c8b99d1c37793ea2c8826207168dab537fdf9b8c7ac4397dd068ce22d3a810750e"
+}

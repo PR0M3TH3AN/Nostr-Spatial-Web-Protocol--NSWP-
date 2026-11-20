@@ -1,0 +1,187 @@
+[
+  {
+    "d": "brass-lantern",
+    "title": "Brass lantern",
+    "summary": "A small lantern with a warm light, like the ones in the Grove's trees.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/122d191c5372ea64284e10f1e74bf30bf4744cd05f40b24fdb59d8986ce4c504.glb",
+      "sha256": "122d191c5372ea64284e10f1e74bf30bf4744cd05f40b24fdb59d8986ce4c504"
+    },
+    "size": [
+      0.16,
+      0.4,
+      0.16
+    ],
+    "colliders": [
+      {
+        "shape": "box",
+        "centre": [
+          0,
+          0.2,
+          0
+        ],
+        "size": [
+          0.16,
+          0.4,
+          0.16
+        ]
+      }
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "place",
+      "hand-left",
+      "hand-right"
+    ]
+  },
+  {
+    "d": "old-book",
+    "title": "Old book",
+    "summary": "A worn book with a leather cover. Nobody has said what is in it.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/8f4a19dcc5077283d28329460d3334e4122a3eaa20b0b5f244157a814679e912.glb",
+      "sha256": "8f4a19dcc5077283d28329460d3334e4122a3eaa20b0b5f244157a814679e912"
+    },
+    "size": [
+      0.17,
+      0.24,
+      0.046
+    ],
+    "colliders": [
+      {
+        "shape": "box",
+        "centre": [
+          0,
+          0.12,
+          0
+        ],
+        "size": [
+          0.17,
+          0.24,
+          0.046
+        ]
+      }
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "place",
+      "hand-left",
+      "hand-right"
+    ]
+  },
+  {
+    "d": "tin-mug",
+    "title": "Tin mug",
+    "summary": "An enamel mug of tea that never goes cold.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/5699936c356c395bf87e7a02c251b046d619e7c7714e7e987293eadf9b791de4.glb",
+      "sha256": "5699936c356c395bf87e7a02c251b046d619e7c7714e7e987293eadf9b791de4"
+    },
+    "size": [
+      0.118,
+      0.097,
+      0.086
+    ],
+    "colliders": [
+      {
+        "shape": "box",
+        "centre": [
+          0.016,
+          0.049,
+          0
+        ],
+        "size": [
+          0.118,
+          0.097,
+          0.086
+        ]
+      }
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "place",
+      "hand-left",
+      "hand-right"
+    ]
+  },
+  {
+    "d": "lantern-seedling",
+    "title": "Lantern-tree seedling",
+    "summary": "A seedling of the Grove's lantern trees, in a clay pot. Its tip already glows.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/97d7467a820bdf45400755dc33e43abbe0fb0e01aa5437b8e54734e90860ac9e.glb",
+      "sha256": "97d7467a820bdf45400755dc33e43abbe0fb0e01aa5437b8e54734e90860ac9e"
+    },
+    "size": [
+      0.22,
+      0.42,
+      0.191
+    ],
+    "colliders": [
+      {
+        "shape": "box",
+        "centre": [
+          0,
+          0.21,
+          0
+        ],
+        "size": [
+          0.22,
+          0.42,
+          0.191
+        ]
+      }
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "place",
+      "hand-left",
+      "hand-right"
+    ]
+  },
+  {
+    "d": "paper-pinwheel",
+    "title": "Paper pinwheel",
+    "summary": "A pinwheel of folded paper on a stick.",
+    "model": {
+      "url": "https://grove.bitblocks.network/items/c1dfc471a99657992a83e547ecb7d7e1f4d80ff602263d169797fae09c0a244d.glb",
+      "sha256": "c1dfc471a99657992a83e547ecb7d7e1f4d80ff602263d169797fae09c0a244d"
+    },
+    "size": [
+      0.223,
+      0.452,
+      0.028
+    ],
+    "colliders": [
+      {
+        "shape": "box",
+        "centre": [
+          0,
+          0.226,
+          0.008
+        ],
+        "size": [
+          0.223,
+          0.452,
+          0.028
+        ]
+      }
+    ],
+    "behaviors": [
+      "holdable"
+    ],
+    "fits": [
+      "place",
+      "hand-left",
+      "hand-right"
+    ]
+  }
+]
