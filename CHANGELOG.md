@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.49.1
+
+- **"Items: off" goes with a visitor from world to world.** It was kept by each site apart, so someone who turned items off in one world had them back on in the next. It is now one of the settings that travel ([NSWP-11](protocol/11-the-visitors-console.md)): `items`.
+
 ## 0.49.0
 
 A bag, and something in your hand.

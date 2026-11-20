@@ -229,7 +229,9 @@ items, and puts it away again.
   world with no items reaches only itself and relays.
 
 **The visitor's switch.** "Items: off" in the Bag tab, and nothing of
-anyone's is fetched, drawn or run for them, in any world.
+anyone's is fetched, drawn or run for them. It is one of the settings that
+travel ([NSWP-11](11-the-visitors-console.md)), so it is off in the next
+world too.
 
 ## What is not here
 

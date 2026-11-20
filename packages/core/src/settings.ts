@@ -57,6 +57,11 @@ export interface TravelSettings {
    */
   chat?: boolean;
   /**
+   * Whether anything people carry is fetched, drawn or run for them (protocol/17-items.md). Left out, it is, in
+   * a world that has items. Turned off, it is off in the next world too: it is how they mute every item.
+   */
+  items?: boolean;
+  /**
    * Which tabs of the menu they keep on their bar, by name, in the order they pinned them: `PINS_MOST` at most.
    * An empty list is a choice too: they took them all off. A name a world has no tab for is simply not shown
    * there. Only they pin: a world never does it for them.
@@ -106,6 +111,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.fov === "number" && Number.isFinite(s.fov)) out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
   if (typeof s.chat === "boolean") out.chat = s.chat;
+  if (typeof s.items === "boolean") out.items = s.items;
   if (Array.isArray(s.pins)) out.pins = [...new Set(s.pins.filter((name): name is string => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
   return out;
 }

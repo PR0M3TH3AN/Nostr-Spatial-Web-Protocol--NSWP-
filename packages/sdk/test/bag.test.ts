@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createBag, type BagHand } from "../src/bag.js";
 import { addBagControls, itemIn } from "../src/bagging.js";
-import { createItems, fitToSize, ITEM_BUDGET, withinBudget } from "../src/items.js";
+import { createItems, fitToSize, forgetItemsSwitch, ITEM_BUDGET, setShowsItems, showsItems, withinBudget } from "../src/items.js";
+import { arriveWith, currentSettings } from "../src/settings.js";
 import { forgetRelays } from "../src/relay-book.js";
 import type { Controls, UiAction } from "../src/ui/model.js";
 
@@ -98,6 +99,27 @@ describe("an item's address, copied or typed", () => {
   it("is found as a coordinate among other words, and is nothing when it isn't an item", () => {
     expect(itemIn(`Take this: ${LANTERN} thanks`)).toBe(LANTERN);
     for (const bad of ["", "hello", `37300:${maker}:a-world`, `37303:${maker}:Not A Name`, 5]) expect(itemIn(bad), String(bad)).toBe("");
+  });
+});
+
+describe("the switch for all items", () => {
+  it("is on until they turn it off, and goes with them to the next world", () => {
+    arriveWith({});
+    forgetItemsSwitch();
+    expect(showsItems()).toBe(true);
+    setShowsItems(false);
+    expect(showsItems()).toBe(false);
+    expect(currentSettings().items).toBe(false);
+    setShowsItems(true);
+    expect(currentSettings().items).toBe(true);
+  });
+
+  it("starts as they left it in the world they came from", () => {
+    arriveWith({ items: false });
+    forgetItemsSwitch();
+    expect(showsItems()).toBe(false);
+    arriveWith({});
+    forgetItemsSwitch();
   });
 });
 

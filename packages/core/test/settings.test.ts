@@ -74,7 +74,7 @@ describe("the tabs a visitor keeps on their bar", () => {
     expect(decodeSettings(encodeSettings({ pins: [] }))).toEqual({ pins: [] });
   });
   it("go on a link with everything else, and come off it the same", () => {
-    const all: TravelSettings = { ...mine, pictures: true, chat: true, pins: ["people", "sound", "display", "camera"] };
+    const all: TravelSettings = { ...mine, pictures: true, chat: true, items: false, pins: ["people", "sound", "display", "camera"] };
     const sent = encodeSettings(all);
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.length).toBeLessThanOrEqual(SETTINGS_LINK_LIMIT);
@@ -82,7 +82,7 @@ describe("the tabs a visitor keeps on their bar", () => {
   });
   it("are the first thing left behind if a link would be too long, so the rest still travels", () => {
     // The longest names there can be, with every other setting said: more than a link holds.
-    const most: TravelSettings = { ...mine, sound: { off: false, effects: 0.77, music: 0.33, voices: 0.99, hum: false }, look: 1.25, text: 1.15, pictures: false, chat: false, pins: ["abcdefghijkl", "bcdefghijklm", "cdefghijklmn", "defghijklmno"] };
+    const most: TravelSettings = { ...mine, sound: { off: false, effects: 0.77, music: 0.33, voices: 0.99, hum: false }, look: 1.25, text: 1.15, pictures: false, chat: false, items: false, pins: ["abcdefghijkl", "bcdefghijklm", "cdefghijklmn", "defghijklmno"] };
     const whole = JSON.stringify(cleanSettings(most));
     const sent = encodeSettings(most);
     expect(sent.length).toBeGreaterThan(0);
