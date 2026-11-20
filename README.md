@@ -197,7 +197,9 @@ The worlds' publisher key lives outside the repo, at
 `~/.config/nswp/reference-publisher.key`. Signed announcements are in
 `sites/announcements/` and are published to public relays; after changing a
 `world.json`, re-sign it with `nswp sign-world` and publish it with
-`nswp publish`.
+`nswp publish`. (As of 2026-11-20 the files there are
+signed with each world's `category`, and The Foundry's is new; none of those
+has been published yet.)
 
 ### Previews
 
