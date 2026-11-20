@@ -10,9 +10,9 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, encodeNaddr, WORLD_KIND, type Board } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addCameraControls, addPanelControls, addRoomControls, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addCameraControls, addPanelControls, addRoomControls, addScoreControls, createScores, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -52,6 +52,12 @@ export interface WorldKit {
   /** Leave a note for tests: it shows up in `__nswpTest.state`. */
   note(key: string, value: unknown): void;
   /**
+   * This world's scores (protocol/15-scores.md), where it names boards in its configuration; null where it names
+   * none. `scores.record(board, score)` keeps a visitor's best on the device. Posting it is theirs to do, from
+   * the Scores tab the kit adds to the menu.
+   */
+  scores: Scores | null;
+  /**
    * Make something a visitor in a headset can pick up: with a controller's
    * grip, or a pinch of tracked fingers. Give the object a `name` to tell it
    * apart. Nobody needs to pick anything up to get around.
@@ -88,6 +94,11 @@ export interface WorldConfig {
   sounds?: SoundTheme;
   /** False where this world wants no music shared between visitors. Each still hears their own. */
   sharedMusic?: boolean;
+  /**
+   * The boards this world keeps score on, if it keeps score at all (protocol/15-scores.md). Optional: left out,
+   * there is no Scores tab and nothing about scores anywhere.
+   */
+  boards?: Board[];
   /** Positions in metres; yaw in degrees, 0 facing -Z. */
   entryPoints: Record<string, { position: V3; yaw: number }>;
   doors: Door[];
@@ -269,6 +280,21 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const toHold: [THREE.Object3D, GrabOptions | undefined][] = [];
   let panels: Panels | null = null;
   const toHang: [PanelContent, Partial<PanelPlace> | undefined][] = [];
+  // Scores, for a world that names boards (protocol/15-scores.md). The world's own code records what a visitor
+  // scored; it is kept on the device, and posted only when the visitor says to, from the menu.
+  const signedInHere = () => signerNamed() && worldSigner().state === "unlocked";
+  const scores: Scores | null = cfg.boards?.length
+    ? createScores({
+        world: `${WORLD_KIND}:${sites.publisher}:${places[cfg.site]?.d ?? ""}`,
+        // Where this page really is: on the world's own address that is the address it announced. A copy
+        // somewhere else keeps a board of its own, and nothing posted there counts on the real one.
+        worldUrl: location.origin,
+        boards: cfg.boards,
+        hand: { pubkey: () => (signedInHere() ? worldSigner().pubkey : null), sign: (world, board, score) => worldSigner().score(world, board, score) },
+        // People this visitor follows are listed first, where they have let this world see who that is.
+        counted: () => (signedInHere() && worldSigner().more.includes("follows") ? (worldPeople().follows() ?? []) : []),
+      })
+    : null;
   const kit: WorldKit = {
     scene,
     accent,
@@ -292,6 +318,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     note(key, value) {
       state[key] = value;
     },
+    scores,
     grabbable(object, options) {
       if (input) input.grabbable(object, options);
       else toHold.push([object, options]);
@@ -733,7 +760,22 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let refreshRoom = () => {};
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
   const presence = createPresence({ scene, camera, rig, renderer, controllers, labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => refreshRoom() });
-  ({ refresh: refreshRoom, travelling } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels, sounds, presenting: () => renderer.xr.isPresenting, ...(cfg.sharedMusic === false ? { sharedMusic: false } : {}) }));
+  let followingTab: ReturnType<typeof addRoomControls>["following"];
+  ({ refresh: refreshRoom, travelling, following: followingTab } = addRoomControls(controls, presence, { onState: (room) => (state.room = room), arrived: context, panels, sounds, presenting: () => renderer.xr.isPresenting, ...(cfg.sharedMusic === false ? { sharedMusic: false } : {}) }));
+  // Its boards, where it keeps score: a tab of the menu, with the way to post and who else is on each.
+  if (scores) {
+    const scoring = addScoreControls(controls, {
+      scores,
+      profiles: followingTab.profiles,
+      signedIn: signedInHere,
+      // Someone on a board, chosen: who they are, in Following, where they can be followed or not.
+      choose: (pubkey) => {
+        followingTab.choose(pubkey);
+        hud.setOpen(true, "following");
+      },
+    });
+    if (signerNamed()) worldSigner().onChange(() => scoring.refresh());
+  }
   hooks.roomInfo = () => presence.info();
   // How loud other people are is the visitor's to set, with the rest of their volumes.
   sounds.onChange((levels) => presence.setVolume(levels.off ? 0 : levels.voices));

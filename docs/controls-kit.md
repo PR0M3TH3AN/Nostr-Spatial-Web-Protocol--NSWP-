@@ -568,6 +568,33 @@ Where they haven't let your world yet, call `worldSigner().want(["follows"])`
 and then `worldSigner().unlock()`, both from the same press. Don't ask on
 arrival: ask when they press the thing that needs it.
 
+### Keeping score
+
+Optional. If your world keeps score, name a board and record what a visitor
+makes ([NSWP-15](../protocol/15-scores.md)):
+
+```ts
+import { addScoreControls, createScores, worldSigner } from "nswp-sdk/three";
+
+const scores = createScores({
+  world: "37300:<your publisher key>:<your world's d>",
+  worldUrl: location.origin,
+  boards: [{ id: "lantern-run", title: "Lantern Run", order: "low", format: "time" }],
+  hand: { pubkey: () => worldSigner().pubkey, sign: (w, b, s) => worldSigner().score(w, b, s) },
+});
+addScoreControls(controls, { scores, signedIn: () => worldSigner().state === "unlocked" });
+
+scores.record("lantern-run", 42_500); // a run just ended
+```
+
+- **Their best is kept on the device,** for anyone, as they make it.
+- **Posting it is theirs to do,** from the Scores tab this adds to the menu.
+  A posted score is public: it says they were here, and how they did.
+- **The tab lists who else is on the board:** people they follow first,
+  where they have let your world see who that is, then everyone else.
+- **A score is a claim.** Nothing checks it, and the tab says so. Don't call
+  anyone a winner or a record holder on it.
+
 ### Keeping their progress
 
 A world with something to remember for a visitor keeps it as a save

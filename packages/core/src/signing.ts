@@ -19,6 +19,8 @@ import { isHex64 } from "./event.js";
 import { cleanAbout, cleanPicture } from "./pass.js";
 import { cleanSlot, fitsInSave } from "./save.js";
 import { cleanMessage, cleanRead, type Message, type SealedMessage } from "./message.js";
+import { worldCoordinate } from "./rating.js";
+import { cleanBoard, cleanScore } from "./score.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -204,7 +206,12 @@ export type SignerRequest =
   /** Open this wrapped message, which a relay gave me. The signer opens both layers and checks who wrote it. */
   | { t: "unwrap"; id: string; event: NostrEvent }
   /** Sign where the visitor's private messages reach them: a few relays (kind 10050). */
-  | { t: "reach"; id: string; relays: string[] };
+  | { t: "reach"; id: string; relays: string[] }
+  /**
+   * Sign my visitor's score (protocol/15-scores.md). The world gives its own coordinate, the board and the score,
+   * and nothing else: the signer writes the note and marks it with the site that asked.
+   */
+  | { t: "score"; id: string; world: string; board: string; score: number };
 
 /**
  * What a world may ask its visitor to let it do, beyond a note and a reaction. A closed list: each is a thing a
@@ -262,6 +269,7 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
   if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
+  if (d.t === "score" && worldCoordinate(d.world) && cleanBoard(d.board) && cleanScore(d.score) !== null) return { t: "score", id: d.id, world: worldCoordinate(d.world), board: cleanBoard(d.board), score: cleanScore(d.score)! };
   if (d.t === "seal" && isHex64(d.to) && cleanMessage(d.text)) return { t: "seal", id: d.id, to: d.to, text: cleanMessage(d.text) };
   if (d.t === "unwrap" && d.event && typeof d.event === "object") return { t: "unwrap", id: d.id, event: d.event as NostrEvent };
   if (d.t === "reach" && Array.isArray(d.relays) && d.relays.length <= 8 && d.relays.every((r) => typeof r === "string" && r.length <= 200)) return { t: "reach", id: d.id, relays: d.relays as string[] };

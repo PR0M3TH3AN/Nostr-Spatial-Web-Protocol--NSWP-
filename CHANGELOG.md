@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.44.0
+
+Scores, for a world that keeps them. Optional throughout: a world that names no boards has none of this.
+
+- **A score a visitor made in a world** ([NSWP-15](protocol/15-scores.md), kind 37306): signed by their own key, one for each person on each of a world's boards, replaced when they do better. Posted only when they say to. `buildScore`, `parseScore`, `rankScores`, `scoreWords` in the core; `vectors/scores.json`.
+- **It counts on a board only if it was asked for at the world itself:** the visitor's signer marks what it signs with the site that asked, so another site can't post to a world's board. One more message to the signer (`score`); the signer writes the note (`scoreForWorld`). `sign` still refuses the kind.
+- **A board lists the people a reader has reason to know first,** then everyone else, a few at most. Every score is a claim, and the kit says so: nothing checks one yet.
+- **In the kit:** `createScores` (a visitor's best, kept on the device; `record`, `post`, `standings`) and `addScoreControls`, a Scores tab with the way to post and who else is on the board. Choosing someone on a board shows who they are, in Following.
+- **The Arcade keeps a board:** the fastest Lantern Run.
+- **Not built yet:** BitLogin's signer doesn't answer `score`, so until it does a best stays on the device. Checked scores, boards on a world's door, and boards across worlds.
+
 ## 0.43.1
 
 - **The relay backup never stands in for relays that were never named,** and is not used outside a browser unless the caller hands in what does the asking or sending. A call that names no relays sends nowhere, as it always did. Found the hard way: a unit test of BitPortal's, which sends a rating to an empty list of relays, reached the backup and published a made-up rating to two real relays.
