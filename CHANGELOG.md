@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.55.0
+
+Other people, in a world made with another engine.
+
+- **A world made with Godot has a room** (`NswpPeople` in the addon; `NSWP.people`, `figure` and `board` in the engine script; [docs/other-engines.md](docs/other-engines.md), "Other people"). Join from the bar, and whoever else is there is seen and heard: the kit's own figure for each, their name, what they write over their head and in chat, their voice from where they stand, the list of people and a card for each, muting and blocking. Two people who arrive in the same spot step apart.
+- **None of it is written twice.** The code that keeps track of people in a Three.js world now also says what it is drawing (`drawn()` on a presence), and runs unchanged for an engine on a scene with nothing in it to draw. The engine is handed each figure as shapes and each flat thing (a name, a picture, written words) as a picture, and draws them.
+- **One call a frame for everything** (`NSWP.frame`, now in `engine-world.ts`): items and people each add their share. In Godot any number of nodes may ask in a frame, and the page is asked once.
+- **The kit's metal for Godot can thin out** (`opacity` in `gate/alloy.gdshader`), so someone standing very close never fills the view.
+- `three.ts` is three files: people (`presence.ts`), the room's part of the menu (`room-controls.ts`, which asks a presence and never a renderer), and the rest. Everything it exported, it still exports.
+- Not in Godot yet: what other people hold and send out, a screen someone shares, and any of this in a headset.
+
 ## 0.54.1
 
 One sign-in, however you came.

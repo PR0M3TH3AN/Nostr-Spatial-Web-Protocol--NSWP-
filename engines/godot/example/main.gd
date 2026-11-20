@@ -22,6 +22,7 @@ const GROUND := Color("141b24")
 
 var _visitor: NswpVisitor
 var _items: NswpItems
+var _people: NswpPeople
 var _gate: NswpGate
 var _said: String = ""
 
@@ -46,6 +47,12 @@ func _ready() -> void:
 	_items.visitor = _visitor
 	_items.rule = "allowed"
 	add_child(_items)
+	# Other people (spec §9.4): the room's part of the menu, and whoever else has joined, drawn as
+	# they are in every world. Nobody is joined to anything until they ask.
+	_people = NswpPeople.new()
+	_people.name = "People"
+	_people.visitor = _visitor
+	add_child(_people)
 
 	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))
 	_add_door("The Workshop", WORKSHOP, "experience", Vector3(2.2, 0.0, -5.0))
@@ -192,4 +199,6 @@ func _report() -> void:
 		"frame_corners": (_gate.get_node("Frame") as MeshInstance3D).mesh.get_faces().size(),
 		"sign": _gate.address_line(),
 		"items": _items.report(),
+		"people": _people.report(),
+		"info": Nswp.people_info(),
 	})

@@ -1,7 +1,8 @@
 # Godot: what is still to do
 
 **Status (2026-11-20):** a list, set down when the owner paused this work to
-look at sign-in. Nothing here is started. What Godot worlds already have is
+look at sign-in. Part 1 (other people) is done, the same day: kit 0.55.0.
+The rest is not started. What Godot worlds already have is
 in [other-engines.md](../other-engines.md), under "Godot".
 
 ## Where it stands
@@ -15,9 +16,17 @@ All of that is for **one visitor by themself.** A Godot world has no rooms.
 
 ## To do, in the order it should be done
 
-### 1. Other people (rooms)
+### 1. Other people (rooms): done in 0.55.0
 
-The largest piece, and what most of the rest waits on.
+How it was done, since the rest should be done the same way: the kit's own
+people code (`presence.ts`) runs unchanged on a scene with nothing in it to
+draw (`engine-world.ts`), and says what it is drawing (`drawn()`); the
+engine is handed figures as shapes and everything flat as pictures
+(`engine-people.ts`), and draws them. Nothing about a room was written
+twice. Left over from this part: a picture over a name hasn't been seen
+working, pressing a person, and a screen someone shares.
+
+As it was listed:
 
 - The kit's room connection (`room.ts`) behind the engine script's text
   calls: join, leave, who is here, where each person is, what each says.

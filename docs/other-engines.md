@@ -261,6 +261,51 @@ and writes a description ready for `nswp sign-item`. A material named
 The Godot addon has a script that writes any scene out for it
 (`nswp_item_model.gd`).
 
+## Other people
+
+A visitor may join the room of the place they are in, and then sees and
+hears whoever else is there (spec §9.4). **Everything about a room that
+isn't drawing is in the script, and is the very code a Three.js world
+runs:** joining and leaving, who is here and where, their voices from where
+they stand, chat, the list of people and a card for each, muting and
+blocking. Their figures, their names and what they write are made there
+too, so people look the same in every world.
+
+| Call | Does |
+|---|---|
+| `NSWP.people(options)` | Call once, after `menu`. The room's part of the menu is added: Join, the microphone, chat, who is here. `options` is JSON: `sharedMusic` false for a place that wants none of its visitors' music shared; `labels`, a colour for names. Nobody is joined to anything until they ask. |
+| `NSWP.frame(view)` | The same call as for items, once a frame: it now also returns `people`, `room` and sometimes `nudge`. |
+| `NSWP.figure(name)` | What to draw a person's figure with, by the name a frame gave. |
+| `NSWP.board(key)` | A board's picture, as a PNG in base64, by the key a frame gave. |
+
+What `frame` gives back for people:
+
+- `people`: everyone to draw. For each: `key`; `name`; `figure`, the name
+  of what to draw them with; `opacity`, less than 1 as they come very
+  close (nobody may fill another's view); where their `head`, their `body`
+  and each of their `hands` is (`p`, a place, and `q`, a turn; a hand is
+  null when it isn't being tracked); and their `boards`.
+- A **figure** is three shapes: `head`, `body` and `hand` (one shape, drawn
+  twice). Each is a list of triangles' corners as 32-bit floats in base64:
+  `position`, `normal`, `tone` (the metal's own colour there, as sRGB),
+  `glow` (how much of a light it is) and `flow` (how far along its seam).
+  With them come `accent`, `gloss` and `sheen`. They are for the kit's
+  metal, the surface everything the kit models is drawn in
+  (`gate/alloy.gdshader` is it, written for Godot). A head faces -Z with its
+  origin between the eyes.
+- A **board** is a flat picture that always faces the viewer: a name, a
+  picture, a few written words, a light. `at` is where its middle is (or
+  the middle of its bottom edge, where `foot` is true), `w` and `h` its
+  size in metres, `opacity`, and sometimes `tint`, a colour to draw it in.
+- `room`: whether they are joined, whether their microphone is on, and how
+  many others are here.
+- `nudge`: two numbers, x and z in metres. Add them to where the visitor
+  stands: two people who arrive in the same spot step apart.
+
+Voices and chat are the page's own. There is nothing of sound for an
+engine to do: say where the visitor's view is each frame, as `frame`
+already asks, and voices come from where their speakers stand.
+
 ## What an engine draws for itself
 
 Its doors, and how its visitors move. An engine's side should take both from
@@ -274,11 +319,9 @@ headset. (The crossing's room does, as the page's picture of it: above.) The pro
 way ([NSWP-05](../protocol/05-looks.md)), so that is allowed. It is also
 work.
 
-Rooms aren't in the script yet. The kit's room connection is JavaScript and
-passes more than text. So in a world drawn by another engine a visitor is
-by themself: what they hold and send out is theirs alone to see, and
-nothing reaches anyone. Hits, health between people and muting come with
-rooms.
+Rooms are in the script ("Other people", above). What isn't yet: what
+other people hold, and what their items send out. So a hit, health between
+people and muting someone's items are still for worlds drawn with Three.js.
 
 ## Godot
 
@@ -370,9 +413,25 @@ a stand-in signer:
 Not tried there: aiming along the sight with the mouse (it is wired; a test
 can't take the pointer), a phone, a headset.
 
+**Added 2026-11-20, other people** (`NswpPeople`), run the same way, with
+two visitors in two browsers, each signed in through a stand-in signer, on
+stand-in relays:
+
+- Join the room from the bar. Each sees the other by name, as the kit's
+  own figure in the kit's own metal, where they stand; and sees them walk.
+- Two people who arrive in the same spot step apart.
+- Leave, Mic and Chat on the bar. What one writes is in the other's chat,
+  and over the writer's head.
+- A microphone turned on is heard by the other (a test tone, measured).
+- Someone standing very close thins out and never fills the view.
+- One leaves, and is gone for the other.
+
+Not tried there: a real microphone and two real people, more than two
+people, a picture over a name, pressing a person, a phone.
+
 **Not in the Godot addon:** moving in a headset (a session starts, and the
 visitor stands where they are), the view through a door, posting from a
-world, and other people. The crossing's room is the page's picture of it:
+world, what other people hold, and a screen someone shares. The crossing's room is the page's picture of it:
 it can't be looked round in, as a Three.js world's can.
 
 A Godot export is large (about 40 MB, nearly all the engine), which is what

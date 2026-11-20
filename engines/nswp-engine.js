@@ -26,6 +26,7 @@ var NSWP = (() => {
     KIT: () => KIT,
     VERSION: () => VERSION,
     arrival: () => arrival2,
+    board: () => board,
     bump: () => bump,
     changeLook: () => changeLook,
     check: () => check,
@@ -35,6 +36,7 @@ var NSWP = (() => {
     doors: () => doors2,
     events: () => events,
     failed: () => failed,
+    figure: () => figure,
     frame: () => frame,
     go: () => go,
     headset: () => headset,
@@ -50,6 +52,8 @@ var NSWP = (() => {
     model: () => model,
     moved: () => moved,
     open: () => open,
+    people: () => people,
+    peopleInfo: () => peopleInfo,
     play: () => play,
     presence: () => presence,
     ready: () => ready,
@@ -71,9 +75,9 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.54.1";
-  function parseKitVersion(v) {
-    const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
+  var KIT_VERSION = "0.55.0";
+  function parseKitVersion(v2) {
+    const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
   }
   var MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"];
@@ -130,18 +134,18 @@ var NSWP = (() => {
       return this.errors.length > 0 ? { ok: false, errors: this.errors, warnings: this.warnings } : { ok: true, value, warnings: this.warnings };
     }
   };
-  function isPlainObject(v) {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
+  function isPlainObject(v2) {
+    return typeof v2 === "object" && v2 !== null && !Array.isArray(v2);
   }
 
   // node_modules/@noble/hashes/_u64.js
   var fromNumH = (n) => n / 2 ** 32 | 0;
   var fromNumL = (n) => n >>> 0;
-  function setU64FromNum(view2, byteOffset, n, isLE) {
+  function setU64FromNum(view2, byteOffset, n, isLE2) {
     const h = fromNumH(n);
     const l = fromNumL(n);
-    view2.setUint32(byteOffset, isLE ? l : h, isLE);
-    view2.setUint32(byteOffset + 4, isLE ? h : l, isLE);
+    view2.setUint32(byteOffset, isLE2 ? l : h, isLE2);
+    view2.setUint32(byteOffset + 4, isLE2 ? h : l, isLE2);
   }
 
   // node_modules/@noble/hashes/utils.js
@@ -168,6 +172,14 @@ var NSWP = (() => {
     if (!bytes)
       throw new TypeError(message);
     throw new RangeError(message);
+  }
+  function ahash(h) {
+    if (typeof h !== "function" || typeof h.create !== "function")
+      throw new TypeError("expected hash wrapped by utils.createHasher");
+    anumber(h.outputLen);
+    anumber(h.blockLen);
+    if (h.outputLen < 1 || h.blockLen < 1)
+      throw new Error("hash blockLen / outputLen must be >= 1");
   }
   var aobject = (value, label) => {
     if (value === null || typeof value !== "object" || Array.isArray(value))
@@ -319,7 +331,7 @@ var NSWP = (() => {
     return a & b ^ a & c ^ b & c;
   }
   var HashMD = class {
-    constructor(blockLen, outputLen, padOffset, isLE) {
+    constructor(blockLen, outputLen, padOffset, isLE2) {
       __publicField(this, "blockLen");
       __publicField(this, "outputLen");
       __publicField(this, "canXOF", false);
@@ -335,7 +347,7 @@ var NSWP = (() => {
       this.blockLen = blockLen;
       this.outputLen = outputLen;
       this.padOffset = padOffset;
-      this.isLE = isLE;
+      this.isLE = isLE2;
       this.buffer = new Uint8Array(blockLen);
       this.view = createView(this.buffer);
     }
@@ -372,7 +384,7 @@ var NSWP = (() => {
       aexists(this);
       aoutput(out, this);
       this.finished = true;
-      const { buffer, view: view2, blockLen, isLE } = this;
+      const { buffer, view: view2, blockLen, isLE: isLE2 } = this;
       let { pos } = this;
       buffer[pos++] = 128;
       buffer.fill(0, pos);
@@ -380,7 +392,7 @@ var NSWP = (() => {
         this.process(view2, 0);
         buffer.fill(0);
       }
-      setU64FromNum(view2, blockLen - 8, this.length * 8, isLE);
+      setU64FromNum(view2, blockLen - 8, this.length * 8, isLE2);
       this.process(view2, 0);
       this.roundClean();
       const oview = out === buffer ? view2 : createView(out);
@@ -390,7 +402,7 @@ var NSWP = (() => {
       if (len % 4 || outLen > state.length)
         throw new Error("invalid outputLen");
       for (let i = 0; i < outLen; i++)
-        oview.setUint32(4 * i, state[i], isLE);
+        oview.setUint32(4 * i, state[i], isLE2);
     }
     digest() {
       const { buffer, outputLen } = this;
@@ -517,11 +529,11 @@ var NSWP = (() => {
       this.H = IV[7] | 0;
     }
     get() {
-      const { A, B, C, D, E, F, G, H } = this;
-      return [A, B, C, D, E, F, G, H];
+      const { A, B, C, D, E, F, G, H: H2 } = this;
+      return [A, B, C, D, E, F, G, H2];
     }
     // prettier-ignore
-    set(A, B, C, D, E, F, G, H) {
+    set(A, B, C, D, E, F, G, H2) {
       this.A = A | 0;
       this.B = B | 0;
       this.C = C | 0;
@@ -529,7 +541,7 @@ var NSWP = (() => {
       this.E = E | 0;
       this.F = F | 0;
       this.G = G | 0;
-      this.H = H | 0;
+      this.H = H2 | 0;
     }
     _cloneInto(to) {
       (to || (to = new this.constructor())).set(...this.get());
@@ -545,13 +557,13 @@ var NSWP = (() => {
         const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ W2 >>> 10;
         SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
       }
-      let { A, B, C, D, E, F, G, H } = this;
+      let { A, B, C, D, E, F, G, H: H2 } = this;
       for (let i = 0; i < 64; i++) {
         const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
-        const T1 = H + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
+        const T1 = H2 + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
         const sigma0 = rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22);
         const T2 = sigma0 + Maj(A, B, C) | 0;
-        H = G;
+        H2 = G;
         G = F;
         F = E;
         E = D + T1 | 0;
@@ -567,8 +579,8 @@ var NSWP = (() => {
       E = E + this.E | 0;
       F = F + this.F | 0;
       G = G + this.G | 0;
-      H = H + this.H | 0;
-      this.set(A, B, C, D, E, F, G, H);
+      H2 = H2 + this.H | 0;
+      this.set(A, B, C, D, E, F, G, H2);
     }
     roundClean() {
       clean(SHA256_W);
@@ -601,6 +613,13 @@ var NSWP = (() => {
   }
   var abytes2 = (value, length, title) => abytes(value, length, title);
   var anumber2 = anumber;
+  function astring(value, title = "") {
+    if (typeof value !== "string") {
+      const prefix = title && `"${title}" `;
+      throw new TypeError(prefix + "expected string, got type=" + typeof value);
+    }
+    return value;
+  }
   function aobject2(value, title = "object") {
     if (value === null || typeof value !== "object" || Array.isArray(value))
       throw new TypeError(title === "object" ? "expected valid options object" : `"${title}" expected object, got type=${typeof value}`);
@@ -641,6 +660,10 @@ var NSWP = (() => {
       const prefix = title && `"${title}" `;
       throw new RangeError(prefix + "expected safe integer, got " + value);
     }
+  }
+  function numberToHexUnpadded(num4) {
+    const hex = abignumber(num4).toString(16);
+    return hex.length & 1 ? "0" + hex : hex;
   }
   function hexToNumber(hex) {
     if (typeof hex !== "string")
@@ -700,6 +723,57 @@ var NSWP = (() => {
     asafenumber(n, "n");
     return (_1n << BigInt(n)) - _1n;
   };
+  function createHmacDrbg(hashLen, qByteLen, hmacFn) {
+    anumber(hashLen, "hashLen");
+    anumber(qByteLen, "qByteLen");
+    if (typeof hmacFn !== "function")
+      throw new TypeError("hmacFn must be a function");
+    const u8n = (len) => new Uint8Array(len);
+    const NULL = Uint8Array.of();
+    const byte0 = Uint8Array.of(0);
+    const byte1 = Uint8Array.of(1);
+    const _maxDrbgIters = 1e3;
+    let v2 = u8n(hashLen);
+    let k = u8n(hashLen);
+    let i = 0;
+    const reset = () => {
+      v2.fill(1);
+      k.fill(0);
+      i = 0;
+    };
+    const h = (...msgs) => hmacFn(k, concatBytes2(v2, ...msgs));
+    const reseed = (seed = NULL) => {
+      k = h(byte0, seed);
+      v2 = h();
+      if (seed.length === 0)
+        return;
+      k = h(byte1, seed);
+      v2 = h();
+    };
+    const gen = () => {
+      if (i++ >= _maxDrbgIters)
+        throw new Error("drbg: tried max amount of iterations");
+      let len = 0;
+      const out = [];
+      while (len < qByteLen) {
+        v2 = h();
+        const sl = v2.slice();
+        out.push(sl);
+        len += v2.length;
+      }
+      return concatBytes2(...out);
+    };
+    const genUntil = (seed, pred) => {
+      reset();
+      reseed(seed);
+      let res = void 0;
+      while ((res = pred(gen())) === void 0)
+        reseed();
+      reset();
+      return res;
+    };
+    return genUntil;
+  }
   function validateObject(object, fields = {}, optFields = {}, title = "object") {
     aobject2(object, title);
     aobject2(fields, "fields");
@@ -716,7 +790,7 @@ var NSWP = (() => {
       if (current !== expectedType || val === null)
         throw new TypeError(`${label} is invalid: expected ${expectedType}, got ${current}`);
     }
-    const iter = (f, isOpt) => Object.entries(f).forEach(([k, v]) => checkField(k, v, isOpt));
+    const iter = (f, isOpt) => Object.entries(f).forEach(([k, v2]) => checkField(k, v2, isOpt));
     iter(fields, false);
     iter(optFields, true);
   }
@@ -808,15 +882,26 @@ var NSWP = (() => {
     let b = modulo;
     let x = _0n2, u = _1n2;
     while (a !== _0n2) {
-      const q = b / a;
-      const r = b - a * q;
-      const m = x - u * q;
+      const q2 = b / a;
+      const r = b - a * q2;
+      const m = x - u * q2;
       b = a, a = r, x = u, u = m;
     }
     const gcd = b;
     if (gcd !== _1n2)
       throw new Error("invert: does not exist");
     return mod(x, modulo);
+  }
+  function invertCt(a, prime) {
+    if (prime <= _1n2)
+      throw new Error("invertCt: expected prime modulus > 1, got " + prime);
+    const an = mod(a, prime);
+    if (an === _0n2)
+      throw new Error("invertCt: expected non-zero number");
+    const inverse = pow(an, prime - _2n, prime);
+    if (mod(an * inverse, prime) !== _1n2)
+      throw new Error("invertCt: does not exist");
+    return inverse;
   }
   function assertIsSquare(Fp, root, n) {
     const F = Fp;
@@ -838,9 +923,9 @@ var NSWP = (() => {
     const F = Fp;
     const p5div8 = (F.ORDER - _5n) / _8n;
     const n2 = F.mul(n, _2n);
-    const v = F.pow(n2, p5div8);
-    const nv = F.mul(n, v);
-    const i = F.mul(F.mul(nv, _2n), v);
+    const v2 = F.pow(n2, p5div8);
+    const nv = F.mul(n, v2);
+    const i = F.mul(F.mul(nv, _2n), v2);
     const root = F.mul(nv, F.sub(i, F.ONE));
     assertIsSquare(F, root, n);
     return root;
@@ -858,10 +943,10 @@ var NSWP = (() => {
       let tv2 = F.mul(tv1, c1);
       const tv3 = F.mul(tv1, c2);
       const tv4 = F.mul(tv1, c3);
-      const e1 = F.eql(F.sqr(tv2), n);
-      const e2 = F.eql(F.sqr(tv3), n);
-      tv1 = F.cmov(tv1, tv2, e1);
-      tv2 = F.cmov(tv4, tv3, e2);
+      const e12 = F.eql(F.sqr(tv2), n);
+      const e22 = F.eql(F.sqr(tv3), n);
+      tv1 = F.cmov(tv1, tv2, e12);
+      tv2 = F.cmov(tv4, tv3, e22);
       const e3 = F.eql(F.sqr(tv2), n);
       const root = F.cmov(tv1, tv2, e3);
       assertIsSquare(F, root, n);
@@ -1114,18 +1199,18 @@ var NSWP = (() => {
     }
     fromBytes(bytes, skipValidation = false) {
       abytes2(bytes);
-      const { _lengths: allowedLengths, BYTES, isLE, ORDER, _mod: modFromBytes } = this;
+      const { _lengths: allowedLengths, BYTES, isLE: isLE2, ORDER, _mod: modFromBytes } = this;
       if (allowedLengths) {
         if (bytes.length < 1 || !allowedLengths.includes(bytes.length) || bytes.length > BYTES) {
           throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes.length);
         }
         const padded = new Uint8Array(BYTES);
-        padded.set(bytes, isLE ? 0 : padded.length - bytes.length);
+        padded.set(bytes, isLE2 ? 0 : padded.length - bytes.length);
         bytes = padded;
       }
       if (bytes.length !== BYTES)
         throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes.length);
-      let scalar = isLE ? bytesToNumberLE(bytes) : bytesToNumberBE(bytes);
+      let scalar = isLE2 ? bytesToNumberLE(bytes) : bytesToNumberBE(bytes);
       if (modFromBytes)
         scalar = mod(scalar, ORDER);
       if (!skipValidation) {
@@ -1161,16 +1246,16 @@ var NSWP = (() => {
     const length = getFieldBytesLength(fieldOrder);
     return length + Math.ceil(length / 2);
   }
-  function mapHashToField(key, fieldOrder, isLE = false) {
+  function mapHashToField(key, fieldOrder, isLE2 = false) {
     abytes2(key);
     const len = key.length;
     const fieldLen = getFieldBytesLength(fieldOrder);
     const minLen = Math.max(getMinHashLength(fieldOrder), 16);
     if (len < minLen || len > 1024)
       throw new Error("expected " + minLen + "-1024 bytes of input, got " + len);
-    const num4 = isLE ? bytesToNumberLE(key) : bytesToNumberBE(key);
+    const num4 = isLE2 ? bytesToNumberLE(key) : bytesToNumberBE(key);
     const reduced = mod(num4, fieldOrder - _1n2) + _1n2;
-    return isLE ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
+    return isLE2 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
   }
 
   // node_modules/@noble/curves/abstract/curve.js
@@ -1200,27 +1285,27 @@ var NSWP = (() => {
     const invertedZs = FpInvertBatch(c.Fp, points.map((p) => p.Z));
     return points.map((p, i) => c.fromAffine(p.toAffine(invertedZs[i])));
   }
-  function validateW(W, bits, min = 1) {
-    if (!Number.isSafeInteger(W) || W < min || W > bits)
-      throw new Error("invalid window size, expected [" + min + ".." + bits + "], got W=" + W);
+  function validateW(W2, bits, min = 1) {
+    if (!Number.isSafeInteger(W2) || W2 < min || W2 > bits)
+      throw new Error("invalid window size, expected [" + min + ".." + bits + "], got W=" + W2);
   }
   function validateTableBytes(numPoints, fpBytes) {
     const bytes = numPoints * (4 * fpBytes + 128);
     if (bytes > TABLE_BYTES_MAX)
       throw new Error("invalid window size: table would need ~" + Math.ceil(bytes / 2 ** 20) + " MiB, max " + TABLE_BYTES_MAX / 2 ** 20 + " MiB");
   }
-  function probeRandomBytes(randomBytes3, length) {
-    if (randomBytes3 === void 0)
+  function probeRandomBytes(randomBytes4, length) {
+    if (randomBytes4 === void 0)
       return void 0;
-    afunction(randomBytes3, "randomBytes");
+    afunction(randomBytes4, "randomBytes");
     try {
-      const probe = randomBytes3(length);
+      const probe = randomBytes4(length);
       if (!isBytes2(probe) || probe.length !== length)
         return void 0;
     } catch {
       return void 0;
     }
-    return randomBytes3;
+    return randomBytes4;
   }
   function validateMSMPoints(points, c) {
     aarray(points, "points");
@@ -1249,8 +1334,8 @@ var NSWP = (() => {
       t.push(t[j - 1].add(dbl));
     return t;
   }
-  function wnafDigits(n, W) {
-    const size = 2 ** W;
+  function wnafDigits(n, W2) {
+    const size = 2 ** W2;
     const half = size / 2;
     const mask = BigInt(size - 1);
     const d = [];
@@ -1267,20 +1352,20 @@ var NSWP = (() => {
     }
     return d;
   }
-  function signedWindowDigits(n, W, windows) {
-    const size = 2 ** W;
+  function signedWindowDigits(n, W2, windows) {
+    const size = 2 ** W2;
     const half = size / 2;
     const mask = BigInt(size - 1);
-    const shiftBy = BigInt(W);
+    const shiftBy = BigInt(W2);
     const d = [];
     for (let w = 0; w < windows; w++) {
-      let v = Number(n & mask);
+      let v2 = Number(n & mask);
       n >>= shiftBy;
-      if (v > half) {
-        v -= size;
+      if (v2 > half) {
+        v2 -= size;
         n += _1n3;
       }
-      d.push(v);
+      d.push(v2);
     }
     if (n !== _0n3)
       throw new Error("invalid wnaf");
@@ -1306,7 +1391,7 @@ var NSWP = (() => {
   }
   var ScalarMultiplier = class {
     // Parametrized with a given Point class (not individual point)
-    constructor(Point, randomBytes3) {
+    constructor(Point, randomBytes4) {
       __publicField(this, "Point");
       __publicField(this, "BASE");
       __publicField(this, "ZERO");
@@ -1315,7 +1400,7 @@ var NSWP = (() => {
       __publicField(this, "baseCanBeBlinded");
       __publicField(this, "bits");
       validatePointCons(Point);
-      this.randomBytes = probeRandomBytes(randomBytes3, BLIND_BYTES);
+      this.randomBytes = probeRandomBytes(randomBytes4, BLIND_BYTES);
       this.Point = Point;
       this.BASE = Point.BASE;
       this.ZERO = Point.ZERO;
@@ -1331,9 +1416,9 @@ var NSWP = (() => {
      * @param W - window size
      * @param bits - scalar bitlength the table must cover
      */
-    buildWnafTable(point, W, bits) {
-      const windows = Math.ceil(bits / W) + 1;
-      const half = 2 ** (W - 1);
+    buildWnafTable(point, W2, bits) {
+      const windows = Math.ceil(bits / W2) + 1;
+      const half = 2 ** (W2 - 1);
       const comp = [];
       let base = point;
       for (let w = 0; w < windows; w++) {
@@ -1344,7 +1429,7 @@ var NSWP = (() => {
         }
         base = comp[comp.length - 1].double();
       }
-      return { W, bits, windows, comp };
+      return { W: W2, bits, windows, comp };
     }
     /**
      * Implements ec multiplication using precomputed signed fixed-window wNAF tables.
@@ -1356,9 +1441,9 @@ var NSWP = (() => {
      * @returns real and fake (for const-time) points
      */
     wnafCachedCT(precomputes, n) {
-      const { W, windows, comp } = precomputes;
-      const half = 2 ** (W - 1);
-      const digits = signedWindowDigits(n, W, windows);
+      const { W: W2, windows, comp } = precomputes;
+      const half = 2 ** (W2 - 1);
+      const digits = signedWindowDigits(n, W2, windows);
       let p = this.ZERO;
       let f = this.BASE;
       for (let w = 0; w < windows; w++) {
@@ -1379,11 +1464,11 @@ var NSWP = (() => {
     // Cache key is point identity plus (W, bits); at most two entries exist per point (public-width
     // `Fn.BITS` and blinded `Fn.BITS + BLIND_BITS`). Callers must not reuse the same point with
     // incompatible `transform(...)` layouts and expect a separate cache entry.
-    getWnafPrecomputes(W, point, bits, transform) {
+    getWnafPrecomputes(W2, point, bits, transform) {
       let entries = this.wnafPrecomputes.get(point);
-      let comp = entries?.find((entry) => entry.W === W && entry.bits === bits);
+      let comp = entries?.find((entry) => entry.W === W2 && entry.bits === bits);
       if (!comp) {
-        comp = this.buildWnafTable(point, W, bits);
+        comp = this.buildWnafTable(point, W2, bits);
         if (typeof transform === "function")
           comp = { ...comp, comp: transform(comp.comp) };
         if (!entries) {
@@ -1410,10 +1495,10 @@ var NSWP = (() => {
     // ECDH peer keys) skip building a throwaway cached table in favor of a small fixed-window
     // multiply. `n` must be < 2^bits.
     runCT(point, n, bits, transform) {
-      const W = getWindowSize(point);
-      if (W === 1)
+      const W2 = getWindowSize(point);
+      if (W2 === 1)
         return this.fixedWindowCT(point, n, bits);
-      return this.wnafCachedCT(this.getWnafPrecomputes(W, point, bits, transform), n);
+      return this.wnafCachedCT(this.getWnafPrecomputes(W2, point, bits, transform), n);
     }
     mulCT(point, scalar, transform) {
       this.validateMulInput(point, scalar);
@@ -1447,20 +1532,20 @@ var NSWP = (() => {
      * (this path needs no fake accumulator — its op-count is already scalar-independent).
      */
     fixedWindowCT(point, n, bits) {
-      const W = FW_WINDOW;
-      const size = 1 << W;
-      const mask = bitMask(W);
+      const W2 = FW_WINDOW;
+      const size = 1 << W2;
+      const mask = bitMask(W2);
       const table = new Array(size);
       table[0] = this.ZERO;
       for (let i = 1; i < size; i++)
         table[i] = table[i - 1].add(point);
-      const windows = Math.ceil(bits / W);
+      const windows = Math.ceil(bits / W2);
       let acc = this.ZERO;
       for (let window2 = windows - 1; window2 >= 0; window2--) {
         if (window2 !== windows - 1)
-          for (let d = 0; d < W; d++)
+          for (let d = 0; d < W2; d++)
             acc = acc.double();
-        const digit = Number(n >> BigInt(window2 * W) & mask);
+        const digit = Number(n >> BigInt(window2 * W2) & mask);
         let sel = table[0];
         for (let i = 1; i < size; i++)
           sel = i === digit ? table[i] : sel;
@@ -1486,22 +1571,22 @@ var NSWP = (() => {
       this.assertPoint(point);
       if (!isPosBig(scalar))
         throw new Error("invalid scalar");
-      const W = getWindowSize(point);
-      if (W === 1 || scalar >= this.Point.Fn.ORDER)
+      const W2 = getWindowSize(point);
+      if (W2 === 1 || scalar >= this.Point.Fn.ORDER)
         return mulAddUnsafe(this.Point, [point], [scalar], true);
-      const precomputes = this.getWnafPrecomputes(W, point, this.bits, transform);
+      const precomputes = this.getWnafPrecomputes(W2, point, this.bits, transform);
       return this.wnafCachedCT(precomputes, scalar).p;
     }
     // Remembers the window size used for precomputed wNAF multiplication of the given point
     // and drops any previously built tables. Usually only the base point is precomputed.
     // W=1 resets the point to the un-precomputed (table-less) paths.
     // W is additionally capped so tables stay under ~2 GiB ({@link TABLE_BYTES_MAX}).
-    setWindowSize(point, W) {
+    setWindowSize(point, W2) {
       this.assertPoint(point);
-      validateW(W, this.bits);
-      const windows = Math.ceil((this.bits + BLIND_BITS) / W) + 1;
-      validateTableBytes(windows * 2 ** (W - 1), this.Point.Fp.BYTES);
-      pointWindowSizes.set(point, W);
+      validateW(W2, this.bits);
+      const windows = Math.ceil((this.bits + BLIND_BITS) / W2) + 1;
+      validateTableBytes(windows * 2 ** (W2 - 1), this.Point.Fp.BYTES);
+      pointWindowSizes.set(point, W2);
       this.wnafPrecomputes.delete(point);
     }
     // True when a window size is set: tables themselves are built lazily on first multiply.
@@ -1520,14 +1605,14 @@ var NSWP = (() => {
     const digits = scalars.map((n) => wnafDigits(n, 4));
     return wnafWalk(c.ZERO, tables, digits);
   }
-  function createField(order, field, isLE) {
+  function createField(order, field, isLE2) {
     if (field) {
       if (field.ORDER !== order)
         throw new Error("Field.ORDER must match order: Fp == p, Fn == n");
       validateField(field);
       return field;
     } else {
-      return Field(order, { isLE });
+      return Field(order, { isLE: isLE2 });
     }
   }
   function createCurveFields(type, CURVE, curveOpts = {}, FpFnLE) {
@@ -1561,29 +1646,251 @@ var NSWP = (() => {
     };
   }
 
+  // node_modules/@noble/hashes/hmac.js
+  var _HMAC = class {
+    constructor(hash, key) {
+      __publicField(this, "oHash");
+      __publicField(this, "iHash");
+      __publicField(this, "blockLen");
+      __publicField(this, "outputLen");
+      __publicField(this, "canXOF", false);
+      __publicField(this, "finished", false);
+      __publicField(this, "destroyed", false);
+      ahash(hash);
+      abytes(key, void 0, "key");
+      this.iHash = hash.create();
+      if (typeof this.iHash.update !== "function")
+        throw new Error("expected Hash instance");
+      this.blockLen = this.iHash.blockLen;
+      this.outputLen = this.iHash.outputLen;
+      const blockLen = this.blockLen;
+      const pad = new Uint8Array(blockLen);
+      pad.set(key.length > blockLen ? hash.create().update(key).digest() : key);
+      for (let i = 0; i < pad.length; i++)
+        pad[i] ^= 54;
+      this.iHash.update(pad);
+      this.oHash = hash.create();
+      for (let i = 0; i < pad.length; i++)
+        pad[i] ^= 54 ^ 92;
+      this.oHash.update(pad);
+      clean(pad);
+    }
+    update(buf) {
+      aexists(this);
+      this.iHash.update(buf);
+      return this;
+    }
+    digestInto(out) {
+      aexists(this);
+      aoutput(out, this);
+      this.finished = true;
+      const buf = out.subarray(0, this.outputLen);
+      this.iHash.digestInto(buf);
+      this.oHash.update(buf);
+      this.oHash.digestInto(buf);
+      this.destroy();
+    }
+    digest() {
+      const out = new Uint8Array(this.oHash.outputLen);
+      this.digestInto(out);
+      return out;
+    }
+    _cloneInto(to) {
+      to || (to = Object.create(Object.getPrototypeOf(this), {}));
+      const { oHash, iHash, finished, destroyed, blockLen, outputLen, canXOF } = this;
+      to = to;
+      to.finished = finished;
+      to.destroyed = destroyed;
+      to.blockLen = blockLen;
+      to.outputLen = outputLen;
+      to.canXOF = canXOF;
+      to.oHash = oHash._cloneInto(to.oHash);
+      to.iHash = iHash._cloneInto(to.iHash);
+      return to;
+    }
+    clone() {
+      return this._cloneInto();
+    }
+    destroy() {
+      this.destroyed = true;
+      this.oHash.destroy();
+      this.iHash.destroy();
+    }
+  };
+  var hmac = /* @__PURE__ */ (() => {
+    const hmac_ = ((hash, key, message) => new _HMAC(hash, key).update(message).digest());
+    hmac_.create = (hash, key) => new _HMAC(hash, key);
+    return hmac_;
+  })();
+
+  // node_modules/@noble/curves/abstract/der.js
+  /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+  var _0n4 = /* @__PURE__ */ BigInt(0);
+  var DERErr = class extends Error {
+    constructor(m = "") {
+      super(m);
+    }
+  };
+  var _DER = {
+    // asn.1 DER encoding utils
+    Err: DERErr,
+    // Basic building block is TLV (Tag-Length-Value)
+    _tlv: {
+      encode: (tag2, data) => {
+        const { Err: E } = _DER;
+        asafenumber(tag2, "tag");
+        if (tag2 < 0 || tag2 > 255)
+          throw new E("tlv.encode: wrong tag");
+        astring(data, "data");
+        if (data.length & 1)
+          throw new E("tlv.encode: unpadded data");
+        const dataLen = data.length / 2;
+        const len = numberToHexUnpadded(dataLen);
+        if (len.length / 2 & 128)
+          throw new E("tlv.encode: long form length too big");
+        const lenLen = dataLen > 127 ? numberToHexUnpadded(len.length / 2 | 128) : "";
+        const t = numberToHexUnpadded(tag2);
+        return t + lenLen + len + data;
+      },
+      // v - value, l - left bytes (unparsed)
+      decode(tag2, data) {
+        const { Err: E } = _DER;
+        data = abytes2(data, void 0, "DER data");
+        let pos = 0;
+        if (tag2 < 0 || tag2 > 255)
+          throw new E("tlv.decode: wrong tag");
+        if (data.length < 2 || data[pos++] !== tag2)
+          throw new E("tlv.decode: wrong tlv");
+        const first = data[pos++];
+        const isLong = !!(first & 128);
+        let length = 0;
+        if (!isLong)
+          length = first;
+        else {
+          const lenLen = first & 127;
+          if (!lenLen)
+            throw new E("tlv.decode(long): indefinite length not supported");
+          if (lenLen > 4)
+            throw new E("tlv.decode(long): byte length is too big");
+          const lengthBytes = data.subarray(pos, pos + lenLen);
+          if (lengthBytes.length !== lenLen)
+            throw new E("tlv.decode: length bytes not complete");
+          if (lengthBytes[0] === 0)
+            throw new E("tlv.decode(long): zero leftmost byte");
+          for (const b of lengthBytes)
+            length = length << 8 | b;
+          pos += lenLen;
+          if (length < 128)
+            throw new E("tlv.decode(long): not minimal encoding");
+        }
+        const v2 = data.subarray(pos, pos + length);
+        if (v2.length !== length)
+          throw new E("tlv.decode: wrong value length");
+        return { v: v2, l: data.subarray(pos + length) };
+      }
+    },
+    // https://crypto.stackexchange.com/a/57734 Leftmost bit of first byte is 'negative' flag,
+    // since we always use positive integers here. It must always be empty:
+    // - add zero byte if exists
+    // - if next byte doesn't have a flag, leading zero is not allowed (minimal encoding)
+    _int: {
+      encode(num4) {
+        const { Err: E } = _DER;
+        abignumber(num4);
+        if (num4 < _0n4)
+          throw new E("integer: negative integers are not allowed");
+        let hex = numberToHexUnpadded(num4);
+        if (Number.parseInt(hex[0], 16) & 8)
+          hex = "00" + hex;
+        if (hex.length & 1)
+          throw new E("unexpected DER parsing assertion: unpadded hex");
+        return hex;
+      },
+      decode(data) {
+        const { Err: E } = _DER;
+        if (data.length < 1)
+          throw new E("invalid signature integer: empty");
+        if (data[0] & 128)
+          throw new E("invalid signature integer: negative");
+        if (data.length > 1 && data[0] === 0 && !(data[1] & 128))
+          throw new E("invalid signature integer: unnecessary leading zero");
+        return bytesToNumberBE(data);
+      }
+    },
+    toSig(bytes, maxScalarBytes) {
+      const { Err: E, _int: int, _tlv: tlv } = _DER;
+      if (maxScalarBytes !== void 0) {
+        asafenumber(maxScalarBytes, "maxScalarBytes");
+        if (maxScalarBytes < 1)
+          throw new E("invalid signature: maxScalarBytes must be positive");
+      }
+      const data = abytes2(bytes, void 0, "signature");
+      const { v: seqBytes, l: seqLeftBytes } = tlv.decode(48, data);
+      if (seqLeftBytes.length)
+        throw new E("invalid signature: left bytes after parsing");
+      const { v: rBytes, l: rLeftBytes } = tlv.decode(2, seqBytes);
+      const { v: sBytes, l: sLeftBytes } = tlv.decode(2, rLeftBytes);
+      if (sLeftBytes.length)
+        throw new E("invalid signature: left bytes after parsing");
+      if (maxScalarBytes !== void 0 && (rBytes.length > maxScalarBytes || sBytes.length > maxScalarBytes))
+        throw new E("invalid signature: integer too large");
+      return { r: int.decode(rBytes), s: int.decode(sBytes) };
+    },
+    hexFromSig(sig) {
+      const { _tlv: tlv, _int: int } = _DER;
+      validateObject(sig, { r: "bigint", s: "bigint" }, {}, "sig");
+      const rs = tlv.encode(2, int.encode(sig.r));
+      const ss = tlv.encode(2, int.encode(sig.s));
+      const seq = rs + ss;
+      return tlv.encode(48, seq);
+    }
+  };
+  var DER = /* @__PURE__ */ (() => {
+    Object.freeze(_DER._tlv);
+    Object.freeze(_DER._int);
+    return Object.freeze(_DER);
+  })();
+
   // node_modules/@noble/curves/abstract/weierstrass.js
   /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
   var divNearest = (num4, den) => (num4 + (num4 >= 0 ? den : -den) / _2n2) / den;
   function _splitEndoScalar(k, basis, n) {
-    aInRange("scalar", k, _0n4, n);
+    aInRange("scalar", k, _0n5, n);
     const [[a1, b1], [a2, b2]] = basis;
     const c1 = divNearest(b2 * k, n);
     const c2 = divNearest(-b1 * k, n);
     let k1 = k - c1 * a1 - c2 * a2;
     let k2 = -c1 * b1 - c2 * b2;
-    const k1neg = k1 < _0n4;
-    const k2neg = k2 < _0n4;
+    const k1neg = k1 < _0n5;
+    const k2neg = k2 < _0n5;
     if (k1neg)
       k1 = -k1;
     if (k2neg)
       k2 = -k2;
     const MAX_NUM = bitMask(Math.ceil(bitLen(n) / 2)) + _1n4;
-    if (k1 < _0n4 || k1 >= MAX_NUM || k2 < _0n4 || k2 >= MAX_NUM) {
+    if (k1 < _0n5 || k1 >= MAX_NUM || k2 < _0n5 || k2 >= MAX_NUM) {
       throw new Error("splitScalar (endomorphism): failed for k");
     }
     return { k1neg, k1, k2neg, k2 };
   }
-  var _0n4 = /* @__PURE__ */ BigInt(0);
+  function validateSigFormat(format) {
+    if (!["compact", "recovered", "der"].includes(format))
+      throw new Error('Signature format must be "compact", "recovered", or "der"');
+    return format;
+  }
+  function validateSigOpts(opts, def) {
+    validateObject(opts);
+    const optsn = {};
+    for (let optName of Object.keys(def)) {
+      optsn[optName] = opts[optName] === void 0 ? def[optName] : opts[optName];
+    }
+    abool(optsn.lowS, "lowS");
+    abool(optsn.prehash, "prehash");
+    if (optsn.format !== void 0)
+      validateSigFormat(optsn.format);
+    return optsn;
+  }
+  var _0n5 = /* @__PURE__ */ BigInt(0);
   var _1n4 = /* @__PURE__ */ BigInt(1);
   var _2n2 = /* @__PURE__ */ BigInt(2);
   var _3n2 = /* @__PURE__ */ BigInt(3);
@@ -1604,7 +1911,7 @@ var NSWP = (() => {
       randomBytes: "function"
     });
     const { endo: endoOpts, allowInfinityPoint, clearCofactor, isTorsionFree, fromBytes, toBytes } = extraOpts;
-    const randomBytes3 = extraOpts.randomBytes === void 0 ? randomBytes2 : extraOpts.randomBytes;
+    const randomBytes4 = extraOpts.randomBytes === void 0 ? randomBytes2 : extraOpts.randomBytes;
     if (endoOpts) {
       if (!Fp.is0(CURVE.a) || typeof endoOpts.beta !== "bigint" || !Array.isArray(endoOpts.basises)) {
         throw new Error('invalid endo: expected "beta": bigint and "basises": array');
@@ -1930,7 +2237,7 @@ var NSWP = (() => {
         const sc = scalar;
         if (!Fn.isValid(sc))
           throw new RangeError("invalid scalar: out of range");
-        if (sc === _0n4 || p.is0())
+        if (sc === _0n5 || p.is0())
           return _Point.ZERO;
         if (sc === _1n4)
           return p;
@@ -2022,7 +2329,7 @@ var NSWP = (() => {
     __publicField(_Point, "Fn", Fn);
     let Point = _Point;
     const normalize2 = (points) => normalizeZ(Point, points);
-    const wnaf = new ScalarMultiplier(Point, randomBytes3);
+    const wnaf = new ScalarMultiplier(Point, randomBytes4);
     if (wnaf.bits >= 6)
       Point.BASE.precompute(6);
     Object.freeze(Point.prototype);
@@ -2043,6 +2350,340 @@ var NSWP = (() => {
       signature: 2 * Fn.BYTES
     };
   }
+  function ecdh(Point, ecdhOpts = {}) {
+    validatePointCons(Point);
+    const { Fn } = Point;
+    const randomBytes_ = ecdhOpts.randomBytes === void 0 ? randomBytes2 : ecdhOpts.randomBytes;
+    const lengths = Object.assign(getWLengths(Point.Fp, Fn), {
+      seed: Math.max(getMinHashLength(Fn.ORDER), 16)
+    });
+    function isValidSecretKey(secretKey) {
+      try {
+        const num4 = Fn.fromBytes(secretKey);
+        return Fn.isValidNot0(num4);
+      } catch (error2) {
+        return false;
+      }
+    }
+    function isValidPublicKey(publicKey, isCompressed) {
+      const { publicKey: comp, publicKeyUncompressed } = lengths;
+      try {
+        const l = publicKey.length;
+        if (isCompressed === true && l !== comp)
+          return false;
+        if (isCompressed === false && l !== publicKeyUncompressed)
+          return false;
+        return !Point.fromBytes(publicKey).is0();
+      } catch (error2) {
+        return false;
+      }
+    }
+    function randomSecretKey(seed) {
+      seed = seed === void 0 ? randomBytes_(lengths.seed) : seed;
+      return mapHashToField(abytes2(seed, lengths.seed, "seed"), Fn.ORDER);
+    }
+    function getPublicKey2(secretKey, isCompressed = true) {
+      return Point.BASE.multiply(Fn.fromBytes(secretKey)).toBytes(isCompressed);
+    }
+    function isProbPub(item) {
+      const { secretKey, publicKey, publicKeyUncompressed } = lengths;
+      const allowedLengths = Fn._lengths;
+      if (!isBytes2(item))
+        return void 0;
+      const l = abytes2(item, void 0, "key").length;
+      const isPub = l === publicKey || l === publicKeyUncompressed;
+      const isSec = l === secretKey || !!allowedLengths?.includes(l);
+      if (isPub && isSec)
+        return void 0;
+      return isPub;
+    }
+    function getSharedSecret(secretKeyA, publicKeyB, isCompressed = true) {
+      if (isProbPub(secretKeyA) === true)
+        throw new Error("first arg must be private key");
+      if (isProbPub(publicKeyB) === false)
+        throw new Error("second arg must be public key");
+      const s = Fn.fromBytes(secretKeyA);
+      const b = Point.fromBytes(publicKeyB);
+      if (b.is0())
+        throw new Error("invalid public key: point at infinity");
+      return b.multiply(s).toBytes(isCompressed);
+    }
+    const utils = {
+      isValidSecretKey,
+      isValidPublicKey,
+      randomSecretKey
+    };
+    const keygen = createKeygen(randomSecretKey, getPublicKey2);
+    Object.freeze(utils);
+    Object.freeze(lengths);
+    return Object.freeze({ getPublicKey: getPublicKey2, getSharedSecret, keygen, Point, utils, lengths });
+  }
+  function ecdsa(Point, hash, ecdsaOpts = {}) {
+    validatePointCons(Point);
+    const hash_ = hash;
+    ahash(hash_);
+    validateObject(ecdsaOpts, {}, {
+      hmac: "function",
+      lowS: "boolean",
+      randomBytes: "function",
+      bits2int: "function",
+      bits2int_modN: "function"
+    });
+    const opts = Object.assign({}, ecdsaOpts);
+    const randomBytes4 = opts.randomBytes === void 0 ? randomBytes2 : opts.randomBytes;
+    const hmac2 = opts.hmac === void 0 ? (key, msg) => hmac(hash_, key, msg) : opts.hmac;
+    const { Fp, Fn } = Point;
+    const { ORDER: CURVE_ORDER, BITS: fnBits } = Fn;
+    const blindLength = getMinHashLength(CURVE_ORDER);
+    const csprng = probeRandomBytes(randomBytes4, blindLength);
+    const { keygen, getPublicKey: getPublicKey2, getSharedSecret, utils, lengths } = ecdh(Point, opts);
+    const defaultSigOpts = {
+      prehash: true,
+      lowS: typeof opts.lowS === "boolean" ? opts.lowS : true,
+      format: "compact",
+      extraEntropy: false
+    };
+    const hasLargeRecoveryLifts = CURVE_ORDER * _2n2 + _1n4 < Fp.ORDER;
+    function isBiggerThanHalfOrder(number) {
+      const HALF = CURVE_ORDER >> _1n4;
+      return number > HALF;
+    }
+    function validateRS(title, num4) {
+      if (!Fn.isValidNot0(num4))
+        throw new Error(`invalid signature ${title}: out of range 1..Point.Fn.ORDER`);
+      return num4;
+    }
+    function assertFieldSignIsSupported() {
+      if (!Fp.isOdd)
+        throw new Error("Field doesn't support isOdd");
+    }
+    function getRecoveryBit(x, y, r) {
+      assertFieldSignIsSupported();
+      return (x === r ? 0 : 2) | Number(Fp.isOdd(y));
+    }
+    function assertRecoverableCurve() {
+      if (hasLargeRecoveryLifts)
+        throw new Error('"recovered" sig type is not supported for cofactor >2 curves');
+    }
+    function validateSigLength(bytes, format) {
+      validateSigFormat(format);
+      const size = lengths.signature;
+      const sizer = format === "compact" ? size : format === "recovered" ? size + 1 : void 0;
+      return abytes2(bytes, sizer);
+    }
+    class Signature {
+      constructor(r, s, recovery) {
+        __publicField(this, "r");
+        __publicField(this, "s");
+        __publicField(this, "recovery");
+        this.r = validateRS("r", r);
+        this.s = validateRS("s", s);
+        if (recovery != null) {
+          assertRecoverableCurve();
+          if (![0, 1, 2, 3].includes(recovery))
+            throw new Error("invalid recovery id");
+          this.recovery = recovery;
+        }
+        Object.freeze(this);
+      }
+      static fromBytes(bytes, format = defaultSigOpts.format) {
+        validateSigLength(bytes, format);
+        let recid;
+        if (format === "der") {
+          if (bytes.length > 2 * Fn.BYTES + 16)
+            throw new DER.Err("invalid signature: DER signature too long");
+          const { r: r2, s: s2 } = DER.toSig(abytes2(bytes), Fn.BYTES + 1);
+          return new Signature(r2, s2);
+        }
+        if (format === "recovered") {
+          recid = bytes[0];
+          format = "compact";
+          bytes = bytes.subarray(1);
+        }
+        const L = lengths.signature / 2;
+        const r = bytes.subarray(0, L);
+        const s = bytes.subarray(L, L * 2);
+        return new Signature(Fn.fromBytes(r), Fn.fromBytes(s), recid);
+      }
+      static fromHex(hex, format) {
+        return this.fromBytes(hexToBytes2(hex), format);
+      }
+      assertRecovery() {
+        const { recovery } = this;
+        if (recovery == null)
+          throw new Error("invalid recovery id: must be present");
+        return recovery;
+      }
+      addRecoveryBit(recovery) {
+        return new Signature(this.r, this.s, recovery);
+      }
+      // Unlike the top-level helper below, this method expects a digest that has
+      // already been hashed to the curve's message representative.
+      recoverPublicKey(messageHash) {
+        const { r, s } = this;
+        const recovery = this.assertRecovery();
+        const radj = recovery === 2 || recovery === 3 ? r + CURVE_ORDER : r;
+        if (!Fp.isValid(radj))
+          throw new Error("invalid recovery id: sig.r+curve.n != R.x");
+        const x = Fp.toBytes(radj);
+        const R = Point.fromBytes(concatBytes2(pprefix((recovery & 1) === 0), x));
+        const ir = Fn.inv(radj);
+        const h = bits2int_modN(abytes2(messageHash, void 0, "msgHash"));
+        const u1 = Fn.create(-h * ir);
+        const u2 = Fn.create(s * ir);
+        const Q = Point.BASE.mulAddUnsafe(u1, R, u2);
+        if (Q.is0())
+          throw new Error("invalid recovery: point at infinify");
+        Q.assertValidity();
+        return Q;
+      }
+      // Signatures should be low-s, to prevent malleability.
+      hasHighS() {
+        return isBiggerThanHalfOrder(this.s);
+      }
+      toBytes(format = defaultSigOpts.format) {
+        validateSigFormat(format);
+        if (format === "der")
+          return hexToBytes2(DER.hexFromSig(this));
+        const { r, s } = this;
+        const rb = Fn.toBytes(r);
+        const sb = Fn.toBytes(s);
+        if (format === "recovered") {
+          assertRecoverableCurve();
+          return concatBytes2(Uint8Array.of(this.assertRecovery()), rb, sb);
+        }
+        return concatBytes2(rb, sb);
+      }
+      toHex(format) {
+        return bytesToHex2(this.toBytes(format));
+      }
+    }
+    Object.freeze(Signature.prototype);
+    Object.freeze(Signature);
+    const bits2int = opts.bits2int === void 0 ? function bits2int_def(bytes) {
+      if (bytes.length > 8192)
+        throw new Error("input is too large");
+      const num4 = bytesToNumberBE(bytes);
+      const delta = bytes.length * 8 - fnBits;
+      return delta > 0 ? num4 >> BigInt(delta) : num4;
+    } : opts.bits2int;
+    const bits2int_modN = opts.bits2int_modN === void 0 ? function bits2int_modN_def(bytes) {
+      return Fn.create(bits2int(bytes));
+    } : opts.bits2int_modN;
+    const ORDER_MASK = bitMask(fnBits);
+    function int2octets(num4) {
+      aInRange("num < 2^" + fnBits, num4, _0n5, ORDER_MASK);
+      return Fn.toBytes(num4);
+    }
+    function validateMsgAndHash(message, prehash) {
+      abytes2(message, void 0, "message");
+      return prehash ? abytes2(hash_(message), void 0, "prehashed message") : message;
+    }
+    function prepSig(message, secretKey, opts2) {
+      const { lowS, prehash, extraEntropy } = validateSigOpts(opts2, defaultSigOpts);
+      message = validateMsgAndHash(message, prehash);
+      const h1int = bits2int_modN(message);
+      const d = Fn.fromBytes(secretKey);
+      if (!Fn.isValidNot0(d))
+        throw new Error("invalid private key");
+      const seedArgs = [int2octets(d), int2octets(h1int)];
+      if (extraEntropy != null && extraEntropy !== false) {
+        const e = extraEntropy === true ? randomBytes4(lengths.secretKey) : extraEntropy;
+        seedArgs.push(abytes2(e, void 0, "extraEntropy"));
+      }
+      const seed = concatBytes2(...seedArgs);
+      const m = h1int;
+      function k2sig(kBytes) {
+        const k = bits2int(kBytes);
+        if (!Fn.isValidNot0(k))
+          return;
+        const q2 = Point.BASE.multiply(k).toAffine();
+        const r = Fn.create(q2.x);
+        if (r === _0n5)
+          return;
+        let s;
+        if (csprng !== void 0) {
+          const b = bytesToNumberBE(mapHashToField(csprng(blindLength), CURVE_ORDER));
+          const ibk = Fn.inv(Fn.mul(b, k));
+          const bm = Fn.mul(b, m);
+          const bd = Fn.mul(b, d);
+          s = Fn.create(ibk * Fn.create(bm + bd * r));
+        } else {
+          const ik = invertCt(k, CURVE_ORDER);
+          s = Fn.create(ik * Fn.create(m + r * d));
+        }
+        if (s === _0n5)
+          return;
+        let recovery = getRecoveryBit(q2.x, q2.y, r);
+        let normS = s;
+        if (lowS && isBiggerThanHalfOrder(s)) {
+          normS = Fn.neg(s);
+          recovery ^= 1;
+        }
+        return new Signature(r, normS, hasLargeRecoveryLifts ? void 0 : recovery);
+      }
+      return { seed, k2sig };
+    }
+    function sign(message, secretKey, opts2 = {}) {
+      const { seed, k2sig } = prepSig(message, secretKey, opts2);
+      const drbg = createHmacDrbg(hash_.outputLen, Fn.BYTES, hmac2);
+      const sig = drbg(seed, k2sig);
+      return sig.toBytes(opts2.format);
+    }
+    function verify(signature, message, publicKey, opts2 = {}) {
+      const { lowS, prehash, format } = validateSigOpts(opts2, defaultSigOpts);
+      publicKey = abytes2(publicKey, void 0, "publicKey");
+      message = validateMsgAndHash(message, prehash);
+      if (!isBytes2(signature)) {
+        const end = signature instanceof Signature ? ", use sig.toBytes()" : "";
+        throw new Error("verify expects Uint8Array signature" + end);
+      }
+      validateSigLength(signature, format);
+      try {
+        const sig = Signature.fromBytes(signature, format);
+        const P = Point.fromBytes(publicKey);
+        if (P.is0())
+          return false;
+        if (lowS && sig.hasHighS())
+          return false;
+        const { r, s } = sig;
+        const h = bits2int_modN(message);
+        const is = Fn.inv(s);
+        const u1 = Fn.create(h * is);
+        const u2 = Fn.create(r * is);
+        const R = Point.BASE.mulAddUnsafe(u1, P, u2);
+        if (R.is0())
+          return false;
+        const q2 = R.toAffine();
+        const v2 = Fn.create(q2.x);
+        if (v2 !== r)
+          return false;
+        if (format === "recovered" && sig.recovery !== getRecoveryBit(q2.x, q2.y, r))
+          return false;
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    function recoverPublicKey(signature, message, opts2 = {}) {
+      const { prehash } = validateSigOpts(opts2, defaultSigOpts);
+      message = validateMsgAndHash(message, prehash);
+      return Signature.fromBytes(signature, "recovered").recoverPublicKey(message).toBytes();
+    }
+    return Object.freeze({
+      keygen,
+      getPublicKey: getPublicKey2,
+      getSharedSecret,
+      utils,
+      lengths,
+      Point,
+      sign,
+      verify,
+      recoverPublicKey,
+      Signature,
+      hash: hash_
+    });
+  }
 
   // node_modules/@noble/curves/secp256k1.js
   /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
@@ -2062,7 +2703,7 @@ var NSWP = (() => {
       [BigInt("0x114ca50f7a8e2f3f657c1108d9d44cfd8"), BigInt("0x3086d221a7d46bcde86c90e49284eb15")]
     ]
   };
-  var _0n5 = /* @__PURE__ */ BigInt(0);
+  var _0n6 = /* @__PURE__ */ BigInt(0);
   var _2n3 = /* @__PURE__ */ BigInt(2);
   function sqrtMod(y) {
     const P = secp256k1_CURVE.p;
@@ -2091,6 +2732,7 @@ var NSWP = (() => {
     Fp: Fpk1,
     endo: secp256k1_ENDO
   });
+  var secp256k1 = /* @__PURE__ */ ecdsa(Pointk1, sha256);
   var TAGGED_HASH_PREFIXES = /* @__PURE__ */ Object.create(null);
   function taggedHash(tag2, ...messages) {
     let tagP = TAGGED_HASH_PREFIXES[tag2];
@@ -2140,7 +2782,7 @@ var NSWP = (() => {
     const t = Fn.toBytes(d ^ num(taggedHash("BIP0340/aux", a)));
     const rand = taggedHash("BIP0340/nonce", t, px, m);
     const k_ = Fn.create(num(rand));
-    if (k_ === _0n5)
+    if (k_ === _0n6)
       throw new Error("sign failed: k is zero");
     const p = BASE.multiply(k_);
     const affine = p.toAffine();
@@ -2210,8 +2852,18 @@ var NSWP = (() => {
   // packages/core/dist/event.js
   var HEX64 = /^[0-9a-f]{64}$/;
   var HEX128 = /^[0-9a-f]{128}$/;
-  function isHex64(v) {
-    return typeof v === "string" && HEX64.test(v);
+  function isHex64(v2) {
+    return typeof v2 === "string" && HEX64.test(v2);
+  }
+  function isPublicKey(v2) {
+    if (!isHex64(v2))
+      return false;
+    try {
+      schnorr.utils.lift_x(BigInt(`0x${v2}`));
+      return true;
+    } catch {
+      return false;
+    }
   }
   function nowSeconds() {
     return Math.floor(Date.now() / 1e3);
@@ -2225,19 +2877,32 @@ var NSWP = (() => {
   function getPublicKey(secretKey) {
     return bytesToHex(schnorr.getPublicKey(secretKey));
   }
-  function hasEventShape(v) {
-    if (typeof v !== "object" || v === null)
+  function finalizeEvent(template, secretKey, auxRand) {
+    const pubkey = getPublicKey(secretKey);
+    const unsigned = {
+      kind: template.kind,
+      created_at: template.created_at,
+      tags: template.tags,
+      content: template.content,
+      pubkey
+    };
+    const id = getEventHash(unsigned);
+    const sig = bytesToHex(schnorr.sign(hexToBytes(id), secretKey, auxRand));
+    return { ...unsigned, id, sig };
+  }
+  function hasEventShape(v2) {
+    if (typeof v2 !== "object" || v2 === null)
       return false;
-    const e = v;
+    const e = v2;
     return Number.isInteger(e.kind) && e.kind >= 0 && Number.isInteger(e.created_at) && typeof e.content === "string" && Array.isArray(e.tags) && e.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string")) && isHex64(e.pubkey) && isHex64(e.id) && typeof e.sig === "string" && HEX128.test(e.sig);
   }
-  function verifyEvent(v) {
-    if (!hasEventShape(v))
+  function verifyEvent(v2) {
+    if (!hasEventShape(v2))
       return false;
-    if (getEventHash(v) !== v.id)
+    if (getEventHash(v2) !== v2.id)
       return false;
     try {
-      return schnorr.verify(hexToBytes(v.sig), hexToBytes(v.id), hexToBytes(v.pubkey));
+      return schnorr.verify(hexToBytes(v2.sig), hexToBytes(v2.id), hexToBytes(v2.pubkey));
     } catch {
       return false;
     }
@@ -2433,6 +3098,29 @@ var NSWP = (() => {
       }
     };
   }
+  function padding(bits, chr = "=") {
+    anumber3(bits);
+    astr("padding", chr);
+    return {
+      encode(data) {
+        while (data.length * bits % 8)
+          data += chr;
+        return data;
+      },
+      decode(input) {
+        astr("decode", input);
+        let end = input.length;
+        if (end * bits % 8)
+          throw new Error("padding: invalid length");
+        for (; end > 0 && input[end - 1] === chr; end--) {
+          const byte = (end - 1) * bits;
+          if (byte % 8 === 0)
+            throw new Error("padding: excess padding");
+        }
+        return input.slice(0, end);
+      }
+    };
+  }
   function unsafeWrapper(fn) {
     afn(fn);
     return function(...args) {
@@ -2442,6 +3130,25 @@ var NSWP = (() => {
       }
     };
   }
+  var hasBase64Builtin = /* @__PURE__ */ (() => typeof Uint8Array.from([]).toBase64 === "function" && typeof Uint8Array.fromBase64 === "function")();
+  var ASCII_WHITESPACE = /[\t\n\f\r ]/;
+  var decodeBase64Builtin = (s, isUrl) => {
+    astr("base64", s);
+    const alphabet2 = isUrl ? "base64url" : "base64";
+    if (s.length > 0 && ASCII_WHITESPACE.test(s))
+      throw new Error("invalid base64");
+    return Uint8Array.fromBase64(s, { alphabet: alphabet2, lastChunkHandling: "strict" });
+  };
+  var base64Fallback = /* @__PURE__ */ freeze(() => chain(radix2(6), alphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"), padding(6)));
+  var base64 = /* @__PURE__ */ freeze(() => hasBase64Builtin ? {
+    encode(b) {
+      abytes3(b);
+      return b.toBase64();
+    },
+    decode(s) {
+      return decodeBase64Builtin(s, false);
+    }
+  } : base64Fallback);
   var base64urlnopad = /* @__PURE__ */ freeze(() => chain(radix2(6), alphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")));
   var BECH_ALPHABET = /* @__PURE__ */ alphabet("qpzry9x8gf2tvdw0s3jn54khce6mua7l");
   var BECH_UPPERCASE_PRINTABLE = /^[\x21-\x60\x7b-\x7e]+$/;
@@ -2485,8 +3192,8 @@ var NSWP = (() => {
     chk = bech32Polymod(chk);
     for (let i = 0; i < len; i++)
       chk = bech32Polymod(chk) ^ prefix.charCodeAt(i) & 31;
-    for (let v of words2)
-      chk = bech32Polymod(chk) ^ v;
+    for (let v2 of words2)
+      chk = bech32Polymod(chk) ^ v2;
     for (let i = 0; i < 6; i++)
       chk = bech32Polymod(chk);
     chk ^= encodingConst;
@@ -2607,11 +3314,11 @@ var NSWP = (() => {
       throw new NswpError("invalid_pubkey", "pubkey must be 64 lowercase hex characters");
     if (!Number.isInteger(p.kind) || p.kind < 0 || p.kind > 4294967295)
       throw new NswpError("invalid_kind", "kind out of range");
-    const parts2 = [];
+    const parts3 = [];
     const tlv = (type, value) => {
       if (value.length > 255)
         throw new NswpError("tlv_too_long", `TLV value for type ${type} exceeds 255 bytes`);
-      parts2.push(Uint8Array.of(type, value.length), value);
+      parts3.push(Uint8Array.of(type, value.length), value);
     };
     tlv(0, utf8ToBytes(p.identifier));
     for (const r of p.relays ?? [])
@@ -2620,9 +3327,9 @@ var NSWP = (() => {
     const kind = new Uint8Array(4);
     new DataView(kind.buffer).setUint32(0, p.kind, false);
     tlv(3, kind);
-    const bytes = new Uint8Array(parts2.reduce((n, a) => n + a.length, 0));
+    const bytes = new Uint8Array(parts3.reduce((n, a) => n + a.length, 0));
     let off = 0;
-    for (const a of parts2) {
+    for (const a of parts3) {
       bytes.set(a, off);
       off += a.length;
     }
@@ -2665,6 +3372,26 @@ var NSWP = (() => {
   }
   function encodeNpub(pubkey) {
     return bech32.encode("npub", bech32.toWords(hexToBytes(pubkey)), BECH32_LIMIT);
+  }
+  function decodeNpub(s) {
+    const text = s.trim();
+    const real = (hex) => {
+      if (!isPublicKey(hex))
+        throw new NswpError("npub_invalid", "not a public key: no key has that value");
+      return hex;
+    };
+    if (/^[0-9a-f]{64}$/i.test(text))
+      return real(text.toLowerCase());
+    let decoded;
+    try {
+      decoded = bech32.decode(text, BECH32_LIMIT);
+    } catch (cause) {
+      throw new NswpError("npub_invalid", "not a public key: expected npub1\u2026 or 64 hex characters", { cause });
+    }
+    const bytes = bech32.fromWords(decoded.words);
+    if (decoded.prefix !== "npub" || bytes.length !== 32)
+      throw new NswpError("npub_invalid", "not a public key: expected npub1\u2026 or 64 hex characters");
+    return real(bytesToHex(Uint8Array.from(bytes)));
   }
   function shortNpub(pubkey) {
     const npub = encodeNpub(pubkey);
@@ -3535,8 +4262,8 @@ var NSWP = (() => {
     } catch {
       return fail("url_invalid", "The destination is not a valid URL.");
     }
-    const local = LOCAL_HOSTS.has(u.hostname) || u.hostname.endsWith(".localhost");
-    if (u.protocol !== "https:" && !(opts.allowLocalhost && local && u.protocol === "http:")) {
+    const local2 = LOCAL_HOSTS.has(u.hostname) || u.hostname.endsWith(".localhost");
+    if (u.protocol !== "https:" && !(opts.allowLocalhost && local2 && u.protocol === "http:")) {
       return fail("url_not_https", `Only https destinations are allowed (got ${u.protocol.replace(":", "")}).`);
     }
     if (u.username || u.password)
@@ -3546,10 +4273,10 @@ var NSWP = (() => {
     let registrableDomain = host.isIp ? null : host.domain;
     if (host.isIp)
       warnings.push({ code: "ip_address_host", path: "destination", message: "The destination is a raw IP address." });
-    else if (!host.isIcann && !host.isPrivate && !local) {
+    else if (!host.isIcann && !host.isPrivate && !local2) {
       warnings.push({ code: "unknown_suffix", path: "destination", message: `"${host.publicSuffix ?? hostname}" is not a known public suffix.` });
     }
-    if (local)
+    if (local2)
       registrableDomain = hostname;
     if (hostname.split(".").some((label) => label.startsWith("xn--"))) {
       warnings.push({
@@ -3567,27 +4294,27 @@ var NSWP = (() => {
       warnings
     };
   }
-  function isHttpsUrl(v) {
-    if (typeof v !== "string" || v.length > LIMITS.maxUrlLength)
+  function isHttpsUrl(v2) {
+    if (typeof v2 !== "string" || v2.length > LIMITS.maxUrlLength)
       return false;
     try {
-      return new URL(v).protocol === "https:";
+      return new URL(v2).protocol === "https:";
     } catch {
       return false;
     }
   }
-  function isWssUrl(v) {
-    if (typeof v !== "string")
+  function isWssUrl(v2) {
+    if (typeof v2 !== "string")
       return false;
     try {
-      return new URL(v).protocol === "wss:";
+      return new URL(v2).protocol === "wss:";
     } catch {
       return false;
     }
   }
-  function normalizeUrl(v) {
+  function normalizeUrl(v2) {
     try {
-      return new URL(v).href;
+      return new URL(v2).href;
     } catch {
       return null;
     }
@@ -3604,7 +4331,7 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/manifest.js
-  var stringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "string");
+  var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
   var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
   function parseManifest(input, opts = {}) {
     const c = new Collector();
@@ -3632,16 +4359,16 @@ var NSWP = (() => {
     if (!isPlainObject(input.publishers)) {
       c.error("missing_field", "publishers", "publishers must be an object keyed by hex pubkey.");
     } else {
-      for (const [pk, v] of Object.entries(input.publishers)) {
+      for (const [pk, v2] of Object.entries(input.publishers)) {
         if (!isHex64(pk)) {
           c.error("invalid_pubkey", `publishers.${pk}`, "Publisher keys must be 64 lowercase hex characters.");
           continue;
         }
-        if (!isPlainObject(v) || !stringArray(v.worlds)) {
+        if (!isPlainObject(v2) || !stringArray(v2.worlds)) {
           c.error("invalid_field", `publishers.${pk}.worlds`, "Each publisher needs a worlds array of world IDs.");
           continue;
         }
-        publishers[pk] = { worlds: v.worlds };
+        publishers[pk] = { worlds: v2.worlds };
       }
     }
     const worlds = {};
@@ -3735,7 +4462,7 @@ var NSWP = (() => {
   var LOOK_RANGE = [0.25, 3];
   var FOV_RANGE = [50, 110];
   var SETTINGS_LINK_LIMIT = 400;
-  var level = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : void 0;
+  var level = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(1, Math.max(0, v2)) * 100) / 100 : void 0;
   function cleanSettings(input) {
     const out = {};
     if (!input || typeof input !== "object" || Array.isArray(input))
@@ -3747,9 +4474,9 @@ var NSWP = (() => {
       if (typeof from.off === "boolean")
         sound.off = from.off;
       for (const k of ["effects", "music", "voices"]) {
-        const v = level(from[k]);
-        if (v !== void 0)
-          sound[k] = v;
+        const v2 = level(from[k]);
+        if (v2 !== void 0)
+          sound[k] = v2;
       }
       if (typeof from.hum === "boolean")
         sound.hum = from.hum;
@@ -3795,14 +4522,14 @@ var NSWP = (() => {
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   };
   function encodeSettings(settings) {
-    const clean2 = cleanSettings(settings);
-    if (!hasSettings(clean2))
+    const clean3 = cleanSettings(settings);
+    if (!hasSettings(clean3))
       return "";
-    const text = toBase64Url(JSON.stringify(clean2));
+    const text = toBase64Url(JSON.stringify(clean3));
     if (text.length <= SETTINGS_LINK_LIMIT)
       return text;
-    if (clean2.pins) {
-      const { pins: _left, ...rest } = clean2;
+    if (clean3.pins) {
+      const { pins: _left, ...rest } = clean3;
       return encodeSettings(rest);
     }
     return "";
@@ -3821,6 +4548,7 @@ var NSWP = (() => {
   };
   var LOOK_COLORS = ["color", "accent", "light"];
   var HEX_COLOR = /^#[0-9a-f]{6}$/;
+  var MARK = /^[0-7][0-9a-f]{3}$/;
   function hsl(h, s, l) {
     const a = s * Math.min(l, 1 - l);
     const f = (n) => {
@@ -3853,6 +4581,13 @@ var NSWP = (() => {
   function markFor(seed) {
     const b = sha256(utf8ToBytes(seed.toLowerCase()));
     return bytesToHex(new Uint8Array([b[30] & 127, b[31]]));
+  }
+  function markGrid(mark) {
+    const bits = parseInt(MARK.test(mark) ? mark : "0000", 16);
+    return Array.from({ length: 5 }, (_, row) => Array.from({ length: 5 }, (_2, col2) => {
+      const c = col2 < 3 ? col2 : 4 - col2;
+      return (bits >> row * 3 + c & 1) === 1;
+    }));
   }
   function applyChoices(base, choices) {
     const look = { ...base };
@@ -4063,7 +4798,7 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/portal.js
-  var isForm = (v) => v === "touch" || v === "desk";
+  var isForm = (v2) => v2 === "touch" || v2 === "desk";
   function cleanKeys(input, limit) {
     if (!Array.isArray(input))
       return [];
@@ -4093,13 +4828,13 @@ var NSWP = (() => {
     const to = dest.naddr ?? dest.url;
     if (!to)
       throw new Error("buildAirlockUrl: destination needs an naddr or a url");
-    const parts2 = [`to=${encodeURIComponent(to)}`];
+    const parts3 = [`to=${encodeURIComponent(to)}`];
     if (dest.naddr && dest.url)
-      parts2.push(`url=${encodeURIComponent(dest.url)}`);
+      parts3.push(`url=${encodeURIComponent(dest.url)}`);
     if (dest.entryPoint)
-      parts2.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
-    parts2.push(...opts.who === "look" ? ["who=look"] : opts.who ? ["who=1"] : [], ...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
-    u.hash = parts2.join("&");
+      parts3.push(`entry=${encodeURIComponent(dest.entryPoint)}`);
+    parts3.push(...opts.who === "look" ? ["who=look"] : opts.who ? ["who=1"] : [], ...stateFlags(opts), ...isForm(opts.form) ? [`form=${opts.form}`] : [], ...settingsFlag(opts), ...blockedFlag(opts));
+    u.hash = parts3.join("&");
     return u.href;
   }
   function buildWayUrl(airlock, opts = {}) {
@@ -4168,10 +4903,10 @@ var NSWP = (() => {
   function learnRelays(notes2, results, now) {
     const next = { ...notes2 };
     for (const [url, said] of Object.entries(results)) {
-      const clean2 = cleanRelayUrl(url);
-      if (!clean2)
+      const clean3 = cleanRelayUrl(url);
+      if (!clean3)
         continue;
-      const had = next[clean2] && now - next[clean2].at <= RELAY_PICK.staleMs ? next[clean2] : { ok: 0, failed: 0, at: now };
+      const had = next[clean3] && now - next[clean3].at <= RELAY_PICK.staleMs ? next[clean3] : { ok: 0, failed: 0, at: now };
       let { ok, failed: failed2 } = had;
       if (said === "ok" || said === "eose")
         ok++;
@@ -4181,7 +4916,7 @@ var NSWP = (() => {
         ok = Math.round(ok / 2);
         failed2 = Math.round(failed2 / 2);
       }
-      next[clean2] = { ok, failed: failed2, at: now };
+      next[clean3] = { ok, failed: failed2, at: now };
     }
     const kept2 = Object.entries(next).sort((a, b) => b[1].at - a[1].at).slice(0, RELAY_PICK.kept);
     return Object.fromEntries(kept2);
@@ -4351,14 +5086,578 @@ var NSWP = (() => {
     return { open: open2.slice(0, o.most ?? DISCOVERY.most).map((r) => r.url), closed: closed.sort() };
   }
 
+  // node_modules/@noble/ciphers/utils.js
+  /*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */
+  function isBytes4(a) {
+    return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array" && "BYTES_PER_ELEMENT" in a && a.BYTES_PER_ELEMENT === 1;
+  }
+  var atitle3 = (title) => title ? `"${title}" ` : "";
+  function abool2(value, title = "") {
+    if (typeof value !== "boolean")
+      throw new TypeError(atitle3(title) + "expected boolean, got type=" + typeof value);
+    return value;
+  }
+  function anumber4(n, title = "") {
+    if (typeof n !== "number")
+      throw new TypeError(atitle3(title) + "expected number, got " + typeof n);
+    if (!Number.isSafeInteger(n) || n < 0)
+      throw new RangeError(atitle3(title) + "expected integer >= 0, got " + n);
+    return n;
+  }
+  function abytes4(value, length, title = "") {
+    if (isBytes4(value) && (length === void 0 || value.length === length))
+      return value;
+    if (length !== void 0)
+      anumber4(length, "length");
+    const bytes = isBytes4(value);
+    const ofLen = length !== void 0 ? ` of length ${length}` : "";
+    const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+    const message = atitle3(title) + "expected Uint8Array" + ofLen + ", got " + got;
+    if (!bytes)
+      throw new TypeError(message);
+    throw new RangeError(message);
+  }
+  var aobject3 = (value, label) => {
+    if (value === null || typeof value !== "object" || Array.isArray(value))
+      throw new TypeError(label === "object" ? "expected valid options object" : `"${label}" expected object, got type=${typeof value}`);
+  };
+  function u32(arr) {
+    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+  }
+  function clean2(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+      arrays[i].fill(0);
+    }
+  }
+  var isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68)();
+  function byteSwap(word) {
+    return word << 24 & 4278190080 | word << 8 & 16711680 | word >>> 8 & 65280 | word >>> 24 & 255;
+  }
+  function byteSwap32(arr) {
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = byteSwap(arr[i]);
+    }
+    return arr;
+  }
+  var swap32IfBE = isLE ? (u) => u : byteSwap32;
+  function overlapBytes(a, b) {
+    if (!a.byteLength || !b.byteLength)
+      return false;
+    return a.buffer === b.buffer && // best we can do, may fail with an obscure Proxy
+    a.byteOffset < b.byteOffset + b.byteLength && // a starts before b end
+    b.byteOffset < a.byteOffset + a.byteLength;
+  }
+  function complexOverlapBytes(input, output) {
+    if (overlapBytes(input, output) && input.byteOffset < output.byteOffset)
+      throw new Error("complex overlap of input and output is not supported");
+  }
+  function checkOpts2(defaults, opts) {
+    aobject3(defaults, "defaults");
+    aobject3(opts, "opts");
+    const merged = Object.assign(defaults, opts);
+    return merged;
+  }
+  function getOutput(expectedLength, out, onlyAligned = true) {
+    if (out === void 0)
+      return new Uint8Array(expectedLength);
+    abytes4(out, expectedLength, "output");
+    if (onlyAligned && !isAligned32(out))
+      throw new Error("invalid output, must be aligned");
+    return out;
+  }
+  function isAligned32(bytes) {
+    return bytes.byteOffset % 4 === 0;
+  }
+  function copyBytes2(bytes) {
+    return Uint8Array.from(abytes4(bytes));
+  }
+
+  // node_modules/@noble/ciphers/_arx.js
+  var encodeStr = (str) => Uint8Array.from(str.split(""), (c) => c.charCodeAt(0));
+  var sigma16_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr("expand 16-byte k"))))();
+  var sigma32_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr("expand 32-byte k"))))();
+  function rotl(a, b) {
+    return a << b | a >>> 32 - b;
+  }
+  var BLOCK_LEN = 64;
+  var BLOCK_LEN32 = 16;
+  var MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
+  var U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
+  function runCipher(core, sigma, key, nonce, data, output, counter, rounds) {
+    const len = data.length;
+    const block = new Uint8Array(BLOCK_LEN);
+    const b32 = u32(block);
+    const isAligned = isLE && isAligned32(data) && isAligned32(output);
+    const d32 = isAligned ? u32(data) : U32_EMPTY;
+    const o32 = isAligned ? u32(output) : U32_EMPTY;
+    if (!isLE) {
+      for (let pos = 0; pos < len; counter++) {
+        core(sigma, key, nonce, b32, counter, rounds);
+        swap32IfBE(b32);
+        if (counter >= MAX_COUNTER)
+          throw new Error("arx: counter overflow");
+        const take = Math.min(BLOCK_LEN, len - pos);
+        for (let j = 0, posj; j < take; j++) {
+          posj = pos + j;
+          output[posj] = data[posj] ^ block[j];
+        }
+        pos += take;
+      }
+      return;
+    }
+    for (let pos = 0; pos < len; counter++) {
+      core(sigma, key, nonce, b32, counter, rounds);
+      if (counter >= MAX_COUNTER)
+        throw new Error("arx: counter overflow");
+      const take = Math.min(BLOCK_LEN, len - pos);
+      if (isAligned && take === BLOCK_LEN) {
+        const pos32 = pos / 4;
+        if (pos % 4 !== 0)
+          throw new Error("arx: invalid block position");
+        for (let j = 0, posj; j < BLOCK_LEN32; j++) {
+          posj = pos32 + j;
+          o32[posj] = d32[posj] ^ b32[j];
+        }
+        pos += BLOCK_LEN;
+        continue;
+      }
+      for (let j = 0, posj; j < take; j++) {
+        posj = pos + j;
+        output[posj] = data[posj] ^ block[j];
+      }
+      pos += take;
+    }
+  }
+  function createCipher(core, opts) {
+    const { allowShortKeys, extendNonceFn, counterLength, counterRight, rounds } = checkOpts2({ allowShortKeys: false, counterLength: 8, counterRight: false, rounds: 20 }, opts);
+    if (typeof core !== "function")
+      throw new Error("core must be a function");
+    anumber4(counterLength);
+    anumber4(rounds);
+    abool2(counterRight);
+    abool2(allowShortKeys);
+    return (key, nonce, data, output, counter = 0) => {
+      abytes4(key, void 0, "key");
+      abytes4(nonce, void 0, "nonce");
+      abytes4(data, void 0, "data");
+      const len = data.length;
+      const hasOutput = output !== void 0;
+      output = getOutput(len, output, false);
+      if (hasOutput)
+        complexOverlapBytes(data, output);
+      anumber4(counter);
+      if (counter < 0 || counter >= MAX_COUNTER)
+        throw new Error("arx: counter overflow");
+      const toClean = [];
+      let l = key.length;
+      let k;
+      let sigma;
+      if (l === 32) {
+        toClean.push(k = copyBytes2(key));
+        sigma = sigma32_32;
+      } else if (l === 16 && allowShortKeys) {
+        k = new Uint8Array(32);
+        k.set(key);
+        k.set(key, 16);
+        sigma = sigma16_32;
+        toClean.push(k);
+      } else {
+        abytes4(key, 32, "arx key");
+        throw new Error("invalid key size");
+      }
+      if (!isLE || !isAligned32(nonce))
+        toClean.push(nonce = copyBytes2(nonce));
+      let k32 = u32(k);
+      if (extendNonceFn) {
+        if (nonce.length !== 24)
+          throw new Error("arx: extended nonce must be 24 bytes");
+        const n16 = nonce.subarray(0, 16);
+        if (isLE)
+          extendNonceFn(sigma, k32, u32(n16), k32);
+        else {
+          const sigmaRaw = swap32IfBE(Uint32Array.from(sigma));
+          extendNonceFn(sigmaRaw, k32, u32(n16), k32);
+          clean2(sigmaRaw);
+          swap32IfBE(k32);
+        }
+        nonce = nonce.subarray(16);
+      } else if (!isLE)
+        swap32IfBE(k32);
+      const nonceNcLen = 16 - counterLength;
+      if (nonceNcLen !== nonce.length)
+        throw new Error(`arx: nonce must be ${nonceNcLen} or 16 bytes`);
+      if (nonceNcLen !== 12) {
+        const nc = new Uint8Array(12);
+        nc.set(nonce, counterRight ? 0 : 12 - nonce.length);
+        nonce = nc;
+        toClean.push(nonce);
+      }
+      const n32 = swap32IfBE(u32(nonce));
+      try {
+        runCipher(core, sigma, k32, n32, data, output, counter, rounds);
+        return output;
+      } finally {
+        clean2(...toClean);
+      }
+    };
+  }
+
+  // node_modules/@noble/ciphers/chacha.js
+  function chachaCore(s, k, n, out, cnt, rounds = 20) {
+    let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];
+    let x00 = y00, x01 = y01, x02 = y02, x03 = y03, x04 = y04, x05 = y05, x06 = y06, x07 = y07, x08 = y08, x09 = y09, x10 = y10, x11 = y11, x12 = y12, x13 = y13, x14 = y14, x15 = y15;
+    for (let r = 0; r < rounds; r += 2) {
+      x00 = x00 + x04 | 0;
+      x12 = rotl(x12 ^ x00, 16);
+      x08 = x08 + x12 | 0;
+      x04 = rotl(x04 ^ x08, 12);
+      x00 = x00 + x04 | 0;
+      x12 = rotl(x12 ^ x00, 8);
+      x08 = x08 + x12 | 0;
+      x04 = rotl(x04 ^ x08, 7);
+      x01 = x01 + x05 | 0;
+      x13 = rotl(x13 ^ x01, 16);
+      x09 = x09 + x13 | 0;
+      x05 = rotl(x05 ^ x09, 12);
+      x01 = x01 + x05 | 0;
+      x13 = rotl(x13 ^ x01, 8);
+      x09 = x09 + x13 | 0;
+      x05 = rotl(x05 ^ x09, 7);
+      x02 = x02 + x06 | 0;
+      x14 = rotl(x14 ^ x02, 16);
+      x10 = x10 + x14 | 0;
+      x06 = rotl(x06 ^ x10, 12);
+      x02 = x02 + x06 | 0;
+      x14 = rotl(x14 ^ x02, 8);
+      x10 = x10 + x14 | 0;
+      x06 = rotl(x06 ^ x10, 7);
+      x03 = x03 + x07 | 0;
+      x15 = rotl(x15 ^ x03, 16);
+      x11 = x11 + x15 | 0;
+      x07 = rotl(x07 ^ x11, 12);
+      x03 = x03 + x07 | 0;
+      x15 = rotl(x15 ^ x03, 8);
+      x11 = x11 + x15 | 0;
+      x07 = rotl(x07 ^ x11, 7);
+      x00 = x00 + x05 | 0;
+      x15 = rotl(x15 ^ x00, 16);
+      x10 = x10 + x15 | 0;
+      x05 = rotl(x05 ^ x10, 12);
+      x00 = x00 + x05 | 0;
+      x15 = rotl(x15 ^ x00, 8);
+      x10 = x10 + x15 | 0;
+      x05 = rotl(x05 ^ x10, 7);
+      x01 = x01 + x06 | 0;
+      x12 = rotl(x12 ^ x01, 16);
+      x11 = x11 + x12 | 0;
+      x06 = rotl(x06 ^ x11, 12);
+      x01 = x01 + x06 | 0;
+      x12 = rotl(x12 ^ x01, 8);
+      x11 = x11 + x12 | 0;
+      x06 = rotl(x06 ^ x11, 7);
+      x02 = x02 + x07 | 0;
+      x13 = rotl(x13 ^ x02, 16);
+      x08 = x08 + x13 | 0;
+      x07 = rotl(x07 ^ x08, 12);
+      x02 = x02 + x07 | 0;
+      x13 = rotl(x13 ^ x02, 8);
+      x08 = x08 + x13 | 0;
+      x07 = rotl(x07 ^ x08, 7);
+      x03 = x03 + x04 | 0;
+      x14 = rotl(x14 ^ x03, 16);
+      x09 = x09 + x14 | 0;
+      x04 = rotl(x04 ^ x09, 12);
+      x03 = x03 + x04 | 0;
+      x14 = rotl(x14 ^ x03, 8);
+      x09 = x09 + x14 | 0;
+      x04 = rotl(x04 ^ x09, 7);
+    }
+    let oi = 0;
+    out[oi++] = y00 + x00 | 0;
+    out[oi++] = y01 + x01 | 0;
+    out[oi++] = y02 + x02 | 0;
+    out[oi++] = y03 + x03 | 0;
+    out[oi++] = y04 + x04 | 0;
+    out[oi++] = y05 + x05 | 0;
+    out[oi++] = y06 + x06 | 0;
+    out[oi++] = y07 + x07 | 0;
+    out[oi++] = y08 + x08 | 0;
+    out[oi++] = y09 + x09 | 0;
+    out[oi++] = y10 + x10 | 0;
+    out[oi++] = y11 + x11 | 0;
+    out[oi++] = y12 + x12 | 0;
+    out[oi++] = y13 + x13 | 0;
+    out[oi++] = y14 + x14 | 0;
+    out[oi++] = y15 + x15 | 0;
+  }
+  var chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+    counterRight: false,
+    counterLength: 4,
+    allowShortKeys: false
+  });
+
+  // node_modules/@noble/hashes/hkdf.js
+  function extract(hash, ikm, salt) {
+    ahash(hash);
+    if (salt === void 0)
+      salt = new Uint8Array(hash.outputLen);
+    return hmac(hash, salt, ikm);
+  }
+  var HKDF_COUNTER = /* @__PURE__ */ Uint8Array.of(0);
+  var EMPTY_BUFFER = /* @__PURE__ */ Uint8Array.of();
+  function expand(hash, prk, info, length = 32, _recycled) {
+    ahash(hash);
+    anumber(length, "length");
+    abytes(prk, void 0, "prk");
+    const olen = hash.outputLen;
+    if (prk.length < olen)
+      throw new Error('"prk" must be at least HashLen octets');
+    if (length > 255 * olen)
+      throw new Error("Length must be <= 255*HashLen");
+    const blocks = Math.ceil(length / olen);
+    if (info === void 0)
+      info = EMPTY_BUFFER;
+    else
+      abytes(info, void 0, "info");
+    if (!blocks) {
+      if (_recycled)
+        clean(prk);
+      return new Uint8Array();
+    }
+    const okm = _recycled && blocks === 1 ? prk : new Uint8Array(blocks * olen);
+    const { iHash, oHash } = hmac.create(hash, prk);
+    const T = _recycled ? prk : new Uint8Array(olen);
+    const worker = blocks > 1 ? _recycled?.iHash || hash.create() : void 0;
+    for (let counter = 0; counter < blocks - 1; counter++) {
+      HKDF_COUNTER[0] = counter + 1;
+      const iWork = iHash._cloneInto(worker);
+      if (counter)
+        iWork.update(T);
+      iWork.update(info).update(HKDF_COUNTER).digestInto(T);
+      oHash._cloneInto(worker).update(T).digestInto(T);
+      okm.set(T, olen * counter);
+    }
+    HKDF_COUNTER[0] = blocks;
+    if (blocks > 1)
+      iHash.update(T);
+    iHash.update(info).update(HKDF_COUNTER).digestInto(T);
+    oHash.update(T).digestInto(T);
+    okm.set(T, olen * (blocks - 1));
+    iHash.destroy();
+    oHash.destroy();
+    worker?.destroy();
+    if (T !== okm)
+      clean(T);
+    clean(HKDF_COUNTER);
+    if (length === okm.length)
+      return okm;
+    const res = okm.slice(0, length);
+    clean(okm);
+    return res;
+  }
+
   // packages/core/dist/nip44.js
   var SALT = utf8ToBytes("nip44-v2");
   var decoder3 = new TextDecoder("utf-8", { fatal: true });
+  var MIN_PLAINTEXT = 1;
+  var MAX_PLAINTEXT = 65535;
+  function getConversationKey(secretKey, pubkey) {
+    if (!isHex64(pubkey))
+      throw new NswpError("invalid_pubkey", "pubkey must be 64 lowercase hex characters");
+    const shared2 = secp256k1.getSharedSecret(secretKey, hexToBytes(`02${pubkey}`));
+    return extract(sha256, shared2.subarray(1, 33), SALT);
+  }
+  function paddedLength(len) {
+    if (len <= 32)
+      return 32;
+    const nextPower = 1 << Math.floor(Math.log2(len - 1)) + 1;
+    const chunk = nextPower <= 256 ? 32 : nextPower / 8;
+    return chunk * (Math.floor((len - 1) / chunk) + 1);
+  }
+  function messageKeys(conversationKey, nonce) {
+    const keys = expand(sha256, conversationKey, nonce, 76);
+    return { chachaKey: keys.subarray(0, 32), chachaNonce: keys.subarray(32, 44), hmacKey: keys.subarray(44, 76) };
+  }
+  function equalBytes(a, b) {
+    if (a.length !== b.length)
+      return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++)
+      diff |= a[i] ^ b[i];
+    return diff === 0;
+  }
+  function nip44Encrypt(plaintext, conversationKey, nonce = randomBytes(32)) {
+    const data = utf8ToBytes(plaintext);
+    if (data.length < MIN_PLAINTEXT || data.length > MAX_PLAINTEXT)
+      throw new NswpError("nip44_bad_length", "plaintext must be 1 to 65535 bytes");
+    const padded = new Uint8Array(2 + paddedLength(data.length));
+    new DataView(padded.buffer).setUint16(0, data.length, false);
+    padded.set(data, 2);
+    const { chachaKey, chachaNonce, hmacKey } = messageKeys(conversationKey, nonce);
+    const ciphertext = chacha20(chachaKey, chachaNonce, padded);
+    const mac = hmac(sha256, hmacKey, concatBytes(nonce, ciphertext));
+    return base64.encode(concatBytes(Uint8Array.of(2), nonce, ciphertext, mac));
+  }
+  function nip44Decrypt(payload, conversationKey) {
+    const fail = (m) => {
+      throw new NswpError("nip44_invalid", m);
+    };
+    if (payload.length < 132 || payload.length > 87472 || payload.startsWith("#"))
+      fail("invalid payload length or version");
+    let raw;
+    try {
+      raw = base64.decode(payload);
+    } catch {
+      return fail("payload is not base64");
+    }
+    if (raw.length < 99 || raw.length > 65603)
+      fail("invalid payload size");
+    if (raw[0] !== 2)
+      fail("unsupported NIP-44 version");
+    const nonce = raw.subarray(1, 33);
+    const ciphertext = raw.subarray(33, raw.length - 32);
+    const mac = raw.subarray(raw.length - 32);
+    const { chachaKey, chachaNonce, hmacKey } = messageKeys(conversationKey, nonce);
+    if (!equalBytes(hmac(sha256, hmacKey, concatBytes(nonce, ciphertext)), mac))
+      fail("invalid MAC");
+    const padded = chacha20(chachaKey, chachaNonce, ciphertext);
+    const len = new DataView(padded.buffer, padded.byteOffset, padded.byteLength).getUint16(0, false);
+    if (len < MIN_PLAINTEXT || padded.length !== 2 + paddedLength(len))
+      fail("invalid padding");
+    try {
+      return decoder3.decode(padded.subarray(2, 2 + len));
+    } catch {
+      return fail("plaintext is not UTF-8");
+    }
+  }
 
   // packages/core/dist/room.js
   var ROOM_PASS_KIND = 27300;
+  var ROOM_SIGNAL_KIND = 27301;
+  var ROOM_LIMITS = {
+    defaultMaxMembers: 8,
+    /** Handshake messages older or newer than this are ignored. */
+    signalMaxAgeSec: 60,
+    maxSdpChars: 2e4,
+    maxNameChars: 48
+  };
+  function roomTopic(worldUrl, roomName) {
+    const u = new URL(worldUrl);
+    return bytesToHex(sha256(utf8ToBytes(`nswp/room/spike-1
+${u.origin}${u.pathname}
+${roomName}`)));
+  }
+  function shouldInitiate(self2, other) {
+    return self2 < other;
+  }
+  function guestName(pubkey) {
+    return `Guest ${pubkey.slice(0, 4)}`;
+  }
+  function guestColor(pubkey) {
+    const hue = parseInt(pubkey.slice(4, 8), 16) / 65535;
+    const f = (n) => {
+      const k = (n + hue * 12) % 12;
+      return Math.round(255 * (0.6 - 0.4 * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+    };
+    return f(0) << 16 | f(8) << 8 | f(4);
+  }
+  function spawnOffset(pubkey, radius = 1.3) {
+    const angle = parseInt(pubkey.slice(8, 12), 16) / 65535 * Math.PI * 2;
+    return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius };
+  }
+  function validMessage(m) {
+    if (typeof m !== "object" || m === null)
+      return false;
+    const o = m;
+    switch (o.t) {
+      case "hello":
+        return o.v === 1;
+      case "welcome":
+      case "bye":
+        return true;
+      case "offer":
+      case "answer":
+        return typeof o.sdp === "string" && o.sdp.length > 0 && o.sdp.length <= ROOM_LIMITS.maxSdpChars;
+      default:
+        return false;
+    }
+  }
+  function buildHello(topic, sessionKey, createdAt = nowSeconds()) {
+    return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic]], content: JSON.stringify({ t: "hello", v: 1 }) }, sessionKey);
+  }
+  function buildSignal(topic, sessionKey, to, message, createdAt = nowSeconds()) {
+    const content = nip44Encrypt(JSON.stringify(message), getConversationKey(sessionKey, to));
+    return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic], ["p", to]], content }, sessionKey);
+  }
+  function openSignal(event, sessionKey, topic, now = nowSeconds()) {
+    if (!verifyEvent(event) || event.kind !== ROOM_SIGNAL_KIND)
+      return null;
+    if (getTagValue(event, "x") !== topic)
+      return null;
+    if (Math.abs(now - event.created_at) > ROOM_LIMITS.signalMaxAgeSec)
+      return null;
+    const self2 = getPublicKey(sessionKey);
+    if (event.pubkey === self2)
+      return null;
+    const to = getTagValue(event, "p");
+    let text;
+    if (to === void 0)
+      text = event.content;
+    else {
+      if (to !== self2 || !isHex64(to))
+        return null;
+      try {
+        text = nip44Decrypt(event.content, getConversationKey(sessionKey, event.pubkey));
+      } catch {
+        return null;
+      }
+    }
+    let message;
+    try {
+      message = JSON.parse(text);
+    } catch {
+      return null;
+    }
+    if (!validMessage(message))
+      return null;
+    if (message.t === "hello" !== (to === void 0))
+      return null;
+    return { from: event.pubkey, message, id: event.id };
+  }
   var POSE_FLOATS = 22;
   var POSE_BYTES = POSE_FLOATS * 4;
+  var IDENTITY = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+  function packPose(pose) {
+    const f = new Float32Array(POSE_FLOATS);
+    const put = (t, at) => {
+      f.set(t.position, at);
+      f.set(t.quaternion, at + 3);
+    };
+    put(pose.head, 0);
+    put(pose.left ?? IDENTITY, 7);
+    put(pose.right ?? IDENTITY, 14);
+    f[21] = (pose.left ? 1 : 0) | (pose.right ? 2 : 0);
+    return f.buffer;
+  }
+  function unpackPose(data) {
+    if (data.byteLength !== POSE_BYTES)
+      return null;
+    const f = new Float32Array(data);
+    for (let i = 0; i < 21; i++)
+      if (!Number.isFinite(f[i]) || Math.abs(f[i]) > 1e4)
+        return null;
+    const get = (at) => ({
+      position: [f[at], f[at + 1], f[at + 2]],
+      quaternion: [f[at + 3], f[at + 4], f[at + 5], f[at + 6]]
+    });
+    const flags = f[21];
+    const pose = { head: get(0) };
+    if (flags === 1 || flags === 3)
+      pose.left = get(7);
+    if (flags === 2 || flags === 3)
+      pose.right = get(14);
+    return pose;
+  }
 
   // packages/core/dist/chat.js
   var CHAT_LIMITS = {
@@ -4397,6 +5696,50 @@ var NSWP = (() => {
     return [...out].slice(0, chars).join("").trim();
   }
   var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
+  function chatId() {
+    const bytes = new Uint8Array(4);
+    globalThis.crypto.getRandomValues(bytes);
+    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function buildSay(text, id = chatId()) {
+    const cleaned = cleanChat(text);
+    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
+      return null;
+    return `say:${id}:${cleaned}`;
+  }
+  function parseSay(data) {
+    if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
+      return null;
+    const id = data.slice(4, 12);
+    if (!/^[0-9a-f]{8}$/.test(id))
+      return null;
+    const text = cleanChat(data.slice(13));
+    return text ? { id, text } : null;
+  }
+  function createChatGate(limits = CHAT_LIMITS) {
+    const ids = [];
+    let times = [];
+    const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
+    return {
+      take(id, now) {
+        if (ids.includes(id))
+          return false;
+        ids.push(id);
+        if (ids.length > limits.remembered)
+          ids.shift();
+        if (recent(now).length >= limits.burst)
+          return false;
+        times.push(now);
+        return true;
+      },
+      room(now) {
+        return recent(now).length < limits.burst;
+      }
+    };
+  }
+  function bubbleSeconds(text) {
+    return Math.min(12, 4 + [...text].length * 0.06);
+  }
 
   // packages/core/dist/pass.js
   var PASS_LIMITS = {
@@ -4429,6 +5772,9 @@ var NSWP = (() => {
     }
   }
   var cleanAbout = (about) => cleanLine(about, PASS_LIMITS.aboutChars);
+  function claimsKey(seed) {
+    return /^[0-9a-f]{64}$/i.test(seed);
+  }
   function verifyRoomPass(event, opts) {
     const c = new Collector();
     if (!verifyEvent(event)) {
@@ -4554,8 +5900,36 @@ var NSWP = (() => {
     out = out.replace(/[^\S\n]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
     return [...out].slice(0, MESSAGE_LIMITS.chars).join("").trim();
   }
+  function wrapSeal(seal, to, o) {
+    if (!isHex64(to) || !seal || seal.kind !== SEAL_KIND || seal.tags.length !== 0 || !verifyEvent(seal))
+      return null;
+    const once = o.secretKey ?? randomBytes(32);
+    const back = Math.floor((o.random ?? Math.random()) * MESSAGE_LIMITS.backdateSec);
+    try {
+      const content = nip44Encrypt(JSON.stringify(seal), getConversationKey(once, to), o.nonce);
+      return finalizeEvent({ kind: WRAP_KIND, created_at: Math.floor(o.now) - back, tags: [["p", to]], content }, once, o.auxRand);
+    } catch {
+      return null;
+    }
+  }
   function looksLikeWrap(event, reader) {
     return !!event && event.kind === WRAP_KIND && typeof event.content === "string" && event.tags.some((t) => t[0] === "p" && t[1] === reader) && verifyEvent(event);
+  }
+  function writtenWith(message, reader) {
+    const others = [.../* @__PURE__ */ new Set([message.from, ...message.to])].filter((k) => k !== reader);
+    return others.length === 1 ? others[0] : "";
+  }
+  function readMessageRelays(events2, pubkey) {
+    const latest = events2.filter((e) => e.kind === MESSAGE_RELAYS_KIND && e.pubkey === pubkey).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+    const out = [];
+    for (const t of latest?.tags ?? []) {
+      if (t[0] !== "relay")
+        continue;
+      const url = cleanRelayUrl(t[1]);
+      if (url && !out.includes(url) && out.length < MESSAGE_LIMITS.relays)
+        out.push(url);
+    }
+    return out;
   }
   function isSealAsked(sealed, o) {
     const s = sealed;
@@ -4585,10 +5959,10 @@ var NSWP = (() => {
     return to.length && text ? { id: m.id, from: m.from, to, text, at: m.at } : null;
   }
   function buildMessageRelays(relays, now) {
-    const clean2 = [...new Set(relays.map(cleanRelayUrl).filter(Boolean))].slice(0, MESSAGE_LIMITS.relays);
-    if (clean2.length === 0)
+    const clean3 = [...new Set(relays.map(cleanRelayUrl).filter(Boolean))].slice(0, MESSAGE_LIMITS.relays);
+    if (clean3.length === 0)
       return null;
-    return { kind: MESSAGE_RELAYS_KIND, created_at: Math.floor(now), tags: clean2.map((url) => ["relay", url]), content: "" };
+    return { kind: MESSAGE_RELAYS_KIND, created_at: Math.floor(now), tags: clean3.map((url) => ["relay", url]), content: "" };
   }
 
   // packages/core/dist/rating.js
@@ -4623,15 +5997,15 @@ var NSWP = (() => {
   function parseScore(event) {
     if (!event || event.kind !== SCORE_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
       return null;
-    const world = worldCoordinate(getTags(event, "a")[0]?.[1]);
-    const board = cleanBoard(getTags(event, "board")[0]?.[1]);
+    const world2 = worldCoordinate(getTags(event, "a")[0]?.[1]);
+    const board2 = cleanBoard(getTags(event, "board")[0]?.[1]);
     const score = cleanScore(getTags(event, "score")[0]?.[1]);
-    if (!world || !board || score === null || getTags(event, "d")[0]?.[1] !== `${world}/${board}`)
+    if (!world2 || !board2 || score === null || getTags(event, "d")[0]?.[1] !== `${world2}/${board2}`)
       return null;
     const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
     const title = cleanLine(getTags(event, "board")[0]?.[2] ?? "", SCORE_LIMITS.title);
     const format = getTags(event, "score")[0]?.[2] === "time" ? "time" : "number";
-    return { by: event.pubkey, world, board, score, title, format, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+    return { by: event.pubkey, world: world2, board: board2, score, title, format, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
   }
   function isScoreAsked(signed, o) {
     if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
@@ -4660,13 +6034,13 @@ var NSWP = (() => {
   function parseAchievement(event) {
     if (!event || event.kind !== ACHIEVEMENT_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
       return null;
-    const world = worldCoordinate(getTags(event, "a")[0]?.[1]);
+    const world2 = worldCoordinate(getTags(event, "a")[0]?.[1]);
     const id = cleanAchievementId(getTags(event, "achievement")[0]?.[1]);
     const title = cleanLine(getTags(event, "title")[0]?.[1], ACHIEVEMENT_LIMITS.title);
-    if (!world || !id || !title || getTags(event, "d")[0]?.[1] !== `${world}/${id}`)
+    if (!world2 || !id || !title || getTags(event, "d")[0]?.[1] !== `${world2}/${id}`)
       return null;
     const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
-    return { by: event.pubkey, world, id, title, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+    return { by: event.pubkey, world: world2, id, title, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
   }
   function isAchievementAsked(signed, o) {
     if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
@@ -4846,8 +6220,8 @@ var NSWP = (() => {
   var numbers = (text, n) => {
     if (typeof text !== "string")
       return null;
-    const parts2 = text.trim().split(/\s+/).map(Number);
-    return parts2.length === n && parts2.every((x) => Number.isFinite(x) && Math.abs(x) <= 100) ? parts2 : null;
+    const parts3 = text.trim().split(/\s+/).map(Number);
+    return parts3.length === n && parts3.every((x) => Number.isFinite(x) && Math.abs(x) <= 100) ? parts3 : null;
   };
   var within = (n) => n > 0 && n <= ITEM_LIMITS.metres;
   function readCollider(t) {
@@ -5076,16 +6450,16 @@ var NSWP = (() => {
       return null;
     const k = Math.min(1, PLAY_LIMITS.speed / speed);
     const stick = Number.isFinite(o.stick) ? Math.min(PLAY_LIMITS.stick, Math.max(0, o.stick)) : 0;
-    return { id: o.id, name: o.name, from: [...o.from], velocity: o.velocity.map((v) => v * k), stick };
+    return { id: o.id, name: o.name, from: [...o.from], velocity: o.velocity.map((v2) => v2 * k), stick };
   }
   function parseShot(text) {
     if (typeof text !== "string" || !text.startsWith("shot:") || text.length > 200)
       return null;
-    const parts2 = text.slice(5).split(",");
-    if (parts2.length !== 9)
+    const parts3 = text.slice(5).split(",");
+    if (parts3.length !== 9)
       return null;
-    const n = parts2.slice(2).map(Number);
-    return cleanShot({ id: Number(parts2[0]), name: parts2[1], from: [n[0], n[1], n[2]], velocity: [n[3], n[4], n[5]], stick: n[6] });
+    const n = parts3.slice(2).map(Number);
+    return cleanShot({ id: Number(parts3[0]), name: parts3[1], from: [n[0], n[1], n[2]], velocity: [n[3], n[4], n[5]], stick: n[6] });
   }
   function shotAt(shot, t) {
     return [shot.from[0] + shot.velocity[0] * t, shot.from[1] + shot.velocity[1] * t - 0.5 * GRAVITY * t * t, shot.from[2] + shot.velocity[2] * t];
@@ -5098,11 +6472,11 @@ var NSWP = (() => {
   function parseHit(text) {
     if (typeof text !== "string" || !text.startsWith("hit:") || text.length > 160)
       return null;
-    const parts2 = text.slice(4).split(",");
-    if (parts2.length !== 5)
+    const parts3 = text.slice(4).split(",");
+    if (parts3.length !== 5)
       return null;
-    const at = parts2.slice(2).map(Number);
-    const hit = { by: parts2[0], id: Number(parts2[1]), at };
+    const at = parts3.slice(2).map(Number);
+    const hit = { by: parts3[0], id: Number(parts3[1]), at };
     return buildHit(hit) ? hit : null;
   }
   var CLIP2 = /^[\w .-]{1,64}$/;
@@ -5140,6 +6514,22 @@ var NSWP = (() => {
       const color = chosen[slot];
       if (typeof color === "string" && /^#[0-9a-f]{6}$/.test(color))
         out[slot] = color;
+    }
+    return out;
+  }
+  function buildTints(chosen) {
+    const parts3 = Object.entries(chosen ?? {}).filter(([slot, color]) => NAME4.test(slot) && /^#[0-9a-f]{6}$/.test(color)).slice(0, 4).map(([slot, color]) => `${slot}=${color.slice(1)}`);
+    return `tint:${parts3.join(",")}`;
+  }
+  function parseTints(text) {
+    if (typeof text !== "string" || !text.startsWith("tint:") || text.length > 120)
+      return null;
+    const out = {};
+    for (const part of text.slice(5).split(",").filter(Boolean).slice(0, 4)) {
+      const [slot, color] = part.split("=");
+      if (!slot || !NAME4.test(slot) || !/^[0-9a-f]{6}$/.test(color ?? ""))
+        return null;
+      out[slot] = `#${color}`;
     }
     return out;
   }
@@ -5352,7 +6742,7 @@ postMessage({ t: "started" });
     /** The longest side of any picture a model's surfaces may use, in pixels. */
     texture: 1024
   };
-  var u32 = (b, at) => (b[at] | b[at + 1] << 8 | b[at + 2] << 16 | b[at + 3] << 24) >>> 0;
+  var u322 = (b, at) => (b[at] | b[at + 1] << 8 | b[at + 2] << 16 | b[at + 3] << 24) >>> 0;
   function pictureSize(b) {
     if (b.length >= 24 && b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71) {
       const be = (at) => (b[at] << 24 | b[at + 1] << 16 | b[at + 2] << 8 | b[at + 3]) >>> 0;
@@ -5384,13 +6774,13 @@ postMessage({ t: "started" });
     return null;
   }
   function readGlb(bytes, budget = MODEL_BUDGET) {
-    if (!(bytes instanceof Uint8Array) || bytes.length < 20 || u32(bytes, 0) !== 1179937895 || u32(bytes, 4) !== 2)
+    if (!(bytes instanceof Uint8Array) || bytes.length < 20 || u322(bytes, 0) !== 1179937895 || u322(bytes, 4) !== 2)
       return { ok: false, why: "not-glb" };
     if (bytes.length > budget.bytes)
       return { ok: false, why: "too-big" };
-    const total = u32(bytes, 8);
-    const jsonLength = u32(bytes, 12);
-    if (total > bytes.length || u32(bytes, 16) !== 1313821514 || 20 + jsonLength > bytes.length)
+    const total = u322(bytes, 8);
+    const jsonLength = u322(bytes, 12);
+    if (total > bytes.length || u322(bytes, 16) !== 1313821514 || 20 + jsonLength > bytes.length)
       return { ok: false, why: "not-glb" };
     let json;
     try {
@@ -5401,7 +6791,7 @@ postMessage({ t: "started" });
     if (!json || typeof json !== "object")
       return { ok: false, why: "unreadable" };
     const binAt = 20 + jsonLength;
-    const bin = binAt + 8 <= bytes.length && u32(bytes, binAt + 4) === 5130562 ? bytes.subarray(binAt + 8, Math.min(bytes.length, binAt + 8 + u32(bytes, binAt))) : new Uint8Array(0);
+    const bin = binAt + 8 <= bytes.length && u322(bytes, binAt + 4) === 5130562 ? bytes.subarray(binAt + 8, Math.min(bytes.length, binAt + 8 + u322(bytes, binAt))) : new Uint8Array(0);
     const list = (name) => Array.isArray(json[name]) ? json[name].filter((x) => !!x && typeof x === "object") : [];
     if (list("buffers").some((b) => b.uri !== void 0) || list("images").some((i) => i.uri !== void 0))
       return { ok: false, why: "outside" };
@@ -5411,10 +6801,10 @@ postMessage({ t: "started" });
     const views = list("bufferViews");
     const meshes = list("meshes");
     let triangles = 0;
-    let parts2 = 0;
+    let parts3 = 0;
     for (const mesh of meshes) {
       for (const p of Array.isArray(mesh.primitives) ? mesh.primitives : []) {
-        parts2++;
+        parts3++;
         const mode = typeof p.mode === "number" ? p.mode : 4;
         const from = typeof p.indices === "number" ? p.indices : p.attributes?.POSITION;
         const count2 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
@@ -5435,18 +6825,34 @@ postMessage({ t: "started" });
     const count = {
       triangles,
       // What a renderer makes a mesh of is each part of each mesh.
-      meshes: parts2,
+      meshes: parts3,
       materials: materials.length,
       texture,
       animations: list("animations").map((a) => typeof a.name === "string" ? a.name : "").filter(Boolean).slice(0, 8),
       materialNames: materials.map((m) => typeof m.name === "string" ? m.name : "")
     };
-    const within2 = parts2 > 0 && parts2 <= budget.meshes && triangles <= budget.triangles && count.materials <= budget.materials && texture <= budget.texture;
+    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count.materials <= budget.materials && texture <= budget.texture;
     return within2 ? { ok: true, count } : { ok: false, why: "over-budget" };
   }
 
   // packages/core/dist/people.js
   var FOLLOWS_KIND = 3;
+  function followsIn(event) {
+    if (!event || !Array.isArray(event.tags))
+      return [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const t of event.tags) {
+      if (!Array.isArray(t) || t[0] !== "p" || typeof t[1] !== "string")
+        continue;
+      const key = t[1].toLowerCase();
+      if (isHex64(key))
+        seen.add(key);
+    }
+    return [...seen];
+  }
+  function newestFollows(events2, pubkey) {
+    return events2.filter((e) => e.kind === FOLLOWS_KIND && e.pubkey === pubkey && Array.isArray(e.tags)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0] ?? null;
+  }
   function changeFollows(newest, change2) {
     if (newest && (newest.kind !== FOLLOWS_KIND || !Array.isArray(newest.tags)))
       return null;
@@ -5514,11 +6920,11 @@ postMessage({ t: "started" });
     const out = /* @__PURE__ */ new Map();
     if (!input || typeof input !== "object" || Array.isArray(input))
       return out;
-    for (const [real, local] of Object.entries(input)) {
+    for (const [real, local2] of Object.entries(input)) {
       if (out.size >= LOCAL_MAP_LIMIT)
         break;
       const from = originOf(real);
-      const to = originOf(local);
+      const to = originOf(local2);
       if (!from || !to)
         continue;
       if (from.protocol !== "https:" || isLocalHost(from.hostname))
@@ -5542,8 +6948,8 @@ postMessage({ t: "started" });
     const u = originOf(url, FOLLOWED_MOST);
     if (!u)
       return url;
-    for (const [real, local] of map)
-      if (local === u.origin)
+    for (const [real, local2] of map)
+      if (local2 === u.origin)
         return `${real}${url.slice(u.origin.length)}`;
     return url;
   }
@@ -5625,8 +7031,8 @@ postMessage({ t: "started" });
       return false;
     }
   }
-  function resolveTheme(world = {}, visitor = loadVisitorTheme()) {
-    return { ...DEFAULT_THEME, ...prefersStill() ? { motion: false } : {}, ...cleanTheme(world), ...cleanTheme(visitor) };
+  function resolveTheme(world2 = {}, visitor = loadVisitorTheme()) {
+    return { ...DEFAULT_THEME, ...prefersStill() ? { motion: false } : {}, ...cleanTheme(world2), ...cleanTheme(visitor) };
   }
   function rgb(hex) {
     const n = Number.parseInt(hex.slice(1), 16);
@@ -5732,14 +7138,14 @@ postMessage({ t: "started" });
       wall("right"),
       el2("div", "way", el2("div", "sign", name, address, status), el2("div", "line", got), el2("div", "leaves", el2("div", "leaf l"), el2("div", "leaf r")))
     );
-    const watchers4 = /* @__PURE__ */ new Set();
+    const watchers5 = /* @__PURE__ */ new Set();
     let state = "arriving";
     let title = o.title;
     const set = (next) => {
       if (next === state) return;
       state = next;
       host.dataset.state = next;
-      for (const fn of watchers4) fn(next);
+      for (const fn of watchers5) fn(next);
     };
     const colour = (hex) => {
       const rgb2 = hex ? rgbOf(hex) : null;
@@ -5827,7 +7233,7 @@ postMessage({ t: "started" });
         }
       },
       onChange(fn) {
-        watchers4.add(fn);
+        watchers5.add(fn);
       }
     };
   }
@@ -5916,8 +7322,8 @@ postMessage({ t: "started" });
     { value: 3, word: "fastest" }
   ];
   var FOV_STEPS = [null, 60, 70, 80, 90, 100, 110];
-  var clampLook = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v)) * 100) / 100 : 1;
-  var clampFov = (v) => typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v))) : null;
+  var clampLook = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v2)) * 100) / 100 : 1;
+  var clampFov = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v2))) : null;
   var prefs = null;
   var watchers = /* @__PURE__ */ new Set();
   var keep = (p) => {
@@ -5945,9 +7351,11 @@ postMessage({ t: "started" });
     for (const w of watchers) w();
   };
   var lookScale = () => load().look;
-  var setLookScale = (v) => change({ ...load(), look: clampLook(v) });
+  var aimScaleNow = 1;
+  var setAimScale = (k) => void (aimScaleNow = Number.isFinite(k) ? Math.min(1, Math.max(0.3, k)) : 1);
+  var setLookScale = (v2) => change({ ...load(), look: clampLook(v2) });
   var visitorFov = () => currentForm() === "desk" ? load().fov : null;
-  var setVisitorFov = (v) => change({ ...load(), fov: v === null ? null : clampFov(v) });
+  var setVisitorFov = (v2) => change({ ...load(), fov: v2 === null ? null : clampFov(v2) });
   function onDeskChange(cb) {
     watchers.add(cb);
     return () => void watchers.delete(cb);
@@ -6025,9 +7433,9 @@ postMessage({ t: "started" });
       return arrived3;
     }
   }
-  function keepIntense(on2, key = DESK_KEY) {
+  function keepIntense(on3, key = DESK_KEY) {
     try {
-      if (on2) localStorage.setItem(key, "1");
+      if (on3) localStorage.setItem(key, "1");
       else localStorage.removeItem(key);
     } catch {
     }
@@ -6045,10 +7453,10 @@ postMessage({ t: "started" });
   var waiting = false;
   var FULL_KEY = "nswp:full";
   var prefers = false;
-  var keepFull = (on2) => {
-    prefers = on2;
+  var keepFull = (on3) => {
+    prefers = on3;
     try {
-      if (on2) localStorage.setItem(FULL_KEY, "1");
+      if (on3) localStorage.setItem(FULL_KEY, "1");
       else localStorage.removeItem(FULL_KEY);
     } catch {
     }
@@ -6113,6 +7521,811 @@ postMessage({ t: "started" });
       }
     };
   }
+
+  // packages/sdk/src/room.ts
+  var PLAY_WORD = /^(shot|hit|did|st|tint):/;
+  var PLAY_SAID = { burst: 40, perSecond: 30 };
+  var DEFAULT_ICE = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+  var HELLO_EVERY_MS = 2e4;
+  var RECORDING_HOLD_MS = 6e3;
+  var CONNECT_TIMEOUT_MS = 25e3;
+  var SILENT_TIMEOUT_MS = 8e3;
+  var GATHER_TIMEOUT_MS = 2500;
+  var hexToBytes3 = (hex) => {
+    if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
+    return Uint8Array.from(hex.match(/../g).map((b) => parseInt(b, 16)));
+  };
+  function seenLook(member, said) {
+    const look = said?.look ?? generatedLook(member.pubkey);
+    if (member.identity) return { ...look, mark: markFor(member.identity) };
+    if (said && claimsKey(said.seed)) return { ...look, mark: markFor(member.pubkey) };
+    return look;
+  }
+  var PASS_TRIES = 4;
+  var RoomSession = class {
+    constructor(opts = {}) {
+      __publicField(this, "self");
+      __publicField(this, "name");
+      __publicField(this, "topic");
+      __publicField(this, "status", "connecting");
+      __publicField(this, "key");
+      __publicField(this, "relays");
+      /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
+      __publicField(this, "blocked", /* @__PURE__ */ new Set());
+      __publicField(this, "maxMembers");
+      __publicField(this, "iceServers");
+      __publicField(this, "sockets", /* @__PURE__ */ new Map());
+      __publicField(this, "peers", /* @__PURE__ */ new Map());
+      __publicField(this, "seen", /* @__PURE__ */ new Set());
+      __publicField(this, "listeners", {
+        member: /* @__PURE__ */ new Set(),
+        leave: /* @__PURE__ */ new Set(),
+        pose: /* @__PURE__ */ new Set(),
+        look: /* @__PURE__ */ new Set(),
+        identity: /* @__PURE__ */ new Set(),
+        recording: /* @__PURE__ */ new Set(),
+        holding: /* @__PURE__ */ new Set(),
+        play: /* @__PURE__ */ new Set(),
+        screen: /* @__PURE__ */ new Set(),
+        video: /* @__PURE__ */ new Set(),
+        tune: /* @__PURE__ */ new Set(),
+        music: /* @__PURE__ */ new Set(),
+        audio: /* @__PURE__ */ new Set(),
+        said: /* @__PURE__ */ new Set(),
+        status: /* @__PURE__ */ new Set()
+      });
+      __publicField(this, "look");
+      /** The world's origin: the only place a pass shown here may have been made for. */
+      __publicField(this, "origin");
+      /** This visitor's own pass, as it is said to the others, and when it stops. */
+      __publicField(this, "pass", null);
+      /** The item this visitor says they are holding, by its coordinate, or "". */
+      __publicField(this, "held", "");
+      /** The colours this visitor chose for what they hold, as they are said ("tint:…"), or "". */
+      __publicField(this, "tints", "");
+      __publicField(this, "passUntil", 0);
+      __publicField(this, "recordingTimer");
+      /** This visitor's shared screen, while they share one. */
+      __publicField(this, "screen", null);
+      __publicField(this, "screenTimer");
+      /** This visitor's music, while they share it. */
+      __publicField(this, "tune", null);
+      __publicField(this, "tuneTimer");
+      /** Whose music this visitor is listening to. */
+      __publicField(this, "heard", /* @__PURE__ */ new Set());
+      __publicField(this, "hearTimer");
+      /** Whose screens this visitor is watching. */
+      __publicField(this, "watched", /* @__PURE__ */ new Set());
+      __publicField(this, "watchTimer");
+      __publicField(this, "mic", null);
+      /** This visitor's own words, counted as everyone's are. */
+      __publicField(this, "words", createChatGate());
+      __publicField(this, "timers", []);
+      __publicField(this, "closed", false);
+      __publicField(this, "onPageHide", () => this.leave());
+      const world2 = opts.world ?? `${location.origin}${location.pathname}`;
+      this.origin = new URL(world2).origin;
+      let key = schnorr.utils.randomSecretKey();
+      let proven = null;
+      if (opts.identity) {
+        try {
+          const named = hexToBytes3(opts.identity.sessionKey);
+          const checked = verifyRoomPass(opts.identity.pass, { origin: this.origin, session: getPublicKey(named) });
+          const text = JSON.stringify(opts.identity.pass);
+          if (checked.ok && text.length <= PASS_LIMITS.chars) {
+            key = named;
+            proven = checked.value;
+            this.pass = text;
+            this.passUntil = checked.value.expiresAt;
+          }
+        } catch {
+        }
+      }
+      this.key = key;
+      const pubkey = getPublicKey(this.key);
+      const mine = opts.look ? decodeLook(opts.look) : null;
+      this.look = mine?.ok ? opts.look : null;
+      this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
+      if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...proven.picture ? { picture: proven.picture } : {}, ...proven.about ? { about: proven.about } : {} });
+      this.self.look = seenLook(this.self, mine?.ok ? mine.value : void 0);
+      this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
+      this.topic = roomTopic(world2, this.name);
+      this.relays = opts.relays ?? DEFAULT_RELAYS;
+      this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
+      this.iceServers = opts.iceServers ?? DEFAULT_ICE;
+      for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
+    }
+    /**
+     * Stop being in a room with someone. The connection to them is closed and
+     * no new one is made, by their session key and, if they came by name, by
+     * the key behind the name: so it holds when they come back. It is this
+     * visitor's decision alone and nobody else is told; to the blocked person,
+     * this visitor has left. Returns what was blocked, or null if they aren't
+     * here.
+     */
+    block(pubkey) {
+      const peer = this.peers.get(pubkey);
+      if (!peer) return null;
+      const { identity, name } = peer.member;
+      this.blocked.add(pubkey);
+      if (identity) this.blocked.add(identity);
+      try {
+        this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+      } catch {
+      }
+      this.drop(pubkey, true);
+      return { session: pubkey, ...identity ? { identity } : {}, name };
+    }
+    /** Let someone back: they are connected to again the next time either side announces itself. */
+    unblock(key) {
+      this.blocked.delete(key);
+    }
+    isBlocked(key) {
+      return this.blocked.has(key);
+    }
+    on(event, fn) {
+      this.listeners[event].add(fn);
+      return () => this.listeners[event].delete(fn);
+    }
+    emit(event, ...args) {
+      for (const fn of this.listeners[event]) {
+        try {
+          fn(...args);
+        } catch (err) {
+          console.error("nswp-sdk room listener failed", err);
+        }
+      }
+    }
+    get members() {
+      return [...this.peers.values()].filter((p) => p.open).map((p) => p.member);
+    }
+    /** How many relays are currently connected. */
+    get relayCount() {
+      return [...this.sockets.values()].filter((s) => s.readyState === WebSocket.OPEN).length;
+    }
+    start() {
+      for (const url of this.relays) this.connectRelay(url);
+      this.timers.push(
+        setInterval(() => this.announce(), HELLO_EVERY_MS),
+        setInterval(() => this.sweep(), 2e3)
+      );
+      addEventListener("pagehide", this.onPageHide);
+      setTimeout(() => {
+        if (!this.closed && this.relayCount === 0) this.setStatus("no-relays");
+      }, 8e3);
+    }
+    setStatus(s) {
+      if (this.status === s) return;
+      this.status = s;
+      this.emit("status", s);
+    }
+    connectRelay(url) {
+      if (this.closed) return;
+      let ws;
+      try {
+        ws = new WebSocket(url);
+      } catch {
+        return;
+      }
+      this.sockets.set(url, ws);
+      ws.onopen = () => {
+        ws.send(JSON.stringify(["REQ", "room", { kinds: [ROOM_SIGNAL_KIND], "#x": [this.topic], since: Math.floor(Date.now() / 1e3) - 5 }]));
+        ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key)]));
+        this.setStatus("open");
+      };
+      ws.onmessage = (msg) => {
+        let data;
+        try {
+          data = JSON.parse(String(msg.data));
+        } catch {
+          return;
+        }
+        if (Array.isArray(data) && data[0] === "EVENT" && data[1] === "room") void this.onEvent(data[2]);
+      };
+      ws.onclose = () => {
+        if (this.sockets.get(url) === ws) this.sockets.delete(url);
+        if (!this.closed) setTimeout(() => this.connectRelay(url), 5e3);
+      };
+      ws.onerror = () => {
+      };
+    }
+    publish(event) {
+      const frame2 = JSON.stringify(["EVENT", event]);
+      for (const ws of this.sockets.values()) if (ws.readyState === WebSocket.OPEN) ws.send(frame2);
+    }
+    announce() {
+      if (!this.closed && this.peers.size < this.maxMembers - 1) this.publish(buildHello(this.topic, this.key));
+    }
+    async onEvent(raw) {
+      const id = raw?.id;
+      if (typeof id !== "string" || this.seen.has(id)) return;
+      this.seen.add(id);
+      if (this.seen.size > 2e3) this.seen.clear();
+      const opened = openSignal(raw, this.key, this.topic);
+      if (!opened || this.closed) return;
+      const { from, message } = opened;
+      if (this.blocked.has(from)) return;
+      const existing = this.peers.get(from);
+      try {
+        switch (message.t) {
+          case "hello":
+          case "welcome": {
+            if (existing) return;
+            if (this.peers.size >= this.maxMembers - 1) return;
+            if (shouldInitiate(this.self.pubkey, from)) await this.offerTo(from);
+            else if (message.t === "hello") this.publish(buildSignal(this.topic, this.key, from, { t: "welcome" }));
+            return;
+          }
+          case "offer": {
+            if (existing?.open) return;
+            if (shouldInitiate(this.self.pubkey, from)) return;
+            if (!existing && this.peers.size >= this.maxMembers - 1) return;
+            if (existing) this.drop(from, false);
+            await this.answerTo(from, message.sdp);
+            return;
+          }
+          case "answer": {
+            if (!existing || existing.pc.signalingState !== "have-local-offer") return;
+            await existing.pc.setRemoteDescription({ type: "answer", sdp: message.sdp });
+            return;
+          }
+          case "bye":
+            this.drop(from, true);
+            return;
+        }
+      } catch (err) {
+        console.warn("nswp-sdk room handshake failed", err);
+        this.drop(from, false);
+      }
+    }
+    createPeer(pubkey) {
+      const pc = new RTCPeerConnection({ iceServers: this.iceServers });
+      const peer = {
+        member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
+        pc,
+        refused: 0,
+        words: createChatGate(),
+        plays: createRate(PLAY_SAID.burst, PLAY_SAID.perSecond),
+        open: false,
+        lastSeen: Date.now(),
+        startedAt: Date.now()
+      };
+      this.peers.set(pubkey, peer);
+      pc.ontrack = (e) => {
+        const stream = e.streams[0] ?? new MediaStream([e.track]);
+        if (e.track.kind === "video") this.emit("video", peer.member, stream);
+        else this.emit(e.transceiver && e.transceiver === this.musicTransceiver(pc) ? "music" : "audio", peer.member, stream);
+      };
+      pc.onconnectionstatechange = () => {
+        if ((pc.connectionState === "failed" || pc.connectionState === "closed") && this.peers.get(pubkey) === peer) this.drop(pubkey, peer.open);
+      };
+      return peer;
+    }
+    wirePoseChannel(peer, ch) {
+      ch.binaryType = "arraybuffer";
+      peer.pose = ch;
+      ch.onopen = () => {
+        if (peer.open || this.peers.get(peer.member.pubkey) !== peer) return;
+        peer.open = true;
+        peer.lastSeen = Date.now();
+        this.emit("member", peer.member);
+        this.introduce(ch);
+      };
+      ch.onmessage = (e) => {
+        if (e.data === "scr:1" || e.data === "scr:0") {
+          peer.sharingUntil = e.data === "scr:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+          this.markSharing(peer);
+          return;
+        }
+        if (e.data === "mus:1" || e.data === "mus:0") {
+          peer.tuneUntil = e.data === "mus:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+          this.markTune(peer);
+          return;
+        }
+        if (e.data === "hear:1" || e.data === "hear:0") {
+          peer.hearingUntil = e.data === "hear:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+          void this.feedTune(peer);
+          return;
+        }
+        if (e.data === "watch:1" || e.data === "watch:0") {
+          peer.watchingUntil = e.data === "watch:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+          void this.feed(peer);
+          return;
+        }
+        if (e.data === "rec:1" || e.data === "rec:0") {
+          peer.recordingUntil = e.data === "rec:1" ? Date.now() + RECORDING_HOLD_MS : 0;
+          this.markRecording(peer);
+          return;
+        }
+        if (typeof e.data === "string") {
+          if (e.data.startsWith("look:")) {
+            const said = decodeLook(e.data.slice(5));
+            if (said.ok) {
+              peer.said = said.value;
+              this.redraw(peer);
+            }
+          } else if (e.data.startsWith("id:")) this.checkPass(peer, e.data.slice(3));
+          else if (e.data.startsWith("hold:")) {
+            const item = itemCoordinate(e.data.slice(5));
+            if ((peer.member.holding ?? "") !== item) {
+              if (item) peer.member.holding = item;
+              else delete peer.member.holding;
+              this.emit("holding", peer.member, item);
+            }
+          } else if (PLAY_WORD.test(e.data)) {
+            if (peer.plays.take(Date.now())) this.emit("play", peer.member, e.data);
+          } else if (e.data.startsWith("say:")) {
+            const line = parseSay(e.data);
+            const now = Date.now();
+            if (line && peer.words.take(line.id, now)) this.emit("said", peer.member, { ...line, at: now });
+          }
+          return;
+        }
+        if (!(e.data instanceof ArrayBuffer)) return;
+        const pose = unpackPose(e.data);
+        if (!pose) return;
+        peer.lastSeen = Date.now();
+        this.emit("pose", peer.member, pose);
+      };
+      ch.onclose = () => {
+        if (this.peers.get(peer.member.pubkey) === peer) this.drop(peer.member.pubkey, peer.open);
+      };
+    }
+    /** Draw a member again if what is known about them changes how they look. */
+    redraw(peer) {
+      const look = seenLook(peer.member, peer.said);
+      if (JSON.stringify(look) === JSON.stringify(peer.member.look)) return;
+      peer.member.look = look;
+      this.emit("look", peer.member, look);
+    }
+    /**
+     * A member has shown a pass. It counts only if it checks out for this site
+     * and names the session key they are speaking with, which they have already
+     * proved they hold: the handshake was signed with it.
+     */
+    checkPass(peer, text) {
+      if (text === peer.shown || text.length > PASS_LIMITS.chars || peer.refused >= PASS_TRIES) return;
+      peer.shown = text;
+      let event;
+      try {
+        event = JSON.parse(text);
+      } catch {
+        peer.refused++;
+        return;
+      }
+      const checked = verifyRoomPass(event, { origin: this.origin, session: peer.member.pubkey });
+      if (!checked.ok) {
+        peer.refused++;
+        return;
+      }
+      if (this.blocked.has(checked.value.pubkey)) {
+        this.blocked.add(peer.member.pubkey);
+        try {
+          this.publish(buildSignal(this.topic, this.key, peer.member.pubkey, { t: "bye" }));
+        } catch {
+        }
+        this.drop(peer.member.pubkey, true);
+        return;
+      }
+      peer.passUntil = checked.value.expiresAt;
+      Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+      if (checked.value.picture) peer.member.picture = checked.value.picture;
+      else delete peer.member.picture;
+      if (checked.value.about) peer.member.about = checked.value.about;
+      else delete peer.member.about;
+      this.emit("identity", peer.member);
+      this.redraw(peer);
+    }
+    /** A pass that has run out leaves a guest behind. */
+    expire(now) {
+      for (const peer of this.peers.values()) {
+        if (!peer.passUntil || now < peer.passUntil) continue;
+        delete peer.passUntil;
+        delete peer.shown;
+        delete peer.member.identity;
+        delete peer.member.picture;
+        delete peer.member.about;
+        Object.assign(peer.member, { guest: true, name: guestName(peer.member.pubkey) });
+        this.emit("identity", peer.member);
+        this.redraw(peer);
+      }
+      if (this.pass && now >= this.passUntil) {
+        this.pass = null;
+        delete this.self.identity;
+        delete this.self.picture;
+        delete this.self.about;
+        Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
+        const mine = this.look ? decodeLook(this.look) : null;
+        this.self.look = seenLook(this.self, mine?.ok ? mine.value : void 0);
+        this.emit("identity", this.self);
+      }
+    }
+    /**
+     * Tell one member how you look and, if you came by name, who you are. The
+     * channel drops what it can't deliver at once, so each is said a few times
+     * over the first seconds.
+     */
+    introduce(ch) {
+      if (!this.look && !this.pass && !this.held) return;
+      let left = 4;
+      const say2 = () => {
+        if (this.closed || ch.readyState !== "open") return;
+        try {
+          if (this.look) ch.send(`look:${this.look}`);
+          if (this.pass) ch.send(`id:${this.pass}`);
+          if (this.held) ch.send(`hold:${this.held}`);
+          if (this.held && this.tints) ch.send(this.tints);
+        } catch {
+        }
+        if (--left > 0) setTimeout(say2, 1500);
+      };
+      say2();
+    }
+    async gathered(pc) {
+      if (pc.iceGatheringState !== "complete") {
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, GATHER_TIMEOUT_MS);
+          pc.addEventListener("icegatheringstatechange", () => {
+            if (pc.iceGatheringState === "complete") {
+              clearTimeout(timer);
+              resolve();
+            }
+          });
+        });
+      }
+      return pc.localDescription.sdp;
+    }
+    audioTransceiver(pc) {
+      return pc.getTransceivers().find((t) => t.receiver.track.kind === "audio");
+    }
+    /** The second sound line: music. Voice is the first. */
+    musicTransceiver(pc) {
+      return pc.getTransceivers().filter((t) => t.receiver.track.kind === "audio")[1];
+    }
+    videoTransceiver(pc) {
+      return pc.getTransceivers().find((t) => t.receiver.track.kind === "video");
+    }
+    async offerTo(pubkey) {
+      const peer = this.createPeer(pubkey);
+      const audio = peer.pc.addTransceiver("audio", { direction: "sendrecv" });
+      if (this.mic) await audio.sender.replaceTrack(this.mic);
+      peer.pc.addTransceiver("video", { direction: "sendrecv" });
+      peer.pc.addTransceiver("audio", { direction: "sendrecv" });
+      this.wirePoseChannel(peer, peer.pc.createDataChannel("pose", { ordered: false, maxRetransmits: 0 }));
+      await peer.pc.setLocalDescription(await peer.pc.createOffer());
+      const sdp = await this.gathered(peer.pc);
+      if (this.peers.get(pubkey) === peer) this.publish(buildSignal(this.topic, this.key, pubkey, { t: "offer", sdp }));
+    }
+    async answerTo(pubkey, sdp) {
+      const peer = this.createPeer(pubkey);
+      peer.pc.ondatachannel = (e) => {
+        if (e.channel.label === "pose") this.wirePoseChannel(peer, e.channel);
+      };
+      await peer.pc.setRemoteDescription({ type: "offer", sdp });
+      const audio = this.audioTransceiver(peer.pc);
+      if (audio) {
+        audio.direction = "sendrecv";
+        if (this.mic) await audio.sender.replaceTrack(this.mic);
+      }
+      const video = this.videoTransceiver(peer.pc);
+      if (video) video.direction = "sendrecv";
+      const music = this.musicTransceiver(peer.pc);
+      if (music) music.direction = "sendrecv";
+      await peer.pc.setLocalDescription(await peer.pc.createAnswer());
+      const answer = await this.gathered(peer.pc);
+      if (this.peers.get(pubkey) === peer) this.publish(buildSignal(this.topic, this.key, pubkey, { t: "answer", sdp: answer }));
+    }
+    markRecording(peer) {
+      const on3 = (peer.recordingUntil ?? 0) > Date.now();
+      if (on3 === peer.member.recording) return;
+      peer.member.recording = on3;
+      this.emit("recording", peer.member, on3);
+    }
+    markSharing(peer) {
+      const on3 = (peer.sharingUntil ?? 0) > Date.now();
+      if (on3 === !!peer.member.sharing) return;
+      peer.member.sharing = on3;
+      if (!on3) this.watched.delete(peer.member.pubkey);
+      this.emit("screen", peer.member, on3);
+    }
+    /** Send this visitor's screen to a member who is watching it, and stop when they aren't or there is none. */
+    async feed(peer) {
+      const wants = !!this.screen && (peer.watchingUntil ?? 0) > Date.now();
+      if (wants === !!peer.fed) return;
+      peer.fed = wants;
+      try {
+        const sender = this.videoTransceiver(peer.pc)?.sender;
+        await sender?.replaceTrack(wants ? this.screen : null);
+        if (wants && sender) {
+          const params = sender.getParameters();
+          params.degradationPreference = "maintain-resolution";
+          for (const e of params.encodings ?? []) e.maxBitrate = 25e5;
+          await sender.setParameters(params).catch(() => {
+          });
+        }
+      } catch {
+      }
+    }
+    markTune(peer) {
+      const on3 = (peer.tuneUntil ?? 0) > Date.now();
+      if (on3 === !!peer.member.music) return;
+      peer.member.music = on3;
+      if (!on3) this.heard.delete(peer.member.pubkey);
+      this.emit("tune", peer.member, on3);
+    }
+    /** Send this visitor's music to a member who is listening to it, and stop when they aren't or there is none. */
+    async feedTune(peer) {
+      const wants = !!this.tune && (peer.hearingUntil ?? 0) > Date.now();
+      if (wants === !!peer.tuned) return;
+      peer.tuned = wants;
+      try {
+        await this.musicTransceiver(peer.pc)?.sender.replaceTrack(wants ? this.tune : null);
+      } catch {
+      }
+    }
+    /**
+     * Offer music to the room, or stop. Like a screen, offering sends nothing
+     * by itself: it goes only to members who ask to hear it, and they ask only
+     * while they are near and have said they want to hear shared music at all.
+     */
+    async setMusic(track) {
+      this.tune = track;
+      this.self.music = !!track;
+      clearInterval(this.tuneTimer);
+      const say2 = () => this.tellAll(this.tune ? "mus:1" : "mus:0");
+      say2();
+      if (track) this.tuneTimer = setInterval(say2, 2e3);
+      else setTimeout(say2, 400);
+      await Promise.all(
+        [...this.peers.values()].map(async (peer) => {
+          peer.tuned = false;
+          await this.feedTune(peer).catch(() => {
+          });
+          if (!track) await this.musicTransceiver(peer.pc)?.sender.replaceTrack(null).catch(() => {
+          });
+        })
+      );
+    }
+    /** How many members this visitor's music is going to now. */
+    get musicListeners() {
+      return this.tune ? [...this.peers.values()].filter((p) => p.open && p.tuned).length : 0;
+    }
+    /** Ask to be sent a member's music, or to stop being sent it. Asked again every couple of seconds while listening. */
+    listen(pubkey, on3) {
+      if (on3 === this.heard.has(pubkey)) return;
+      if (on3) this.heard.add(pubkey);
+      else this.heard.delete(pubkey);
+      const peer = this.peers.get(pubkey);
+      if (peer?.open && peer.pose?.readyState === "open") {
+        try {
+          peer.pose.send(on3 ? "hear:1" : "hear:0");
+        } catch {
+        }
+      }
+      clearInterval(this.hearTimer);
+      if (this.heard.size) this.hearTimer = setInterval(() => this.tellAll("hear:1", (p) => this.heard.has(p.member.pubkey)), 2e3);
+    }
+    isListening(pubkey) {
+      return this.heard.has(pubkey);
+    }
+    tellAll(word, to) {
+      for (const peer of this.peers.values()) {
+        if (!peer.open || peer.pose?.readyState !== "open" || to && !to(peer)) continue;
+        try {
+          peer.pose.send(word);
+        } catch {
+        }
+      }
+    }
+    /**
+     * Offer a screen to the room, or stop. Offering sends nothing by itself:
+     * each member is told it is there, and it goes only to those who ask to
+     * watch. Stopping takes it from everyone at once.
+     */
+    async setScreen(track) {
+      this.screen = track;
+      this.self.sharing = !!track;
+      clearInterval(this.screenTimer);
+      const say2 = () => this.tellAll(this.screen ? "scr:1" : "scr:0");
+      say2();
+      if (track) this.screenTimer = setInterval(say2, 2e3);
+      else setTimeout(say2, 400);
+      await Promise.all(
+        [...this.peers.values()].map(async (peer) => {
+          peer.fed = false;
+          await this.feed(peer).catch(() => {
+          });
+          if (!track) await this.videoTransceiver(peer.pc)?.sender.replaceTrack(null).catch(() => {
+          });
+        })
+      );
+    }
+    /** Whether this visitor is offering their screen. */
+    get sharing() {
+      return !!this.screen;
+    }
+    /** How many members this visitor's screen is going to now. */
+    get screenViewers() {
+      return this.screen ? [...this.peers.values()].filter((p) => p.open && p.fed).length : 0;
+    }
+    /**
+     * Ask to be sent a member's screen, or to stop being sent it. Nothing
+     * arrives unless they are sharing. It is asked again every couple of
+     * seconds while watching, so a member who stops being asked stops sending.
+     */
+    watch(pubkey, on3) {
+      if (on3) this.watched.add(pubkey);
+      else this.watched.delete(pubkey);
+      const peer = this.peers.get(pubkey);
+      if (peer?.open && peer.pose?.readyState === "open") {
+        try {
+          peer.pose.send(on3 ? "watch:1" : "watch:0");
+        } catch {
+        }
+      }
+      clearInterval(this.watchTimer);
+      if (this.watched.size) this.watchTimer = setInterval(() => this.tellAll("watch:1", (p) => this.watched.has(p.member.pubkey)), 2e3);
+    }
+    isWatching(pubkey) {
+      return this.watched.has(pubkey);
+    }
+    /**
+     * Say that you are recording what you see, or have stopped. The others are
+     * shown a light on your figure while it is true. An honest client says so
+     * whenever it records other people; nothing can make a dishonest one.
+     */
+    /**
+     * Say what this visitor is holding, or "" for nothing (protocol/17-items.md). The others are told its
+     * coordinate and nothing else: each fetches and checks the item for themselves, or draws nothing.
+     */
+    setHolding(item) {
+      const next = itemCoordinate(item);
+      if (next === this.held) return;
+      this.held = next;
+      if (next) this.self.holding = next;
+      else delete this.self.holding;
+      let left = 3;
+      const say2 = () => {
+        if (this.closed || this.held !== next) return;
+        for (const peer of this.peers.values()) {
+          if (!peer.open || peer.pose?.readyState !== "open") continue;
+          try {
+            peer.pose.send(`hold:${next}`);
+          } catch {
+          }
+        }
+        if (--left > 0) setTimeout(say2, 700);
+      };
+      say2();
+    }
+    /**
+     * Say something of an item in play to everyone: a thing sent out, a hit, a sound, this visitor's state
+     * (`buildShot`, `buildHit`, `buildDid`, `buildState` in the core). Anything that isn't one of those is not sent.
+     */
+    tellPlay(said) {
+      if (this.closed || typeof said !== "string" || said.length > 200 || !PLAY_WORD.test(said)) return;
+      if (said.startsWith("tint:")) this.tints = said;
+      this.tellAll(said);
+      if (!said.startsWith("did:")) setTimeout(() => !this.closed && this.tellAll(said), 90);
+    }
+    setRecording(on3) {
+      if (on3 === this.self.recording) return;
+      this.self.recording = on3;
+      clearInterval(this.recordingTimer);
+      const say2 = () => {
+        for (const peer of this.peers.values()) {
+          if (!peer.open || peer.pose?.readyState !== "open") continue;
+          try {
+            peer.pose.send(on3 ? "rec:1" : "rec:0");
+          } catch {
+          }
+        }
+      };
+      say2();
+      if (on3) this.recordingTimer = setInterval(say2, 2e3);
+      else setTimeout(say2, 400);
+    }
+    drop(pubkey, announce) {
+      const peer = this.peers.get(pubkey);
+      if (!peer) return;
+      this.peers.delete(pubkey);
+      try {
+        peer.pc.close();
+      } catch {
+      }
+      if (announce && peer.open) this.emit("leave", peer.member);
+    }
+    sweep() {
+      const now = Date.now();
+      for (const [pubkey, peer] of this.peers) {
+        this.markRecording(peer);
+        this.markSharing(peer);
+        void this.feed(peer);
+        this.markTune(peer);
+        void this.feedTune(peer);
+        if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
+        else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
+      }
+      this.expire(Math.floor(now / 1e3));
+    }
+    /** Send your pose to everyone. Call 10–20 times a second, from a timer rather than the render loop. */
+    /**
+     * Write a few words to the room. They go straight to each member, as poses do: no relay sees them and nothing
+     * keeps them. They are sent a few times over, because the channel doesn't try again, and each reader takes the
+     * first. Returns "said" (and `said` fires here too, with `self`), "nothing" if there was nothing to say, or
+     * "slow" if this visitor has said too much in a short while: nothing is sent then.
+     */
+    say(text) {
+      const word = buildSay(text);
+      const line = word ? parseSay(word) : null;
+      if (!word || !line || this.closed) return "nothing";
+      const now = Date.now();
+      if (!this.words.take(line.id, now)) return "slow";
+      this.tellAll(word);
+      for (let i = 1; i < CHAT_LIMITS.repeats; i++) setTimeout(() => !this.closed && this.tellAll(word), i * CHAT_LIMITS.repeatGapMs);
+      this.emit("said", this.self, { ...line, at: now });
+      return "said";
+    }
+    sendPose(pose) {
+      if (this.closed) return;
+      let packet;
+      for (const peer of this.peers.values()) {
+        if (peer.open && peer.pose?.readyState === "open" && peer.pose.bufferedAmount < 4096) {
+          packet ?? (packet = packPose(pose));
+          peer.pose.send(packet);
+        }
+      }
+    }
+    /** Start or stop sending a microphone track to everyone. */
+    async setMicrophone(track) {
+      this.mic = track;
+      await Promise.all(
+        [...this.peers.values()].map(async (peer) => {
+          try {
+            await this.audioTransceiver(peer.pc)?.sender.replaceTrack(track);
+          } catch {
+          }
+        })
+      );
+    }
+    leave() {
+      if (this.closed) return;
+      for (const pubkey of this.peers.keys()) {
+        try {
+          this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+        } catch {
+        }
+      }
+      this.closed = true;
+      clearInterval(this.screenTimer);
+      clearInterval(this.watchTimer);
+      clearInterval(this.tuneTimer);
+      clearInterval(this.hearTimer);
+      for (const t of this.timers) clearInterval(t);
+      removeEventListener("pagehide", this.onPageHide);
+      for (const pubkey of [...this.peers.keys()]) this.drop(pubkey, true);
+      for (const ws of this.sockets.values()) {
+        try {
+          ws.close();
+        } catch {
+        }
+      }
+      this.sockets.clear();
+      this.setStatus("closed");
+    }
+  };
+  var room = {
+    /**
+     * Join a peer-to-peer room. Other members will see your IP address, so
+     * call this only after the user has agreed.
+     */
+    async join(opts = {}) {
+      if (typeof RTCPeerConnection === "undefined") throw new Error("nswp-sdk: this browser has no WebRTC support");
+      const session2 = new RoomSession(opts);
+      session2.start();
+      return session2;
+    }
+  };
 
   // packages/sdk/src/index.ts
   var RETURN_KEY = "nswp:return-airlock";
@@ -6746,7 +8959,7 @@ postMessage({ t: "started" });
   function floorPowerOfTwo(value) {
     return Math.pow(2, Math.floor(Math.log(value) / Math.LN2));
   }
-  function setQuaternionFromProperEuler(q, a, b, c, order) {
+  function setQuaternionFromProperEuler(q2, a, b, c, order) {
     const cos = Math.cos;
     const sin = Math.sin;
     const c2 = cos(b / 2);
@@ -6759,22 +8972,22 @@ postMessage({ t: "started" });
     const s3_1 = sin((c - a) / 2);
     switch (order) {
       case "XYX":
-        q.set(c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13);
+        q2.set(c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13);
         break;
       case "YZY":
-        q.set(s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13);
+        q2.set(s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13);
         break;
       case "ZXZ":
-        q.set(s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13);
+        q2.set(s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13);
         break;
       case "XZX":
-        q.set(c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13);
+        q2.set(c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13);
         break;
       case "YXY":
-        q.set(s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13);
+        q2.set(s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13);
         break;
       case "ZYZ":
-        q.set(s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13);
+        q2.set(s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13);
         break;
       default:
         warn("MathUtils: .setQuaternionFromProperEuler() encountered an unknown order: " + order);
@@ -7181,9 +9394,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to copy.
      * @return {Vector2} A reference to this vector.
      */
-    copy(v) {
-      this.x = v.x;
-      this.y = v.y;
+    copy(v2) {
+      this.x = v2.x;
+      this.y = v2.y;
       return this;
     }
     /**
@@ -7192,9 +9405,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to add.
      * @return {Vector2} A reference to this vector.
      */
-    add(v) {
-      this.x += v.x;
-      this.y += v.y;
+    add(v2) {
+      this.x += v2.x;
+      this.y += v2.y;
       return this;
     }
     /**
@@ -7227,9 +9440,9 @@ postMessage({ t: "started" });
      * @param {number} s - The factor that scales `v`.
      * @return {Vector2} A reference to this vector.
      */
-    addScaledVector(v, s) {
-      this.x += v.x * s;
-      this.y += v.y * s;
+    addScaledVector(v2, s) {
+      this.x += v2.x * s;
+      this.y += v2.y * s;
       return this;
     }
     /**
@@ -7238,9 +9451,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to subtract.
      * @return {Vector2} A reference to this vector.
      */
-    sub(v) {
-      this.x -= v.x;
-      this.y -= v.y;
+    sub(v2) {
+      this.x -= v2.x;
+      this.y -= v2.y;
       return this;
     }
     /**
@@ -7272,9 +9485,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to multiply.
      * @return {Vector2} A reference to this vector.
      */
-    multiply(v) {
-      this.x *= v.x;
-      this.y *= v.y;
+    multiply(v2) {
+      this.x *= v2.x;
+      this.y *= v2.y;
       return this;
     }
     /**
@@ -7294,9 +9507,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to divide.
      * @return {Vector2} A reference to this vector.
      */
-    divide(v) {
-      this.x /= v.x;
-      this.y /= v.y;
+    divide(v2) {
+      this.x /= v2.x;
+      this.y /= v2.y;
       return this;
     }
     /**
@@ -7329,9 +9542,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector.
      * @return {Vector2} A reference to this vector.
      */
-    min(v) {
-      this.x = Math.min(this.x, v.x);
-      this.y = Math.min(this.y, v.y);
+    min(v2) {
+      this.x = Math.min(this.x, v2.x);
+      this.y = Math.min(this.y, v2.y);
       return this;
     }
     /**
@@ -7341,9 +9554,9 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector.
      * @return {Vector2} A reference to this vector.
      */
-    max(v) {
-      this.x = Math.max(this.x, v.x);
-      this.y = Math.max(this.y, v.y);
+    max(v2) {
+      this.x = Math.max(this.x, v2.x);
+      this.y = Math.max(this.y, v2.y);
       return this;
     }
     /**
@@ -7447,8 +9660,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the dot product with.
      * @return {number} The result of the dot product.
      */
-    dot(v) {
-      return this.x * v.x + this.y * v.y;
+    dot(v2) {
+      return this.x * v2.x + this.y * v2.y;
     }
     /**
      * Calculates the cross product of the given vector with this instance.
@@ -7456,8 +9669,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the cross product with.
      * @return {number} The result of the cross product.
      */
-    cross(v) {
-      return this.x * v.y - this.y * v.x;
+    cross(v2) {
+      return this.x * v2.y - this.y * v2.x;
     }
     /**
      * Computes the square of the Euclidean length (straight-line length) from
@@ -7509,10 +9722,10 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the angle with.
      * @return {number} The angle in radians.
      */
-    angleTo(v) {
-      const denominator = Math.sqrt(this.lengthSq() * v.lengthSq());
+    angleTo(v2) {
+      const denominator = Math.sqrt(this.lengthSq() * v2.lengthSq());
       if (denominator === 0) return Math.PI / 2;
-      const theta = this.dot(v) / denominator;
+      const theta = this.dot(v2) / denominator;
       return Math.acos(clamp(theta, -1, 1));
     }
     /**
@@ -7521,8 +9734,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the distance to.
      * @return {number} The distance.
      */
-    distanceTo(v) {
-      return Math.sqrt(this.distanceToSquared(v));
+    distanceTo(v2) {
+      return Math.sqrt(this.distanceToSquared(v2));
     }
     /**
      * Computes the squared distance from the given vector to this instance.
@@ -7532,8 +9745,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the squared distance to.
      * @return {number} The squared distance.
      */
-    distanceToSquared(v) {
-      const dx = this.x - v.x, dy = this.y - v.y;
+    distanceToSquared(v2) {
+      const dx = this.x - v2.x, dy = this.y - v2.y;
       return dx * dx + dy * dy;
     }
     /**
@@ -7542,8 +9755,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to compute the Manhattan distance to.
      * @return {number} The Manhattan distance.
      */
-    manhattanDistanceTo(v) {
-      return Math.abs(this.x - v.x) + Math.abs(this.y - v.y);
+    manhattanDistanceTo(v2) {
+      return Math.abs(this.x - v2.x) + Math.abs(this.y - v2.y);
     }
     /**
      * Sets this vector to a vector with the same direction as this one, but
@@ -7564,9 +9777,9 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector2} A reference to this vector.
      */
-    lerp(v, alpha) {
-      this.x += (v.x - this.x) * alpha;
-      this.y += (v.y - this.y) * alpha;
+    lerp(v2, alpha) {
+      this.x += (v2.x - this.x) * alpha;
+      this.y += (v2.y - this.y) * alpha;
       return this;
     }
     /**
@@ -7590,8 +9803,8 @@ postMessage({ t: "started" });
      * @param {Vector2} v - The vector to test for equality.
      * @return {boolean} Whether this vector is equal with the given one.
      */
-    equals(v) {
-      return v.x === this.x && v.y === this.y;
+    equals(v2) {
+      return v2.x === this.x && v2.y === this.y;
     }
     /**
      * Sets this vector's x value to be `array[ offset ]` and y
@@ -8001,8 +10214,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The quaternion to compute the angle with.
      * @return {number} The angle in radians.
      */
-    angleTo(q) {
-      return 2 * Math.acos(Math.abs(clamp(this.dot(q), -1, 1)));
+    angleTo(q2) {
+      return 2 * Math.acos(Math.abs(clamp(this.dot(q2), -1, 1)));
     }
     /**
      * Rotates this quaternion by a given angular step to the given quaternion.
@@ -8012,11 +10225,11 @@ postMessage({ t: "started" });
      * @param {number} step - The angular step in radians.
      * @return {Quaternion} A reference to this quaternion.
      */
-    rotateTowards(q, step) {
-      const angle = this.angleTo(q);
+    rotateTowards(q2, step) {
+      const angle = this.angleTo(q2);
       if (angle === 0) return this;
       const t = Math.min(1, step / angle);
-      this.slerp(q, t);
+      this.slerp(q2, t);
       return this;
     }
     /**
@@ -8057,8 +10270,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} v - The quaternion to compute the dot product with.
      * @return {number} The result of the dot product.
      */
-    dot(v) {
-      return this._x * v._x + this._y * v._y + this._z * v._z + this._w * v._w;
+    dot(v2) {
+      return this._x * v2._x + this._y * v2._y + this._z * v2._z + this._w * v2._w;
     }
     /**
      * Computes the squared Euclidean length (straight-line length) of this quaternion,
@@ -8109,8 +10322,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The quaternion.
      * @return {Quaternion} A reference to this quaternion.
      */
-    multiply(q) {
-      return this.multiplyQuaternions(this, q);
+    multiply(q2) {
+      return this.multiplyQuaternions(this, q2);
     }
     /**
      * Pre-multiplies this quaternion by the given one.
@@ -8118,8 +10331,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The quaternion.
      * @return {Quaternion} A reference to this quaternion.
      */
-    premultiply(q) {
-      return this.multiplyQuaternions(q, this);
+    premultiply(q2) {
+      return this.multiplyQuaternions(q2, this);
     }
     /**
      * Multiplies the given quaternions and stores the result in this instance.
@@ -8406,10 +10619,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to copy.
      * @return {Vector3} A reference to this vector.
      */
-    copy(v) {
-      this.x = v.x;
-      this.y = v.y;
-      this.z = v.z;
+    copy(v2) {
+      this.x = v2.x;
+      this.y = v2.y;
+      this.z = v2.z;
       return this;
     }
     /**
@@ -8418,10 +10631,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to add.
      * @return {Vector3} A reference to this vector.
      */
-    add(v) {
-      this.x += v.x;
-      this.y += v.y;
-      this.z += v.z;
+    add(v2) {
+      this.x += v2.x;
+      this.y += v2.y;
+      this.z += v2.z;
       return this;
     }
     /**
@@ -8456,10 +10669,10 @@ postMessage({ t: "started" });
      * @param {number} s - The factor that scales `v`.
      * @return {Vector3} A reference to this vector.
      */
-    addScaledVector(v, s) {
-      this.x += v.x * s;
-      this.y += v.y * s;
-      this.z += v.z * s;
+    addScaledVector(v2, s) {
+      this.x += v2.x * s;
+      this.y += v2.y * s;
+      this.z += v2.z * s;
       return this;
     }
     /**
@@ -8468,10 +10681,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to subtract.
      * @return {Vector3} A reference to this vector.
      */
-    sub(v) {
-      this.x -= v.x;
-      this.y -= v.y;
-      this.z -= v.z;
+    sub(v2) {
+      this.x -= v2.x;
+      this.y -= v2.y;
+      this.z -= v2.z;
       return this;
     }
     /**
@@ -8505,10 +10718,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to multiply.
      * @return {Vector3} A reference to this vector.
      */
-    multiply(v) {
-      this.x *= v.x;
-      this.y *= v.y;
-      this.z *= v.z;
+    multiply(v2) {
+      this.x *= v2.x;
+      this.y *= v2.y;
+      this.z *= v2.z;
       return this;
     }
     /**
@@ -8601,9 +10814,9 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The Quaternion.
      * @return {Vector3} A reference to this vector.
      */
-    applyQuaternion(q) {
+    applyQuaternion(q2) {
       const vx = this.x, vy = this.y, vz = this.z;
-      const qx = q.x, qy = q.y, qz = q.z, qw = q.w;
+      const qx = q2.x, qy = q2.y, qz = q2.z, qw = q2.w;
       const tx = 2 * (qy * vz - qz * vy);
       const ty = 2 * (qz * vx - qx * vz);
       const tz = 2 * (qx * vy - qy * vx);
@@ -8653,10 +10866,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to divide.
      * @return {Vector3} A reference to this vector.
      */
-    divide(v) {
-      this.x /= v.x;
-      this.y /= v.y;
-      this.z /= v.z;
+    divide(v2) {
+      this.x /= v2.x;
+      this.y /= v2.y;
+      this.z /= v2.z;
       return this;
     }
     /**
@@ -8675,10 +10888,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector.
      * @return {Vector3} A reference to this vector.
      */
-    min(v) {
-      this.x = Math.min(this.x, v.x);
-      this.y = Math.min(this.y, v.y);
-      this.z = Math.min(this.z, v.z);
+    min(v2) {
+      this.x = Math.min(this.x, v2.x);
+      this.y = Math.min(this.y, v2.y);
+      this.z = Math.min(this.z, v2.z);
       return this;
     }
     /**
@@ -8688,10 +10901,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector.
      * @return {Vector3} A reference to this vector.
      */
-    max(v) {
-      this.x = Math.max(this.x, v.x);
-      this.y = Math.max(this.y, v.y);
-      this.z = Math.max(this.z, v.z);
+    max(v2) {
+      this.x = Math.max(this.x, v2.x);
+      this.y = Math.max(this.y, v2.y);
+      this.z = Math.max(this.z, v2.z);
       return this;
     }
     /**
@@ -8802,8 +11015,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the dot product with.
      * @return {number} The result of the dot product.
      */
-    dot(v) {
-      return this.x * v.x + this.y * v.y + this.z * v.z;
+    dot(v2) {
+      return this.x * v2.x + this.y * v2.y + this.z * v2.z;
     }
     /**
      * Computes the square of the Euclidean length (straight-line length) from
@@ -8859,10 +11072,10 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector3} A reference to this vector.
      */
-    lerp(v, alpha) {
-      this.x += (v.x - this.x) * alpha;
-      this.y += (v.y - this.y) * alpha;
-      this.z += (v.z - this.z) * alpha;
+    lerp(v2, alpha) {
+      this.x += (v2.x - this.x) * alpha;
+      this.y += (v2.y - this.y) * alpha;
+      this.z += (v2.z - this.z) * alpha;
       return this;
     }
     /**
@@ -8887,8 +11100,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the cross product with.
      * @return {Vector3} The result of the cross product.
      */
-    cross(v) {
-      return this.crossVectors(this, v);
+    cross(v2) {
+      return this.crossVectors(this, v2);
     }
     /**
      * Calculates the cross product of the given vectors and stores the result
@@ -8912,11 +11125,11 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to project to.
      * @return {Vector3} A reference to this vector.
      */
-    projectOnVector(v) {
-      const denominator = v.lengthSq();
+    projectOnVector(v2) {
+      const denominator = v2.lengthSq();
       if (denominator === 0) return this.set(0, 0, 0);
-      const scalar = v.dot(this) / denominator;
-      return this.copy(v).multiplyScalar(scalar);
+      const scalar = v2.dot(this) / denominator;
+      return this.copy(v2).multiplyScalar(scalar);
     }
     /**
      * Projects this vector onto a plane by subtracting this
@@ -8944,10 +11157,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the angle with.
      * @return {number} The angle in radians.
      */
-    angleTo(v) {
-      const denominator = Math.sqrt(this.lengthSq() * v.lengthSq());
+    angleTo(v2) {
+      const denominator = Math.sqrt(this.lengthSq() * v2.lengthSq());
       if (denominator === 0) return Math.PI / 2;
-      const theta = this.dot(v) / denominator;
+      const theta = this.dot(v2) / denominator;
       return Math.acos(clamp(theta, -1, 1));
     }
     /**
@@ -8956,8 +11169,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the distance to.
      * @return {number} The distance.
      */
-    distanceTo(v) {
-      return Math.sqrt(this.distanceToSquared(v));
+    distanceTo(v2) {
+      return Math.sqrt(this.distanceToSquared(v2));
     }
     /**
      * Computes the squared distance from the given vector to this instance.
@@ -8967,8 +11180,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the squared distance to.
      * @return {number} The squared distance.
      */
-    distanceToSquared(v) {
-      const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z;
+    distanceToSquared(v2) {
+      const dx = this.x - v2.x, dy = this.y - v2.y, dz = this.z - v2.z;
       return dx * dx + dy * dy + dz * dz;
     }
     /**
@@ -8977,8 +11190,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to compute the Manhattan distance to.
      * @return {number} The Manhattan distance.
      */
-    manhattanDistanceTo(v) {
-      return Math.abs(this.x - v.x) + Math.abs(this.y - v.y) + Math.abs(this.z - v.z);
+    manhattanDistanceTo(v2) {
+      return Math.abs(this.x - v2.x) + Math.abs(this.y - v2.y) + Math.abs(this.z - v2.z);
     }
     /**
      * Sets the vector components from the given spherical coordinates.
@@ -9108,8 +11321,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to test for equality.
      * @return {boolean} Whether this vector is equal with the given one.
      */
-    equals(v) {
-      return v.x === this.x && v.y === this.y && v.z === this.z;
+    equals(v2) {
+      return v2.x === this.x && v2.y === this.y && v2.z === this.z;
     }
     /**
      * Sets this vector's x value to be `array[ offset ]`, y value to be `array[ offset + 1 ]`
@@ -10473,11 +12686,11 @@ postMessage({ t: "started" });
      * @param {Vector3|Vector4} v - The vector to copy.
      * @return {Vector4} A reference to this vector.
      */
-    copy(v) {
-      this.x = v.x;
-      this.y = v.y;
-      this.z = v.z;
-      this.w = v.w !== void 0 ? v.w : 1;
+    copy(v2) {
+      this.x = v2.x;
+      this.y = v2.y;
+      this.z = v2.z;
+      this.w = v2.w !== void 0 ? v2.w : 1;
       return this;
     }
     /**
@@ -10486,11 +12699,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to add.
      * @return {Vector4} A reference to this vector.
      */
-    add(v) {
-      this.x += v.x;
-      this.y += v.y;
-      this.z += v.z;
-      this.w += v.w;
+    add(v2) {
+      this.x += v2.x;
+      this.y += v2.y;
+      this.z += v2.z;
+      this.w += v2.w;
       return this;
     }
     /**
@@ -10527,11 +12740,11 @@ postMessage({ t: "started" });
      * @param {number} s - The factor that scales `v`.
      * @return {Vector4} A reference to this vector.
      */
-    addScaledVector(v, s) {
-      this.x += v.x * s;
-      this.y += v.y * s;
-      this.z += v.z * s;
-      this.w += v.w * s;
+    addScaledVector(v2, s) {
+      this.x += v2.x * s;
+      this.y += v2.y * s;
+      this.z += v2.z * s;
+      this.w += v2.w * s;
       return this;
     }
     /**
@@ -10540,11 +12753,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to subtract.
      * @return {Vector4} A reference to this vector.
      */
-    sub(v) {
-      this.x -= v.x;
-      this.y -= v.y;
-      this.z -= v.z;
-      this.w -= v.w;
+    sub(v2) {
+      this.x -= v2.x;
+      this.y -= v2.y;
+      this.z -= v2.z;
+      this.w -= v2.w;
       return this;
     }
     /**
@@ -10580,11 +12793,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to multiply.
      * @return {Vector4} A reference to this vector.
      */
-    multiply(v) {
-      this.x *= v.x;
-      this.y *= v.y;
-      this.z *= v.z;
-      this.w *= v.w;
+    multiply(v2) {
+      this.x *= v2.x;
+      this.y *= v2.y;
+      this.z *= v2.z;
+      this.w *= v2.w;
       return this;
     }
     /**
@@ -10621,11 +12834,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to divide.
      * @return {Vector4} A reference to this vector.
      */
-    divide(v) {
-      this.x /= v.x;
-      this.y /= v.y;
-      this.z /= v.z;
-      this.w /= v.w;
+    divide(v2) {
+      this.x /= v2.x;
+      this.y /= v2.y;
+      this.z /= v2.z;
+      this.w /= v2.w;
       return this;
     }
     /**
@@ -10644,17 +12857,17 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The Quaternion to set.
      * @return {Vector4} A reference to this vector.
      */
-    setAxisAngleFromQuaternion(q) {
-      this.w = 2 * Math.acos(q.w);
-      const s = Math.sqrt(1 - q.w * q.w);
+    setAxisAngleFromQuaternion(q2) {
+      this.w = 2 * Math.acos(q2.w);
+      const s = Math.sqrt(1 - q2.w * q2.w);
       if (s < 1e-4) {
         this.x = 1;
         this.y = 0;
         this.z = 0;
       } else {
-        this.x = q.x / s;
-        this.y = q.y / s;
-        this.z = q.z / s;
+        this.x = q2.x / s;
+        this.y = q2.y / s;
+        this.z = q2.z / s;
       }
       return this;
     }
@@ -10744,11 +12957,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector.
      * @return {Vector4} A reference to this vector.
      */
-    min(v) {
-      this.x = Math.min(this.x, v.x);
-      this.y = Math.min(this.y, v.y);
-      this.z = Math.min(this.z, v.z);
-      this.w = Math.min(this.w, v.w);
+    min(v2) {
+      this.x = Math.min(this.x, v2.x);
+      this.y = Math.min(this.y, v2.y);
+      this.z = Math.min(this.z, v2.z);
+      this.w = Math.min(this.w, v2.w);
       return this;
     }
     /**
@@ -10758,11 +12971,11 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector.
      * @return {Vector4} A reference to this vector.
      */
-    max(v) {
-      this.x = Math.max(this.x, v.x);
-      this.y = Math.max(this.y, v.y);
-      this.z = Math.max(this.z, v.z);
-      this.w = Math.max(this.w, v.w);
+    max(v2) {
+      this.x = Math.max(this.x, v2.x);
+      this.y = Math.max(this.y, v2.y);
+      this.z = Math.max(this.z, v2.z);
+      this.w = Math.max(this.w, v2.w);
       return this;
     }
     /**
@@ -10880,8 +13093,8 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to compute the dot product with.
      * @return {number} The result of the dot product.
      */
-    dot(v) {
-      return this.x * v.x + this.y * v.y + this.z * v.z + this.w * v.w;
+    dot(v2) {
+      return this.x * v2.x + this.y * v2.y + this.z * v2.z + this.w * v2.w;
     }
     /**
      * Computes the square of the Euclidean length (straight-line length) from
@@ -10937,11 +13150,11 @@ postMessage({ t: "started" });
      * @param {number} alpha - The interpolation factor, typically in the closed interval `[0, 1]`.
      * @return {Vector4} A reference to this vector.
      */
-    lerp(v, alpha) {
-      this.x += (v.x - this.x) * alpha;
-      this.y += (v.y - this.y) * alpha;
-      this.z += (v.z - this.z) * alpha;
-      this.w += (v.w - this.w) * alpha;
+    lerp(v2, alpha) {
+      this.x += (v2.x - this.x) * alpha;
+      this.y += (v2.y - this.y) * alpha;
+      this.z += (v2.z - this.z) * alpha;
+      this.w += (v2.w - this.w) * alpha;
       return this;
     }
     /**
@@ -10967,8 +13180,8 @@ postMessage({ t: "started" });
      * @param {Vector4} v - The vector to test for equality.
      * @return {boolean} Whether this vector is equal with the given one.
      */
-    equals(v) {
-      return v.x === this.x && v.y === this.y && v.z === this.z && v.w === this.w;
+    equals(v2) {
+      return v2.x === this.x && v2.y === this.y && v2.z === this.z && v2.w === this.w;
     }
     /**
      * Sets this vector's x value to be `array[ offset ]`, y value to be `array[ offset + 1 ]`,
@@ -11412,8 +13625,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The Quaternion.
      * @return {Matrix4} A reference to this matrix.
      */
-    makeRotationFromQuaternion(q) {
-      return this.compose(_zero, q, _one);
+    makeRotationFromQuaternion(q2) {
+      return this.compose(_zero, q2, _one);
     }
     /**
      * Sets the rotation component of the transformation matrix, looking from `eye` towards
@@ -11659,9 +13872,9 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The scale vector.
      * @return {Matrix4} A reference to this matrix.
      */
-    scale(v) {
+    scale(v2) {
       const te = this.elements;
-      const x = v.x, y = v.y, z = v.z;
+      const x = v2.x, y = v2.y, z = v2.z;
       te[0] *= x;
       te[4] *= y;
       te[8] *= z;
@@ -12371,8 +14584,8 @@ postMessage({ t: "started" });
      * @param {boolean} [update=true] - Whether the internal `onChange` callback should be executed or not.
      * @return {Euler} A reference to this Euler instance.
      */
-    setFromQuaternion(q, order, update) {
-      _matrix$2.makeRotationFromQuaternion(q);
+    setFromQuaternion(q2, order, update) {
+      _matrix$2.makeRotationFromQuaternion(q2);
       return this.setFromRotationMatrix(_matrix$2, order, update);
     }
     /**
@@ -12382,8 +14595,8 @@ postMessage({ t: "started" });
      * @param {string} [order] - A string representing the order that the rotations are applied.
      * @return {Euler} A reference to this Euler instance.
      */
-    setFromVector3(v, order = this._order) {
-      return this.set(v.x, v.y, v.z, order);
+    setFromVector3(v2, order = this._order) {
+      return this.set(v2.x, v2.y, v2.z, order);
     }
     /**
      * Resets the euler angle with a new order by creating a quaternion from this
@@ -12721,8 +14934,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The quaternion.
      * @return {Object3D} A reference to this instance.
      */
-    applyQuaternion(q) {
-      this.quaternion.premultiply(q);
+    applyQuaternion(q2) {
+      this.quaternion.premultiply(q2);
       return this;
     }
     /**
@@ -12756,8 +14969,8 @@ postMessage({ t: "started" });
      *
      * @param {Quaternion} q - The Quaternion
      */
-    setRotationFromQuaternion(q) {
-      this.quaternion.copy(q);
+    setRotationFromQuaternion(q2) {
+      this.quaternion.copy(q2);
     }
     /**
      * Rotates the 3D object along an axis in local space.
@@ -13655,12 +15868,12 @@ postMessage({ t: "started" });
   };
   var _hslA = { h: 0, s: 0, l: 0 };
   var _hslB = { h: 0, s: 0, l: 0 };
-  function hue2rgb(p, q, t) {
+  function hue2rgb(p, q2, t) {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * 6 * (2 / 3 - t);
+    if (t < 1 / 6) return p + (q2 - p) * 6 * t;
+    if (t < 1 / 2) return q2;
+    if (t < 2 / 3) return p + (q2 - p) * 6 * (2 / 3 - t);
     return p;
   }
   var Color = class {
@@ -13766,10 +15979,10 @@ postMessage({ t: "started" });
         this.r = this.g = this.b = l;
       } else {
         const p = l <= 0.5 ? l * (1 + s) : l + s - l * s;
-        const q = 2 * l - p;
-        this.r = hue2rgb(q, p, h + 1 / 3);
-        this.g = hue2rgb(q, p, h);
-        this.b = hue2rgb(q, p, h - 1 / 3);
+        const q2 = 2 * l - p;
+        this.r = hue2rgb(q2, p, h + 1 / 3);
+        this.g = hue2rgb(q2, p, h);
+        this.b = hue2rgb(q2, p, h - 1 / 3);
       }
       ColorManagement.colorSpaceToWorking(this, colorSpace);
       return this;
@@ -14169,10 +16382,10 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The vector to set.
      * @return {Color} A reference to this color.
      */
-    setFromVector3(v) {
-      this.r = v.x;
-      this.g = v.y;
-      this.b = v.z;
+    setFromVector3(v2) {
+      this.r = v2.x;
+      this.g = v2.y;
+      this.b = v2.z;
       return this;
     }
     /**
@@ -14373,8 +16586,8 @@ postMessage({ t: "started" });
       }
       const invDenom = 1 / denom;
       const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-      const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-      return target2.set(1 - u - v, v, u);
+      const v2 = (dot00 * dot12 - dot01 * dot02) * invDenom;
+      return target2.set(1 - u - v2, v2, u);
     }
     /**
      * Returns `true` if the given point, when projected onto the plane of the
@@ -14623,7 +16836,7 @@ postMessage({ t: "started" });
      */
     closestPointToPoint(p, target2) {
       const a = this.a, b = this.b, c = this.c;
-      let v, w;
+      let v2, w;
       _vab.subVectors(b, a);
       _vac.subVectors(c, a);
       _vap.subVectors(p, a);
@@ -14638,10 +16851,10 @@ postMessage({ t: "started" });
       if (d3 >= 0 && d4 <= d3) {
         return target2.copy(b);
       }
-      const vc = d1 * d4 - d3 * d2;
-      if (vc <= 0 && d1 >= 0 && d3 <= 0 && d1 - d3 > 0) {
-        v = d1 / (d1 - d3);
-        return target2.copy(a).addScaledVector(_vab, v);
+      const vc2 = d1 * d4 - d3 * d2;
+      if (vc2 <= 0 && d1 >= 0 && d3 <= 0 && d1 - d3 > 0) {
+        v2 = d1 / (d1 - d3);
+        return target2.copy(a).addScaledVector(_vab, v2);
       }
       _vcp.subVectors(p, c);
       const d5 = _vab.dot(_vcp);
@@ -14649,21 +16862,21 @@ postMessage({ t: "started" });
       if (d6 >= 0 && d5 <= d6) {
         return target2.copy(c);
       }
-      const vb = d5 * d2 - d1 * d6;
-      if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+      const vb2 = d5 * d2 - d1 * d6;
+      if (vb2 <= 0 && d2 >= 0 && d6 <= 0) {
         w = d2 / (d2 - d6);
         return target2.copy(a).addScaledVector(_vac, w);
       }
-      const va = d3 * d6 - d5 * d4;
-      if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+      const va2 = d3 * d6 - d5 * d4;
+      if (va2 <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
         _vbc.subVectors(c, b);
         w = (d4 - d3) / (d4 - d3 + (d5 - d6));
         return target2.copy(b).addScaledVector(_vbc, w);
       }
-      const denom = 1 / (va + vb + vc);
-      v = vb * denom;
-      w = vc * denom;
-      return target2.copy(a).addScaledVector(_vab, v).addScaledVector(_vac, w);
+      const denom = 1 / (va2 + vb2 + vc2);
+      v2 = vb2 * denom;
+      w = vc2 * denom;
+      return target2.copy(a).addScaledVector(_vab, v2).addScaledVector(_vac, w);
     }
     /**
      * Returns `true` if this triangle is equal with the given one.
@@ -16147,8 +18360,8 @@ postMessage({ t: "started" });
      * @param {Quaternion} q - The Quaternion to apply.
      * @return {BufferGeometry} A reference to this instance.
      */
-    applyQuaternion(q) {
-      _m1.makeRotationFromQuaternion(q);
+    applyQuaternion(q2) {
+      _m1.makeRotationFromQuaternion(q2);
       this.applyMatrix4(_m1);
       return this;
     }
@@ -16455,16 +18668,16 @@ postMessage({ t: "started" });
       }
       const tmp = new Vector3(), tmp2 = new Vector3();
       const n = new Vector3(), n2 = new Vector3();
-      function handleVertex(v) {
-        n.fromBufferAttribute(normalAttribute, v);
+      function handleVertex(v2) {
+        n.fromBufferAttribute(normalAttribute, v2);
         n2.copy(n);
-        const t = tan1[v];
+        const t = tan1[v2];
         tmp.copy(t);
         tmp.sub(n.multiplyScalar(n.dot(t))).normalize();
         tmp2.crossVectors(n2, t);
-        const test = tmp2.dot(tan2[v]);
+        const test = tmp2.dot(tan2[v2]);
         const w = test < 0 ? -1 : 1;
-        tangentAttribute.setXYZW(v, tmp.x, tmp.y, tmp.z, w);
+        tangentAttribute.setXYZW(v2, tmp.x, tmp.y, tmp.z, w);
       }
       for (let i = 0, il = positionAttribute.count; i < il; ++i) {
         if (used2[i]) handleVertex(i);
@@ -18338,8 +20551,8 @@ postMessage({ t: "started" });
      * @param {Vector3} v - The target position.
      * @return {Ray} A reference to this ray.
      */
-    lookAt(v) {
-      this.direction.copy(v).sub(this.origin).normalize();
+    lookAt(v2) {
+      this.direction.copy(v2).sub(this.origin).normalize();
       return this;
     }
     /**
@@ -18694,16 +20907,16 @@ postMessage({ t: "started" });
       const bx = bkx - sx * bkz, by = bky - sy * bkz;
       const cx = ckx - sx * ckz, cy = cky - sy * ckz;
       const u = cx * by - cy * bx;
-      const v = ax * cy - ay * cx;
+      const v2 = ax * cy - ay * cx;
       const w = bx * ay - by * ax;
       if (backfaceCulling) {
-        if (u < 0 || v < 0 || w < 0) return null;
+        if (u < 0 || v2 < 0 || w < 0) return null;
       } else {
-        if ((u < 0 || v < 0 || w < 0) && (u > 0 || v > 0 || w > 0)) return null;
+        if ((u < 0 || v2 < 0 || w < 0) && (u > 0 || v2 > 0 || w > 0)) return null;
       }
-      const det = u + v + w;
+      const det = u + v2 + w;
       if (det === 0) return null;
-      const tScaled = sz * (u * akz + v * bkz + w * ckz);
+      const tScaled = sz * (u * akz + v2 * bkz + w * ckz);
       if (det > 0 ? tScaled < 0 : tScaled > 0) return null;
       return this.at(tScaled / det, target2);
     }
@@ -19057,6 +21270,58 @@ postMessage({ t: "started" });
     }
     return intersection;
   }
+  var VideoTexture = class extends Texture {
+    /**
+     * Constructs a new video texture.
+     *
+     * @param {HTMLVideoElement} video - The video element to use as a data source for the texture.
+     * @param {number} [mapping=Texture.DEFAULT_MAPPING] - The texture mapping.
+     * @param {number} [wrapS=ClampToEdgeWrapping] - The wrapS value.
+     * @param {number} [wrapT=ClampToEdgeWrapping] - The wrapT value.
+     * @param {number} [magFilter=LinearFilter] - The mag filter value.
+     * @param {number} [minFilter=LinearFilter] - The min filter value.
+     * @param {number} [format=RGBAFormat] - The texture format.
+     * @param {number} [type=UnsignedByteType] - The texture type.
+     * @param {number} [anisotropy=Texture.DEFAULT_ANISOTROPY] - The anisotropy value.
+     */
+    constructor(video, mapping, wrapS, wrapT, magFilter = LinearFilter, minFilter = LinearFilter, format, type, anisotropy) {
+      super(video, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
+      this.isVideoTexture = true;
+      this.generateMipmaps = false;
+      this._requestVideoFrameCallbackId = 0;
+      const scope = this;
+      function updateVideo() {
+        scope.needsUpdate = true;
+        scope._requestVideoFrameCallbackId = video.requestVideoFrameCallback(updateVideo);
+      }
+      if ("requestVideoFrameCallback" in video) {
+        this._requestVideoFrameCallbackId = video.requestVideoFrameCallback(updateVideo);
+      }
+    }
+    clone() {
+      return new this.constructor(this.image).copy(this);
+    }
+    /**
+     * This method is called automatically by the renderer and sets {@link Texture#needsUpdate}
+     * to `true` every time a new frame is available.
+     *
+     * Only relevant if `requestVideoFrameCallback` is not supported in the browser.
+     */
+    update() {
+      const video = this.image;
+      const hasVideoFrameCallback = "requestVideoFrameCallback" in video;
+      if (hasVideoFrameCallback === false && video.readyState >= video.HAVE_CURRENT_DATA) {
+        this.needsUpdate = true;
+      }
+    }
+    dispose() {
+      if (this._requestVideoFrameCallbackId !== 0) {
+        this.source.data.cancelVideoFrameCallback(this._requestVideoFrameCallbackId);
+        this._requestVideoFrameCallbackId = 0;
+      }
+      super.dispose();
+    }
+  };
   var CanvasTexture = class extends Texture {
     /**
      * Constructs a new texture.
@@ -19120,6 +21385,192 @@ postMessage({ t: "started" });
   function isThreeObject(property) {
     return property && (property.isColor || property.isMatrix3 || property.isMatrix4 || property.isVector2 || property.isVector3 || property.isVector4 || property.isTexture || property.isQuaternion);
   }
+  function cloneUniformsGroups(src) {
+    const dst = [];
+    for (let u = 0; u < src.length; u++) {
+      dst.push(src[u].clone());
+    }
+    return dst;
+  }
+  var default_vertex = "void main() {\n	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n}";
+  var default_fragment = "void main() {\n	gl_FragColor = vec4( 1.0, 0.0, 0.0, 1.0 );\n}";
+  var ShaderMaterial = class extends Material {
+    /**
+     * Constructs a new shader material.
+     *
+     * @param {Object} [parameters] - An object with one or more properties
+     * defining the material's appearance. Any property of the material
+     * (including any property from inherited materials) can be passed
+     * in here. Color values can be passed any type of value accepted
+     * by {@link Color#set}.
+     */
+    constructor(parameters) {
+      super();
+      this.isShaderMaterial = true;
+      this.type = "ShaderMaterial";
+      this.defines = {};
+      this.uniforms = {};
+      this.uniformsGroups = [];
+      this.vertexShader = default_vertex;
+      this.fragmentShader = default_fragment;
+      this.linewidth = 1;
+      this.wireframe = false;
+      this.wireframeLinewidth = 1;
+      this.fog = false;
+      this.lights = false;
+      this.clipping = false;
+      this.forceSinglePass = true;
+      this.extensions = {
+        clipCullDistance: false,
+        // set to use vertex shader clipping
+        multiDraw: false
+        // set to use vertex shader multi_draw / enable gl_DrawID
+      };
+      this.defaultAttributeValues = {
+        "color": [1, 1, 1],
+        "uv": [0, 0],
+        "uv1": [0, 0]
+      };
+      this.index0AttributeName = void 0;
+      this.uniformsNeedUpdate = false;
+      this.glslVersion = null;
+      if (parameters !== void 0) {
+        this.setValues(parameters);
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.fragmentShader = source.fragmentShader;
+      this.vertexShader = source.vertexShader;
+      this.uniforms = cloneUniforms(source.uniforms);
+      this.uniformsGroups = cloneUniformsGroups(source.uniformsGroups);
+      this.defines = Object.assign({}, source.defines);
+      this.wireframe = source.wireframe;
+      this.wireframeLinewidth = source.wireframeLinewidth;
+      this.fog = source.fog;
+      this.lights = source.lights;
+      this.clipping = source.clipping;
+      this.extensions = Object.assign({}, source.extensions);
+      this.glslVersion = source.glslVersion;
+      this.defaultAttributeValues = Object.assign({}, source.defaultAttributeValues);
+      this.index0AttributeName = source.index0AttributeName;
+      this.uniformsNeedUpdate = source.uniformsNeedUpdate;
+      return this;
+    }
+    toJSON(meta) {
+      const data = super.toJSON(meta);
+      data.glslVersion = this.glslVersion;
+      data.uniforms = {};
+      for (const name in this.uniforms) {
+        const uniform = this.uniforms[name];
+        const value = uniform.value;
+        if (value && value.isTexture) {
+          data.uniforms[name] = {
+            type: "t",
+            value: value.toJSON(meta).uuid
+          };
+        } else if (value && value.isColor) {
+          data.uniforms[name] = {
+            type: "c",
+            value: value.getHex()
+          };
+        } else if (value && value.isVector2) {
+          data.uniforms[name] = {
+            type: "v2",
+            value: value.toArray()
+          };
+        } else if (value && value.isVector3) {
+          data.uniforms[name] = {
+            type: "v3",
+            value: value.toArray()
+          };
+        } else if (value && value.isVector4) {
+          data.uniforms[name] = {
+            type: "v4",
+            value: value.toArray()
+          };
+        } else if (value && value.isMatrix3) {
+          data.uniforms[name] = {
+            type: "m3",
+            value: value.toArray()
+          };
+        } else if (value && value.isMatrix4) {
+          data.uniforms[name] = {
+            type: "m4",
+            value: value.toArray()
+          };
+        } else {
+          data.uniforms[name] = {
+            value
+          };
+        }
+      }
+      if (Object.keys(this.defines).length > 0) data.defines = this.defines;
+      data.vertexShader = this.vertexShader;
+      data.fragmentShader = this.fragmentShader;
+      data.lights = this.lights;
+      data.clipping = this.clipping;
+      const extensions = {};
+      for (const key in this.extensions) {
+        if (this.extensions[key] === true) extensions[key] = true;
+      }
+      if (Object.keys(extensions).length > 0) data.extensions = extensions;
+      return data;
+    }
+    /**
+     * Deserializes the material from the given JSON.
+     *
+     * @param {Object} json - The JSON holding the serialized material.
+     * @param {Object<string,Texture>} textures - A dictionary holding textures referenced by the material.
+     * @return {ShaderMaterial} A reference to this material.
+     */
+    fromJSON(json, textures) {
+      super.fromJSON(json, textures);
+      if (json.uniforms !== void 0) {
+        for (const name in json.uniforms) {
+          const uniform = json.uniforms[name];
+          this.uniforms[name] = {};
+          switch (uniform.type) {
+            case "t":
+              this.uniforms[name].value = textures[uniform.value] || null;
+              break;
+            case "c":
+              this.uniforms[name].value = new Color().setHex(uniform.value);
+              break;
+            case "v2":
+              this.uniforms[name].value = new Vector2().fromArray(uniform.value);
+              break;
+            case "v3":
+              this.uniforms[name].value = new Vector3().fromArray(uniform.value);
+              break;
+            case "v4":
+              this.uniforms[name].value = new Vector4().fromArray(uniform.value);
+              break;
+            case "m3":
+              this.uniforms[name].value = new Matrix3().fromArray(uniform.value);
+              break;
+            case "m4":
+              this.uniforms[name].value = new Matrix4().fromArray(uniform.value);
+              break;
+            default:
+              this.uniforms[name].value = uniform.value;
+          }
+        }
+      }
+      if (json.defines !== void 0) this.defines = json.defines;
+      if (json.vertexShader !== void 0) this.vertexShader = json.vertexShader;
+      if (json.fragmentShader !== void 0) this.fragmentShader = json.fragmentShader;
+      if (json.glslVersion !== void 0) this.glslVersion = json.glslVersion;
+      if (json.extensions !== void 0) {
+        for (const key in json.extensions) {
+          this.extensions[key] = json.extensions[key];
+        }
+      }
+      if (json.lights !== void 0) this.lights = json.lights;
+      if (json.clipping !== void 0) this.clipping = json.clipping;
+      return this;
+    }
+  };
   function convertArray(array, type) {
     if (!array || array.constructor === type) return array;
     if (typeof type.BYTES_PER_ELEMENT === "number") {
@@ -20132,9 +22583,9 @@ postMessage({ t: "started" });
       const pattern = /^([\w-]*?)([\d]+)$/;
       for (let i = 0, il = morphTargets.length; i < il; i++) {
         const morphTarget = morphTargets[i];
-        const parts2 = morphTarget.name.match(pattern);
-        if (parts2 && parts2.length > 1) {
-          const name = parts2[1];
+        const parts3 = morphTarget.name.match(pattern);
+        if (parts3 && parts3.length > 1) {
+          const name = parts3[1];
           let animationMorphTargets = animationToMorphTargets[name];
           if (!animationMorphTargets) {
             animationToMorphTargets[name] = animationMorphTargets = [];
@@ -20808,6 +23259,807 @@ postMessage({ t: "started" });
       data.object.filmGauge = this.filmGauge;
       data.object.filmOffset = this.filmOffset;
       return data;
+    }
+  };
+  var _context;
+  var AudioContext2 = class {
+    /**
+     * Returns the global native audio context.
+     *
+     * @return {Window.AudioContext} The native audio context.
+     */
+    static getContext() {
+      if (_context === void 0) {
+        _context = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return _context;
+    }
+    /**
+     * Allows to set the global native audio context from outside.
+     *
+     * @param {Window.AudioContext} value - The native context to set.
+     */
+    static setContext(value) {
+      _context = value;
+    }
+  };
+  var Timer = class {
+    /**
+     * Constructs a new timer.
+     */
+    constructor() {
+      this._previousTime = 0;
+      this._currentTime = 0;
+      this._startTime = performance.now();
+      this._delta = 0;
+      this._elapsed = 0;
+      this._timescale = 1;
+      this._document = null;
+      this._pageVisibilityHandler = null;
+    }
+    /**
+     * Connect the timer to the given document.Calling this method is not mandatory to
+     * use the timer but enables the usage of the Page Visibility API to avoid large time
+     * delta values.
+     *
+     * @param {Document} document - The document.
+     */
+    connect(document2) {
+      this._document = document2;
+      if (document2.hidden !== void 0) {
+        this._pageVisibilityHandler = handleVisibilityChange.bind(this);
+        document2.addEventListener("visibilitychange", this._pageVisibilityHandler, false);
+      }
+    }
+    /**
+     * Disconnects the timer from the DOM and also disables the usage of the Page Visibility API.
+     */
+    disconnect() {
+      if (this._pageVisibilityHandler !== null) {
+        this._document.removeEventListener("visibilitychange", this._pageVisibilityHandler);
+        this._pageVisibilityHandler = null;
+      }
+      this._document = null;
+    }
+    /**
+     * Returns the time delta in seconds.
+     *
+     * @return {number} The time delta in second.
+     */
+    getDelta() {
+      return this._delta / 1e3;
+    }
+    /**
+     * Returns the elapsed time in seconds.
+     *
+     * @return {number} The elapsed time in second.
+     */
+    getElapsed() {
+      return this._elapsed / 1e3;
+    }
+    /**
+     * Returns the timescale.
+     *
+     * @return {number} The timescale.
+     */
+    getTimescale() {
+      return this._timescale;
+    }
+    /**
+     * Sets the given timescale which scale the time delta computation
+     * in `update()`.
+     *
+     * @param {number} timescale - The timescale to set.
+     * @return {Timer} A reference to this timer.
+     */
+    setTimescale(timescale) {
+      this._timescale = timescale;
+      return this;
+    }
+    /**
+     * Resets the time computation for the current simulation step.
+     *
+     * @return {Timer} A reference to this timer.
+     */
+    reset() {
+      this._currentTime = performance.now() - this._startTime;
+      return this;
+    }
+    /**
+     * Can be used to free all internal resources. Usually called when
+     * the timer instance isn't required anymore.
+     */
+    dispose() {
+      this.disconnect();
+    }
+    /**
+     * Updates the internal state of the timer. This method should be called
+     * once per simulation step and before you perform queries against the timer
+     * (e.g. via `getDelta()`).
+     *
+     * @param {number} timestamp - The current time in milliseconds. Can be obtained
+     * from the `requestAnimationFrame` callback argument. If not provided, the current
+     * time will be determined with `performance.now`.
+     * @return {Timer} A reference to this timer.
+     */
+    update(timestamp) {
+      if (this._pageVisibilityHandler !== null && this._document.hidden === true) {
+        this._delta = 0;
+      } else {
+        this._previousTime = this._currentTime;
+        this._currentTime = (timestamp !== void 0 ? timestamp : performance.now()) - this._startTime;
+        this._delta = (this._currentTime - this._previousTime) * this._timescale;
+        this._elapsed += this._delta;
+      }
+      return this;
+    }
+  };
+  function handleVisibilityChange() {
+    if (this._document.hidden === false) this.reset();
+  }
+  var _position$1 = /* @__PURE__ */ new Vector3();
+  var _quaternion$1 = /* @__PURE__ */ new Quaternion();
+  var _scale$1 = /* @__PURE__ */ new Vector3();
+  var _forward = /* @__PURE__ */ new Vector3();
+  var _up = /* @__PURE__ */ new Vector3();
+  var AudioListener = class extends Object3D {
+    /**
+     * Constructs a new audio listener.
+     */
+    constructor() {
+      super();
+      this.type = "AudioListener";
+      this.context = AudioContext2.getContext();
+      this.gain = this.context.createGain();
+      this.gain.connect(this.context.destination);
+      this.filter = null;
+      this.timeDelta = 0;
+      this._timer = new Timer();
+    }
+    /**
+     * Returns the listener's input node.
+     *
+     * This method is used by other audio nodes to connect to this listener.
+     *
+     * @return {GainNode} The input node.
+     */
+    getInput() {
+      return this.gain;
+    }
+    /**
+     * Removes the current filter from this listener.
+     *
+     * @return {AudioListener} A reference to this listener.
+     */
+    removeFilter() {
+      if (this.filter !== null) {
+        this.gain.disconnect(this.filter);
+        this.filter.disconnect(this.context.destination);
+        this.gain.connect(this.context.destination);
+        this.filter = null;
+      }
+      return this;
+    }
+    /**
+     * Returns the current set filter.
+     *
+     * @return {?AudioNode} The filter.
+     */
+    getFilter() {
+      return this.filter;
+    }
+    /**
+     * Sets the given filter to this listener.
+     *
+     * @param {AudioNode} value - The filter to set.
+     * @return {AudioListener} A reference to this listener.
+     */
+    setFilter(value) {
+      if (this.filter !== null) {
+        this.gain.disconnect(this.filter);
+        this.filter.disconnect(this.context.destination);
+      } else {
+        this.gain.disconnect(this.context.destination);
+      }
+      this.filter = value;
+      this.gain.connect(this.filter);
+      this.filter.connect(this.context.destination);
+      return this;
+    }
+    /**
+     * Returns the applications master volume.
+     *
+     * @return {number} The master volume.
+     */
+    getMasterVolume() {
+      return this.gain.gain.value;
+    }
+    /**
+     * Sets the applications master volume. This volume setting affects
+     * all audio nodes in the scene.
+     *
+     * @param {number} value - The master volume to set.
+     * @return {AudioListener} A reference to this listener.
+     */
+    setMasterVolume(value) {
+      this.gain.gain.setTargetAtTime(value, this.context.currentTime, 0.01);
+      return this;
+    }
+    updateMatrixWorld(force) {
+      super.updateMatrixWorld(force);
+      this._timer.update();
+      const listener = this.context.listener;
+      this.timeDelta = this._timer.getDelta();
+      this.matrixWorld.decompose(_position$1, _quaternion$1, _scale$1);
+      _forward.set(0, 0, -1).applyQuaternion(_quaternion$1);
+      _up.set(0, 1, 0).applyQuaternion(_quaternion$1);
+      if (listener.positionX) {
+        const endTime = this.context.currentTime + this.timeDelta;
+        listener.positionX.linearRampToValueAtTime(_position$1.x, endTime);
+        listener.positionY.linearRampToValueAtTime(_position$1.y, endTime);
+        listener.positionZ.linearRampToValueAtTime(_position$1.z, endTime);
+        listener.forwardX.linearRampToValueAtTime(_forward.x, endTime);
+        listener.forwardY.linearRampToValueAtTime(_forward.y, endTime);
+        listener.forwardZ.linearRampToValueAtTime(_forward.z, endTime);
+        listener.upX.linearRampToValueAtTime(_up.x, endTime);
+        listener.upY.linearRampToValueAtTime(_up.y, endTime);
+        listener.upZ.linearRampToValueAtTime(_up.z, endTime);
+      } else {
+        listener.setPosition(_position$1.x, _position$1.y, _position$1.z);
+        listener.setOrientation(_forward.x, _forward.y, _forward.z, _up.x, _up.y, _up.z);
+      }
+    }
+  };
+  var Audio2 = class extends Object3D {
+    /**
+     * Constructs a new audio.
+     *
+     * @param {AudioListener} listener - The global audio listener.
+     */
+    constructor(listener) {
+      super();
+      this.type = "Audio";
+      this.listener = listener;
+      this.context = listener.context;
+      this.gain = this.context.createGain();
+      this.gain.connect(listener.getInput());
+      this.autoplay = false;
+      this.buffer = null;
+      this.detune = 0;
+      this.loop = false;
+      this.loopStart = 0;
+      this.loopEnd = 0;
+      this.offset = 0;
+      this.duration = void 0;
+      this.playbackRate = 1;
+      this.isPlaying = false;
+      this.hasPlaybackControl = true;
+      this.source = null;
+      this.sourceType = "empty";
+      this._startedAt = 0;
+      this._progress = 0;
+      this._connected = false;
+      this.filters = [];
+    }
+    /**
+     * Returns the output audio node.
+     *
+     * @return {GainNode} The output node.
+     */
+    getOutput() {
+      return this.gain;
+    }
+    /**
+     * Sets the given audio node as the source of this instance.
+     *
+     * {@link Audio#sourceType} is set to `audioNode` and {@link Audio#hasPlaybackControl} to `false`.
+     *
+     * @param {AudioNode} audioNode - The audio node like an instance of `OscillatorNode`.
+     * @return {Audio} A reference to this instance.
+     */
+    setNodeSource(audioNode) {
+      this.hasPlaybackControl = false;
+      this.sourceType = "audioNode";
+      this.source = audioNode;
+      this.connect();
+      return this;
+    }
+    /**
+     * Sets the given media element as the source of this instance.
+     *
+     * {@link Audio#sourceType} is set to `mediaNode` and {@link Audio#hasPlaybackControl} to `false`.
+     *
+     * @param {HTMLMediaElement} mediaElement - The media element.
+     * @return {Audio} A reference to this instance.
+     */
+    setMediaElementSource(mediaElement) {
+      this.hasPlaybackControl = false;
+      this.sourceType = "mediaNode";
+      this.source = this.context.createMediaElementSource(mediaElement);
+      this.connect();
+      return this;
+    }
+    /**
+     * Sets the given media stream as the source of this instance.
+     *
+     * {@link Audio#sourceType} is set to `mediaStreamNode` and {@link Audio#hasPlaybackControl} to `false`.
+     *
+     * @param {MediaStream} mediaStream - The media stream.
+     * @return {Audio} A reference to this instance.
+     */
+    setMediaStreamSource(mediaStream) {
+      this.hasPlaybackControl = false;
+      this.sourceType = "mediaStreamNode";
+      this.source = this.context.createMediaStreamSource(mediaStream);
+      this.connect();
+      return this;
+    }
+    /**
+     * Sets the given audio buffer as the source of this instance.
+     *
+     * {@link Audio#sourceType} is set to `buffer` and {@link Audio#hasPlaybackControl} to `true`.
+     *
+     * @param {AudioBuffer} audioBuffer - The audio buffer.
+     * @return {Audio} A reference to this instance.
+     */
+    setBuffer(audioBuffer) {
+      this.buffer = audioBuffer;
+      this.sourceType = "buffer";
+      if (this.autoplay) this.play();
+      return this;
+    }
+    /**
+     * Starts the playback of the audio.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @param {number} [delay=0] - The delay, in seconds, at which the audio should start playing.
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    play(delay = 0) {
+      if (this.isPlaying === true) {
+        warn("Audio: Audio is already playing.");
+        return;
+      }
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return;
+      }
+      this._startedAt = this.context.currentTime + delay;
+      const source = this.context.createBufferSource();
+      source.buffer = this.buffer;
+      source.loop = this.loop;
+      source.loopStart = this.loopStart;
+      source.loopEnd = this.loopEnd;
+      source.onended = this.onEnded.bind(this);
+      source.start(this._startedAt, this._progress + this.offset, this.duration);
+      this.isPlaying = true;
+      this.source = source;
+      this.setDetune(this.detune);
+      this.setPlaybackRate(this.playbackRate);
+      return this.connect();
+    }
+    /**
+     * Pauses the playback of the audio.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    pause() {
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return;
+      }
+      if (this.isPlaying === true) {
+        this._progress += Math.max(this.context.currentTime - this._startedAt, 0) * this.playbackRate;
+        if (this.loop === true) {
+          this._progress = this._progress % (this.duration || this.buffer.duration);
+        }
+        this.source.stop();
+        this.source.onended = null;
+        this.isPlaying = false;
+      }
+      return this;
+    }
+    /**
+     * Stops the playback of the audio.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @param {number} [delay=0] - The delay, in seconds, at which the audio should stop playing.
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    stop(delay = 0) {
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return;
+      }
+      this._progress = 0;
+      if (this.source !== null) {
+        this.source.stop(this.context.currentTime + delay);
+        this.source.onended = null;
+      }
+      this.isPlaying = false;
+      return this;
+    }
+    /**
+     * Connects to the audio source. This is used internally on
+     * initialisation and when setting / removing filters.
+     *
+     * @return {Audio} A reference to this instance.
+     */
+    connect() {
+      if (this.filters.length > 0) {
+        this.source.connect(this.filters[0]);
+        for (let i = 1, l = this.filters.length; i < l; i++) {
+          this.filters[i - 1].connect(this.filters[i]);
+        }
+        this.filters[this.filters.length - 1].connect(this.getOutput());
+      } else {
+        this.source.connect(this.getOutput());
+      }
+      this._connected = true;
+      return this;
+    }
+    /**
+     * Disconnects to the audio source. This is used internally on
+     * initialisation and when setting / removing filters.
+     *
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    disconnect() {
+      if (this._connected === false) {
+        return;
+      }
+      if (this.filters.length > 0) {
+        this.source.disconnect(this.filters[0]);
+        for (let i = 1, l = this.filters.length; i < l; i++) {
+          this.filters[i - 1].disconnect(this.filters[i]);
+        }
+        this.filters[this.filters.length - 1].disconnect(this.getOutput());
+      } else {
+        this.source.disconnect(this.getOutput());
+      }
+      this._connected = false;
+      return this;
+    }
+    /**
+     * Returns the current set filters.
+     *
+     * @return {Array<AudioNode>} The list of filters.
+     */
+    getFilters() {
+      return this.filters;
+    }
+    /**
+     * Sets an array of filters and connects them with the audio source.
+     *
+     * @param {Array<AudioNode>} [value] - A list of filters.
+     * @return {Audio} A reference to this instance.
+     */
+    setFilters(value) {
+      if (!value) value = [];
+      if (this._connected === true) {
+        this.disconnect();
+        this.filters = value.slice();
+        this.connect();
+      } else {
+        this.filters = value.slice();
+      }
+      return this;
+    }
+    /**
+     * Defines the detuning of oscillation in cents.
+     *
+     * @param {number} value - The detuning of oscillation in cents.
+     * @return {Audio} A reference to this instance.
+     */
+    setDetune(value) {
+      this.detune = value;
+      if (this.isPlaying === true && this.source.detune !== void 0) {
+        this.source.detune.setTargetAtTime(this.detune, this.context.currentTime, 0.01);
+      }
+      return this;
+    }
+    /**
+     * Returns the detuning of oscillation in cents.
+     *
+     * @return {number} The detuning of oscillation in cents.
+     */
+    getDetune() {
+      return this.detune;
+    }
+    /**
+     * Returns the first filter in the list of filters.
+     *
+     * @return {AudioNode|undefined} The first filter in the list of filters.
+     */
+    getFilter() {
+      return this.getFilters()[0];
+    }
+    /**
+     * Applies a single filter node to the audio.
+     *
+     * @param {AudioNode} [filter] - The filter to set.
+     * @return {Audio} A reference to this instance.
+     */
+    setFilter(filter) {
+      return this.setFilters(filter ? [filter] : []);
+    }
+    /**
+     * Sets the playback rate.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @param {number} [value] - The playback rate to set.
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    setPlaybackRate(value) {
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return;
+      }
+      this.playbackRate = value;
+      if (this.isPlaying === true) {
+        this.source.playbackRate.setTargetAtTime(this.playbackRate, this.context.currentTime, 0.01);
+      }
+      return this;
+    }
+    /**
+    	 * Returns the current playback rate.
+    
+    	 * @return {number} The playback rate.
+    	 */
+    getPlaybackRate() {
+      return this.playbackRate;
+    }
+    /**
+     * Automatically called when playback finished.
+     */
+    onEnded() {
+      this.isPlaying = false;
+      this._progress = 0;
+    }
+    /**
+     * Returns the loop flag.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @return {boolean} Whether the audio should loop or not.
+     */
+    getLoop() {
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return false;
+      }
+      return this.loop;
+    }
+    /**
+     * Sets the loop flag.
+     *
+     * Can only be used with compatible audio sources that allow playback control.
+     *
+     * @param {boolean} value - Whether the audio should loop or not.
+     * @return {Audio|undefined} A reference to this instance.
+     */
+    setLoop(value) {
+      if (this.hasPlaybackControl === false) {
+        warn("Audio: this Audio has no playback control.");
+        return;
+      }
+      this.loop = value;
+      if (this.isPlaying === true) {
+        this.source.loop = this.loop;
+      }
+      return this;
+    }
+    /**
+     * Sets the loop start value which defines where in the audio buffer the replay should
+     * start, in seconds.
+     *
+     * @param {number} value - The loop start value.
+     * @return {Audio} A reference to this instance.
+     */
+    setLoopStart(value) {
+      this.loopStart = value;
+      return this;
+    }
+    /**
+     * Sets the loop end value which defines where in the audio buffer the replay should
+     * stop, in seconds.
+     *
+     * @param {number} value - The loop end value.
+     * @return {Audio} A reference to this instance.
+     */
+    setLoopEnd(value) {
+      this.loopEnd = value;
+      return this;
+    }
+    /**
+     * Returns the volume.
+     *
+     * @return {number} The volume.
+     */
+    getVolume() {
+      return this.gain.gain.value;
+    }
+    /**
+     * Sets the volume.
+     *
+     * @param {number} value - The volume to set.
+     * @return {Audio} A reference to this instance.
+     */
+    setVolume(value) {
+      this.gain.gain.setTargetAtTime(value, this.context.currentTime, 0.01);
+      return this;
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      if (source.sourceType !== "buffer") {
+        warn("Audio: Audio source type cannot be copied.");
+        return this;
+      }
+      this.autoplay = source.autoplay;
+      this.buffer = source.buffer;
+      this.detune = source.detune;
+      this.loop = source.loop;
+      this.loopStart = source.loopStart;
+      this.loopEnd = source.loopEnd;
+      this.offset = source.offset;
+      this.duration = source.duration;
+      this.playbackRate = source.playbackRate;
+      this.hasPlaybackControl = source.hasPlaybackControl;
+      this.sourceType = source.sourceType;
+      this.filters = source.filters.slice();
+      return this;
+    }
+    clone(recursive) {
+      return new this.constructor(this.listener).copy(this, recursive);
+    }
+  };
+  var _position = /* @__PURE__ */ new Vector3();
+  var _quaternion = /* @__PURE__ */ new Quaternion();
+  var _scale = /* @__PURE__ */ new Vector3();
+  var _orientation = /* @__PURE__ */ new Vector3();
+  var PositionalAudio = class extends Audio2 {
+    /**
+     * Constructs a positional audio.
+     *
+     * @param {AudioListener} listener - The global audio listener.
+     */
+    constructor(listener) {
+      super(listener);
+      this.panner = this.context.createPanner();
+      this.panner.panningModel = "HRTF";
+      this.panner.connect(this.gain);
+    }
+    connect() {
+      super.connect();
+      this.panner.connect(this.gain);
+      return this;
+    }
+    disconnect() {
+      super.disconnect();
+      this.panner.disconnect(this.gain);
+      return this;
+    }
+    getOutput() {
+      return this.panner;
+    }
+    /**
+     * Returns the current reference distance.
+     *
+     * @return {number} The reference distance.
+     */
+    getRefDistance() {
+      return this.panner.refDistance;
+    }
+    /**
+     * Defines the reference distance for reducing volume as the audio source moves
+     * further from the listener – i.e. the distance at which the volume reduction
+     * starts taking effect.
+     *
+     * @param {number} value - The reference distance to set.
+     * @return {PositionalAudio} A reference to this instance.
+     */
+    setRefDistance(value) {
+      this.panner.refDistance = value;
+      return this;
+    }
+    /**
+     * Returns the current rolloff factor.
+     *
+     * @return {number} The rolloff factor.
+     */
+    getRolloffFactor() {
+      return this.panner.rolloffFactor;
+    }
+    /**
+     * Defines how quickly the volume is reduced as the source moves away from the listener.
+     *
+     * @param {number} value - The rolloff factor.
+     * @return {PositionalAudio} A reference to this instance.
+     */
+    setRolloffFactor(value) {
+      this.panner.rolloffFactor = value;
+      return this;
+    }
+    /**
+     * Returns the current distance model.
+     *
+     * @return {('linear'|'inverse'|'exponential')} The distance model.
+     */
+    getDistanceModel() {
+      return this.panner.distanceModel;
+    }
+    /**
+     * Defines which algorithm to use to reduce the volume of the audio source
+     * as it moves away from the listener.
+     *
+     * Read [the spec](https://www.w3.org/TR/webaudio-1.1/#enumdef-distancemodeltype)
+     * for more details.
+     *
+     * @param {('linear'|'inverse'|'exponential')} value - The distance model to set.
+     * @return {PositionalAudio} A reference to this instance.
+     */
+    setDistanceModel(value) {
+      this.panner.distanceModel = value;
+      return this;
+    }
+    /**
+     * Returns the current max distance.
+     *
+     * @return {number} The max distance.
+     */
+    getMaxDistance() {
+      return this.panner.maxDistance;
+    }
+    /**
+     * Defines the maximum distance between the audio source and the listener,
+     * after which the volume is not reduced any further.
+     *
+     * This value is used only by the `linear` distance model.
+     *
+     * @param {number} value - The max distance.
+     * @return {PositionalAudio} A reference to this instance.
+     */
+    setMaxDistance(value) {
+      this.panner.maxDistance = value;
+      return this;
+    }
+    /**
+     * Sets the directional cone in which the audio can be listened.
+     *
+     * @param {number} coneInnerAngle - An angle, in degrees, of a cone inside of which there will be no volume reduction.
+     * @param {number} coneOuterAngle - An angle, in degrees, of a cone outside of which the volume will be reduced by a constant value, defined by the `coneOuterGain` parameter.
+     * @param {number} coneOuterGain - The amount of volume reduction outside the cone defined by the `coneOuterAngle`. When set to `0`, no sound can be heard.
+     * @return {PositionalAudio} A reference to this instance.
+     */
+    setDirectionalCone(coneInnerAngle, coneOuterAngle, coneOuterGain) {
+      this.panner.coneInnerAngle = coneInnerAngle;
+      this.panner.coneOuterAngle = coneOuterAngle;
+      this.panner.coneOuterGain = coneOuterGain;
+      return this;
+    }
+    updateMatrixWorld(force) {
+      super.updateMatrixWorld(force);
+      if (this.hasPlaybackControl === true && this.isPlaying === false) return;
+      this.matrixWorld.decompose(_position, _quaternion, _scale);
+      _orientation.set(0, 0, 1).applyQuaternion(_quaternion);
+      const panner = this.panner;
+      if (panner.positionX) {
+        const endTime = this.context.currentTime + this.listener.timeDelta;
+        panner.positionX.linearRampToValueAtTime(_position.x, endTime);
+        panner.positionY.linearRampToValueAtTime(_position.y, endTime);
+        panner.positionZ.linearRampToValueAtTime(_position.z, endTime);
+        panner.orientationX.linearRampToValueAtTime(_orientation.x, endTime);
+        panner.orientationY.linearRampToValueAtTime(_orientation.y, endTime);
+        panner.orientationZ.linearRampToValueAtTime(_orientation.z, endTime);
+      } else {
+        panner.setPosition(_position.x, _position.y, _position.z);
+        panner.setOrientation(_orientation.x, _orientation.y, _orientation.z);
+      }
     }
   };
   var PropertyMixer = class {
@@ -24015,8 +27267,8 @@ postMessage({ t: "started" });
   }
   function ownSounds(value, base, limit) {
     const out = [];
-    for (const v of Array.isArray(value) ? value : [value]) {
-      const address = ownSound(v, base);
+    for (const v2 of Array.isArray(value) ? value : [value]) {
+      const address = ownSound(v2, base);
       if (address && !out.includes(address)) out.push(address);
       if (out.length >= limit) break;
     }
@@ -24028,10 +27280,10 @@ postMessage({ t: "started" });
     const { cues, music, hum } = input;
     if (cues && typeof cues === "object") {
       for (const cue of CUES) {
-        const v = cues[cue];
-        if (v === null) out.cues[cue] = null;
-        else if (v !== void 0) {
-          const files2 = ownSounds(v, base, SOUND_LIMITS.variants);
+        const v2 = cues[cue];
+        if (v2 === null) out.cues[cue] = null;
+        else if (v2 !== void 0) {
+          const files2 = ownSounds(v2, base, SOUND_LIMITS.variants);
           if (files2.length) out.cues[cue] = files2;
         }
       }
@@ -24112,7 +27364,7 @@ postMessage({ t: "started" });
   var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
   var LEVEL_STEPS = [0, 0.35, 0.7, 1];
   var LEVEL_WORDS = ["off", "low", "medium", "high"];
-  var unit = (v, fallback) => typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
+  var unit = (v2, fallback) => typeof v2 === "number" && Number.isFinite(v2) ? Math.min(1, Math.max(0, v2)) : fallback;
   function cleanLevels(input) {
     const i = input && typeof input === "object" ? input : {};
     return {
@@ -24125,15 +27377,30 @@ postMessage({ t: "started" });
       hum: i.hum !== false
     };
   }
-  function levelStep(v) {
+  function levelStep(v2) {
     let best = 0;
     LEVEL_STEPS.forEach((s, i) => {
-      if (Math.abs(s - v) < Math.abs(LEVEL_STEPS[best] - v)) best = i;
+      if (Math.abs(s - v2) < Math.abs(LEVEL_STEPS[best] - v2)) best = i;
     });
     return best;
   }
-  function nextLevel(v) {
-    return LEVEL_STEPS[(levelStep(v) + 1) % LEVEL_STEPS.length];
+  function nextLevel(v2) {
+    return LEVEL_STEPS[(levelStep(v2) + 1) % LEVEL_STEPS.length];
+  }
+  var MUSIC_RANGE = 12;
+  var MUSIC_SOURCES = 2;
+  var MUSIC_DUCK = 0.35;
+  function musicToHear(sharing, hear) {
+    if (!hear) return [];
+    return sharing.filter((s) => !s.refused && Number.isFinite(s.metres) && s.metres <= MUSIC_RANGE).sort((a, b) => a.metres - b.metres || a.pubkey.localeCompare(b.pubkey)).slice(0, MUSIC_SOURCES).map((s) => s.pubkey);
+  }
+  function musicFade(metres) {
+    if (!(metres >= 0)) return 0;
+    const near = 2;
+    if (metres <= near) return 1;
+    if (metres >= MUSIC_RANGE) return 0;
+    const t = (metres - near) / (MUSIC_RANGE - near);
+    return (1 - t) * (1 - t);
   }
   function seeded(seed) {
     let h = 2166136261;
@@ -24785,7 +28052,7 @@ postMessage({ t: "started" });
     };
   }
   function addSoundControls(controls2, sounds2) {
-    const word = (v) => LEVEL_WORDS[levelStep(v)];
+    const word = (v2) => LEVEL_WORDS[levelStep(v2)];
     let listed = [];
     const picker = document.createElement("input");
     picker.type = "file";
@@ -25088,8 +28355,8 @@ postMessage({ t: "started" });
     }
     if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
       const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open;
-      for (let round = 0; round < BACKUP_ROUNDS && took === 0; round++) {
-        const batch = more.slice(round * BACKUP_AT_ONCE, (round + 1) * BACKUP_AT_ONCE);
+      for (let round2 = 0; round2 < BACKUP_ROUNDS && took === 0; round2++) {
+        const batch = more.slice(round2 * BACKUP_AT_ONCE, (round2 + 1) * BACKUP_AT_ONCE);
         if (!batch.length) break;
         const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
         learnFrom(last.relays, now());
@@ -25109,13 +28376,17 @@ postMessage({ t: "started" });
   var backup = true;
   var found = null;
   var finding = null;
+  function relayBackup(on3) {
+    if (on3 !== void 0) backup = on3;
+    return backup;
+  }
   function foundRelays(o = {}) {
     const now = o.now ?? (() => Date.now());
     const without = (all) => ({ open: all.open.filter((r) => !(o.not ?? []).includes(r)), closed: all.closed });
     if (!found) {
       try {
         const kept2 = JSON.parse(globalThis.localStorage?.getItem(FOUND_KEY) ?? "null");
-        const list = (v) => Array.isArray(v) ? v.filter((r) => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : [];
+        const list = (v2) => Array.isArray(v2) ? v2.filter((r) => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : [];
         if (kept2 && typeof kept2.at === "number") found = { at: kept2.at, open: list(kept2.open), closed: list(kept2.closed) };
       } catch {
       }
@@ -25154,6 +28425,130 @@ postMessage({ t: "started" });
     learnFrom(again.relays, now());
     const byId = new Map([...got.events, ...again.events].map((e) => [e.id, e]));
     return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
+  }
+
+  // packages/sdk/src/people.ts
+  var KEPT_MOST = 4e5;
+  var FRESH_MS = 6e4;
+  function createPeople(opts) {
+    const { hand } = opts;
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const store = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers5 = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of watchers5) fn();
+    };
+    const keyFor = (who2) => `nswp:follows:${who2}`;
+    const readKept = (who2) => {
+      try {
+        const kept2 = JSON.parse(store?.getItem(keyFor(who2)) ?? "null");
+        return verifyEvent(kept2) && kept2.kind === FOLLOWS_KIND && kept2.pubkey === who2 ? kept2 : null;
+      } catch {
+        return null;
+      }
+    };
+    const keep5 = (list) => {
+      try {
+        const text = JSON.stringify(list);
+        if (text.length <= KEPT_MOST) store?.setItem(keyFor(list.pubkey), text);
+        else store?.removeItem(keyFor(list.pubkey));
+      } catch {
+      }
+    };
+    let relaysKept = null;
+    const ownRelays = (key) => {
+      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: now(), found: found2 };
+      return found2;
+    };
+    let known = null;
+    let looking = null;
+    let offered = null;
+    const look = async (who2) => {
+      const kept2 = readKept(who2);
+      const own = await ownRelays(who2);
+      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
+      const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+      const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
+      const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
+      if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
+      if (list && list !== kept2) keep5(list);
+      if (hand.pubkey() !== who2) return;
+      known = { who: who2, list, answered, at: now() };
+      changed();
+    };
+    const load3 = async (fresh = false) => {
+      const who2 = hand.pubkey();
+      if (!who2) {
+        if (known) {
+          known = null;
+          changed();
+        }
+        return null;
+      }
+      if (known && known.who !== who2) known = null;
+      if (!fresh && known && now() - known.at < FRESH_MS) return followsIn(known.list);
+      looking ?? (looking = look(who2).finally(() => {
+        looking = null;
+      }));
+      await looking;
+      return known && known.who === who2 ? followsIn(known.list) : null;
+    };
+    const change2 = async (pubkey, adding, name) => {
+      const who2 = hand.pubkey();
+      const them = name || "them";
+      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to follow people." };
+      if (!isHex64(pubkey) || pubkey === who2) return { ok: false, why: "refused", said: "That isn't someone who can be followed." };
+      if (!hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change who you follow." };
+      await load3(true);
+      const at = known && known.who === who2 ? known : null;
+      if (!at) return { ok: false, why: "unreachable", said: "Your follow list couldn't be looked for. Nothing was changed." };
+      const list = at.list;
+      if (!list) {
+        if (!at.answered) return { ok: false, why: "unreachable", said: "No relay could be reached to find who you follow, so nothing was changed. Try again in a moment." };
+        if (!adding) return { ok: false, why: "already", said: `You don't follow ${them}.` };
+        if (!offered || offered.who !== pubkey || now() - offered.at > 12e4) {
+          offered = { who: pubkey, at: now() };
+          return { ok: false, why: "no-list", said: `No follow list of yours was found. If you follow nobody yet, press again to start one with ${them}.` };
+        }
+      }
+      offered = null;
+      const follows = followsIn(list).includes(pubkey);
+      if (adding === follows) return { ok: true, why: "already", said: adding ? `You already follow ${them}.` : `You don't follow ${them}.` };
+      const asked = adding ? { add: pubkey } : { remove: pubkey };
+      const signed = await hand.change(list, asked).catch(() => null);
+      if (!signed || !isFollowAsked(signed, { list, ...asked, pubkey: who2 })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
+      keep5(signed);
+      known = { who: who2, list: signed, answered: true, at: now() };
+      changed();
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };
+      return { ok: true, said: adding ? `You follow ${them}. Anyone can see who you follow.` : `You no longer follow ${them}.` };
+    };
+    return {
+      follows: () => known && known.who === hand.pubkey() ? followsIn(known.list) : null,
+      isFollowing(pubkey) {
+        return known && known.who === hand.pubkey() && (known.list || known.answered) ? followsIn(known.list).includes(pubkey) : null;
+      },
+      load: load3,
+      follow: (pubkey, name = "") => change2(pubkey, true, name),
+      unfollow: (pubkey, name = "") => change2(pubkey, false, name),
+      onChange(fn) {
+        watchers5.add(fn);
+        return () => void watchers5.delete(fn);
+      }
+    };
   }
 
   // packages/sdk/src/saves.ts
@@ -25298,7 +28693,7 @@ postMessage({ t: "started" });
     const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
     if (!real || typeof document === "undefined") return NONE2;
     const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
-    const watchers4 = /* @__PURE__ */ new Set();
+    const watchers5 = /* @__PURE__ */ new Set();
     const pending = /* @__PURE__ */ new Map();
     const kept2 = /* @__PURE__ */ new Map();
     const askAbout = (request, read6) => new Promise((done) => {
@@ -25350,7 +28745,7 @@ postMessage({ t: "started" });
     const firstAnswer = /* @__PURE__ */ new Set();
     let n = 0;
     const changed = () => {
-      for (const fn of watchers4) fn();
+      for (const fn of watchers5) fn();
     };
     const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
     const onMessage = (e) => {
@@ -25549,18 +28944,18 @@ postMessage({ t: "started" });
         if (state !== "unlocked" || !frame2 || !more.includes("messages")) return Promise.resolve(null);
         return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
       },
-      score(world, board, score, said = {}) {
+      score(world2, board2, score, said = {}) {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
         const more2 = { ...said.title ? { title: said.title } : {}, ...said.format === "time" ? { format: "time" } : {} };
-        return askAbout({ t: "score", id: `c${++n}`, world, board, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world, board, score, ...more2, origin: location.origin }) ? reply.event : null);
+        return askAbout({ t: "score", id: `c${++n}`, world: world2, board: board2, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world: world2, board: board2, score, ...more2, origin: location.origin }) ? reply.event : null);
       },
-      achieve(world, achievement, title) {
+      achieve(world2, achievement, title) {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        return askAbout({ t: "achieve", id: `a${++n}`, world, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world, id: achievement, title, origin: location.origin }) ? reply.event : null);
+        return askAbout({ t: "achieve", id: `a${++n}`, world: world2, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world: world2, id: achievement, title, origin: location.origin }) ? reply.event : null);
       },
       onChange(fn) {
-        watchers4.add(fn);
-        return () => void watchers4.delete(fn);
+        watchers5.add(fn);
+        return () => void watchers5.delete(fn);
       },
       whenAnswered(ms) {
         if (answered || disposed) return Promise.resolve();
@@ -25639,6 +29034,16 @@ postMessage({ t: "started" });
     return seeking;
   }
   var soon = (ms) => new Promise((done) => setTimeout(done, ms));
+  async function byName(identity) {
+    if (!signerNamed()) return identity;
+    const signer = worldSigner();
+    await signer.whenAnswered(2500);
+    if (signer.state !== "unlocked" || !signer.pubkey) return void 0;
+    if (identity && signer.pubkey === identity.pass.pubkey) return identity;
+    await Promise.race([seekPass(), soon(3e3)]);
+    const who2 = arrival.identity();
+    return who2 && who2.pubkey === signer.pubkey ? { pass: who2.pass, sessionKey: who2.sessionKey } : void 0;
+  }
   function identityWords() {
     const who2 = hereAs();
     const name = who2 ? who2.name || shortNpub(who2.pubkey) : "";
@@ -25699,6 +29104,17 @@ postMessage({ t: "started" });
   var kept = null;
   function worldSaves() {
     return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
+  }
+  var followed = null;
+  function worldPeople() {
+    const signer = () => signerNamed() ? worldSigner() : null;
+    return followed ?? (followed = createPeople({
+      hand: {
+        pubkey: () => signer()?.state === "unlocked" ? signer().pubkey : null,
+        ready: () => !!signer()?.more.includes("follows"),
+        change: (list, change2) => signer()?.follow(list, change2) ?? Promise.resolve(null)
+      }
+    }));
   }
   function signerAction(controls2, opts = {}) {
     const signer = worldSigner();
@@ -25792,6 +29208,7 @@ postMessage({ t: "started" });
   var PICTURES_KEY = "nswp:pictures";
   var PICTURE_LIMITS = { bytes: 3e6, size: 128, waitMs: 9e3 };
   var shown = null;
+  var watchers2 = /* @__PURE__ */ new Set();
   function showsPictures() {
     if (shown !== null) return shown;
     const came = arrivedSettings().pictures;
@@ -25805,13 +29222,23 @@ postMessage({ t: "started" });
     reportSettings("pictures", () => ({ pictures: showsPictures() }));
     return shown;
   }
-  var keep2 = (on2) => {
+  var keep2 = (on3) => {
     try {
-      if (on2) localStorage.removeItem(PICTURES_KEY);
+      if (on3) localStorage.removeItem(PICTURES_KEY);
       else localStorage.setItem(PICTURES_KEY, "0");
     } catch {
     }
   };
+  function setShowsPictures(on3) {
+    showsPictures();
+    shown = on3;
+    keep2(on3);
+    for (const w of watchers2) w();
+  }
+  function onPicturesChange(cb) {
+    watchers2.add(cb);
+    return () => void watchers2.delete(cb);
+  }
   function badge(image, width, height) {
     const size = PICTURE_LIMITS.size;
     const canvas = document.createElement("canvas");
@@ -26283,7 +29710,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function el(tag2, attrs = {}, ...children) {
     const e = document.createElement(tag2);
-    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    for (const [k, v2] of Object.entries(attrs)) e.setAttribute(k, v2);
     for (const c of children) if (c) e.append(c);
     return e;
   }
@@ -26880,7 +30307,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   // packages/sdk/src/ui/chat.ts
   var CHAT_KEY = "nswp:chat";
   var shown2 = null;
-  var watchers2 = /* @__PURE__ */ new Set();
+  var watchers3 = /* @__PURE__ */ new Set();
   function showsChat() {
     if (shown2 !== null) return shown2;
     const came = arrivedSettings().chat;
@@ -26894,16 +30321,22 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     reportSettings("chat", () => ({ chat: showsChat() }));
     return shown2;
   }
-  var keep3 = (on2) => {
+  var keep3 = (on3) => {
     try {
-      if (on2) localStorage.removeItem(CHAT_KEY);
+      if (on3) localStorage.removeItem(CHAT_KEY);
       else localStorage.setItem(CHAT_KEY, "0");
     } catch {
     }
   };
+  function setShowsChat(on3) {
+    showsChat();
+    shown2 = on3;
+    keep3(on3);
+    for (const w of watchers3) w();
+  }
   function onChatChange(cb) {
-    watchers2.add(cb);
-    return () => void watchers2.delete(cb);
+    watchers3.add(cb);
+    return () => void watchers3.delete(cb);
   }
   function createUiChat(changed) {
     let send = null;
@@ -26961,6 +30394,38 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return { ready: !!send && showsChat(), title, lines, unread, limit: CHAT_LIMITS.chars, version };
       }
     };
+  }
+  function wrapWords(text, measure, width, rows) {
+    const out = [];
+    let row = "";
+    const push = (word) => {
+      let rest = [...word];
+      while (rest.length) {
+        let n = rest.length;
+        while (n > 1 && measure(rest.slice(0, n).join("")) > width) n--;
+        const piece = rest.slice(0, n).join("");
+        rest = rest.slice(n);
+        if (rest.length) out.push(piece);
+        else row = piece;
+      }
+    };
+    for (const word of text.split(" ").filter(Boolean)) {
+      const tried = row ? `${row} ${word}` : word;
+      if (measure(tried) <= width) row = tried;
+      else {
+        if (row) out.push(row);
+        row = "";
+        if (measure(word) <= width) row = word;
+        else push(word);
+      }
+    }
+    if (row) out.push(row);
+    if (out.length <= rows) return out;
+    const kept2 = out.slice(0, rows);
+    let last = [...kept2[rows - 1]];
+    while (last.length > 1 && measure(`${last.join("")}\u2026`) > width) last.pop();
+    kept2[rows - 1] = `${last.join("").trimEnd()}\u2026`;
+    return kept2;
   }
 
   // packages/sdk/src/ui/letters.ts
@@ -27292,13 +30757,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   // packages/sdk/src/engine-menu.ts
   var read3 = (text) => {
     try {
-      const v = typeof text === "string" && text ? JSON.parse(text) : text;
-      return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
     } catch {
       return {};
     }
   };
-  var words = (v, most) => typeof v === "string" ? v.slice(0, most) : "";
+  var words = (v2, most) => typeof v2 === "string" ? v2.slice(0, most) : "";
   var queue = [];
   var tell = (event) => {
     if (queue.length < 64) queue.push(event);
@@ -27510,28 +30975,28 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function view() {
     if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
-    const v = controls.view();
+    const v2 = controls.view();
     const item = (i) => ({ id: i.id, label: i.label, short: i.short, on: i.on, tone: i.tone });
     return JSON.stringify({
-      title: v.title,
-      address: v.address,
-      presence: v.presence,
+      title: v2.title,
+      address: v2.address,
+      presence: v2.presence,
       open: hud?.open ?? false,
-      sections: v.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
-      hotbar: v.hotbar.map(item)
+      sections: v2.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
+      hotbar: v2.hotbar.map(item)
     });
   }
   function run(id) {
     return typeof id === "string" && !!controls?.run(id);
   }
-  function open(on2) {
-    hud?.setOpen(on2 === true || on2 === "true" || on2 === "1" || on2 === 1);
+  function open(on3) {
+    hud?.setOpen(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
   }
   function presence(level2) {
     if (level2 === "full" || level2 === "quiet" || level2 === "hidden") controls?.setPresence(level2);
   }
-  function claim(on2) {
-    controls?.claimInput(on2 === true || on2 === "true" || on2 === "1" || on2 === 1);
+  function claim(on3) {
+    controls?.claimInput(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
   }
   function door(entry) {
     const d = read3(entry);
@@ -27548,8 +31013,64 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id) ?? "A door", short: "Door", act: () => tell({ type: "door", id }) });
   }
 
+  // packages/sdk/src/engine-world.ts
+  var read4 = (text) => {
+    try {
+      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
+    } catch {
+      return {};
+    }
+  };
+  var three = (v2) => Array.isArray(v2) && v2.length === 3 && v2.every((x) => typeof x === "number" && Number.isFinite(x)) ? v2 : null;
+  var num3 = (v2, otherwise) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : otherwise;
+  function base642(bytes) {
+    let text = "";
+    for (let at = 0; at < bytes.length; at += 32768) text += String.fromCharCode(...bytes.subarray(at, at + 32768));
+    return btoa(text);
+  }
+  var world = null;
+  function engineWorld() {
+    if (world) return world;
+    const scene = new Scene();
+    const rig = new Group();
+    const camera = new PerspectiveCamera(70, 1.6, 0.1, 100);
+    scene.add(rig, camera);
+    world = { scene, camera, rig, presenting: false, sighting: false, set: null };
+    return world;
+  }
+  var parts2 = [];
+  function addFramePart(part) {
+    parts2.push(part);
+  }
+  function frame(view2) {
+    if (!world || !parts2.length) return "{}";
+    const w = world;
+    const i = read4(view2);
+    const nudge = w.set && (Math.abs(w.rig.position.x - w.set.x) > 1e-4 || Math.abs(w.rig.position.z - w.set.z) > 1e-4) ? [w.rig.position.x - w.set.x, w.rig.position.z - w.set.z] : null;
+    const head = three(i.head);
+    const turn = Array.isArray(i.turn) && i.turn.length === 4 && i.turn.every((x) => typeof x === "number" && Number.isFinite(x)) ? i.turn : null;
+    if (head) {
+      w.camera.position.fromArray(head);
+      w.rig.position.set(head[0], num3(i.floor, head[1] - 1.6), head[2]);
+      w.set = { x: head[0], z: head[2] };
+    }
+    if (turn) w.camera.quaternion.fromArray(turn).normalize();
+    w.camera.fov = Math.min(140, Math.max(10, num3(i.fov, w.camera.fov)));
+    w.camera.aspect = Math.min(8, Math.max(0.1, num3(i.aspect, w.camera.aspect)));
+    w.presenting = i.presenting === true;
+    w.sighting = i.sighting === true;
+    w.scene.updateMatrixWorld(true);
+    const dt = Math.min(0.5, Math.max(0, num3(i.dt, 0.016)));
+    const out = {};
+    for (const part of parts2) Object.assign(out, part(i, dt));
+    w.scene.updateMatrixWorld(true);
+    if (nudge) out.nudge = nudge;
+    return JSON.stringify(out);
+  }
+
   // packages/sdk/src/bag.ts
-  var FRESH_MS = 6e4;
+  var FRESH_MS2 = 6e4;
   function createBag(opts) {
     const now = opts.now ?? (() => Date.now());
     const query = opts.query ?? queryRelays;
@@ -27563,9 +31084,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
     })();
-    const watchers4 = /* @__PURE__ */ new Set();
+    const watchers5 = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers4) fn();
+      for (const fn of watchers5) fn();
     };
     const keyFor = (who2) => `nswp:bag:${who2}`;
     const readKept = (who2) => {
@@ -27615,7 +31136,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
       if (known && known.who !== who2) known = null;
-      if (!fresh && known && now() - known.at < FRESH_MS) return bagIn(known.bag);
+      if (!fresh && known && now() - known.at < FRESH_MS2) return bagIn(known.bag);
       looking ?? (looking = look(who2).finally(() => {
         looking = null;
       }));
@@ -27684,8 +31205,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const item = itemCoordinate(itemIn2);
         const fromBag = known && known.who === opts.me() ? bagTints(known.bag)[item] ?? {} : {};
         const here = keptTints()[item];
-        const clean2 = (o) => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter((e) => typeof e[1] === "string" && /^#[0-9a-f]{6}$/.test(e[1])));
-        return { ...fromBag, ...clean2(here) };
+        const clean3 = (o) => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter((e) => typeof e[1] === "string" && /^#[0-9a-f]{6}$/.test(e[1])));
+        return { ...fromBag, ...clean3(here) };
       },
       setTints(itemIn2, tints) {
         const item = itemCoordinate(itemIn2);
@@ -27705,8 +31226,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       add: (item, title = "") => change2(item, true, title),
       remove: (item, title = "") => change2(item, false, title),
       onChange(fn) {
-        watchers4.add(fn);
-        return () => void watchers4.delete(fn);
+        watchers5.add(fn);
+        return () => void watchers5.delete(fn);
       }
     };
   }
@@ -27718,11 +31239,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     sound: 15e4
   };
   var ITEMS_KEY = "nswp:items";
-  var watchers3 = /* @__PURE__ */ new Set();
+  var watchers4 = /* @__PURE__ */ new Set();
   var shown3 = null;
-  var keep4 = (on2) => {
+  var keep4 = (on3) => {
     try {
-      if (on2) globalThis.localStorage?.removeItem(ITEMS_KEY);
+      if (on3) globalThis.localStorage?.removeItem(ITEMS_KEY);
       else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
     } catch {
     }
@@ -27740,15 +31261,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     reportSettings("items", () => ({ items: showsItems() }));
     return shown3;
   }
-  function setShowsItems(on2) {
+  function setShowsItems(on3) {
     showsItems();
-    shown3 = on2;
-    keep4(on2);
-    for (const fn of watchers3) fn();
+    shown3 = on3;
+    keep4(on3);
+    for (const fn of watchers4) fn();
   }
   function onItemsChange(fn) {
-    watchers3.add(fn);
-    return () => void watchers3.delete(fn);
+    watchers4.add(fn);
+    return () => void watchers4.delete(fn);
   }
   async function fetchWithin(url, most) {
     try {
@@ -28066,10 +31587,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return !!at && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName ?? ""));
     };
     let sighting = false;
-    const sight = (on2) => {
-      if (on2 === sighting) return;
-      sighting = on2;
-      o.sight?.(on2);
+    const sight = (on3) => {
+      if (on3 === sighting) return;
+      sighting = on3;
+      o.sight?.(on3);
     };
     const onDown = (e) => {
       if (!document.pointerLockElement || !does()) return;
@@ -28120,7 +31641,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/item-box.ts
-  function runInBox(script, on2, opts = {}) {
+  function runInBox(script, on3, opts = {}) {
     if (typeof document === "undefined") return Promise.resolve(null);
     return new Promise((resolve) => {
       const frame2 = document.createElement("iframe");
@@ -28144,7 +31665,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         clearTimeout(giveUp);
         removeEventListener("message", heard);
         frame2.remove();
-        if (was) on2.stopped?.(why);
+        if (was) on3.stopped?.(why);
         else resolve(null);
       };
       const run2 = {
@@ -28169,7 +31690,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           resolve(run2);
         } else if (m.t === "ask" && running) {
           const ask = cleanAsk(m.name, m.args);
-          if (ask && gates[ask.ask].take(performance.now())) on2.ask(ask);
+          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
         } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
         else if (m.t === "error" && !running) end("failed");
       };
@@ -28301,7 +31822,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const mixers = /* @__PURE__ */ new Map();
     const soundsOf = /* @__PURE__ */ new Map();
     const ray = new Raycaster();
-    const v = new Vector3();
+    const v2 = new Vector3();
     const w = new Vector3();
     let clock = 0;
     let lastAt = null;
@@ -28410,8 +31931,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       void soundOf(item2, name).then((sound) => {
         if (!sound || !o.sounds) return;
         if (!at) return o.sounds.playForeign(sound);
-        o.camera.getWorldPosition(v);
-        const to = w.copy(at).sub(v);
+        o.camera.getWorldPosition(v2);
+        const to = w.copy(at).sub(v2);
         const distance = to.length();
         const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
         const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
@@ -28505,14 +32026,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const base = mesh.userData.base;
       const left = Math.min(1, (head - tail) / thing.trailSeconds);
       const p = new Vector3();
-      const q = new Vector3();
+      const q2 = new Vector3();
       const side = new Vector3();
       for (let i = 0; i <= TRAIL_STEPS; i++) {
         const f = i / TRAIL_STEPS;
         const t = head - (head - tail) * f;
         p.fromArray(shotAt(thing.shot, t));
-        q.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
-        side.copy(p).sub(q).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
+        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
+        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
         position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
         position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
         const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
@@ -28551,13 +32072,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const late = Math.min(PLAY_LIMITS.life, clock - born);
       while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
     };
-    const stick = (thing, at, onto, on2) => {
+    const stick = (thing, at, onto, on3) => {
       thing.object.position.copy(at);
       const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
       if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
       if (onto) onto.attach(thing.object);
       thing.state = "stuck";
-      thing.on = on2;
+      thing.on = on3;
       thing.until = thing.t + thing.shot.stick;
     };
     const self2 = () => {
@@ -28565,7 +32086,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const floor = o.rig.getWorldPosition(new Vector3()).y;
       return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
     };
-    const shapeOf = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
+    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
     const reached = (thing, at) => {
       const me = self2();
       taken++;
@@ -28623,7 +32144,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       for (const p of o.people()) {
         if (p.pubkey === thing.by) continue;
-        const shape = shapeOf(p);
+        const shape = shapeOf2(p);
         const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
         if (t !== null && t < first) {
           first = t;
@@ -28680,15 +32201,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       pointed = null;
       if (said) ({ from, to } = said);
       else if (tapped || o.sighting?.()) {
-        const q = o.camera.getWorldQuaternion(new Quaternion());
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
         const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q));
-        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q));
+        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
+        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
       } else {
-        const q = o.camera.getWorldQuaternion(new Quaternion());
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
         const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q));
-        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q));
+        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
+        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
       }
       const dir = to.clone().sub(from).normalize();
       if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
@@ -28821,7 +32342,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
           if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
           thing.agreed = true;
-          const feet = shapeOf(person).feet;
+          const feet = shapeOf2(person).feet;
           const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
           if (thing.on !== from) stick(thing, at, person.body, from);
           thing.agreeBy = null;
@@ -28844,7 +32365,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
           if (pending.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
           if (!rate.take(clock * 1e3)) return;
-          if (person.head.distanceTo(v.fromArray(shot.from)) > 3) return;
+          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
         }
         const does = (holding) => {
           if (!holding) return;
@@ -28892,7 +32413,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             sayState();
           }
         }
-        const on2 = active();
+        const on3 = active();
         const down = own.downUntil > 0;
         if (wordsSprite) wordsSprite.visible = !o.sighting?.();
         const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
@@ -28900,29 +32421,29 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
         const scale = Math.min(0.3, wide * 0.62);
         ownBar.scale.set(scale, scale / 6, 1);
-        const want2 = on2 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
+        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
         own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
         ownBar.visible = own.shown > 0.02;
         ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
         if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
         own.flash = Math.max(0, own.flash - dt / 0.55);
         const low = !down && own.value < own.full && own.value <= 1;
-        const red = on2 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
         edge.visible = red > 0.01;
         edge.material.opacity = red;
         edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
-        glitch.visible = on2 && down && lively() && Math.random() < 0.8;
+        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
         if (glitch.visible) {
           glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
           glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
           glitch.material.opacity = 0.18 + Math.random() * 0.3;
           if (glitch.material.map) glitch.material.map.offset.y = Math.random();
         }
-        const people = o.people();
+        const people2 = o.people();
         for (const [who2, shown4] of bars) {
-          shown4.sprite.visible = on2 && clock < shown4.until && !muted(who2);
-          const person = people.find((x) => x.pubkey === who2);
-          const out = on2 && shown4.value === 0 && clock < shown4.until && !muted(who2);
+          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
+          const person = people2.find((x) => x.pubkey === who2);
+          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
           if (person?.root) {
             if (out && lively()) {
               person.root.visible = person.root.visible && Math.random() > 0.3;
@@ -28973,13 +32494,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       snapshot() {
         const clips = clipsSaid;
         clipsSaid = [];
-        const q = new Quaternion();
+        const q2 = new Quaternion();
         const at = new Vector3();
         const three2 = (x) => [x.x, x.y, x.z];
         return {
           things: things.map((t) => {
             t.object.getWorldPosition(at);
-            t.object.getWorldQuaternion(q);
+            t.object.getWorldQuaternion(q2);
             const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
             return {
               key: `${t.by}:${t.shot.id}`,
@@ -28990,7 +32511,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
               on: t.on,
               ref: t.ref,
               at: three2(at),
-              turn: [q.x, q.y, q.z, q.w],
+              turn: [q2.x, q2.y, q2.z, q2.w],
               scale: t.object.scale.x,
               test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1) } : null,
               down: t.state === "falling" && !t.flooredAt
@@ -29061,27 +32582,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine-items.ts
-  var read4 = (text) => {
-    try {
-      const v = typeof text === "string" && text ? JSON.parse(text) : text;
-      return v && typeof v === "object" && !Array.isArray(v) ? v : {};
-    } catch {
-      return {};
-    }
-  };
-  var three = (v) => Array.isArray(v) && v.length === 3 && v.every((x) => typeof x === "number" && Number.isFinite(x)) ? v : null;
-  var num3 = (v, otherwise) => typeof v === "number" && Number.isFinite(v) ? v : otherwise;
   var on = null;
-  function base64(bytes) {
-    let text = "";
-    for (let at = 0; at < bytes.length; at += 32768) text += String.fromCharCode(...bytes.subarray(at, at + 32768));
-    return btoa(text);
-  }
   function want(named) {
     const state = on;
     if (!state || state.models.has(named.model.sha256)) return;
     state.models.set(named.model.sha256, "");
-    void state.store.modelBytes(named).then((got) => state.models.set(named.model.sha256, got ? base64(got.bytes) : "!"));
+    void state.store.modelBytes(named).then((got) => state.models.set(named.model.sha256, got ? base642(got.bytes) : "!"));
   }
   function makeOverlay() {
     if (typeof document === "undefined") return null;
@@ -29132,34 +32638,28 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
   }
   function items(options) {
-    const parts2 = engineParts();
+    const parts3 = engineParts();
     if (on) return JSON.stringify({ ok: true, rule: on.rule });
     const o = read4(options);
     const rule = cleanItemsRule(o.rule);
-    if (!parts2) return JSON.stringify({ ok: false, rule, why: "menu-first" });
+    if (!parts3) return JSON.stringify({ ok: false, rule, why: "menu-first" });
     if (rule === "none") return JSON.stringify({ ok: false, rule, why: "no-items" });
     const relays = Array.isArray(o.relays) ? o.relays.filter((r) => typeof r === "string") : void 0;
     const store = createItemStore(relays?.length ? { relays } : {});
-    const scene = new Scene();
-    const rig = new Group();
-    const camera = new PerspectiveCamera(70, 1.6, 0.1, 100);
-    scene.add(rig, camera);
+    const world2 = engineWorld();
+    const { scene, camera, rig } = world2;
     const nothing = async () => new Group();
     const shapeless = { ...store, model: nothing, sent: nothing, marker: () => new Group(), clips: () => [] };
-    const { controls: controls2, sounds: sounds2 } = parts2;
+    const { controls: controls2, sounds: sounds2 } = parts3;
     const me = () => hereAs()?.pubkey ?? null;
     const state = on = {
       rule,
       store,
-      scene,
-      camera,
-      rig,
+      world: world2,
       held: null,
       asked: { sha: "" },
       models: /* @__PURE__ */ new Map(),
       wantSight: false,
-      sighting: false,
-      presenting: false,
       accent: controls2.theme.accent,
       overlay: makeOverlay(),
       play: null,
@@ -29179,8 +32679,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       tell: () => {
       },
       deferred: true,
-      presenting: () => state.presenting,
-      sighting: () => state.sighting,
+      presenting: () => world2.presenting,
+      sighting: () => world2.sighting,
       theme: () => ({ accent: controls2.theme.accent, motion: controls2.theme.motion }),
       onChange: () => state.presses?.refresh()
     });
@@ -29212,7 +32712,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       tinted: (item, tints) => {
         if (state.held?.item.id === item) state.held = { item: state.held.item, tints: cleanTints(state.held.item, tints) };
       },
-      presenting: () => state.presenting
+      presenting: () => world2.presenting
     });
     onHereAs(() => bagging.refresh());
     state.presses = addItemControls(controls2, {
@@ -29221,24 +32721,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
       sight: (wanted) => void (state.wantSight = wanted)
     });
+    addFramePart(itemsFrame);
     return JSON.stringify({ ok: true, rule });
   }
-  function frame(view2) {
+  function itemsFrame(i, dt) {
     const state = on;
-    if (!state) return "{}";
-    const i = read4(view2);
-    const head = three(i.head);
-    const turn = Array.isArray(i.turn) && i.turn.length === 4 && i.turn.every((x) => typeof x === "number" && Number.isFinite(x)) ? i.turn : null;
-    if (head) {
-      state.camera.position.fromArray(head);
-      state.rig.position.set(head[0], num3(i.floor, head[1] - 1.6), head[2]);
-    }
-    if (turn) state.camera.quaternion.fromArray(turn).normalize();
-    state.camera.fov = Math.min(140, Math.max(10, num3(i.fov, state.camera.fov)));
-    state.camera.aspect = Math.min(8, Math.max(0.1, num3(i.aspect, state.camera.aspect)));
-    state.presenting = i.presenting === true;
-    state.sighting = i.sighting === true;
-    state.scene.updateMatrixWorld(true);
+    if (!state) return {};
+    const presenting = state.world.presenting;
     for (const m of Array.isArray(i.met) ? i.met.slice(0, 64) : []) {
       const at = three(m?.at);
       if (at && typeof m.key === "string") state.play.met(m.key, num3(m.step, -1), num3(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
@@ -29246,17 +32735,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     for (const f of Array.isArray(i.floors) ? i.floors.slice(0, 64) : []) {
       if (typeof f?.key === "string") state.play.floored(f.key, num3(f.y, NaN));
     }
-    state.play.update(Math.min(0.5, Math.max(0, num3(i.dt, 0.016))));
+    state.play.update(dt);
     const now = state.play.snapshot();
     for (const thing of now.things) if (!state.models.has(thing.model)) state.models.set(thing.model, "!");
-    if (state.overlay) paint(state.overlay, now.own, state.accent, state.presenting);
+    if (state.overlay) paint(state.overlay, now.own, state.accent, presenting);
     const held = state.held;
-    return JSON.stringify({
+    return {
       rule: state.rule,
       held: held ? { id: held.item.id, title: held.item.title, model: held.item.model.sha256, size: held.item.size, tints: Object.fromEntries(held.item.tints.map((t) => [t.slot, held.tints[t.slot] ?? t.color])), aim: held.item.aim, acts: !!state.play.does } : null,
-      sight: state.wantSight && !!held?.item.aim && !state.presenting,
+      sight: state.wantSight && !!held?.item.aim && !presenting,
       ...now
-    });
+    };
   }
   function model(sha) {
     return typeof sha === "string" ? on?.models.get(sha) ?? "" : "";
@@ -29280,13 +32769,3413 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return true;
   }
 
+  // packages/sdk/src/alloy.ts
+  var SKY_GLSL = `
+vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
+  float h = clamp(d.y, -1.0, 1.0);
+  float band = pow(1.0 - abs(h), 9.0);
+  float line = pow(1.0 - abs(h), 60.0);
+  vec3 up = mix(ground * 0.55, ground * 0.2, smoothstep(0.0, 0.7, h));
+  vec3 base = h > 0.0 ? up : ground;
+  return base + accent * (band * 0.4 + line * 0.9);
+}`;
+  function createAlloy(accent, opts = {}) {
+    const material = new ShaderMaterial({
+      uniforms: {
+        uAccent: { value: new Color(accent) },
+        uGround: { value: new Color(opts.ground ?? 263947) },
+        uTime: { value: 0 },
+        uAim: { value: 0 },
+        uGloss: { value: opts.gloss ?? 0.5 },
+        uSpeed: { value: opts.speed ?? 1 },
+        uSheen: { value: opts.sheen ?? 0 },
+        uReach: { value: opts.reach ?? 3 },
+        uOpacity: { value: 1 }
+      },
+      vertexShader: `
+      attribute vec3 tone; attribute float glow; attribute float flow;
+      varying vec3 vWorld; varying vec3 vNormal; varying vec3 vTone; varying float vGlow; varying float vFlow;
+      void main(){
+        mat4 m = modelMatrix;
+        #ifdef USE_INSTANCING
+          m = modelMatrix * instanceMatrix;
+        #endif
+        vec4 w = m * vec4(position, 1.0);
+        vWorld = w.xyz;
+        vNormal = normalize(mat3(m) * normal);
+        vTone = tone; vGlow = glow; vFlow = flow;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
+      fragmentShader: `
+      uniform vec3 uAccent; uniform vec3 uGround; uniform float uTime; uniform float uAim; uniform float uGloss; uniform float uSpeed; uniform float uSheen; uniform float uReach; uniform float uOpacity;
+      varying vec3 vWorld; varying vec3 vNormal; varying vec3 vTone; varying float vGlow; varying float vFlow;
+      ${SKY_GLSL}
+      void main(){
+        vec3 N = normalize(vNormal);
+        vec3 V = normalize(cameraPosition - vWorld);
+        float facing = max(dot(N, V), 0.0);
+        // Form: a light from above and in front, and more from the sky than from the floor.
+        float key = max(dot(N, normalize(vec3(0.35, 0.8, 0.5))), 0.0);
+        float dome = 0.5 + 0.5 * N.y;
+        vec3 c = vTone * (0.3 + 0.6 * dome + 0.75 * key);
+        // The place reflected in it, strongest at a glancing angle, as on real metal.
+        float fresnel = pow(1.0 - facing, 4.0);
+        vec3 mirror = skyGlow(reflect(-V, N), uAccent, uGround);
+        c += mirror * (0.1 + 0.75 * fresnel) * uGloss;
+        // A rim of the place's light where the surface turns away.
+        c += uAccent * pow(1.0 - facing, 3.0) * 0.16;
+        // Colours that shift with the angle, for things meant to be looked at.
+        if (uSheen > 0.0) {
+          vec3 shift = 0.5 + 0.5 * cos(6.2831 * (facing * 1.2 + vec3(0.0, 0.33, 0.67)) + vWorld.y * 1.5);
+          c = mix(c, c + shift * uAccent * 0.8 + shift * 0.1, uSheen * (0.3 + 0.7 * fresnel));
+        }
+        // Lights: the place's colour, with a brighter pulse travelling along them.
+        if (vGlow > 0.001) {
+          float run = fract(vFlow / uReach - uTime * 0.22 * uSpeed);
+          float pulse = smoothstep(0.8, 1.0, run) + smoothstep(0.1, 0.0, run) * 0.6;
+          vec3 light = mix(uAccent, vec3(1.0), 0.06 + 0.5 * pulse + 0.3 * uAim);
+          c = mix(c, light * (0.8 + 0.6 * pulse + 0.5 * uAim), vGlow);
+        }
+        // Distance takes it into the ground's colour.
+        float far = length(cameraPosition - vWorld);
+        c = mix(c, uGround, smoothstep(55.0, 290.0, far) * (1.0 - vGlow * 0.5));
+        gl_FragColor = vec4(c, uOpacity);
+        #include <colorspace_fragment>
+      }`
+    });
+    Object.defineProperty(material, "opacity", {
+      get: () => material.uniforms.uOpacity.value,
+      set: (value) => {
+        if (material.uniforms?.uOpacity) material.uniforms.uOpacity.value = value;
+      }
+    });
+    material.tick = (t) => {
+      material.uniforms.uTime.value = t;
+    };
+    material.aim = (amount) => {
+      material.uniforms.uAim.value = amount;
+    };
+    return material;
+  }
+
+  // packages/sdk/src/mesh.ts
+  var va = new Vector3();
+  var vb = new Vector3();
+  var vc = new Vector3();
+  var vd = new Vector3();
+  var e1 = new Vector3();
+  var e2 = new Vector3();
+  var nn = new Vector3();
+  var hint = new Vector3();
+  var col = new Color();
+  var MeshBuilder = class {
+    constructor() {
+      __publicField(this, "positions", []);
+      __publicField(this, "normals", []);
+      __publicField(this, "tones", []);
+      __publicField(this, "glows", []);
+      __publicField(this, "flows", []);
+      __publicField(this, "matrix", new Matrix4());
+      __publicField(this, "rotation", new Matrix3());
+      /** The colour faces take when they don't say. */
+      __publicField(this, "tone", new Color(791837));
+      /** The colour of this piece's lights, for a material that reads plain vertex colours (see `geometry`). */
+      __publicField(this, "light", new Color(16777215));
+      __publicField(this, "colors", []);
+    }
+    get triangles() {
+      return this.positions.length / 9;
+    }
+    /** Place and turn everything added from now on: a position, and degrees about the vertical. */
+    at(position = [0, 0, 0], degrees = 0, scale = 1) {
+      this.matrix.makeRotationY(MathUtils.degToRad(degrees)).scale(vc.set(scale, scale, scale)).setPosition(position[0], position[1], position[2]);
+      this.rotation.setFromMatrix4(this.matrix);
+      return this;
+    }
+    /** Place everything added from now on by any matrix: for a piece that leans or lies on its side. */
+    place(matrix) {
+      this.matrix.copy(matrix);
+      this.rotation.setFromMatrix4(this.matrix);
+      return this;
+    }
+    /** A flat four-sided face. Pass `out`, roughly which way it faces, and the corners may be given in either order. */
+    quad(a, b, c, d, paint2 = {}, out) {
+      const f = paint2.flow;
+      const fl = Array.isArray(f) ? f : [f ?? 0, f ?? 0, f ?? 0, f ?? 0];
+      va.set(...a);
+      vb.set(...b);
+      vc.set(...c);
+      vd.set(...d);
+      nn.crossVectors(e1.subVectors(vb, va), e2.subVectors(vd, va));
+      if (nn.lengthSq() < 1e-12) nn.crossVectors(e1.subVectors(vc, vb), e2.subVectors(vd, vb));
+      let order = [va, vb, vc, va, vc, vd];
+      let fo = [fl[0], fl[1], fl[2], fl[0], fl[2], fl[3]];
+      if (out && nn.dot(hint.set(...out)) < 0) {
+        nn.negate();
+        order = [va, vd, vc, va, vc, vb];
+        fo = [fl[0], fl[3], fl[2], fl[0], fl[2], fl[1]];
+      }
+      nn.applyMatrix3(this.rotation).normalize();
+      col.set(paint2.color ?? this.tone).multiplyScalar(paint2.shade ?? 1);
+      for (let i = 0; i < 6; i++) {
+        const v2 = e1.copy(order[i]).applyMatrix4(this.matrix);
+        this.positions.push(v2.x, v2.y, v2.z);
+        this.normals.push(nn.x, nn.y, nn.z);
+        this.tones.push(col.r, col.g, col.b);
+        this.glows.push(paint2.glow ?? 0);
+        const g = paint2.glow ?? 0;
+        this.colors.push(col.r + (this.light.r - col.r) * g, col.g + (this.light.g - col.g) * g, col.b + (this.light.b - col.b) * g);
+        this.flows.push(fo[i]);
+      }
+    }
+    tri(a, b, c, paint2 = {}, out) {
+      this.quad(a, b, c, c, paint2, out);
+    }
+    /** A face with a panel pressed into it. Corners in order round the face; `out` is which way it faces. */
+    panel(corners, out, o, paint2 = {}) {
+      const [a, b, c, d] = corners.map((p) => new Vector3(...p));
+      const n = new Vector3(...out).normalize();
+      const mid = new Vector3().add(a).add(b).add(c).add(d).multiplyScalar(0.25);
+      const inner = [a, b, c, d].map((p, i, all2) => {
+        const next = all2[(i + 1) % 4];
+        const prev = all2[(i + 3) % 4];
+        return p.clone().add(next.clone().sub(p).setLength(o.margin)).add(prev.clone().sub(p).setLength(o.margin));
+      });
+      const deep = inner.map((p) => p.clone().addScaledVector(n, -o.depth));
+      const arr = (v2) => [v2.x, v2.y, v2.z];
+      const all = [a, b, c, d];
+      for (let i = 0; i < 4; i++) {
+        const j = (i + 1) % 4;
+        this.quad(arr(all[i]), arr(all[j]), arr(inner[j]), arr(inner[i]), paint2, out);
+        const wallMid = inner[i].clone().add(inner[j]).multiplyScalar(0.5);
+        const inward = mid.clone().sub(wallMid);
+        this.quad(arr(inner[i]), arr(inner[j]), arr(deep[j]), arr(deep[i]), { ...paint2, glow: o.glow ?? 0, shade: (paint2.shade ?? 1) * (o.glow ? 1 : 0.6) }, arr(inward));
+      }
+      this.quad(arr(deep[0]), arr(deep[1]), arr(deep[2]), arr(deep[3]), { ...paint2, shade: (paint2.shade ?? 1) * 0.55 }, out);
+    }
+    /** A box with its edges bevelled, and panels pressed into the faces named: "x+ x- y+ y- z+ z-", or "sides". */
+    box(size, at, o = {}) {
+      const [hx, hy, hz] = [size[0] / 2, size[1] / 2, size[2] / 2];
+      const b = Math.min(o.bevel ?? 0, hx * 0.9, hy * 0.9, hz * 0.9);
+      const h = [hx, hy, hz];
+      const want2 = (o.panel?.faces ?? "sides").replace("sides", "x+ x- z+ z-").split(/\s+/);
+      const point = (axis, s) => {
+        const p = [0, 0, 0];
+        for (let k = 0; k < 3; k++) p[k] = at[k] + s[k] * (k === axis ? h[k] : h[k] - b);
+        return p;
+      };
+      const signs = [-1, 1];
+      for (let axis = 0; axis < 3; axis++) {
+        const [u, v2] = [(axis + 1) % 3, (axis + 2) % 3];
+        for (const s of signs) {
+          const corner = (su, sv) => {
+            const q2 = [0, 0, 0];
+            q2[axis] = s;
+            q2[u] = su;
+            q2[v2] = sv;
+            return point(axis, q2);
+          };
+          const out = [0, 0, 0];
+          out[axis] = s;
+          const face = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
+          const name = `${"xyz"[axis]}${s > 0 ? "+" : "-"}`;
+          if (o.panel && want2.includes(name) && Math.min(h[u], h[v2]) - b > o.panel.margin * 1.2) this.panel(face, out, o.panel, o);
+          else this.quad(...face, o, out);
+        }
+      }
+      if (b <= 0) return;
+      for (let axis = 0; axis < 3; axis++) {
+        const [u, v2] = [(axis + 1) % 3, (axis + 2) % 3];
+        for (const su of signs)
+          for (const sv of signs) {
+            const s = (along) => {
+              const q2 = [0, 0, 0];
+              q2[axis] = along;
+              q2[u] = su;
+              q2[v2] = sv;
+              return q2;
+            };
+            const out = [0, 0, 0];
+            out[u] = su;
+            out[v2] = sv;
+            this.quad(point(u, s(-1)), point(u, s(1)), point(v2, s(1)), point(v2, s(-1)), { ...o, shade: (o.shade ?? 1) * 1.25 }, out);
+          }
+      }
+      for (const sx of signs) for (const sy of signs) for (const sz of signs) this.tri(point(0, [sx, sy, sz]), point(1, [sx, sy, sz]), point(2, [sx, sy, sz]), { ...o, shade: (o.shade ?? 1) * 1.25 }, [sx, sy, sz]);
+    }
+    /**
+     * Sweep a profile along a path. The profile is a closed outline drawn
+     * anticlockwise in each frame's own x and y; `paint(i)` colours the side that
+     * runs from point i to the next. Open ends are capped.
+     */
+    sweep(profile, frames, paint2 = () => ({}), o = {}) {
+      const at = (k, i) => {
+        const f = frames[k];
+        const [u, v2] = profile[i % profile.length];
+        return [f.p[0] + f.x[0] * u + f.y[0] * v2, f.p[1] + f.x[1] * u + f.y[1] * v2, f.p[2] + f.x[2] * u + f.y[2] * v2];
+      };
+      const last = o.loop ? frames.length : frames.length - 1;
+      for (let k = 0; k < last; k++) {
+        const k2 = (k + 1) % frames.length;
+        const [t1, t2] = [frames[k].t ?? k, frames[k2].t ?? k + 1];
+        for (let i = 0; i < profile.length; i++) {
+          const p = paint2(i);
+          this.quad(at(k, i), at(k, i + 1), at(k2, i + 1), at(k2, i), { ...p, flow: p.flow ?? [t1, t1, t2, t2] });
+        }
+      }
+      if (o.loop || o.caps === false) return;
+      for (const [k, dir] of [[0, -1], [frames.length - 1, 1]]) {
+        const f = frames[k];
+        const tangent = new Vector3(...f.x).cross(new Vector3(...f.y)).multiplyScalar(dir);
+        for (let i = 1; i < profile.length - 1; i++) this.tri(at(k, 0), at(k, i), at(k, i + 1), paint2(-1), [tangent.x, tangent.y, tangent.z]);
+      }
+    }
+    /**
+     * Turn a profile on a lathe about the vertical through `at`. The profile is
+     * [radius, height] pairs from the bottom up. `sides` is how many faces round:
+     * 4 makes a square column, 6 a hexagon, 24 a round one. `twist` turns it as it rises.
+     * `paint(row, side)` colours each face: `row` counts up the profile, `side` round it.
+     */
+    lathe(profile, at, sides, paint2 = () => ({}), o = {}) {
+      const top = profile[profile.length - 1][1];
+      const ring = (row, s) => {
+        const [r, y] = profile[row];
+        const a = s / sides * Math.PI * 2 + (o.turn ?? 0) + (o.twist ?? 0) * (top ? y / top : 0);
+        return [at[0] + Math.cos(a) * r, at[1] + y, at[2] + Math.sin(a) * r];
+      };
+      for (let row = 0; row < profile.length - 1; row++) {
+        const [r1, y1] = profile[row];
+        const [r2, y2] = profile[row + 1];
+        for (let s = 0; s < sides; s++) {
+          const a = (s + 0.5) / sides * Math.PI * 2 + (o.turn ?? 0);
+          const out = [Math.cos(a) * (y2 - y1), -(r2 - r1), Math.sin(a) * (y2 - y1)];
+          if (Math.abs(out[0]) + Math.abs(out[1]) + Math.abs(out[2]) < 1e-9) continue;
+          const p = paint2(row, s);
+          this.quad(ring(row, s), ring(row, s + 1), ring(row + 1, s + 1), ring(row + 1, s), { ...p, flow: p.flow ?? [y1, y1, y2, y2] }, out);
+        }
+      }
+    }
+    /** A thin lit line lying just proud of a surface: from a to b, `width` wide, on a face that points `out`. */
+    line(a, b, width, out, paint2 = {}) {
+      const n = new Vector3(...out).normalize();
+      const along = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      const side = along.clone().cross(n).setLength(width / 2);
+      const lift = n.clone().multiplyScalar(4e-3);
+      const A = new Vector3(...a).add(lift);
+      const B = new Vector3(...b).add(lift);
+      const len = along.length();
+      this.quad(
+        [A.x - side.x, A.y - side.y, A.z - side.z],
+        [B.x - side.x, B.y - side.y, B.z - side.z],
+        [B.x + side.x, B.y + side.y, B.z + side.z],
+        [A.x + side.x, A.y + side.y, A.z + side.z],
+        { glow: 1, ...paint2, flow: paint2.flow ?? [0, len, len, 0] },
+        out
+      );
+    }
+    /** Everything added, as one geometry. */
+    geometry() {
+      const g = new BufferGeometry();
+      g.setAttribute("position", new Float32BufferAttribute(this.positions, 3));
+      g.setAttribute("normal", new Float32BufferAttribute(this.normals, 3));
+      g.setAttribute("tone", new Float32BufferAttribute(this.tones, 3));
+      g.setAttribute("glow", new Float32BufferAttribute(this.glows, 1));
+      g.setAttribute("flow", new Float32BufferAttribute(this.flows, 1));
+      g.setAttribute("color", new Float32BufferAttribute(this.colors, 3));
+      g.computeBoundingSphere();
+      return g;
+    }
+    /** Everything added, as one mesh in this material (see alloy.ts). */
+    build(material) {
+      return new Mesh(this.geometry(), material);
+    }
+  };
+
+  // packages/sdk/src/figure.ts
+  var DARK = new Color(659221);
+  var DEPTH = 0.4;
+  function nearest(color, palette) {
+    let best = palette[0];
+    let far = Infinity;
+    for (const p of palette) {
+      const d = (p.r - color.r) ** 2 + (p.g - color.g) ** 2 + (p.b - color.b) ** 2;
+      if (d < far) [best, far] = [p, d];
+    }
+    return best.clone();
+  }
+  function buildHead(b, look, main, accent, omit) {
+    let fit;
+    const shade = (row) => ({ color: main, shade: 0.85 + row * 0.1 });
+    switch (look.head) {
+      case "square":
+        b.box([0.24, 0.24, 0.24], [0, 0, 0], { color: main, bevel: 0.03, panel: { margin: 0.045, depth: 0.012, faces: "x+ x- z+ y+" } });
+        fit = { front: 0.12, top: 0.12, half: 0.085 };
+        break;
+      case "tall":
+        b.lathe([[5e-4, -0.14], [0.09, -0.13], [0.115, -0.02], [0.105, 0.14], [0.06, 0.2], [5e-4, 0.21]], [0, 0, 0], 6, shade);
+        fit = { front: 0.098, top: 0.21, half: 0.058 };
+        break;
+      case "wedge":
+        b.lathe([[5e-4, -0.12], [0.17, -0.1], [0.18, 0.09], [5e-4, 0.12]], [0, 0, 0], 3, shade, { turn: Math.PI / 2 });
+        fit = { front: 0.088, top: 0.12, half: 0.11 };
+        break;
+      case "flat":
+        b.lathe([[5e-4, -0.085], [0.15, -0.06], [0.165, 0.03], [0.09, 0.085], [5e-4, 0.09]], [0, 0, 0], 10, shade);
+        fit = { front: 0.152, top: 0.09, half: 0.09 };
+        break;
+      case "faceted":
+        b.lathe([[5e-4, -0.15], [0.1, -0.07], [0.14, 0.03], [0.08, 0.13], [5e-4, 0.165]], [0, 0, 0], 5, (row) => ({ color: main, shade: 0.8 + row * 0.16 }), { turn: Math.PI / 10 });
+        fit = { front: 0.108, top: 0.165, half: 0.064 };
+        break;
+      default:
+        b.lathe([[5e-4, -0.135], [0.07, -0.125], [0.118, -0.05], [0.13, 0.02], [0.112, 0.085], [0.06, 0.128], [5e-4, 0.14]], [0, 0, 0], 8, shade, { turn: Math.PI / 8 });
+        fit = { front: 0.122, top: 0.14, half: 0.075 };
+    }
+    b.lathe([[0.06, -0.135], [0.075, -0.125]], [0, 0, 0], 8, () => ({ glow: 0.8 }), { turn: Math.PI / 8 });
+    const { front, half } = fit;
+    const tallFace = look.face === "tee" || look.face === "wide";
+    b.box([half * 2 + 0.03, tallFace ? 0.13 : 0.085, 0.03], [0, tallFace ? 0 : 0.02, -(front - 6e-3)], { color: DARK, bevel: 8e-3 });
+    const z = -(front + 95e-4);
+    const lit = (w, h, x, y) => b.quad([x - w / 2, y - h / 2, z], [x + w / 2, y - h / 2, z], [x + w / 2, y + h / 2, z], [x - w / 2, y + h / 2, z], { glow: 1 }, [0, 0, -1]);
+    switch (look.face) {
+      case "split":
+        lit(half * 0.72, 0.04, -half * 0.52, 0.02);
+        lit(half * 0.72, 0.04, half * 0.52, 0.02);
+        break;
+      case "dots":
+        lit(0.036, 0.036, -half * 0.5, 0.02);
+        lit(0.036, 0.036, half * 0.5, 0.02);
+        break;
+      case "tee":
+        lit(half * 1.9, 0.03, 0, 0.035);
+        lit(0.03, 0.075, 0, -0.018);
+        break;
+      case "slit":
+        lit(half * 2, 0.014, 0, 0.02);
+        break;
+      case "wide":
+        lit(half * 1.8, 0.085, 0, 0);
+        break;
+      default:
+        lit(half * 1.9, 0.04, 0, 0.02);
+    }
+    if (omit.has("accessory")) return;
+    const t = fit.top;
+    switch (look.accessory) {
+      case "antenna":
+        b.lathe([[0.012, t - 0.03], [6e-3, t + 0.2]], [fit.half * 0.8, 0, 0.02], 4, () => ({ color: accent }));
+        b.box([0.024, 0.024, 0.024], [fit.half * 0.8, t + 0.21, 0.02], { glow: 1 });
+        break;
+      case "halo":
+        b.lathe([[0.13, t + 0.08], [0.165, t + 0.08], [0.165, t + 0.098], [0.13, t + 0.098], [0.13, t + 0.08]], [0, 0, 0], 12, () => ({ glow: 1 }));
+        break;
+      case "hat":
+        b.lathe([[0.09, t - 0.012], [0.21, t - 0.012], [0.21, t + 4e-3], [0.1, t + 0.01], [0.1, t + 0.035], [0.09, t + 0.035], [0.085, t + 0.12], [5e-4, t + 0.125]], [0, 0, 0], 10, (row) => row === 4 ? { glow: 0.8 } : { color: accent, shade: row === 2 ? 1.2 : 0.95 });
+        break;
+      case "crest":
+        b.box([0.022, 0.09, 0.22], [0, t + 0.02, 0.01], { color: accent, bevel: 6e-3 });
+        b.box([0.012, 0.01, 0.2], [0, t + 0.068, 0.01], { glow: 1 });
+        break;
+      case "fins":
+        for (const side of [-1, 1]) {
+          b.box([0.016, 0.13, 0.1], [side * (fit.half + 0.068), 0.035, 0.02], { color: accent, bevel: 5e-3 });
+          b.box([8e-3, 0.11, 0.012], [side * (fit.half + 0.078), 0.035, 0.066], { glow: 1 });
+        }
+        break;
+    }
+  }
+  function buildBody(b, look, main, accent, omit, proven = false) {
+    const k = look.build === "slight" ? 0.86 : look.build === "broad" ? 1.2 : 1;
+    const cloth = (row, rows, side, sides, turn = 0) => {
+      const a = (side + 0.5) / sides * Math.PI * 2 + turn;
+      switch (look.pattern) {
+        case "halves":
+          return Math.cos(a) > 0 ? accent : main;
+        case "stripe":
+          return Math.abs(Math.cos(a)) < 0.35 ? accent : main;
+        case "bands":
+          return row % 2 === 1 ? accent : main;
+        case "yoke":
+          return row >= rows - 3 ? accent : main;
+        default:
+          return main;
+      }
+    };
+    const turned = (profile, sides, band, turn = 0) => b.lathe(profile, [0, 0, 0], sides, (row, side) => row === 0 ? { glow: 0.4 } : row === band ? { glow: 0.75 } : { color: cloth(row, profile.length - 1, side, sides, turn), shade: 0.9 + row % 2 * 0.18 }, { turn });
+    let chest;
+    switch (look.body) {
+      case "coat":
+        turned([[0.03, -0.24], [0.165 * k, -0.25], [0.18 * k, 0.1], [0.205 * k, 0.17], [0.205 * k, 0.195], [0.1, 0.25], [5e-4, 0.25]], 4, 3, Math.PI / 4);
+        chest = 0.125 * k;
+        break;
+      case "plate":
+        b.lathe([[0.03, -0.2], [0.11 * k, -0.25], [0.08 * k, -0.02]], [0, 0, 0], 8, (row) => row === 0 ? { glow: 0.4 } : { color: main, shade: 0.9 }, { turn: Math.PI / 8 });
+        b.box([0.31 * k, 0.26, 0.18], [0, 0.11, 0], { color: look.pattern === "plain" ? main : accent, bevel: 0.035, panel: { margin: 0.05, depth: 0.014, faces: "z+ x+ x-" } });
+        b.box([0.33 * k, 0.012, 0.2], [0, -0.022, 0], { glow: 0.75 });
+        chest = 0.09;
+        break;
+      case "robe":
+        turned([[0.03, -0.4], [0.2 * k, -0.45], [0.16 * k, -0.2], [0.115 * k, 0.1], [0.135 * k, 0.17], [0.135 * k, 0.195], [0.07, 0.25], [5e-4, 0.25]], 10, 4);
+        chest = 0.112 * k;
+        break;
+      default:
+        turned([[0.03, -0.2], [0.17 * k, -0.25], [0.12 * k, 0.12], [0.145 * k, 0.165], [0.145 * k, 0.19], [0.08, 0.25], [5e-4, 0.25]], 6, 3);
+        chest = 0.108 * k;
+    }
+    if (!omit.has("shoulders")) {
+      switch (look.shoulders) {
+        case "pads":
+          for (const side of [-1, 1]) {
+            b.box([0.12, 0.06, 0.15], [side * (0.17 * k + 0.03), 0.2, 0], { color: accent, bevel: 0.02 });
+            b.box([8e-3, 0.02, 0.13], [side * (0.17 * k + 0.092), 0.2, 0], { glow: 1 });
+          }
+          break;
+        case "mantle":
+          b.lathe([[0.09, 0.2], [0.24 * k, 0.165], [0.25 * k, 0.19], [0.1, 0.262]], [0, 0, 0], 8, (row) => row === 1 ? { glow: 0.7 } : { color: accent, shade: row === 2 ? 1.15 : 0.8 }, { turn: Math.PI / 8 });
+          break;
+        case "collar":
+          b.lathe([[0.1, 0.22], [0.15, 0.31], [0.135, 0.318], [0.09, 0.24]], [0, 0, 0], 8, (row) => row === 1 ? { glow: 0.9 } : { color: accent, shade: row === 0 ? 1.1 : 0.7 }, { turn: Math.PI / 8 });
+          break;
+      }
+    }
+    if (omit.has("mark")) return;
+    const plate = (x, y, z, cell, facing) => {
+      const pitch = cell * 1.14;
+      const wide = pitch * 5 + cell * 0.7;
+      b.box([wide, wide, 0.02], [x, y, z - facing * 8e-3], { color: DARK, bevel: 6e-3 });
+      if (proven) {
+        const [half, band, zz] = [wide / 2 + cell * 0.55, cell * 0.38, z + facing * 25e-4];
+        const bar = (x0, y0, x1, y1) => b.quad([x + x0, y + y0, zz], [x + x1, y + y0, zz], [x + x1, y + y1, zz], [x + x0, y + y1, zz], { glow: 1 }, [0, 0, facing]);
+        bar(-half, half - band, half, half);
+        bar(-half, -half, half, -half + band);
+        bar(-half, -half + band, -half + band, half - band);
+        bar(half - band, -half + band, half, half - band);
+      }
+      markGrid(look.mark).forEach(
+        (row, r) => row.forEach((on3, c) => {
+          if (!on3) return;
+          const [cx, cy, cz] = [x + (c - 2) * pitch, y + (2 - r) * pitch, z + facing * 25e-4];
+          b.quad([cx - cell / 2, cy - cell / 2, cz], [cx + cell / 2, cy - cell / 2, cz], [cx + cell / 2, cy + cell / 2, cz], [cx - cell / 2, cy + cell / 2, cz], { glow: 1 }, [0, 0, facing]);
+        })
+      );
+    };
+    plate(0, 0.04, chest + 0.012, 0.026, 1);
+    plate(-chest * 0.42, 0.105, -(chest + 4e-3), 95e-4, -1);
+  }
+  function createFigure(look, style = {}, facts = {}) {
+    const wearing = typeof look === "string" ? generatedLook(look) : look;
+    const omit = new Set(style.omit ?? []);
+    let [main, accent, light] = [new Color(wearing.color), new Color(wearing.accent), new Color(wearing.light)];
+    if (style.palette?.length) {
+      const palette = style.palette.map((c) => new Color(c));
+      [main, accent, light] = [nearest(main, palette), nearest(accent, palette), nearest(light, palette)];
+    }
+    const depth = style.material ? 1 : DEPTH;
+    const [cloth, trim] = [main.clone().multiplyScalar(depth), accent.clone().multiplyScalar(depth)];
+    const builder = () => {
+      const b = new MeshBuilder().at();
+      b.tone = cloth.clone();
+      b.light = light.clone();
+      return b;
+    };
+    const headShape = builder();
+    buildHead(headShape, wearing, cloth, trim, omit);
+    const bodyShape = builder();
+    buildBody(bodyShape, wearing, cloth, trim, omit, facts.proven === true);
+    const handShape = builder();
+    handShape.lathe([[5e-4, -0.06], [0.04, 0], [5e-4, 0.06]], [0, 0, 0], 4, () => ({ glow: 0.75 }));
+    const metal = style.material ? style.material(light, wearing) : createAlloy(light, { gloss: wearing.finish === "matte" ? 0.25 : wearing.finish === "gloss" ? 0.85 : 0.7, sheen: wearing.finish === "sheen" ? 0.45 : 0 });
+    const geometries = [headShape.geometry(), bodyShape.geometry(), handShape.geometry()];
+    const head = new Group();
+    head.add(new Mesh(geometries[0], metal));
+    const torso = new Mesh(geometries[1], metal);
+    torso.position.y = -0.45;
+    const hands = [new Mesh(geometries[2], metal), new Mesh(geometries[2], metal)];
+    hands[0].position.set(-0.28, -0.5, -0.12);
+    hands[1].position.set(0.28, -0.5, -0.12);
+    const group = new Group();
+    group.add(head, torso, ...hands);
+    return {
+      group,
+      head,
+      torso,
+      hands,
+      metal,
+      look: wearing,
+      tick(t) {
+        metal.tick?.(t);
+      },
+      dispose() {
+        for (const g of geometries) g.dispose();
+        metal.dispose();
+      }
+    };
+  }
+
+  // packages/sdk/src/blocks.ts
+  var BLOCK_LIMIT = 500;
+  var KEY3 = "nswp:blocked";
+  var HEX3 = /^[0-9a-f]{64}$/;
+  function cleanBlocked(input) {
+    if (!Array.isArray(input)) return [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const b of input) {
+      if (!b || typeof b !== "object") continue;
+      const { key, name, at } = b;
+      if (typeof key !== "string" || !HEX3.test(key) || seen.has(key)) continue;
+      seen.add(key);
+      const called = typeof name === "string" ? cleanName(name) : "";
+      out.push({ key, name: called || shortNpub(key), at: typeof at === "number" && Number.isFinite(at) && at > 0 ? Math.floor(at) : 0 });
+      if (out.length >= BLOCK_LIMIT) break;
+    }
+    return out;
+  }
+  function withBlocked(list, who2, now = Math.floor(Date.now() / 1e3)) {
+    if (!HEX3.test(who2.key) || list.some((b) => b.key === who2.key)) return list;
+    return cleanBlocked([{ key: who2.key, name: who2.name ?? "", at: now }, ...list]);
+  }
+  function withoutBlocked(list, key) {
+    return list.filter((b) => b.key !== key);
+  }
+  var local = () => {
+    try {
+      return typeof localStorage === "undefined" ? null : localStorage;
+    } catch {
+      return null;
+    }
+  };
+  function loadBlocked(storage = local()) {
+    try {
+      return cleanBlocked(JSON.parse(storage?.getItem(KEY3) ?? "[]"));
+    } catch {
+      return [];
+    }
+  }
+  function storeBlocked(list, storage = local()) {
+    try {
+      if (list.length) storage?.setItem(KEY3, JSON.stringify(cleanBlocked(list)));
+      else storage?.removeItem(KEY3);
+    } catch {
+    }
+  }
+
+  // packages/sdk/src/items.ts
+  function applyTints(root, item, tints = {}) {
+    root.traverse((o) => {
+      const mesh = o;
+      if (!mesh.isMesh) return;
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const slot = material.userData.nswpTint ?? "";
+        if (!slot) continue;
+        const color = tints[slot] ?? item.tints.find((t) => t.slot === slot)?.color;
+        if (!color || !/^#[0-9a-f]{6}$/.test(color)) continue;
+        const m = material;
+        m.color?.set(color);
+        if (m.userData.nswpGlows) m.emissive?.set(color);
+      }
+    });
+  }
+
+  // packages/sdk/src/presence.ts
+  var SEND_EVERY_MS = 66;
+  var FADE_START = 0.9;
+  var FADE_END = 0.45;
+  var TOO_CLOSE = 1;
+  var ARRIVAL_GAP = 1.4;
+  function textSprite(text, color, width) {
+    const lines = text.split("\n");
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 64 + lines.length * 72;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "rgba(10,12,18,0.72)";
+    g.beginPath();
+    g.roundRect(0, 0, canvas.width, canvas.height, 32);
+    g.fill();
+    g.fillStyle = color;
+    g.textBaseline = "top";
+    lines.forEach((line, i) => {
+      g.font = i === 0 ? "bold 56px system-ui, sans-serif" : "44px system-ui, sans-serif";
+      g.fillText(line, 40, 32 + i * 72, canvas.width - 80);
+    });
+    const tex = new CanvasTexture(canvas);
+    tex.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map: tex, depthWrite: false }));
+    sprite.scale.set(width, width * canvas.height / canvas.width, 1);
+    return sprite;
+  }
+  function speechSprite(text, width = 0.8) {
+    const FULL = 768;
+    const PAD = 30;
+    const LINE = 54;
+    const TAIL = 22;
+    const canvas = document.createElement("canvas");
+    const g = canvas.getContext("2d");
+    const font = "500 42px system-ui, sans-serif";
+    g.font = font;
+    const rows = wrapWords(text, (t) => g.measureText(t).width, FULL - PAD * 2, 5);
+    const wide = Math.ceil(Math.max(80, ...rows.map((r) => g.measureText(r).width))) + PAD * 2;
+    canvas.width = Math.min(FULL, wide);
+    canvas.height = rows.length * LINE + PAD * 1.4 + TAIL;
+    const h = canvas.height - TAIL;
+    g.fillStyle = "rgba(246,248,251,0.95)";
+    g.beginPath();
+    g.roundRect(0, 0, canvas.width, h, 26);
+    g.moveTo(canvas.width / 2 - 18, h - 1);
+    g.lineTo(canvas.width / 2, canvas.height);
+    g.lineTo(canvas.width / 2 + 18, h - 1);
+    g.fill();
+    g.fillStyle = "#141a22";
+    g.font = font;
+    g.textBaseline = "middle";
+    rows.forEach((row, i) => g.fillText(row, PAD, PAD * 0.7 + LINE * (i + 0.5), canvas.width - PAD * 2));
+    const tex = new CanvasTexture(canvas);
+    tex.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
+    const metres = width / FULL;
+    sprite.scale.set(canvas.width * metres, canvas.height * metres, 1);
+    sprite.center.set(0.5, 0);
+    return sprite;
+  }
+  function createPresence(d) {
+    const labelColor = d.labelColor ?? "#ffffff";
+    const changed = () => d.onChange?.();
+    const listener = new AudioListener();
+    d.camera.add(listener);
+    const avatars = /* @__PURE__ */ new Map();
+    const pendingStreams = /* @__PURE__ */ new Map();
+    let session2 = null;
+    let roomName = null;
+    let sendTimer;
+    let micTrack = null;
+    let offsetApplied = false;
+    let plainSeed;
+    let dot = null;
+    const glow = (color) => {
+      if (!dot) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 64;
+        const g = canvas.getContext("2d");
+        const fade = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        fade.addColorStop(0, "rgba(255,255,255,1)");
+        fade.addColorStop(0.35, "rgba(255,255,255,0.85)");
+        fade.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = fade;
+        g.fillRect(0, 0, 64, 64);
+        dot = new CanvasTexture(canvas);
+      }
+      return new Sprite(new SpriteMaterial({ map: dot, color, transparent: true, depthWrite: false }));
+    };
+    const showRecording = (a, on3) => {
+      if (on3 && !a.light) {
+        a.light = glow(16726832);
+        a.light.scale.setScalar(0.16);
+        a.light.position.set(0, 0.46, 0);
+      }
+      if (a.light) {
+        a.light.visible = on3;
+        a.head.add(a.light);
+      }
+    };
+    const itemsRule = () => cleanItemsRule(d.itemsRule?.());
+    const canBeHeld = (item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
+    let mine = "";
+    let mineModel = null;
+    let mineTints = {};
+    const heardTints = (a, said) => {
+      const described = a?.heldItem ? d.items?.known(a.heldItem) : null;
+      const tints = parseTints(said);
+      if (!a || !tints) return;
+      a.tints = described ? cleanTints(described, tints) : tints;
+      if (described && a.held) applyTints(a.held, described, a.tints);
+    };
+    const sayTints = () => {
+      if (mine) session2?.tellPlay(buildTints(mineTints));
+    };
+    const askedScript = { sha: "" };
+    const itemMutes = /* @__PURE__ */ new Set();
+    const hand = () => {
+      if (!d.renderer.xr.isPresenting || !d.controllers.length) return -1;
+      const sources = [...d.renderer.xr.getSession()?.inputSources ?? []];
+      const right = sources.findIndex((s) => s.handedness === "right");
+      return right >= 0 && right < d.controllers.length ? right : 0;
+    };
+    let inHand = -2;
+    let sightWant = false;
+    let sightK = 0;
+    let fovBase = null;
+    const hip = new Vector3();
+    const up = new Vector3();
+    const endSight = () => {
+      sightWant = false;
+      sightK = 0;
+      if (fovBase !== null) {
+        d.camera.fov = fovBase;
+        d.camera.updateProjectionMatrix();
+        fovBase = null;
+      }
+      setAimScale(1);
+    };
+    const placeMine = (dt = 0) => {
+      const now = hand();
+      if (!mineModel) return;
+      const described = mine ? d.items?.known(mine) ?? null : null;
+      if (now < 0) {
+        const size = described?.size ?? [0.2, 0.3, 0.2];
+        const acts = !!described?.does.use;
+        const tall1 = Math.tan(MathUtils.degToRad((fovBase ?? d.camera.fov) / 2));
+        const narrow = d.camera.aspect < 1;
+        const far = MathUtils.clamp(size[1] / (2 * tall1 * (narrow ? 0.24 : acts ? 0.4 : 0.3)), 0.4, 0.95);
+        const tall = tall1 * far;
+        const wide = tall * d.camera.aspect;
+        hip.set(narrow ? wide * 0.5 : Math.min(wide * 0.6, wide - size[0] * 0.6), narrow ? -tall * 0.56 : -tall * 0.99, -far);
+        const aim = described?.aim ?? null;
+        sightK += ((sightWant && aim ? 1 : 0) - sightK) * (dt > 0 ? Math.min(1, dt * 14) : 1);
+        if (aim) {
+          up.set(-aim.at[0], -aim.at[1], -0.36 - aim.at[2]);
+          mineModel.position.lerpVectors(hip, up, sightK);
+          if (sightK > 2e-3 || fovBase !== null) {
+            fovBase ?? (fovBase = d.camera.fov);
+            const share = MathUtils.lerp(1, Math.max(0.45, aim.zoom), sightK);
+            d.camera.fov = fovBase * share;
+            d.camera.updateProjectionMatrix();
+            setAimScale(share);
+            if (sightK <= 2e-3 && !sightWant) endSight();
+          }
+        } else mineModel.position.copy(hip);
+        mineModel.rotation.set(0, acts ? 0.1 * (1 - sightK) : 0, 0);
+      }
+      if (now === inHand) return;
+      inHand = now;
+      if (now >= 0) {
+        endSight();
+        mineModel.rotation.set(0, 0, 0);
+        mineModel.position.set(0, -0.06, 0.02);
+        d.controllers[now].add(mineModel);
+      } else d.camera.add(mineModel);
+    };
+    const play2 = d.items ? createPlay({
+      scene: d.scene,
+      camera: d.camera,
+      rig: d.rig,
+      items: d.items,
+      sounds: d.sounds ?? null,
+      rule: () => itemsRule(),
+      ...d.itemScripts ? { scripts: d.itemScripts } : {},
+      me: () => session2?.self.pubkey ?? null,
+      people: () => [...avatars.values()].filter((a) => a.target && a.root.visible).map((a) => ({ pubkey: a.member.pubkey, head: a.head.getWorldPosition(new Vector3()), body: a.torso, over: a.head, root: a.root, holding: a.heldItem ?? "", held: a.held ?? null })),
+      itemsMuted: (pubkey) => itemMutes.has(pubkey),
+      tell: (said) => session2?.tellPlay(said),
+      tintsOf: (pubkey) => pubkey === null ? mineTints : avatars.get(pubkey)?.tints ?? {},
+      presenting: () => d.renderer.xr.isPresenting,
+      sighting: () => sightK > 0.5,
+      ...d.theme ? { theme: d.theme } : {},
+      // In a headset a thing goes where the hand that holds the item points.
+      aim: () => {
+        const i = hand();
+        const c = i >= 0 ? d.controllers[i] : null;
+        if (!c) return null;
+        const from = c.getWorldPosition(new Vector3());
+        return { from, to: from.clone().add(new Vector3(0, 0, -18).applyQuaternion(c.getWorldQuaternion(new Quaternion()))) };
+      },
+      ...d.solid ? { solid: d.solid } : {},
+      ...d.onStruck ? { onStruck: d.onStruck } : {},
+      onChange: () => changed()
+    }) : null;
+    const showHeld = async (a, item) => {
+      if (!a) return;
+      if (a.heldItem !== item) delete a.tints;
+      a.heldItem = item;
+      a.held?.removeFromParent();
+      delete a.held;
+      if (!item || !d.items || itemsRule() === "none" || !showsItems()) return;
+      const described = await d.items.describe(item);
+      if (!described || a.heldItem !== item || !canBeHeld(described) || described.use === "granted") return;
+      const model2 = await d.items.model(described, a.tints);
+      if (a.heldItem !== item) return;
+      if (a.tints) applyTints(model2, described, a.tints);
+      model2.position.set(0.3, -0.12, -0.22);
+      a.torso.add(model2);
+      a.held = model2;
+    };
+    const dress = (a, look) => {
+      const was = a.figure;
+      const figure2 = createFigure(look, d.figureStyle, { proven: !a.member.guest });
+      figure2.head.position.copy(was?.head.position ?? figure2.head.position);
+      figure2.head.quaternion.copy(was?.head.quaternion ?? figure2.head.quaternion);
+      figure2.head.add(a.label);
+      if (a.picture) figure2.head.add(a.picture);
+      figure2.hands.forEach((h, i) => {
+        h.visible = was?.hands[i].visible ?? false;
+        if (was) {
+          h.position.copy(was.hands[i].position);
+          h.quaternion.copy(was.hands[i].quaternion);
+        }
+      });
+      if (was) {
+        if (a.audio) figure2.head.add(a.audio);
+        a.root.remove(was.group);
+        was.dispose();
+      }
+      if (a.light) figure2.head.add(a.light);
+      if (a.held) figure2.torso.add(a.held);
+      if (a.beam) figure2.head.add(a.beam);
+      if (a.bubble) figure2.head.add(a.bubble);
+      a.root.add(figure2.group);
+      a.figure = figure2;
+      a.head = figure2.head;
+      a.torso = figure2.torso;
+      a.hands = figure2.hands;
+      a.materials = [figure2.metal, a.label.material, ...a.picture ? [a.picture.material] : []].map((material) => {
+        const opacity = material === a.label.material || material === a.picture?.material ? 1 : material.opacity;
+        material.transparent = true;
+        return { material, opacity };
+      });
+    };
+    const dropBubble = (a) => {
+      if (!a.bubble) return;
+      a.bubble.removeFromParent();
+      a.bubble.material.map?.dispose();
+      a.bubble.material.dispose();
+      delete a.bubble;
+      delete a.bubbleText;
+    };
+    const showBubble = (a, text, seconds) => {
+      dropBubble(a);
+      if (d.bubbles === false || !showsChat()) return;
+      a.bubble = speechSprite(text);
+      a.bubbleText = text;
+      a.bubbleFrom = performance.now();
+      a.bubbleUntil = a.bubbleFrom + seconds * 1e3;
+      a.bubble.material.opacity = 0;
+      a.head.add(a.bubble);
+    };
+    onChatChange(() => {
+      if (!showsChat()) for (const a of avatars.values()) dropBubble(a);
+    });
+    const dropPicture = (a) => {
+      if (!a.picture) return;
+      a.picture.removeFromParent();
+      a.picture.material.map?.dispose();
+      a.picture.material.dispose();
+      delete a.picture;
+    };
+    const showPicture = (a) => {
+      const from = !a.member.guest && showsPictures() ? a.member.picture ?? "" : "";
+      if (from === (a.pictureFrom ?? "")) return;
+      a.pictureFrom = from;
+      dropPicture(a);
+      if (!from) return void dress(a, a.member.look);
+      void loadPicture(from).then((canvas) => {
+        if (!canvas || a.pictureFrom !== from || !avatars.has(a.member.pubkey)) return;
+        const map = new CanvasTexture(canvas);
+        map.colorSpace = SRGBColorSpace;
+        const sprite = new Sprite(new SpriteMaterial({ map, depthWrite: false }));
+        sprite.scale.set(0.2, 0.2, 1);
+        sprite.position.set(0, 0.63, 0);
+        sprite.userData.person = a.member.pubkey;
+        a.picture = sprite;
+        dress(a, a.member.look);
+        changed();
+      });
+    };
+    onPicturesChange(() => {
+      for (const a of avatars.values()) showPicture(a);
+    });
+    let onPerson = () => {
+    };
+    const makeAvatar = (member) => {
+      const root = new Group();
+      root.visible = false;
+      root.userData.nswpNoHit = true;
+      const label = textSprite(member.name, labelColor, 0.5);
+      label.position.set(0, 0.42, 0);
+      d.scene.add(root);
+      const a = { member, root, label, target: null, placed: false };
+      dress(a, member.look);
+      showPicture(a);
+      return a;
+    };
+    let hiddenAll = false;
+    let tuneTrack = null;
+    const tunes = /* @__PURE__ */ new Map();
+    const tuneMuted = /* @__PURE__ */ new Set();
+    let hearShared = false;
+    let sharedVolume = 0.7;
+    let voiceVolume = 1;
+    let duck = 1;
+    let sinceChoosing = 0;
+    const playTune = (a, stream) => {
+      if (a.tune) return;
+      const el2 = new Audio();
+      el2.muted = true;
+      el2.srcObject = stream;
+      void el2.play().catch(() => {
+      });
+      const pa = new PositionalAudio(listener);
+      pa.setMediaStreamSource(stream);
+      pa.setRefDistance(MUSIC_RANGE);
+      pa.setVolume(0);
+      a.head.add(pa);
+      const meter = listener.context.createAnalyser();
+      meter.fftSize = 512;
+      listener.context.createMediaStreamSource(stream).connect(meter);
+      a.tune = pa;
+      a.tuneElement = el2;
+      a.tuneMeter = meter;
+      a.tuneVolume = 0;
+    };
+    const stopTune = (a) => {
+      a.tune?.disconnect();
+      a.tune?.removeFromParent();
+      if (a.tuneElement) a.tuneElement.srcObject = null;
+      delete a.tune;
+      delete a.tuneElement;
+      delete a.tuneMeter;
+      a.tuneVolume = 0;
+    };
+    const rms = (meter, buf) => {
+      if (!meter) return 0;
+      meter.getFloatTimeDomainData(buf);
+      return Math.sqrt(buf.reduce((sum, x) => sum + x * x, 0) / buf.length);
+    };
+    const levelBuf = new Float32Array(512);
+    const headAt = new Vector3();
+    const theirs = new Vector3();
+    const tendMusic = (dt) => {
+      if (!session2) return;
+      d.camera.getWorldPosition(headAt);
+      const away = (a) => a.head.getWorldPosition(theirs).distanceTo(headAt);
+      sinceChoosing += dt;
+      if (sinceChoosing > 0.4) {
+        sinceChoosing = 0;
+        const sharing = [...avatars.values()].filter((a) => a.member.music).map((a) => ({ pubkey: a.member.pubkey, metres: away(a), refused: tuneMuted.has(a.member.pubkey) }));
+        const want2 = new Set(musicToHear(sharing, hearShared));
+        for (const a of avatars.values()) {
+          const on3 = want2.has(a.member.pubkey);
+          session2.listen(a.member.pubkey, on3);
+          const stream = tunes.get(a.member.pubkey);
+          if (on3 && stream) playTune(a, stream);
+          else if (!on3 && a.tune) stopTune(a);
+        }
+      }
+      let speaking = false;
+      for (const a of avatars.values()) if (a.analyser && !mutedKeys.has(a.member.pubkey) && rms(a.analyser, levelBuf) > 0.02) speaking = true;
+      duck += ((speaking ? MUSIC_DUCK : 1) - duck) * Math.min(1, dt * (speaking ? 8 : 1.5));
+      for (const a of avatars.values()) {
+        if (!a.tune) continue;
+        a.tuneVolume = sharedVolume * duck * musicFade(away(a));
+        a.tune.setVolume(a.tuneVolume);
+      }
+    };
+    let screenTrack = null;
+    const screens = /* @__PURE__ */ new Map();
+    const stopScreen = () => {
+      if (!screenTrack) return;
+      screenTrack.onended = null;
+      screenTrack.stop();
+      screenTrack = null;
+    };
+    let keptBlocks = loadBlocked();
+    const blockedNow = /* @__PURE__ */ new Map();
+    const fromClient = /* @__PURE__ */ new Set();
+    const reported = /* @__PURE__ */ new Set();
+    const blockedKeys = () => [.../* @__PURE__ */ new Set([...keptBlocks.map((b) => b.key), ...blockedNow.keys(), ...fromClient])];
+    const mutedKeys = /* @__PURE__ */ new Set();
+    const attachAudio = (avatar, stream) => {
+      if (avatar.audio) return;
+      const el2 = new Audio();
+      el2.muted = true;
+      el2.srcObject = stream;
+      void el2.play().catch(() => {
+      });
+      const pa = new PositionalAudio(listener);
+      pa.setMediaStreamSource(stream);
+      pa.setRefDistance(1.5);
+      pa.setRolloffFactor(1.2);
+      avatar.head.add(pa);
+      const analyser = listener.context.createAnalyser();
+      analyser.fftSize = 512;
+      listener.context.createMediaStreamSource(stream).connect(analyser);
+      pa.setVolume(mutedKeys.has(avatar.member.pubkey) ? 0 : voiceVolume);
+      avatar.audio = pa;
+      avatar.element = el2;
+      avatar.analyser = analyser;
+    };
+    const removeAvatar = (pubkey) => {
+      const a = avatars.get(pubkey);
+      if (!a) return;
+      avatars.delete(pubkey);
+      play2?.left(pubkey);
+      a.audio?.disconnect();
+      stopTune(a);
+      if (a.element) a.element.srcObject = null;
+      d.scene.remove(a.root);
+      dropPicture(a);
+      dropBubble(a);
+      a.figure.dispose();
+    };
+    const v2 = new Vector3();
+    const q2 = new Quaternion();
+    const worldTransform = (o) => {
+      o.getWorldPosition(v2);
+      o.getWorldQuaternion(q2);
+      return { position: [v2.x, v2.y, v2.z], quaternion: [q2.x, q2.y, q2.z, q2.w] };
+    };
+    const ownPose = () => {
+      const pose = { head: worldTransform(d.camera) };
+      if (d.renderer.xr.isPresenting) {
+        if (d.controllers[0]?.visible) pose.left = worldTransform(d.controllers[0]);
+        if (d.controllers[1]?.visible) pose.right = worldTransform(d.controllers[1]);
+      }
+      return pose;
+    };
+    const stepApart = (self2, other, pose) => {
+      if (self2 < other || d.renderer.xr.isPresenting) return;
+      d.camera.getWorldPosition(v2);
+      const dx = v2.x - pose.head.position[0];
+      const dz = v2.z - pose.head.position[2];
+      const dist = Math.hypot(dx, dz);
+      if (dist >= TOO_CLOSE) return;
+      const ux = dist > 0.01 ? dx / dist : 1;
+      const uz = dist > 0.01 ? dz / dist : 0;
+      d.rig.position.x += ux * (ARRIVAL_GAP - dist);
+      d.rig.position.z += uz * (ARRIVAL_GAP - dist);
+    };
+    const leave = () => {
+      if (sendTimer) clearInterval(sendTimer);
+      sendTimer = void 0;
+      session2?.leave();
+      session2 = null;
+      stopScreen();
+      screens.clear();
+      tuneTrack = null;
+      tunes.clear();
+      for (const key of [...avatars.keys()]) removeAvatar(key);
+      pendingStreams.clear();
+      changed();
+    };
+    const join = async (name) => {
+      leave();
+      roomName = name;
+      void listener.context.resume();
+      if (listener.context.state !== "running") {
+        const wake = () => {
+          void listener.context.resume();
+          for (const a of avatars.values()) void a.element?.play().catch(() => {
+          });
+          removeEventListener("pointerdown", wake, true);
+          removeEventListener("keydown", wake, true);
+        };
+        addEventListener("pointerdown", wake, true);
+        addEventListener("keydown", wake, true);
+      }
+      const look = typeof d.look === "function" ? d.look() : d.look;
+      const identity = await byName(typeof d.identity === "function" ? d.identity() : d.identity);
+      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys() });
+      session2 = s;
+      if (!offsetApplied) {
+        const off = spawnOffset(s.self.pubkey);
+        d.rig.position.x += off.x;
+        d.rig.position.z += off.z;
+        offsetApplied = true;
+      }
+      s.on("status", changed);
+      s.on("recording", (m, on3) => {
+        const a = avatars.get(m.pubkey);
+        if (a) showRecording(a, on3);
+        changed();
+      });
+      s.on("holding", (m, item) => {
+        void showHeld(avatars.get(m.pubkey), item);
+        changed();
+      });
+      if (mine) s.setHolding(mine);
+      s.on("play", (m, said) => said.startsWith("tint:") ? heardTints(avatars.get(m.pubkey), said) : play2?.heard(m.pubkey, said));
+      sayTints();
+      s.on("look", (m, look2) => {
+        const a = avatars.get(m.pubkey);
+        if (a) dress(a, look2);
+        changed();
+      });
+      s.on("identity", (m) => {
+        const a = avatars.get(m.pubkey);
+        if (a) {
+          const label = textSprite(m.name, labelColor, 0.5);
+          label.position.copy(a.label.position);
+          a.label.removeFromParent();
+          a.label.material.map?.dispose();
+          a.label.material.dispose();
+          a.label = label;
+          dress(a, m.look);
+          showPicture(a);
+        }
+        changed();
+      });
+      s.on("member", (m) => {
+        const a = makeAvatar(m);
+        avatars.set(m.pubkey, a);
+        const pending = pendingStreams.get(m.pubkey);
+        if (pending) attachAudio(a, pending);
+        changed();
+      });
+      s.on("leave", (m) => {
+        screens.delete(m.pubkey);
+        tunes.delete(m.pubkey);
+        removeAvatar(m.pubkey);
+        pendingStreams.delete(m.pubkey);
+        changed();
+      });
+      s.on("said", (m, line) => {
+        const a = avatars.get(m.pubkey);
+        if (a) showBubble(a, line.text, bubbleSeconds(line.text));
+      });
+      s.on("pose", (m, pose) => {
+        const a = avatars.get(m.pubkey);
+        if (!a) return;
+        if (!a.target) stepApart(s.self.pubkey, m.pubkey, pose);
+        a.target = pose;
+      });
+      s.on("video", (m, stream) => {
+        screens.set(m.pubkey, stream);
+      });
+      s.on("screen", () => changed());
+      s.on("music", (m, stream) => {
+        tunes.set(m.pubkey, stream);
+      });
+      s.on("tune", () => changed());
+      s.on("audio", (m, stream) => {
+        pendingStreams.set(m.pubkey, stream);
+        const a = avatars.get(m.pubkey);
+        if (a) attachAudio(a, stream);
+      });
+      if (micTrack) await s.setMicrophone(micTrack);
+      sendTimer = setInterval(() => s.sendPose(ownPose()), SEND_EVERY_MS);
+      changed();
+    };
+    const tp = new Vector3();
+    const tq = new Quaternion();
+    const euler = new Euler();
+    const apply = (o, t, k) => {
+      o.position.lerp(tp.set(...t.position), k);
+      o.quaternion.slerp(tq.set(...t.quaternion), k);
+    };
+    return {
+      get session() {
+        return session2;
+      },
+      get presenting() {
+        return d.renderer.xr.isPresenting;
+      },
+      get roomName() {
+        return roomName;
+      },
+      get micOn() {
+        return !!micTrack;
+      },
+      get screenOn() {
+        return !!screenTrack;
+      },
+      get screenViewers() {
+        return session2?.screenViewers ?? 0;
+      },
+      async shareScreen(track) {
+        if (!session2) {
+          track?.stop();
+          return;
+        }
+        stopScreen();
+        screenTrack = track;
+        if (track) {
+          track.contentHint = "detail";
+          track.onended = () => {
+            if (screenTrack !== track) return;
+            screenTrack = null;
+            void session2?.setScreen(null);
+            changed();
+          };
+        }
+        await session2.setScreen(track);
+        changed();
+      },
+      watch(pubkey, on3) {
+        session2?.watch(pubkey, on3);
+        changed();
+      },
+      isWatching(pubkey) {
+        return !!session2?.isWatching(pubkey);
+      },
+      screenOf(pubkey) {
+        return screens.get(pubkey) ?? null;
+      },
+      join,
+      leave,
+      async setMicrophone(track) {
+        if (!track && micTrack) micTrack.stop();
+        micTrack = track;
+        await session2?.setMicrophone(track);
+        changed();
+      },
+      setRecording(on3) {
+        session2?.setRecording(on3);
+      },
+      get holding() {
+        return mine;
+      },
+      setTints(tints) {
+        const described = mine ? d.items?.known(mine) : null;
+        if (!described) return;
+        mineTints = cleanTints(described, tints);
+        if (mineModel) applyTints(mineModel, described, mineTints);
+        sayTints();
+        changed();
+      },
+      async setHolding(itemIn2, tints) {
+        const item = itemCoordinate(itemIn2);
+        const put = () => {
+          mine = "";
+          mineModel?.removeFromParent();
+          mineModel = null;
+          inHand = -2;
+          endSight();
+          void play2?.held(null, null);
+          session2?.setHolding("");
+        };
+        if (!item) {
+          const had = !!mine;
+          put();
+          return { ok: true, said: had ? "Put away." : "You are holding nothing." };
+        }
+        if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
+        const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
+        const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
+        if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
+        mineTints = cleanTints(described, tints ?? {});
+        const model2 = await d.items.model(described, mineTints);
+        put();
+        mine = item;
+        mineModel = model2;
+        placeMine();
+        session2?.setHolding(item);
+        sayTints();
+        await play2?.held(described, model2);
+        return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
+      },
+      get play() {
+        return play2;
+      },
+      get holdingHand() {
+        return mine ? hand() : -1;
+      },
+      setSighting(on3) {
+        sightWant = on3 && !!mine && !d.renderer.xr.isPresenting;
+      },
+      get sighting() {
+        return sightK > 0.5;
+      },
+      muteItems(pubkey, on3) {
+        if (on3) itemMutes.add(pubkey);
+        else itemMutes.delete(pubkey);
+        changed();
+      },
+      isItemsMuted(pubkey) {
+        return itemMutes.has(pubkey);
+      },
+      get itemsRule() {
+        return itemsRule();
+      },
+      selfLook() {
+        if (session2) return session2.self.look;
+        const mine2 = typeof d.look === "function" ? d.look() : d.look;
+        const read6 = mine2 ? decodeLook(mine2) : null;
+        return read6?.ok ? read6.value.look : plainSeed ?? (plainSeed = `plain-${Math.random().toString(36).slice(2, 12)}`);
+      },
+      personAt(raycaster) {
+        const badges = [...avatars.values()].filter((a) => a.picture && a.root.visible).map((a) => a.picture);
+        if (!badges.length) return null;
+        const hit = raycaster.intersectObjects(badges, false)[0];
+        return hit ? String(hit.object.userData.person) : null;
+      },
+      whereIs(pubkey) {
+        const a = avatars.get(pubkey);
+        if (!a?.target) return null;
+        d.camera.getWorldPosition(v2);
+        const to = new Vector3().fromArray(a.target.head.position).sub(v2);
+        const distance = to.length();
+        if (distance < 1e-3) return { distance: 0, pan: 0 };
+        const right = new Vector3(1, 0, 0).applyQuaternion(d.camera.getWorldQuaternion(q2));
+        const pan = MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
+        return { distance: Math.round(distance * 100) / 100, pan: Math.round(pan * 100) / 100 };
+      },
+      pressAt(raycaster) {
+        const who2 = this.personAt(raycaster);
+        if (who2) onPerson(who2);
+        return who2 !== null;
+      },
+      onPerson(cb) {
+        onPerson = cb;
+      },
+      pointOut(pubkey) {
+        const a = avatars.get(pubkey);
+        if (!a) return;
+        if (!a.beam) {
+          a.beam = glow(a.member.look.light);
+          a.beam.scale.set(0.5, 3.2, 1);
+          a.beam.position.set(0, 2.1, 0);
+        }
+        a.head.add(a.beam);
+        a.beam.visible = true;
+        a.beamUntil = performance.now() + 4e3;
+      },
+      people() {
+        return [...avatars.values()].map((a) => a.member);
+      },
+      setHidden(hidden) {
+        hiddenAll = hidden;
+        if (hidden) for (const a of avatars.values()) a.root.visible = false;
+      },
+      setVolume(volume) {
+        voiceVolume = Math.min(1, Math.max(0, volume));
+        for (const a of avatars.values()) a.audio?.setVolume(mutedKeys.has(a.member.pubkey) ? 0 : voiceVolume);
+      },
+      get musicOn() {
+        return !!tuneTrack;
+      },
+      get musicListeners() {
+        return session2?.musicListeners ?? 0;
+      },
+      async shareMusic(track) {
+        if (!session2) return;
+        tuneTrack = track;
+        await session2.setMusic(track);
+        changed();
+      },
+      setHearShared(on3, volume) {
+        hearShared = on3;
+        sharedVolume = Math.min(1, Math.max(0, volume));
+        sinceChoosing = 1;
+      },
+      muteMusic(pubkey, on3) {
+        if (on3) tuneMuted.add(pubkey);
+        else tuneMuted.delete(pubkey);
+        sinceChoosing = 1;
+        changed();
+      },
+      isMusicMuted(pubkey) {
+        return tuneMuted.has(pubkey);
+      },
+      mute(pubkey, on3) {
+        if (on3) mutedKeys.add(pubkey);
+        else mutedKeys.delete(pubkey);
+        avatars.get(pubkey)?.audio?.setVolume(on3 ? 0 : voiceVolume);
+        changed();
+      },
+      isMuted(pubkey) {
+        return mutedKeys.has(pubkey);
+      },
+      block(pubkey) {
+        const gone = session2?.block(pubkey);
+        if (!gone) return null;
+        mutedKeys.delete(pubkey);
+        if (gone.identity) {
+          keptBlocks = withBlocked(keptBlocks, { key: gone.identity, name: gone.name });
+          storeBlocked(keptBlocks);
+          reported.add(gone.identity);
+        } else blockedNow.set(gone.session, gone.name);
+        changed();
+        return gone.name;
+      },
+      unblock(key) {
+        reported.delete(key);
+        if (!fromClient.has(key)) session2?.unblock(key);
+        if (blockedNow.delete(key)) return changed();
+        keptBlocks = withoutBlocked(keptBlocks, key);
+        storeBlocked(keptBlocks);
+        changed();
+      },
+      blocked() {
+        return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];
+      },
+      blockAlso(keys) {
+        for (const k of keys) if (/^[0-9a-f]{64}$/.test(k)) fromClient.add(k);
+      },
+      get blockedElsewhere() {
+        return [...fromClient].filter((k) => !keptBlocks.some((b) => b.key === k)).length;
+      },
+      newlyBlocked() {
+        return [...reported];
+      },
+      testTone() {
+        const ctx = listener.context;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0.2;
+        const dest = ctx.createMediaStreamDestination();
+        osc.connect(gain).connect(dest);
+        osc.start();
+        return dest.stream.getAudioTracks()[0];
+      },
+      update(dt) {
+        tendMusic(dt);
+        placeMine(dt);
+        const k = 1 - Math.exp(-dt * 14);
+        d.camera.getWorldPosition(v2);
+        for (const a of avatars.values()) {
+          if (!a.target) continue;
+          const near = MathUtils.clamp((a.head.position.distanceTo(v2) - FADE_END) / (FADE_START - FADE_END), 0, 1);
+          for (const m of a.materials) m.material.opacity = m.opacity * near;
+          a.near = near;
+          a.materials[0].material.tick?.(performance.now() / 1e3);
+          if (a.beam?.visible && performance.now() > (a.beamUntil ?? 0)) a.beam.visible = false;
+          if (a.bubble) {
+            const t = performance.now();
+            if (t > (a.bubbleUntil ?? 0)) dropBubble(a);
+            else {
+              a.bubble.material.opacity = near * Math.min(1, (t - (a.bubbleFrom ?? t)) / 160, ((a.bubbleUntil ?? t) - t) / 600);
+              a.bubble.position.y = a.picture ? 0.78 : 0.5;
+            }
+          }
+          const snap = a.placed ? k : 1;
+          apply(a.head, a.target.head, snap);
+          a.placed = true;
+          a.root.visible = !hiddenAll;
+          euler.setFromQuaternion(a.head.quaternion, "YXZ");
+          a.torso.position.set(a.head.position.x, a.head.position.y - 0.45, a.head.position.z);
+          a.torso.rotation.set(0, euler.y, 0);
+          const hands = [a.target.left, a.target.right];
+          hands.forEach((t, i) => {
+            const mesh = a.hands[i];
+            if (t) {
+              apply(mesh, t, mesh.visible ? k : 1);
+              mesh.visible = true;
+            } else mesh.visible = false;
+          });
+        }
+        play2?.update(dt);
+      },
+      drawn() {
+        return [...avatars.values()].filter((a) => a.target && a.placed && a.root.visible).map((a) => ({
+          pubkey: a.member.pubkey,
+          name: a.member.name,
+          opacity: a.near ?? 1,
+          figure: a.figure,
+          label: a.label,
+          picture: a.picture ?? null,
+          bubble: a.bubble ?? null,
+          light: a.light?.visible ? a.light : null,
+          beam: a.beam?.visible ? a.beam : null,
+          holding: a.heldItem ?? "",
+          tints: a.tints ?? {}
+        }));
+      },
+      info() {
+        const buf = new Float32Array(512);
+        return [...avatars.values()].map((a) => {
+          let level2 = 0;
+          if (a.analyser) {
+            a.analyser.getFloatTimeDomainData(buf);
+            level2 = Math.sqrt(buf.reduce((s, x) => s + x * x, 0) / buf.length);
+          }
+          return {
+            pubkey: a.member.pubkey,
+            name: a.member.name,
+            visible: a.root.visible,
+            opacity: Math.round((a.materials[0]?.material.opacity ?? 1) * 100) / 100,
+            head: a.target?.head.position.map((n) => Math.round(n * 100) / 100) ?? null,
+            // What they say they hold, and whether anything is drawn for it: for tests.
+            holding: a.heldItem || null,
+            heldDrawn: !!a.held,
+            tints: a.tints ?? null,
+            hands: [!!a.target?.left, !!a.target?.right],
+            audioLevel: Math.round(level2 * 1e3) / 1e3,
+            saying: a.bubbleText ?? "",
+            muted: mutedKeys.has(a.member.pubkey),
+            music: !!a.member.music,
+            hearing: !!a.tune,
+            musicVolume: Math.round((a.tuneVolume ?? 0) * 1e3) / 1e3,
+            musicLevel: Math.round(rms(a.tuneMeter, levelBuf) * 1e3) / 1e3,
+            look: a.member.look,
+            guest: a.member.guest,
+            identity: a.member.identity ?? null
+          };
+        });
+      }
+    };
+  }
+
+  // packages/sdk/src/profiles.ts
+  var KEY4 = "nswp:profiles";
+  var MOST = 400;
+  var FRESH_MS3 = 24 * 3600 * 1e3;
+  var AT_ONCE = 60;
+  function readProfile(event) {
+    let meta = {};
+    try {
+      const parsed = JSON.parse(event.content);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) meta = parsed;
+    } catch {
+    }
+    let name = "";
+    for (const v2 of [meta.display_name, meta.displayName, meta.name]) {
+      if (!name && typeof v2 === "string") name = cleanName(v2);
+    }
+    return { name, picture: cleanPicture(meta.picture), about: cleanAbout(meta.about), at: event.created_at };
+  }
+  function createProfiles(opts = {}) {
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const store = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers5 = /* @__PURE__ */ new Set();
+    let kept2 = null;
+    const all = () => {
+      if (kept2) return kept2;
+      kept2 = {};
+      try {
+        const read6 = JSON.parse(store?.getItem(KEY4) ?? "{}");
+        if (read6 && typeof read6 === "object" && !Array.isArray(read6)) {
+          for (const [k, v2] of Object.entries(read6)) {
+            if (!isHex64(k) || !v2 || typeof v2 !== "object") continue;
+            kept2[k] = { name: cleanName(typeof v2.name === "string" ? v2.name : ""), picture: cleanPicture(v2.picture), about: cleanAbout(v2.about), at: typeof v2.at === "number" ? v2.at : 0, asked: typeof v2.asked === "number" ? v2.asked : 0 };
+          }
+        }
+      } catch {
+      }
+      return kept2;
+    };
+    const save2 = () => {
+      const entries = Object.entries(all());
+      if (entries.length > MOST) kept2 = Object.fromEntries(entries.sort((a, b) => b[1].asked - a[1].asked).slice(0, MOST));
+      try {
+        store?.setItem(KEY4, JSON.stringify(kept2));
+      } catch {
+      }
+    };
+    return {
+      get: (pubkey) => all()[pubkey] ?? null,
+      async fetch(pubkeys) {
+        const book = all();
+        const wanted = [...new Set(pubkeys)].filter((k) => isHex64(k) && now() - (book[k]?.asked ?? 0) > FRESH_MS3).slice(0, AT_ONCE);
+        if (wanted.length === 0) return;
+        const got = await askWell({ kinds: [0], authors: wanted, limit: wanted.length * 2 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).catch(() => null);
+        const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+        for (const e of got?.events ?? []) {
+          if (e.kind !== 0 || !wanted.includes(e.pubkey) || !verifyEvent(e)) continue;
+          const had = book[e.pubkey];
+          if (had && had.at >= e.created_at) continue;
+          book[e.pubkey] = { ...readProfile(e), asked: now() };
+        }
+        if (answered) for (const k of wanted) book[k] = { ...book[k] ?? { name: "", picture: "", about: "", at: 0 }, asked: now() };
+        save2();
+        for (const fn of watchers5) fn();
+      },
+      onChange(fn) {
+        watchers5.add(fn);
+        return () => void watchers5.delete(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/following.ts
+  var PAGE2 = 24;
+  function keyIn(text) {
+    if (typeof text !== "string") return null;
+    const found2 = /npub1[02-9ac-hj-np-z]{58}/.exec(text)?.[0] ?? /\b[0-9a-f]{64}\b/i.exec(text)?.[0];
+    if (!found2) return null;
+    try {
+      return decodeNpub(found2);
+    } catch {
+      return null;
+    }
+  }
+  function addFollowingControls(controls2, opts) {
+    const f = opts.follows;
+    const profiles = opts.profiles ?? createProfiles(opts.relays ? { relays: opts.relays } : {});
+    let shown4 = [];
+    let chosen = null;
+    let pages = 1;
+    let wasMe = null;
+    let looked = false;
+    const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
+    const say2 = (text) => controls2.say(text);
+    const press = (pubkey, name, adding) => {
+      const now = async () => {
+        const done = await (adding ? f.people.follow(pubkey, name) : f.people.unfollow(pubkey, name));
+        say2(done.said);
+        if (done.ok && adding) void profiles.fetch([pubkey]);
+        refresh();
+      };
+      if (!f.pubkey()) return say2("Sign in to follow people: it is under You.");
+      if (f.allowed()) return void now();
+      say2(f.ask(() => void now()));
+    };
+    const byKey = async () => {
+      const me = f.pubkey();
+      if (!me) return say2("Sign in to follow people: it is under You.");
+      let text = "";
+      const keyboard = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
+      if (keyboard) text = await keyboard.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
+      else {
+        try {
+          text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+        } catch {
+          return say2("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
+        }
+      }
+      const key = keyIn(text);
+      if (!key) return say2(keyboard ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
+      if (key === me) return say2("That is your own key.");
+      chosen = key;
+      await profiles.fetch([key]);
+      press(key, nameOf(key), true);
+    };
+    const refresh = () => {
+      for (const id of shown4) controls2.remove(id);
+      shown4 = [];
+      const me = f.pubkey();
+      if (me !== wasMe) {
+        wasMe = me;
+        chosen = null;
+        pages = 1;
+        looked = false;
+      }
+      const allowed = !!me && f.allowed();
+      const follows = allowed ? f.people.follows() : null;
+      const add = (...actions) => {
+        for (const a of actions) shown4.push(a.id);
+        controls2.add(...actions.map((a) => ({ section: "following", ...a })));
+      };
+      controls2.addSection({
+        id: "following",
+        label: "Following",
+        icon: "list",
+        note: () => !me ? "Sign in to see who you follow." : !allowed ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once." : follows === null ? looked ? "Who you follow couldn't be looked for just now." : "Looking for who you follow." : follows.length === 0 ? "You follow nobody yet. Follow someone from their card in People, or by their key. Who you follow is public." : `You follow ${follows.length === 1 ? "1 person" : `${follows.length} people`}. Select one to see who they are. It is your own Nostr follow list, and it is public.`,
+        card: () => {
+          if (!chosen || !follows) return null;
+          const p = profiles.get(chosen);
+          const following = follows.includes(chosen);
+          return {
+            title: nameOf(chosen),
+            tag: following ? "You follow them" : "Not followed",
+            proven: false,
+            sub: shortNpub(chosen),
+            copy: encodeNpub(chosen),
+            text: p?.about ?? "",
+            picture: showsPictures() ? p?.picture ?? "" : "",
+            color: "",
+            // What they have done, as they say: where they stand here, what they show.
+            now: opts.about?.lines(chosen) ?? []
+          };
+        }
+      });
+      if (!me) return;
+      if (!allowed) {
+        add({
+          id: "following-let",
+          icon: "check",
+          tone: "primary",
+          label: "Show who I follow, and let me change it here",
+          act: () => say2(f.ask(() => void f.people.load().then(refresh)))
+        });
+        return;
+      }
+      if (follows === null) {
+        if (!looked) {
+          looked = true;
+          void f.people.load().then(refresh);
+        } else {
+          add({
+            id: "following-again",
+            icon: "turn",
+            label: "Look again",
+            act: () => {
+              looked = false;
+              refresh();
+            }
+          });
+        }
+        return;
+      }
+      add({ id: "following-key", icon: "key", label: () => opts.presenting?.() && opts.keyboard?.() ? "Follow someone by their key" : "Follow the key I copied", short: "By key", act: () => void byKey() });
+      if (chosen) {
+        const them = chosen;
+        const following = follows.includes(them);
+        add({ id: "following-toggle", icon: "check", on: () => following, label: following ? `Unfollow ${nameOf(them)}` : `Follow ${nameOf(them)}`, act: () => press(them, nameOf(them), !following) });
+        add(...opts.more?.({ pubkey: them, name: nameOf(them) }) ?? []);
+      }
+      const named = follows.filter((k) => profiles.get(k)?.name).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+      const rest = follows.filter((k) => !profiles.get(k)?.name);
+      const listed = [...named, ...rest].slice(0, pages * PAGE2);
+      void profiles.fetch(follows.slice(0, pages * PAGE2 * 2));
+      add(
+        ...listed.map((k) => ({
+          id: `following-${k.slice(0, 16)}`,
+          kind: "swatch",
+          color: `#${k.slice(0, 6)}`,
+          on: () => chosen === k,
+          label: () => nameOf(k),
+          act: () => {
+            chosen = chosen === k ? null : k;
+            refresh();
+          }
+        }))
+      );
+      if (follows.length > listed.length) {
+        add({
+          id: "following-more",
+          icon: "list",
+          label: `Show more (${listed.length} of ${follows.length})`,
+          act: () => {
+            pages++;
+            refresh();
+          }
+        });
+      }
+    };
+    let drawing = false;
+    const soon2 = () => {
+      if (drawing) return;
+      drawing = true;
+      queueMicrotask(() => {
+        drawing = false;
+        refresh();
+      });
+    };
+    profiles.onChange(soon2);
+    f.people.onChange(soon2);
+    opts.about?.onChange(soon2);
+    refresh();
+    return {
+      refresh,
+      choose(pubkey) {
+        chosen = pubkey;
+        void profiles.fetch([pubkey]);
+        refresh();
+      },
+      press,
+      profiles
+    };
+  }
+
+  // packages/sdk/src/messages.ts
+  var MOST2 = 300;
+  var FRESH_MS4 = 45e3;
+  function createMessages(opts) {
+    const { hand } = opts;
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const store = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers5 = /* @__PURE__ */ new Set();
+    const newcomers = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of watchers5) fn();
+    };
+    let who2 = null;
+    let state = "off";
+    let inbox = [];
+    let own = { read: [], write: [] };
+    let monitors = { open: [], closed: [] };
+    const read6 = /* @__PURE__ */ new Map();
+    const tried = /* @__PURE__ */ new Set();
+    let looked = 0;
+    let looking = null;
+    let first = true;
+    const seenKey = (me) => `nswp:messages:seen:${me}`;
+    let marks = null;
+    const seenAt = () => {
+      if (marks) return marks;
+      marks = {};
+      try {
+        const kept2 = JSON.parse(who2 && store?.getItem(seenKey(who2)) || "{}");
+        if (kept2 && typeof kept2 === "object" && !Array.isArray(kept2)) {
+          for (const [k, v2] of Object.entries(kept2)) if (isHex64(k) && typeof v2 === "number") marks[k] = v2;
+        }
+      } catch {
+      }
+      return marks;
+    };
+    const reset = (me) => {
+      who2 = me;
+      state = me && hand.ready() ? "looking" : "off";
+      inbox = [];
+      own = { read: [], write: [] };
+      read6.clear();
+      tried.clear();
+      marks = null;
+      looked = 0;
+      first = true;
+    };
+    const threads = () => {
+      const by = /* @__PURE__ */ new Map();
+      if (!who2) return by;
+      for (const m of read6.values()) {
+        const peer = writtenWith(m, who2);
+        if (!peer) continue;
+        by.set(peer, [...by.get(peer) ?? [], m]);
+      }
+      for (const list of by.values()) list.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
+      return by;
+    };
+    const unreadIn = (peer, list) => list.filter((m) => m.from === peer && m.at > (seenAt()[peer] ?? 0)).length;
+    const knownTo = (peer, list) => !!opts.known?.(peer) || list.some((m) => m.from === who2);
+    const look = async (me) => {
+      const lists = await askWell({ kinds: [RELAY_LIST_KIND, MESSAGE_RELAYS_KIND], authors: [me], limit: 8 }, { own: [], usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+      if (hand.pubkey() !== me) return;
+      const answered = !!lists && Object.values(lists.relays).some((said) => said === "eose");
+      const relayList = readRelayList(lists?.events ?? [], me);
+      own = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
+      const found2 = readMessageRelays(lists?.events ?? [], me);
+      if (found2.length) inbox = found2;
+      if (!inbox.length) {
+        if (answered && relayBackup()) monitors = await foundRelays({ query, now }).catch(() => monitors);
+        if (hand.pubkey() !== me) return;
+        state = answered ? "no-inbox" : "unreachable";
+        looked = now();
+        return changed();
+      }
+      const got = await query(inbox, { kinds: [WRAP_KIND], "#p": [me], limit: MOST2 }, 5e3).catch(() => null);
+      if (hand.pubkey() !== me) return;
+      if (got) learnFrom(got.relays, now());
+      const wraps = (got?.events ?? []).filter((e) => !tried.has(e.id) && looksLikeWrap(e, me)).slice(0, MOST2);
+      for (const wrap of wraps) {
+        tried.add(wrap.id);
+        const message = await hand.open(wrap).catch(() => null);
+        if (hand.pubkey() !== me) return;
+        if (!message || read6.has(message.id)) continue;
+        read6.set(message.id, message);
+        if (!first && message.from !== me) for (const fn of newcomers) fn(message);
+      }
+      first = false;
+      state = got && Object.values(got.relays).some((said) => said === "eose") ? "ready" : read6.size ? "ready" : "unreachable";
+      looked = now();
+      changed();
+    };
+    const load3 = async (fresh = false) => {
+      const me = hand.ready() ? hand.pubkey() : null;
+      if (me !== who2 || !me && state !== "off") {
+        reset(me);
+        changed();
+      }
+      if (!me) return;
+      if (!fresh && looked && now() - looked < FRESH_MS4) return;
+      looking ?? (looking = look(me).finally(() => {
+        looking = null;
+      }));
+      await looking;
+    };
+    const offered = () => {
+      const first2 = (own.read.length ? own.read : usual()).filter((r) => !monitors.closed.includes(r));
+      const rest = monitors.open.filter((r) => !first2.includes(r));
+      const out = [...first2, ...rest].slice(0, 3);
+      return out.length ? out : (own.read.length ? own.read : usual()).slice(0, 3);
+    };
+    return {
+      state: () => hand.ready() && hand.pubkey() === who2 && who2 ? state : "off",
+      inbox: () => [...inbox],
+      offered,
+      load: load3,
+      async setUp() {
+        const me = hand.pubkey();
+        if (!me || !hand.ready()) return { ok: false, said: "Sign in first." };
+        const relays = offered();
+        const signed = await hand.reach(relays).catch(() => null);
+        if (!signed) return { ok: false, said: "It couldn't be signed. Nothing was changed." };
+        const sent = await sendWell(signed, { own: own.write, usual: usual(), publish, query, now }).catch(() => null);
+        if (!sent || sent.took === 0) return { ok: false, said: "No relay took it. Try again in a moment." };
+        inbox = relays;
+        state = "ready";
+        changed();
+        void load3(true);
+        return { ok: true, said: `Private messages now reach you at ${relays.map((r) => r.replace(/^wss:\/\//, "")).join(", ")}.` };
+      },
+      conversations() {
+        const out = [];
+        for (const [peer, list] of threads()) out.push({ with: peer, last: list[list.length - 1], unread: unreadIn(peer, list), known: knownTo(peer, list) });
+        return out.sort((a, b) => b.last.at - a.last.at);
+      },
+      thread: (peer) => threads().get(peer) ?? [],
+      async send(to, text, name = "") {
+        const me = hand.pubkey();
+        const them = name || "them";
+        if (!me || !hand.ready()) return { ok: false, said: "Sign in to write to people." };
+        if (!isHex64(to) || to === me) return { ok: false, said: "That isn't someone who can be written to." };
+        if (!inbox.length) return { ok: false, said: "Say where your own messages reach you first: without that you couldn't read back what you sent, or be answered." };
+        const asked = await askWell({ kinds: [MESSAGE_RELAYS_KIND], authors: [to], limit: 4 }, { own: inbox, usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+        const theirs = readMessageRelays(asked?.events ?? [], to);
+        if (!theirs.length) {
+          const answered = !!asked && Object.values(asked.relays).some((said) => said === "eose");
+          return { ok: false, said: answered ? `${name || "They"} ${name ? "hasn't" : "haven't"} said where private messages reach them, so one can't be sent. Nothing was sent.` : "No relay could be reached. Nothing was sent." };
+        }
+        const sealed = await hand.seal(to, text).catch(() => null);
+        if (!sealed) return { ok: false, said: "It couldn't be signed. Nothing was sent." };
+        const t = now() / 1e3;
+        const forThem = wrapSeal(sealed.seals[0], to, { now: t });
+        const forMe = wrapSeal(sealed.seals[1], me, { now: t });
+        if (!forThem || !forMe) return { ok: false, said: "It couldn't be wrapped. Nothing was sent." };
+        const sent = await publish(theirs, forThem).catch(() => null);
+        if (sent) learnFrom(sent.relays, now());
+        if (!sent || !Object.values(sent.relays).some((said) => said === "ok")) return { ok: false, said: `None of the relays ${them === "them" ? "they use" : `${them} uses`} for messages took it. It wasn't sent.` };
+        tried.add(forMe.id);
+        void publish(inbox, forMe).then((kept2) => learnFrom(kept2.relays, now())).catch(() => void 0);
+        const m = sealed.message;
+        read6.set(m.id, { id: m.id, from: me, to: [to], text: m.content, at: m.created_at });
+        changed();
+        return { ok: true, said: "" };
+      },
+      seen(peer) {
+        if (!who2) return;
+        const newest = (threads().get(peer) ?? []).reduce((at, m) => Math.max(at, m.at), 0);
+        if (!newest || (seenAt()[peer] ?? 0) >= newest) return;
+        seenAt()[peer] = newest;
+        try {
+          store?.setItem(seenKey(who2), JSON.stringify(seenAt()));
+        } catch {
+        }
+        changed();
+      },
+      unread() {
+        let n = 0;
+        for (const [peer, list] of threads()) if (knownTo(peer, list)) n += unreadIn(peer, list);
+        return n;
+      },
+      onChange(fn) {
+        watchers5.add(fn);
+        return () => void watchers5.delete(fn);
+      },
+      onNew(fn) {
+        newcomers.add(fn);
+        return () => void newcomers.delete(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/messaging.ts
+  var W = 768;
+  var H = 900;
+  var LEAD = 130;
+  var WRITE = 100;
+  function addMessagingControls(controls2, opts) {
+    const { hand, profiles } = opts;
+    const m = hand.messages;
+    let shown4 = [];
+    let withWhom = null;
+    let requests = false;
+    let wasMe = null;
+    let fetching = false;
+    const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
+    const say2 = (text) => controls2.say(text);
+    const inHeadset = () => !!opts.presenting?.() && !!opts.panels;
+    let panel = null;
+    const closePanel = () => {
+      const was = panel;
+      panel = null;
+      was?.texture.dispose();
+      was?.panel.close();
+    };
+    const drawPanel = () => {
+      if (!panel) return;
+      const view2 = controls2.letters.view();
+      if (!view2.ready) return closePanel();
+      const stamp = `${view2.version}:${Math.floor(Date.now() / 6e4)}:${view2.title}`;
+      if (stamp === panel.drawn) return;
+      panel.drawn = stamp;
+      const t = controls2.theme;
+      const g = panel.canvas.getContext("2d");
+      g.fillStyle = t.glass;
+      g.fillRect(0, 0, W, H);
+      g.textBaseline = "middle";
+      g.textAlign = "left";
+      const measure = (text) => g.measureText(text).width;
+      g.fillStyle = t.ink;
+      g.globalAlpha = 0.72;
+      g.font = "27px system-ui, sans-serif";
+      wrapWords(view2.lead, measure, W - 56, 3).forEach((row, r) => g.fillText(row, 28, 26 + r * 33));
+      g.globalAlpha = 1;
+      const top = H - WRITE;
+      g.strokeStyle = t.accent;
+      g.lineWidth = 3;
+      g.fillStyle = `rgba(${rgb(t.accent)}, 0.16)`;
+      g.beginPath();
+      g.roundRect(20, top + 8, W - 40, WRITE - 24, 22);
+      g.fill();
+      g.stroke();
+      g.font = "600 34px system-ui, sans-serif";
+      g.fillStyle = t.ink;
+      g.textAlign = "center";
+      g.fillText(wrapWords(`Write to ${view2.with}`, measure, W - 80, 1)[0] ?? "Write", W / 2, top + 8 + (WRITE - 24) / 2);
+      g.textAlign = "left";
+      const ROW = 40;
+      const nowSec = Math.floor(Date.now() / 1e3);
+      let y = top - 12;
+      if (view2.said) {
+        g.font = "italic 28px system-ui, sans-serif";
+        g.fillStyle = t.warn;
+        const rows = wrapWords(view2.said, measure, W - 56, 2);
+        y -= rows.length * ROW;
+        rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+      }
+      if (!view2.lines.length) {
+        g.font = "italic 30px system-ui, sans-serif";
+        g.fillStyle = t.ink;
+        g.globalAlpha = 0.7;
+        wrapWords(`Nothing yet. What you write here is for ${view2.with} alone.`, measure, W - 56, 3).forEach((row, r) => g.fillText(row, 28, LEAD + ROW * (r + 0.5)));
+        g.globalAlpha = 1;
+      }
+      for (let i = view2.lines.length - 1; i >= 0; i--) {
+        const line = view2.lines[i];
+        g.font = "32px system-ui, sans-serif";
+        const rows = line.text.split("\n").flatMap((part) => wrapWords(part, measure, W - 56, 6)).slice(0, 8);
+        const tall = (rows.length + 1) * ROW + 10;
+        if (y - tall < LEAD) break;
+        y -= tall;
+        g.font = "600 26px system-ui, sans-serif";
+        g.fillStyle = line.mine ? t.accent : t.ink;
+        g.globalAlpha = line.state === "failed" ? 1 : 0.75;
+        if (line.state === "failed") g.fillStyle = t.warn;
+        g.fillText(`${line.mine ? "You" : line.who}  \xB7  ${line.state === "sending" ? "Sending\u2026" : line.state === "failed" ? "Not sent" : ago(line.at, nowSec)}`, 28, y + ROW * 0.5);
+        g.font = "32px system-ui, sans-serif";
+        g.fillStyle = t.ink;
+        g.globalAlpha = line.state === "sending" ? 0.6 : 1;
+        rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 1.5)));
+        g.globalAlpha = 1;
+      }
+      panel.texture.needsUpdate = true;
+      controls2.letters.seen();
+    };
+    const openPanel = () => {
+      if (!opts.panels || panel) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      try {
+        const made = opts.panels.open(
+          {
+            kind: "custom",
+            title: controls2.letters.view().title,
+            texture,
+            aspect: W / H,
+            onPress: (_x2, y) => {
+              if (y < (H - WRITE) / H || !opts.panels) return;
+              const view2 = controls2.letters.view();
+              void opts.panels.keyboard.ask({ title: `Write to ${view2.with}. Only they can read it. Done sends it.`, maxLength: MESSAGE_LIMITS.chars, multiline: true }).then((text) => {
+                const trouble = text ? controls2.letters.send(text) : null;
+                if (trouble) say2(trouble);
+              });
+            },
+            onClose: () => {
+              if (panel?.texture === texture) panel = null;
+              texture.dispose();
+            }
+          },
+          { id: "private-messages", keep: false, place: { width: 0.46 }, pin: [-0.46, -0.04, -0.8] }
+        );
+        panel = { panel: made, canvas, texture, drawn: "" };
+        drawPanel();
+      } catch (err) {
+        texture.dispose();
+        say2(err instanceof Error ? err.message.replace(/^nswp-sdk: /, "") : "The conversation couldn't be opened.");
+      }
+    };
+    controls2.subscribe(drawPanel);
+    const open2 = (pubkey) => {
+      withWhom = pubkey;
+      void profiles.fetch([pubkey]);
+      controls2.letters.attach({
+        with: () => nameOf(pubkey),
+        lines: () => m.thread(pubkey).map((x) => ({ key: x.id, mine: x.from !== pubkey, who: nameOf(x.from), text: x.text, at: x.at })),
+        send: (text) => m.send(pubkey, text, profiles.get(pubkey)?.name ?? ""),
+        seen: () => m.seen(pubkey)
+      });
+      if (inHeadset()) {
+        closePanel();
+        openPanel();
+      } else controls2.signal("open:letters");
+      refresh();
+    };
+    const write = (pubkey) => {
+      const me = hand.pubkey();
+      if (!me) return say2("Sign in to write to people: it is under You.");
+      if (pubkey === me) return;
+      const go2 = () => void m.load().then(() => open2(pubkey));
+      if (hand.allowed()) return go2();
+      say2(hand.ask(go2));
+    };
+    const refresh = () => {
+      for (const id of shown4) controls2.remove(id);
+      shown4 = [];
+      const me = hand.pubkey();
+      if (me !== wasMe) {
+        wasMe = me;
+        withWhom = null;
+        requests = false;
+        controls2.letters.detach();
+        closePanel();
+      }
+      const allowed = !!me && hand.allowed();
+      if (allowed && m.state() === "off" && !fetching) {
+        fetching = true;
+        void m.load().finally(() => {
+          fetching = false;
+        });
+      }
+      const state = allowed ? m.state() === "off" ? "looking" : m.state() : "off";
+      const all = allowed ? m.conversations() : [];
+      const known = all.filter((c) => c.known);
+      const asking = all.filter((c) => !c.known);
+      const add = (...actions) => {
+        for (const a of actions) shown4.push(a.id);
+        controls2.add(...actions.map((a) => ({ section: "messages", ...a })));
+      };
+      controls2.addSection({
+        id: "messages",
+        label: "Messages",
+        icon: "chat",
+        note: () => !me ? "Sign in to read and send private messages." : !allowed ? "Private messages are between you and one other person. This place hasn't been let send or read yours: say so below, and your sign-in address asks you once." : state === "looking" ? "Looking for your messages." : state === "unreachable" ? "No relay could be reached to look for your messages." : state === "no-inbox" ? "Nobody can write to you privately yet: you haven't said where messages should reach you. Say so below. It is a short public list of relays, and you can change it in any Nostr app." : known.length === 0 && asking.length === 0 ? "No messages yet. Write to someone from Following, or from their card in People." : "Only you and the other person can read a conversation. A relay is told who each message is for, and nothing more."
+      });
+      if (!me) return;
+      if (!allowed) {
+        add({ id: "messages-let", icon: "check", tone: "primary", label: "Let me send and read private messages here", act: () => say2(hand.ask(() => void m.load().then(refresh))) });
+        return;
+      }
+      if (state === "no-inbox") {
+        const hosts = m.offered().map((r) => r.replace(/^wss:\/\//, ""));
+        add({
+          id: "messages-setup",
+          icon: "check",
+          tone: "primary",
+          label: `Have messages reach me at ${hosts.join(", ")}`,
+          act: async () => {
+            const done = await m.setUp();
+            say2(done.said);
+            refresh();
+          }
+        });
+        return;
+      }
+      add({ id: "messages-look", icon: "turn", label: "Look for new messages", short: "Look", act: () => void m.load(true).then(refresh) });
+      const row = (c) => ({
+        // A row each, in order: the people they would expect, then, under their own heading, anyone else.
+        id: `messages-${c.with.slice(0, 16)}`,
+        icon: "chat",
+        on: () => withWhom === c.with,
+        label: () => `${nameOf(c.with)}${c.unread ? `, ${c.unread} new` : ""}`,
+        act: () => open2(c.with)
+      });
+      add(...known.slice(0, 40).map(row));
+      if (asking.length) {
+        add({
+          id: "messages-requests",
+          icon: "list",
+          on: () => requests,
+          label: `From people you don't follow: ${asking.length}`,
+          act: () => {
+            requests = !requests;
+            refresh();
+          }
+        });
+        if (requests) add(...asking.slice(0, 40).map(row));
+      }
+      void profiles.fetch(all.slice(0, 60).map((c) => c.with));
+    };
+    let drawing = false;
+    const soon2 = () => {
+      if (drawing) return;
+      drawing = true;
+      queueMicrotask(() => {
+        drawing = false;
+        refresh();
+        controls2.letters.touch();
+      });
+    };
+    m.onChange(soon2);
+    profiles.onChange(soon2);
+    m.onNew((message) => {
+      const from = message.from;
+      if (from === withWhom) return;
+      if (m.conversations().find((c) => c.with === from)?.known) {
+        say2(`${nameOf(from)} wrote to you privately. It is in Messages.`);
+        controls2.signal("message");
+      }
+    });
+    const every = opts.everyMs ?? 6e4;
+    if (every > 0 && typeof setInterval === "function") {
+      setInterval(() => {
+        if (hand.pubkey() && hand.allowed() && (typeof document === "undefined" || document.visibilityState === "visible")) void m.load();
+      }, every);
+    }
+    if (hand.pubkey() && hand.allowed()) void m.load();
+    refresh();
+    return { refresh, write };
+  }
+
+  // packages/sdk/src/stay.ts
+  function wasRefreshed() {
+    try {
+      const nav = performance.getEntriesByType("navigation")[0];
+      return nav?.type === "reload";
+    } catch {
+      return false;
+    }
+  }
+
+  // packages/sdk/src/room-controls.ts
+  function roomNameFromHash(hash) {
+    for (const part of hash.replace(/^#/, "").split("&")) {
+      if (part.startsWith("room=")) {
+        try {
+          const v2 = decodeURIComponent(part.slice(5));
+          if (/^[A-Za-z0-9_-]{4,48}$/.test(v2)) return v2;
+        } catch {
+        }
+      }
+    }
+    return null;
+  }
+  var JOINED_KEY = () => `nswp:joined:${location.pathname}`;
+  function addRoomControls(controls2, presence2, opts = {}) {
+    const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
+    const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
+    const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
+    const sounds2 = opts.sharedMusic === false ? null : opts.sounds ?? null;
+    let invited = roomNameFromHash(location.hash);
+    let busy = false;
+    let last = invited ? "You were invited to a private room. Joining shows your IP address to the others in it." : "Joining lets you see and hear others here. It shows your IP address to them.";
+    const tell2 = (text) => {
+      last = text;
+      controls2.say(text);
+    };
+    const status = () => {
+      const s = presence2.session;
+      if (!s) return last;
+      const others = s.members.length;
+      const who2 = s.status === "no-relays" ? "can't reach any relay" : others === 0 ? "nobody else here yet" : others === 1 ? "1 other person here" : `${others} other people here`;
+      const as = s.self.guest ? "" : ` You are here as ${s.self.name}.`;
+      return `${presence2.roomName ? "Private room" : "Open room"}: ${who2}.${as}${presence2.micOn ? " Your microphone is on." : ""}${presence2.musicOn ? ` Your music is offered to people near you: ${presence2.musicListeners === 0 ? "nobody is hearing it" : presence2.musicListeners === 1 ? "1 person is hearing it" : `${presence2.musicListeners} people are hearing it`}.` : ""}${presence2.screenOn ? ` You are sharing your screen: ${presence2.screenViewers === 0 ? "nobody is watching" : presence2.screenViewers === 1 ? "1 person is watching" : `${presence2.screenViewers} people are watching`}.` : ""}`;
+    };
+    const waitingFor = /* @__PURE__ */ new Map();
+    let watchingSigner = false;
+    const askSigner = (what, to, then) => {
+      const signer = worldSigner();
+      if (!watchingSigner) {
+        watchingSigner = true;
+        signer.onChange(() => {
+          for (const [name, was] of [...waitingFor]) {
+            if (!signer.more.includes(name)) continue;
+            waitingFor.delete(name);
+            if (Date.now() - was.at < 3e5) was.then();
+          }
+        });
+      }
+      const where = signer.host ?? "your sign-in address";
+      if (signer.offers && !signer.offers.includes(what)) return `${where} doesn't let a world ${to} yet. It can be done at your home.`;
+      if (opts.presenting?.()) return `This world needs your say before it can ${to}, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
+      waitingFor.set(what, { then, at: Date.now() });
+      signer.want([...signer.more, what]);
+      return signer.unlock() ? `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+    };
+    const signedInHere = () => signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null;
+    const worldFollows = () => ({
+      people: worldPeople(),
+      pubkey: signedInHere,
+      allowed: () => worldSigner().more.includes("follows"),
+      ask: (then) => askSigner("follows", "change who you follow", then)
+    });
+    const worldMessages = () => ({
+      messages: createMessages({
+        hand: {
+          pubkey: signedInHere,
+          ready: () => worldSigner().more.includes("messages"),
+          seal: (to, text) => worldSigner().seal(to, text),
+          open: (wrap) => worldSigner().unwrap(wrap),
+          reach: (relays) => worldSigner().reach(relays)
+        },
+        known: (pubkey) => !!follows().people.follows()?.includes(pubkey),
+        ...opts.noteRelays ? { relays: opts.noteRelays } : {}
+      }),
+      pubkey: signedInHere,
+      allowed: () => worldSigner().more.includes("messages"),
+      ask: (then) => askSigner("messages", "send and read your private messages", then)
+    });
+    let followsKept = null;
+    const follows = () => followsKept ?? (followsKept = opts.follows ?? worldFollows());
+    const following = addFollowingControls(controls2, {
+      follows: follows(),
+      ...opts.noteRelays ? { relays: opts.noteRelays } : {},
+      keyboard: () => opts.panels?.keyboard ?? null,
+      ...opts.presenting ? { presenting: opts.presenting } : {},
+      ...opts.about ? { about: opts.about } : {},
+      more: (who2) => [{ id: "following-write", icon: "chat", label: `Write to ${who2.name}, privately`, act: () => messaging.write(who2.pubkey) }]
+    });
+    const messaging = addMessagingControls(controls2, {
+      hand: opts.messages ?? worldMessages(),
+      profiles: following.profiles,
+      panels: opts.panels ?? null,
+      ...opts.presenting ? { presenting: opts.presenting } : {}
+    });
+    if (signerNamed()) {
+      worldSigner().onChange(() => {
+        if (!opts.follows) following.refresh();
+        if (!opts.messages) messaging.refresh();
+      });
+    }
+    const followPress = (key, name, adding) => following.press(key, name, adding);
+    const refresh = () => {
+      const s = presence2.session;
+      opts.onState?.(
+        s ? { name: s.name, private: !!presence2.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence2.micOn, screen: presence2.screenOn, music: presence2.musicOn, musicListeners: presence2.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching2.keys()] } : null
+      );
+      controls2.addSection({ id: "room", label: "Room", icon: "room", note: status });
+      tendChat();
+      tendFeed();
+      people2();
+      remember();
+    };
+    const remember = () => {
+      try {
+        if (presence2.session) sessionStorage.setItem(JOINED_KEY(), presence2.micOn ? "mic" : "joined");
+        else if (!busy) sessionStorage.removeItem(JOINED_KEY());
+      } catch {
+      }
+    };
+    const microphone = async () => {
+      try {
+        const track = useTone ? presence2.testTone() : (await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })).getAudioTracks()[0];
+        await presence2.setMicrophone(track);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const watching2 = /* @__PURE__ */ new Map();
+    const sharers = /* @__PURE__ */ new Set();
+    const stopWatching = (pubkey, panelGone = false) => {
+      const w = watching2.get(pubkey);
+      if (!w) return;
+      watching2.delete(pubkey);
+      presence2.watch(pubkey, false);
+      w.video.srcObject = null;
+      w.texture?.dispose();
+      if (!panelGone) w.panel?.close();
+    };
+    const startWatching = (m) => {
+      const stream = presence2.screenOf(m.pubkey);
+      if (!opts.panels || !stream || watching2.has(m.pubkey)) return false;
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      const w = { video, texture: null, panel: null };
+      watching2.set(m.pubkey, w);
+      const show = () => {
+        if (w.panel || watching2.get(m.pubkey) !== w || !video.videoWidth || !video.videoHeight) return;
+        w.texture = new VideoTexture(video);
+        w.texture.colorSpace = SRGBColorSpace;
+        w.panel = opts.panels.open(
+          { kind: "custom", title: `${m.name}'s screen`, texture: w.texture, aspect: video.videoWidth / video.videoHeight, onClose: () => stopWatching(m.pubkey, true) },
+          { keep: false }
+        );
+        refresh();
+      };
+      video.addEventListener("loadedmetadata", show);
+      video.addEventListener("resize", show);
+      void video.play().catch(() => {
+      });
+      presence2.watch(m.pubkey, true);
+      return true;
+    };
+    const testScreen = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const g = canvas.getContext("2d");
+      let n = 0;
+      const draw = () => {
+        g.fillStyle = "#10243a";
+        g.fillRect(0, 0, 1280, 720);
+        g.fillStyle = "#ffd166";
+        g.font = "64px sans-serif";
+        g.fillText(`A shared screen, frame ${++n}`, 80, 380);
+      };
+      draw();
+      const timer = setInterval(draw, 200);
+      const track = canvas.captureStream(10).getVideoTracks()[0];
+      track.addEventListener("ended", () => clearInterval(timer));
+      return track;
+    };
+    let listed = [];
+    let extras = [];
+    let chosen = null;
+    let headcount = 0;
+    let toldOfMusic = false;
+    const blockedNote = () => {
+      const n = presence2.blocked().length;
+      const e = presence2.blockedElsewhere;
+      return `${n === 0 ? "" : `You have blocked ${n === 1 ? "1 person" : `${n} people`} here: you don't see or hear each other. Unblock anyone below. `}${e === 0 ? "" : `${e === 1 ? "1 person is" : `${e} people are`} blocked wherever you go: that list is kept by the place you set out from, and is changed there. `}`;
+    };
+    if (opts.arrived?.blocked?.length) presence2.blockAlso(opts.arrived.blocked);
+    const recorders = /* @__PURE__ */ new Set();
+    const choose = (m) => {
+      chosen = m.pubkey;
+      people2();
+      presence2.pointOut(m.pubkey);
+      controls2.say(m.identity ? `${m.name} is under the column of light. Their key: ${encodeNpub(m.identity)}` : `${m.name} is under the column of light. A guest: nobody has vouched for who they are.`);
+    };
+    presence2.onPerson((pubkey) => {
+      const m = presence2.people().find((x) => x.pubkey === pubkey);
+      if (!m) return;
+      choose(m);
+      controls2.signal("show:people");
+    });
+    controls2.add({
+      id: "people-pictures",
+      section: "people",
+      icon: "selfie",
+      on: () => showsPictures(),
+      label: () => showsPictures() ? "Profile pictures: on" : "Profile pictures: off",
+      short: "Pictures",
+      act: () => {
+        setShowsPictures(!showsPictures());
+        controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
+      }
+    });
+    const people2 = () => {
+      const here = presence2.session ? presence2.people() : [];
+      if (presence2.session && here.length !== headcount) controls2.signal(here.length > headcount ? "join" : "leave");
+      headcount = presence2.session ? here.length : 0;
+      for (const id of [...listed, ...extras]) controls2.remove(id);
+      extras = [];
+      listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
+      if (!here.some((m) => m.pubkey === chosen)) chosen = null;
+      controls2.addSection({
+        id: "people",
+        label: "People",
+        icon: "people",
+        note: () => `${blockedNote()}${!presence2.session ? "Join the room to see who else is here." : here.length === 0 ? "Nobody else is here yet." : here.some((m) => m.pubkey === chosen) ? "What they say about themselves is their own words. Muting and blocking are yours alone: nobody is told. Who you follow is public." : `${here.length === 1 ? "1 person is" : `${here.length} people are`} here with you. Select one, or press the picture over their head, to see who they are, and to mute their voice or their music, or block them.`}`,
+        // Whoever was chosen, at the head of the section: who they are here, and what they say of themselves.
+        card: () => {
+          const who3 = here.find((m) => m.pubkey === chosen);
+          if (!who3) return null;
+          return {
+            title: who3.name,
+            tag: who3.guest ? "Guest" : "By name",
+            proven: !who3.guest,
+            // A name is not unique and a picture can be copied: the key behind them is what tells two people apart.
+            sub: who3.identity ? shortNpub(who3.identity) : "Nobody has vouched for who they are.",
+            copy: who3.identity ? encodeNpub(who3.identity) : "",
+            text: who3.guest ? "" : who3.about ?? "",
+            picture: !who3.guest && showsPictures() ? who3.picture ?? "" : "",
+            color: who3.look.light,
+            now: [
+              // What they have done here, as they say. Only someone who came by name has anything to show.
+              ...who3.identity ? opts.about?.lines(who3.identity) ?? [] : [],
+              ...who3.recording ? ["Recording what they see"] : [],
+              ...who3.sharing ? ["Sharing their screen"] : [],
+              ...who3.music ? ["Sharing music"] : [],
+              ...presence2.isMuted(who3.pubkey) ? ["You have muted their voice"] : []
+            ]
+          };
+        }
+      });
+      here.forEach(
+        (m, i) => controls2.add({
+          id: listed[i],
+          section: "people",
+          kind: "swatch",
+          color: m.look.light,
+          label: () => `${m.name}${m.recording ? ", recording" : ""}${m.sharing ? ", sharing their screen" : ""}${m.music ? ", sharing music" : ""}`,
+          act: () => choose(m)
+        })
+      );
+      if (sounds2 && !toldOfMusic && !sounds2.levels.hearShared && here.some((m) => m.music)) {
+        toldOfMusic = true;
+        controls2.say(`${here.find((m) => m.music).name} is sharing music. To hear what people near you share, turn it on in Sound.`);
+      }
+      for (const key of [...watching2.keys()]) if (!here.some((m) => m.pubkey === key && m.sharing)) stopWatching(key);
+      for (const m of here) {
+        if (m.sharing && !sharers.has(m.pubkey)) controls2.say(opts.panels ? `${m.name} is sharing their screen. Select them in People to watch.` : `${m.name} is sharing their screen.`);
+        if (m.sharing) sharers.add(m.pubkey);
+        else sharers.delete(m.pubkey);
+      }
+      const who2 = here.find((m) => m.pubkey === chosen);
+      if (who2?.sharing && opts.panels) {
+        extras.push("person-watch");
+        controls2.add({
+          id: "person-watch",
+          section: "people",
+          icon: "panel",
+          on: () => watching2.has(who2.pubkey),
+          label: () => watching2.has(who2.pubkey) ? `Stop watching ${who2.name}'s screen` : `Watch ${who2.name}'s screen`,
+          act: () => {
+            if (watching2.has(who2.pubkey)) stopWatching(who2.pubkey);
+            else if (startWatching(who2)) controls2.say(`${who2.name}'s screen is opening on a panel of your own. Put the panel away to stop.`);
+            else controls2.say(`${who2.name}'s screen can't be shown here.`);
+            refresh();
+          }
+        });
+      }
+      const me = follows().pubkey();
+      if (who2?.identity && me && who2.identity !== me) {
+        const them = who2.identity;
+        const people3 = follows().people;
+        if (follows().allowed() && people3.follows() === null) void people3.load().then(() => refresh());
+        extras.push("person-follow");
+        controls2.add({
+          id: "person-follow",
+          section: "people",
+          icon: "check",
+          on: () => people3.isFollowing(them) === true,
+          label: () => people3.isFollowing(them) ? `Unfollow ${who2.name}` : `Follow ${who2.name}`,
+          act: () => followPress(them, who2.name, !people3.isFollowing(them))
+        });
+      }
+      if (who2?.identity && me && who2.identity !== me) {
+        const them = who2.identity;
+        extras.push("person-write");
+        controls2.add({ id: "person-write", section: "people", icon: "chat", label: `Write to ${who2.name}, privately`, act: () => messaging.write(them) });
+      }
+      if (who2) {
+        extras.push("person-mute", "person-music", "person-block");
+        controls2.add(
+          {
+            id: "person-mute",
+            section: "people",
+            icon: () => presence2.isMuted(who2.pubkey) ? "mic" : "micOff",
+            on: () => presence2.isMuted(who2.pubkey),
+            label: () => presence2.isMuted(who2.pubkey) ? `Unmute ${who2.name}'s voice` : `Mute ${who2.name}'s voice`,
+            act: () => {
+              const now = !presence2.isMuted(who2.pubkey);
+              presence2.mute(who2.pubkey, now);
+              controls2.say(now ? `You no longer hear ${who2.name} speak. They still see and hear you, and aren't told.` : `You hear ${who2.name} speak again.`);
+            }
+          },
+          ...sounds2 ? [
+            {
+              id: "person-music",
+              section: "people",
+              icon: (() => presence2.isMusicMuted(who2.pubkey) ? "sound" : "soundOff"),
+              on: () => presence2.isMusicMuted(who2.pubkey),
+              label: () => presence2.isMusicMuted(who2.pubkey) ? `Unmute ${who2.name}'s music` : `Mute ${who2.name}'s music`,
+              act: () => {
+                const now = !presence2.isMusicMuted(who2.pubkey);
+                presence2.muteMusic(who2.pubkey, now);
+                controls2.say(
+                  now ? `You won't hear music ${who2.name} shares. You still hear them speak.` : sounds2.levels.hearShared ? `You hear ${who2.name}'s music again when they share it and you are near.` : `${who2.name}'s music is no longer muted. To hear anyone's shared music, turn it on in Sound.`
+                );
+              }
+            }
+          ] : [],
+          ...presence2.itemsRule === "allowed" ? [
+            {
+              id: "person-mute-items",
+              section: "people",
+              icon: "close",
+              on: () => presence2.isItemsMuted(who2.pubkey),
+              label: () => presence2.isItemsMuted(who2.pubkey) ? `Unmute ${who2.name}'s items` : `Mute ${who2.name}'s items`,
+              act: () => {
+                const now = !presence2.isItemsMuted(who2.pubkey);
+                presence2.muteItems(who2.pubkey, now);
+                controls2.say(now ? `What ${who2.name}'s items do can't reach you, and you won't see or hear it. They aren't told.` : `${who2.name}'s items are no longer muted.`);
+              }
+            }
+          ] : [],
+          {
+            id: "person-block",
+            section: "people",
+            icon: "exit",
+            label: `Block ${who2.name}`,
+            act: () => {
+              stopWatching(who2.pubkey);
+              const name = presence2.block(who2.pubkey);
+              if (!name) return;
+              chosen = null;
+              controls2.say(
+                who2.identity ? `${name} is blocked. You won't see or hear each other here, now or when they come back by that name. To them, you have left.` : `${name} is blocked for this visit. You won't see or hear each other. A guest gets a new key each visit, so it can't hold beyond this one.`
+              );
+              refresh();
+            }
+          }
+        );
+      }
+      for (const b of presence2.blocked()) {
+        const id = `unblock-${b.key.slice(0, 12)}`;
+        extras.push(id);
+        controls2.add({
+          id,
+          section: "people",
+          icon: "check",
+          label: `Unblock ${b.name}${b.kept ? "" : " (blocked this visit)"}`,
+          act: () => {
+            presence2.unblock(b.key);
+            controls2.say(`${b.name} is no longer blocked. You'll see each other again within half a minute if they are here.`);
+            refresh();
+          }
+        });
+      }
+      for (const m of here) {
+        if (m.recording && !recorders.has(m.pubkey)) controls2.say(`${m.name} is recording what they see.`);
+        if (m.recording) recorders.add(m.pubkey);
+        else recorders.delete(m.pubkey);
+      }
+    };
+    let chatFor = null;
+    let chatStops = [];
+    const CHAT_W = 768;
+    const CHAT_H = 900;
+    const WRITE_H = 132;
+    let chatPanel = null;
+    const drawChatPanel = () => {
+      if (!chatPanel) return;
+      const view2 = controls2.chat.view();
+      if (view2.version === chatPanel.drawn) return;
+      chatPanel.drawn = view2.version;
+      const t = controls2.theme;
+      const g = chatPanel.canvas.getContext("2d");
+      g.fillStyle = t.glass;
+      g.fillRect(0, 0, CHAT_W, CHAT_H);
+      g.textBaseline = "middle";
+      const ROW = 46;
+      const measure = (text) => g.measureText(text).width;
+      let y = CHAT_H - WRITE_H - 18;
+      for (let i = view2.lines.length - 1; i >= 0; i--) {
+        const line = view2.lines[i];
+        const lead = line.note ? "" : `${line.mine ? "You" : line.who}:`;
+        g.font = line.note ? "italic 32px system-ui, sans-serif" : "34px system-ui, sans-serif";
+        const rows = wrapWords(lead ? `${lead} ${line.text}` : line.text, measure, CHAT_W - 56, 6);
+        y -= rows.length * ROW;
+        if (y < 12) break;
+        rows.forEach((row, r) => {
+          const at = y + ROW * (r + 0.5);
+          let x = 28;
+          let rest = row;
+          if (r === 0 && lead && row.startsWith(lead)) {
+            g.font = "600 34px system-ui, sans-serif";
+            g.fillStyle = line.mine ? t.ink : line.color || t.accent;
+            g.globalAlpha = line.mine ? 0.62 : 1;
+            g.fillText(lead, x, at);
+            x += measure(lead);
+            rest = row.slice(lead.length);
+            g.font = "34px system-ui, sans-serif";
+          }
+          g.globalAlpha = line.note ? 0.62 : 1;
+          g.fillStyle = t.ink;
+          g.fillText(rest, x, at);
+        });
+        g.globalAlpha = 1;
+        y -= 10;
+      }
+      if (!view2.lines.length) {
+        g.font = "32px system-ui, sans-serif";
+        g.fillStyle = t.ink;
+        g.globalAlpha = 0.7;
+        wrapWords("Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.", measure, CHAT_W - 80, 6).forEach((row, r) => g.fillText(row, 40, 200 + r * ROW));
+        g.globalAlpha = 1;
+      }
+      g.strokeStyle = t.accent;
+      g.lineWidth = 3;
+      g.fillStyle = `rgba(${rgb(t.accent)}, 0.16)`;
+      g.beginPath();
+      g.roundRect(20, CHAT_H - WRITE_H + 12, CHAT_W - 40, WRITE_H - 32, 22);
+      g.fill();
+      g.stroke();
+      g.font = "600 36px system-ui, sans-serif";
+      g.fillStyle = t.ink;
+      g.textAlign = "center";
+      g.fillText("Write to the room", CHAT_W / 2, CHAT_H - WRITE_H / 2 - 4);
+      g.textAlign = "left";
+      chatPanel.texture.needsUpdate = true;
+      controls2.chat.seen();
+    };
+    const closeChatPanel = () => {
+      const was = chatPanel;
+      chatPanel = null;
+      was?.texture.dispose();
+      was?.panel.close();
+    };
+    const writeInHeadset = () => {
+      if (!opts.panels || !controls2.chat.view().ready) return;
+      void opts.panels.keyboard.ask({ title: "Write to the room. Done sends it.", maxLength: CHAT_LIMITS.chars }).then((text) => {
+        const trouble = text ? controls2.chat.send(text) : null;
+        if (trouble) tell2(trouble);
+      });
+    };
+    const openChatPanel = () => {
+      if (!opts.panels || chatPanel || !controls2.chat.view().ready) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = CHAT_W;
+      canvas.height = CHAT_H;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      try {
+        const panel = opts.panels.open(
+          {
+            kind: "custom",
+            title: controls2.chat.view().title,
+            texture,
+            aspect: CHAT_W / CHAT_H,
+            onPress: (_x2, y) => {
+              if (y > 1 - WRITE_H / CHAT_H) writeInHeadset();
+            },
+            onClose: () => {
+              if (chatPanel?.texture === texture) chatPanel = null;
+              texture.dispose();
+            }
+          },
+          // To one side of where they are looking, an arm's reach away, and pinned: it comes with them until they unpin it.
+          { id: "room-chat", keep: false, place: { width: 0.46 }, pin: [-0.46, -0.04, -0.8] }
+        );
+        chatPanel = { panel, canvas, texture, drawn: -1 };
+        drawChatPanel();
+      } catch (err) {
+        texture.dispose();
+        tell2(err instanceof Error ? err.message.replace(/^nswp-sdk: /, "") : "The chat panel couldn't be opened.");
+      }
+    };
+    controls2.subscribe(drawChatPanel);
+    const tendChat = () => {
+      const s = presence2.session;
+      if (s === chatFor) return;
+      for (const stop of chatStops) stop();
+      chatStops = [];
+      chatFor = s;
+      controls2.chat.detach();
+      closeChatPanel();
+      if (!s) return;
+      controls2.chat.attach(
+        (text) => {
+          const how = s.say(text);
+          if (how === "slow") return "That is a lot at once. Wait a moment, then send it again.";
+          if (how === "said" && s.members.length === 0) controls2.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
+          return null;
+        },
+        { title: presence2.roomName ? "Private room chat" : "Room chat" }
+      );
+      chatStops.push(
+        s.on("said", (m, line) => {
+          const mine = m.pubkey === s.self.pubkey;
+          controls2.chat.add({ id: line.id, who: m.name, text: line.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
+          if (mine || !showsChat()) return;
+          controls2.signal("heard");
+          const where = presence2.whereIs(m.pubkey);
+          opts.sounds?.play("chat", where ?? { distance: 3 });
+        }),
+        // Who comes and goes is said in the chat too. A moment is waited for a name: a pass is shown just after arriving.
+        s.on("member", (m) => {
+          setTimeout(() => {
+            if (chatFor === s && s.members.includes(m)) controls2.chat.add({ note: true, text: `${m.name} is here.` });
+          }, 1500);
+        }),
+        s.on("leave", (m) => controls2.chat.add({ note: true, text: `${m.name} left.` }))
+      );
+    };
+    onChatChange(() => {
+      if (!showsChat()) closeChatPanel();
+      refresh();
+    });
+    const notes2 = opts.notes ?? {
+      ready: () => worldSigner().state === "unlocked",
+      sign: (n) => worldSigner().sign(n),
+      onChange: (fn) => worldSigner().onChange(fn),
+      locked: () => worldSigner().state === "locked",
+      unlock: () => worldSigner().unlock(),
+      host: () => worldSigner().host,
+      unanswered: () => worldSigner().unanswered ? unansweredWords(worldSigner()) : null,
+      pubkey: () => worldSigner().pubkey,
+      who: () => hereAs()?.name || worldSigner().name
+    };
+    const usualRelays = () => opts.noteRelays ?? DEFAULT_RELAYS;
+    let relaysKept = null;
+    const ownRelays = (key) => {
+      if (!key) return Promise.resolve([]);
+      if (relaysKept && relaysKept.key === key && Date.now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usualRelays(), timeoutMs: 2500 }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: Date.now(), found: found2 };
+      return found2;
+    };
+    let wantsFeed = false;
+    const postNote = async (words2) => {
+      const signed = await notes2.sign({ kind: 1, content: words2, tags: [] }).catch(() => null);
+      const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words2 ? signed : null;
+      if (!note) return { ok: false, said: "That wasn't sent: your sign-in said no." };
+      const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
+      const kept3 = to?.took ?? 0;
+      const n = to?.relays.length ?? 0;
+      const own = to?.own ?? 0;
+      const where = own === n ? `${kept3} of your ${n} relays` : own ? `${kept3} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept3} of the ${n} usual relays: you have published no relay list of your own`;
+      return kept3 ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+    };
+    const loadPosts = async () => {
+      const key = notes2.pubkey?.();
+      if (!key) return [];
+      const got = await askWell({ kinds: [1], authors: [key], limit: FEED_LIMITS.kept }, { own: await ownRelays(key), usual: usualRelays(), timeoutMs: 5e3 });
+      if (!got.events.length && !Object.values(got.relays).some((said) => said === "eose")) return null;
+      return got.events.filter((e) => e.pubkey === key && e.kind === 1 && !e.tags.some((t) => t[0] === "e")).map((e) => ({ id: e.id, text: e.content, at: e.created_at }));
+    };
+    let feedFor = null;
+    const FEED_LEAD = 150;
+    let feedPanel = null;
+    const closeFeedPanel = () => {
+      const was = feedPanel;
+      feedPanel = null;
+      was?.texture.dispose();
+      was?.panel.close();
+    };
+    const tendFeed = () => {
+      const key = notes2.ready() ? notes2.pubkey?.() ?? "" : null;
+      if (key === feedFor) return;
+      feedFor = key;
+      if (key === null) {
+        controls2.feed.detach();
+        return closeFeedPanel();
+      }
+      controls2.feed.attach({ who: () => notes2.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? opts.notes.marked?.() ?? "" : location.host, send: postNote, load: loadPosts });
+    };
+    const drawFeedPanel = () => {
+      if (!feedPanel) return;
+      const view2 = controls2.feed.view();
+      const stamp = `${view2.version}:${Math.floor(Date.now() / 6e4)}:${view2.lead}`;
+      if (stamp === feedPanel.drawn) return;
+      feedPanel.drawn = stamp;
+      const t = controls2.theme;
+      const g = feedPanel.canvas.getContext("2d");
+      g.fillStyle = t.glass;
+      g.fillRect(0, 0, CHAT_W, CHAT_H);
+      g.textBaseline = "middle";
+      g.textAlign = "left";
+      const ROW = 44;
+      const measure = (text) => g.measureText(text).width;
+      g.font = "30px system-ui, sans-serif";
+      g.fillStyle = t.ink;
+      g.globalAlpha = 0.72;
+      g.font = "27px system-ui, sans-serif";
+      wrapWords(view2.lead, measure, CHAT_W - 56, 4).forEach((row, r) => g.fillText(row, 28, 24 + r * 33));
+      g.globalAlpha = 1;
+      g.strokeStyle = t.accent;
+      g.lineWidth = 3;
+      g.fillStyle = `rgba(${rgb(t.accent)}, 0.16)`;
+      g.beginPath();
+      g.roundRect(20, FEED_LEAD, CHAT_W - 40, WRITE_H - 32, 22);
+      g.fill();
+      g.stroke();
+      g.font = "600 36px system-ui, sans-serif";
+      g.fillStyle = t.ink;
+      g.textAlign = "center";
+      g.fillText("Send out a post", CHAT_W / 2, FEED_LEAD + (WRITE_H - 32) / 2);
+      g.textAlign = "left";
+      let y = FEED_LEAD + WRITE_H;
+      const say2 = (text) => {
+        g.font = "italic 30px system-ui, sans-serif";
+        g.globalAlpha = 0.7;
+        wrapWords(text, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+        g.globalAlpha = 1;
+        y += ROW * 2;
+      };
+      if (view2.said) say2(view2.said);
+      if (!view2.posts.length) say2(view2.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.");
+      const nowSec = Math.floor(Date.now() / 1e3);
+      for (const post of view2.posts) {
+        g.font = "33px system-ui, sans-serif";
+        const rows = wrapWords(post.text, measure, CHAT_W - 56, 5);
+        if (y + (rows.length + 1) * ROW > CHAT_H - 10) break;
+        g.fillStyle = t.ink;
+        g.globalAlpha = post.state === "sending" ? 0.6 : 1;
+        rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+        y += rows.length * ROW;
+        g.font = "26px system-ui, sans-serif";
+        g.fillStyle = post.state === "failed" ? t.warn : t.ink;
+        g.globalAlpha = post.state === "failed" ? 1 : 0.55;
+        g.fillText(post.state === "sending" ? "Sending\u2026" : post.state === "failed" ? "Not sent" : ago(post.at, nowSec), 28, y + 20);
+        g.globalAlpha = 0.14;
+        g.fillStyle = t.ink;
+        g.fillRect(28, y + ROW + 4, CHAT_W - 56, 2);
+        g.globalAlpha = 1;
+        y += ROW + 16;
+      }
+      feedPanel.texture.needsUpdate = true;
+    };
+    const openFeedPanel = () => {
+      if (!opts.panels || feedPanel || !controls2.feed.view().ready) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = CHAT_W;
+      canvas.height = CHAT_H;
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      try {
+        const panel = opts.panels.open(
+          {
+            kind: "custom",
+            title: controls2.feed.view().title,
+            texture,
+            aspect: CHAT_W / CHAT_H,
+            onPress: (_x2, y) => {
+              if (y < FEED_LEAD / CHAT_H || y > (FEED_LEAD + WRITE_H) / CHAT_H || !opts.panels) return;
+              void opts.panels.keyboard.ask({ title: "Write a post. Done sends it out, for anyone to read.", maxLength: CHAT_LIMITS.chars }).then((text) => {
+                const trouble = text ? controls2.feed.send(text) : null;
+                if (trouble) tell2(trouble);
+              });
+            },
+            onClose: () => {
+              if (feedPanel?.texture === texture) feedPanel = null;
+              texture.dispose();
+            }
+          },
+          // On the other side from the room's chat, so both can be up.
+          { id: "my-feed", keep: false, place: { width: 0.46 }, pin: [0.46, -0.04, -0.8] }
+        );
+        feedPanel = { panel, canvas, texture, drawn: "" };
+        controls2.feed.opened();
+        drawFeedPanel();
+      } catch (err) {
+        texture.dispose();
+        tell2(err instanceof Error ? err.message.replace(/^nswp-sdk: /, "") : "Your feed couldn't be opened.");
+      }
+    };
+    controls2.subscribe(drawFeedPanel);
+    const openFeed = () => {
+      if (presence2.presenting && opts.panels) return feedPanel ? closeFeedPanel() : openFeedPanel();
+      controls2.signal("toggle:feed");
+    };
+    notes2.onChange?.(() => {
+      tendFeed();
+      if (notes2.ready() && wantsFeed) {
+        wantsFeed = false;
+        openFeed();
+      }
+      refresh();
+    });
+    let turning = false;
+    const asWhoTheyAre = async () => {
+      const s = presence2.session;
+      if (!s || busy || turning) return;
+      const who2 = hereAs();
+      if (!!who2 === !s.self.guest) return;
+      turning = busy = true;
+      const mic = presence2.micOn;
+      const name = presence2.roomName;
+      for (const key of [...watching2.keys()]) stopWatching(key);
+      presence2.leave();
+      try {
+        await presence2.join(name);
+        if (mic) await microphone();
+        tell2(presence2.session?.self.guest ? "The room sees a guest now." : `The room sees you as ${presence2.session?.self.name} now.`);
+      } catch {
+        tell2("You left the room, and joining it again didn't work. Join it again from here.");
+      } finally {
+        turning = busy = false;
+        refresh();
+      }
+    };
+    if (signerNamed()) {
+      worldSigner().onChange(() => void asWhoTheyAre());
+      onHereAs(() => {
+        void asWhoTheyAre();
+        refresh();
+      });
+    }
+    controls2.add(
+      {
+        id: "room-chat",
+        section: "room",
+        hotbar: true,
+        icon: "chat",
+        label: () => {
+          const n = controls2.chat.view().unread;
+          return n ? `Chat: ${n} new` : "Chat";
+        },
+        short: () => {
+          const n = controls2.chat.view().unread;
+          return n ? `Chat ${n}` : "Chat";
+        },
+        on: () => controls2.chat.view().unread > 0,
+        hidden: () => !presence2.session || !showsChat(),
+        act: () => {
+          if (presence2.presenting && opts.panels) return chatPanel ? closeChatPanel() : openChatPanel();
+          controls2.signal("toggle:chat");
+        }
+      },
+      {
+        id: "feed",
+        section: "room",
+        icon: "note",
+        // It is here whenever there is something to post with, signed in or not: a row that isn't there can't be
+        // found. Signed out, it says what comes first, and pressing it starts that.
+        label: () => {
+          if (notes2.ready()) return "Send out a post";
+          const host = notes2.host?.() ?? "your sign-in address";
+          return notes2.unanswered?.() ? `Sending out a post isn't available: ${host} didn't answer` : `Send out a post: sign in at ${host} first`;
+        },
+        short: "Post",
+        hidden: () => !(notes2.ready() || notes2.locked?.() || notes2.unanswered?.()),
+        act: () => {
+          if (notes2.ready()) return openFeed();
+          const why = notes2.unanswered?.();
+          if (why) return tell2(why);
+          const host = notes2.host?.() ?? "your sign-in address";
+          if (presence2.presenting) return tell2(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+          wantsFeed = !!notes2.unlock?.();
+          tell2(
+            wantsFeed ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.` : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`
+          );
+        }
+      },
+      {
+        id: "room-chat-show",
+        section: "room",
+        icon: "chat",
+        label: () => showsChat() ? "Written chat: on" : "Written chat: off",
+        on: () => showsChat(),
+        act: () => {
+          setShowsChat(!showsChat());
+          tell2(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
+        }
+      },
+      {
+        id: "room-join",
+        section: "room",
+        hotbar: true,
+        icon: () => presence2.session ? "leave" : "room",
+        label: () => presence2.session ? "Leave the room" : "Join the room",
+        short: () => presence2.session ? "Leave" : "Join",
+        on: () => !!presence2.session,
+        hidden: () => busy,
+        act: async () => {
+          if (presence2.session) {
+            for (const key of [...watching2.keys()]) stopWatching(key);
+            presence2.leave();
+            controls2.signal("leave");
+            tell2("You left the room.");
+            return refresh();
+          }
+          busy = true;
+          try {
+            await presence2.join(invited);
+            controls2.signal("join");
+          } catch (err) {
+            tell2(`Couldn't join: ${err instanceof Error ? err.message : String(err)}`);
+          } finally {
+            busy = false;
+            refresh();
+          }
+        }
+      },
+      {
+        id: "room-mic",
+        section: "room",
+        hotbar: true,
+        icon: () => presence2.micOn ? "mic" : "micOff",
+        label: () => presence2.micOn ? "Turn microphone off" : "Turn microphone on",
+        short: "Mic",
+        on: () => presence2.micOn,
+        hidden: () => !presence2.session,
+        act: async () => {
+          if (presence2.micOn) {
+            await presence2.setMicrophone(null);
+            controls2.signal("micOff");
+          } else if (await microphone()) controls2.signal("micOn");
+          else tell2("The microphone is blocked or unavailable.");
+          refresh();
+        }
+      },
+      ...sounds2 ? [
+        {
+          id: "sound-share",
+          section: "sound",
+          icon: "sound",
+          on: () => presence2.musicOn,
+          label: () => presence2.musicOn ? "Sharing your music with people near you: on" : "Share your music with people near you",
+          hidden: () => !presence2.session || sounds2.jukebox.list().length === 0,
+          act: async () => {
+            if (presence2.musicOn) {
+              await presence2.shareMusic(null);
+              tell2("You stopped sharing your music.");
+              return refresh();
+            }
+            await presence2.shareMusic(sounds2.jukebox.output());
+            tell2(
+              `Your music is offered to people near you. It reaches only those who have chosen to hear shared music, and fades with distance.${presence2.micOn ? " With your microphone on, wear headphones, or they hear it twice." : ""}`
+            );
+            refresh();
+          }
+        },
+        {
+          id: "sound-hear",
+          section: "sound",
+          icon: "sound",
+          on: () => sounds2.levels.hearShared,
+          label: () => sounds2.levels.hearShared ? "Hear music others share: on" : "Hear music others share: off",
+          act: () => {
+            sounds2.setLevels({ hearShared: !sounds2.levels.hearShared });
+            controls2.say(sounds2.levels.hearShared ? "You'll hear music that people near you share, quieter the further they are." : "You won't hear anyone's shared music.");
+          }
+        },
+        {
+          id: "sound-shared",
+          section: "sound",
+          hidden: () => !sounds2.levels.hearShared,
+          on: () => sounds2.levels.shared > 0,
+          label: () => `Others' music: ${LEVEL_WORDS[levelStep(sounds2.levels.shared)]}`,
+          act: () => sounds2.setLevels({ shared: nextLevel(sounds2.levels.shared) })
+        }
+      ] : [],
+      {
+        id: "room-screen",
+        section: "room",
+        icon: "panel",
+        on: () => presence2.screenOn,
+        label: () => presence2.screenOn ? "Stop sharing your screen" : "Share your screen",
+        // A phone or a headset's browser can't offer a screen. It can still watch one.
+        hidden: () => !presence2.session || !canShare,
+        act: async () => {
+          if (presence2.screenOn) {
+            await presence2.shareScreen(null);
+            tell2("You stopped sharing your screen.");
+            return refresh();
+          }
+          try {
+            const track = useTestScreen ? testScreen() : (await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false })).getVideoTracks()[0];
+            await presence2.shareScreen(track);
+            tell2("Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.");
+          } catch {
+            tell2("Nothing was shared.");
+          }
+          refresh();
+        }
+      },
+      {
+        id: "room-invite",
+        section: "room",
+        icon: "link",
+        label: () => presence2.roomName ? "Copy invite link" : "Make a private room",
+        hidden: () => !presence2.session,
+        act: async () => {
+          if (!presence2.roomName) {
+            const bytes = crypto.getRandomValues(new Uint8Array(9));
+            const code = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_");
+            history.replaceState(history.state, "", `${location.pathname}${location.search}#room=${code}`);
+            invited = code;
+            await presence2.join(code);
+          }
+          try {
+            await navigator.clipboard.writeText(location.href);
+            tell2("Invite link copied. Anyone with it can join.");
+          } catch {
+            tell2("Copy this page's address to invite someone.");
+          }
+          refresh();
+        }
+      }
+    );
+    (opts.sounds ?? null)?.onChange((l) => {
+      presence2.setVolume(l.off ? 0 : l.voices);
+      presence2.setHearShared(!!sounds2 && !l.off && l.hearShared, l.shared);
+    });
+    let kept2 = null;
+    try {
+      kept2 = wasRefreshed() ? sessionStorage.getItem(JOINED_KEY()) : null;
+    } catch {
+    }
+    refresh();
+    const carried2 = opts.arrived?.joined ? { mic: !!opts.arrived.mic, from: "there" } : kept2 ? { mic: kept2 === "mic", from: "refresh" } : null;
+    if (carried2 && (carried2.from === "refresh" || !invited)) {
+      busy = true;
+      void (async () => {
+        try {
+          await presence2.join(carried2.from === "refresh" ? invited : null);
+          const heard = carried2.mic ? await microphone() : false;
+          const early = 2500 - performance.now();
+          if (early > 0) await new Promise((done) => setTimeout(done, early));
+          tell2(
+            `You are still in the room${carried2.from === "there" ? ", as you were where you came from" : ""}: others here can see you${heard ? " and hear you" : ""}.${carried2.mic && !heard ? " Your microphone is off here: the browser didn't allow it." : ""} Leave is where Join was.`
+          );
+        } catch (err) {
+          tell2(`Couldn't stay joined: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+          busy = false;
+          refresh();
+        }
+      })();
+    }
+    return {
+      refresh,
+      following,
+      messaging,
+      travelling: () => ({ joined: !!presence2.session && !presence2.roomName, mic: !!presence2.session && !presence2.roomName && presence2.micOn, blocked: presence2.newlyBlocked() })
+    };
+  }
+
+  // packages/sdk/src/engine-people.ts
+  var on2 = null;
+  var round = (n, places = 3) => Math.round(n * 10 ** places) / 10 ** places;
+  var v = new Vector3();
+  var q = new Quaternion();
+  var placed = (o) => {
+    o.getWorldPosition(v);
+    o.getWorldQuaternion(q);
+    return { p: [round(v.x), round(v.y), round(v.z)], q: [round(q.x, 4), round(q.y, 4), round(q.z, 4), round(q.w, 4)] };
+  };
+  function boardOf(state, sprite, opacity) {
+    const map = sprite?.material.map;
+    if (!sprite || !map || !sprite.visible) return null;
+    sprite.getWorldPosition(v);
+    state.boards.set(map.uuid, map);
+    const tint = sprite.material.color.getHexString();
+    return {
+      key: map.uuid,
+      at: [round(v.x), round(v.y), round(v.z)],
+      w: round(sprite.scale.x),
+      h: round(sprite.scale.y),
+      foot: sprite.center.y === 0,
+      opacity: round(Math.min(1, Math.max(0, opacity)), 2),
+      ...tint === "ffffff" ? {} : { tint: `#${tint}` }
+    };
+  }
+  function personOf(state, p) {
+    let name = state.figureNames.get(p.figure);
+    if (!name) {
+      name = `f${++state.made}`;
+      state.figureNames.set(p.figure, name);
+    }
+    state.figures.set(name, p.figure);
+    const boards = [
+      boardOf(state, p.label, p.opacity),
+      boardOf(state, p.picture, p.opacity),
+      // What they wrote fades in and out by itself, and is never in the face of someone standing close.
+      boardOf(state, p.bubble, p.bubble?.material.opacity ?? 0),
+      boardOf(state, p.light, 1),
+      boardOf(state, p.beam, 1)
+    ].filter((b) => b !== null);
+    return {
+      key: p.pubkey,
+      name: p.name,
+      figure: name,
+      opacity: round(p.opacity, 2),
+      head: placed(p.figure.head),
+      body: placed(p.figure.torso),
+      hands: p.figure.hands.map((h) => h.visible ? placed(h) : null),
+      boards
+    };
+  }
+  function peopleFrame(_said, dt) {
+    const state = on2;
+    if (!state) return {};
+    state.presence.update(dt);
+    state.figures.clear();
+    state.boards.clear();
+    const people2 = state.presence.drawn().map((p) => personOf(state, p));
+    const session2 = state.presence.session;
+    return { people: people2, room: { joined: !!session2, mic: state.presence.micOn, here: session2 ? state.presence.people().length : 0 } };
+  }
+  function people(options) {
+    if (on2) return JSON.stringify({ ok: true });
+    const parts3 = engineParts();
+    if (!parts3) return JSON.stringify({ ok: false, why: "menu-first" });
+    const o = read4(options);
+    const world2 = engineWorld();
+    const { controls: controls2, sounds: sounds2 } = parts3;
+    let refresh = () => {
+    };
+    const presence2 = createPresence({
+      scene: world2.scene,
+      camera: world2.camera,
+      rig: world2.rig,
+      // No headset session is this script's to start: the engine says whether its visitor is in one.
+      renderer: { xr: { get isPresenting() {
+        return world2.presenting;
+      }, getSession: () => null } },
+      controllers: [],
+      ...typeof o.labels === "string" && /^#[0-9a-f]{6}$/i.test(o.labels) ? { labelColor: o.labels } : {},
+      look: () => arrival.look(),
+      identity: () => arrival.identity(),
+      onChange: () => refresh()
+    });
+    const room3 = addRoomControls(controls2, presence2, {
+      arrived: arrival.read().context,
+      // A screen someone shares is watched on a panel, and an engine has none of the kit's panels to open one on.
+      panels: null,
+      sounds: sounds2,
+      presenting: () => world2.presenting,
+      ...o.sharedMusic === false ? { sharedMusic: false } : {}
+    });
+    refresh = room3.refresh;
+    on2 = { world: world2, presence: presence2, travelling: room3.travelling, figureNames: /* @__PURE__ */ new WeakMap(), figures: /* @__PURE__ */ new Map(), boards: /* @__PURE__ */ new Map(), made: 0 };
+    addFramePart(peopleFrame);
+    return JSON.stringify({ ok: true });
+  }
+  function travellingNow() {
+    return on2 ? on2.travelling() : {};
+  }
+  var srgb = (c) => c <= 31308e-7 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+  var packed = (values, map) => {
+    const f = new Float32Array(values.length);
+    for (let i = 0; i < values.length; i++) f[i] = map ? map(values[i]) : values[i];
+    return base642(new Uint8Array(f.buffer));
+  };
+  function shapeOf(mesh) {
+    const g = mesh.geometry;
+    const at = (name) => g.getAttribute(name)?.array ?? [];
+    return {
+      count: g.getAttribute("position")?.count ?? 0,
+      // Each as little-endian 32-bit floats in base64: three for a place, three for which way it faces, three for
+      // its tone (as sRGB), and one each for how much of a light it is and how far along its seam.
+      position: packed(at("position")),
+      normal: packed(at("normal")),
+      tone: packed(at("tone"), srgb),
+      glow: packed(at("glow")),
+      flow: packed(at("flow"))
+    };
+  }
+  function figure(name) {
+    const f = typeof name === "string" ? on2?.figures.get(name) : null;
+    if (!f) return "";
+    const u = f.metal.uniforms ?? {};
+    const accent = u.uAccent?.value instanceof Color ? `#${u.uAccent.value.getHexString()}` : f.look.light;
+    const head = f.head.children.find((c) => c.isMesh === true);
+    return JSON.stringify({
+      head: head ? shapeOf(head) : null,
+      body: shapeOf(f.torso),
+      hand: shapeOf(f.hands[0]),
+      accent,
+      gloss: typeof u.uGloss?.value === "number" ? u.uGloss.value : 0.7,
+      sheen: typeof u.uSheen?.value === "number" ? u.uSheen.value : 0
+    });
+  }
+  function board(key) {
+    const map = typeof key === "string" ? on2?.boards.get(key) : null;
+    const image = map?.image;
+    try {
+      return typeof image?.toDataURL === "function" ? image.toDataURL("image/png").replace(/^data:image\/png;base64,/, "") : "";
+    } catch {
+      return "";
+    }
+  }
+  function peopleInfo() {
+    return JSON.stringify(on2 ? { joined: !!on2.presence.session, me: on2.presence.session?.self.pubkey ?? null, room: on2.presence.roomName, people: on2.presence.info() } : null);
+  }
+
   // packages/sdk/src/engine.ts
-  var VERSION = 10;
+  var VERSION = 11;
   var KIT = KIT_VERSION;
   var read5 = (text) => {
     try {
-      const v = typeof text === "string" && text ? JSON.parse(text) : text;
-      return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
     } catch {
       return {};
     }
@@ -29345,11 +36234,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function stateOf(text) {
     const s = read5(text);
+    const room3 = travellingNow();
+    const joined = s.joined === true || room3.joined === true;
+    const blocked = [...Array.isArray(s.blocked) ? s.blocked.filter((k) => typeof k === "string") : [], ...room3.blocked ?? []];
     return {
       immersive: s.immersive === true,
-      ...s.joined === true ? { joined: true, ...s.mic === true ? { mic: true } : {} } : {},
+      ...joined ? { joined: true, ...s.mic === true || room3.mic === true ? { mic: true } : {} } : {},
       ...s.moving === "intense" ? { moving: "intense" } : {},
-      ...Array.isArray(s.blocked) ? { blocked: s.blocked.filter((k) => typeof k === "string") } : {}
+      ...blocked.length ? { blocked: [...new Set(blocked)] } : {}
     };
   }
   function arrival2() {

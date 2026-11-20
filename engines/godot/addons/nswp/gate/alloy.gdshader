@@ -22,6 +22,9 @@ uniform float gloss : hint_range(0.0, 1.0) = 0.75;
 uniform float speed = 1.0;
 uniform float sheen : hint_range(0.0, 1.0) = 0.0;
 uniform float reach = 3.0;
+// 0 to 1: how much of it is drawn. Less than 1 leaves gaps between its points, so that a person
+// who comes very close thins out and never fills another's view. Nothing is blended.
+uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 // Set when the mesh came through an importer that turns the second texture coordinate over (Godot's OBJ importer does).
 uniform bool flow_flipped = true;
 
@@ -47,6 +50,14 @@ void vertex() {
 }
 
 void fragment() {
+	if (opacity < 0.999) {
+		// A pattern that repeats every four pixels each way: evenly thinner as `opacity` falls.
+		vec2 px = floor(mod(FRAGCOORD.xy, 4.0));
+		float step_at = fract((px.x * 5.0 + px.y * 3.0) / 16.0 + 0.03125);
+		if (opacity <= step_at) {
+			discard;
+		}
+	}
 	vec3 tone = to_linear(COLOR.rgb);
 	float glow = UV.x;
 	float flow = flow_flipped ? 1.0 - UV.y : UV.y;
