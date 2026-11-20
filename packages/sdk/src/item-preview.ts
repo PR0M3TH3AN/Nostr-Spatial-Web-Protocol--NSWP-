@@ -40,7 +40,10 @@ interface Stage {
 export function createItemPreviews(o: ItemPreviewsOptions): ItemPreviews {
   const size = o.size ?? 256;
   const watchers = new Set<() => void>();
-  /** A model that has been made, the round space it fills, and its pictures. Null while it is being made. */
+  /**
+   * A model that has been made, the round space it fills, and its pictures. Null while it is being made, and
+   * for one that couldn't be: then there is no picture, and whatever shows the thing says its name instead.
+   */
   const ready = new Map<string, { object: THREE.Object3D; middle: THREE.Vector3; radius: number; still: HTMLCanvasElement | null; live: HTMLCanvasElement | null } | null>();
   let stage: Stage | null | undefined;
 
@@ -111,6 +114,18 @@ export function createItemPreviews(o: ItemPreviewsOptions): ItemPreviews {
     void o.model(item, tints).then(
       (object) => {
         if (!ready.has(key)) return;
+        // Where a model couldn't be fetched or failed a check, what comes back is a plain frame of the thing's
+        // size, for a world to draw in its place. That is no picture of the thing: none is shown.
+        let frames = 0;
+        let solids = 0;
+        object.traverse((part) => {
+          const mesh = part as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          if (materials.every((m) => (m as THREE.MeshBasicMaterial).wireframe === true)) frames++;
+          else solids++;
+        });
+        if (frames > 0 && solids === 0) return;
         const box = new THREE.Box3().setFromObject(object);
         const ball = box.getBoundingSphere(new THREE.Sphere());
         if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready.delete(key);
