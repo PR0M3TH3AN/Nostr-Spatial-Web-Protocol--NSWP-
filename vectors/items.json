@@ -1,5 +1,5 @@
 {
-  "description": "Items (protocol/17-items.md, kind 37303). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it.",
+  "description": "Items (protocol/17-items.md, kinds 37303 and 37308). `reading`: what a reader takes from one event (`parseItem`), or null where it isn't an item. A reader checks the signature besides, and checks every file against the hash it is named with before using it. `bag.reading`: the items read from a bag (`bagIn`). `bag.changing`: what `changeBag` gives its owner to sign, from the newest bag found and one change, or null where there is nothing to sign.",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -607,5 +607,297 @@
       },
       "expect": null
     }
-  ]
+  ],
+  "bag": {
+    "reading": {
+      "description": "Only items are read from it, each once, in order.",
+      "event": {
+        "kind": 37308,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "bag"
+          ],
+          [
+            "a",
+            "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+          ],
+          [
+            "t",
+            "kept"
+          ],
+          [
+            "a",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+          ],
+          [
+            "bitlogin:site",
+            "https://somewhere.example"
+          ],
+          [
+            "alt",
+            "A bag: the items this person has"
+          ]
+        ],
+        "content": ""
+      },
+      "expect": [
+        "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+      ]
+    },
+    "changing": [
+      {
+        "name": "put_one_in",
+        "description": "Everything else is kept; a signer's own mark on the last one isn't carried along; the time moves on.",
+        "newest": {
+          "kind": 37308,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "bitlogin:site",
+              "https://somewhere.example"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        },
+        "change": {
+          "add": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:old-book",
+          "now": 1794430800
+        },
+        "expect": {
+          "kind": 37308,
+          "created_at": 1794430801,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:old-book"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        }
+      },
+      {
+        "name": "take_one_out",
+        "description": "Only that item goes.",
+        "newest": {
+          "kind": 37308,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "bitlogin:site",
+              "https://somewhere.example"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        },
+        "change": {
+          "remove": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern",
+          "now": 1794430850
+        },
+        "expect": {
+          "kind": 37308,
+          "created_at": 1794430850,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        }
+      },
+      {
+        "name": "already_there",
+        "description": "Nothing to sign.",
+        "newest": {
+          "kind": 37308,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "bitlogin:site",
+              "https://somewhere.example"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        },
+        "change": {
+          "add": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern",
+          "now": 1794430850
+        },
+        "expect": null
+      },
+      {
+        "name": "not_an_item",
+        "description": "A coordinate of another kind: nothing to sign.",
+        "newest": {
+          "kind": 37308,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:brass-lantern"
+            ],
+            [
+              "t",
+              "kept"
+            ],
+            [
+              "a",
+              "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:not-an-item"
+            ],
+            [
+              "bitlogin:site",
+              "https://somewhere.example"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        },
+        "change": {
+          "add": "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:a-world",
+          "now": 1794430850
+        },
+        "expect": null
+      },
+      {
+        "name": "no_bag_found",
+        "description": "No bag could be found, and the person hasn't said they have none: nothing to sign.",
+        "newest": null,
+        "change": {
+          "add": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:old-book",
+          "now": 1794430800
+        },
+        "expect": null
+      },
+      {
+        "name": "a_first_bag",
+        "description": "The person has said they have none: a first one.",
+        "newest": null,
+        "change": {
+          "add": "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:old-book",
+          "now": 1794430800,
+          "fromNothing": true
+        },
+        "expect": {
+          "kind": 37308,
+          "created_at": 1794430800,
+          "tags": [
+            [
+              "d",
+              "bag"
+            ],
+            [
+              "a",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:old-book"
+            ],
+            [
+              "alt",
+              "A bag: the items this person has"
+            ]
+          ],
+          "content": ""
+        }
+      }
+    ]
+  }
 }

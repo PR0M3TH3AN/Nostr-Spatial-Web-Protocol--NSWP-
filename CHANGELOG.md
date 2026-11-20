@@ -2,6 +2,20 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.49.0
+
+A bag, and something in your hand.
+
+- **A visitor's bag** ([NSWP-17](protocol/17-items.md), kind 37308): the items they have, by coordinate, in one public note of their own. Changed as a follow list is: from the newest found, one item at a time, nothing when no relay could be reached. `changeBag`, `bagIn`, `newestBag` in the core; `createBag` in the kit.
+- **A Bag tab in the menu every world has:** look through it, take one thing in hand, put it away. A world looks through its visitor's bag and can't change it: that is done at their own client, which can put in an item by its copied address.
+- **Holding one item,** seen by everyone in the room. A visitor says only the item's coordinate; each person who sees them fetches the description (really signed by its maker) and the model (checked against its hash, then counted) for themselves. `createItems`; `setHolding` on a room and on presence.
+- **Where a file is missing, too big, or not what its description promised, a plain marker of the item's size is drawn.**
+- **The visitor's switch for all items:** off, nothing of anyone's is fetched, drawn or run for them. `showsItems`, `setShowsItems`.
+- **A world that draws items may fetch from any https address,** because a model is wherever its maker keeps it; a world with none reaches only itself and relays, as before. The build checks a world's rule for items against its own announcement.
+- No reference world has turned items on. `?items=allowed` tries it on a copy on the maker's own network, and does nothing on a published world.
+- The Bag tab offers to hold a thing only where it would be drawn.
+- **Not built:** an item's own logic; items reaching other people; muting one person's items; granted items; a world giving an item.
+
 ## 0.48.0
 
 Items: the rules, and the first of the building.

@@ -65,7 +65,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.48.0";
+  var KIT_VERSION = "0.49.0";
   function parseKitVersion(v) {
     const m = typeof v === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -8931,6 +8931,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "scores", label: "Scores", icon: "list" },
     // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
     { id: "achievements", label: "Achievements", icon: "check" },
+    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
+    { id: "bag", label: "Bag", icon: "save" },
     { id: "camera", label: "Camera", icon: "camera" },
     { id: "panels", label: "Panels", icon: "panel" },
     { id: "view", label: "View", icon: "vr" },

@@ -1,6 +1,6 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in part. Implemented in the reference library: an item's description, a world's rule for items, and the warning on a door. Everything else here is the agreed design, not yet built: the bag, carrying, an item's own logic, people as part of a world's game, and muting · **Kinds:** 37303 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`)
+**Status:** Decided by the owner on 2026-11-20, and built in part. Implemented in the reference library and kit: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item in a hand, and the visitor's switch for all items. No reference world has turned items on. The rest is the agreed design, not yet built: an item's own logic, people as part of a world's game, muting one person's items, granted items, and a world giving an item · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
@@ -177,8 +177,59 @@ took up from someone else's site, ones a world gave them. It is theirs,
 signed by their key, and public to begin with: what someone carries is on
 show anyway.
 
+It is one addressable note (experimental kind **37308**, `d` is `bag`),
+naming each item by its coordinate:
+
+```json
+{
+  "kind": 37308,
+  "tags": [
+    ["d", "bag"],
+    ["a", "37303:<maker>:brass-lantern"],
+    ["a", "37303:<maker>:old-book"],
+    ["alt", "A bag: the items this person has"]
+  ],
+  "content": ""
+}
+```
+
+- **It is changed the way a follow list is** ([NSWP-14](14-people-and-messages.md)):
+  from the newest that can be found, one item at a time, with everything
+  else kept; nothing is changed when no relay could be reached; and a first
+  bag is written only when the person has said they have none (`changeBag`).
+- **It is changed at the visitor's own client.** A world can look through
+  its visitor's bag, which is public, and can't change it. A world giving
+  an item is a later thing.
+- 200 items at most are read from one.
+
 Carrying an item into a world is tied to who they are there. A guest
 carries nothing.
+
+## Holding one
+
+A visitor takes one thing from their bag in hand, in a world that draws
+items, and puts it away again.
+
+- **They say only what it is.** In a room, a visitor tells the others the
+  coordinate of what they hold, and nothing else.
+- **Everyone who sees them fetches it for themselves:** the description
+  from relays, taken only with a real signature by the maker its
+  coordinate names; the model from where the description says, taken only
+  if its bytes have the hash the description gives.
+- **A model is counted before it is drawn:** 2 MB, 20,000 triangles, 40
+  meshes, 16 materials, and pictures no larger than 1024 on a side. Lights
+  and cameras a file brings are left out. Then it is scaled to the box its
+  description gives.
+- **Where any of that fails, a plain marker of the item's size is drawn**
+  in its place. Nobody is left holding nothing because a file was missing.
+- **Only something that can be held:** `holdable`, or one that fits a hand.
+- **Not one that has to be granted,** yet: nothing checks a grant.
+- **A world that draws items reaches further.** It fetches models from
+  wherever their makers keep them, so its page has to be allowed to. A
+  world with no items reaches only itself and relays.
+
+**The visitor's switch.** "Items: off" in the Bag tab, and nothing of
+anyone's is fetched, drawn or run for them, in any world.
 
 ## What is not here
 
@@ -195,8 +246,8 @@ carries nothing.
 
 1. **Done:** an item's description; a world's rule for items; the warning
    on a door.
-2. A visitor's bag, and holding one thing in a hand, drawn in worlds that
-   allow it.
+2. **Done:** a visitor's bag, and holding one thing in a hand, drawn in
+   worlds that allow it; the switch for all items.
 3. A person's body and state, and things done to them, with the affected
    person deciding.
 4. Muting, and the ceilings.
