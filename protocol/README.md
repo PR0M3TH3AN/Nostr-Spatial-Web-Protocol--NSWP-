@@ -43,7 +43,7 @@ and says plainly what is built and what is only proposed.
 | [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; arriving in the form they left in; and the settings that go with them | Implemented, in part | |
 | [12 Saves](12-saves.md) | What a world keeps for its visitor: on their own relays, readable only by them, reachable only by the world it belongs to | Implemented; a signer's side is not built in BitLogin yet | 37304 |
 | [13 Ratings](13-ratings.md) | What a visitor thought of a world, and whose ratings a client counts: never a crowd of strangers | Implemented, in part | 37305 |
-| [14 People and messages](14-people-and-messages.md) | Following someone and writing to them privately: Nostr's own, done only at the visitor's own client, and a follow list changed without losing it | Following: implemented, a signer's side not built in BitLogin yet. Messages: in the library only | |
+| [14 People and messages](14-people-and-messages.md) | Following someone and writing to them privately: Nostr's own, done only at the visitor's own client, and a follow list changed without losing it | Implemented in the kit; a signer's side for worlds is not built in BitLogin yet | |
 
 ## What "status" means
 

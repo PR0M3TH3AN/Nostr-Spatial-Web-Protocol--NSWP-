@@ -18,6 +18,7 @@ import { cleanOrigin } from "./destination.js";
 import { isHex64 } from "./event.js";
 import { cleanAbout, cleanPicture } from "./pass.js";
 import { cleanSlot, fitsInSave } from "./save.js";
+import { cleanMessage, cleanRead, type Message, type SealedMessage } from "./message.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -194,15 +195,25 @@ export type SignerRequest =
    * Follow or unfollow one person (protocol/14-people-and-messages.md). The world hands over the newest follow
    * list it found for the visitor, or null where they have none, and the one change. The signer makes the change.
    */
-  | { t: "follow"; id: string; list: NostrEvent | null; add?: string; remove?: string };
+  | { t: "follow"; id: string; list: NostrEvent | null; add?: string; remove?: string }
+  /**
+   * Send a private message (protocol/14-people-and-messages.md). The world gives who it is to and the words, and
+   * nothing else. The signer writes it and seals it, to its reader and to the visitor; the world wraps and sends.
+   */
+  | { t: "seal"; id: string; to: string; text: string }
+  /** Open this wrapped message, which a relay gave me. The signer opens both layers and checks who wrote it. */
+  | { t: "unwrap"; id: string; event: NostrEvent }
+  /** Sign where the visitor's private messages reach them: a few relays (kind 10050). */
+  | { t: "reach"; id: string; relays: string[] };
 
 /**
  * What a world may ask its visitor to let it do, beyond a note and a reaction. A closed list: each is a thing a
  * visitor can be asked in a few plain words, and none is "sign whatever I hand you".
  *
  * - "follows": follow and unfollow people for them, one at a time (the `follow` message).
+ * - "messages": send private messages as them, and read the ones sent to them (`seal`, `unwrap`, `reach`).
  */
-export const SIGNER_MORE = ["follows"] as const;
+export const SIGNER_MORE = ["follows", "messages"] as const;
 export type SignerMore = (typeof SIGNER_MORE)[number];
 
 /** What was asked for or allowed, as it may be used: only names on the list, each once. */
@@ -224,6 +235,10 @@ export type SignerReply =
   | { t: "found"; id: string; d: string }
   /** Answers `open`: what was kept, in which slot, and when. */
   | { t: "opened"; id: string; slot: string; data: string; at: number }
+  /** Answers `seal`: the message as written, and its two seals. */
+  | { t: "sealed"; id: string; message: SealedMessage["message"]; seals: SealedMessage["seals"] }
+  /** Answers `unwrap`: the message that was inside. */
+  | { t: "message"; id: string; message: Message }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -247,6 +262,9 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "find" && cleanSlot(d.slot)) return { t: "find", id: d.id, slot: cleanSlot(d.slot) };
   if (d.t === "open" && d.event && typeof d.event === "object") return { t: "open", id: d.id, event: d.event as NostrEvent };
   if (d.t === "want" && Array.isArray(d.more)) return { t: "want", id: d.id, more: cleanMore(d.more) };
+  if (d.t === "seal" && isHex64(d.to) && cleanMessage(d.text)) return { t: "seal", id: d.id, to: d.to, text: cleanMessage(d.text) };
+  if (d.t === "unwrap" && d.event && typeof d.event === "object") return { t: "unwrap", id: d.id, event: d.event as NostrEvent };
+  if (d.t === "reach" && Array.isArray(d.relays) && d.relays.length <= 8 && d.relays.every((r) => typeof r === "string" && r.length <= 200)) return { t: "reach", id: d.id, relays: d.relays as string[] };
   if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
     return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
   }
@@ -280,6 +298,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
   if (d.t === "refused") return { t: "refused", id: d.id };
   if (d.t === "signed" && d.event && typeof d.event === "object") return { t: "signed", id: d.id, event: d.event as NostrEvent };
   if (d.t === "found" && isHex64(d.d)) return { t: "found", id: d.id, d: d.d };
+  if (d.t === "sealed" && d.message && typeof d.message === "object" && Array.isArray(d.seals) && d.seals.length === 2) return { t: "sealed", id: d.id, message: d.message as SealedMessage["message"], seals: d.seals as SealedMessage["seals"] };
+  if (d.t === "message" && cleanRead(d.message)) return { t: "message", id: d.id, message: cleanRead(d.message)! };
   if (d.t === "opened" && cleanSlot(d.slot) && fitsInSave(d.data) && typeof d.at === "number" && Number.isFinite(d.at)) return { t: "opened", id: d.id, slot: cleanSlot(d.slot), data: d.data, at: d.at };
   return null;
 }

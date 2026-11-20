@@ -36,13 +36,13 @@ export interface Hud {
   /** Whether the chat panel is open to write in. */
   readonly chatOpen: boolean;
   /** Which of its two sides the panel is on: what the room writes, or the visitor's own public feed. */
-  readonly chatTab: "room" | "feed";
+  readonly chatTab: "room" | "feed" | "letters";
   /**
    * Open the panel to write in, or put it away. `tab` says which side: the room's chat, which opens only where
    * there is a room to write to, or "feed", the visitor's own public posts, which opens only once something
    * signs for them. Left out, the side it was on.
    */
-  setChatOpen(open: boolean, tab?: "room" | "feed"): void;
+  setChatOpen(open: boolean, tab?: "room" | "feed" | "letters"): void;
   /** How much of the top and bottom of the window the HUD covers, in pixels. For placing a scene's picture clear of it. Nothing when it is quiet or hidden. */
   cover(): { top: number; bottom: number };
   /** Where each visible part of the HUD is, so a world can lay its own interface out around it. */
@@ -154,7 +154,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
 .chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
 .chat .hint:empty { display: none; }
-.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; }
+/* Three sides may be up at once: the strip slides under a finger sooner than run under the button that puts the panel away. */
+.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.chat header .tabs2::-webkit-scrollbar { display: none; }
+.chat header .tabs2 .tab { flex: 0 0 auto; white-space: nowrap; }
 .chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
 .chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
 .chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
@@ -169,7 +172,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
 .chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
 .chat li.post:last-child { border-bottom: 0; }
-.chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
+.chat li.letter { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat li.letter.sending { opacity: .6; }
+.chat li.letter.failed small { color: rgb(var(--warn)); opacity: 1; }
+.chat li.letter small, .chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
 .chat li.post.failed small { color: rgb(var(--warn)); }
 .chat li.post.sending { opacity: .7; }
 .chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
@@ -406,7 +412,9 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const chatTitle = el("b");
   const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
   const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
-  const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabFeed);
+  // A private conversation with one person: named for who it is with, so it is never taken for the other two.
+  const tabLetters = el("button", { type: "button", class: "tab", role: "tab" }, "Private messages");
+  const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabLetters, tabFeed);
   const feedLead = el("p", { class: "lead" });
   const feedSaid = el("p", { class: "said", role: "status" });
   const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
@@ -471,7 +479,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // ---- the chat panel. "closed" shows nothing, "peek" the newest lines for a few seconds, "open" all of it.
   let chatState: "closed" | "peek" | "open" = "closed";
   /** Which side of it is up while it is open: what the room writes, or the visitor's own public feed. */
-  let dockTab: "room" | "feed" = "room";
+  let dockTab: "room" | "feed" | "letters" = "room";
   let chatDrawn = "";
   let chatNewest = "";
   let peekTimer: ReturnType<typeof setTimeout> | undefined;
@@ -494,9 +502,12 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const drawChat = (view: UiView) => {
     const c = view.chat;
     const f = view.feed;
-    // The side that is up has gone (the room was left, or they signed out): the other one, or nothing.
-    if (chatState === "open" && !(dockTab === "feed" ? f.ready : c.ready)) {
-      if (dockTab === "feed" ? c.ready : f.ready) dockTab = dockTab === "feed" ? "room" : "feed";
+    const l = view.letters;
+    const readyOf = (tab: "room" | "feed" | "letters") => (tab === "feed" ? f.ready : tab === "letters" ? l.ready : c.ready);
+    // The side that is up has gone (the room was left, they signed out, a conversation was put away): another, or nothing.
+    if (chatState === "open" && !readyOf(dockTab)) {
+      const other = (["room", "letters", "feed"] as const).find(readyOf);
+      if (other) dockTab = other;
       else setChatState("closed");
     }
     if (chatState === "peek" && !c.ready) setChatState("closed");
@@ -506,24 +517,29 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     chatNewest = newest;
     const showing = chatState === "open" ? dockTab : "room";
     // "5 min ago" is worked out again each minute.
-    const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, showing === "feed" ? [Math.floor(Date.now() / 60000), f.lead] : 0]);
+    const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 60000), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 60000), l.title] : 0]);
     if (now === chatDrawn) return;
     chatDrawn = now;
     chat.dataset.state = chatState;
     chat.dataset.tab = showing;
-    chat.setAttribute("aria-label", showing === "feed" ? f.title : "Room chat");
-    // Both sides are there: two tabs. One: its name.
-    const both = c.ready && f.ready;
+    chat.setAttribute("aria-label", showing === "feed" ? f.title : showing === "letters" ? l.title : "Room chat");
+    // More than one side is there: a tab for each. One: its name.
+    const both = [c.ready, f.ready, l.ready].filter(Boolean).length > 1;
     chatTabs.hidden = !both;
     chatTitle.hidden = both;
-    chatTitle.textContent = showing === "feed" ? f.title : c.title;
+    chatTitle.textContent = showing === "feed" ? f.title : showing === "letters" ? l.title : c.title;
+    tabRoom.hidden = !c.ready;
+    tabFeed.hidden = !f.ready;
+    tabLetters.hidden = !l.ready;
+    tabLetters.textContent = l.title;
+    tabLetters.setAttribute("aria-selected", String(showing === "letters"));
     tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
     tabRoom.setAttribute("aria-selected", String(showing === "room"));
     tabFeed.setAttribute("aria-selected", String(showing === "feed"));
-    feedLead.hidden = showing !== "feed";
-    feedSaid.hidden = showing !== "feed";
-    chatField.maxLength = showing === "feed" ? f.limit : c.limit;
-    const words = showing === "feed" ? "Write a post" : "Write to the room";
+    feedLead.hidden = showing === "room";
+    feedSaid.hidden = showing === "room";
+    chatField.maxLength = showing === "feed" ? f.limit : showing === "letters" ? l.limit : c.limit;
+    const words = showing === "feed" ? "Write a post" : showing === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
     chatField.placeholder = words;
     chatField.setAttribute("aria-label", words);
     chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
@@ -536,6 +552,24 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       chatEmpty.textContent = f.loading ? "Fetching your posts…" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
       chatEmpty.hidden = f.posts.length > 0;
       chatLines.hidden = f.posts.length === 0;
+      return;
+    }
+    if (showing === "letters") {
+      feedLead.textContent = l.lead;
+      feedSaid.textContent = l.said;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+      // Every word is set as text. A message may hold an address: it is shown as words, and nothing is fetched or opened.
+      chatLines.replaceChildren(
+        ...l.lines.map((line) =>
+          el("li", { class: `letter ${line.mine ? "mine" : ""} ${line.state}` }, el("b", {}, line.mine ? "You" : line.who), " ", line.text, el("small", {}, line.state === "sending" ? "Sending…" : line.state === "failed" ? "Not sent" : ago(line.at, nowSec))),
+        ),
+      );
+      chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
+      chatEmpty.hidden = l.lines.length > 0;
+      chatLines.hidden = l.lines.length === 0;
+      if (wasAtEnd || l.lines[l.lines.length - 1]?.mine) chatLines.scrollTop = chatLines.scrollHeight;
+      controls.letters.seen();
       return;
     }
     const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
@@ -554,12 +588,13 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
     if (chatState === "open") controls.chat.seen();
   };
-  const setChatOpen = (next: boolean, tab?: "room" | "feed") => {
+  const setChatOpen = (next: boolean, tab?: "room" | "feed" | "letters") => {
     if (next) {
       const c = controls.chat.view();
       const f = controls.feed.view();
-      const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : "feed");
-      if (!(want === "feed" ? f.ready : c.ready) || host.hidden || controls.view().presence === "hidden") return;
+      const l = controls.letters.view();
+      const want = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : l.ready ? "letters" : "feed");
+      if (!(want === "feed" ? f.ready : want === "letters" ? l.ready : c.ready) || host.hidden || controls.view().presence === "hidden") return;
       const was = chatState === "open";
       if (was && want === dockTab) return;
       dockTab = want;
@@ -591,12 +626,13 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   chatClose.addEventListener("click", () => setChatOpen(false));
   tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
   tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
+  tabLetters.addEventListener("click", () => setChatOpen(true, "letters"));
   chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const text = chatField.value;
     // Enter on an empty line puts the panel away, as it does in a game.
     if (!text.trim()) return setChatOpen(false);
-    const trouble = dockTab === "feed" ? controls.feed.send(text) : controls.chat.send(text);
+    const trouble = dockTab === "feed" ? controls.feed.send(text) : dockTab === "letters" ? controls.letters.send(text) : controls.chat.send(text);
     chatHint.textContent = trouble ?? "";
     if (!trouble) chatField.value = "";
     if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
@@ -913,6 +949,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
     if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
     if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
+    if (name === "open:letters" && !host.hidden) setChatOpen(true, "letters");
   });
   // Words that are worked out afresh each time (a room's status, a toggle) are read on a slow tick.
   const tick = setInterval(draw, 400);

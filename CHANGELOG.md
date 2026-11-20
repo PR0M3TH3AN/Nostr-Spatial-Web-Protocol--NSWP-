@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.42.0
+
+Private messages, in every world and at the visitor's home.
+
+- **A Messages tab in the menu every world has** ([NSWP-14](protocol/14-people-and-messages.md)): the visitor's private messages (NIP-17), people they follow first and requests from anyone else apart. A conversation is on a panel of its own: a third side of the panel that has the room's chat and the public feed on a flat screen, and a panel in the world in a headset. "Write to them, privately" on a person's card and in Following. `addMessagingControls`, `createMessages` in the kit; `controls.letters`.
+- **A world may be let send and read its visitor's messages** ([NSWP-10](protocol/10-identity.md), "Asking for more": `messages`). The signer writes, seals and opens each one (`seal`, `unwrap`), and signs where messages reach them (`reach`). A world is never given a key and can't have anything else encrypted or decrypted. `sealMessage`, `isSealAsked`, `isReachAsked`, `cleanRead` in the core; `seal`, `unwrap`, `reach` on the kit's `worldSigner()`.
+- **Nobody is written to who hasn't said where messages reach them** (kind 10050), and a visitor says where theirs do before they send their first, from their own press.
+- Nothing that was read is kept once the page is closed.
+- **Not built:** BitLogin's side for worlds. Not tried: real relays. Many relays ask a reader to prove who they are before handing over wrapped messages, which the kit doesn't do.
+
 ## 0.41.0
 
 - **A Following tab in the menu every world has** ([NSWP-14](protocol/14-people-and-messages.md)): who the visitor follows, by name; choose one to see who they are and to unfollow them; follow someone by their key, copied, or typed on a headset's keyboard. The same in a world and at the visitor's home. It shows nothing, and asks no relay anything, until the visitor has let that place see to who they follow. `addFollowingControls`, `createProfiles`, `keyIn` in the kit; `addRoomControls` adds the tab and returns it as `following`.

@@ -1,6 +1,6 @@
 # NSWP-14: People and messages
 
-**Status:** Following is implemented in the reference library and kit (a person's card, and a Following tab in the menu every world has; the signer's side as a function); no signer has built its side for worlds yet, BitLogin's included. Messages are implemented in the library only · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`people.ts`](../packages/sdk/src/people.ts), [`signer.ts`](../packages/sdk/src/signer.ts)
+**Status:** Following is implemented in the reference library and kit (a person's card, and a Following tab in the menu every world has; the signer's side as a function); no signer has built its side for worlds yet, BitLogin's included. Messages are implemented the same way (a Messages tab, and a conversation on a panel of its own) · **Kinds:** none of NSWP's own; Nostr's 3, 13, 14, 1059 and 10050 · **Vectors:** [`people`](../vectors/people.json) · **Code:** core [`people.ts`](../packages/core/src/people.ts), [`message.ts`](../packages/core/src/message.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`people.ts`](../packages/sdk/src/people.ts), [`signer.ts`](../packages/sdk/src/signer.ts)
 
 Following someone, and writing to them privately, are Nostr's own and are
 used here as they are. Who a visitor follows in an NSWP client is who they
@@ -90,6 +90,45 @@ time they open their messages, from their own relays, with their say.
 relay who is writing to whom; files in messages (kind 15); and a
 conversation among several, which a reader recognises and this version
 doesn't show.
+
+## Messages from inside a world
+
+A visitor may let a world send and read their private messages, as they
+may let any Nostr client ([NSWP-10](10-identity.md), "Asking for more",
+`messages`). It is asked for the first time they press something that needs
+it, and shown in their signer's own window.
+
+- **To send one,** the world asks its visitor's signer to `seal` it: who it
+  is to, and the words. The signer writes the message, seals it to its
+  reader and again to the visitor, and hands back the two seals
+  (`sealMessage`). The world wraps each with a key of its own making, used
+  once, and sends them: the reader's to where their messages reach them,
+  the visitor's to where theirs do.
+- **To read one,** the world asks relays for what was wrapped for its
+  visitor, and hands each wrap to the signer (`unwrap`). The signer opens
+  both layers and makes every check above (`openWrap`), and answers with
+  the message, or refuses.
+- **To say where messages reach them,** the world asks for that list to be
+  signed (`reach`), from the visitor's own press, naming the relays.
+- **A world is never given a key,** and can't have anything else encrypted
+  or decrypted. `sign` still refuses every kind a message is made of.
+- **How often:** ten sealed a minute and two hundred an hour for one world.
+
+**What trusting a world with this means.** It can read every private
+message sent to the visitor that it can find, and write as them to anyone:
+what any Nostr client they use can do. It can change where their messages
+reach them. A world shows a visitor's messages on their own screen; it is
+also able to send them elsewhere, and nothing here can stop a world that
+means to. That is the trust the visitor gives, and why it is asked for by
+name, in plain words, one world at a time.
+
+**In the menu.** The **Messages** tab lists who the visitor has been
+writing with. A conversation is on a panel of its own: beside the room's
+chat on a flat screen, named for who it is with, and on a panel in the
+world in a headset, written to with the headset's keyboard. It is kept
+apart from the room's chat and from the visitor's public feed, and says who
+can read it where the words are typed. Nothing that was read is kept once
+the page is closed: only how far each conversation had been read.
 
 ## Messages from people the visitor doesn't know
 
@@ -182,6 +221,9 @@ const message = sealIn && readMessage(await signer.decryptEvent(sealIn), sealIn,
 - **BitLogin's side of `want` and `follow`.** Until a signer answers them,
   Follow in a world says where following is done.
 - **People and messages at the visitor's home,** in BitPortal.
-- **Messages from inside a world:** a second name on the list a world may
-  ask for (`messages`), with the signer sealing and opening each one.
+- **BitLogin's side of `seal`, `unwrap` and `reach`.** Until a signer
+  answers them, Messages in a world asks and is never answered.
+- **Word of a new message as it arrives.** The kit looks once a minute. A
+  relay could be listened to, and isn't.
+- **Taking a message back, and messages that vanish.**
 - **Conversations among several, and files.**

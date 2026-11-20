@@ -413,6 +413,9 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
 | `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
 | `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
+| `seal`, with `to` and `text` | `sealed`, with the message as written and its two seals; or `refused` ([NSWP-14](14-people-and-messages.md)) |
+| `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
+| `reach`, with `relays` | `signed`, with the list of where the visitor's messages reach them (kind 10050); or `refused` |
 
 A world asks `state` once the frame has loaded, and again a few times: the
 answer is how it knows a signer is there. A signer never sends anything to
@@ -426,7 +429,7 @@ why.
 |---|---|---|
 | Ordinary | A note (1), a reaction (7) | Once the visitor has allowed that world |
 | Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | `sign` refuses them. Who they follow is changed by `follow`, for a world they let ("Asking for more") |
-| Never | Private messages and their wrappings (4, 13, 14, 15, 1059, 1060), passes and room signals (27300, 27301), proofs of identity to a relay or a server (22242, 27235), wallet and remote-signer traffic (13194, 23194, 23195, 24133), application data (30078) | Refused, whatever anyone says |
+| Never | Private messages and their wrappings (4, 13, 14, 15, 1059, 1060), passes and room signals (27300, 27301), proofs of identity to a relay or a server (22242, 27235), wallet and remote-signer traffic (13194, 23194, 23195, 24133), application data (30078) | `sign` refuses them, whatever anyone says. A message is sent and read by `seal` and `unwrap`, for a world they let ("Asking for more") |
 
 - **The note is the signer's to finish.** It sets the time itself, and adds
   `["nswp:world", "<the world's origin>"]`, dropping any such tag the world
@@ -465,6 +468,7 @@ trust is given to, and how, is the visitor's:
   | Name | What the visitor is asked | What the world can then do |
   |---|---|---|
   | `follows` | "Change who you follow" | Follow and unfollow people for them, one at a time, with `follow` |
+  | `messages` | "Send and read your private messages" | Have a message to one person written and sealed (`seal`), have one that was sent to them opened (`unwrap`), and have the list of where their messages reach them signed (`reach`) |
 
 - **The visitor is shown it in their signer's own window,** the same one
   that unlocks it, in the signer's words, for that one world. `want`
@@ -476,6 +480,10 @@ trust is given to, and how, is the visitor's:
   when the visitor presses the thing that needs it, and opens the window
   from that press.
 - **It lasts as long as the unlock does,** and locking ends it.
+- **A world never holds what does the work.** For `messages` the signer
+  writes, seals and opens each message itself. The world is handed words to
+  show and sealed notes to send: never a key, and never a way to encrypt or
+  decrypt anything else.
 - **What is never on the list:** private keys, proofs of identity to a
   relay or a server, passes, wallet and remote-signer traffic, application
   data. Those stay refused whatever anyone says.
