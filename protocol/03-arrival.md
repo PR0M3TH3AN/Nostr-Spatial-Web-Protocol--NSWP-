@@ -41,7 +41,7 @@ The value is the base64url encoding, without padding, of a JSON object:
 | `mic` | `true` when their microphone was on and they have told their client it may stay on as they travel. Read only with `joined`. The world turns the microphone on if the browser allows it one, and says so; if not, it says that instead. |
 | `moving` | `"intense"` when the visitor was moving the intense way where they came from: at a desk, the mouse looks and keys walk; in a headset, they walk and turn smoothly. A world that offers the two ways starts them in it, on the device they arrive on ([NSWP-02](02-doors.md), "How a visitor moves"). Left out, or `"casual"`, means the casual way. A preference, and theirs to change. |
 | `form` | `"touch"` or `"desk"`: what the visitor was using a flat screen with where they came from. A world that lays itself out differently for the two starts them the same way, where their device can do both, and works it out for itself otherwise. A preference, and theirs to change by using the other ([NSWP-11](11-the-visitors-console.md)). A headset is `immersive`. |
-| `settings` | The visitor's settings where they came from: `sound` (`off`, `effects`, `music`, `voices`, `hum`), `text`, `motion`, `wrist`, `turn`, `hand`, `narrow`, `full`, `intense`, `look`, `fov`, `pictures`, `chat`. A world starts from them in place of what it remembered. A reader keeps what it knows and is in range and ignores the rest. Preferences ([NSWP-11](11-the-visitors-console.md), "Settings that travel"). |
+| `settings` | The visitor's settings where they came from: `sound` (`off`, `effects`, `music`, `voices`, `hum`), `text`, `motion`, `wrist`, `turn`, `hand`, `narrow`, `full`, `intense`, `look`, `fov`, `pictures`, `chat`, `pins`. A world starts from them in place of what it remembered. A reader keeps what it knows and is in range and ignores the rest. Preferences ([NSWP-11](11-the-visitors-console.md), "Settings that travel"). |
 | `blocked` | The identity keys of people the visitor has blocked: their own client's list, at most 64. The world connects them to nobody on it for this visit, and does not keep it ([NSWP-02](02-doors.md), "Blocks that travel"). A list with anything in it but keys is ignored whole. |
 | `avatar` | The `naddr` of a published avatar event |
 | `assertion` | An entry assertion, below |
@@ -70,8 +70,9 @@ Rules for the world that reads it:
 ## The entry assertion
 
 This is proof for a world's **server**, good for one request. Proof for the
-people in a room is a pass ([NSWP-10](10-identity.md)), which is what the
-reference client issues today.
+people in a room is a pass ([NSWP-10](10-identity.md)). The reference
+client sends neither on arrival: a visitor's pass is made by their signer,
+at the world, once they sign in there.
 
 A visitor who chose to arrive as themselves can carry a short-lived signed event:
 

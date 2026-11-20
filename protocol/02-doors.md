@@ -324,7 +324,8 @@ A hostile world is a website, and a website can navigate anywhere without
 asking. The Airlock guarantees that crossings made through honest doors are
 checked, and that the visitor has one known place to judge a destination. A
 world that asks for a sign-in in the middle of a crossing is the warning sign:
-the visitor is already signed in at their real Airlock.
+signing in is only ever done in a window at the visitor's own sign-in
+address.
 
 ## In code
 

@@ -37,32 +37,41 @@ documents say.
 
 ### Signing in is not a world's job
 
-Who a visitor is belongs to the visitor's own client, and that is where they
-sign in. A world never shows a sign-in, never holds a key and never needs
-to: if a visitor chose to come by name, the world is handed a pass that says
-so, made for that world and that visit ([NSWP-10](../protocol/10-identity.md)).
+Who a visitor is belongs to the visitor, and they sign in at their own
+sign-in address, which their client names. A world never shows a sign-in,
+never holds a key and never needs to: for a visitor who chose to be known
+by name, the world holds a pass that says so, made for that world and that
+visit ([NSWP-10](../protocol/10-identity.md)).
 
 In BitPortal, signing in is **BitLogin**. That is not one of the things a
 world may replace, restyle or stand in for, because it isn't in a world at
-all: it is on one page of BitPortal's own, and nowhere else. A visitor may
-also stay anonymous, and a world treats a guest as a full visitor.
+all: it is at BitLogin's own address, `bitlogin.network`, in a window of its
+own, and nowhere else. No page of BitPortal has a sign-in form either. A
+visitor may also stay anonymous, and a world treats a guest as a full
+visitor.
 
-**A visitor can still sign in from inside your world.** The console has a
-control for it under "You": "You are a guest here. Sign in". Pressing it
-leaves for the visitor's own client, which asks them on its own page and
-brings them back to your world, by name if they chose that. A world built
-with the kit, the template or the engine script has it without a line of
-code. To put the button somewhere of your own (a pause menu, a sign on a
-wall), press the same control: `controls.run("identity")`, `NSWP.run("identity")`,
-`Nswp.run("identity")`, or call `portal.signIn()`, `NSWP.signIn()`,
-`Nswp.sign_in()`. What you may not do is draw the sign-in itself
-([NSWP-10](../protocol/10-identity.md), "Signing in from inside a world").
-When they come back, `arrival.identity()` has who they are.
+**A visitor signs in from inside your world.** The console has a row for it
+under "You": "Sign in, at bitlogin.network". Pressing it opens a window at
+the visitor's own sign-in address, where they sign in and say yes. They
+never leave your world. Signed in, the row reads "Signed in as Alice. Sign
+out here", under a card with their picture, name and key. A world built
+with the kit or the template has it without a line of code; for another
+engine, see [other-engines.md](other-engines.md). To put the button
+somewhere of your own (a pause menu, a sign on a wall), press the same
+control: `controls.run("signer")`. What you may not do is draw the sign-in
+itself ([NSWP-10](../protocol/10-identity.md), "Signing from a world" and
+"One sign-in"). `hereAs()`, from `nswp-sdk/three`, says who they are.
 
-**They sign in once, not once per world.** A visitor signed in to their own
-client arrives at every world that has proved who it is already signed in:
-the pass comes with them. Your world never has a sign-in of its own to keep
-in step with anyone else's. Read `arrival.identity()` and you have it.
+**They sign in at each world, once.** A visitor arrives from BitPortal as a
+guest: its Airlock sends no pass, and tells your world nothing about them
+but where their signer is. The first time they sign in at your world, the
+window asks them once, and their signer makes the pass. A signer that
+remembers your world answers as the page loads the next time, with nothing
+pressed. Your world never has a sign-in of its own to keep in step with
+anyone else's. A client that names no signer may still send a pass with the
+visitor on arrival, and offers the way to that client under "You" instead
+(`controls.run("identity")`, `portal.signIn()`). `hereAs()` is who they are
+either way.
 
 **Their name and picture are Nostr's.** A visitor who comes by name brings
 the name and the picture from their Nostr profile, on the pass their own key
@@ -73,8 +82,8 @@ fetches a picture safely and respects the visitor's switch, and you never
 ask a relay about your visitors ([NSWP-10](../protocol/10-identity.md),
 "Pictures").
 
-**Their look is the same.** "Change how you look" is beside "Sign in", and
-works the same way: it leaves for their own client and comes back. Draw
+**Their look is the same.** "Change how you look" is beside "Sign in". It
+leaves for their own client and comes back wearing it. Draw
 their look your own way if your world has a style, but never edit it or send
 one back ([NSWP-05](../protocol/05-looks.md), "Changing a look").
 
@@ -147,12 +156,13 @@ another world's link.
 | `xr=1` | `immersive` | They left a headset session | No |
 | `form` | `form` | Touch screen or desk | No |
 | `moving=intense` | `moving` | How they move | No |
-| `set` | `settings` | Volumes, text size, motion, a headset's hands, the screen filled | No |
+| `set` | `settings` | Volumes, text size, motion, a headset's hands, the screen filled, the tabs kept on their bar | No |
 | `joined=1` | `joined` | They were in a room | Shown, and theirs to untick |
 | `mic=1` | `mic` | Their microphone was on | Off until they say it may be |
 | `blocked` | `blocked` | Who they blocked | Shown who, and theirs to tick |
 | | `look` | How they chose to be seen | Their choice at the Airlock |
-| | `pass`, `sessionKey` | Who they are, if they came by name | Their choice at the Airlock |
+| | `pass`, `sessionKey` | Who they are, from a client that sends them by name. BitPortal sends neither: their signer makes the pass at your world, when they sign in there | Their choice at the Airlock |
+| | `signer` | Where their signer is: the address the "Sign in" row opens a window at | No |
 | | `airlock` | Where to send them back through | No |
 | | `home` | This world is where they start | No |
 

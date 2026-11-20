@@ -47,10 +47,12 @@ visitor's doors.
 - **Ask for a password, a recovery phrase or a sign-in.** A visitor never
   types a credential inside a world or in the middle of a crossing. A world
   that asks looks exactly like a phishing page, because immersive content can
-  imitate any interface. A world may offer the way to the visitor's own
-  client, which is where they sign in, and the way back
-  ([NSWP-10](10-identity.md), "Signing in from inside a world"). That is a
-  door, and it is all a world does about signing in.
+  imitate any interface. A world may open a window at the visitor's own
+  sign-in address, where they sign in and say yes
+  ([NSWP-10](10-identity.md), "Signing from a world"). Where their client
+  named no such address, it may offer the way to that client, which is
+  where they sign in, and the way back ("Signing in from inside a world").
+  That is a window or a door, and it is all a world does about signing in.
 - **Treat a claim as a permission.** Capability and comfort tags, a look, and
   an unverified identity are things said, not things proven.
 

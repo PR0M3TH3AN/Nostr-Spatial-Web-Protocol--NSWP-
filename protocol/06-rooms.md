@@ -146,7 +146,9 @@ of the visitor's own in a headset, where the keyboard that comes up has a
 Speak key wherever speech can be turned into words.
 
 What this is not: notes on Nostr. Nothing here is published, signed by the
-visitor's own key, or readable by anyone outside the room.
+visitor's own key, or readable by anyone outside the room. A post is another
+thing, with a window of its own ([NSWP-10](10-identity.md), "Posting from a
+world").
 
 ## What a client owes the people in a room
 
@@ -187,10 +189,6 @@ visitor's own key, or readable by anyone outside the room.
   more than a handful of people, moving between worlds together, and
   moderation: §9.3 to §9.10.
 - **Sound in recordings,** which deserves more than a light.
-- **Words that outlast a room:** notes on Nostr, written and read from
-  inside a world. That needs the visitor's own key to sign, which a world is
-  never given, so it waits on signing from inside a world
-  ([`docs/plans/in-game-identity.md`](../docs/plans/in-game-identity.md)).
 
 There is no schema or vector file for these messages yet: the tests in
 `room.test.ts` cover the handshake and the pose packet, and `chat.test.ts`

@@ -1,10 +1,10 @@
 # Nostr Spatial Web Protocol (NSWP) and BitPortal
 ## An open, decentralized spatial web built on Nostr and WebXR, with a reference app on the BitBlocks stack
 
-**Version:** 0.15.0 (concept specification)
+**Version:** 0.34.0 (concept specification)
 **Status:** Exploratory draft / proposed protocol
-**Date:** November 18, 2026
-**Previous versions:** 0.6 to 0.2 (git history); 0.1 (`docs/history/spec-v0.1.md`)
+**Date:** November 20, 2026
+**Previous versions:** 0.33.0 to 0.2 (git history, and `CHANGELOG.md` for what changed in each); 0.1 (`docs/history/spec-v0.1.md`)
 **License:** this document, and the schemas and test vectors beside it, are CC0 1.0 (`LICENSE-CC0`). BitPortal and the SDK are MIT, matching BitBlocks convention D11
 
 ---
@@ -613,7 +613,7 @@ The return address tells the world which client the user came from. That is a sm
 
 **Going home.** An Airlock opened with no destination takes the visitor to that client's start place, with no confirmation, because nothing is being crossed into. A world offers this with `portal.home()` (§6.6), which follows the same three steps: the return address, then the world's default, then nothing. It is the one exit a world can offer that leads somewhere the visitor already trusts. A world offers it where the visitor can reach it: as a button on the page, and inside a headset as a button in the scene (§21.2), since the page can't be seen there. A world that doesn't use the SDK offers no such exit, and the visitor has only the browser's own controls.
 
-**Fake Airlocks.** A hostile world can ignore the return address and send the user to a lookalike page that asks them to "sign in again". Defences: the user is already signed in at their real Airlock, so a sign-in prompt in the middle of a crossing is itself the warning sign; passkeys are bound to the real origin and can't be used on a fake; and the address bar is visible, because the Airlock is always a 2D page. Clients teach this rule alongside §12.3.
+**Fake Airlocks.** A hostile world can ignore the return address and send the user to a lookalike page that asks them to "sign in again". Defences: signing in is only ever done in a window at the user's own sign-in address, so a sign-in prompt in the middle of a crossing is itself the warning sign; passkeys are bound to the real origin and can't be used on a fake; and the address bar is visible, because the Airlock is always a 2D page. Clients teach this rule alongside §12.3.
 
 ### 6.4 Navigation sequence
 
@@ -1265,11 +1265,12 @@ Statements in this part about what each block does today were checked against th
 
 **Integration**
 
-- BitPortal embeds `<bitlogin-auth>` in its 2D shell, vendored same-origin from a **tagged BitLogin release with its integrity manifest** (D7), never hotlinked. The widget runs same-origin with the host, so it is part of BitPortal's trusted computing base.
-- BitPortal consumes the session through BitLogin's NIP-07-shaped signer, passed **explicitly** to anything that needs it (D8). It listens for `bitlogin:login` / `bitlogin:logout` (D2) and reads `pubkey` (D1). Until those aliases ship, a thin adapter reads the current hyphen events and `publicKey`, as BitFeed's adapter does today.
-- The Airlock is served from BitPortal's own origin, so it shares the BitLogin session. This is why a user must come back to their *own* client's Airlock (§6.3): no other origin can sign for them.
-- **Room passes** (§9.2) are signed by the BitLogin signer at the Airlock, like entry assertions. The world receives only the room's session key.
-- **Signing inside immersion.** DOM elements aren't visible in immersive VR, so the widget can't appear there. Actions that need a signature mid-session queue until the user is back in the 2D shell.
+- BitPortal has no sign-in form, password field, `<bitlogin-auth>` widget or widget script on any page. A visitor signs in at BitLogin's own address (`bitlogin.network`), in a window of its own, opened by a button on BitPortal's `/account/` page. (Until 2026-11-19 BitPortal embedded the widget in its 2D shell.)
+- BitPortal is an application to BitLogin's embedded signer. It loads BitLogin's client script, vendored same-origin with its integrity manifest (`/vendor/bitlogin/bitlogin-client.js`, D7) and never hotlinked, says what it asks for, and the signer signs only that. The signer runs unseen in a frame of BitLogin's own address. BitPortal holds no key and no session of its own, and its content policy needs no `'wasm-unsafe-eval'`.
+- BitPortal uses BitLogin's NIP-07-shaped signer, passed **explicitly** to anything that needs it (D8), and checks every signature it returns. It hears who is signed in from BitLogin's client, and keeps a note of that public key and name and nothing that could sign.
+- The Airlock is served from BitPortal's own origin. It asks the signer nothing and shows no sign-in: it reads that note, to decide what its screen says. A user still comes back to their *own* client's Airlock (§6.3): it is the one that holds their look, their settings and their blocks.
+- **Room passes** (§9.2) for a world are made by BitLogin's signer at that world, once the visitor has signed in there in BitLogin's window (`protocol/10-identity.md`, "A pass from the signer"). BitPortal's Airlock sends no pass and no session key, and offers no "by name": it names the visitor's signer and nothing else about them. The pass for BitPortal's own room is signed by the same signer, for BitPortal as an application.
+- **Signing inside immersion.** DOM elements aren't visible in immersive VR, so BitLogin's window can't open there. Actions that need a signature mid-session queue until the user is back in the 2D shell.
 
 **Avatar and home.** BitPortal's identity page gets an avatar editor, which writes the avatar event (§4.2), simple tier first, and a home editor, which writes the layout event (§4.5). For a signed-in user the walk-in lobby becomes their home, with their bookmarks as its doors. A signed-out visitor keeps the default hall and the starter set.
 
@@ -1373,6 +1374,8 @@ A suggestion never appears on the visitor's own wall. Saving a suggested door mo
 This is BitPortal's choice, not the protocol's. Another client may start its visitors anywhere (§3.2). How many doors a wall should hold, and whether one room holds up, is Q31.
 
 **Status (2026-11-17): built, deployed at `portal.bitblocks.network/walk/`, and tested on a desktop only.** Since 0.7.4 the room also has the in-headset menu (Turn around, the room and microphone controls, the list, Leave VR), stepping by pointing at the floor, Save and Remove buttons a metre wide in a row of their own, and a one-time line on how a door is used. Those were tested on a desktop and through the emulated headset's menu, not by a controller. All of it is deployed, along with the reference worlds and the template demo. On the live sites, in the emulated headset: from BitPortal's room, through the Airlock, into World A, then the menu's Back to your lobby returned to the room, facing the door left through.
+
+**Since then (as of 0.33.0, 2026-11-19):** a door's Save or Remove is no longer a button a metre wide on every door. It is a small tag on the door's jamb, shown only to someone standing at that door, and in a headset also when the door is pointed at; on a flat screen the same thing is on the bar while they stand there. Neither list of doors is on the bar: each is in the menu, and a visitor may keep a tab of the menu on their bar themselves. The lists below are as they stood on 2026-11-17.
 
 - *Built:* the two walls, with Save and Remove on every door and a way to put back the last door removed. Saved places kept on the device with their announcements, each with a fixed place. The list page shows them first, and a jump list opens from every flat page. The three arrivals: facing suggestions, facing your own wall, and facing the door you left through. A sign leading to the list when a wall is full. The room's floor and furniture are drawn from a home layout kept on the device, which can be pasted into Settings.
 - *Narrower than above:* the room draws a layout's colours and built-in furniture only. It leaves out pictures and published items, because fetching them would contact other sites, and it doesn't yet put a layout's own doors on the wall. There are no invitations, no editor for the layout, and no jump list inside the headset beyond the wall itself. Saved places don't move between devices; that waits for sign-in (Phase 3a).
@@ -1608,7 +1611,8 @@ Each phase has an exit criterion that has to be met before the next starts.
 - *Built:* an identity page (`/account/`) embedding BitLogin's widget; session handling that takes BitLogin's signer explicitly and checks every signature it returns; and an announce page (`/publish/`) that checks a site, builds the announcement, writes the manifest file the site must host, and publishes to the person's own NIP-65 write relays.
 - *Tested:* BitLogin's widget loads and shows its sign-in screen under BitPortal's content security policy. With a throwaway test key that never publishes, the announce page read a real site's manifest and produced a valid signed announcement, correctly reported as listed, not verified.
 - *Not tested:* signing in with a real account, publishing under a signed-in identity, and the headset sign-in matrix. An automated test would have to create an identity on public relays, so this is left to a person.
-- *Embedding notes for other clients:* BitLogin needs `'wasm-unsafe-eval'` in `script-src` for its password hashing, and its element must stay in one fixed place in the page for its whole life.
+- *Embedding notes for other clients:* a client that embeds BitLogin's widget needs `'wasm-unsafe-eval'` in `script-src` for its password hashing, and the element must stay in one fixed place in the page for its whole life.
+- *Since 2026-11-19:* BitPortal embeds no widget. `/account/` has a button that opens a window at BitLogin's own address, where the visitor signs in; BitPortal is an application to BitLogin's signer (§13), and its content policy needs no `'wasm-unsafe-eval'`. What is listed above as built and tested is the first version, as it stood on 2026-11-17.
 
 ### Phase 3a: Social discovery
 - BitFeed shelves (§14) with explanations; NIP-51 bookmarks; NIP-22 reviews; zaps.
@@ -1780,7 +1784,7 @@ A world has an interface of its own: a score, a toolbar, a pause menu, an art di
 
 **There is no layer above a world.** While a visitor is in a world, only that world's page is running. A client such as BitPortal is not there, and a web page can't draw over another site's immersive session (§3). So "the traveller's controls" are not something a client lays over a world. They are a small set of things every world agrees to offer, drawn by the world itself.
 
-**Signing in is reached from the controls, and never drawn by a world.** The controls say who the visitor is here and offer the way to their own client to change it; the client asks on its own page and brings them back (`protocol/10-identity.md`, "Signing in from inside a world").
+**Signing in is reached from the controls, and never drawn by a world.** Where the visitor's client named a signer, the controls have one row for it under You: pressing it opens a window at their sign-in address, they say yes there, and they never leave the world (`protocol/10-identity.md`, "Signing from a world" and "One sign-in"). Where it named none, the controls say who the visitor is here and offer the way to their own client to change it; the client asks on its own page and brings them back ("Signing in from inside a world").
 
 **The principle: the world leads.** The traveller's controls stay out of the way of what the world is doing, and are never more than one deliberate action away.
 
@@ -1809,7 +1813,7 @@ A world may put these anywhere: in its own pause menu, on a wall, on a wrist. It
 
 With the summons, a world that hides the console no longer takes on the duty of putting those things in menus of its own. The exception is a headset used with tracked hands and no controllers, where a hidden console has no summons yet: there the duty stands.
 
-**Settings that travel.** A world is a website, and can only remember what a visitor chose there. Having to turn the music down again in every world, or make the text larger again, is the kind of small cost that makes a place feel like a lot of separate sites. So a visitor's volumes, the size of their text, whether things move, how their hands are set in a headset and whether their screen was filled go with them through a door (`set=` on the link, `settings` in the arrival), and home again. They are preferences, forgeable at no cost that matters, so nothing is asked about them; and nothing that would need asking (a microphone, a block, hearing other people's music) is ever one of them. A world's colours stay the world's.
+**Settings that travel.** A world is a website, and can only remember what a visitor chose there. Having to turn the music down again in every world, or make the text larger again, is the kind of small cost that makes a place feel like a lot of separate sites. So a visitor's volumes, the size of their text, whether things move, how their hands are set in a headset, whether their screen was filled and which tabs of the menu they keep on their bar go with them through a door (`set=` on the link, `settings` in the arrival), and home again. They are preferences, forgeable at no cost that matters, so nothing is asked about them; and nothing that would need asking (a microphone, a block, hearing other people's music) is ever one of them. A world's colours stay the world's.
 
 **The same form on the other side.** A visitor is on a touch screen, at a desk, or in a headset, and a door doesn't change which. A headset already travels (`xr=1`, `immersive`). The other two now do too (`form=touch` or `form=desk`), for the devices that can be either, as a preference a world follows where the device can.
 
@@ -2061,4 +2065,4 @@ Linking 3D places like web pages has been tried before, and so has serverless mu
 
 ---
 
-**End of specification, version 0.3**
+**End of specification, version 0.34.0**
