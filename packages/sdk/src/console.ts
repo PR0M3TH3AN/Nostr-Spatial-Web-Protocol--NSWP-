@@ -408,6 +408,12 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
           g.roundRect(x + 20, y + (cellH - iconSize) / 2 - 4, iconSize * 0.78, iconSize, [iconSize * 0.39, iconSize * 0.39, 4, 4]);
           g.fill();
           g.fillStyle = ink;
+        } else if (item.kind === "tile") {
+          // A thing with a picture of itself: its picture where another button has an icon.
+          const picture = item.picture?.();
+          const side = Math.min(cellH - 12, iconSize * 1.5);
+          if (picture) g.drawImage(picture, x + 10, y + (cellH - side) / 2 - 2, side, side);
+          else strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
         } else strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
         const size = Math.round((cols === 3 ? 23 : 28) * k);
         g.font = `600 ${size}px ${SANS}`;

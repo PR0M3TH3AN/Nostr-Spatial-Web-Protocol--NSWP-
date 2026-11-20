@@ -248,6 +248,11 @@ What `frame` gives back:
 A thing sticks to whatever your engine's test says it met. Nothing of your
 world has to be an item.
 
+The Bag tab's own pictures are not yours to draw: the page draws each thing
+in the bag from its model, in a small view of its own, as it draws the rest
+of the menu. That is why the script carries a renderer of its own (it is
+about 2.3 MB before the server squeezes it, a third of that for this).
+
 A world that draws items serves the locked box as `item-box.html` beside
 its page: write out `ITEM_BOX_HTML` from `@nswp/core`, serve it with exactly
 `ITEM_BOX_CSP`, and leave your site's other content rules off that page.

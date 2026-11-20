@@ -13,19 +13,23 @@ import { engineParts } from "./engine-menu.js";
 import { addFramePart, engineWorld } from "./engine-world.js";
 import { arrival } from "./index.js";
 import type { ItemBoxOptions } from "./item-box.js";
-import { createItemStore, type ItemStore } from "./item-store.js";
-import type { Items } from "./items.js";
+import type { ItemStore } from "./item-store.js";
+import { createItems, type Items } from "./items.js";
 import { createPresence, type Presence } from "./presence.js";
 
 /** What this world does with items, as its engine said: nothing, until it says. */
 const said = { rule: "none", scripts: false as boolean | ItemBoxOptions, relays: undefined as string[] | undefined };
-let store: ItemStore | null = null;
+let store: Items | null = null;
 let presence: Presence | null = null;
 const watchers = new Set<() => void>();
 
-/** What fetches and checks everything an item names. Made when first needed, by which time its relays are known. */
-export function engineItemStore(): ItemStore {
-  return (store ??= createItemStore(said.relays?.length ? { relays: said.relays } : {}));
+/**
+ * What fetches and checks everything an item names. Made when first needed, by which time its relays are known.
+ * It can also make a model of an item for the page to draw: the Bag tab's pictures are drawn by the page, in
+ * every world (item-preview.ts). What is in the world itself is the engine's to draw, from the checked bytes.
+ */
+export function engineItemStore(): Items {
+  return (store ??= createItems(said.relays?.length ? { relays: said.relays } : {}));
 }
 
 /** The world's engine says what it does with items (`NSWP.items`). Until then nothing carried is fetched, drawn or run. */

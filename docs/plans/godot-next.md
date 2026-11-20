@@ -79,7 +79,8 @@ Wired, but not seen working:
 - The view through a door of where it leads.
 - A crossing's room that can be looked round in.
 - Posting from a world ("My public feed").
-- The engine script grew to about 1.4 MB with items. If that matters,
+- The engine script is about 2.3 MB: 1.4 with items and people, and the
+  rest for the Bag tab's pictures, which the page draws. If that matters,
   split what a world without items doesn't need.
 
 ## Waiting on the owner
