@@ -1,9 +1,9 @@
 /**
  * Items, for a world drawn by an engine that isn't JavaScript's (protocol/17-items.md; docs/other-engines.md).
  *
- * Everything about an item that isn't drawing is here, and is the very same code a Three.js world runs: the Bag
- * tab, fetching and checking what an item names, its script in its locked box, the flight of what it sends out,
- * who it reaches, and how someone is. So an item behaves the same in every world, whatever the world is made
+ * Everything about an item that isn't drawing is here, and is the very same code a Three.js world runs, through
+ * the very same presence (engine-presence.ts): the Bag tab, fetching and checking what an item names, its script
+ * in its locked box, the flight of what it sends out, who it reaches, what the room is told, and how someone is. So an item behaves the same in every world, whatever the world is made
  * with, and nothing about it is written twice.
  *
  * What is left for the engine is what only it can do:
@@ -20,23 +20,18 @@
  * On a flat screen the ring to aim by, the mark of a hit, how the visitor is and their item's counter are drawn
  * by the page, over the canvas, as the menu is. In a headset they are the engine's to draw, from the same numbers.
  */
-import { cleanItemsRule, cleanTints, type Item } from "@nswp/core";
 import * as THREE from "three";
 import { createBag } from "./bag.js";
 import { addBagControls } from "./bagging.js";
 import { engineParts } from "./engine-menu.js";
-import { addFramePart, base64, engineWorld, num, read, three, type EngineWorld } from "./engine-world.js";
+import { enginePresence, engineAllowsItems, engineItemStore, onEnginePresence } from "./engine-presence.js";
+import { addFramePart, addFrameStart, base64, engineWorld, num, read, three, type EngineWorld } from "./engine-world.js";
 import { addItemControls, type ItemControls } from "./item-controls.js";
-import { createItemStore, showsItems, type ItemStore, type ModelNamed } from "./item-store.js";
-import type { Items } from "./items.js";
-import { createPlay, mayHold, paintHealth, type Play, type PlaySnapshot } from "./play.js";
+import type { ModelNamed } from "./item-store.js";
+import { paintHealth, type Play, type PlaySnapshot } from "./play.js";
+import type { Presence } from "./presence.js";
 import { hereAs, onHereAs } from "./ui/identity.js";
 
-
-interface Held {
-  item: Item;
-  tints: Record<string, string>;
-}
 
 interface Overlay {
   root: HTMLElement;
@@ -51,25 +46,30 @@ interface Overlay {
 
 let on: {
   rule: string;
-  store: ItemStore;
+  world: EngineWorld;
+  presence: Presence;
   play: Play;
   presses: ItemControls;
-  world: EngineWorld;
-  held: Held | null;
-  asked: { sha: string };
-  /** A model's checked bytes, as text an engine can take: by the hash its file is named by. "!" where it failed. */
-  models: Map<string, string>;
   wantSight: boolean;
   accent: string;
   overlay: Overlay | null;
 } | null = null;
 
+/** A model's checked bytes, as text an engine can take: by the hash its file is named by. "!" where it failed. */
+const models = new Map<string, string>();
+
 /** Have a model's bytes fetched and checked, to be handed over when the engine asks. */
 function want(named: ModelNamed): void {
-  const state = on;
-  if (!state || state.models.has(named.model.sha256)) return;
-  state.models.set(named.model.sha256, "");
-  void state.store.modelBytes(named).then((got) => state.models.set(named.model.sha256, got ? base64(got.bytes) : "!"));
+  if (models.has(named.model.sha256)) return;
+  models.set(named.model.sha256, "");
+  void engineItemStore()
+    .modelBytes(named)
+    .then((got) => models.set(named.model.sha256, got ? base64(got.bytes) : "!"));
+}
+/** Everything an item draws: itself, and each thing it sends out. */
+function wantAll(item: { model: ModelNamed["model"]; size: ModelNamed["size"]; sends: ModelNamed[] }): void {
+  want(item);
+  for (const send of item.sends) want(send);
 }
 
 // ---------------------------------------------------------------- what the page draws, on a flat screen
@@ -139,102 +139,57 @@ export function items(options?: string): string {
   const parts = engineParts();
   if (on) return JSON.stringify({ ok: true, rule: on.rule });
   const o = read(options);
-  const rule = cleanItemsRule(o.rule);
-  if (!parts) return JSON.stringify({ ok: false, rule, why: "menu-first" });
-  if (rule === "none") return JSON.stringify({ ok: false, rule, why: "no-items" });
+  if (!parts) return JSON.stringify({ ok: false, rule: "none", why: "menu-first" });
   const relays = Array.isArray(o.relays) ? o.relays.filter((r): r is string => typeof r === "string") : undefined;
-  const store = createItemStore(relays?.length ? { relays } : {});
+  const rule = engineAllowsItems(o.rule, o.box === false ? false : typeof o.box === "string" && o.box ? { url: o.box } : true, relays);
+  const presence = rule === "none" ? null : enginePresence();
+  const play = presence?.play;
+  if (!presence || !play) return JSON.stringify({ ok: false, rule, why: "no-items" });
   const world = engineWorld();
-  const { scene, camera, rig } = world;
-  // What this script holds of a thing is where it is and which way it faces: the engine has its shape.
-  const nothing = async () => new THREE.Group();
-  const shapeless = { ...store, model: nothing, sent: nothing, marker: () => new THREE.Group(), clips: () => [] } as unknown as Items;
-  const { controls, sounds } = parts;
+  const { controls } = parts;
   const me = (): string | null => hereAs()?.pubkey ?? null;
   const state = (on = {
     rule,
-    store,
     world,
-    held: null as Held | null,
-    asked: { sha: "" },
-    models: new Map<string, string>(),
+    presence,
+    play,
     wantSight: false as boolean,
     accent: controls.theme.accent,
     overlay: makeOverlay(),
-    play: null as unknown as Play,
     presses: null as unknown as ItemControls,
   });
-  state.play = createPlay({
-    scene,
-    camera,
-    rig,
-    items: shapeless,
-    sounds,
-    rule: () => rule,
-    ...(o.box === false ? {} : { scripts: typeof o.box === "string" && o.box ? { url: o.box } : true }),
-    // With nobody else to be seen yet in a world drawn this way, there is nobody to tell and nobody to reach.
-    me: () => null,
-    people: () => [],
-    tell: () => {},
-    deferred: true,
-    presenting: () => world.presenting,
-    sighting: () => world.sighting,
-    theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }),
-    onChange: () => state.presses?.refresh(),
-  });
-  const hold = async (coordinate: string, tints?: Record<string, string>): Promise<{ ok: boolean; said: string }> => {
-    if (!coordinate) {
-      const had = !!state.held;
-      state.held = null;
-      state.wantSight = false;
-      await state.play.held(null, null);
-      return { ok: true, said: had ? "Put away." : "You are holding nothing." };
-    }
-    const described = showsItems() ? await store.describe(coordinate) : null;
-    const may = mayHold(described, { rule, scripts: o.box !== false, asked: state.asked });
-    if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
-    state.held = { item: described, tints: cleanTints(described, tints ?? {}) };
-    want(described);
-    for (const send of described.sends) want(send);
-    await state.play.held(described, new THREE.Group());
-    return { ok: true, said: `You are holding ${described.title}.` };
-  };
   const bag = createBag({ me, ...(relays?.length ? { relays } : {}) });
   const bagging = addBagControls(controls, {
     bag,
-    items: store,
+    items: engineItemStore(),
     me,
     rule: () => rule,
-    holding: () => state.held?.item.id ?? "",
-    hold,
-    tinted: (item, tints) => {
-      if (state.held?.item.id === item) state.held = { item: state.held.item, tints: cleanTints(state.held.item, tints) };
+    holding: () => presence.holding,
+    hold: async (item, tints) => {
+      const done = await presence.setHolding(item, tints);
+      if (!presence.holding) state.wantSight = false;
+      return done;
     },
+    tinted: (item, tints) => void (presence.holding === item && presence.setTints(tints)),
     presenting: () => world.presenting,
   });
   onHereAs(() => bagging.refresh());
   state.presses = addItemControls(controls, {
-    play: () => state.play,
+    play: () => play,
     holdingHand: () => -1,
     dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
     sight: (wanted) => void (state.wantSight = wanted),
   });
+  onEnginePresence(() => state.presses.refresh());
+  addFrameStart(itemsHeard);
   addFramePart(itemsFrame);
   return JSON.stringify({ ok: true, rule });
 }
 
-/**
- * The items' share of a frame (engine-world.ts, `frame`). Of what the engine said, it takes `met` and `floors`:
- * the engine's answers about what things ran into and where the floor is under them.
- *
- * It gives back `held` (the thing in their hand: its model, box, colours, where its sight is and whether it does
- * anything), `sight` (whether they are holding the press that aims), and the things, streaks of light and the
- * visitor's own state, as `PlaySnapshot` has them.
- */
-function itemsFrame(i: Record<string, unknown>, dt: number): Record<string, unknown> {
+/** What the engine found out since the last frame: what each thing ran into (`met`), and where the floor is under those that fell (`floors`). */
+function itemsHeard(i: Record<string, unknown>): void {
   const state = on;
-  if (!state) return {};
-  const presenting = state.world.presenting;
+  if (!state) return;
   for (const m of Array.isArray(i.met) ? (i.met as Record<string, unknown>[]).slice(0, 64) : []) {
     const at = three(m?.at);
     if (at && typeof m.key === "string") state.play.met(m.key, num(m.step, -1), num(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
@@ -242,18 +197,36 @@ function itemsFrame(i: Record<string, unknown>, dt: number): Record<string, unkn
   for (const f of Array.isArray(i.floors) ? (i.floors as Record<string, unknown>[]).slice(0, 64) : []) {
     if (typeof f?.key === "string") state.play.floored(f.key, num(f.y, NaN));
   }
-  state.play.update(dt);
+}
+
+/**
+ * The items' share of a frame (engine-world.ts, `frame`): `held` (the thing in their hand: its model, box,
+ * colours, where its sight is and whether it does anything), `sight` (whether they are holding the press that
+ * aims), and the things, streaks of light and the visitor's own state, as `PlaySnapshot` has them. Things are
+ * everyone's: what the visitor sent out, and what anyone else in the room did.
+ */
+function itemsFrame(): Record<string, unknown> {
+  const state = on;
+  if (!state) return {};
+  const presenting = state.world.presenting;
+  const store = engineItemStore();
+  const item = state.presence.holding ? store.known(state.presence.holding) : null;
+  if (item) wantAll(item);
+  else state.wantSight = false;
+  // What anyone else holds, and what it may send out, is something to draw too: fetched and checked the same way.
+  for (const person of state.presence.drawn()) {
+    const theirs = person.holding && person.held ? store.known(person.holding) : null;
+    if (theirs) wantAll(theirs);
+  }
   const now = state.play.snapshot();
-  // Whatever is in the air is something to draw: its model is fetched and checked, to be handed over when asked for.
-  for (const thing of now.things) if (!state.models.has(thing.model)) state.models.set(thing.model, "!");
+  // A thing in the air whose model nobody here was found to hold is drawn as a plain box of its size.
+  for (const thing of now.things) if (!models.has(thing.model)) models.set(thing.model, "!");
   if (state.overlay) paint(state.overlay, now.own, state.accent, presenting);
-  const held = state.held;
+  const tints = state.presence.tints;
   return {
     rule: state.rule,
-    held: held
-      ? { id: held.item.id, title: held.item.title, model: held.item.model.sha256, size: held.item.size, tints: Object.fromEntries(held.item.tints.map((t) => [t.slot, held.tints[t.slot] ?? t.color])), aim: held.item.aim, acts: !!state.play.does }
-      : null,
-    sight: state.wantSight && !!held?.item.aim && !presenting,
+    held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does } : null,
+    sight: state.wantSight && !!item?.aim && !presenting,
     ...now,
   };
 }
@@ -264,7 +237,7 @@ function itemsFrame(i: Record<string, unknown>, dt: number): Record<string, unkn
  * their way, and "!" where the file failed a check: then a plain box of the thing's size is drawn in its place.
  */
 export function model(sha: unknown): string {
-  return typeof sha === "string" ? (on?.models.get(sha) ?? "") : "";
+  return typeof sha === "string" ? (models.get(sha) ?? "") : "";
 }
 
 /**
@@ -287,6 +260,11 @@ export function itemUse(toward?: string): boolean {
   const to = three(read(toward).to);
   on.play.use(to ? new THREE.Vector3().fromArray(to) : undefined);
   return true;
+}
+
+/** What is in play for this visitor, as JSON: for tests. */
+export function itemsInfo(): string {
+  return JSON.stringify(on ? on.play.info() : null);
 }
 
 /** The item's second press. */

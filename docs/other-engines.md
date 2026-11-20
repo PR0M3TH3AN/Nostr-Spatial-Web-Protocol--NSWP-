@@ -223,12 +223,18 @@ What `frame` gives back:
   and `acts`.
 - `sight`: whether they are holding the press that aims. Bring the item up
   to the eye and narrow the view, and say `sighting` once it is there.
-- `things`: each thing in the air or stuck: `model`, `size`, `tints`, where
-  it is (`at`, `turn`, `scale`), and `test`: a step it took, from `a` to
-  `b`. **Test that against your world's own shapes,** and say what it met
-  in the next frame's `met` (`key`, `step`, how far along as `f`, where as
-  `at`). It then sticks there. For one with `down` true, say where the
-  floor is under it, in `floors`.
+- `things`: each thing in the air or stuck, the visitor's own and anyone
+  else's in the room: `model`, `size`, `tints`, where it is (`at`, `turn`,
+  `scale`), what it is stuck to (`on`: "world", or a person's key), and
+  `test`: a step it took, from `a` to `b`. **Test that against your world's
+  own shapes,** and say what it met in the next frame's `met` (`key`,
+  `step`, how far along as `f`, where as `at`). It then sticks there. A
+  thing falls as it flies, so a step that took a while is a curve: `via`
+  is then the places it passed on the way. Test from `a` through each to
+  `b`, in order, and give `f` along the whole step. Without that, a device
+  drawing few frames a second lands a thing somewhere else than the others
+  see it land. For one with `down` true, say where the floor is under it,
+  in `floors`.
 - `trails`: a streak of light behind a thing: points along its middle, each
   with how bright it is there. Draw a ribbon through them facing the
   viewer, tapering, with nothing behind it darkened.
@@ -273,7 +279,7 @@ too, so people look the same in every world.
 
 | Call | Does |
 |---|---|
-| `NSWP.people(options)` | Call once, after `menu`. The room's part of the menu is added: Join, the microphone, chat, who is here. `options` is JSON: `sharedMusic` false for a place that wants none of its visitors' music shared; `labels`, a colour for names. Nobody is joined to anything until they ask. |
+| `NSWP.people(options)` | Call once, after `menu`. The room's part of the menu is added: Join, the microphone, chat, who is here. `options` is JSON: `sharedMusic` false for a place that wants none of its visitors' music shared. Nobody is joined to anything until they ask. |
 | `NSWP.frame(view)` | The same call as for items, once a frame: it now also returns `people`, `room` and sometimes `nudge`. |
 | `NSWP.figure(name)` | What to draw a person's figure with, by the name a frame gave. |
 | `NSWP.board(key)` | A board's picture, as a PNG in base64, by the key a frame gave. |
@@ -297,6 +303,12 @@ What `frame` gives back for people:
   picture, a few written words, a light. `at` is where its middle is (or
   the middle of its bottom edge, where `foot` is true), `w` and `h` its
   size in metres, `opacity`, and sometimes `tint`, a colour to draw it in.
+- `held`, on a person: what they hold, where this world draws what people
+  carry: `model` and `size` (as for the visitor's own, from `NSWP.model`),
+  `tints`, and where it is (`p` and `q`). `clips` in the same frame names
+  animations of it that began, by whose it is (`who`).
+- How someone is, where items are in play, is one of their boards: a bar
+  over their head, drawn over again as it changes (a new `key` each time).
 - `room`: whether they are joined, whether their microphone is on, and how
   many others are here.
 - `nudge`: two numbers, x and z in metres. Add them to where the visitor
@@ -319,9 +331,9 @@ headset. (The crossing's room does, as the page's picture of it: above.) The pro
 way ([NSWP-05](../protocol/05-looks.md)), so that is allowed. It is also
 work.
 
-Rooms are in the script ("Other people", above). What isn't yet: what
-other people hold, and what their items send out. So a hit, health between
-people and muting someone's items are still for worlds drawn with Three.js.
+Rooms are in the script ("Other people", above), and so is everything
+between people: what each holds, what their items send out, a hit, how
+someone is, muting one person's items.
 
 ## Godot
 
@@ -426,12 +438,23 @@ stand-in relays:
 - Someone standing very close thins out and never fills the view.
 - One leaves, and is gone for the other.
 
+**Added the same day, items between people:** with the same two visitors,
+one holding the dart blaster.
+
+- The other sees it in her hand.
+- She fires at him from two metres: it reaches him once, he has four of
+  five left, she is shown the mark of a hit, the dart is on him for her,
+  and a bar over his head says how he is. It lets go and is gone, and what
+  he lost comes back.
+- She taps the floor to one side: both see the dart stuck in the same
+  place, to the tenth of a metre.
+
 Not tried there: a real microphone and two real people, more than two
 people, a picture over a name, pressing a person, a phone.
 
 **Not in the Godot addon:** moving in a headset (a session starts, and the
 visitor stands where they are), the view through a door, posting from a
-world, what other people hold, and a screen someone shares. The crossing's room is the page's picture of it:
+world, and a screen someone shares. The crossing's room is the page's picture of it:
 it can't be looked round in, as a Three.js world's can.
 
 A Godot export is large (about 40 MB, nearly all the engine), which is what

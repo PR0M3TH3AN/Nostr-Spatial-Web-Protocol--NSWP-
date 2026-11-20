@@ -18,10 +18,11 @@
  */
 import * as THREE from "three";
 import { engineParts } from "./engine-menu.js";
+import { enginePresence, engineItemStore, onEnginePresence } from "./engine-presence.js";
 import { addFramePart, base64, engineWorld, read, type EngineWorld } from "./engine-world.js";
 import type { Figure } from "./figure.js";
 import { arrival } from "./index.js";
-import { createPresence, type PersonDrawn, type Presence } from "./presence.js";
+import type { PersonDrawn, Presence } from "./presence.js";
 import { addRoomControls, type Travelling } from "./room-controls.js";
 
 let on: {
@@ -60,14 +61,17 @@ interface Board {
   tint?: string;
 }
 
-function boardOf(state: NonNullable<typeof on>, sprite: THREE.Sprite | null, opacity: number): Board | null {
-  const map = sprite?.material.map;
-  if (!sprite || !map || !sprite.visible) return null;
+function boardOf(state: NonNullable<typeof on>, sprite: THREE.Sprite): Board | null {
+  const map = sprite.material.map;
+  if (!map || !sprite.visible) return null;
+  const opacity = sprite.material.opacity;
   sprite.getWorldPosition(v);
-  state.boards.set(map.uuid, map);
+  // A picture that is drawn over again (how someone is, as it changes) is a new picture to hand over.
+  const key = `${map.uuid}:${map.version}`;
+  state.boards.set(key, map);
   const tint = sprite.material.color.getHexString();
   return {
-    key: map.uuid,
+    key,
     at: [round(v.x), round(v.y), round(v.z)],
     w: round(sprite.scale.x),
     h: round(sprite.scale.y),
@@ -84,14 +88,14 @@ function personOf(state: NonNullable<typeof on>, p: PersonDrawn): Record<string,
     state.figureNames.set(p.figure, name);
   }
   state.figures.set(name, p.figure);
-  const boards = [
-    boardOf(state, p.label, p.opacity),
-    boardOf(state, p.picture, p.opacity),
-    // What they wrote fades in and out by itself, and is never in the face of someone standing close.
-    boardOf(state, p.bubble, p.bubble?.material.opacity ?? 0),
-    boardOf(state, p.light, 1),
-    boardOf(state, p.beam, 1),
-  ].filter((b): b is Board => b !== null);
+  // Everything flat that is over their head: their name, their picture, what they wrote, a light while they
+  // record, a column of light while they are pointed out, and how they are where items are in play.
+  const boards = p.figure.head.children
+    .filter((c): c is THREE.Sprite => (c as THREE.Sprite).isSprite === true)
+    .map((sprite) => boardOf(state, sprite))
+    .filter((b): b is Board => b !== null);
+  // What they hold, where this world draws what people carry and it has been read and checked.
+  const item = p.holding && p.held ? engineItemStore().known(p.holding) : null;
   return {
     key: p.pubkey,
     name: p.name,
@@ -101,14 +105,14 @@ function personOf(state: NonNullable<typeof on>, p: PersonDrawn): Record<string,
     body: placed(p.figure.torso),
     hands: p.figure.hands.map((h) => (h.visible ? placed(h) : null)),
     boards,
+    ...(item && p.held ? { held: { id: p.holding, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, p.tints[t.slot] ?? t.color])), ...placed(p.held) } } : {}),
   };
 }
 
 /** The people's share of a frame (engine-world.ts, `frame`): `people`, everyone to draw, and `room`, a word on it. */
-function peopleFrame(_said: Record<string, unknown>, dt: number): Record<string, unknown> {
+function peopleFrame(): Record<string, unknown> {
   const state = on;
   if (!state) return {};
-  state.presence.update(dt);
   // Only what is on show now is kept to hand over: someone who left takes their figure and their boards with them.
   state.figures.clear();
   state.boards.clear();
@@ -119,30 +123,18 @@ function peopleFrame(_said: Record<string, unknown>, dt: number): Record<string,
 
 /**
  * Begin. Call once, after `menu`. `options` is JSON: `sharedMusic` false for a place that wants none of its
- * visitors' music shared, `labels` a CSS colour for names. The room's part of the menu is added: Join, the
+ * visitors' music shared. The room's part of the menu is added: Join, the
  * microphone, chat, who is here. Nobody is joined to anything until they ask, having been told what it shows
  * of them, as in every world. Returns `{ ok }`.
  */
 export function people(options?: string): string {
   if (on) return JSON.stringify({ ok: true });
   const parts = engineParts();
-  if (!parts) return JSON.stringify({ ok: false, why: "menu-first" });
+  const presence = enginePresence();
+  if (!parts || !presence) return JSON.stringify({ ok: false, why: "menu-first" });
   const o = read(options);
   const world = engineWorld();
   const { controls, sounds } = parts;
-  let refresh = (): void => {};
-  const presence = createPresence({
-    scene: world.scene,
-    camera: world.camera,
-    rig: world.rig,
-    // No headset session is this script's to start: the engine says whether its visitor is in one.
-    renderer: { xr: { get isPresenting() { return world.presenting; }, getSession: () => null } },
-    controllers: [],
-    ...(typeof o.labels === "string" && /^#[0-9a-f]{6}$/i.test(o.labels) ? { labelColor: o.labels } : {}),
-    look: () => arrival.look(),
-    identity: () => arrival.identity(),
-    onChange: () => refresh(),
-  });
   const room = addRoomControls(controls, presence, {
     arrived: arrival.read().context,
     // A screen someone shares is watched on a panel, and an engine has none of the kit's panels to open one on.
@@ -151,7 +143,7 @@ export function people(options?: string): string {
     presenting: () => world.presenting,
     ...(o.sharedMusic === false ? { sharedMusic: false } : {}),
   });
-  refresh = room.refresh;
+  onEnginePresence(room.refresh);
   on = { world, presence, travelling: room.travelling, figureNames: new WeakMap(), figures: new Map(), boards: new Map(), made: 0 };
   addFramePart(peopleFrame);
   return JSON.stringify({ ok: true });

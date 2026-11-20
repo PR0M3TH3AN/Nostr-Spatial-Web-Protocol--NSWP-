@@ -195,8 +195,11 @@ to sign. A material named `tint_accent` (Godot won't keep a colon in a
 name) is a colour whoever holds it may choose. The item then works in
 every world that draws items, whatever each is made with.
 
-**Not here yet:** what other people hold and send out (so nothing reaches
-anyone), and anything of this in a headset.
+With `NswpPeople` beside it (below), what a visitor holds is seen by
+everyone in the room, and what it sends out reaches them: a hit, how
+someone is, and muting one person's items all work as in every world.
+
+**Not here yet:** anything of this in a headset.
 
 ## Other people
 
@@ -206,6 +209,7 @@ else is there:
 ```gdscript
 var people := NswpPeople.new()
 people.visitor = $Visitor      # an NswpVisitor, or the node that stands where they stand
+people.items = $Items          # your NswpItems, if you have one: what people hold is drawn
 add_child(people)
 ```
 
@@ -299,8 +303,6 @@ applies whatever the engine. The ones a Godot world is most likely to miss:
 
 ## Not here yet
 
-- **Items between people:** hits, health and seeing what someone else
-  holds.
 - **A screen someone shares** in a room: it is watched on one of the kit's
   panels, and there are none of those here yet.
 - **Moving in a headset**, and the menu there. The page's menu can't be seen

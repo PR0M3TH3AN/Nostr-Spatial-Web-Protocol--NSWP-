@@ -24,6 +24,9 @@ extends Node3D
 @export var visitor: Node3D
 ## False for a place that wants none of its visitors' music shared: a concert, a library.
 @export var shared_music: bool = true
+## This world's `NswpItems`, where it has one: then what other people hold is drawn in their
+## hands, in the colours they chose. Left out, nothing anyone else carries is drawn.
+@export var items: NswpItems
 
 const ALLOY := preload("res://addons/nswp/gate/alloy.gdshader")
 
@@ -53,6 +56,14 @@ func _process(delta: float) -> void:
 	var now := Nswp.frame(Nswp.view_of(camera, visitor, delta))
 	last = now
 	_draw(now.get("people", []))
+	# An animation of what someone else holds began: a blaster's slide, as they fire.
+	for clip: Variant in now.get("clips", []):
+		if typeof(clip) != TYPE_DICTIONARY or not _people.has(str(clip.get("who", ""))):
+			continue
+		var player: Variant = _people[str(clip.get("who", ""))].get("held_player")
+		if player is AnimationPlayer and (player as AnimationPlayer).has_animation(str(clip.get("name", ""))):
+			(player as AnimationPlayer).stop()
+			(player as AnimationPlayer).play(str(clip.get("name", "")))
 
 
 func _draw(people: Variant) -> void:
@@ -102,7 +113,7 @@ func _person() -> Dictionary:
 		part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(part)
 		parts.append(part)
-	return {"root": root, "metal": metal, "head": parts[0], "body": parts[1], "hands": [parts[2], parts[3]], "figure": "", "boards": {}}
+	return {"root": root, "metal": metal, "head": parts[0], "body": parts[1], "hands": [parts[2], parts[3]], "figure": "", "boards": {}, "held": null, "held_id": "", "held_tints": "", "held_player": null}
 
 
 func _place(person: Dictionary, p: Dictionary, pictures_seen: Dictionary) -> void:
@@ -129,7 +140,29 @@ func _place(person: Dictionary, p: Dictionary, pictures_seen: Dictionary) -> voi
 		hand.visible = typeof(where) == TYPE_DICTIONARY
 		if hand.visible:
 			_put(hand, where)
-	# Boards: a name, a picture, a few written words. Each faces whoever is looking.
+	# What they hold: the same model, checked the same way, as in their own hand.
+	var held: Variant = p.get("held")
+	if items != null and typeof(held) == TYPE_DICTIONARY:
+		var held_id := "%s|%s" % [str(held.get("id", "")), str(held.get("model", ""))]
+		if held_id != str(person.held_id):
+			_drop_held(person)
+			var made := items.instance_of(str(held.get("model", "")), held.get("size"))
+			# Null while its bytes are on their way: asked for again next frame.
+			if made != null:
+				made.top_level = true
+				(person.root as Node3D).add_child(made)
+				person.held = made
+				person.held_id = held_id
+				person.held_player = items.player_in(made)
+		if person.held != null:
+			_put(person.held, held)
+			var colours := JSON.stringify(held.get("tints", {}))
+			if colours != str(person.held_tints):
+				items.tint(person.held, held.get("tints"))
+				person.held_tints = colours
+	else:
+		_drop_held(person)
+	# Boards: a name, a picture, a few written words, how they are. Each faces whoever is looking.
 	var boards: Dictionary = person.boards
 	var shown := {}
 	var listed: Variant = p.get("boards", [])
@@ -166,6 +199,15 @@ func _place(person: Dictionary, p: Dictionary, pictures_seen: Dictionary) -> voi
 		if not shown.has(key):
 			(boards[key] as Node3D).queue_free()
 			boards.erase(key)
+
+
+func _drop_held(person: Dictionary) -> void:
+	if person.held != null:
+		(person.held as Node3D).queue_free()
+	person.held = null
+	person.held_id = ""
+	person.held_tints = ""
+	person.held_player = null
 
 
 func _put(node: Node3D, where: Variant) -> void:
@@ -280,5 +322,7 @@ func report() -> Dictionary:
 			"head": [snappedf(head.global_position.x, 0.01), snappedf(head.global_position.y, 0.01), snappedf(head.global_position.z, 0.01)],
 			"hands": [(person.hands[0] as Node3D).visible, (person.hands[1] as Node3D).visible],
 			"boards": (person.boards as Dictionary).size(),
+			"held": str(person.held_id),
+			"held_drawn": person.held != null,
 		})
 	return {"started": _started, "room": last.get("room", {}), "people": drawn}

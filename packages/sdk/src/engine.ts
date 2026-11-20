@@ -35,12 +35,12 @@ import { arrival as arrivals, configure, portal, startingForm, type GoOptions } 
 
 export { bump, check, claim, door, events, headset, kit, load, menu, moved, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
 export { frame } from "./engine-world.js";
-export { items, itemSecond, itemTap, itemUse, model } from "./engine-items.js";
+export { items, itemSecond, itemsInfo, itemTap, itemUse, model } from "./engine-items.js";
 export { board, figure, people, peopleInfo } from "./engine-people.js";
 import { travellingNow } from "./engine-people.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 11;
+export const VERSION = 12;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 

@@ -57,6 +57,16 @@ export interface PresenceOptions {
   /** The world's own colour and whether things may move for the visitor, for what is drawn of how they are. */
   theme?: PlayOptions["theme"];
   /**
+   * True for a world drawn by another engine: things in play are kept as places and directions, and that engine
+   * draws them and says what each ran into (`play.snapshot()`, `play.met()`).
+   */
+  deferredPlay?: boolean;
+  /**
+   * Whether the item in hand is up at the visitor's eye, where something other than this draws it there. Left
+   * out, this brings it up itself (`setSighting`).
+   */
+  sighting?: () => boolean;
+  /**
    * The visitor's own look, in its inline form (spec §4.2), for the others in a
    * room to draw them by: usually `arrival.look()`. A function is asked each
    * time a room is joined. Left out, they are drawn as their session key generates.
@@ -131,6 +141,8 @@ export interface Presence {
    * tints, a colour. It is recoloured at once, and the room is told. A tint left out is as its maker made it.
    */
   setTints(tints: Record<string, string>): void;
+  /** The colours chosen for what is in hand now. */
+  readonly tints: Record<string, string>;
   /**
    * Items in play (play.ts): what the item in hand does on a press, the things sent out, and how this visitor is.
    * Null in a world that draws no items.
@@ -263,9 +275,10 @@ export interface PersonDrawn {
   light: THREE.Sprite | null;
   /** A column of light while they are being pointed out. */
   beam: THREE.Sprite | null;
-  /** The item they say they hold, by its coordinate, or "": and the colours they chose for it. */
+  /** The item they say they hold, by its coordinate, or "": the colours they chose for it, and where it is. */
   holding: string;
   tints: Record<string, string>;
+  held: THREE.Object3D | null;
 }
 
 interface Avatar {
@@ -529,7 +542,11 @@ export function createPresence(d: PresenceOptions): Presence {
         items: d.items,
         sounds: d.sounds ?? null,
         rule: () => itemsRule(),
-        ...(d.itemScripts ? { scripts: d.itemScripts } : {}),
+        // Asked each time it matters: an engine's world says whether items' own logic runs after this is made.
+        get scripts() {
+          return d.itemScripts ?? false;
+        },
+        ...(d.deferredPlay ? { deferred: true } : {}),
         me: () => session?.self.pubkey ?? null,
         people: () =>
           [...avatars.values()]
@@ -539,7 +556,7 @@ export function createPresence(d: PresenceOptions): Presence {
         tell: (said) => session?.tellPlay(said),
         tintsOf: (pubkey) => (pubkey === null ? mineTints : (avatars.get(pubkey)?.tints ?? {})),
         presenting: () => d.renderer.xr.isPresenting,
-        sighting: () => sightK > 0.5,
+        sighting: () => (d.sighting ? d.sighting() : sightK > 0.5),
         ...(d.theme ? { theme: d.theme } : {}),
         // In a headset a thing goes where the hand that holds the item points.
         aim: () => {
@@ -1048,6 +1065,9 @@ export function createPresence(d: PresenceOptions): Presence {
     get holding() {
       return mine;
     },
+    get tints() {
+      return mineTints;
+    },
     setTints(tints) {
       const described = mine ? d.items?.known(mine) : null;
       if (!described) return;
@@ -1302,6 +1322,7 @@ export function createPresence(d: PresenceOptions): Presence {
           beam: a.beam?.visible ? a.beam : null,
           holding: a.heldItem ?? "",
           tints: a.tints ?? {},
+          held: a.held ?? null,
         }));
     },
     info() {

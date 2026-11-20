@@ -177,6 +177,34 @@ describe("in a world drawn by another engine", () => {
     expect(p.play.snapshot().things[0]!.at).toEqual([4, 2.2, -9]);
   });
 
+  it("gives a long frame's flight as the curve it was, in short pieces, so a slow device finds the same landing", async () => {
+    const p = place({ deferred: true });
+    await p.hears(BO, shot(1, [4, 1.5, 0], [0, 2, -14]));
+    await p.pass(0.1);
+    // A frame as long as a struggling device draws: three tenths of a second.
+    vi.advanceTimersByTime(300);
+    p.play.update(0.3);
+    const long = p.play.snapshot().things[0]!.test!;
+    expect(long.via!.length).toBe(9);
+    // Each is a place it really passed: it rose, and fell, between the two ends.
+    const all = [long.a, ...long.via!, long.b];
+    for (let i = 1; i < all.length; i++) expect(all[i]![2]).toBeLessThan(all[i - 1]![2]);
+    const chordMiddle = (long.a[1] + long.b[1]) / 2;
+    expect(long.via![4]![1]).toBeGreaterThan(chordMiddle + 0.05);
+    // A frame of the usual length is one short piece, as before.
+    vi.advanceTimersByTime(16);
+    p.play.update(0.016);
+    expect(p.play.snapshot().things[0]!.test!.via).toBeUndefined();
+    // A meeting part of the way along the whole step lands it at that moment of its flight, wherever it is said to be.
+    vi.advanceTimersByTime(300);
+    p.play.update(0.3);
+    const asked = p.play.snapshot().things[0]!.test!;
+    p.play.met(p.play.snapshot().things[0]!.key, asked.step, 0.375, [4, 1.1, -7], "Floor");
+    await p.pass(0.05);
+    expect(p.play.snapshot().things[0]!.state).toBe("stuck");
+    expect(p.play.snapshot().things[0]!.at).toEqual([4, 1.1, -7]);
+  });
+
   it("gives its streak of light as points along its middle, and asks where the floor is once it lets go", async () => {
     const p = place({ deferred: true });
     await p.hears(BO, shot(1, [4, 1.5, 0], [0, 2, -14]));
@@ -226,6 +254,25 @@ describe("a thing that reaches someone", () => {
     await p.pass(7);
     expect(p.play.health.value).toBe(5);
     expect(p.told.at(-1)).toBe("st:health,5,5");
+  });
+
+  it("reaches them once, though it is said twice and has come and gone before the second saying", async () => {
+    const p = place();
+    // From two steps away, and fast: it is on them, and gone, before the room says it a second time.
+    const said = shot(1, [0, 1.4, 2.2], [0, 0, -30]);
+    await p.hears(ADA, said);
+    await p.pass(0.08);
+    expect(p.play.info().taken).toBe(1);
+    expect(p.play.info().things).toHaveLength(0);
+    await p.hears(ADA, said);
+    await p.pass(0.5);
+    expect(p.play.info().taken).toBe(1);
+    expect(p.play.health).toEqual({ value: 4, full: 5 });
+    expect(p.told.filter((t) => t.startsWith("hit:"))).toHaveLength(1);
+    // The next one they send is a new thing, and counts.
+    await p.hears(ADA, shot(2, [0, 1.4, 2.2], [0, 0, -30]));
+    await p.pass(0.2);
+    expect(p.play.info().taken).toBe(2);
   });
 
   it("comes back one at a time after a rest, and all at once a little while after there was none left", async () => {

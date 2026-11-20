@@ -175,8 +175,13 @@ export interface PlaySnapshot {
     at: [number, number, number];
     turn: [number, number, number, number];
     scale: number;
-    /** A step to test against the world's shapes: from `a` to `b`. Null where there is nothing to test. */
-    test: { step: number; a: [number, number, number]; b: [number, number, number] } | null;
+    /**
+     * A step to test against the world's shapes: from `a` to `b`. Null where there is nothing to test. A thing
+     * falls as it flies, so a step that took a while is a curve: `via` is then the places it passed between the
+     * two, evenly spaced in time. Test from `a` through each to `b`, in order, and say how far along the whole
+     * step the first meeting was (a meeting half way along the second of four pieces is 0.375).
+     */
+    test: { step: number; a: [number, number, number]; b: [number, number, number]; via?: [number, number, number][] } | null;
     /** It has let go and is falling: where is the floor under it? */
     down: boolean;
   }[];
@@ -364,10 +369,27 @@ export const paintHealth = (g: CanvasRenderingContext2D, w: number, h: number, o
   }
 };
 
+/**
+ * The places a thing passed between two moments of its flight, for an engine that tests its path a frame at a
+ * time: none where the frame was short, and otherwise one every few hundredths of a second, so that the pieces
+ * tested are as short on a device drawing five frames a second as on one drawing sixty.
+ */
+function viaOf(shot: Shot, t0: number, t1: number): { via?: [number, number, number][] } {
+  const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
+  if (!(pieces > 1)) return {};
+  return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + ((t1 - t0) * (i + 1)) / pieces)) };
+}
+
 export function createPlay(o: PlayOptions): Play {
   const things: Thing[] = [];
   /** Things said to have been sent out whose shape is still being fetched. */
   const pending = new Set<string>();
+  /**
+   * Things already taken from each sender, and when: by sender and number. A thing is said twice, a moment apart,
+   * and one that reaches someone close by is over and gone before the second saying arrives. Without this the
+   * second would be a new thing, and would reach them again.
+   */
+  const heardShots = new Map<string, number>();
   const rates = new Map<string, ReturnType<typeof createRate>>();
   const bars = new Map<string, { value: number; full: number; sprite: THREE.Sprite; until: number }>();
   /** Whose figure is blinking, to put it right again after. */
@@ -793,13 +815,19 @@ export function createPlay(o: PlayOptions): Play {
     }
     o.onChange?.();
   };
-  /** Where the next thing sent out is to go, for a moment after a tap or a click said so. */
+  /**
+   * Where the next thing sent out is to go, for a moment after a tap or a click said so. The moment is measured
+   * on the wall's clock and not in frames: the item's own logic answers from its locked box a little later, and
+   * on a device drawing only a few frames a second that little is several frames. Counted in frames, a tap there
+   * sent its thing to the middle of the view instead of where it was pressed.
+   */
   let pointed: { to: THREE.Vector3; until: number } | null = null;
+  const wall = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
   const aim = (lift: number): { from: THREE.Vector3; dir: THREE.Vector3 } => {
     const said = o.aim?.();
     let from: THREE.Vector3;
     let to: THREE.Vector3;
-    const tapped = pointed && clock < pointed.until ? pointed.to : null;
+    const tapped = pointed && wall() < pointed.until ? pointed.to : null;
     pointed = null;
     if (said) ({ from, to } = said);
     else if (tapped || o.sighting?.()) {
@@ -911,7 +939,7 @@ export function createPlay(o: PlayOptions): Play {
     },
     use(toward) {
       if (!active() || !box) return;
-      pointed = toward ? { to: toward.clone(), until: clock + 0.6 } : null;
+      pointed = toward ? { to: toward.clone(), until: wall() + 1500 } : null;
       box.tell("use");
     },
     second() {
@@ -978,10 +1006,15 @@ export function createPlay(o: PlayOptions): Play {
         let rate = rates.get(from);
         if (!rate) rates.set(from, (rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond)));
         // Said twice, because the channel may lose one: the second is the same thing, and counts for nothing.
-        if (pending.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+        if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
         if (!rate.take(clock * 1000)) return;
         // It leaves from where they are: a thing said to start far from its sender isn't theirs to send.
         if (person.head.distanceTo(v.fromArray(shot.from)) > 3) return;
+      }
+      if (shot) {
+        // Remembered for as long as a second saying could still come, and no longer.
+        heardShots.set(`${from}:${shot.id}`, clock);
+        if (heardShots.size > 256) for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
       }
       const does = (holding: Item | null): void => {
         if (!holding) return;
@@ -1008,6 +1041,7 @@ export function createPlay(o: PlayOptions): Play {
       bars.get(pubkey)?.sprite.removeFromParent();
       bars.delete(pubkey);
       rates.delete(pubkey);
+      for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
     },
     update(frame) {
       // By the real clock, not by how the page counts its frames: a page drawing slowly, or one that caps the
@@ -1147,7 +1181,7 @@ export function createPlay(o: PlayOptions): Play {
             at: three(at),
             turn: [q.x, q.y, q.z, q.w] as [number, number, number, number],
             scale: t.object.scale.x,
-            test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1) } : null,
+            test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
             down: t.state === "falling" && !t.flooredAt,
           };
         }),
