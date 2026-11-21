@@ -112,8 +112,10 @@ ones, and it is the smallest first piece.
   authority: no role set, no curator, no service. A reader needs the event
   and a signature check and nothing of BitGate's.
 - Blocked beats allowed already. The owner can't be blocked.
-- **No list scoped to one world exists yet.** BitGate is adding it in its
-  own repository, with vectors (the orchestrator's go-ahead, as design):
+- **A list scoped to one world is now specified** in BitGate's repository,
+  `docs/governance-lists.md`, with vectors (merged at 3594470; a follow-up
+  for a root the reader is given and for lists dated in the future is
+  owed). As agreed:
   `d` = `nswp:governance:<scope>:v1:37300:<owner>:<world-d>` with a
   required `subject` tag equal to that suffix, counted only for that world
   and only when signed by the subject's own key; `scope` and `d` must
