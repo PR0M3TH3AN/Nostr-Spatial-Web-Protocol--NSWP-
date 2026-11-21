@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, RECEIPT_ISSUERS } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, paidWorldReaches } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -182,7 +182,7 @@ for (const s of sites) {
     // gives before it is used. A world with no items reaches only itself and relays, as before.
     // A paid world asks the service that signed a receipt whether it was taken back since: that service by name,
     // and nothing else is added for it.
-    s.world && !carries(s) ? `connect-src 'self' wss:${accessOf(world).length ? ` ${RECEIPT_ISSUERS.map((i) => i.service).join(" ")}` : ""}` : "connect-src 'self' https: wss:",
+    s.world && !carries(s) ? ["connect-src 'self' wss:", ...paidWorldReaches(accessOf(world))].join(" ") : "connect-src 'self' https: wss:",
     // A world embeds one thing from elsewhere: its visitor's own client's signer, which it can't read
     // (protocol/10-identity.md, "Signing from a world"). Which client that is, is the visitor's choice.
     ...(s.world ? ["frame-src 'self' https:"] : []),

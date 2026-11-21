@@ -149,6 +149,15 @@ export function priceWords(listing: Pick<Listing, "sats" | "term">): string {
 }
 
 /**
+ * What a world's page may reach beyond itself and relays because it is paid: the address of each service whose
+ * receipts the kit believes, by name, so its gate can ask whether a receipt was taken back. For a world that names
+ * no listing: nothing at all. A free world's rules must not change because paid worlds exist.
+ */
+export function paidWorldReaches(access: unknown): string[] {
+  return cleanAccess(access).length ? RECEIPT_ISSUERS.map((i) => i.service) : [];
+}
+
+/**
  * What a world may say it is entered by: listings' coordinates, each once, at most `ACCESS_MOST`, and, where
  * `sellers` is given, only those sold by one of those keys. Anything else is dropped. Empty means free.
  */

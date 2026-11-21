@@ -193,8 +193,13 @@ async function visit({ who = null, believe = true, hands = null, clock = false }
   page.on("popup", (p) => void p.waitForLoadState().catch(() => undefined).then(() => popups.push(p.url())));
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
   const until = async (fn, ms = 60000, every = 250) => { const end = Date.now() + ms; while (Date.now() < end) { try { const g = await fn(); if (g) return g; } catch { /* not yet */ } await new Promise((done) => setTimeout(done, every)); } return null; };
-  const load = async () => {
-    await page.goto(`${WORLD}/`);
+  /** Open the world; or, `again`, refresh it as a visitor would (a refresh puts them back where they stood). */
+  const load = async (again = false) => {
+    if (again) {
+      // Long enough for the world to have noted where they stand, which it does every second.
+      await page.waitForTimeout(1500);
+      await page.reload();
+    } else await page.goto(`${WORLD}/`);
     await until(() => page.evaluate(() => window.__nswpTest?.state?.ready === true && !!window.__nswpTest.gate?.() && window.__nswpTest.gate().state !== "checking"));
     // What the world says from here on is kept.
     await page.evaluate(() => { window.__said = []; window.__nswpTest.controls.onSay((t) => window.__said.push(t)); });
@@ -212,6 +217,9 @@ async function visit({ who = null, believe = true, hands = null, clock = false }
   };
   /** Stand just before the gate and walk at it, as a press on the floor past it would. Where they end up, along the hall. */
   const walkAtIt = async () => {
+    // The stand-in's windows are put away first: a page behind another window draws nothing, and so walks nowhere.
+    for (const other of ctx.pages()) if (other !== page) await other.close().catch(() => undefined);
+    await page.bringToFront();
     await page.evaluate(() => { const t = window.__nswpTest; t.teleport(0, 1.5); t.face(0); t.step(0, -3.5); });
     // A walk, at whatever pace this machine draws it: watched until they are past, or have stood still a while.
     let last = 99;
@@ -267,10 +275,10 @@ try {
   want("8c it says so, and the control is gone", [(await v.said()).some((t) => /^Bought: TEST: an hour past the gate\. The way is open until /.test(t)), await v.rows()], [true, []]);
   want("9 and now they walk past it", (await v.walkAtIt()) < -1, true);
   await v.page.screenshot({ path: `${SHOTS}/front-room-2-open.png` });
-  // ---- 4. The page loaded again: the sign-in address still holds the receipt, so it opens with nothing pressed.
-  await v.load();
+  // ---- 4. The page refreshed: the sign-in address still holds the receipt, so it opens with nothing pressed.
+  await v.load(true);
   const back = await v.gate();
-  want("10 loaded again, signed in: open at once, nothing to press, and they are where they stood", [back.state, await v.rows(), (await v.page.evaluate(() => window.__nswpTest.where()[1])) < -1], ["open", [], true]);
+  want("10 the page refreshed, signed in: open at once, nothing to press, and they are where they stood, past the gate", [back.state, await v.rows(), (await v.page.evaluate(() => window.__nswpTest.where()[1])) < -1], ["open", [], true]);
   r.takenBackAsked = statusAsked.slice(0, 3);
   want("11 the sandbox was asked whether the receipt was taken back, and answered", statusAsked.length > 0 && statusAsked.every((s) => s.status === 200), true);
   await v.close();
@@ -302,12 +310,14 @@ try {
   const closed = await late.gate();
   const where = await late.page.evaluate(() => window.__nswpTest.where());
   want("16 then shut, and they are stood before the gate again, in the same visit", [closed.state, closed.reason, where[1] > 0, await late.page.evaluate(() => window.__sameVisit === true)], ["shut", "run-out", true, true]);
-  await late.page.screenshot({ path: `${SHOTS}/front-room-3-run-out.png` });
   await late.close();
 
   r.refused = [...refused];
   r.errors = errors.slice(0, 6);
   want("17 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
+} catch (e) {
+  // Whatever stopped the walk is said with what it had found, not instead of it.
+  bad.push(`the walk stopped: ${String(e).slice(0, 300)}`);
 } finally {
   await browser.close();
 }

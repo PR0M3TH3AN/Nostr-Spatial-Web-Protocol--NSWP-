@@ -733,7 +733,11 @@ for 30 days", "500 sats, once".
 ## The front room
 
 **Status:** implemented (kit 0.71.0: `createPaidGate`, `worldGate`,
-`addGateControls`), the `soft` kind only. No world of ours is paid.
+`addGateControls`), the `soft` kind only. Walked on one machine against
+the selling service's sandbox with pretend sats, with a stand-in for the
+sign-in address (`trials/front-room.mjs`). Not tried: a sign-in address's
+own screen at a gate, a real headset, a receipt really taken back. No
+world of ours is paid.
 **Code:** SDK [`front-room.ts`](../packages/sdk/src/front-room.ts)
 
 A paid world ([NSWP-01](01-worlds.md), "A paid world") has a gate. The
@@ -786,8 +790,14 @@ paying: the sign-in address's own page does.
   it says so the gate shuts then. If it can't be reached, a receipt
   found good within the last day stays good (a receipt was good the day
   it was signed); after that the gate is shut until the service answers.
-  A world that draws no items is served with rules that let it reach
-  that one service by name, and nothing else new.
+  A paid world that draws no items is served with rules that let it
+  reach that one service by name, and nothing else new; a free world's
+  rules are untouched. What is asked carries the receipt's own name at
+  that service and nothing more: no key, no cookie, no referrer, nothing
+  about the visitor. A browser still says which site a request comes
+  from, as it does of any request between sites, and the service sees
+  the address it came from: so the service that sold a pass can tell that
+  its holder is in that world now. A page can't switch that off.
 - **A world with nothing for sale has no gate.** Nothing is read, asked
   or shown, and it behaves exactly as it did.
 

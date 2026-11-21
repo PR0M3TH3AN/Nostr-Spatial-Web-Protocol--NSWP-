@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { describe, expect, it } from "vitest";
-import { ACCESS_MOST, accessFor, buildWorldEvent, cleanAccess, cleanListingName, finalizeEvent, getPublicKey, LEAST_PRICE_SATS, parseManifest, parseWorldEvent, priceWords, readListing, RECEIPT_ISSUERS, termWords, type NostrEvent, type ReceiptIssuer } from "../src/index.js";
+import { ACCESS_MOST, accessFor, buildWorldEvent, cleanAccess, cleanListing, cleanListingName, paidWorldReaches, finalizeEvent, getPublicKey, LEAST_PRICE_SATS, parseManifest, parseWorldEvent, priceWords, readListing, RECEIPT_ISSUERS, termWords, type NostrEvent, type ReceiptIssuer } from "../src/index.js";
 
 const root = join(import.meta.dirname, "../../..");
 const key = (n: number) => sha256(utf8ToBytes(`nswp listing test key ${n}`));
@@ -195,6 +195,33 @@ describe("access: what a paid world says it is entered by", () => {
     expect(cleanAccess(A)).toEqual([A]);
     expect(cleanAccess(undefined)).toEqual([]);
     expect(cleanAccess([A], [])).toEqual([]);
+  });
+
+  it("lets only a paid world's page reach the selling service, by name: a free world's rules are as they were", () => {
+    // What is added to a world's `connect-src` for being paid: the one service, by its address, and nothing wider.
+    expect(paidWorldReaches([A])).toEqual(["https://api.bitunlock.network"]);
+    expect(paidWorldReaches([A, B])).toEqual(["https://api.bitunlock.network"]);
+    // Nothing for a world that names nothing, or names nothing that is a listing.
+    for (const free of [undefined, null, [], "", "paid", ["paid"], [`37303:${SELLER}:a-lantern`], {}]) expect(paidWorldReaches(free), JSON.stringify(free)).toEqual([]);
+    // The site build asks this, and writes no rule of its own for it.
+    const build = readFileSync(join(root, "scripts/build-sites.mjs"), "utf8");
+    expect(build).toContain(`["connect-src 'self' wss:", ...paidWorldReaches(accessOf(world))].join(" ")`);
+    expect(build).not.toContain("api.bitunlock.network");
+  });
+
+  it("reads a listing's coordinate by the one rule for it, wherever one is read", () => {
+    // One line: a carriage return ends a line as a line feed does. Refused everywhere a coordinate is taken.
+    const twoLines = `30078:${SELLER}:a day\rpass`;
+    expect(cleanListing(twoLines)).toBe("");
+    expect(cleanAccess([twoLines, A])).toEqual([A]);
+    expect(readListing(listing({ name: "a day\rpass" }), twoLines, { issuers: ISSUERS })).toEqual({ ok: false, why: "not-a-listing" });
+    const world = parseWorldEvent(sign([twoLines]));
+    expect(world.ok && world.value.access).toBeUndefined();
+    const file = parseManifest(manifest([twoLines]));
+    expect(file.ok && accessFor(file.value, "https://world.example/")?.listings).toEqual([]);
+    // And no other file writes the pattern again.
+    for (const f of ["listing.ts", "world.ts", "manifest.ts"]) expect(readFileSync(join(root, "packages/core/src", f), "utf8"), f).not.toMatch(/\^30078:/);
+    expect(readFileSync(join(root, "packages/sdk/src/front-room.ts"), "utf8")).not.toMatch(/\^30078:/);
   });
 
   it("no reference world is paid: none of this repository's worlds names a listing", () => {

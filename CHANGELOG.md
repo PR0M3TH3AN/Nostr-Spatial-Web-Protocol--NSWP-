@@ -12,7 +12,9 @@ The front room: the first thing in the kit that asks a visitor to buy. No world 
 - **A pass for a time closes the gate at its end:** a notice, two minutes, then the front room, with no page loaded again. (The owner's decision, 2 in the plan.)
 - **A receipt taken back shuts the gate.** The service that signed it is asked every five minutes at most; out of reach, a receipt found good within the last day stays good (the owner's decision, 9). A paid world that draws no items is served with rules that let it reach that service by name.
 
-- **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing.
+- **A listing's name is one line, and a carriage return ends a line** (`cleanListing`). It let one through where the selling service refuses it. That function is the one place the rule for a listing's coordinate is written, and a test fails if the pattern is written again.
+- **For a reader of the core:** `World.access` is a list of listings where it was one coordinate, and `WorldInput.access` takes either. `paidWorldReaches` says what a paid world's page may reach for the taken-back question (the issuer's address, by name), and nothing for a free one.
+- **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing. `trials/front-room.mjs` walks one against the selling service's sandbox, with a stand-in for the sign-in address.
 
 ## 0.70.2
 

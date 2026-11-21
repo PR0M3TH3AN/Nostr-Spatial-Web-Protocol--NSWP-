@@ -548,6 +548,37 @@ describe("a receipt taken back since it was signed", () => {
     expect(c.labels()[1]).toBe("Buy An hour here: 500 sats, for 1 hour");
   });
 
+  it("asks the service that signed it by the receipt's own name, and sends nothing else: no key, nothing of the world or the visitor", async () => {
+    const calls: { url: string; init: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: Record<string, unknown> = {}) => {
+      calls.push({ url: String(url), init });
+      return { ok: true, json: async () => ({ fulfillmentId: "a b/c", revokedAt: null }) };
+    });
+    try {
+      const signer = standIn();
+      signer.holds[HOUR] = receipt({ fulfillmentId: "a b/c" });
+      // No stand-in for the asking this time: the kit's own.
+      const gate = createPaidGate({ signer: () => signer as unknown as GateSigner, url: WORLD, manifest: () => file(), query, now: () => clock });
+      await pass(0);
+      await pass(0);
+      expect(gate.open).toBe(true);
+      expect(calls.map((c) => c.url)).toEqual(["https://unlock.example/entitlements/a%20b%2Fc/status"]);
+      const { signal, ...sent } = calls[0]!.init;
+      expect(sent).toEqual({ credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" });
+      // Nowhere in what was sent: the visitor's key, the seller's, the listing, or this world's address.
+      const all = JSON.stringify(calls);
+      for (const not of [ME, SELLER, "an hour pass", "world.example"]) expect(all).not.toContain(not);
+      // "Taken back" is believed from that answer, and from nothing else in it.
+      vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ revokedAt: 1_800_000_100 }) }));
+      await pass(GATE_TIMES.look * 1000);
+      await pass(0);
+      expect([gate.state, gate.reason]).toEqual(["shut", "taken-back"]);
+    } finally {
+      vi.unstubAllGlobals();
+      (globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) };
+    }
+  });
+
   it("is asked about no oftener than every few minutes", async () => {
     const signer = standIn();
     signer.holds[HOUR] = receipt();
