@@ -59,7 +59,7 @@ how everything else refers to the world.
 | `items` | | What it does with the things visitors carry: `none`, `allowed` or `play`. Left out, it is `allowed`: a world has items unless it says `none`. [NSWP-17](17-items.md) |
 | `status` | | `live`, `beta`, `maintenance`, `retired` |
 | `p` | | Co-creators |
-| `a` | | Linked things, such as an access product |
+| `a` | | Linked things. One marked `access` (`["a", "30078:<pubkey>:<name>", "", "access"]`) is a listing a paid world is entered by: see "A paid world" |
 
 `content` is a description in plain text or Markdown. Clients never parse data
 out of it. Capability, comfort and performance tags are claims, not
@@ -148,6 +148,35 @@ has listed, and drops from those any that say they are adult.
 `t` tags are hashtags: lowercase, without the `#`. A client may let a
 visitor find worlds by them, and rank by the ones the visitor likes.
 
+### A paid world
+
+A world that is paid says so by naming what it is entered by: one `a` tag
+marked `access` for each listing, a day pass and a season pass, say.
+
+```json
+["a", "30078:<the world's own key>:<the listing's name>", "", "access"]
+```
+
+- **A world that names none is free,** exactly as every world was before
+  this. There is no other word for paid: naming a listing is the whole of
+  it.
+- **A listing is the seller's own signed note** (kind `30078`), read from
+  relays, saying what it costs and how long it lasts
+  ([NSWP-10](10-identity.md), "A listing"). The announcement holds only its
+  coordinate, so a price is never copied into two places.
+- **Nobody prices a world that isn't theirs.** A listing counts only if its
+  coordinate carries the key that signed the announcement. Any other is
+  left out with a warning (`access_not_own`), and so is anything that isn't
+  a listing's coordinate. A world left with none is free: a paid door is
+  never read out of a tag that doesn't hold up.
+- **Eight at most,** each once.
+- **It is there so a client can tell before anyone crosses:** a door or an
+  Airlock can say a world is paid, and for how much, from the announcement
+  and the listing, with nothing asked of the world.
+- **What paid means inside the world is the world's.** It may let anyone
+  into part of itself first. What it opens, and on what proof, is
+  [NSWP-10](10-identity.md), "The front room".
+
 ## The manifest
 
 A JSON file at exactly `https://<origin>/.well-known/nswp.json`.
@@ -176,6 +205,22 @@ worlds have none. A visitor's sign-in address reads it from this file, at
 the world's own address, and from nowhere else: the world never passes it
 along when it asks ([NSWP-10](10-identity.md), "Tips, buying, and
 receipts"). The file is readable from any site, as it already must be.
+
+`access`, inside a world's own entry, is the same list of listings the
+announcement gives, as the site itself says it: an array of coordinates.
+
+```json
+"worlds": { "example-museum": { "entry": { "url": "https://museum.example/world" }, "access": ["30078:<pubkey>:<name>"] } }
+```
+
+It is left out of the example above because most worlds are free. A
+listing counts only if its seller is a key this file names as a publisher
+of that world; others are left out with a warning. The world's own page
+reads it here to know what it is entered by, and a visitor's sign-in
+address reads the publishers here to know which listings are that world's
+to ask about ([NSWP-10](10-identity.md)). Where the announcement and this
+file differ, this file is what the world acts on, as for everything that
+runs: an announcement can be out of date, and the site can't.
 
 `capabilities` are what the world says it can do. A client that doesn't know
 one ignores it. `home` says it can be the place its owner starts

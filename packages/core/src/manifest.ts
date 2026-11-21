@@ -3,6 +3,8 @@ import { LIMITS, MODES, parseKitVersion, SCHEMAS, WELL_KNOWN_PATH, WORLD_KIND } 
 import { isHttpsUrl, isWssUrl, normalizeUrl } from "./destination.js";
 import { isHex64 } from "./event.js";
 import { encodeNaddr } from "./nip19.js";
+import { ACCESS_MOST } from "./listing.js";
+import { cleanListing, listingSeller } from "./receipt.js";
 import { Collector, isPlainObject, NswpError, type Issue, type Result } from "./result.js";
 import type { World } from "./world.js";
 
@@ -14,6 +16,11 @@ export interface ManifestWorld {
   multiplayer?: { endpoint: string; auth?: string };
   budgets?: { initialDownloadMb?: number };
   airlock?: string;
+  /**
+   * The listings this world is entered by, where it is paid (protocol/01-worlds.md, "A paid world"): each one a
+   * listing's coordinate whose seller is a key this file names as a publisher of this world. Left out, it is free.
+   */
+  access?: string[];
 }
 
 export interface Manifest {
@@ -118,6 +125,22 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
         if (isHttpsUrl(raw.airlock)) w.airlock = raw.airlock;
         else c.warn("url_not_https", `${p}.airlock`, "airlock must be an https URL; ignored.");
       }
+      if (raw.access !== undefined) {
+        if (!stringArray(raw.access)) c.warn("invalid_field", `${p}.access`, "access must be an array of listing coordinates; ignored.");
+        else {
+          const access: string[] = [];
+          for (const said of raw.access) {
+            const listing = cleanListing(said);
+            if (!listing) c.warn("invalid_listing", `${p}.access`, "Ignoring an access entry that is not a listing's coordinate (30078:<pubkey>:<name>).");
+            // Nobody puts a price on a world that isn't theirs: its seller is a key this file lets announce it.
+            else if (!publishers[listingSeller(listing)]?.worlds.includes(id)) c.warn("access_not_own", `${p}.access`, "Ignoring an access listing sold by a key that isn't a publisher of this world.");
+            else if (access.includes(listing)) continue;
+            else if (access.length >= ACCESS_MOST) c.warn("too_many_listings", `${p}.access`, `Only the first ${ACCESS_MOST} access listings are used.`);
+            else access.push(listing);
+          }
+          if (access.length) w.access = access;
+        }
+      }
       worlds[id] = w;
     }
   }
@@ -208,6 +231,19 @@ export function doorFor(manifest: Manifest, url: string): { naddr?: string; url:
   const publishers = d === undefined ? [] : Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
   if (d === undefined || publishers.length !== 1) return { url };
   return { naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: publishers[0]!, identifier: d, relays: manifest.relays.slice(0, 2) }), url };
+}
+
+/**
+ * What the world at an address is entered by, as its own site says: the listings its manifest names for it, and the
+ * keys that may sell it (its publishers). A world its manifest names no listing for is free: `listings` is empty.
+ * Null where the manifest lists no world at that address at all, so nothing can be said of it.
+ */
+export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[] } | null {
+  const here = normalizeUrl(url);
+  const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
+  if (d === undefined) return null;
+  const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
+  return { d, listings: [...(manifest.worlds[d]!.access ?? [])], sellers };
 }
 
 export interface FetchManifestResult {

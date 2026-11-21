@@ -83,7 +83,7 @@ describe("a receipt: who bought what, and until when", () => {
     expect(cleanListing(`30078:${SELLER}:a name with spaces`)).toBe(`30078:${SELLER}:a name with spaces`);
     // As long a name as the selling service takes, and no longer; and never one that begins with a colon.
     expect(cleanListing(`30078:${SELLER}:${"x".repeat(256)}`)).not.toBe("");
-    for (const not of ["", `37300:${SELLER}:a-world`, `30078:${SELLER.toUpperCase()}:x`, `30078:${SELLER}:`, `30078:${SELLER}::x`, `30078:short:x`, `30078:${SELLER}:two\nlines`, `30078:${SELLER}:${"x".repeat(257)}`, 7, null]) {
+    for (const not of ["", `37300:${SELLER}:a-world`, `30078:${SELLER.toUpperCase()}:x`, `30078:${SELLER}:`, `30078:${SELLER}::x`, `30078:short:x`, `30078:${SELLER}:two\nlines`, `30078:${SELLER}:two\rlines`, `30078:${SELLER}:two\r\nlines`, `30078:${SELLER}:\rx`, `30078:${SELLER}:x\r`, `30078:${SELLER}:${"x".repeat(257)}`, 7, null]) {
       expect(cleanListing(not), String(not).slice(0, 40)).toBe("");
       expect(listingSeller(not)).toBe("");
     }

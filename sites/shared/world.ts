@@ -10,9 +10,9 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -137,6 +137,21 @@ export interface WorldConfig {
   welcome?: V3;
   /** How much room the controls take: a game asks for "quiet". */
   quiet?: boolean;
+  /**
+   * A gate, for a world that is paid (protocol/10-identity.md, "The front room"). The world puts it where it
+   * likes: everything before it is free to anyone, and past it is for someone who holds a receipt.
+   *
+   * `on` is whether this world is paid at all: whether its own world.json names what it is entered by. It is
+   * false in every world here, and then there is no gate, nothing is read and nothing is asked: the world is
+   * exactly as it was. Making a world paid is its announcement signed again, on the owner's word.
+   */
+  paid?: {
+    on: boolean;
+    /** Whether a spot on the floor is past the gate. */
+    past(x: number, z: number): boolean;
+    /** Where the gate is drawn while it is shut: a sheet of light across the way. */
+    veil: { position: V3; rotation?: number; width: number; height?: number };
+  };
   build(kit: WorldKit): WorldHandle | void;
 }
 
@@ -159,6 +174,8 @@ type TestHooks = {
    * handed over but at the visitor's press on their sign-in address's own page, whoever asks.
    */
   signer?: () => unknown;
+  /** The gate of a paid world: how it stands, what it offers, why it is shut. Null where this world has none. */
+  gate?: () => Record<string, unknown> | null;
   /** Items in play: what is in the air and stuck, this visitor's health, what their item shows. For tests. */
   play?: () => unknown;
   itemUse?: () => void;
@@ -213,6 +230,13 @@ type TestHooks = {
 declare global {
   interface Window {
     __nswpTest?: TestHooks;
+    /**
+     * For a trial on the maker's own network, set by a script before the page starts: `gate: true` has a world that
+     * can have a gate use it, with what it is entered by read from its own manifest as ever. It is looked at only
+     * on a local address, so no link and no script can change what a published world is; and all it can do is shut
+     * a gate, never open one.
+     */
+    __nswpTrial?: { gate?: boolean };
   }
 }
 
@@ -291,6 +315,14 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
+  // The gate of a paid world, where this world is one. None here is: `on` is false in every world.json's reading,
+  // so no gate is made and nothing of this runs. What it is entered by is read from the world's own manifest.
+  const gate: PaidGate | null = cfg.paid && (cfg.paid.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;
+  const pastGate = (x: number, z: number): boolean => !!gate && !gate.open && cfg.paid!.past(x, z);
+  hooks.gate = () => gate?.info() ?? null;
+  // Its one control, in the console like every other, so it is the same on a flat screen and in a headset. Added
+  // here, ahead of this world's doors: where the way is shut, it is the first thing a visitor came to do.
+  const gateRows = gate ? addGateControls(controls, gate, { presenting: () => renderer.xr.isPresenting }) : null;
   // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
   // are theirs, kept for this site.
   const sounds = createSounds({ context: THREE.AudioContext.getContext() as unknown as AudioContext, seed: cfg.title, kit: "/sounds/kit/", theme: { music: ["/sounds/music.ogg", "/sounds/music-2.ogg"], ...cfg.sounds } });
@@ -515,7 +547,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // The room is drawn over everything where it stands; the visitor's own hands and console are drawn over it.
   const crossing = createCrossing({ scene, camera, accent, textColor: cfg.palette.text, motion: () => controls.theme.motion, keep: [rig, xrConsole.group] });
   hooks.crossing = () => crossing.state;
-  const canStand = (x: number, z: number) => crossing.allows(x, z) && Math.hypot(x - midX, z - midZ) <= reach && (handle.canStand?.(x, z) ?? true);
+  // Past a shut gate nobody may stand: everything before it is free.
+  const canStand = (x: number, z: number) => crossing.allows(x, z) && Math.hypot(x - midX, z - midZ) <= reach && !pastGate(x, z) && (handle.canStand?.(x, z) ?? true);
   const headAt = new THREE.Vector3();
   /** Move the visitor's head towards (x, z) in a straight line, stopping at the first place they may not stand. */
   const moveTowards = (x: number, z: number) => {
@@ -586,6 +619,43 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const toFloor = raycaster.ray.origin.distanceTo(floorHit);
     const inTheWay = raycaster.intersectObjects(scene.children, true).find((h) => solid(h.object));
     return !(inTheWay && inTheWay.distance < toFloor - 0.05);
+  };
+  // The gate itself, while it is shut: a sheet of light across the way, with a bright line where it meets the floor.
+  let veil: THREE.Mesh | null = null;
+  const pressGate = (): void => gateRows?.press();
+  if (gate && cfg.paid) {
+    const at = cfg.paid.veil;
+    veil = new THREE.Mesh(new THREE.PlaneGeometry(at.width, at.height ?? 4), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
+    veil.name = "gate";
+    veil.position.set(at.position[0], at.position[1] + (at.height ?? 4) / 2, at.position[2]);
+    veil.rotation.y = THREE.MathUtils.degToRad(at.rotation ?? 0);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(at.width, 0.07), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+    line.rotation.x = -Math.PI / 2;
+    line.position.y = 0.015 - (at.height ?? 4) / 2;
+    veil.add(line);
+    scene.add(veil);
+    const tend = () => {
+      veil!.visible = !gate.open;
+      state.gate = gate.info();
+      // Shut with them past it (their time ran out, or they came back to where they stood): they are stood in
+      // the front room again, where they arrived. Nothing is loaded again under them.
+      camera.getWorldPosition(headAt);
+      if (gate.state === "shut" && cfg.paid!.past(headAt.x, headAt.z)) {
+        const front = cfg.entryPoints["main-entrance"]!;
+        stroll.stop();
+        rig.position.x += front.position[0] - headAt.x;
+        rig.position.z += front.position[2] - headAt.z;
+        state.putBack = ((state.putBack as number | undefined) ?? 0) + 1;
+      }
+    };
+    gate.onChange(tend);
+    tend();
+  }
+  /** Whether what was last pointed along reaches the shut gate, near enough to press it: as near as a door. */
+  const gateAimed = (): boolean => {
+    if (!veil?.visible) return false;
+    const hit = raycaster.intersectObject(veil, false)[0];
+    return !!hit && hit.distance <= DOOR_REACH;
   };
   // Where a press would take them, where they are going and the way there: drawn for this visitor and nobody else.
   const marks = createFloorMarks(accent);
@@ -695,6 +765,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (itemControls?.tap(raycaster.ray, performance.now() - downAt)) return;
     if (presence.pressAt(raycaster)) return;
     const any = anyDoorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+    // The shut gate, pressed from as near as a door is pressed: the same as its control in the console.
+    if (any < 0 && gateAimed()) return pressGate();
     if (any >= 0 && doorFar(any) <= DOOR_REACH) void go(any);
     else if (any >= 0) {
       // A door too far off to choose: a press on it is a few steps towards it, like a press on the floor in front of it.
@@ -753,6 +825,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       else if (onPanel) panels!.press(onPanel);
       else if (person) presence.pressAt(raycaster);
       else if (door >= 0) void go(door);
+      else if (gateAimed()) pressGate();
       else {
         const spot = floorUnder();
         if (spot) stepTo(spot);
@@ -1154,6 +1227,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // A tile pointed at says what it means: in the card on a flat screen, and in front of its door in a headset.
     const beside = tile ? gates[tile.door]! : null;
     if (tile && beside) controls.setTarget(`${tile.offer.name}: ${beside.door.label}`, [tile.offer.words]);
+    // Pointed at the shut gate: what it is and why it is shut, beside the controls like anything pointed at.
+    else if (!at && !panelAimed && gate && gateAimed()) controls.setTarget("The way in", [gate.why]);
     else controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "", rated ? [rated] : []);
     gates.forEach((g, i) => {
       g.gate.offers.point(tile && tile.door === i ? tile.offer : null, renderer.xr.isPresenting);

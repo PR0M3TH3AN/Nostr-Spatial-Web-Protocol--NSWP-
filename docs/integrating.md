@@ -107,6 +107,7 @@ last is the one thing that has to stay true when you do.
 | **How visitors look**: a figure drawn from each visitor's own look | Re-dress it in your own materials, recast it as something of your own, or make everyone the same ([NSWP-05](../protocol/05-looks.md), "What a world may change") | A visitor's mark stays recognisable wherever visitors are told apart |
 | **Rooms**: seeing and hearing each other | Your own, or none | A microphone, a block and joining keep their own rules ([NSWP-06](../protocol/06-rooms.md)) |
 | **Panels, the jukebox, the camera** | Leave out what you don't want | What a visitor keeps stays in their browser |
+| **A gate, for a world that is paid** (`worldGate`, `addGateControls`): asks what the visitor holds, shows what is for sale, and has one control that asks their sign-in address to sell it. A world with nothing for sale has none | Put it where you like, draw it your own way, or check receipts yourself with `readReceipt` | It opens on a receipt and nothing else, the world never takes the money or draws the question, and nothing is shown for sale under 500 sats ([NSWP-10](../protocol/10-identity.md), "The front room") |
 
 ### The visitor's things, in your own interface
 

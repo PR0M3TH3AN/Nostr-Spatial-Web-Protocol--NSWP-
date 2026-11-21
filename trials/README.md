@@ -17,7 +17,7 @@ None names a machine: the address is this machine's own on its network
 |---|---|---|
 | nearly all | The local sites, over https on the network address | On the owner's machine: a service, always up (below). Anywhere else: `node scripts/serve-local.mjs --lan --https` (docs/local-server.md) |
 | anything with a relay | The stand-in relay: `ws://127.0.0.1:4313` and `wss://<this machine>:4314` | On the owner's machine: a service, always up. Anywhere else: `npm run relay` |
-| `sandbox-*`, `buy-screen*` | BitUnlock's sandbox at `https://<this machine>:4312` | Its own repository's session runs it |
+| `sandbox-*`, `buy-screen*`, `front-room` | BitUnlock's sandbox at `https://<this machine>:4312` | Its own repository's session runs it |
 | `buy-screen*`, `panel` | BitLogin's local copy at port 4311 | The local sites serve its built folder |
 
 **The two services** (on the owner's machine since 2026-11-21, at their
@@ -46,6 +46,7 @@ Node's own requests need this machine's certificate: run a trial with
 | `sandbox-shares.mjs` | The same with shares, every payment held to the kit's own rule. `KEEP=1` leaves the listing registered |
 | `buy-screen.mjs`, `buy-screen-run.mjs` | A world built on the kit asking BitLogin's real screen to buy from the sandbox. Sealed: nothing but this machine is reached. Signing in is not done here: give `SIGN_IN=<a module>` whose default export does it, under the rules of whoever may |
 | the same, with shares | `LISTING=<a listing with shares>` `CLIENT_SHARE=<a key registered to be paid>` `WANT_ON_SCREEN="for the maker\|for the client"`: the local page that keeps the screen names that key as the client's, in the scripted browser only, and every share must be on the screen before the press |
+| `front-room.mjs` | The front room of a paid world: this checkout's own Gallery (`npm run build` first) with its gate switched on in the scripted browser only, a visitor who holds nothing, a purchase from the sandbox, the gate opening on the receipt, the kit as shipped refusing it, another visitor kept out, and the pass running out with the visitor inside. The sign-in address is a stand-in, and so are relays: BitLogin's own screen is not tried here |
 | `room-tip.mjs` | A tip to a person in BitPortal's room, two throwaway visitors, a stand-in for BitLogin's client |
 | `panel.mjs` | BitLogin's real panel opening over a local world and closing, desk and phone sizes, signed out |
 | `xr-test-look.mjs` | The headset test page loads and sends nothing by itself |

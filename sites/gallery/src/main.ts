@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { addBench, addCrystal, addGyro, addHelix, addKnot, addLamp, addPlinth, addSpiral, addWall, MeshBuilder } from "nswp-sdk/home";
 import { startWorld } from "../../shared/world.js";
+import world from "../world.json";
 
 const works: [string, string, (b: MeshBuilder) => void][] = [
   ["Trefoil", "One ribbon swept round the simplest knot there is.", (b) => addKnot(b, 0.78, 2, 3)],
@@ -28,6 +29,9 @@ void startWorld({
     { to: "grove", label: "The Grove", position: [-1.7, 0, -8.4] },
     { to: "workshop", label: "The Workshop", position: [1.7, 0, -8.4] },
   ],
+  // Where a gate would stand if this world were paid: past the first two pieces, which anyone may walk round.
+  // It is not: its world.json names nothing it is entered by, so `on` is false and there is no gate at all.
+  paid: { on: ((world as { access?: unknown[] }).access ?? []).length > 0, past: (_x, z) => z < 0, veil: { position: [0, 0, 0], width: 10.4, height: 4 } },
   build(kit) {
     const room = kit.builder;
     // Two long walls, open at both ends, with the pieces down each side.

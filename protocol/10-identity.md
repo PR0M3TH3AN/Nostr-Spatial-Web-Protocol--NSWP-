@@ -636,8 +636,9 @@ always will. A world can put them to the visitor instead:
 
 **Status:** the kit's half is implemented (kit 0.69.0: `signer.tip`,
 `signer.buy`, `signer.have`, and `readReceipt` in the core). BitLogin's
-half is built and not yet live. The kit offers tips in its menu; nothing
-in it sells anything yet. The whole plan, and what the owner decided, is
+half is built and not yet live. The kit offers tips in its menu, and
+since 0.73.0 a gate for a paid world ("The front room", below); no world
+of ours is paid. The whole plan, and what the owner decided, is
 `docs/plans/paying-for-things.md`.
 
 **A world names what it wants, and never where the money goes or who is
@@ -673,11 +674,150 @@ BitUnlock, by the key in its own signed policy), it can't be changed by
 the page using it, and adding to it is not a world's to do.
 
 **What a receipt can't say** is whether it was taken back since it was
-signed. Only the service that signed it knows. A world that cares asks
-that service; the kit does not yet.
+signed. Only the service that signed it knows, and it answers anyone at
+`<its address>/entitlements/<the receipt's fulfillment>/status`. The
+kit's gate asks ("The front room").
 
 **A bare payment is not a purchase.** `pay` pays an invoice and leaves
 nothing behind. The kit treats nothing as bought without a receipt.
+
+## A listing
+
+**Status:** implemented in the core (kit 0.73.0: `readListing`,
+`termWords`) · **Vectors:** [`listings`](../vectors/listings.json) ·
+**Code:** [`listing.ts`](../packages/core/src/listing.ts)
+
+A thing for sale is its seller's own signed note, kind `30078`, at the
+coordinate `30078:<the seller's key>:<its name>`. It is the selling
+service's product listing, with a few tags that say what it means here.
+A world reads one only to show it; the visitor's sign-in address reads
+it again for itself before anyone pays.
+
+| Tag | What it says |
+|---|---|
+| `d` | Its name. With the seller's key, its coordinate |
+| `price` | `["price", "<whole sats>", "SAT"]`, once |
+| `status` | `active` while it is for sale |
+| `br:delivery` | `seller-unlock-service-v1`: sold through a service that signs receipts |
+| `br:unlock-service`, `br:unlock-service-pubkey` | That service: its address and the key it signs with |
+| `nswp:for` | What buying it gives: a world's coordinate (`37300:…`) or an item's |
+| `nswp:term` | How long it lasts, in whole seconds. Left out for something bought for good |
+| `title` | What it is called. Without it, `title` or `name` in the content's JSON, and failing those its `d` |
+
+Shown for sale only if all of these hold. The first that doesn't is why
+not (`readListing`):
+
+1. It was signed by the key in the coordinate asked for (`other-seller`),
+   and the signature is real (`not-signed`). Nobody prices what isn't
+   theirs.
+2. Its `d` is the name asked for, once (`other-listing`).
+3. It is `active`, through a service that signs receipts
+   (`not-for-sale`).
+4. It has one price in whole sats, and a term, where it has one, said
+   once and in whole seconds (`not-a-listing`). A term that doesn't read
+   is never taken as "for good".
+5. The service it names is one whose receipts the reader believes
+   (`unknown-service`). Bought anywhere else, it would end in a receipt
+   nothing here could take.
+6. It costs at least 500 sats (`too-cheap`). Nothing is sold under that:
+   the selling service registers nothing under it, the sign-in address
+   shows no purchase under it, and nor does a world.
+7. Its price isn't divided between several people (`shared`), while
+   shares are not in force.
+
+Its name is the seller's own words: shown as plain text on one line, at
+most eighty characters, with nothing in it a reader can't see. How long
+it lasts is said after the price, in the largest whole unit: "500 sats,
+for 30 days", "500 sats, once".
+
+## The front room
+
+**Status:** implemented (kit 0.73.0: `createPaidGate`, `worldGate`,
+`addGateControls`), the `soft` kind only. Walked on one machine against
+the selling service's sandbox with pretend sats, with a stand-in for the
+sign-in address (`trials/front-room.mjs`). Not tried: a sign-in address's
+own screen at a gate, a real headset, a receipt really taken back. No
+world of ours is paid.
+**Code:** SDK [`front-room.ts`](../packages/sdk/src/front-room.ts)
+
+A paid world ([NSWP-01](01-worlds.md), "A paid world") has a gate. The
+world puts it where it likes, and everything before it is free to
+anyone: a taste first is the world's to choose. Past it is for someone
+who holds a receipt.
+
+**How shut it is.** This is the `soft` gate: the world and every honest
+client keep to it. A world is a website and its files are public, so it
+stops nobody who means to get round it, and it doesn't claim to. It is
+right for anything whose worth is being there with others. A `sealed`
+gate, where what is behind is encrypted and the key comes with the
+purchase, is designed and not built.
+
+**When it is open.** As the world loads it asks what is held (`have`),
+for each listing its own manifest names. It opens only on a receipt it
+checks itself, whoever checked it before: really signed, by a service on
+the kit's list; for one of this world's own listings; the visitor's own;
+not run out; and not taken back. It never opens on the word `bought`, a
+flag in an address, or a bare payment. Open, it says nothing.
+
+**When it is shut,** it shows what is for sale, read from the listing:
+its name, its price and how long it lasts. And one control for each
+thing, which asks the visitor's sign-in address to sell it (`buy`) at
+their press. The world takes no money and draws no question about
+paying: the sign-in address's own page does.
+
+- **It fails closed, and says why in plain words.** While anything is
+  unknown it is shut: the world's own manifest unread, the signer not
+  heard from, nobody signed in.
+- **Only the world's own listings.** Each must be sold by a key the
+  world's manifest lets announce it. A world whose manifest names
+  listings, none of them its own to sell, is shut and says so.
+- **Only what was read is offered.** A listing that couldn't be read or
+  doesn't hold up ("A listing") isn't offered, and the gate says why. A
+  receipt still opens the gate while relays are down: it names its
+  listing itself.
+- **Signed out,** the same control offers sign-in first, the way a world
+  already does ("One sign-in"). Signing out shuts the gate at once: a
+  receipt is the buyer's, and signed out the visitor is nobody's.
+- **In a headset,** where the sign-in address's page can't be seen, the
+  control says to step out, press again, and come back in.
+- **A pass for a time** closes the gate at its end. Someone inside is
+  told, has two minutes, and is then stood in the front room again. No
+  page is loaded again under them. Bought again before the end, or in
+  those two minutes, it stays open. Someone who arrives after the end
+  finds it shut.
+- **Taken back.** The service that signed a receipt is asked whether it
+  has taken it back, every five minutes at most, at its own address. If
+  it says so the gate shuts then. If it can't be reached, a receipt
+  found good within the last day stays good (a receipt was good the day
+  it was signed); after that the gate is shut until the service answers.
+  A paid world that draws no items is served with rules that let it
+  reach that one service by name, and nothing else new; a free world's
+  rules are untouched. What is asked carries the receipt's own name at
+  that service and nothing more: no key, no cookie, no referrer, nothing
+  about the visitor. A browser still says which site a request comes
+  from, as it does of any request between sites, and the service sees
+  the address it came from: so the service that sold a pass can tell that
+  its holder is in that world now. A page can't switch that off.
+- **A world with nothing for sale has no gate.** Nothing is read, asked
+  or shown, and it behaves exactly as it did.
+
+The control is one of the console's own ([NSWP-11](11-the-visitors-console.md)):
+`gate-buy`, and `gate-buy-2` and on where a world sells more than one
+thing. It comes after the things every place has, so the way home keeps
+the first key.
+
+```js
+import { addGateControls, worldGate } from "nswp-sdk/three";
+
+const gate = worldGate();                         // this page's signer, this world's own manifest
+addGateControls(controls, gate, { presenting: () => renderer.xr.isPresenting });
+const canStand = (x, z) => gate.open || !pastTheGate(x, z);   // where the gate stands is the world's
+gate.onChange(() => (veil.visible = !gate.open));
+```
+
+Not built: the taken-back answer for a held item, the same for worlds
+made in other engines, and a client's own mark on a door for what the
+visitor already holds.
 
 ## Shares
 

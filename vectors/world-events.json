@@ -1764,6 +1764,595 @@
       }
     },
     {
+      "name": "paid_by_two_listings",
+      "description": "A paid world names the listings it is entered by: here a day and for good, both sold by the key that signs the announcement.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "a",
+            "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+            "",
+            "access"
+          ],
+          [
+            "a",
+            "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+            "",
+            "access"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "fbbcc7cb775afa9324ce1b8babc323a0fff84500e4cdf7928daee8f4dfbb9c03",
+        "sig": "4d9a8e964d707e96062489f65c0eb293dfb3b08206d96e2a3dd921f53e2ee7289a035233566e7e537363c976b09a9c1d65f05f823808067b33d935a40d95a7b1"
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [
+          "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+          "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good"
+        ]
+      }
+    },
+    {
+      "name": "free_says_nothing",
+      "description": "A world that names no listing is free, as every world was before.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "aa13c800f8ca8f660de2e6b8d65e130387a0d4f2e25190f474c544e106a3b682",
+        "sig": "633d541f1ae8f9e828a61ac6282134136c144d29a773308bed36fed45b70a482fb781ac7d5adee29d8c43f7188767bad70865687cd123af3d97f4f455c188b33"
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": true,
+        "errors": [],
+        "warnings": [],
+        "access": []
+      }
+    },
+    {
+      "name": "priced_by_someone_else",
+      "description": "A listing sold by another key is left out: nobody puts a price on a world that isn't theirs. With none left, the world is free.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "a",
+            "30078:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:museum day pass",
+            "",
+            "access"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "fbcff1259a9e55a4ec361fa339ee414b8ee0b779497def8542663fb44da9dfd5",
+        "sig": "f7fd9ea09aa9a2101eab302b73f14b6d3bb077f70060b1286f48cc2dcd162b81331eec82242f73baef55cbbdd779e656bc41e1c9c2c62d38375b312a39f1af25"
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": true,
+        "errors": [],
+        "warnings": [
+          "access_not_own"
+        ],
+        "access": []
+      }
+    },
+    {
+      "name": "access_that_is_no_listing",
+      "description": "An access tag that isn't a listing's coordinate is left out.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ],
+          [
+            "a",
+            "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:a-lantern",
+            "",
+            "access"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions."
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": null,
+        "errors": [],
+        "warnings": [
+          "invalid_coordinate"
+        ],
+        "access": []
+      }
+    },
+    {
+      "name": "one_listing_named_twice",
+      "description": "The same listing twice is one listing.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ],
+          [
+            "a",
+            "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+            "",
+            "access"
+          ],
+          [
+            "a",
+            "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+            "",
+            "access"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions."
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": null,
+        "errors": [],
+        "warnings": [],
+        "access": [
+          "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good"
+        ]
+      }
+    },
+    {
       "name": "tampered_content",
       "description": "Content changed after signing: the structure is valid but the signature is not.",
       "event": {

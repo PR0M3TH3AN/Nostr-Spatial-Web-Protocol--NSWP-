@@ -2,6 +2,21 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.73.0
+
+The front room: the first thing in the kit that asks a visitor to buy. No world of ours is paid.
+
+- **A world says it is paid by naming what it is entered by** (NSWP-01, "A paid world"): `access`, the coordinates of its listings, in its announcement (`["a", "30078:<key>:<name>", "", "access"]`, one for each) and in its own manifest, inside the world's entry. A world that names none is free, exactly as before. A listing counts only where its seller is the world's own key; any other is left out with a warning. `World.access` is now a list (it was one coordinate of any kind, which nothing read); core `accessFor`, `cleanAccess`.
+- **A listing can be read and shown** (NSWP-10, "A listing"; core `readListing`, `termWords`, `priceWords`; `vectors/listings.json`): its name, its price, and how long it lasts from `nswp:term`. Refused, with the first reason: signed by someone other than the seller in its coordinate, a signature that doesn't hold, not for sale, a price or a term that doesn't read, a service whose receipts the kit doesn't believe, under 500 sats, or a price divided by shares (which are still not in force).
+- **The gate** (NSWP-10, "The front room"; SDK `createPaidGate`, `worldGate`, `addGateControls`), the `soft` kind only. A world puts it where it likes, and everything before it is free. It asks `signer.have` as the world loads and opens, saying nothing, on a receipt `readReceipt` believes: for one of the world's own listings, the visitor's own, not run out. Otherwise it shows what is for sale and one control, `gate-buy`, that calls `signer.buy` at their press. It fails closed and says why. Signed out, the control offers sign-in first. In a headset it says to step out.
+- **A pass for a time closes the gate at its end:** a notice, two minutes, then the front room, with no page loaded again. (The owner's decision, 2 in the plan.)
+- **A receipt taken back shuts the gate.** The service that signed it is asked every five minutes at most; out of reach, a receipt found good within the last day stays good (the owner's decision, 9). A paid world that draws no items is served with rules that let it reach that service by name.
+
+- **A listing's name is one line, and a carriage return ends a line** (`cleanListing`). It let one through where the selling service refuses it. That function is the one place the rule for a listing's coordinate is written, and a test fails if the pattern is written again.
+- **For a reader of the core:** `World.access` is a list of listings where it was one coordinate, and `WorldInput.access` takes either. `paidWorldReaches` says what a paid world's page may reach for the taken-back question (the issuer's address, by name), and nothing for a free one.
+- **A door says "paid" only where a listing is named** (`worldOffers`). `access` is a list now, and an empty list, or one with nothing in it that is a listing, is a free world: its door says nothing of paying.
+- **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing. `trials/front-room.mjs` walks one against the selling service's sandbox, with a stand-in for the sign-in address.
+
 ## 0.72.0
 
 - **A door shows what its world offers: seven small tiles by its frame,** lit for what the world's announcement says and dim for what it doesn't say (`createDoorOffers`; `createPortalGate` takes `offers`). A headset, people, voice, items, saves, scores and achievements, paid to go in. Asked for by the owner on 2026-11-21: "useful icons that poll the world's features ... lit up or dark if not supported. And when the user hovers over one it should display in game text explaining what that icon means."

@@ -12,6 +12,7 @@
  * doesn't say", and the words say exactly that. A reader has only the
  * announcement, and looking at a door contacts no site.
  */
+import { cleanAccess } from "./listing.js";
 import type { World } from "./world.js";
 
 /** The seven a door shows, in the order it shows them. */
@@ -93,7 +94,8 @@ export function worldOffers(world: OffersOf): Offer[] {
       scores && achievements ? "It keeps scores, and marks what you achieve." : scores ? "It keeps scores." : achievements ? "It marks what you achieve." : "It doesn't say it keeps scores or marks what you achieve.",
     ],
     // What costs money to go into names what is sold (the `access` tag). Saying it takes payments is not that.
-    paid: line("paid", !!world.access),
+    // Only a listing counts: a list with nothing in it, or nothing in it that is a listing, is a free world.
+    paid: line("paid", cleanAccess(world.access).length > 0),
     tips: line("tips", says("tips")),
     doors: line("doors", says("spatial-portals")),
     looks: line("looks", says("avatars")),

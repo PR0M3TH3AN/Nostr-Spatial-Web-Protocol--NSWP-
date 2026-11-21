@@ -23,7 +23,9 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import type { PreviewType } from "./constants.js";
 import { isHttpsUrl, normalizeUrl } from "./destination.js";
 import { getTags, hasEventShape, isHex64, nowSeconds, type EventTemplate } from "./event.js";
-import { coordinate, parseCoordinate } from "./nip19.js";
+import { coordinate } from "./nip19.js";
+import { ACCESS_MOST } from "./listing.js";
+import { cleanListing, listingSeller } from "./receipt.js";
 import { Collector, type Result } from "./result.js";
 
 export interface WorldComfort {
@@ -70,8 +72,11 @@ export interface WorldInput {
   /** Only when the manifest is not at the well-known path (it then can't verify). */
   manifest?: string;
   coCreators?: string[];
-  /** Coordinate of an access product, e.g. a BitUnlock product (`30078:<pubkey>:<d>`). */
-  access?: string;
+  /**
+   * What this world is entered by, where it is paid: the coordinates of its listings (`30078:<pubkey>:<d>`), each
+   * signed by the key that signs this announcement. Left out, the world is free.
+   */
+  access?: string | string[];
   createdAt?: number;
 }
 
@@ -104,7 +109,11 @@ export interface World {
   status: string;
   manifest?: string;
   coCreators: string[];
-  access?: string;
+  /**
+   * The listings this world is entered by, where it is paid (protocol/01-worlds.md, "A paid world"): each one a
+   * listing's coordinate whose seller is the key that signed this announcement. Left out, the world is free.
+   */
+  access?: string[];
   createdAt: number;
 }
 
@@ -160,7 +169,7 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
   if (w.status) tags.push(["status", w.status]);
   if (w.manifest) tags.push(["manifest", w.manifest]);
   for (const p of w.coCreators ?? []) tags.push(["p", p, "", "co-creator"]);
-  if (w.access) tags.push(["a", w.access, "", "access"]);
+  for (const listing of [w.access ?? []].flat()) tags.push(["a", listing, "", "access"]);
   tags.push(["alt", `Spatial world listing: ${w.title}`]);
   return { kind: WORLD_KIND, created_at: w.createdAt ?? nowSeconds(), tags, content: w.description ?? "" };
 }
@@ -359,11 +368,18 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
     else c.warn("invalid_pubkey", "tags.p", "Ignoring a p tag that is not a 64-character hex pubkey.");
   }
 
-  let access: string | undefined;
+  // What it is entered by, where it is paid: listings, each sold by the key that signed this. Anything else is
+  // left out with a warning, and a world left with none is free: a paid door is never read out of a tag that
+  // doesn't hold up.
+  const access: string[] = [];
   for (const t of getTags({ tags }, "a")) {
     if (t[3] !== "access") continue;
-    if (t[1] && parseCoordinate(t[1])) access = t[1];
-    else c.warn("invalid_coordinate", "tags.a", "Ignoring an access tag that is not an event coordinate.");
+    const listing = cleanListing(t[1]);
+    if (!listing) c.warn("invalid_coordinate", "tags.a", "Ignoring an access tag that is not a listing's coordinate (30078:<pubkey>:<name>).");
+    else if (pubkey && listingSeller(listing) !== pubkey) c.warn("access_not_own", "tags.a", "Ignoring an access listing that is sold by another key: a world is sold only by the key that announces it.");
+    else if (access.includes(listing)) continue;
+    else if (access.length >= ACCESS_MOST) c.warn("too_many_listings", "tags.a", `Only the first ${ACCESS_MOST} access listings are used.`);
+    else access.push(listing);
   }
 
   const world: World = {
@@ -394,7 +410,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (category) world.category = category;
   if (items) world.items = items;
   if (manifest) world.manifest = manifest;
-  if (access) world.access = access;
+  if (access.length) world.access = access;
   return c.result(world);
 }
 

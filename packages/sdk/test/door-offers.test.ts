@@ -39,7 +39,10 @@ describe("what another engine is given for a door's tiles", () => {
   });
 
   it("a world that says everything lights everything; one that says nothing, or can't be read, lights nothing", () => {
-    expect(read({ modes: ["immersive-vr"], capabilities: [...CAPABILITIES], items: "allowed", access: "30078:x:y" }).every((o) => o.on)).toBe(true);
+    expect(read({ modes: ["immersive-vr"], capabilities: [...CAPABILITIES], items: "allowed", access: `30078:${"b".repeat(64)}:y` }).every((o) => o.on)).toBe(true);
+    // "Paid" is lit only by a listing's coordinate, as a list or by itself: anything else names nothing sold.
+    const paid = (access: unknown) => read({ modes: ["immersive-vr"], capabilities: [], access }).find((o) => o.id === "paid")!.on;
+    expect([paid([`30078:${"b".repeat(64)}:y`]), paid("30078:x:y"), paid([]), paid(true), paid("paid")]).toEqual([true, false, false, false, false]);
     for (const nothing of [{}, { modes: "immersive-vr", capabilities: 7, items: "everything" }, "not json", "null", "[]"]) expect(read(nothing).some((o) => o.on), JSON.stringify(nothing)).toBe(false);
   });
 });

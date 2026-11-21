@@ -39,6 +39,22 @@ describe("what a world offers, from its announcement", () => {
     expect(on(read({ capabilities: ["rooms"] }))).toEqual(["people"]);
   });
 
+  it("lights 'paid' only where a listing is named: an empty list, or one with no listing in it, is a free world", () => {
+    const said = { modes: ["inline-3d"], capabilities: [] };
+    const listing = `30078:${"b".repeat(64)}:ticket`;
+    const paid = (access: unknown) => worldOffers({ ...said, access: access as never }).find((o) => o.id === "paid")!;
+    for (const free of [undefined, [], "", "paid", ["paid"], [""], [`37303:${"b".repeat(64)}:a-lantern`], {}, true]) {
+      expect(paid(free).on, JSON.stringify(free)).toBe(false);
+      expect(paid(free).words).toBe("It doesn't say it costs anything to go in.");
+    }
+    // One listing among things that aren't, as a list or by itself, as an engine's world may say it.
+    for (const sold of [[listing], ["paid", listing], listing]) expect(paid(sold).on, JSON.stringify(sold)).toBe(true);
+    // And as an announcement is read: a listing priced by someone else is left out, so the door says nothing of paying.
+    expect(read({ access: [listing] }).access).toEqual([listing]);
+    expect(worldOffers(read({ access: [listing] })).find((o) => o.id === "paid")!.on).toBe(true);
+    expect(worldOffers(read({})).find((o) => o.id === "paid")!.on).toBe(false);
+  });
+
   it("a world that says everything has every line on, with the words for it", () => {
     const full = read({ modes: ["immersive-vr", "inline-3d"], capabilities: [...CAPABILITIES], items: "allowed", access: `30078:${"b".repeat(64)}:ticket` });
     expect(on(full)).toEqual([...OFFERS]);

@@ -15,6 +15,7 @@
 import { encodeNpub, getPublicKey, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
 import { askClientForSignIn, onClientScreen } from "../client-frame.js";
 import { arrival, portal, type GoOptions } from "../index.js";
+import { createPaidGate, type PaidGate, type PaidGateOptions } from "../front-room.js";
 import { createPeople, type People } from "../people.js";
 import { createSaves, type Saves } from "../saves.js";
 import { createWorldSigner, type WorldSigner } from "../signer.js";
@@ -231,6 +232,14 @@ let kept: Saves | null = null;
  */
 export function worldSaves(): Saves {
   return (kept ??= createSaves({ signer: () => (signerNamed() ? worldSigner() : null) }));
+}
+
+/**
+ * A gate for a paid world (front-room.ts; protocol/10-identity.md, "The front room"), using the page's one signer
+ * and the world's own manifest. A world puts it where it likes and reads `open`.
+ */
+export function worldGate(opts: Omit<PaidGateOptions, "signer"> = {}): PaidGate {
+  return createPaidGate({ ...opts, signer: () => (signerNamed() ? worldSigner() : null) });
 }
 
 let followed: People | null = null;

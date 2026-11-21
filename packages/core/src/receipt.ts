@@ -45,9 +45,11 @@ export const RECEIPT_ISSUERS: readonly ReceiptIssuer[] = Object.freeze([
  */
 export function cleanListing(input: unknown): string {
   if (typeof input !== "string" || input.length > 400) return "";
-  // As the selling service takes one (BitUnlock, `src/nostr/product.ts`): a name of 1 to 256 characters that
-  // doesn't begin with a colon. Narrower here and a listing it sold would have a receipt this refused.
-  return /^30078:[0-9a-f]{64}:[^:\n][^\n]{0,255}$/.test(input) ? input : "";
+  // As the selling service takes one (BitUnlock, `src/nostr/product.ts`): a name of 1 to 256 characters on one
+  // line, that doesn't begin with a colon. Narrower here and a listing it sold would have a receipt this refused;
+  // wider, and a name could be asked about that it would never register. A carriage return ends a line as a line
+  // feed does. This is the one place the rule is written: everything that reads a listing's coordinate comes here.
+  return /^30078:[0-9a-f]{64}:[^:\r\n][^\r\n]{0,255}$/.test(input) ? input : "";
 }
 /** The key that sells a listing: the one in its coordinate. "" where it isn't one. */
 export function listingSeller(listing: unknown): string {
