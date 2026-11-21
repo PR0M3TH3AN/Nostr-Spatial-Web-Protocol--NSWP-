@@ -1185,6 +1185,77 @@ the recommended answer to each: "Yes to all your recommended decisions.")
 44. **Renewals** (29): BitUnlock's session checks what it does today
     against what was decided, and changes it if they differ.
 
+### 13.1 Answered for the owner, by this session
+
+On 2026-11-21 the owner made this session the go-between for the three:
+"im going to rely on you to kinda be the session coordinator between
+bitlogin and yourself and bitunlock until we have everything working
+well." BitLogin's and BitUnlock's sessions each then put questions, and
+the owner said here: "they have both asked me a question. can you answer
+them?" These are the answers given. They are this session's judgement
+where no numbered decision above already settles them, and the owner may
+overturn any of them.
+
+What a go-between does not answer: anything that pushes, releases,
+deploys, makes something new at a host, changes a setting of the live
+service, or picks a licence. Those are still the owner's own word, each
+time.
+
+**To BitLogin**
+
+- Its work on tips, buying and `have` is committed to its `beta` branch.
+  Pushing it, and the beta address being built from it, waits for the
+  owner.
+- A release to bitlogin.network comes only after beta has been tried.
+  `buy` stays switched off there until it has been tried end to end
+  against BitUnlock's sandbox. The release itself waits for the owner.
+- Built before that release: a purchase under 500 sats is not shown (39);
+  a world's signer is handed that world's receipts whenever the panel is
+  shown for it (33); and "You already have this" comes before a held
+  receipt is returned. The last two together are what stop anyone paying
+  twice.
+- Built after it: the note that goes with a tip, with a tick to leave the
+  name off (35); and the payment limit as steps (1,000, 10,000, 100,000,
+  no limit) kept with the account. Until then a purchase is 500 to 1,000
+  sats.
+- The selling permission (43) waits for BitUnlock's session to name the
+  addresses and paths to pin.
+- `have` answers with any receipt that hasn't run out, and where there
+  are several, the one that ends last.
+
+**To BitUnlock**
+
+- The sandbox is built locally first. BitLogin's test copy may call the
+  sandbox's own route that settles a pretend payment. That route does not
+  exist in the live service at all; the sandbox has its own database and
+  signs receipts with its own key, never the live one, so a sandbox
+  receipt is believed nowhere real. `sandbox.bitunlock.network` is the
+  address recommended; making it, and anything at the host, waits for the
+  owner.
+- A renewal (29, 44) is something a product opts into when it is
+  registered, off unless asked, so nothing sold today changes. When on,
+  the new end is the later of now and the buyer's latest end for that
+  listing, plus the term, and the new receipt names the one it renews. A
+  listing with an `nswp:` tag and a term has it on. "Now" stays the
+  moment of unlock, as today.
+- A seller with a lightning address that can confirm a payment by itself,
+  and no wallet connection, becomes ready to sell (27). Sellers are still
+  by invitation. It is tried in the sandbox first.
+- The least price (28, 39) and the check that `nswp:term` agrees with
+  what BitUnlock holds (34) are made when a listing is registered, only
+  for a listing carrying a tag whose name starts with `nswp:`, and behind
+  a switch that is off until the owner says.
+- Whether BitUnlock's code may be copied by the other two is left with
+  the owner. Until then its published examples and descriptions are what
+  the others build against.
+- Order: the local sandbox, the least price and term check, renewals,
+  then ready by lightning address.
+
+**Asked of both, not yet answered.** BitUnlock's fee is a second invoice
+(section 11.1a, 4). What happens when one is paid and the other is not:
+can a buyer have paid the seller and hold no receipt? To be closed before
+anything is sold.
+
 ## 14. Still open
 
 Not decided by the above, and each needed before the part it belongs to:
@@ -1195,15 +1266,14 @@ Not decided by the above, and each needed before the part it belongs to:
   BitUnlock's, BitLogin's and NSWP's sessions settle between them. Those
   built are settled: `tip`, `buy`, `have`, `bought`, `receipt`, `none`,
   and the `library` mode.
-- **The sandbox's address,** and who may use it (30). BitUnlock's session
-  is asking the owner: it means new resources at its host, and letting
-  BitLogin's test copy make the call that settles a pretend payment.
-- **BitUnlock's own questions for the owner,** put in its session:
-  changing how a renewal counts, as something a product opts into; a
-  seller made ready by a lightning address alone; the least price and
-  the `nswp:term` check, for `nswp:`-tagged listings only; and whether
-  its code may be copied by the other two, or only its published
-  examples built against.
+- **The owner's own word, when each is reached:** pushing BitLogin's
+  `beta` and its test address being built; BitLogin's release to
+  bitlogin.network; making the sandbox at BitUnlock's host, and its
+  address (30); turning on BitUnlock's switch for the least price and the
+  term check; and whether BitUnlock's code may be copied by the other
+  two, or only its published examples built against.
+- **One invoice paid and the other not** (section 13.1): what each side
+  does, and whether a buyer can pay and hold no receipt.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;
