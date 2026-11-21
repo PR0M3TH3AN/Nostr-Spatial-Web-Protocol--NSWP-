@@ -401,6 +401,50 @@ its recipient's key. That is the real case for BitUnlock taking ecash
 and a listing whose shares would be smaller can't be sold until ecash is
 in.
 
+### 8.1 Shares as built: tried, and switched off
+
+The owner, 2026-11-21: "go ahead an build and test adjustable splits and
+leave it disabled for now." So shares are built in all three projects
+and switched on in none. Switching them on is the owner's word, and
+still waits on the lawyer (section 13, 16 and 37).
+
+**The rule, fixed in one place.** The kit's core holds it (`readShares`,
+`splitPrice`, kit 0.70.0) and `vectors/shares.json` holds the examples.
+BitUnlock's and BitLogin's own code is each run against that file, as
+BitLogin's receipt reading is run against BitUnlock's examples. The rule
+is NSWP-10, "Shares":
+
+- One `["nswp:share", <key or "client">, <parts in 10000>, <a word>]` for
+  each person, the seller included. Six at most, nobody twice, adding up
+  to exactly 10000, or the listing has no shares it can be sold with.
+- Each other person is paid their parts of the price, rounded down. The
+  seller is paid what is left. BitUnlock's charge comes out of the
+  seller's part only, as it does today.
+- No payment under 10 sats. Paid smallest first, the seller last.
+- The client's share goes to the client that brought the buyer, and to
+  the seller where none did.
+
+**Who says who the client is.** Not the world: it would name itself.
+BitLogin's page knows which page is showing its panel. It reads that
+client's key from the client's own `/.well-known/nswp.json` (`share`),
+fetched from the client's own address, and names it when it asks
+BitUnlock for a quote. Where the panel is not shown by a client (its own
+window, a world opened by its own address), there is no client.
+
+**What each project builds, each behind a switch that is off:**
+
+| Project | Builds |
+|---|---|
+| **The kit** | The rule and its examples (done, 0.70.0). Nothing in the kit pays or shows a share. |
+| **BitUnlock** | A listing's shares read and checked when it is registered, by the same rule. Everyone named must already be someone BitUnlock can pay (a key that has signed up with it and has an address that can confirm a payment by itself), so nobody is sent money they didn't agree to take. A quote takes the client's key, and makes one payment for each person, with BitUnlock's own. Nothing is handed over until every one is paid. Tried in the sandbox. |
+| **BitLogin** | The buy screen shows every share, by its word and who it is for. It works the split out itself from the listing it read, by the same rule, and refuses a plan that differs. It names the client from the page showing its panel. Pays smallest first, the seller last. Not open anywhere but a local copy. |
+| **BitPortal** | Its `/.well-known/nswp.json` names a `share` key only when shares are switched on. Until then it names none, and so is no client anyone pays. |
+
+**What is left out on purpose:** shares in ecash (needed for anything
+under 10 sats, section 9); a share that changes after a listing is
+registered (a new listing, as for a new price); a refund divided back
+between several people.
+
 ## 9. Wallets: what pays and what is paid
 
 **Paying.** In this version, BitLogin's ecash wallet, which pays any
@@ -1208,6 +1252,9 @@ other. Prioritize user experience")
     sale,** as recommended. The first sale is one invoice either way.
     Where a choice is open, the better experience for the person paying
     comes first, which leans this towards one invoice when it is decided.
+47. **Shares are built and tried, and left switched off** (section 8.1).
+    The owner: "go ahead an build and test adjustable splits and leave it
+    disabled for now."
 
 ### 13.1 Answered for the owner, by this session
 
@@ -1345,6 +1392,8 @@ Not decided by the above, and each needed before the part it belongs to:
   two, or only its published examples built against.
 - **One invoice for things sold in worlds** (46): decided after the first
   sale.
+- **Switching shares on** (section 8.1): the owner's word, after the
+  lawyer's answer. And the key BitPortal names for its own share.
 - **Opening buying at bitlogin.network** (45), and **deploying
   BitUnlock's fix** for a name with a space: each the owner's word.
 - **Does something given away count as a receipt?** (A voucher.) The kit

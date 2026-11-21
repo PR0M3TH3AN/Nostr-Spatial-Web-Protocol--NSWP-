@@ -679,6 +679,59 @@ that service; the kit does not yet.
 **A bare payment is not a purchase.** `pay` pays an invoice and leaves
 nothing behind. The kit treats nothing as bought without a receipt.
 
+## Shares
+
+**Status: written down, and not in force.** Nothing pays a share: a
+listing is paid to its seller whole, as it always was. The rule is in
+the core (`readShares`, `splitPrice`) with examples every implementation
+is checked against (`vectors/shares.json`), so that the service that
+sells, the sign-in address that pays and anything that shows a price
+agree before any of them acts on it. It comes into force when the owner
+says, and not before. The plan is `docs/plans/paying-for-things.md`,
+section 8.
+
+**What a seller writes.** One tag on the listing for each person its
+price is divided between, the seller included:
+
+```
+["nswp:share", <who>, <parts>, <a word for what it is for>]
+```
+
+- **who**: a key (64 hex characters), or the word `client`: whichever
+  client brought the buyer.
+- **parts**: how many parts in ten thousand of the price, in digits, from
+  1 to 10000, with no leading zero and no fraction.
+- **a word**: at most 32 characters, on one line, with nothing unseen in
+  it. Left out, the share is called `seller`, `client` or `share`.
+
+A listing with no such tag has no shares. One with any must have them
+all right: at most six; nobody twice; the seller among them; adding up to
+exactly 10000. Otherwise it can't be sold with shares at all. Nothing is
+dropped, guessed or made to fit.
+
+**What a price comes to.** Each person but the seller is paid their
+parts of the price, rounded down to a whole sat. The seller is paid what
+is left. The selling service's own charge comes out of the seller's part
+and nobody else's. Every payment is at least 10 sats, or the listing
+can't be sold this way. They are paid smallest first and the seller
+last (two of one size in the order of their keys), so that a payment cut
+short leaves as little astray as it can, and nothing is handed over
+until every one is paid.
+
+**The client's share** names no key. It goes to the client that brought
+the buyer, where one did and can be paid, and to the seller where none
+did (a world opened by its own address). A seller offers it by writing it
+into the listing they sign, so nothing is taken that wasn't offered, and
+any client may be the one it goes to. Who the client is, is not the
+world's to say: a world would name itself. The sign-in address knows
+which page is showing its panel, and reads that client's key from the
+client's own `/.well-known/nswp.json` (`share`), at the client's own
+address. A client who is also named in the listing is one person, paid
+once.
+
+**The buyer sees every share,** by its word and by who it is for, before
+paying.
+
 ## One sign-in
 
 Where a visitor's client names a signer, there is one sign-in in a world, and

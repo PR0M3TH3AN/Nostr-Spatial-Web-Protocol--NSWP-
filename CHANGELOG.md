@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.70.0
+
+Shares: written down, tried, and not in force.
+
+- **How a price is divided between several people** (NSWP-10, "Shares"; core `readShares`, `splitPrice`). A seller writes one `nswp:share` on a listing for each person: who (a key, or `client` for whichever client brought the buyer), how many parts in ten thousand, and a word for what it is for. Each other person is paid their parts, rounded down; the seller is paid what is left, and the selling service's charge comes out of the seller's part only. Six at most, no payment under 10 sats, smallest paid first and the seller last.
+- **Nothing pays a share.** A listing is still paid to its seller whole. The owner asked for this to be built and tried and left switched off. `vectors/shares.json` holds the examples the selling service, the sign-in address and the kit are each checked against before anything is switched on.
+- **The reference worlds' test hooks hand over the page's own signer** (`__nswpTest.signer()`), so a test can ask for a purchase before any control does.
+
 ## 0.69.1
 
 - **A listing's name may be as long as BitUnlock allows** (256 characters, not beginning with a colon; it was 200). A listing with a longer name would have sold there and had its receipt refused here. Found by BitUnlock's own session reading the kit's check, which it otherwise confirmed field for field.
