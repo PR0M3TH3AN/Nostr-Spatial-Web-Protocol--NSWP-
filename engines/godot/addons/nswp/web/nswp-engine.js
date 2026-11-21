@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.63.1";
+  var KIT_VERSION = "0.64.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6245,6 +6245,10 @@ ${roomName}`)));
       return null;
     }
   }
+  var PROPOSE_KINDS = [0, 5, 10002];
+  function cleanWalletUri(input) {
+    return typeof input === "string" && input.length <= 2e3 && /^nostr\+walletconnect:\/\/[0-9a-f]{64}\?[\x21-\x7e]+$/.test(input) ? input : "";
+  }
   var SIGNER_MORE = ["follows", "messages"];
   function cleanMore(input) {
     if (!Array.isArray(input))
@@ -6289,6 +6293,10 @@ ${roomName}`)));
       return null;
     if (d.t === "refused")
       return { t: "refused", id: d.id };
+    if (d.t === "asking")
+      return { t: "asking", id: d.id };
+    if (d.t === "wallet" && cleanWalletUri(d.uri))
+      return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
     if (d.t === "signed" && d.event && typeof d.event === "object")
       return { t: "signed", id: d.id, event: d.event };
     if (d.t === "found" && isHex64(d.d))
@@ -43194,6 +43202,8 @@ void main() {
     retry: () => false,
     copy: null,
     unlock: () => false,
+    propose: () => Promise.resolve(null),
+    wallet: () => Promise.resolve(null),
     panel: false,
     lock() {
     },
@@ -43226,6 +43236,7 @@ void main() {
       return null;
     }
   }
+  var ASK_PERSON_MS = 5 * 6e4;
   function createWorldSigner(opts) {
     const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
     if (!real || typeof document === "undefined") return NONE2;
@@ -43241,6 +43252,7 @@ void main() {
       kept2.set(request.id, { answer: (reply) => done(reply ? read6(reply) : null), timer });
       tell2(request);
     });
+    const put = /* @__PURE__ */ new Map();
     let state = "none";
     let pubkey = null;
     let name = null;
@@ -43285,6 +43297,28 @@ void main() {
       for (const fn of watchers7) fn();
     };
     const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
+    const showPage = () => {
+      if (!windowAt) return false;
+      if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
+      try {
+        return !!window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
+      } catch {
+        return false;
+      }
+    };
+    const putToThem = (request, read6) => new Promise((done) => {
+      for (const [id, earlier] of put) {
+        put.delete(id);
+        clearTimeout(earlier.timer);
+        earlier.finish(null);
+      }
+      const timer = setTimeout(() => {
+        put.delete(request.id);
+        done(null);
+      }, 8e3);
+      put.set(request.id, { shown: false, finish: (reply) => done(reply ? read6(reply) : null), timer });
+      tell2(request);
+    });
     const onMessage = (e) => {
       if (!frame2 || e.source !== frame2.contentWindow || e.origin !== origin) return;
       const reply = readSignerReply(e.data);
@@ -43308,6 +43342,21 @@ void main() {
         if (reply.offers) offers = reply.offers;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
+      }
+      const personal = put.get(reply.id);
+      if (personal) {
+        const end = (answer) => {
+          put.delete(reply.id);
+          clearTimeout(personal.timer);
+          personal.finish(answer);
+        };
+        if (reply.t !== "asking") return end(reply.t === "refused" ? null : reply);
+        if (personal.shown) return;
+        personal.shown = true;
+        clearTimeout(personal.timer);
+        personal.timer = setTimeout(() => end(null), ASK_PERSON_MS);
+        if (!showPage()) end(null);
+        return;
       }
       const question = kept2.get(reply.id);
       if (question) {
@@ -43411,14 +43460,21 @@ void main() {
         return !test && clientSignsInAt() === real.origin;
       },
       unlock() {
-        if (state === "none" || !windowAt) return false;
-        if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
-        try {
-          const opened = window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
-          return !!opened;
-        } catch {
-          return false;
-        }
+        return state !== "none" && showPage();
+      },
+      propose(note) {
+        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+        if (state !== "unlocked" || !frame2 || !PROPOSE_KINDS.includes(asked.kind)) return Promise.resolve(null);
+        return putToThem({ t: "propose", id: `r${++n}`, event: asked }, (reply) => {
+          if (reply.t !== "signed") return null;
+          const signed = reply.event;
+          const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+          return verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(asked, signed) ? signed : null;
+        });
+      },
+      wallet() {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null);
       },
       lock() {
         if (state === "unlocked") tell2({ t: "lock", id: `l${++n}` });

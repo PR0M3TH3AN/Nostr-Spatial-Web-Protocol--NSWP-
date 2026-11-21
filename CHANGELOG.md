@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.64.0
+
+Asking the person: careful kinds and a wallet, put to the visitor on their sign-in address's own page.
+
+- **`signer.propose(note)`** puts a profile (kind 0), a deletion (5) or a relay list (10002) to the visitor themselves. The signer signs none of these on a world's word and still doesn't: it answers `asking`, the world has the sign-in address's page shown (its panel in a client that has one, its window otherwise), and the note is signed only at the visitor's press there. What comes back is checked: signed by who is signed in here, exactly what was put to them, marked for this world.
+- **`signer.wallet()`** asks for a wallet connection for this world the same way, and resolves with a Nostr Wallet Connect address or null.
+- New words in NSWP-10 ("Asking the person"): `propose`, `wallet`, `asking`. `PROPOSE_KINDS` is a closed list, and who someone follows is not on it.
+- Nothing in the reference worlds uses either yet. BitLogin's half is built and not yet live; a signer that doesn't know these says nothing, and both resolve null after a few seconds.
+
 ## 0.63.1
 
 - **"Your account, at …" in the You tab,** where the visitor's client can show the sign-in address's panel (`accountAction`). It asks the client for the panel at the account's own pages (`mode: "account"`): other accounts, the lock, the password, recovery. Hidden where there is no panel: a world shows none of that itself.
