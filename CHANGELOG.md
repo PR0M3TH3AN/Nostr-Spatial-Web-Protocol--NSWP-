@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.70.2
+
+- **A browser that takes a door itself is handed what the visitor carries** (`window.nswp.navigate(dest, carried)`). It was handed the destination and nothing else, so a visitor crossing in such a browser would have arrived without their settings, their room, or word that they were in a headset. Found by the session building BitBrowser, before any browser existed to show it.
+- **The browser's plan (`browser/spec.md`) says what a browser never contains:** no wallet, payment, receipt or share code; no signer and no key; no address with special powers; nothing that reads or shows whether something is paid for. Decided by the owner on 2026-11-21. The kit declares no identity on the bridge and looks for none.
+
 ## 0.70.1
 
 - **Four shares at most, where it said six** (`SHARE_LIMITS.most`), the seller's among them. Asked for by BitUnlock's session before anyone built to six: each share is a payment fetched from that person's own lightning address, any one of them being down stops the whole sale, and what can go astray in a payment cut short grows with every one. Still written down and not in force.

@@ -30,9 +30,12 @@ in order of how much they change a visit:
    flat page today because a world draws everything a visitor sees in VR. A
    browser draws above the world, where no world can reach. The check moves
    into the headset and keeps its meaning.
-3. **An identity no world holds.** The browser keeps the visitor's signer and
-   hands out passes ([NSWP-10](../protocol/10-identity.md)). Worlds get the
-   pass, as now. Nothing changes for them.
+3. **A sign-in page a world can't forge.** The browser holds no key and
+   signs nothing (decided: section 2a). The visitor's identity stays where
+   it is today, at their sign-in address, as a web page. What the browser
+   adds is a place to show that page above the world, with its address
+   drawn by the browser, in a headset too: today a world can draw a copy of
+   a sign-in panel, and nothing can show one in a headset at all.
 4. **Web pages as panels.** Any website on a surface the visitor can place,
    beside whatever else they have open.
 5. **Things that stay with the visitor.** Their panels, their running
@@ -64,13 +67,53 @@ Web, and are built there first (section 8, stage A).
 - **The privacy rules carry over.** Looking at a door contacts no site.
   Opening a panel is a visit, and is made on purpose.
 
+## 2a. What the browser never contains
+
+The owner, 2026-11-21: "We have decided to fork Wolvic and enable some of
+the features we need by default. This way none of the bitcoin stuff related
+to bitpotal ships with the bitbrowsers code." And of the browser and
+BitPortal: "separate projects but they are to be one cohesive system."
+
+So there is a line, and the browser stays on one side of it. It was agreed
+between the session building the browser and the one building the kit, and
+it is the owner's in substance. In the browser's code and in what it ships:
+
+1. **No wallet, payment, invoice, receipt, share or price code.** None of
+   BitLogin's or BitUnlock's code, copied or linked. Nothing on
+   `window.nswp` that pays, tips, buys or asks what is held, and
+   `nswp.can()` answers no to any such name.
+2. **No payment drawn by the browser.** A payment is always a web page's
+   own pixels (the sign-in address's own page), shown by the browser as it
+   shows any page.
+3. **The browser is never "the client that brought the buyer"**
+   (`docs/plans/paying-for-things.md`, section 8). It takes no share and
+   names itself to no payment service. Inside it, that client is still
+   BitPortal the website.
+4. **No address with special powers written into it.** Not BitPortal's, not
+   a sign-in address's, not a selling service's. What a site may do is
+   granted per site, and asked for.
+5. **No signer.** The browser holds no Nostr key, signs nothing and makes no
+   pass. (The owner, asked "Drop the browser-held Nostr signer from the
+   first versions, leaving identity with BitLogin's web panel?": "Yes, drop
+   it". A browser that signs any note a page hands it would be signing
+   payments too.) Nothing in the kit needed it: since 2026-11-19 a world
+   signs through a hidden frame of the visitor's sign-in address
+   ([NSWP-10](../protocol/10-identity.md), "Signing from a world").
+6. **The first page it opens, and any starting bookmarks, are settings and
+   not code:** an address that can be changed with no new build.
+7. **It never reads, shows or keeps a receipt, a price or whether something
+   is paid for,** not even as a mark in its own menus.
+
+Nothing here is asked of a world, of BitPortal the website, or of the
+visitor. It is what lets the browser be reviewed and shipped as a browser.
+
 ## 3. The parts
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
 │ Shell      small, native, different on each kind of device       │
 │            owns the headset session; draws the Airlock, panels   │
-│            and warnings above everything; holds the signer       │
+│            and warnings above everything; holds no key           │
 ├──────────────────────────────────────────────────────────────────┤
 │ Engine     an existing browser engine; runs every page           │
 ├────────────────────────────────┬─────────────────────────────────┤
@@ -109,7 +152,7 @@ a method that isn't offered isn't there.
 
 | Call | What it does |
 |---|---|
-| `nswp.navigate(destination)` | Cross to another place. The shell shows its Airlock above the world and waits for the visitor |
+| `nswp.navigate(destination, carried)` | Cross to another place. The shell shows its Airlock above the world and waits for the visitor. `carried` is what the visitor takes with them (that they are in a headset, in a room, how they move, their settings): what the kit would have put in an Airlock's address. The shell puts it in the arrival it makes for the place they approve, keeps none of it, and shows none of it but what its Airlock needs to say how they will go |
 | `nswp.home()` | Go to the visitor's home |
 | `nswp.can(name)` | Whether this browser offers a feature |
 
@@ -117,20 +160,44 @@ A page is told nothing about the visitor by any of these. On arrival it gets
 the same arrival context as today ([NSWP-03](../protocol/03-arrival.md)), with
 whatever the visitor chose at the Airlock and nothing else.
 
+**Names `can()` answers to**, as agreed on 2026-11-21 between the sessions
+building the browser and the kit:
+
+| Name | Means |
+|---|---|
+| `navigate` | A door is taken by the shell, with the visitor kept in the headset view |
+| `airlock` | The shell draws its own Airlock, above the page |
+| `windows` | A window this page opens at the visitor's press is shown to them where they are, a headset included, as a surface of the shell's with the address drawn by the shell. One at a time for a page, and it stays the opener's window in every other way, so what a page and its window say to each other is unchanged. This is how a sign-in address's page is shown: nothing in it knows whose page it is |
+| `panels` | Later: web pages on surfaces the visitor places |
+
+**What the shell's Airlock checks** is what any Airlock checks, and it is
+held to the same examples as the kit, with no code shared: a destination's
+address (`vectors/destinations.json`), a world's announcement
+(`world-events.json`), the site vouching for it (`manifests.json`), and the
+arrival it then makes (`arrivals.json`). It may be stricter than BitPortal
+Web's Airlock, and never looser.
+
+**Letting the next page start in the headset.** The kit listens for
+`sessiongranted` from the moment its code loads and asks once, when the
+world has built its scene: `immersive-vr`, with `local-floor` and
+`hand-tracking` optional and nothing required. So the shell's leave has to
+last as long as a world takes to load, which for a heavy one is a while:
+it belongs to the arriving page until that page asks once or goes
+elsewhere, and not to a timer.
+
 ### For the home only
 
 | Group | Calls | Notes |
 |---|---|---|
 | Panels | `panels.open({ url \| media \| stream, place })`, `move`, `close`, `list` | The shell draws them. The home never sees inside one |
 | Workspace | `workspace.save()`, `restore()` | Which panels are open and where, kept on the device |
-| Identity | `identity.pubkey()`, `sign(template)`, `pass(origin)` | The shell holds the signer and shows what is being signed. A pass is made by the shell, for the world the visitor is going to |
 | Programs | `bridge.pair()`, `list()`, `open(program)` | Section 7. Each returns a stream to put on a panel |
 
 Rules:
 
 - A call from any origin but the home's is as if the method didn't exist.
-- Signing anything but a pass shows the visitor what is being signed, on the
-  shell's layer, every time.
+- There is no identity on the bridge, for the home or anyone (section 2a,
+  5). An earlier draft had the shell hold the visitor's signer.
 - Nothing here lets a page read a panel, type into one, or learn what is open.
 
 ### BitPortal Web without the browser
@@ -249,7 +316,7 @@ That needs a real headset to judge, and is the first thing to test on one.
 |---|---|---|
 | B1 | An Electron shell with BitPortal Web as its home and the bridge for real | Any website opens on a panel in the home, and the home can't read it |
 | B2 | The shell's own Airlock, drawn above the page | A crossing from the home to a world shows the Airlock without leaving the 3D view |
-| B3 | The signer in the shell | A pass is issued with no BitLogin widget on the page |
+| B3 | A window a page opens, shown above the page by the shell | The sign-in address's own page comes up over the home with its address drawn by the shell, and signing in works unchanged. (Was "the signer in the shell": dropped, section 2a.) |
 
 Stops if: off-screen pages are too slow to scroll and type in. Then panels
 show pages at a lower rate, or the shell changes.
