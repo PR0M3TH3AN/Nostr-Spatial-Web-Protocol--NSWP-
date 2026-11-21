@@ -37,7 +37,9 @@ describe("shares: what a listing says of who its price is divided between", () =
     expect(why([tag(MAKER, "9500"), tag("client", "500")])).toBe("no-seller");
     expect(why([tag(SELLER, "8000"), tag(MAKER, "1000"), tag(MAKER, "1000")])).toBe("twice");
     expect(why([tag(SELLER, "9000"), tag("client", "500"), tag("client", "500")])).toBe("twice");
-    expect(why([tag(SELLER, "4000"), ...[4, 5, 6, 7, 8, 9].map((n) => tag(pk(n), "1000"))])).toBe("too-many");
+    expect(why([tag(SELLER, "6000"), ...[4, 5, 6, 7].map((n) => tag(pk(n), "1000"))])).toBe("too-many");
+    // Four is the most: the seller and three others.
+    expect(why([tag(SELLER, "7000"), ...[4, 5, 6].map((n) => tag(pk(n), "1000"))])).toBe("ok");
     for (const parts of ["0", "09500", "9500.5", "-1", "1e3", "10001", "", " 500", "500 "]) expect(why([tag(SELLER, "9500"), tag(MAKER, parts)]), parts).toBe("not-a-share");
     for (const to of ["alice@example.com", "CLIENT", SELLER.toUpperCase(), "", `npub1${"q".repeat(58)}`]) expect(why([tag(SELLER, "9500"), tag(to, "500")]), to).toBe("not-a-share");
     expect(why([tag(SELLER, "9500"), ["nswp:share", MAKER]])).toBe("not-a-share");

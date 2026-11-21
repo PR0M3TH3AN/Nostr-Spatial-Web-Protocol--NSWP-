@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.70.1
+
+- **Four shares at most, where it said six** (`SHARE_LIMITS.most`), the seller's among them. Asked for by BitUnlock's session before anyone built to six: each share is a payment fetched from that person's own lightning address, any one of them being down stops the whole sale, and what can go astray in a payment cut short grows with every one. Still written down and not in force.
+- **Two right plans for one listing and one client** (NSWP-10, "Shares"). The selling service pays only someone who has told it, signed by their own key, where to be paid; where it can't pay the client named, that share is the seller's. Whoever checks a plan against a listing takes either answer and nothing else.
+
 ## 0.70.0
 
 Shares: written down, tried, and not in force.

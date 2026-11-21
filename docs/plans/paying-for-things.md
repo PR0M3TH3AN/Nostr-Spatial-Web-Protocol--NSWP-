@@ -415,7 +415,7 @@ BitLogin's receipt reading is run against BitUnlock's examples. The rule
 is NSWP-10, "Shares":
 
 - One `["nswp:share", <key or "client">, <parts in 10000>, <a word>]` for
-  each person, the seller included. Six at most, nobody twice, adding up
+  each person, the seller included. Four at most, nobody twice, adding up
   to exactly 10000, or the listing has no shares it can be sold with.
 - Each other person is paid their parts of the price, rounded down. The
   seller is paid what is left. BitUnlock's charge comes out of the
@@ -436,9 +436,48 @@ window, a world opened by its own address), there is no client.
 | Project | Builds |
 |---|---|
 | **The kit** | The rule and its examples (done, 0.70.0). Nothing in the kit pays or shows a share. |
-| **BitUnlock** | A listing's shares read and checked when it is registered, by the same rule. Everyone named must already be someone BitUnlock can pay (a key that has signed up with it and has an address that can confirm a payment by itself), so nobody is sent money they didn't agree to take. A quote takes the client's key, and makes one payment for each person, with BitUnlock's own. Nothing is handed over until every one is paid. Tried in the sandbox. |
+| **BitUnlock** | A listing's shares read and checked when it is registered, by the same rule, and again when a price is quoted. Everyone named must have told BitUnlock where to be paid (below), so nobody is sent money they didn't agree to take. A quote takes the client's key, and makes one payment for each person, with BitUnlock's own. Nothing is handed over until every one is paid. Tried in the sandbox. |
 | **BitLogin** | The buy screen shows every share, by its word and who it is for. It works the split out itself from the listing it read, by the same rule, and refuses a plan that differs. It names the client from the page showing its panel. Pays smallest first, the seller last. Not open anywhere but a local copy. |
 | **BitPortal** | Its `/.well-known/nswp.json` names a `share` key only when shares are switched on. Until then it names none, and so is no client anyone pays. |
+
+**What BitUnlock's session corrected** (2026-11-21, before anything was
+built), and what was answered:
+
+- **Being paid a share is not being a seller.** A maker or a client
+  shouldn't have to be invited as a seller and accept a seller's terms.
+  So there is a small registration of its own for being paid: signed by
+  the key itself, naming one lightning address that can confirm a
+  payment by itself. The signature is the agreement; taking it away
+  withdraws it. BitUnlock keeps the least and the most that address will
+  take, and a listing whose share for that person falls outside them
+  can't be registered. Answered: yes.
+- **Nothing that holds a payment today is rebuilt.** BitUnlock's record
+  of payments allows three roles and one of each. Shares go in new
+  tables beside it, so no existing row changes and an order with no
+  shares takes exactly today's path. Its published form for a payment
+  plan is widened, not replaced: a plan with no shares is byte for byte
+  what it was. Answered: yes.
+- **Naming a client is, unguarded, a discount for anyone.** BitUnlock
+  can't know who brought a buyer. Whoever can ask for a quote can name
+  any key that can be paid, a second key of their own included. The
+  seller loses nothing by it (the share was offered to any client), but
+  it isn't what the share is for. So who may register to be paid as a
+  client is a setting, and it begins as: those the operator approves.
+  Recommended by BitUnlock's session and by this one; the owner's to
+  confirm before shares are switched on (section 14).
+- **Four at most, to begin,** where this said six: the seller and three
+  others. Every share is a payment fetched from that person's own
+  address, any one of them being down stops the sale, and what a payment
+  cut short can leave astray grows with each. Changed in the kit
+  (0.70.1) and its examples.
+- **Two right plans.** Whether the client is paid depends on whether
+  BitUnlock can pay them, which BitLogin can't know. BitLogin takes
+  either plan, the client paid or the seller paid that part, and no
+  other.
+- **With shares switched off, a listing that carries them is registered
+  as it would be today,** its seller paid whole. BitUnlock won't begin
+  refusing listings on the live service for a tag it doesn't act on.
+  BitLogin, with shares off, doesn't show such a listing for sale.
 
 **What is left out on purpose:** shares in ecash (needed for anything
 under 10 sats, section 9); a share that changes after a listing is
@@ -1411,6 +1450,9 @@ Not decided by the above, and each needed before the part it belongs to:
   sale.
 - **Switching shares on** (section 8.1): the owner's word, after the
   lawyer's answer. And the key BitPortal names for its own share.
+- **Who may be paid a share** (section 8.1): anyone who registers, or
+  only those the owner approves. Recommended: approved, to begin, as
+  selling itself is by invitation (12). Built as a setting either way.
 - **Opening buying at bitlogin.network** (45): the owner's word.
   BitLogin's half is released there (2026-11-21) with buying closed, and
   BitUnlock's fix is live. What is left before asking: the kit and
