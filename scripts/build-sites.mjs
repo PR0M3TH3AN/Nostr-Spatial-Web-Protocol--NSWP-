@@ -157,7 +157,11 @@ for (const s of sites) {
     ...(s.world ? ["frame-src 'self' https:"] : []),
     "base-uri 'none'",
     "form-action 'none'",
-    s.world ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
+    // A world may be shown inside its visitors' client, where that client keeps the screen filled from world to
+    // world by showing each in a frame of its own page (protocol/02-doors.md, "A client that keeps the screen").
+    // Only the client these worlds send their visitors through is let: any other page that framed a world could
+    // lay something over it. The Airlock is framed by nobody.
+    s.world ? `frame-ancestors 'self' ${new URL(config.airlock).origin}` : "frame-ancestors 'none'",
   ].join("; ");
   const headers = [
     {

@@ -305,16 +305,19 @@ export const portal = {
       if (!chk.ok) throw new Error(`nswp-sdk: refusing portal destination (${chk.error.code})`);
     }
     const immersive = opts.immersive ?? !!opts.xrSession;
+    // A browser made for this takes the door itself, and is asked first: with the headset session still running,
+    // since how and when that ends is then the browser's to manage (it may want the last frame, or to put its own
+    // room up before the page's goes). Ending it here first took that from it.
+    if (typeof window.nswp?.navigate === "function") {
+      window.nswp.navigate(dest);
+      return;
+    }
     if (opts.xrSession) {
       try {
         await opts.xrSession.end();
       } catch {
         /* already ended */
       }
-    }
-    if (typeof window.nswp?.navigate === "function") {
-      window.nswp.navigate(dest);
-      return;
     }
     const airlock = portal.airlockFor(opts);
     if (airlock) {

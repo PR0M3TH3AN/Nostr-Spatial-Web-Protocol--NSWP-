@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.61.0
+
+A trial of a filled screen that stays filled from world to world.
+
+- **A reference world may be framed by the client it sends its visitors through,** and by nobody else (`frame-ancestors 'self' <the client>`; it was `'self'`). That is what lets a client keep one page on the screen and show each world inside it, so a filled screen is not given up at every door (protocol/02-doors.md, "A client that keeps the screen"). BitPortal tries it at `/shell/`. A trial, for the reference worlds: nothing else about a crossing changes, and a world opened the ordinary way is as it was.
+- **A browser made for this is asked to take a door before a headset session is ended** (`window.nswp.navigate` in `portal.go`). The session was ended first, which took from such a browser the managing of it.
+- **The Foundry's room may use a microphone.** Its page still said nobody's could be used there, from before a world made with Godot had rooms.
+- The local server names local copies beside real addresses in what a page may hand on to the sites it frames, as it does in a page's content rules.
+
 ## 0.60.0
 
 What is in your hand goes with you, and a blaster with more to it.

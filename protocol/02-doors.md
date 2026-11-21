@@ -324,6 +324,46 @@ draws it, so a dishonest world can draw it any way it likes. So:
 A world may draw a chamber of its own, or none. `createCrossing` in
 `nswp-sdk/three` is the reference one.
 
+## A client that keeps the screen
+
+**Status:** a trial (kit 0.61.0, BitPortal's `/shell/`), for the reference
+worlds only. Not yet a rule for anyone else.
+
+A browser gives up a filled screen whenever the page changes, so a visitor
+who prefers one has it taken away at every door, and gets it back at their
+next press. A client can do better for the worlds that let it: it stays
+where it is, as one page that fills the screen once, and shows each place
+in a frame inside that page. Going through a door then changes what is in
+the frame and nothing else: the page that holds the screen never changes,
+so the screen stays filled.
+
+Nothing about a crossing is different. A world still sends its visitor to
+their Airlock, the Airlock still shows where they are going, and the next
+world still reads how they arrived: all of it happens in the frame.
+
+- **A world says who may frame it,** in its own content rules: itself, and
+  the client it sends its visitors through (`frame-ancestors`). Nobody
+  else: a page that framed a world could lay something of its own over it.
+  A world that says nothing of the kind is not shown in a frame.
+- **A place that can't be framed is gone to the ordinary way.** The client
+  leaves its own page for it, and the screen is filled again there at the
+  visitor's next press, as before.
+- **The client holds the screen, and the frame doesn't ask for it.** A
+  world in a frame is not given the screen to fill (`fullscreen` is not
+  handed on), so it never asks, and what it would have asked the visitor
+  is the client's to offer.
+- **A microphone and a headset are handed on by name,** to the worlds the
+  client frames and no others. The browser asks the visitor in the
+  client's name, so the client answers for which worlds it hands them to.
+- **A headset session still ends at every door.** That is the browser's,
+  and a frame changes nothing about it ("A world, as the visitor arrives").
+
+What is not settled: which clients a world should let frame it when its
+visitor's client is theirs to choose; what a browser keeps for a world in
+a frame, as against the same world opened by its address (the same for
+worlds on one site as their client, not otherwise); and a phone, where a
+screen can't be filled at all.
+
 ## What this does not do
 
 A hostile world is a website, and a website can navigate anywhere without

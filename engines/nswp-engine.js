@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.60.0";
+  var KIT_VERSION = "0.61.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -8559,15 +8559,15 @@ postMessage({ t: "started" });
         if (!chk.ok) throw new Error(`nswp-sdk: refusing portal destination (${chk.error.code})`);
       }
       const immersive = opts.immersive ?? !!opts.xrSession;
+      if (typeof window.nswp?.navigate === "function") {
+        window.nswp.navigate(dest);
+        return;
+      }
       if (opts.xrSession) {
         try {
           await opts.xrSession.end();
         } catch {
         }
-      }
-      if (typeof window.nswp?.navigate === "function") {
-        window.nswp.navigate(dest);
-        return;
       }
       const airlock = portal.airlockFor(opts);
       if (airlock) {
