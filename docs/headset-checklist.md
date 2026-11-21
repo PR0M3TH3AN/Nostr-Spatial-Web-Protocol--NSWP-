@@ -37,7 +37,7 @@ Open each address in the headset's own browser. No account is needed.
 | # | Do this | It should |
 |---|---|---|
 | 2.1 | On the Airlock, read the page | Show the real address first, then whether it is verified |
-| 2.2 | Press **Continue** | Open the Gallery. **Did you have to press Enter VR again?** (Expected: yes) |
+| 2.2 | Press **Continue** | Open the Gallery. **Did you have to press again to be back in VR?** (Expected: yes, once, and anywhere on the page: you shouldn't have to aim at the button) |
 | 2.3 | In VR, open the console (wrist or **Menu**) | Offer **Go home** under Travel |
 | 2.4 | Close the menu, point at the portal and select it | Leave for the Airlock, naming the Grove |
 | 2.5 | Cancel, go back into the Gallery, open the menu, select **Go home** | Return you to BitPortal's room, facing the door you left through |

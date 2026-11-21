@@ -1,13 +1,16 @@
 # NSWP-17: Items
 
-**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit: for worlds drawn with Three.js and for worlds made with Godot, on a flat screen (in a headset, only with Three.js). Built: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. The Grove draws what its visitors hold, runs their items' logic, and keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a headset in a world made with Godot · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
+**Status:** Decided by the owner on 2026-11-20, and built in the reference library and kit: for worlds drawn with Three.js and for worlds made with Godot, on a flat screen (in a headset, only with Three.js). Built: an item's description, a world's rule for items, the warning on a door, a visitor's bag, holding one item, the visitor's switch for all items, an item's own logic in its locked box, things an item sends out, people being reached by them (the person reached decides), health where a world has no rule of its own, and muting one person's items. Every reference world draws what its visitors hold and runs their items' logic, since a world has items unless it says otherwise; the Grove keeps five starter items ([`sites/items`](../sites/items)); and a dart blaster. Not built: a ceiling the visitor sets on how loud and bright items may be, granted items, a world giving an item, items in a headset in a world made with Godot · **Kinds:** 37303, 37308 · **Vectors:** [`items`](../vectors/items.json) · **Code:** core [`item.ts`](../packages/core/src/item.ts), [`bag.ts`](../packages/core/src/bag.ts), [`play.ts`](../packages/core/src/play.ts), [`item-box.ts`](../packages/core/src/item-box.ts), [`constants.ts`](../packages/core/src/constants.ts) (`ITEM_RULES`); SDK [`items.ts`](../packages/sdk/src/items.ts), [`bag.ts`](../packages/sdk/src/bag.ts), [`bagging.ts`](../packages/sdk/src/bagging.ts), [`play.ts`](../packages/sdk/src/play.ts), [`item-box.ts`](../packages/sdk/src/item-box.ts), [`item-controls.ts`](../packages/sdk/src/item-controls.ts)
 
 An **item** is a thing a person can carry from world to world, or put in
 their home: a lantern, a book, a map, a chair, a tool, a weapon. It has a
 shape, and it may do something.
 
-All of it is optional. A world that says nothing about items has none:
-nothing carried is drawn there, and nothing runs.
+**A world has items unless it turns them off** (the owner, 2026-11-20:
+"allow items in all the worlds unless its turned off specifically"). One
+that says nothing about items lets them work. One that says `none` has
+none: nothing carried is drawn there, and nothing runs. A world that can't
+draw what its visitors carry says `none`, so that its doors tell the truth.
 
 ## The rules everything else follows from
 
@@ -33,13 +36,19 @@ announcement ([NSWP-01](01-worlds.md)):
 
 | | What it means |
 |---|---|
-| `none` (or nothing said) | Nothing carried is drawn or works there |
-| `allowed` | Items work, and can affect other people. Anyone there may mute them |
+| `none` | Nothing carried is drawn or works there |
+| `allowed` (or nothing said) | Items work, and can affect other people. Anyone there may mute them |
 | `play` | Items are part of the game. Nobody there is out of their reach |
 
-**A door says so.** A door to a place where items are part of play says
-"Items are part of play here" on its sign, and so does the visitor's Airlock
-before they cross. A place that only allows them says "Items work here".
+A word that isn't one of the three is read as `none`: a place that said
+something a reader doesn't understand is taken to have turned items off,
+never on.
+
+**A door says so, where it isn't the ordinary rule.** A door to a place
+where items are part of play says "Items are part of play here" on its
+sign, and so does the visitor's Airlock before they cross. A place that has
+turned them off says "No items here", for whoever is carrying something. A
+place that only allows them says nothing: it is what a visitor expects.
 The words are the core's (`itemsWords`), so they are the same everywhere.
 
 ## An item's description
@@ -458,7 +467,9 @@ items, and puts it away again.
 - **Not one that has to be granted,** yet: nothing checks a grant.
 - **A world that draws items reaches further.** It fetches models from
   wherever their makers keep them, so its page has to be allowed to. A
-  world with no items reaches only itself and relays.
+  world with no items reaches only itself and relays. Since a world has
+  items unless it says otherwise, that wider reach is what most worlds'
+  pages allow: whoever wants the narrow one says `none`.
 
 **A bag shows the things themselves.** In the Bag tab each item is drawn
 from its own model: the model that would be in the visitor's hand, read and

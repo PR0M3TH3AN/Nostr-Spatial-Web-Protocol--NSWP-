@@ -16,19 +16,19 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   if (said !== own) throw new Error(`sites.json says ${name} is "${said}", and its own world.json says "${own}". They must agree.`);
   // And what it does with the things visitors carry (protocol/17-items.md): a door warns of a place where items
   // are part of play, so that word must be the place's own too.
-  const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "none";
-  const ownCarried = (read.world ?? read).items ?? "none";
+  // A place that says nothing has items: `none` is the word that turns them off.
+  const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "allowed";
+  const ownCarried = (read.world ?? read).items ?? "allowed";
   if (carried !== ownCarried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its own world.json says "${ownCarried}". They must agree.`);
   // And the page must do what the announcement says: a reference world's own code names the same rule.
   if (config.worlds[name]) {
-    const inCode = /^\s*items: "([a-z]+)",?\s*$/m.exec(readFileSync(join(root, "sites", name, "src", "main.ts"), "utf8"))?.[1] ?? "none";
+    const inCode = /^\s*items: "([a-z]+)",?\s*$/m.exec(readFileSync(join(root, "sites", name, "src", "main.ts"), "utf8"))?.[1] ?? "allowed";
     if (inCode !== carried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its src/main.ts says "${inCode}". They must agree.`);
   }
 }
 /** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */
 const carries = (s) => {
-  const rule = config.worlds[s.name]?.items;
-  return rule === "allowed" || rule === "play";
+  return (config.worlds[s.name]?.items ?? "allowed") !== "none";
 };
 // Every world in sites.json, and the reference Airlock. Pass names to build only those.
 const only = process.argv.slice(2);

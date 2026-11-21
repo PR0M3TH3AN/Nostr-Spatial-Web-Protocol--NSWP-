@@ -40,8 +40,8 @@ func _ready() -> void:
 	# Where they asked to arrive, or the main entrance.
 	Nswp.place(_visitor)
 	# What visitors carry (NSWP-17): the Bag tab in the menu, the thing in their hand, and what it
-	# sends out. This world's announcement says items are allowed here; a world that says nothing
-	# of them leaves this node out. Everything but the drawing is the kit's own script.
+	# sends out. A world has items unless its announcement says "none"; one that says so
+	# leaves this node out. Everything but the drawing is the kit's own script.
 	_items = NswpItems.new()
 	_items.name = "Items"
 	_items.visitor = _visitor

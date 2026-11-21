@@ -152,7 +152,7 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.bump()` | They walked into something. |
 | `NSWP.say(text)` | A few words shown for a moment. |
 | `NSWP.target(name, detail)` | What the visitor is pointing at, shown in a card beside the controls. |
-| `NSWP.headset(state)` | Whether a headset session can start, and whether one is running. The menu offers the way in. |
+| `NSWP.headset(state)` | Whether a headset session can start (`supported`), whether one is running (`presenting`), and whether one just failed to start (`failed`). The menu offers the way in. Someone who left a headset to come here is offered it by the page, as in every world: a press anywhere reaches the engine as `{ type: "vr", enter: true }`. |
 | `NSWP.door(entry)` | List a door in the menu. |
 | `NSWP.view()` | Everything in the visitor's console, as JSON, for an engine that draws some of it in an interface of its own. |
 | `NSWP.run(id)` | Press one of them by its id: `home`, `fullscreen`, `sound-music`, `jump`. The same button, with the visitor's own settings and home. |
@@ -208,7 +208,7 @@ and how the visitor is. An engine does only what only it can:
 
 | Call | Does |
 |---|---|
-| `NSWP.items(options)` | Call once, after `menu`. `options` is JSON: `rule`, what the world's announcement says of items (`allowed` or `play`); `box`, where the page serves the locked box (left out, `item-box.html` beside the page; `false` for none); `relays`. The Bag tab joins the menu. |
+| `NSWP.items(options)` | Call once, after `menu`. `options` is JSON: `rule`, what the world's announcement says of items (`allowed`, which is what saying nothing means, or `play`); `box`, where the page serves the locked box (left out, `item-box.html` beside the page; `false` for none); `relays`. The Bag tab joins the menu. |
 | `NSWP.frame(view)` | Every frame. `view` is JSON: `dt`; `head` and `turn`, where the visitor's view is and which way it faces (x, y, z, w); `floor`, how high the floor under them is; `fov`; `aspect`; `presenting`; `sighting`; and the engine's answers, `met` and `floors`. Returns what to draw. |
 | `NSWP.model(hash)` | A model's bytes as base64, by the hash its file is named by. They have been fetched, checked against that hash and counted. `""` while they are on their way; `"!"` where the file failed: draw a plain box of the thing's size. |
 | `NSWP.itemTap(press)` | The view was pressed: `from`, `dir` and `heldMs`. True if that was the item's first press, sent the way they pressed: do nothing else with it. A press held is still how they walk. |

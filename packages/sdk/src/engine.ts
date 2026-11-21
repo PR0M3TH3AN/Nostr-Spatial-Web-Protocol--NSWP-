@@ -40,7 +40,7 @@ export { board, figure, people, peopleInfo } from "./engine-people.js";
 import { travellingNow } from "./engine-people.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 12;
+export const VERSION = 13;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 

@@ -167,9 +167,10 @@ runs. So an item behaves the same in your world as in any other.
 
 Three things to do beside the code:
 
-1. **Say so in your announcement:** `"items": "allowed"` in your world's
-   `world.json`, signed and published. A world that says nothing of items
-   has none, and should leave `NswpItems` out.
+1. **Nothing, in your announcement:** a world has items unless it says
+   otherwise. A world that leaves `NswpItems` out can't draw them, and
+   says so: `"items": "none"` in its `world.json`, signed and published,
+   so that doors to it tell the truth.
 2. **Serve the locked box.** An item's own logic runs in a page of its own
    that can reach nothing: `item-box.html`, beside your `index.html`. Its
    text is `ITEM_BOX_HTML` in the kit's core, and your host must send it

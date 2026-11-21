@@ -26,6 +26,15 @@ const keepFull = (on: boolean): void => {
 };
 export const prefersFullscreen = (): boolean => prefers;
 
+let held = false;
+/**
+ * Something else is waiting for the visitor's next press (the way back into a headset, ui/headset.ts). A browser
+ * gives one press to one thing, so while that is so the screen isn't filled by it.
+ */
+export const holdFullscreen = (on: boolean): void => {
+  held = on;
+};
+
 /**
  * A visitor who prefers the world filling their screen has it filling their
  * screen, as early as a browser allows.
@@ -71,7 +80,7 @@ export function resumeFullscreen(presenting: () => boolean = () => false): void 
   };
   const onPress = (e: Event) => {
     // Escape is how a visitor leaves fullscreen: never the press that enters it.
-    if ((e as KeyboardEvent).code === "Escape" || presenting() || document.fullscreenElement) return;
+    if ((e as KeyboardEvent).code === "Escape" || held || presenting() || document.fullscreenElement) return;
     // Some presses a browser won't take (it decides which). The next one is tried, until one is.
     void document.documentElement.requestFullscreen().then(stop, () => {});
   };
@@ -86,7 +95,7 @@ export function fullscreenAction(controls: Controls, presenting: () => boolean):
   resumeFullscreen(presenting);
   // Still waiting once there is somewhere to say so: tell them the one thing that will do it.
   setTimeout(() => {
-    if (waiting && !presenting()) controls.say("Press any key, or click, to fill the screen again.");
+    if (waiting && !held && !presenting()) controls.say("Press any key, or click, to fill the screen again.");
   }, 600);
   return {
     id: "fullscreen",

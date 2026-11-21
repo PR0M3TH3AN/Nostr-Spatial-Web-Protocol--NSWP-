@@ -188,12 +188,18 @@ and one where the browser allows it. Each party keeps its own count down:
 **A world, as the visitor arrives**
 
 - When the arrival says `immersive`, the way back into the headset is the
-  first thing on the page: alone, large enough to hit with a controller on
-  the browser's flat panel, and ready before the world has finished loading.
+  first thing on the page, alone, and **the whole page is its button**: a
+  press anywhere on it, with a controller, a hand, a finger or a key,
+  starts the session. Nobody is made to aim at anything on the browser's
+  flat panel. The one other thing there is the way to stay on the screen.
 - Asks nothing else on arriving. No splash, no "click to begin", no consent
   wall, no sign-in.
-- Listens for `sessiongranted`. Where a browser gives it, the session carries
-  over and there is nothing to ask at all. Few browsers do yet.
+- Listens for `sessiongranted`, from the moment the page loads. Where a
+  browser gives it, the session carries over and there is nothing to ask
+  at all. Few browsers do, and none between two sites, which is what two
+  worlds are: so the press above is what a visitor meets.
+- Where a browser has a control of its own for starting a session
+  (`offerSession`), gives it the world to start.
 - Lets the visitor in before it is ready, and finishes loading behind the
   chamber's doors.
 

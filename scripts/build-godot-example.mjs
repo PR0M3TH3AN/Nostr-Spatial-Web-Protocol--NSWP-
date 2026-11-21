@@ -87,7 +87,7 @@ writeFileSync(
 // A world that draws what its visitors carry (protocol/17-items.md) also serves the locked box an item's own logic
 // runs in: a page of its own, under rules that let it reach nothing, and none of this site's other rules. A world
 // with no items has no such page.
-const carries = world.items === "allowed" || world.items === "play";
+const carries = (world.items ?? "allowed") !== "none";
 if (carries) writeFileSync(join(dist, "item-box.html"), ITEM_BOX_HTML);
 const csp = [
   "default-src 'self'",

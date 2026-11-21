@@ -2,6 +2,22 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.58.0
+
+Items in every world, and one press anywhere to go back into a headset.
+
+- **A world has items unless it turns them off.** A world that says nothing about items now lets them work (`allowed`), where it used to have none: decided by the owner. A world turns them off by saying `"items": "none"`, which its announcement now carries as an `items` tag. A rule nobody knows is still read as `none`, never as allowed. So every reference world, the template and a world made with Godot draw what visitors hold with nothing added to them.
+- **What that changes for a world's page:** a world that draws items fetches their files from wherever their makers keep them, so its page may reach any `https` address (each file is checked against its hash before it is used), and it serves the locked box an item's logic runs in. That was so for the Grove and the Foundry, and is now so for every world that hasn't said `none`.
+- **A door says only what isn't ordinary.** "Items are part of play here", as before; "No items here" for a place that turned them off; nothing for a place that only allows them. It used to say "Items work here".
+- **A world that can't draw items should say so.** One built from the kit's parts without an item store, or a Godot world without `NswpItems`, draws nothing carried whatever its announcement says. `"items": "none"` keeps its doors honest.
+- **After a door, a press anywhere takes a visitor back into VR.** A browser ends a headset session when the page changes and starts one only on a press, and none hands a session from one site to the next: that can't be changed from a page. What was asked was to aim a controller at one button on the browser's flat panel. Now the whole page is the button: a press anywhere on it, with a controller, a hand, a finger or any key. "Look around on this screen" is the one other thing there. (`ui/headset.ts`)
+- **The same in a world made with Godot,** which only said where the control was.
+- **A headset browser's own Enter VR control is given the world to start,** where it has one (`offerSession`): so there is a way in that is in the same place in every world.
+- **A browser that does carry a session over is heard from the moment the page loads.** The kit listened only once the world was built, which is after a browser says it.
+- The press that goes back into a headset is not also taken to fill the screen: a browser gives one press to one thing.
+
+Not tried in a headset: none of the above. It was built against what browsers document and what the Quest's is reported to do.
+
 ## 0.57.1
 
 - **A thing whose model can't be fetched has no picture in the bag,** and is shown by its first letter and its name. It was shown as a bare wire frame of its size, which is what a world draws in a model's place and is no picture of anything.

@@ -95,33 +95,44 @@ describe("an item's description", () => {
 describe("what a world does with items", () => {
   const world = { d: "arena", title: "The Arena", url: "https://arena.example/", summary: "A place to play.", modes: ["inline-3d" as const], createdAt: T };
 
-  it("is one of three things, and nothing where it doesn't say", () => {
+  it("is one of three things, and allowed where it doesn't say", () => {
     expect(cleanItemsRule("play")).toBe("play");
     expect(cleanItemsRule("allowed")).toBe("allowed");
-    for (const other of ["none", "", "everything", undefined, 5]) expect(cleanItemsRule(other)).toBe("none");
+    expect(cleanItemsRule("none")).toBe("none");
+    // Nothing said: things can be carried. A place turns them off by saying so.
+    for (const unsaid of [undefined, null]) expect(cleanItemsRule(unsaid)).toBe("allowed");
+    // Something said that nobody knows is never taken as the way in.
+    for (const other of ["", "everything", 5, {}, "ALLOWED"]) expect(cleanItemsRule(other)).toBe("none");
   });
 
-  it("is said in its announcement only where it is more than nothing", () => {
+  it("is said in its announcement as the world said it, so that turning items off is said", () => {
     const tags = (items?: "none" | "allowed" | "play") => buildWorldEvent({ ...world, ...(items ? { items } : {}) }).tags.filter((t) => t[0] === "items");
     expect(tags("play")).toEqual([["items", "play"]]);
     expect(tags("allowed")).toEqual([["items", "allowed"]]);
-    expect(tags("none")).toEqual([]);
+    expect(tags("none")).toEqual([["items", "none"]]);
     expect(tags()).toEqual([]);
   });
 
   it("is read back, and an unknown rule is none, with a word of warning", () => {
-    const read = (value: string) => parseWorldEvent(finalizeEvent({ ...buildWorldEvent(world), tags: [...buildWorldEvent(world).tags, ["items", value]] }, KEY), { requireSigned: true });
+    const read = (value?: string) => parseWorldEvent(finalizeEvent({ ...buildWorldEvent(world), tags: [...buildWorldEvent(world).tags, ...(value === undefined ? [] : [["items", value]])] }, KEY), { requireSigned: true });
     const play = read("play");
     expect(play.ok && play.value.items).toBe("play");
+    const off = read("none");
+    expect(off.ok && off.value.items).toBe("none");
+    // One that says nothing is left saying nothing, which is allowed.
+    const unsaid = read();
+    expect(unsaid.ok && unsaid.value.items).toBeUndefined();
+    expect(unsaid.ok && cleanItemsRule(unsaid.value.items)).toBe("allowed");
     const odd = read("anything-goes");
-    expect(odd.ok && odd.value.items).toBeUndefined();
+    expect(odd.ok && odd.value.items).toBe("none");
     expect(odd.warnings.map((w) => w.code)).toContain("unknown_items_rule");
   });
 
-  it("is told to a visitor before they go in, in the same words everywhere", () => {
+  it("is told to a visitor before they go in only where it isn't the ordinary rule", () => {
     expect(itemsWords("play")).toBe("Items are part of play here");
-    expect(itemsWords("allowed")).toBe("Items work here");
-    expect(itemsWords("none")).toBeNull();
+    expect(itemsWords("none")).toBe("No items here");
+    expect(itemsWords("anything-goes")).toBe("No items here");
+    expect(itemsWords("allowed")).toBeNull();
     expect(itemsWords(undefined)).toBeNull();
   });
 });

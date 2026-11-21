@@ -561,10 +561,9 @@ func _setup_headset() -> void:
 
 func _on_session_supported(mode: String, supported: bool) -> void:
 	if mode == "immersive-vr":
+		# Someone who left a headset to come here is offered the way back in by the page, once it
+		# hears that a session can start: a press anywhere takes them in (`vr_pressed`).
 		Nswp.headset(supported, _presenting)
-		# They left a headset to come here: say where the way back in is.
-		if supported and bool(Nswp.arrival.get("immersive", false)):
-			Nswp.say("You left a headset to come here. Enter VR, in the row of controls, takes you back in.")
 
 
 ## A browser starts a headset session only on a press. The menu's control is one.
@@ -601,4 +600,5 @@ func _on_session_ended() -> void:
 func _on_session_failed(why: String) -> void:
 	_presenting = false
 	Nswp.say("Couldn't start VR on this device.")
+	Nswp.headset(true, false, true)
 	headset_failed.emit(why)
