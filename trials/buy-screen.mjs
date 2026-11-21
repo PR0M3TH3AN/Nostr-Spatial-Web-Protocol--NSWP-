@@ -30,6 +30,14 @@ export async function open({ viewport = { width: 1440, height: 900 }, believeSan
   await ctx.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+    // A client that takes a share says so in its own `/.well-known/nswp.json` (`share`: a key). BitPortal names
+    // none, by design. For a trial of shares, CLIENT_SHARE=<a key registered to be paid at the sandbox> has the
+    // local page that keeps the screen say it, in this browser only: nothing on disk or served to anyone changes.
+    if (process.env.CLIENT_SHARE && url.hostname === HOST && url.port === "4300" && url.pathname === "/.well-known/nswp.json") {
+      let had = {};
+      try { const res = await route.fetch(); if (res.ok()) had = JSON.parse(await res.text()); } catch { /* it has none: this is the whole file */ }
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ ...had, share: process.env.CLIENT_SHARE }) });
+    }
     // A world's real address is answered by its copy on this machine, so even the question never leaves.
     const copy = { "gallery.bitblocks.network": 4301, "grove.bitblocks.network": 4302, "tour.bitblocks.network": 4303, "portal.bitblocks.network": 4300 }[url.hostname];
     if (copy) {

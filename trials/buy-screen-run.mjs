@@ -29,13 +29,16 @@ if (!signIn) {
   await t.page.frameLocator("#view").locator("nswp-hud").getByRole("button").first().hover().catch(() => null);
   await t.ask("buy", LISTING);
   await t.until(async () => { const p = await t.panelBox(); return p && !p.waiting ? p : null; }, 15000);
-  await t.page.waitForTimeout(2500);
+  // The screen as it stands once it has found what is for sale: it is given time to, and read when its button is there.
+  await t.until(async () => ((await t.says())?.buttons ?? []).some((b) => /Pay \d|Don't buy/.test(b)), 90000);
   r.buyScreen = await t.says();
   await t.shot("buy-screen-2-asked");
   if (process.env.PRESS) {
     await t.panelFrame().getByRole("button", { name: new RegExp(process.env.PRESS, "i") }).first().click({ timeout: 90000 });
     const got = await t.until(async () => { const a = await t.answer("buy"); return a === "waiting" ? null : { got: a }; }, 90000);
     r.after = await t.says();
+    // With shares (WANT_ON_SCREEN="for the maker|for the client"), every share must have been on the screen before the press.
+    if (process.env.WANT_ON_SCREEN) want("1b every share was shown before paying", process.env.WANT_ON_SCREEN.split("|").map((w) => (r.buyScreen?.text ?? "").includes(w)), process.env.WANT_ON_SCREEN.split("|").map(() => true));
     await t.shot("buy-screen-3-after");
     // The kit's `buy` answers with what it read from the receipt, the receipt itself as `event`, and what was
     // delivered. It answers at all only if its own check passed (it does not believe the word "bought").
