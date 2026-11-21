@@ -765,10 +765,19 @@ corrected:
     quoting and paying all took the name; the last step, which wraps what
     was bought for the buyer, held names to a stricter rule and failed
     every time. BitUnlock's session fixed it on its branch, with a test
-    that every name that can be registered can be handed over. The same
-    fault is in the live service until that fix is deployed, which is the
-    owner's word to BitUnlock's session. Until then no real listing is
-    named with a space.
+    that every name that can be registered can be handed over. Deployed
+    to the live service the same day, on the owner's word in BitUnlock's
+    own session, as the commit that was live plus only this fix
+    (581d674), and merged to its main. Nobody has looked at whether a
+    real buyer was caught by it before the fix: that look reads live
+    data, and waits for the owner.
+11. **Collecting BitUnlock's fee from a seller later has never run with
+    real money.** Fees are recorded on the live service for sellers
+    billed that way; the invoice that collects them had not been issued
+    and paid when BitUnlock's notes were last written. And "one invoice"
+    and "billed later" are two separate settings: the first is the mode
+    for a seller the operator grants it to, the second is how the fee is
+    then collected. This bears on decision 46.
 
 ### 11.2 BitUnlock
 
@@ -1336,7 +1345,15 @@ machine, with throwaway keys and pretend sats):
 - BitPortal's room and a tip to a person, with a stand-in for BitLogin's
   client and two throwaway visitors: the row, the three amounts, exactly
   a key and an amount handed over, and what the room says after.
-- Not tried by anyone: BitLogin's own screen buying from the sandbox; a
+- BitLogin's own screen, in its own browser test (a throwaway account on
+  a local copy, its own stand-in relays): a world asks to buy the test
+  listing; the screen shows the price, "To the seller 490 sats", the
+  service's fee of 10, and that the sats are pretend; a press pays both;
+  the world is handed a receipt; asked again, it is held, and a second
+  purchase returns the same receipt with no second order. Reported by
+  BitLogin's session; not run from here.
+- Not tried by anyone: a world built on the kit asking BitLogin's real
+  screen (each has been tried against the sandbox, not yet together); a
   tip or a purchase with real sats; anything in a headset.
 
 Two things BitLogin's "finish it later" rests on, which BitUnlock's
@@ -1394,8 +1411,13 @@ Not decided by the above, and each needed before the part it belongs to:
   sale.
 - **Switching shares on** (section 8.1): the owner's word, after the
   lawyer's answer. And the key BitPortal names for its own share.
-- **Opening buying at bitlogin.network** (45), and **deploying
-  BitUnlock's fix** for a name with a space: each the owner's word.
+- **Opening buying at bitlogin.network** (45): the owner's word.
+  BitLogin's half is released there (2026-11-21) with buying closed, and
+  BitUnlock's fix is live. What is left before asking: the kit and
+  BitLogin's real screen tried together.
+- **A look at BitUnlock's live data** for anyone caught by the fault
+  with a name with a space (section 11.1a, 10): the owner's word, in
+  BitUnlock's session.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;
