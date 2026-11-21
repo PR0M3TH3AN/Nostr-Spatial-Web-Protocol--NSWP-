@@ -226,7 +226,7 @@ function itemsFrame(): Record<string, unknown> {
   const tints = state.presence.tints;
   return {
     rule: state.rule,
-    held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does } : null,
+    held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does, bob: state.presence.heldBob } : null,
     sight: state.wantSight && !!item?.aim && !presenting,
     ...now,
   };

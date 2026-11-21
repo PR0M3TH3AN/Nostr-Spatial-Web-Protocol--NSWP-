@@ -33,7 +33,7 @@ const item = Object.freeze({
   on(event, fn) { if (typeof fn === "function") __on[String(event)] = fn; },
   play(name) { __ask("play", [String(name)]); },
   clip(name) { __ask("clip", [String(name)]); },
-  send(name, how) { __ask("send", [String(name), { speed: Number(how && how.speed), stick: Number(how && how.stick), lift: Number(how && how.lift) }]); },
+  send(name, how) { __ask("send", [String(name), { speed: Number(how && how.speed), stick: Number(how && how.stick), lift: Number(how && how.lift), spread: Number(how && how.spread) }]); },
   show(text) { __ask("show", [String(text)]); },
   after(ms, fn) { if (typeof fn === "function" && __timers.length < 32) __timers.push({ at: __now + Math.max(0, Number(ms) || 0), fn }); },
 });

@@ -66,9 +66,8 @@ func _process(delta: float) -> void:
 		if typeof(clip) != TYPE_DICTIONARY or not _people.has(str(clip.get("who", ""))):
 			continue
 		var player: Variant = _people[str(clip.get("who", ""))].get("held_player")
-		if player is AnimationPlayer and (player as AnimationPlayer).has_animation(str(clip.get("name", ""))):
-			(player as AnimationPlayer).stop()
-			(player as AnimationPlayer).play(str(clip.get("name", "")))
+		if player is AnimationPlayer:
+			NswpItems.play_clip(player as AnimationPlayer, str(clip.get("name", "")))
 
 
 func _draw(people: Variant) -> void:

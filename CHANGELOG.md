@@ -2,6 +2,20 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.60.0
+
+What is in your hand goes with you, and a blaster with more to it.
+
+- **What a visitor holds goes through a door with them.** It is one of the settings that travel (`holding`): the item, the colours they chose, and the hash of its script if it was running. Since a link can be written by anyone, the thing is taken in hand on arriving only if it is in the visitor's own signed bag, and its logic runs unasked only if it is the very script the link names. Put away by their own hand, it stays away. A site also keeps what its visitor last held there (`nswp:holding`), so it is in their hand when they come back.
+- **A thing's card holds what there is to do with it.** In the Bag tab, taking it in hand or putting it away, what it does, its colours and its details sit beside its picture, where the card was empty (`UiCard.acts`). On a narrow screen they go under it.
+- **A pose stays** (`isPose`): an animation whose name begins `pose` leaves the thing as it ended, until another pose is played. Anything else is a moment, played over the pose. In a world made with Godot too.
+- **A little spread:** `item.send(name, { spread })` throws what is sent out off its aim by up to that many radians, at random. Worked out once and told to the room as where it went, so everyone sees the same flight.
+- **The other mouse button aims and stays aimed:** pressed again, the sight comes down. It used to have to be held.
+- **What is in the hand sways with the visitor's steps,** a little, in pace with their footsteps. It moves no shot: where a thing is aimed is worked out from the view. Not while aiming along it, in a headset, or with motion off (`presence.heldBob`, for another engine to add).
+- **The dart blaster:** its darts go nearly three times as far (as fast as the kit lets anything be sent), no two quite the same way, and its magazine holds the five it fires: each shot takes the top one and pushes the rest up a place, and a reload fills it. Its model and script are new, so it is signed again; the old files are kept for the bags that name them.
+- An item's script may ask for eight animations a second, where it was four: a shot and a reload together are three.
+- Settings on a link may be 900 characters, where they were 400: what is held is an address and a hash.
+
 ## 0.59.2
 
 - **A page that finds it has been updated asks for itself afresh before it loads again** (`reloadAfresh`). A plain reload keeps the headers a browser first had with a page whose HTML hasn't changed, its content rules among them; asking for the page outright replaces that copy, so the page that then loads is under the rules its site sends today. With the mark every page now carries (0.59.1), a change to a site's rules reaches returning visitors either way.

@@ -319,6 +319,7 @@ function reload() {
   show();
   item.play("reload");
   item.clip("reload");
+  item.clip("pose" + FULL);
   item.after(1400, function () {
     darts = FULL;
     busy = false;
@@ -336,9 +337,9 @@ item.on("use", function () {
   if (busy) return;
   if (darts === 0) return reload();
   darts -= 1;
-  item.send("dart", { speed: 14, stick: 3 });
+  item.send("dart", { speed: 40, stick: 3, spread: 0.015 });
   item.play("fire");
-  item.clip("fire");
+  item.clip("pose" + darts);
   show();
   if (darts === 0) reload();
 });

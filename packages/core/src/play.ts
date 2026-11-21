@@ -21,6 +21,8 @@ export const PLAY_LIMITS = {
   speed: 40,
   /** The longest a thing may stay stuck where it landed, in seconds. */
   stick: 10,
+  /** The most a thing's aim may be thrown off at random, in radians either way: about six degrees. */
+  spread: 0.1,
   /** The longest a thing may fly before it is gone, in seconds. */
   life: 5,
   /** How far from the middle of a world anything may be said to start, in metres. */
@@ -116,6 +118,13 @@ export interface Did {
   name: string;
 }
 const CLIP = /^[\w .-]{1,64}$/;
+/**
+ * A movement of an item's that is a pose and not a moment: its name begins with this. A pose stays as it ended,
+ * until another pose is played: the darts left in a magazine, a lid that is open. Any other movement is played
+ * once and the thing is as it was. Which is which is its maker's to say, in the name they give it in the model.
+ */
+export const POSE = "pose";
+export const isPose = (clip: string): boolean => clip.startsWith(POSE);
 
 export function buildDid(o: Did): string | null {
   if (!o || (o.kind !== "sound" && o.kind !== "clip") || typeof o.name !== "string") return null;
@@ -269,7 +278,7 @@ export const ITEM_ASKS = {
   /** Play one of its own sounds, by name. */
   play: { burst: 6, perSecond: 6 },
   /** Play one of its own animations, by name. */
-  clip: { burst: 4, perSecond: 4 },
+  clip: { burst: 8, perSecond: 8 },
   /** Send out one of the things it has described. */
   send: { burst: PLAY_LIMITS.burst, perSecond: PLAY_LIMITS.perSecond },
   /** Show its own words: a counter. */
@@ -300,7 +309,7 @@ export function createRate(burst: number, perSecond: number): { take(nowMs: numb
 }
 
 /** An ask as the kit takes it from a script: its name on the list, and what goes with it, tidied. Null otherwise. */
-export function cleanAsk(name: unknown, args: unknown): { ask: "play" | "clip"; name: string } | { ask: "send"; name: string; speed: number; stick: number; lift: number } | { ask: "show"; text: string } | null {
+export function cleanAsk(name: unknown, args: unknown): { ask: "play" | "clip"; name: string } | { ask: "send"; name: string; speed: number; stick: number; lift: number; spread: number } | { ask: "show"; text: string } | null {
   const a = Array.isArray(args) ? args : [];
   if (name === "play") return typeof a[0] === "string" && NAME.test(a[0]) ? { ask: "play", name: a[0] } : null;
   if (name === "clip") return typeof a[0] === "string" && CLIP.test(a[0]) ? { ask: "clip", name: a[0] } : null;
@@ -312,7 +321,7 @@ export function cleanAsk(name: unknown, args: unknown): { ask: "play" | "clip"; 
   if (name === "send") {
     const o = (a[1] && typeof a[1] === "object" ? a[1] : {}) as Record<string, unknown>;
     const within = (x: unknown, least: number, most: number, otherwise: number) => (typeof x === "number" && Number.isFinite(x) ? Math.min(most, Math.max(least, x)) : otherwise);
-    return typeof a[0] === "string" && NAME.test(a[0]) ? { ask: "send", name: a[0], speed: within(o.speed, 1, PLAY_LIMITS.speed, 12), stick: within(o.stick, 0, PLAY_LIMITS.stick, 3), lift: within(o.lift, -0.5, 0.5, 0) } : null;
+    return typeof a[0] === "string" && NAME.test(a[0]) ? { ask: "send", name: a[0], speed: within(o.speed, 1, PLAY_LIMITS.speed, 12), stick: within(o.stick, 0, PLAY_LIMITS.stick, 3), lift: within(o.lift, -0.5, 0.5, 0), spread: within(o.spread, 0, PLAY_LIMITS.spread, 0) } : null;
   }
   return null;
 }

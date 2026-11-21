@@ -2,11 +2,12 @@ import { BAG_KIND, bagIn, buildItem, changeBag, finalizeEvent, getPublicKey, typ
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import * as THREE from "three";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBag, type BagHand } from "../src/bag.js";
 import { addBagControls, itemIn } from "../src/bagging.js";
 import { createItems, fitToSize, forgetItemsSwitch, ITEM_BUDGET, setShowsItems, showsItems, withinBudget } from "../src/items.js";
-import { arriveWith, currentSettings } from "../src/settings.js";
+import { scriptAllowed } from "../src/play.js";
+import { arriveWith, currentSettings, resetSettings } from "../src/settings.js";
 import { forgetRelays } from "../src/relay-book.js";
 import type { Controls, UiAction } from "../src/ui/model.js";
 
@@ -152,6 +153,88 @@ describe("the Bag tab", () => {
     const none = await tab("none");
     expect(none.actions.has(`bag-${maker.slice(0, 8)}-brass-lantern`)).toBe(true);
     expect(none.actions.has("bag-hold")).toBe(false);
+  });
+
+  describe("what was in their hand goes through a door with them", () => {
+    const SCRIPT = "c".repeat(64);
+    /** They arrive, as a link says they left: and the tab is made as a world makes it. */
+    const arrive = async (came: unknown, o: { rule?: string; inBag?: string[]; script?: string } = {}) => {
+      arriveWith(came === undefined ? {} : { holding: came });
+      const { bag } = set({ had: bagEvent(o.inBag ?? [LANTERN]), readOnly: true });
+      const m = menu();
+      let held = "";
+      let tints: Record<string, string> | undefined;
+      const thing = (id: string) => ({ id, title: "Brass lantern", tints: [], ...(o.script ? { script: { sha256: o.script } } : {}) });
+      const items = { known: (id: string) => thing(id), describe: async (id: string) => thing(id) } as unknown as Parameters<typeof addBagControls>[1]["items"];
+      const bagging = addBagControls(m.controls, { bag, items, me: () => me, rule: () => o.rule ?? "allowed", holding: () => held, hold: async (item, t) => ((held = item), (tints = t), { ok: true, said: item ? "Held." : "Put away." }) });
+      await bag.load();
+      bagging.refresh();
+      await new Promise((ok) => setTimeout(ok, 20));
+      return { ...m, held: () => held, tints: () => tints, leaving: () => currentSettings().holding };
+    };
+    const forget = () => {
+      arriveWith({});
+      resetSettings();
+      try {
+        localStorage.removeItem("nswp:item-scripts");
+      } catch {
+        /* none kept */
+      }
+    };
+
+    it("is in their hand again where they arrive, in their colours, and goes on from there", async () => {
+      const there = await arrive({ item: LANTERN, tints: { accent: "#8b5cf6" } });
+      expect(there.held()).toBe(LANTERN);
+      expect(there.tints()).toEqual({ accent: "#8b5cf6" });
+      expect(there.said.join(" ")).toContain("still in your hand");
+      expect(there.leaving()).toMatchObject({ item: LANTERN });
+      forget();
+    });
+
+    it("is not taken in hand for a link that names a thing they don't have: anyone can write a link", async () => {
+      const there = await arrive({ item: BOOK });
+      expect(there.held()).toBe("");
+      expect(there.said).toEqual([]);
+      forget();
+    });
+
+    it("goes on through a place with no items, and is not taken in hand there", async () => {
+      const there = await arrive({ item: LANTERN }, { rule: "none" });
+      expect(there.held()).toBe("");
+      // Nothing was put away by their hand, so the next world is still told what they carried.
+      expect(there.leaving()).toEqual({ item: LANTERN });
+      forget();
+    });
+
+    it("is not taken out again once they have put it away themselves", async () => {
+      const there = await arrive({ item: LANTERN });
+      await there.press("bag-away");
+      expect(there.held()).toBe("");
+      expect(there.leaving()).toBe("");
+      forget();
+    });
+
+    it("lets its own logic run unasked only for the very script the link names", async () => {
+      // Somewhere to keep what they have let run, as a browser has.
+      const kept = new Map<string, string>();
+      vi.stubGlobal("localStorage", { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) });
+      const same = await arrive({ item: LANTERN, script: SCRIPT }, { script: SCRIPT });
+      expect(same.held()).toBe(LANTERN);
+      expect(scriptAllowed(SCRIPT)).toBe(true);
+      forget();
+      const changed = await arrive({ item: LANTERN, script: SCRIPT }, { script: "d".repeat(64) });
+      expect(changed.held()).toBe(LANTERN);
+      expect(scriptAllowed("d".repeat(64))).toBe(false);
+      forget();
+      vi.unstubAllGlobals();
+    });
+
+    it("arriving with nothing said takes nothing in hand", async () => {
+      const there = await arrive(undefined);
+      expect(there.held()).toBe("");
+      expect(there.leaving()).toBeUndefined();
+      forget();
+    });
   });
 
   it("offers a few things to take, at a place that can change the bag, and takes one on a press", async () => {

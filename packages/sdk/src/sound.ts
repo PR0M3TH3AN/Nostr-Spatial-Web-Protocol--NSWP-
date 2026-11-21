@@ -54,8 +54,7 @@ import {
   type CuePart,
   type Song,
   type SoundLevels,
-  type SoundTheme,
-} from "./sound-store.js";
+  type SoundTheme, STRIDE } from "./sound-store.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls } from "./ui/model.js";
 
@@ -161,8 +160,6 @@ export const FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 } as c
 
 /** The least time between two of the same cue, in seconds: so held keys and busy frames don't make a buzz. */
 const GAP: Partial<Record<Cue, number>> = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
-/** How far a visitor walks between steps, in metres. */
-const STRIDE = 0.75;
 /** Being moved further than this in one frame is a jump. */
 const JUMP = 1.2;
 

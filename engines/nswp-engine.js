@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.59.2";
+  var KIT_VERSION = "0.60.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4462,12 +4462,213 @@ var NSWP = (() => {
     return { naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: publishers[0], identifier: d, relays: manifest.relays.slice(0, 2) }), url };
   }
 
+  // packages/core/dist/layout.js
+  var ITEM_KIND = 37303;
+  var LAYOUT_LIMITS = {
+    placements: 64,
+    publishedItems: 16,
+    /** Furthest a placement may be from the home's origin, in metres. */
+    reach: 50,
+    noteChars: 280,
+    /** A picture in a frame (spec §10.1). */
+    pictureBytes: 1024 * 1024
+  };
+
+  // packages/core/dist/chat.js
+  var CHAT_LIMITS = {
+    /** The most characters in one thing said. Longer is cut, by the one saying it and again by the one reading. */
+    chars: 240,
+    /** A line is sent this many times, because the channel doesn't try again; a reader takes the first. */
+    repeats: 3,
+    repeatGapMs: 180,
+    /** No more than `burst` lines from one member in `perMs`. The rest are dropped, unseen. */
+    burst: 5,
+    perMs: 1e4,
+    /** How many lines a reader keeps for the visit. */
+    kept: 100,
+    /** How many ids are remembered for each member, to know a repeat from a new line. */
+    remembered: 32
+  };
+  var UNSEEN = [
+    [0, 31],
+    [127, 159],
+    [8203, 8204],
+    // 0x200d joins the parts of one emoji, and stays.
+    [8206, 8207],
+    [8232, 8239],
+    [8288, 8303],
+    [65279, 65279],
+    [65529, 65531]
+  ];
+  var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
+  function cleanLine(text, chars) {
+    if (typeof text !== "string")
+      return "";
+    let out = "";
+    for (const ch of text.slice(0, chars * 8).normalize("NFC"))
+      out += unseen(ch.codePointAt(0)) ? " " : ch;
+    out = out.replace(/\s+/g, " ").trim();
+    return [...out].slice(0, chars).join("").trim();
+  }
+  var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
+  function chatId() {
+    const bytes = new Uint8Array(4);
+    globalThis.crypto.getRandomValues(bytes);
+    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function buildSay(text, id = chatId()) {
+    const cleaned = cleanChat(text);
+    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
+      return null;
+    return `say:${id}:${cleaned}`;
+  }
+  function parseSay(data) {
+    if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
+      return null;
+    const id = data.slice(4, 12);
+    if (!/^[0-9a-f]{8}$/.test(id))
+      return null;
+    const text = cleanChat(data.slice(13));
+    return text ? { id, text } : null;
+  }
+  function createChatGate(limits = CHAT_LIMITS) {
+    const ids = [];
+    let times = [];
+    const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
+    return {
+      take(id, now) {
+        if (ids.includes(id))
+          return false;
+        ids.push(id);
+        if (ids.length > limits.remembered)
+          ids.shift();
+        if (recent(now).length >= limits.burst)
+          return false;
+        times.push(now);
+        return true;
+      },
+      room(now) {
+        return recent(now).length < limits.burst;
+      }
+    };
+  }
+  function bubbleSeconds(text) {
+    return Math.min(12, 4 + [...text].length * 0.06);
+  }
+
+  // packages/core/dist/rating.js
+  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
+  function worldCoordinate(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const c = parseCoordinate(input);
+    return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
+  }
+
+  // packages/core/dist/bag.js
+  var BAG_KIND = 37308;
+  var BAG_D = "bag";
+  var BAG_LIMITS = {
+    /** No more than this many items are read from a bag. */
+    items: 200
+  };
+  var NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+  function itemCoordinate(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const [kind, maker, ...rest] = input.split(":");
+    const d = rest.join(":");
+    return kind === String(ITEM_KIND) && isHex64(maker) && NAME.test(d) ? `${ITEM_KIND}:${maker}:${d}` : "";
+  }
+  function bagIn(event) {
+    if (!event || !Array.isArray(event.tags))
+      return [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const t of event.tags) {
+      if (!Array.isArray(t) || t[0] !== "a")
+        continue;
+      const item = itemCoordinate(t[1]);
+      if (item && seen.size < BAG_LIMITS.items)
+        seen.add(item);
+    }
+    return [...seen];
+  }
+  function newestBag(events2, pubkey) {
+    return events2.filter((e) => e.kind === BAG_KIND && e.pubkey === pubkey && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === BAG_D)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0] ?? null;
+  }
+  function bagTints(event) {
+    const out = {};
+    if (!event || !Array.isArray(event.tags))
+      return out;
+    const has = new Set(bagIn(event));
+    for (const t of event.tags) {
+      if (!Array.isArray(t) || t[0] !== "tint")
+        continue;
+      const item = itemCoordinate(t[1]);
+      if (!item || !has.has(item) || out[item])
+        continue;
+      const tints = {};
+      for (const word of t.slice(2, 6)) {
+        const [slot, color] = typeof word === "string" ? word.split("=") : [];
+        if (slot && /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color ?? ""))
+          tints[slot] = color;
+      }
+      out[item] = tints;
+    }
+    return out;
+  }
+  function tintBag(newest, change2) {
+    if (!newest || newest.kind !== BAG_KIND || !Array.isArray(newest.tags))
+      return null;
+    const item = itemCoordinate(change2.item);
+    if (!item || !bagIn(newest).includes(item))
+      return null;
+    const words2 = Object.entries(change2.tints ?? {}).filter(([slot, color]) => /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color)).slice(0, 4).map(([slot, color]) => `${slot}=${color}`);
+    const was = bagTints(newest)[item] ?? {};
+    if (JSON.stringify(Object.entries(was).map(([s, c]) => `${s}=${c}`)) === JSON.stringify(words2))
+      return null;
+    const kept2 = newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt" && !(t[0] === "tint" && itemCoordinate(t[1]) === item)).map((t) => [...t]);
+    return {
+      kind: BAG_KIND,
+      created_at: Math.max(Math.floor(change2.now), newest.created_at + 1),
+      tags: [["d", BAG_D], ...kept2, ...words2.length ? [["tint", item, ...words2]] : [], ["alt", "A bag: the items this person has"]],
+      content: ""
+    };
+  }
+  function changeBag(newest, change2) {
+    if (newest && (newest.kind !== BAG_KIND || !Array.isArray(newest.tags)))
+      return null;
+    if (!newest && !change2.fromNothing)
+      return null;
+    const add = itemCoordinate(change2.add);
+    const remove = itemCoordinate(change2.remove);
+    if (add === "" === (remove === ""))
+      return null;
+    const which = add || remove;
+    const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt") : [];
+    const names = (t) => t[0] === "a" && itemCoordinate(t[1]) === which;
+    const has = had.some(names);
+    if (add ? has : !has)
+      return null;
+    if (add && bagIn({ tags: had }).length >= BAG_LIMITS.items)
+      return null;
+    const kept2 = add ? [...had.map((t) => [...t]), ["a", add, ...change2.relay ? [change2.relay] : []]] : had.filter((t) => !names(t) && !(t[0] === "tint" && itemCoordinate(t[1]) === which)).map((t) => [...t]);
+    return {
+      kind: BAG_KIND,
+      created_at: Math.max(Math.floor(change2.now), newest ? newest.created_at + 1 : 0),
+      tags: [["d", BAG_D], ...kept2, ["alt", "A bag: the items this person has"]],
+      content: ""
+    };
+  }
+
   // packages/core/dist/settings.js
   var PINS_MOST = 4;
   var PIN_NAME = /^[a-z][a-z0-9-]{0,11}$/;
   var LOOK_RANGE = [0.25, 3];
   var FOV_RANGE = [50, 110];
-  var SETTINGS_LINK_LIMIT = 400;
+  var SETTINGS_LINK_LIMIT = 900;
+  var TINT_SLOT = /^[a-z][a-z0-9-]{0,15}$/;
+  var TINT_COLOR = /^#[0-9a-f]{6}$/;
   var level = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(1, Math.max(0, v2)) * 100) / 100 : void 0;
   function cleanSettings(input) {
     const out = {};
@@ -4517,6 +4718,23 @@ var NSWP = (() => {
       out.items = s.items;
     if (Array.isArray(s.pins))
       out.pins = [...new Set(s.pins.filter((name) => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
+    if (s.holding === "")
+      out.holding = "";
+    else if (s.holding && typeof s.holding === "object" && !Array.isArray(s.holding)) {
+      const from = s.holding;
+      const item = itemCoordinate(from.item);
+      if (item && item.length <= 160) {
+        const held2 = { item };
+        if (from.tints && typeof from.tints === "object" && !Array.isArray(from.tints)) {
+          const tints = Object.fromEntries(Object.entries(from.tints).filter((pair) => TINT_SLOT.test(pair[0]) && typeof pair[1] === "string" && TINT_COLOR.test(pair[1].toLowerCase())).slice(0, 6).map(([slot, color]) => [slot, color.toLowerCase()]));
+          if (Object.keys(tints).length)
+            held2.tints = tints;
+        }
+        if (typeof from.script === "string" && /^[0-9a-f]{64}$/.test(from.script))
+          held2.script = from.script;
+        out.holding = held2;
+      }
+    }
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
@@ -4536,6 +4754,10 @@ var NSWP = (() => {
       return text;
     if (clean3.pins) {
       const { pins: _left, ...rest } = clean3;
+      return encodeSettings(rest);
+    }
+    if (clean3.holding !== void 0) {
+      const { holding: _put, ...rest } = clean3;
       return encodeSettings(rest);
     }
     return "";
@@ -5665,88 +5887,6 @@ ${roomName}`)));
     return pose;
   }
 
-  // packages/core/dist/chat.js
-  var CHAT_LIMITS = {
-    /** The most characters in one thing said. Longer is cut, by the one saying it and again by the one reading. */
-    chars: 240,
-    /** A line is sent this many times, because the channel doesn't try again; a reader takes the first. */
-    repeats: 3,
-    repeatGapMs: 180,
-    /** No more than `burst` lines from one member in `perMs`. The rest are dropped, unseen. */
-    burst: 5,
-    perMs: 1e4,
-    /** How many lines a reader keeps for the visit. */
-    kept: 100,
-    /** How many ids are remembered for each member, to know a repeat from a new line. */
-    remembered: 32
-  };
-  var UNSEEN = [
-    [0, 31],
-    [127, 159],
-    [8203, 8204],
-    // 0x200d joins the parts of one emoji, and stays.
-    [8206, 8207],
-    [8232, 8239],
-    [8288, 8303],
-    [65279, 65279],
-    [65529, 65531]
-  ];
-  var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
-  function cleanLine(text, chars) {
-    if (typeof text !== "string")
-      return "";
-    let out = "";
-    for (const ch of text.slice(0, chars * 8).normalize("NFC"))
-      out += unseen(ch.codePointAt(0)) ? " " : ch;
-    out = out.replace(/\s+/g, " ").trim();
-    return [...out].slice(0, chars).join("").trim();
-  }
-  var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
-  function chatId() {
-    const bytes = new Uint8Array(4);
-    globalThis.crypto.getRandomValues(bytes);
-    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-  function buildSay(text, id = chatId()) {
-    const cleaned = cleanChat(text);
-    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
-      return null;
-    return `say:${id}:${cleaned}`;
-  }
-  function parseSay(data) {
-    if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
-      return null;
-    const id = data.slice(4, 12);
-    if (!/^[0-9a-f]{8}$/.test(id))
-      return null;
-    const text = cleanChat(data.slice(13));
-    return text ? { id, text } : null;
-  }
-  function createChatGate(limits = CHAT_LIMITS) {
-    const ids = [];
-    let times = [];
-    const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
-    return {
-      take(id, now) {
-        if (ids.includes(id))
-          return false;
-        ids.push(id);
-        if (ids.length > limits.remembered)
-          ids.shift();
-        if (recent(now).length >= limits.burst)
-          return false;
-        times.push(now);
-        return true;
-      },
-      room(now) {
-        return recent(now).length < limits.burst;
-      }
-    };
-  }
-  function bubbleSeconds(text) {
-    return Math.min(12, 4 + [...text].length * 0.06);
-  }
-
   // packages/core/dist/pass.js
   var PASS_LIMITS = {
     defaultTtlSec: 4 * 3600,
@@ -5971,15 +6111,6 @@ ${roomName}`)));
     return { kind: MESSAGE_RELAYS_KIND, created_at: Math.floor(now), tags: clean3.map((url) => ["relay", url]), content: "" };
   }
 
-  // packages/core/dist/rating.js
-  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
-  function worldCoordinate(input) {
-    if (typeof input !== "string" || input.length > 200)
-      return "";
-    const c = parseCoordinate(input);
-    return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
-  }
-
   // packages/core/dist/score.js
   var SCORE_KIND = 37306;
   var SCORE_LIMITS = {
@@ -6033,9 +6164,9 @@ ${roomName}`)));
     title: 60,
     about: 160
   };
-  var NAME = /^[a-z0-9][a-z0-9-]{0,31}$/;
+  var NAME2 = /^[a-z0-9][a-z0-9-]{0,31}$/;
   function cleanAchievementId(input) {
-    return typeof input === "string" && NAME.test(input) ? input : "";
+    return typeof input === "string" && NAME2.test(input) ? input : "";
   }
   function parseAchievement(event) {
     if (!event || event.kind !== ACHIEVEMENT_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
@@ -6171,18 +6302,6 @@ ${roomName}`)));
     return null;
   }
 
-  // packages/core/dist/layout.js
-  var ITEM_KIND = 37303;
-  var LAYOUT_LIMITS = {
-    placements: 64,
-    publishedItems: 16,
-    /** Furthest a placement may be from the home's origin, in metres. */
-    reach: 50,
-    noteChars: 280,
-    /** A picture in a frame (spec §10.1). */
-    pictureBytes: 1024 * 1024
-  };
-
   // packages/core/dist/item.js
   var ITEM_LIMITS = {
     title: 60,
@@ -6209,7 +6328,7 @@ ${roomName}`)));
   var ITEM_BEHAVIORS = ["holdable", "sittable", "touchable", "readable", "wearable"];
   var ITEM_FITS = ["place", "head", "back", "hand-left", "hand-right", "side"];
   var ITEM_MOMENTS = ["idle", "touch", "held", "move", "use"];
-  var NAME2 = /^[a-z0-9][a-z0-9-]{0,63}$/;
+  var NAME3 = /^[a-z0-9][a-z0-9-]{0,63}$/;
   var CLIP = /^[\w .-]{1,64}$/;
   function cleanFile(url, sha2562) {
     if (typeof url !== "string" || url.length > ITEM_LIMITS.url || !isHex64(sha2562))
@@ -6279,7 +6398,7 @@ ${roomName}`)));
     const m = tag2("model");
     const model2 = m && m[2] === "glb" ? cleanFile(m[1], m[3]) : null;
     const size = numbers(tag2("size")?.[1], 3);
-    if (typeof d !== "string" || !NAME2.test(d) || !title || !model2 || !size || !size.every(within))
+    if (typeof d !== "string" || !NAME3.test(d) || !title || !model2 || !size || !size.every(within))
       return null;
     const th = tag2("thumb");
     const sc = tag2("script");
@@ -6320,102 +6439,6 @@ ${roomName}`)));
     };
   }
 
-  // packages/core/dist/bag.js
-  var BAG_KIND = 37308;
-  var BAG_D = "bag";
-  var BAG_LIMITS = {
-    /** No more than this many items are read from a bag. */
-    items: 200
-  };
-  var NAME3 = /^[a-z0-9][a-z0-9-]{0,63}$/;
-  function itemCoordinate(input) {
-    if (typeof input !== "string" || input.length > 200)
-      return "";
-    const [kind, maker, ...rest] = input.split(":");
-    const d = rest.join(":");
-    return kind === String(ITEM_KIND) && isHex64(maker) && NAME3.test(d) ? `${ITEM_KIND}:${maker}:${d}` : "";
-  }
-  function bagIn(event) {
-    if (!event || !Array.isArray(event.tags))
-      return [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const t of event.tags) {
-      if (!Array.isArray(t) || t[0] !== "a")
-        continue;
-      const item = itemCoordinate(t[1]);
-      if (item && seen.size < BAG_LIMITS.items)
-        seen.add(item);
-    }
-    return [...seen];
-  }
-  function newestBag(events2, pubkey) {
-    return events2.filter((e) => e.kind === BAG_KIND && e.pubkey === pubkey && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === BAG_D)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0] ?? null;
-  }
-  function bagTints(event) {
-    const out = {};
-    if (!event || !Array.isArray(event.tags))
-      return out;
-    const has = new Set(bagIn(event));
-    for (const t of event.tags) {
-      if (!Array.isArray(t) || t[0] !== "tint")
-        continue;
-      const item = itemCoordinate(t[1]);
-      if (!item || !has.has(item) || out[item])
-        continue;
-      const tints = {};
-      for (const word of t.slice(2, 6)) {
-        const [slot, color] = typeof word === "string" ? word.split("=") : [];
-        if (slot && /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color ?? ""))
-          tints[slot] = color;
-      }
-      out[item] = tints;
-    }
-    return out;
-  }
-  function tintBag(newest, change2) {
-    if (!newest || newest.kind !== BAG_KIND || !Array.isArray(newest.tags))
-      return null;
-    const item = itemCoordinate(change2.item);
-    if (!item || !bagIn(newest).includes(item))
-      return null;
-    const words2 = Object.entries(change2.tints ?? {}).filter(([slot, color]) => /^[a-z][a-z0-9-]{0,23}$/.test(slot) && /^#[0-9a-f]{6}$/.test(color)).slice(0, 4).map(([slot, color]) => `${slot}=${color}`);
-    const was = bagTints(newest)[item] ?? {};
-    if (JSON.stringify(Object.entries(was).map(([s, c]) => `${s}=${c}`)) === JSON.stringify(words2))
-      return null;
-    const kept2 = newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt" && !(t[0] === "tint" && itemCoordinate(t[1]) === item)).map((t) => [...t]);
-    return {
-      kind: BAG_KIND,
-      created_at: Math.max(Math.floor(change2.now), newest.created_at + 1),
-      tags: [["d", BAG_D], ...kept2, ...words2.length ? [["tint", item, ...words2]] : [], ["alt", "A bag: the items this person has"]],
-      content: ""
-    };
-  }
-  function changeBag(newest, change2) {
-    if (newest && (newest.kind !== BAG_KIND || !Array.isArray(newest.tags)))
-      return null;
-    if (!newest && !change2.fromNothing)
-      return null;
-    const add = itemCoordinate(change2.add);
-    const remove = itemCoordinate(change2.remove);
-    if (add === "" === (remove === ""))
-      return null;
-    const which = add || remove;
-    const had = newest ? newest.tags.filter((t) => Array.isArray(t) && t.every((x) => typeof x === "string") && !SITE_MARKS.includes(t[0] ?? "") && t[0] !== "d" && t[0] !== "alt") : [];
-    const names = (t) => t[0] === "a" && itemCoordinate(t[1]) === which;
-    const has = had.some(names);
-    if (add ? has : !has)
-      return null;
-    if (add && bagIn({ tags: had }).length >= BAG_LIMITS.items)
-      return null;
-    const kept2 = add ? [...had.map((t) => [...t]), ["a", add, ...change2.relay ? [change2.relay] : []]] : had.filter((t) => !names(t) && !(t[0] === "tint" && itemCoordinate(t[1]) === which)).map((t) => [...t]);
-    return {
-      kind: BAG_KIND,
-      created_at: Math.max(Math.floor(change2.now), newest ? newest.created_at + 1 : 0),
-      tags: [["d", BAG_D], ...kept2, ["alt", "A bag: the items this person has"]],
-      content: ""
-    };
-  }
-
   // packages/core/dist/play.js
   var GRAVITY = 9.8;
   var PLAY_LIMITS = {
@@ -6423,6 +6446,8 @@ ${roomName}`)));
     speed: 40,
     /** The longest a thing may stay stuck where it landed, in seconds. */
     stick: 10,
+    /** The most a thing's aim may be thrown off at random, in radians either way: about six degrees. */
+    spread: 0.1,
     /** The longest a thing may fly before it is gone, in seconds. */
     life: 5,
     /** How far from the middle of a world anything may be said to start, in metres. */
@@ -6486,6 +6511,8 @@ ${roomName}`)));
     return buildHit(hit) ? hit : null;
   }
   var CLIP2 = /^[\w .-]{1,64}$/;
+  var POSE = "pose";
+  var isPose = (clip) => clip.startsWith(POSE);
   function buildDid(o) {
     if (!o || o.kind !== "sound" && o.kind !== "clip" || typeof o.name !== "string")
       return null;
@@ -6589,7 +6616,7 @@ ${roomName}`)));
     /** Play one of its own sounds, by name. */
     play: { burst: 6, perSecond: 6 },
     /** Play one of its own animations, by name. */
-    clip: { burst: 4, perSecond: 4 },
+    clip: { burst: 8, perSecond: 8 },
     /** Send out one of the things it has described. */
     send: { burst: PLAY_LIMITS.burst, perSecond: PLAY_LIMITS.perSecond },
     /** Show its own words: a counter. */
@@ -6626,7 +6653,7 @@ ${roomName}`)));
     if (name === "send") {
       const o = a[1] && typeof a[1] === "object" ? a[1] : {};
       const within2 = (x, least, most, otherwise) => typeof x === "number" && Number.isFinite(x) ? Math.min(most, Math.max(least, x)) : otherwise;
-      return typeof a[0] === "string" && NAME4.test(a[0]) ? { ask: "send", name: a[0], speed: within2(o.speed, 1, PLAY_LIMITS.speed, 12), stick: within2(o.stick, 0, PLAY_LIMITS.stick, 3), lift: within2(o.lift, -0.5, 0.5, 0) } : null;
+      return typeof a[0] === "string" && NAME4.test(a[0]) ? { ask: "send", name: a[0], speed: within2(o.speed, 1, PLAY_LIMITS.speed, 12), stick: within2(o.stick, 0, PLAY_LIMITS.stick, 3), lift: within2(o.lift, -0.5, 0.5, 0), spread: within2(o.spread, 0, PLAY_LIMITS.spread, 0) } : null;
     }
     return null;
   }
@@ -6641,7 +6668,7 @@ const item = Object.freeze({
   on(event, fn) { if (typeof fn === "function") __on[String(event)] = fn; },
   play(name) { __ask("play", [String(name)]); },
   clip(name) { __ask("clip", [String(name)]); },
-  send(name, how) { __ask("send", [String(name), { speed: Number(how && how.speed), stick: Number(how && how.stick), lift: Number(how && how.lift) }]); },
+  send(name, how) { __ask("send", [String(name), { speed: Number(how && how.speed), stick: Number(how && how.stick), lift: Number(how && how.lift), spread: Number(how && how.spread) }]); },
   show(text) { __ask("show", [String(text)]); },
   after(ms, fn) { if (typeof fn === "function" && __timers.length < 32) __timers.push({ at: __now + Math.max(0, Number(ms) || 0), fn }); },
 });
@@ -41631,6 +41658,7 @@ void main() {
     return name.slice(0, 60) || "a piece with no name";
   }
   var STEP_LEVEL = 0.45;
+  var STRIDE = 0.75;
   var HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 };
   function heardFrom(place) {
     const d = Number.isFinite(place.distance) ? Math.max(0, place.distance) : HEARD.far;
@@ -41767,7 +41795,6 @@ void main() {
   // packages/sdk/src/sound.ts
   var FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 };
   var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
-  var STRIDE = 0.75;
   var JUMP = 1.2;
   function createSounds(o = {}) {
     const ctx = o.context ?? new AudioContext();
@@ -43970,7 +43997,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
   .rows { grid-template-columns: 1fr 1fr; align-content: start; }
   .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
-  .rows > .person.thing { grid-template-columns: 160px 1fr; }
+  .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
   .rows > .tiles { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
 }
 .sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
@@ -44026,8 +44053,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
 .person .face canvas { width: 100%; height: 100%; display: block; }
 /* A card about a thing: the thing itself, large, on a lit plinth, where a person's card has a face. */
-.person.thing { grid-template-columns: minmax(112px, 30%) 1fr; align-items: start; gap: 4px 14px; }
-.person.thing .face { grid-row: span 4; width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px;
+.person.thing { grid-template-columns: minmax(112px, 30%) 1fr; grid-template-areas: "face about" "acts acts"; align-items: start; gap: 10px 14px; }
+.person.thing .about { grid-area: about; display: grid; gap: 5px; min-width: 0; align-content: start; }
+.person.thing .about blockquote { margin: 3px 0 0; }
+/* What to do with the thing: side by side where they fit, and one under another where they don't. */
+.person.thing .acts { grid-area: acts; display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; align-content: start; min-width: 0; }
+.person.thing .acts > .row { flex: 1 1 210px; min-width: 0; }
+.person.thing .acts > .swatches { flex: 1 1 100%; }
+.person.thing .face { grid-area: face; width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px;
   background: radial-gradient(90% 70% at 50% 92%, rgba(var(--accent), .3), transparent 70%), rgba(var(--ink), .05); color: rgba(var(--ink), .4); }
 .person h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
 .person .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
@@ -44220,7 +44253,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (open2 && section === id2) setOpen(false);
       else setOpen(true, id2);
     };
-    const drawCard = (card) => {
+    const drawCard = (card, acts = []) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
       if (card.color) face.style.setProperty("--c", card.color);
       const paint2 = card.draw;
@@ -44231,10 +44264,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         let had = false;
         const tick2 = () => {
           if (had && (!canvas.isConnected || sheet.hidden)) return;
-          const now = paint2();
-          if (now && g) {
+          const now2 = paint2();
+          if (now2 && g) {
             g.clearRect(0, 0, 256, 256);
-            g.drawImage(now, 0, 0, 256, 256);
+            g.drawImage(now2, 0, 0, 256, 256);
             if (!had) face.replaceChildren(canvas);
             had = true;
           }
@@ -44264,15 +44297,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           () => controls2.say(`The key: ${card.copy}`)
         );
       });
-      return el(
-        "div",
-        { class: card.draw ? "person thing" : "person", role: "group", "aria-label": `About ${card.title}` },
-        face,
-        el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag)),
-        el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey),
-        card.text && el("blockquote", {}, card.text),
-        card.now.length > 0 && el("p", { class: "now" }, card.now.join(", "))
-      );
+      const head = el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag));
+      const key = el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey);
+      const words2 = card.text && el("blockquote", {}, card.text);
+      const now = card.now.length > 0 && el("p", { class: "now" }, card.now.join(", "));
+      if (card.draw) {
+        return el(
+          "div",
+          { class: "person thing", role: "group", "aria-label": `About ${card.title}` },
+          face,
+          el("div", { class: "about" }, head, key, words2, now),
+          acts.length > 0 && el("div", { class: "acts" }, ...acts)
+        );
+      }
+      return el("div", { class: "person", role: "group", "aria-label": `About ${card.title}` }, face, head, key, words2, now);
     };
     let chatState = "closed";
     let dockTab = "room";
@@ -44608,24 +44646,30 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         b.addEventListener("click", () => press(item));
         return b;
       };
-      const laid = [];
-      let run2 = null;
-      for (const item of current?.items ?? []) {
-        if (item.kind === "button") {
-          run2 = null;
-          laid.push(drawRow(item));
-          continue;
+      const lay = (items2) => {
+        const laid2 = [];
+        let run2 = null;
+        for (const item of items2) {
+          if (item.kind === "button") {
+            run2 = null;
+            laid2.push(drawRow(item));
+            continue;
+          }
+          if (run2?.kind !== item.kind) {
+            run2 = { kind: item.kind, box: el("div", { class: item.kind === "tile" ? "tiles" : "swatches" }) };
+            laid2.push(run2.box);
+          }
+          run2.box.append(item.kind === "tile" ? drawTile(item) : drawSwatch(item));
         }
-        if (run2?.kind !== item.kind) {
-          run2 = { kind: item.kind, box: el("div", { class: item.kind === "tile" ? "tiles" : "swatches" }) };
-          laid.push(run2.box);
-        }
-        run2.box.append(item.kind === "tile" ? drawTile(item) : drawSwatch(item));
-      }
+        return laid2;
+      };
+      const inCard = new Set(current?.card?.draw ? current.card.acts ?? [] : []);
+      const laid = lay((current?.items ?? []).filter((item) => !inCard.has(item.id)));
+      const beside = lay((current?.items ?? []).filter((item) => inCard.has(item.id)));
       const about = current?.card ? `${section}:${current.card.title}` : "";
       const fresh = about !== cardShown;
       cardShown = about;
-      rows.replaceChildren(current?.card ? drawCard(current.card) : "", ...laid);
+      rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
       if (fresh && about) rows.scrollTop = 0;
       rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
@@ -44692,7 +44736,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const at = e.composedPath()[0];
       const onStrip = !!at && typeof at.tagName === "string" && tabs.contains(at);
       const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if (!step && !(onStrip && (e.key === "Home" || e.key === "End"))) return;
+      if (!step && e.key !== "Home" && e.key !== "End") return;
       if (at && !onStrip && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.tagName === "SELECT" || at.isContentEditable)) return;
       const ids = controls2.view().sections.map((x) => x.id);
       if (ids.length < 2) return;
@@ -45993,7 +46037,994 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
   }
 
+  // packages/sdk/src/item-box.ts
+  function runInBox(script, on3, opts = {}) {
+    if (typeof document === "undefined") return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const frame2 = document.createElement("iframe");
+      frame2.setAttribute("sandbox", "allow-scripts");
+      frame2.setAttribute("aria-hidden", "true");
+      frame2.tabIndex = -1;
+      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
+      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
+      let running = false;
+      let over = false;
+      let began = 0;
+      let ticking;
+      const say2 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
+      const end = (why) => {
+        if (over) return;
+        over = true;
+        const was = running;
+        running = false;
+        clearInterval(ticking);
+        clearTimeout(giveUp);
+        removeEventListener("message", heard);
+        frame2.remove();
+        if (was) on3.stopped?.(why);
+        else resolve(null);
+      };
+      const run2 = {
+        tell(event, arg) {
+          if (running) say2({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
+        },
+        stop: () => end("asked"),
+        get running() {
+          return running;
+        }
+      };
+      const heard = (e) => {
+        if (e.source !== frame2.contentWindow) return;
+        const m = e.data;
+        if (!m || m.nswpItemBox !== 1) return;
+        if (m.t === "ready") say2({ t: "run", script });
+        else if (m.t === "started" && !running && !over) {
+          running = true;
+          began = performance.now();
+          clearTimeout(giveUp);
+          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
+          resolve(run2);
+        } else if (m.t === "ask" && running) {
+          const ask = cleanAsk(m.name, m.args);
+          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
+        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
+        else if (m.t === "error" && !running) end("failed");
+      };
+      addEventListener("message", heard);
+      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
+      frame2.addEventListener("error", () => end("no box"));
+      document.body.append(frame2);
+    });
+  }
+
+  // packages/sdk/src/play.ts
+  var SCRIPT_KEPT = "nswp:item-scripts";
+  function scriptAllowed(sha2562) {
+    try {
+      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
+    } catch {
+      return false;
+    }
+  }
+  function allowScript(sha2562) {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
+      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
+    } catch {
+    }
+  }
+  function mayHold(described, o) {
+    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+    if (!described) return { ok: false, said: "That item's description couldn't be found." };
+    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
+      if (o.asked.sha !== described.script.sha256) {
+        o.asked.sha = described.script.sha256;
+        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+      }
+      allowScript(described.script.sha256);
+    }
+    return { ok: true };
+  }
+  function drawn(width, height, paint2) {
+    if (typeof document === "undefined") {
+      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
+      blank.userData.nswpNoHit = true;
+      return blank;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const g = canvas.getContext("2d");
+    if (g) paint2(g);
+    const map = new CanvasTexture(canvas);
+    map.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
+    sprite.renderOrder = 999;
+    sprite.userData.nswpNoHit = true;
+    return sprite;
+  }
+  var repaint = (sprite, paint2) => {
+    const map = sprite.material.map;
+    if (!map) return;
+    const canvas = map.image;
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    paint2(g, canvas.width, canvas.height);
+    map.needsUpdate = true;
+  };
+  var WARN = "#ff5d52";
+  var paintHealth = (g, w, h, o) => {
+    const low = o.value <= Math.ceil(o.full / 3);
+    const ink = o.down || low ? WARN : o.accent;
+    g.fillStyle = "rgba(10,12,16,0.8)";
+    g.beginPath();
+    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
+    g.fill();
+    g.globalAlpha = 0.5;
+    g.strokeStyle = ink;
+    g.lineWidth = 2.5;
+    g.stroke();
+    g.globalAlpha = 1;
+    let x0 = h * 0.42;
+    if (o.heart !== false) {
+      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
+      g.fillStyle = ink;
+      g.beginPath();
+      g.arc(cx - r, cy, r, Math.PI, 0);
+      g.arc(cx + r, cy, r, Math.PI, 0);
+      g.lineTo(cx, cy + r * 2.5);
+      g.closePath();
+      g.fill();
+      x0 = h * 1.02;
+    }
+    const x1 = w - h * 0.42;
+    if (o.down) {
+      g.fillStyle = WARN;
+      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
+      return;
+    }
+    const gap = h * 0.11;
+    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
+    const [top, tall] = [h * 0.3, h * 0.4];
+    for (let i = 0; i < o.full; i++) {
+      const x = x0 + i * (each + gap);
+      g.fillStyle = "rgba(255,255,255,0.14)";
+      g.beginPath();
+      g.roundRect(x, top, each, tall, tall / 3);
+      g.fill();
+      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
+      if (part <= 0) continue;
+      g.globalAlpha = i < o.value ? 1 : 0.55;
+      g.fillStyle = ink;
+      g.beginPath();
+      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
+      g.fill();
+      g.globalAlpha = 1;
+    }
+  };
+  function viaOf(shot, t0, t1) {
+    const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
+    if (!(pieces > 1)) return {};
+    return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + (t1 - t0) * (i + 1) / pieces)) };
+  }
+  function createPlay(o) {
+    const things = [];
+    const pending = /* @__PURE__ */ new Set();
+    const heardShots = /* @__PURE__ */ new Map();
+    const rates = /* @__PURE__ */ new Map();
+    const bars = /* @__PURE__ */ new Map();
+    const blinking = /* @__PURE__ */ new Set();
+    const mixers = /* @__PURE__ */ new Map();
+    const soundsOf = /* @__PURE__ */ new Map();
+    const ray = new Raycaster();
+    const v2 = new Vector3();
+    const w = new Vector3();
+    let clock = 0;
+    let lastAt = null;
+    let sent = 0;
+    let landed = 0;
+    let taken = 0;
+    let nextId = Math.floor(Math.random() * 1e3);
+    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
+    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
+    const hud2 = new Group();
+    hud2.userData.nswpNoHit = true;
+    if (!o.deferred) o.camera.add(hud2);
+    const cross = drawn(64, 64, (g) => {
+      g.strokeStyle = "rgba(255,255,255,0.9)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(32, 32, 9, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = "rgba(255,255,255,0.9)";
+      g.fillRect(31, 31, 2, 2);
+    });
+    cross.position.set(0, 0, -1);
+    cross.scale.setScalar(0.035);
+    cross.visible = false;
+    const mark = drawn(64, 64, (g) => {
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 6;
+      g.lineCap = "round";
+      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
+        g.beginPath();
+        g.moveTo(a, b);
+        g.lineTo(c, e);
+        g.stroke();
+      }
+    });
+    mark.position.set(0, 0, -1);
+    mark.scale.setScalar(0.07);
+    mark.visible = false;
+    let markUntil = 0;
+    const accent = () => o.theme?.().accent ?? "#7be495";
+    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
+    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
+    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+    ownBar.scale.set(0.3, 0.05, 1);
+    ownBar.material.opacity = 0;
+    ownBar.visible = false;
+    const edge = drawn(256, 256, (g) => {
+      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
+      fade.addColorStop(0, "rgba(255,70,60,0)");
+      fade.addColorStop(1, "rgba(255,70,60,0.95)");
+      g.fillStyle = fade;
+      g.fillRect(0, 0, 256, 256);
+    });
+    edge.position.set(0, 0, -0.6);
+    edge.renderOrder = 997;
+    edge.visible = false;
+    const glitch = drawn(8, 128, (g) => {
+      for (let y = 0; y < 128; ) {
+        const tall = 1 + Math.floor(Math.random() * 7);
+        const kind = Math.random();
+        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
+        g.fillRect(0, y, 8, tall);
+        y += tall;
+      }
+    });
+    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
+    glitch.position.set(0, 0, -0.58);
+    glitch.renderOrder = 998;
+    glitch.visible = false;
+    hud2.add(cross, mark, ownBar, edge, glitch);
+    const paintOwn = () => {
+      const down = own.downUntil > 0;
+      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
+      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
+      own.painted = clock;
+    };
+    const sayState = () => {
+      const said2 = buildState({ name: "health", value: own.value, full: own.full });
+      if (said2 && o.me()) o.tell(said2);
+      paintOwn();
+      own.shownUntil = clock + 2.5;
+      o.onChange?.();
+    };
+    const soundOf = (item2, name) => {
+      const named2 = item2.sounds[name];
+      if (!named2 || !o.sounds) return Promise.resolve(null);
+      let got = soundsOf.get(named2.sha256);
+      if (!got) {
+        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
+        soundsOf.set(named2.sha256, got);
+      }
+      return got;
+    };
+    const lastTake = /* @__PURE__ */ new Map();
+    const take = (item2, name) => {
+      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
+      if (takes.length < 2) return name;
+      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
+      const chosen = others[Math.floor(Math.random() * others.length)];
+      lastTake.set(`${item2.id}:${name}`, chosen);
+      return chosen;
+    };
+    const hear = (item2, said2, at) => {
+      if (!said2 || !o.sounds || !active()) return;
+      const name = take(item2, said2);
+      void soundOf(item2, name).then((sound) => {
+        if (!sound || !o.sounds) return;
+        if (!at) return o.sounds.playForeign(sound);
+        o.camera.getWorldPosition(v2);
+        const to = w.copy(at).sub(v2);
+        const distance = to.length();
+        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
+        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
+        o.sounds.playForeign(sound, { distance, pan });
+      });
+    };
+    const poses = /* @__PURE__ */ new WeakMap();
+    let clipsSaid = [];
+    const animate = (item2, model3, name, who2 = "") => {
+      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
+      if (!model3) return;
+      const clip = o.items.clips(item2).find((c) => c.name === name);
+      if (!clip) return;
+      let mixer = mixers.get(model3);
+      if (!mixer) {
+        mixer = new AnimationMixer(model3);
+        mixers.set(model3, mixer);
+      }
+      const action = mixer.clipAction(clip);
+      const pose = isPose(name);
+      if (pose) {
+        const was = poses.get(model3);
+        if (was && was !== action) was.stop();
+        poses.set(model3, action);
+      }
+      action.reset();
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = pose;
+      action.play();
+    };
+    let solids = [];
+    let solidsAt = -1e9;
+    const worldShapes = () => {
+      if (clock - solidsAt < 1.5) return solids;
+      solidsAt = clock;
+      const found2 = [];
+      const walk2 = (node) => {
+        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
+        const mesh = node;
+        if (mesh.isMesh && mesh.geometry) {
+          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
+          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
+        }
+        for (const child of node.children) walk2(child);
+      };
+      walk2(o.scene);
+      solids = found2;
+      return solids;
+    };
+    const floorUnder = (at) => {
+      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
+      ray.far = 60;
+      const hit = ray.intersectObjects(worldShapes(), false)[0];
+      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
+    };
+    const drop = (thing) => {
+      if (thing.state === "falling" || thing.state === "lying") return;
+      o.scene.attach(thing.object);
+      thing.state = "falling";
+      thing.fall = 0;
+      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
+    };
+    const TRAIL_STEPS = 14;
+    const TRAIL_WIDTH = 0.026;
+    const makeTrail = (color) => {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      const index = [];
+      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geometry.setIndex(index);
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
+      mesh.frustumCulled = false;
+      mesh.userData.nswpNoHit = true;
+      mesh.userData.base = new Color(color);
+      o.scene.add(mesh);
+      return mesh;
+    };
+    const dropTrail = (thing) => {
+      if (!thing.trail) return;
+      thing.trail.removeFromParent();
+      thing.trail.geometry.dispose();
+      thing.trail.material.dispose();
+      thing.trail = null;
+    };
+    const eye = new Vector3();
+    const drawTrail = (thing) => {
+      const mesh = thing.trail;
+      if (!mesh) return;
+      const head = thing.landedAt ?? thing.t;
+      const tail = Math.max(0, thing.t - thing.trailSeconds);
+      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
+      mesh.visible = true;
+      o.camera.getWorldPosition(eye);
+      const position = mesh.geometry.getAttribute("position");
+      const color = mesh.geometry.getAttribute("color");
+      const base = mesh.userData.base;
+      const left = Math.min(1, (head - tail) / thing.trailSeconds);
+      const p = new Vector3();
+      const q2 = new Vector3();
+      const side = new Vector3();
+      for (let i = 0; i <= TRAIL_STEPS; i++) {
+        const f = i / TRAIL_STEPS;
+        const t = head - (head - tail) * f;
+        p.fromArray(shotAt(thing.shot, t));
+        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
+        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
+        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
+        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
+        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
+        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
+        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
+      }
+      position.needsUpdate = true;
+      color.needsUpdate = true;
+    };
+    const gone = (thing) => {
+      dropTrail(thing);
+      thing.object.removeFromParent();
+      const at = things.indexOf(thing);
+      if (at >= 0) things.splice(at, 1);
+    };
+    const launch = async (by, item2, shot) => {
+      const send = item2.sends.find((s) => s.name === shot.name);
+      if (!send || !active()) return;
+      const born = clock;
+      pending.add(`${by}:${shot.id}`);
+      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
+      const inner = await o.items.sent(item2, shot.name, tints);
+      if (!active()) return void pending.delete(`${by}:${shot.id}`);
+      inner.position.y -= send.size[1] / 2;
+      const object = new Group();
+      object.userData.nswpNoHit = true;
+      object.add(inner);
+      object.position.fromArray(shot.from);
+      o.scene.add(object);
+      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
+      const trailSeconds = send.trail ?? 0;
+      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
+      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
+      things.push(thing);
+      pending.delete(`${by}:${shot.id}`);
+      const late = Math.min(PLAY_LIMITS.life, clock - born);
+      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
+    };
+    const stick = (thing, at, onto, on3) => {
+      thing.object.position.copy(at);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
+      if (onto) onto.attach(thing.object);
+      thing.state = "stuck";
+      thing.on = on3;
+      thing.until = thing.t + thing.shot.stick;
+    };
+    const self2 = () => {
+      const head = o.camera.getWorldPosition(new Vector3());
+      const floor = o.rig.getWorldPosition(new Vector3()).y;
+      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
+    };
+    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
+    const reached = (thing, at) => {
+      const me = self2();
+      taken++;
+      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
+      const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
+      if (said2) o.tell(said2);
+      hear(thing.item, thing.send.strikes, null);
+      if (effect && clock >= own.downUntil) {
+        own.value = struck(own.value, effect.take);
+        own.struckAt = clock;
+        own.regenAt = 0;
+        own.flash = 1;
+        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
+        sayState();
+      }
+      gone(thing);
+    };
+    const fly = (thing, dt) => {
+      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
+      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
+      const step = b.clone().sub(a);
+      const length = step.length();
+      let first = 1.0001;
+      let done = null;
+      if (o.deferred && thing.late) {
+        const late = thing.late;
+        thing.late = null;
+        thing.landedAt = late.t;
+        thing.ref = late.ref;
+        stick(thing, late.point, null, "world");
+        hear(thing.item, thing.send.lands, late.point);
+        return;
+      }
+      if (!o.deferred && length > 1e-6) {
+        ray.set(a, step.clone().divideScalar(length));
+        ray.far = length;
+        const hit = ray.intersectObjects(worldShapes(), false)[0];
+        if (hit) {
+          first = hit.distance / length;
+          done = () => {
+            stick(thing, hit.point, hit.object, "world");
+            hear(thing.item, thing.send.lands, hit.point);
+            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
+          };
+        }
+      }
+      const me = o.me();
+      if (me && thing.by !== me && !muted(thing.by)) {
+        const mine = self2();
+        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => reached(thing, a.clone().addScaledVector(step, t));
+        }
+      }
+      for (const p of o.people()) {
+        if (p.pubkey === thing.by) continue;
+        const shape = shapeOf2(p);
+        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => {
+            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
+            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
+          };
+        }
+      }
+      const before = thing.t;
+      thing.t += dt;
+      if (done) {
+        thing.landedAt = before + dt * Math.min(1, first);
+        return done();
+      }
+      thing.object.position.copy(b);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      thing.object.lookAt(w.copy(b).add(going));
+      if (thing.t > PLAY_LIMITS.life) gone(thing);
+    };
+    let item = null;
+    let model2 = null;
+    let box = null;
+    let scriptState = "none";
+    let stoppedBecause = "";
+    let words2 = "";
+    let wordsSprite = null;
+    let holdingNo = 0;
+    const showWords = (text) => {
+      words2 = text;
+      if (wordsSprite) {
+        repaint(wordsSprite, (g, cw, ch) => {
+          if (!text) return;
+          g.font = "600 44px system-ui, sans-serif";
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          const wide = Math.min(cw - 8, g.measureText(text).width + 36);
+          g.fillStyle = "rgba(8,10,14,0.72)";
+          g.beginPath();
+          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
+          g.fill();
+          g.fillStyle = "#ffffff";
+          g.fillText(text, cw / 2, ch / 2 + 2, cw - 24);
+        });
+      }
+      o.onChange?.();
+    };
+    let pointed = null;
+    const wall = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+    const aim = (lift, spread = 0) => {
+      const said2 = o.aim?.();
+      let from;
+      let to;
+      const tapped = pointed && wall() < pointed.until ? pointed.to : null;
+      pointed = null;
+      if (said2) ({ from, to } = said2);
+      else if (tapped || o.sighting?.()) {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
+        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      } else {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
+        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      }
+      const dir = to.clone().sub(from).normalize();
+      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
+      if (spread > 0) {
+        const across = new Vector3().crossVectors(dir, new Vector3(0, 1, 0));
+        if (across.lengthSq() < 1e-6) across.set(1, 0, 0);
+        across.normalize();
+        const over = new Vector3().crossVectors(across, dir).normalize();
+        const off = spread * Math.sqrt(Math.random());
+        const round2 = Math.random() * Math.PI * 2;
+        dir.applyAxisAngle(over, off * Math.cos(round2)).applyAxisAngle(across, off * Math.sin(round2)).normalize();
+      }
+      return { from, dir };
+    };
+    const asked = (ask) => {
+      if (!item || !active()) return;
+      if (ask.ask === "show") return showWords(ask.text);
+      if (ask.ask === "play") {
+        if (!item.sounds[ask.name]) return;
+        hear(item, ask.name, null);
+        const said3 = buildDid({ kind: "sound", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask === "clip") {
+        animate(item, model2, ask.name);
+        const said3 = buildDid({ kind: "clip", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
+      const { from, dir } = aim(ask.lift, ask.spread);
+      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
+      const said2 = buildShot(shot);
+      const read6 = said2 ? parseShot(said2) : null;
+      if (!said2 || !read6) return;
+      sent++;
+      void launch(o.me() ?? "", item, read6);
+      if (o.me()) o.tell(said2);
+    };
+    const refreshOwn = () => {
+      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
+    };
+    const isPresenting = () => !!o.presenting?.();
+    return {
+      async held(next, drawnFor) {
+        const no = ++holdingNo;
+        if (box) {
+          box.tell("away");
+          const old = box;
+          box = null;
+          setTimeout(() => old.stop(), 250);
+        }
+        if (model2) mixers.delete(model2);
+        wordsSprite?.removeFromParent();
+        wordsSprite = null;
+        item = next;
+        model2 = drawnFor;
+        scriptState = "none";
+        stoppedBecause = "";
+        words2 = "";
+        refreshOwn();
+        o.onChange?.();
+        if (!next || !drawnFor || !active()) return;
+        if (next.does.use || next.script) {
+          wordsSprite = drawn(256, 72, () => {
+          });
+          wordsSprite.scale.set(0.1, 0.028, 1);
+          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
+          drawnFor.add(wordsSprite);
+        }
+        for (const s of next.sends) void o.items.sent(next, s.name);
+        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
+        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
+        const text = await o.items.script(next);
+        if (!text || no !== holdingNo) return;
+        const run2 = await runInBox(
+          text,
+          {
+            ask: (ask) => void (no === holdingNo && asked(ask)),
+            stopped: (why) => {
+              if (no !== holdingNo) return;
+              scriptState = "stopped";
+              stoppedBecause = why;
+              box = null;
+              showWords("");
+            }
+          },
+          typeof o.scripts === "object" ? o.scripts : {}
+        );
+        if (no !== holdingNo) return run2?.stop();
+        box = run2;
+        scriptState = run2 ? "running" : "stopped";
+        if (!run2) stoppedBecause = "no box";
+        run2?.tell("held");
+        o.onChange?.();
+      },
+      use(toward) {
+        if (!active() || !box) return;
+        pointed = toward ? { to: toward.clone(), until: wall() + 1e4 } : null;
+        box.tell("use");
+      },
+      second() {
+        pointed = null;
+        if (active()) box?.tell("second");
+      },
+      get does() {
+        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
+      },
+      get words() {
+        return words2;
+      },
+      get health() {
+        return { value: own.value, full: own.full };
+      },
+      heard(from, said2) {
+        if (!active() || muted(from)) return;
+        const person = o.people().find((p) => p.pubkey === from);
+        if (!person) return;
+        const state = parseState(said2);
+        if (state) {
+          let shown4 = bars.get(from);
+          if (!shown4) {
+            const sprite = drawn(320, 56, () => {
+            });
+            sprite.scale.set(0.44, 0.077, 1);
+            sprite.position.set(0, 0.62, 0);
+            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
+            bars.set(from, shown4);
+          }
+          shown4.value = state.value;
+          shown4.full = Math.min(state.full, 12);
+          shown4.until = clock + (state.value < state.full ? 30 : 2);
+          person.over.add(shown4.sprite);
+          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
+          return;
+        }
+        const hit = parseHit(said2);
+        if (hit) {
+          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
+          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
+          thing.agreed = true;
+          const feet = shapeOf2(person).feet;
+          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
+          if (thing.on !== from) stick(thing, at, person.body, from);
+          thing.agreeBy = null;
+          hear(thing.item, thing.send.strikes, at);
+          if (hit.by === o.me()) {
+            hear(thing.item, thing.send.tells, null);
+            landed++;
+            mark.visible = true;
+            markUntil = clock + 0.22;
+            o.onChange?.();
+          }
+          return;
+        }
+        if (!person.holding) return;
+        const did = parseDid(said2);
+        const shot = did ? null : parseShot(said2);
+        if (!did && !shot) return;
+        if (shot) {
+          let rate = rates.get(from);
+          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
+          if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+          if (!rate.take(clock * 1e3)) return;
+          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
+        }
+        if (shot) {
+          heardShots.set(`${from}:${shot.id}`, clock);
+          if (heardShots.size > 256) {
+            for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
+          }
+        }
+        const does = (holding) => {
+          if (!holding) return;
+          if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : void 0, person.head);
+          else if (did) animate(holding, person.held, did.name, from);
+          else if (shot) void launch(from, holding, shot);
+        };
+        const known = o.items.known(person.holding);
+        if (known) does(known);
+        else {
+          if (shot) pending.add(`${from}:${shot.id}`);
+          const born = clock;
+          void o.items.describe(person.holding).then((found2) => {
+            if (shot) pending.delete(`${from}:${shot.id}`);
+            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
+          });
+        }
+      },
+      left(pubkey) {
+        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
+        bars.get(pubkey)?.sprite.removeFromParent();
+        bars.delete(pubkey);
+        rates.delete(pubkey);
+        for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
+      },
+      update(frame2) {
+        const at = typeof performance === "undefined" ? null : performance.now();
+        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
+        lastAt = at;
+        clock += dt;
+        for (const mixer of mixers.values()) mixer.update(dt);
+        if (mark.visible && clock > markUntil) mark.visible = false;
+        refreshOwn();
+        if (own.downUntil) {
+          if (clock >= own.downUntil) {
+            own.value = own.full;
+            own.downUntil = 0;
+            own.regenAt = 0;
+            sayState();
+          }
+        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
+          if (!own.regenAt) own.regenAt = clock;
+          if (clock - own.regenAt >= HEALTH.regenSeconds) {
+            own.value += 1;
+            own.regenAt = own.value < own.full ? clock : 0;
+            sayState();
+          }
+        }
+        const on3 = active();
+        const down = own.downUntil > 0;
+        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
+        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
+        const wide = tall * o.camera.aspect;
+        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
+        const scale = Math.min(0.3, wide * 0.62);
+        ownBar.scale.set(scale, scale / 6, 1);
+        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
+        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
+        ownBar.visible = own.shown > 0.02;
+        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
+        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
+        own.flash = Math.max(0, own.flash - dt / 0.55);
+        const low = !down && own.value < own.full && own.value <= 1;
+        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+        edge.visible = red > 0.01;
+        edge.material.opacity = red;
+        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
+        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
+        if (glitch.visible) {
+          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
+          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
+          glitch.material.opacity = 0.18 + Math.random() * 0.3;
+          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
+        }
+        const people2 = o.people();
+        for (const [who2, shown4] of bars) {
+          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
+          const person = people2.find((x) => x.pubkey === who2);
+          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
+          if (person?.root) {
+            if (out && lively()) {
+              person.root.visible = person.root.visible && Math.random() > 0.3;
+              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
+              blinking.add(who2);
+            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
+          }
+        }
+        for (const thing of [...things]) {
+          if (thing.state === "flying") {
+            let left = Math.min(dt, 0.5);
+            const from = thing.t;
+            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
+              const step = Math.min(0.03, left);
+              fly(thing, step);
+              left -= step;
+            }
+            if (o.deferred && thing.state === "flying" && thing.t > from) {
+              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
+              if (thing.steps.length > 6) thing.steps.shift();
+            }
+            drawTrail(thing);
+          } else if (thing.state === "stuck") {
+            thing.t += dt;
+            drawTrail(thing);
+            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
+            else if (thing.t > thing.until) drop(thing);
+            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
+          } else if (thing.state === "falling") {
+            thing.t += dt;
+            drawTrail(thing);
+            thing.fall += GRAVITY * dt;
+            thing.object.position.y -= thing.fall * dt;
+            thing.object.rotation.x += dt * 5;
+            if (thing.object.position.y <= thing.floor + 0.02) {
+              thing.object.position.y = thing.floor + 0.02;
+              thing.state = "lying";
+              thing.until = 0.6;
+              hear(thing.item, thing.send.drops, thing.object.position);
+            }
+          } else {
+            thing.until -= dt;
+            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
+            if (thing.until <= 0) gone(thing);
+          }
+        }
+      },
+      snapshot() {
+        const clips = clipsSaid;
+        clipsSaid = [];
+        const q2 = new Quaternion();
+        const at = new Vector3();
+        const three2 = (x) => [x.x, x.y, x.z];
+        return {
+          things: things.map((t) => {
+            t.object.getWorldPosition(at);
+            t.object.getWorldQuaternion(q2);
+            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
+            return {
+              key: `${t.by}:${t.shot.id}`,
+              model: t.send.model.sha256,
+              size: t.send.size,
+              tints: t.tints,
+              state: t.state,
+              on: t.on,
+              ref: t.ref,
+              at: three2(at),
+              turn: [q2.x, q2.y, q2.z, q2.w],
+              scale: t.object.scale.x,
+              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
+              down: t.state === "falling" && !t.flooredAt
+            };
+          }),
+          trails: things.flatMap((t) => {
+            const mesh = t.trail;
+            if (!mesh || !mesh.visible) return [];
+            const position = mesh.geometry.getAttribute("position");
+            const color = mesh.geometry.getAttribute("color");
+            const base = mesh.userData.base;
+            const most = Math.max(base.r, base.g, base.b, 1e-6);
+            const points = [];
+            for (let i = 0; i < position.count; i += 2) {
+              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
+            }
+            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
+          }),
+          own: {
+            cross: cross.visible,
+            mark: mark.visible,
+            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
+            red: edge.visible ? edge.material.opacity : 0,
+            glitch: glitch.visible,
+            words: words2
+          },
+          clips
+        };
+      },
+      met(key, step, fraction, point, ref = "") {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        const tested = thing?.steps.find((s) => s.n === step);
+        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
+        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
+      },
+      floored(key, y) {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
+        thing.flooredAt = true;
+        thing.floor = y;
+      },
+      info() {
+        const count = (state) => things.filter((t) => t.state === state).length;
+        return {
+          flying: count("flying"),
+          stuck: count("stuck"),
+          falling: count("falling") + count("lying"),
+          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
+          sent,
+          landed,
+          taken,
+          health: { value: own.value, full: own.full },
+          words: words2,
+          script: scriptState,
+          stoppedBecause,
+          marked: mark.visible,
+          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
+        };
+      },
+      dispose() {
+        box?.stop();
+        for (const thing of [...things]) gone(thing);
+        for (const b of bars.values()) b.sprite.removeFromParent();
+        hud2.removeFromParent();
+      }
+    };
+  }
+
   // packages/sdk/src/bagging.ts
+  var HELD_KEY = "nswp:holding";
+  function keptHolding() {
+    try {
+      const kept2 = globalThis.localStorage?.getItem(HELD_KEY);
+      return kept2 ? cleanSettings({ holding: JSON.parse(kept2) }).holding : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function keepHolding(held2) {
+    try {
+      globalThis.localStorage?.setItem(HELD_KEY, JSON.stringify(held2));
+    } catch {
+    }
+  }
   var PAGE = 24;
   function itemIn(text) {
     if (typeof text !== "string") return "";
@@ -46053,9 +47084,35 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       chosen = item;
       change2(item, true);
     };
+    let cardActs = [];
+    let putAway = false;
+    let cameHolding = (() => {
+      const came = arrivedSettings().holding ?? keptHolding();
+      return came && typeof came === "object" ? came : null;
+    })();
+    const carryOn = async (has) => {
+      const came = cameHolding;
+      cameHolding = null;
+      if (!came || opts.holding() || opts.rule() === "none" || !showsItems() || !has.includes(came.item)) return;
+      const described = await items2.describe(came.item);
+      if (!described || opts.holding()) return;
+      if (described.script && came.script === described.script.sha256) allowScript(described.script.sha256);
+      taking = came.item;
+      refresh();
+      let done = { ok: false, said: "" };
+      try {
+        done = await opts.hold(came.item, came.tints ?? bag.tints(came.item));
+      } catch {
+      }
+      taking = "";
+      if (done.ok) say2(`${items2.known(came.item)?.title ?? "What you were holding"} is still in your hand.`);
+      refresh();
+    };
     let drawnHolding = "";
     const refresh = () => {
       drawnHolding = opts.holding();
+      const held2 = heldNow();
+      if (held2 !== void 0) keepHolding(held2);
       for (const id of shown4) controls2.remove(id);
       shown4 = [];
       const me = opts.me();
@@ -46067,6 +47124,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       const has = me ? bag.items() : null;
       const rule = opts.rule();
+      if (has && cameHolding) void carryOn(has);
       const offers = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
       const add = (...actions) => {
         for (const a of actions) shown4.push(a.id);
@@ -46097,6 +47155,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             picture: "",
             color: "",
             now: [],
+            // What to do with it sits in the card with it: what it does while it is in their hand (the kit's own
+            // rows for that, item-controls.ts), then holding it or putting it away, its colours, and keeping it.
+            acts: [...opts.holding() === item.id ? ["item-use", "item-second"] : [], ...cardActs],
             // The thing itself, large and turning, in the colours they chose for it.
             ...previews && showsItems() ? { draw: () => previews.turning(item, tints, opts.motion?.() ?? controls2.theme?.motion ?? true) } : {}
           };
@@ -46144,10 +47205,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         label: `Put ${titleOf(holding)} away`,
         short: "Away",
         act: async () => {
+          putAway = true;
           say2((await opts.hold("")).said);
           refresh();
         }
       });
+      const firstOfTheirs = shown4.length;
       if (chosen && has.includes(chosen)) {
         const item = chosen;
         if (taking === item)
@@ -46180,6 +47243,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
             act: async () => {
               taking = item;
+              putAway = false;
               refresh();
               let done;
               try {
@@ -46219,6 +47283,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const item = chosen;
         add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
       }
+      cardActs = shown4.slice(firstOfTheirs);
       if (holding && holding !== chosen) add(away());
       const listed = has.slice(0, pages * PAGE);
       for (const item of listed) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
@@ -46284,6 +47349,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     bag.onChange(soon2);
     onItemsChange(soon2);
     previews?.onChange(soon2);
+    const heldNow = () => {
+      const item = opts.holding();
+      if (!item) return putAway ? "" : void 0;
+      const script = items2.known(item)?.script?.sha256;
+      const tints = bag.tints(item);
+      return { item, ...Object.keys(tints).length ? { tints } : {}, ...script && scriptAllowed(script) ? { script } : {} };
+    };
+    reportSettings("holding", () => {
+      const held2 = heldNow();
+      return held2 === void 0 ? {} : { holding: held2 };
+    });
     refresh();
     const watch2 = setInterval(() => {
       if (!taking && opts.holding() !== drawnHolding) refresh();
@@ -49715,962 +50791,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
   }
 
-  // packages/sdk/src/item-box.ts
-  function runInBox(script, on3, opts = {}) {
-    if (typeof document === "undefined") return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const frame2 = document.createElement("iframe");
-      frame2.setAttribute("sandbox", "allow-scripts");
-      frame2.setAttribute("aria-hidden", "true");
-      frame2.tabIndex = -1;
-      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
-      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
-      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
-      let running = false;
-      let over = false;
-      let began = 0;
-      let ticking;
-      const say2 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
-      const end = (why) => {
-        if (over) return;
-        over = true;
-        const was = running;
-        running = false;
-        clearInterval(ticking);
-        clearTimeout(giveUp);
-        removeEventListener("message", heard);
-        frame2.remove();
-        if (was) on3.stopped?.(why);
-        else resolve(null);
-      };
-      const run2 = {
-        tell(event, arg) {
-          if (running) say2({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
-        },
-        stop: () => end("asked"),
-        get running() {
-          return running;
-        }
-      };
-      const heard = (e) => {
-        if (e.source !== frame2.contentWindow) return;
-        const m = e.data;
-        if (!m || m.nswpItemBox !== 1) return;
-        if (m.t === "ready") say2({ t: "run", script });
-        else if (m.t === "started" && !running && !over) {
-          running = true;
-          began = performance.now();
-          clearTimeout(giveUp);
-          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
-          resolve(run2);
-        } else if (m.t === "ask" && running) {
-          const ask = cleanAsk(m.name, m.args);
-          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
-        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
-        else if (m.t === "error" && !running) end("failed");
-      };
-      addEventListener("message", heard);
-      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
-      frame2.addEventListener("error", () => end("no box"));
-      document.body.append(frame2);
-    });
-  }
-
-  // packages/sdk/src/play.ts
-  var SCRIPT_KEPT = "nswp:item-scripts";
-  function scriptAllowed(sha2562) {
-    try {
-      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
-    } catch {
-      return false;
-    }
-  }
-  function allowScript(sha2562) {
-    try {
-      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
-      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
-    } catch {
-    }
-  }
-  function mayHold(described, o) {
-    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
-    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
-    if (!described) return { ok: false, said: "That item's description couldn't be found." };
-    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
-    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
-    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
-      if (o.asked.sha !== described.script.sha256) {
-        o.asked.sha = described.script.sha256;
-        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
-      }
-      allowScript(described.script.sha256);
-    }
-    return { ok: true };
-  }
-  function drawn(width, height, paint2) {
-    if (typeof document === "undefined") {
-      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
-      blank.userData.nswpNoHit = true;
-      return blank;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext("2d");
-    if (g) paint2(g);
-    const map = new CanvasTexture(canvas);
-    map.colorSpace = SRGBColorSpace;
-    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
-    sprite.renderOrder = 999;
-    sprite.userData.nswpNoHit = true;
-    return sprite;
-  }
-  var repaint = (sprite, paint2) => {
-    const map = sprite.material.map;
-    if (!map) return;
-    const canvas = map.image;
-    const g = canvas.getContext("2d");
-    if (!g) return;
-    g.clearRect(0, 0, canvas.width, canvas.height);
-    paint2(g, canvas.width, canvas.height);
-    map.needsUpdate = true;
-  };
-  var WARN = "#ff5d52";
-  var paintHealth = (g, w, h, o) => {
-    const low = o.value <= Math.ceil(o.full / 3);
-    const ink = o.down || low ? WARN : o.accent;
-    g.fillStyle = "rgba(10,12,16,0.8)";
-    g.beginPath();
-    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
-    g.fill();
-    g.globalAlpha = 0.5;
-    g.strokeStyle = ink;
-    g.lineWidth = 2.5;
-    g.stroke();
-    g.globalAlpha = 1;
-    let x0 = h * 0.42;
-    if (o.heart !== false) {
-      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
-      g.fillStyle = ink;
-      g.beginPath();
-      g.arc(cx - r, cy, r, Math.PI, 0);
-      g.arc(cx + r, cy, r, Math.PI, 0);
-      g.lineTo(cx, cy + r * 2.5);
-      g.closePath();
-      g.fill();
-      x0 = h * 1.02;
-    }
-    const x1 = w - h * 0.42;
-    if (o.down) {
-      g.fillStyle = WARN;
-      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
-      return;
-    }
-    const gap = h * 0.11;
-    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
-    const [top, tall] = [h * 0.3, h * 0.4];
-    for (let i = 0; i < o.full; i++) {
-      const x = x0 + i * (each + gap);
-      g.fillStyle = "rgba(255,255,255,0.14)";
-      g.beginPath();
-      g.roundRect(x, top, each, tall, tall / 3);
-      g.fill();
-      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
-      if (part <= 0) continue;
-      g.globalAlpha = i < o.value ? 1 : 0.55;
-      g.fillStyle = ink;
-      g.beginPath();
-      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
-      g.fill();
-      g.globalAlpha = 1;
-    }
-  };
-  function viaOf(shot, t0, t1) {
-    const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
-    if (!(pieces > 1)) return {};
-    return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + (t1 - t0) * (i + 1) / pieces)) };
-  }
-  function createPlay(o) {
-    const things = [];
-    const pending = /* @__PURE__ */ new Set();
-    const heardShots = /* @__PURE__ */ new Map();
-    const rates = /* @__PURE__ */ new Map();
-    const bars = /* @__PURE__ */ new Map();
-    const blinking = /* @__PURE__ */ new Set();
-    const mixers = /* @__PURE__ */ new Map();
-    const soundsOf = /* @__PURE__ */ new Map();
-    const ray = new Raycaster();
-    const v2 = new Vector3();
-    const w = new Vector3();
-    let clock = 0;
-    let lastAt = null;
-    let sent = 0;
-    let landed = 0;
-    let taken = 0;
-    let nextId = Math.floor(Math.random() * 1e3);
-    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
-    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
-    const hud2 = new Group();
-    hud2.userData.nswpNoHit = true;
-    if (!o.deferred) o.camera.add(hud2);
-    const cross = drawn(64, 64, (g) => {
-      g.strokeStyle = "rgba(255,255,255,0.9)";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(32, 32, 9, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = "rgba(255,255,255,0.9)";
-      g.fillRect(31, 31, 2, 2);
-    });
-    cross.position.set(0, 0, -1);
-    cross.scale.setScalar(0.035);
-    cross.visible = false;
-    const mark = drawn(64, 64, (g) => {
-      g.strokeStyle = "#ffffff";
-      g.lineWidth = 6;
-      g.lineCap = "round";
-      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
-        g.beginPath();
-        g.moveTo(a, b);
-        g.lineTo(c, e);
-        g.stroke();
-      }
-    });
-    mark.position.set(0, 0, -1);
-    mark.scale.setScalar(0.07);
-    mark.visible = false;
-    let markUntil = 0;
-    const accent = () => o.theme?.().accent ?? "#7be495";
-    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
-    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
-    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
-    ownBar.scale.set(0.3, 0.05, 1);
-    ownBar.material.opacity = 0;
-    ownBar.visible = false;
-    const edge = drawn(256, 256, (g) => {
-      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
-      fade.addColorStop(0, "rgba(255,70,60,0)");
-      fade.addColorStop(1, "rgba(255,70,60,0.95)");
-      g.fillStyle = fade;
-      g.fillRect(0, 0, 256, 256);
-    });
-    edge.position.set(0, 0, -0.6);
-    edge.renderOrder = 997;
-    edge.visible = false;
-    const glitch = drawn(8, 128, (g) => {
-      for (let y = 0; y < 128; ) {
-        const tall = 1 + Math.floor(Math.random() * 7);
-        const kind = Math.random();
-        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
-        g.fillRect(0, y, 8, tall);
-        y += tall;
-      }
-    });
-    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
-    glitch.position.set(0, 0, -0.58);
-    glitch.renderOrder = 998;
-    glitch.visible = false;
-    hud2.add(cross, mark, ownBar, edge, glitch);
-    const paintOwn = () => {
-      const down = own.downUntil > 0;
-      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
-      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
-      own.painted = clock;
-    };
-    const sayState = () => {
-      const said2 = buildState({ name: "health", value: own.value, full: own.full });
-      if (said2 && o.me()) o.tell(said2);
-      paintOwn();
-      own.shownUntil = clock + 2.5;
-      o.onChange?.();
-    };
-    const soundOf = (item2, name) => {
-      const named2 = item2.sounds[name];
-      if (!named2 || !o.sounds) return Promise.resolve(null);
-      let got = soundsOf.get(named2.sha256);
-      if (!got) {
-        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
-        soundsOf.set(named2.sha256, got);
-      }
-      return got;
-    };
-    const lastTake = /* @__PURE__ */ new Map();
-    const take = (item2, name) => {
-      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
-      if (takes.length < 2) return name;
-      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
-      const chosen = others[Math.floor(Math.random() * others.length)];
-      lastTake.set(`${item2.id}:${name}`, chosen);
-      return chosen;
-    };
-    const hear = (item2, said2, at) => {
-      if (!said2 || !o.sounds || !active()) return;
-      const name = take(item2, said2);
-      void soundOf(item2, name).then((sound) => {
-        if (!sound || !o.sounds) return;
-        if (!at) return o.sounds.playForeign(sound);
-        o.camera.getWorldPosition(v2);
-        const to = w.copy(at).sub(v2);
-        const distance = to.length();
-        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
-        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
-        o.sounds.playForeign(sound, { distance, pan });
-      });
-    };
-    let clipsSaid = [];
-    const animate = (item2, model3, name, who2 = "") => {
-      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
-      if (!model3) return;
-      const clip = o.items.clips(item2).find((c) => c.name === name);
-      if (!clip) return;
-      let mixer = mixers.get(model3);
-      if (!mixer) {
-        mixer = new AnimationMixer(model3);
-        mixers.set(model3, mixer);
-      }
-      const action = mixer.clipAction(clip);
-      action.reset();
-      action.setLoop(LoopOnce, 1);
-      action.clampWhenFinished = false;
-      action.play();
-    };
-    let solids = [];
-    let solidsAt = -1e9;
-    const worldShapes = () => {
-      if (clock - solidsAt < 1.5) return solids;
-      solidsAt = clock;
-      const found2 = [];
-      const walk2 = (node) => {
-        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
-        const mesh = node;
-        if (mesh.isMesh && mesh.geometry) {
-          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
-          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
-        }
-        for (const child of node.children) walk2(child);
-      };
-      walk2(o.scene);
-      solids = found2;
-      return solids;
-    };
-    const floorUnder = (at) => {
-      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
-      ray.far = 60;
-      const hit = ray.intersectObjects(worldShapes(), false)[0];
-      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
-    };
-    const drop = (thing) => {
-      if (thing.state === "falling" || thing.state === "lying") return;
-      o.scene.attach(thing.object);
-      thing.state = "falling";
-      thing.fall = 0;
-      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
-    };
-    const TRAIL_STEPS = 14;
-    const TRAIL_WIDTH = 0.026;
-    const makeTrail = (color) => {
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      const index = [];
-      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
-      geometry.setIndex(index);
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
-      mesh.frustumCulled = false;
-      mesh.userData.nswpNoHit = true;
-      mesh.userData.base = new Color(color);
-      o.scene.add(mesh);
-      return mesh;
-    };
-    const dropTrail = (thing) => {
-      if (!thing.trail) return;
-      thing.trail.removeFromParent();
-      thing.trail.geometry.dispose();
-      thing.trail.material.dispose();
-      thing.trail = null;
-    };
-    const eye = new Vector3();
-    const drawTrail = (thing) => {
-      const mesh = thing.trail;
-      if (!mesh) return;
-      const head = thing.landedAt ?? thing.t;
-      const tail = Math.max(0, thing.t - thing.trailSeconds);
-      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
-      mesh.visible = true;
-      o.camera.getWorldPosition(eye);
-      const position = mesh.geometry.getAttribute("position");
-      const color = mesh.geometry.getAttribute("color");
-      const base = mesh.userData.base;
-      const left = Math.min(1, (head - tail) / thing.trailSeconds);
-      const p = new Vector3();
-      const q2 = new Vector3();
-      const side = new Vector3();
-      for (let i = 0; i <= TRAIL_STEPS; i++) {
-        const f = i / TRAIL_STEPS;
-        const t = head - (head - tail) * f;
-        p.fromArray(shotAt(thing.shot, t));
-        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
-        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
-        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
-        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
-        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
-        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
-        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
-      }
-      position.needsUpdate = true;
-      color.needsUpdate = true;
-    };
-    const gone = (thing) => {
-      dropTrail(thing);
-      thing.object.removeFromParent();
-      const at = things.indexOf(thing);
-      if (at >= 0) things.splice(at, 1);
-    };
-    const launch = async (by, item2, shot) => {
-      const send = item2.sends.find((s) => s.name === shot.name);
-      if (!send || !active()) return;
-      const born = clock;
-      pending.add(`${by}:${shot.id}`);
-      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
-      const inner = await o.items.sent(item2, shot.name, tints);
-      if (!active()) return void pending.delete(`${by}:${shot.id}`);
-      inner.position.y -= send.size[1] / 2;
-      const object = new Group();
-      object.userData.nswpNoHit = true;
-      object.add(inner);
-      object.position.fromArray(shot.from);
-      o.scene.add(object);
-      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
-      const trailSeconds = send.trail ?? 0;
-      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
-      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
-      things.push(thing);
-      pending.delete(`${by}:${shot.id}`);
-      const late = Math.min(PLAY_LIMITS.life, clock - born);
-      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
-    };
-    const stick = (thing, at, onto, on3) => {
-      thing.object.position.copy(at);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
-      if (onto) onto.attach(thing.object);
-      thing.state = "stuck";
-      thing.on = on3;
-      thing.until = thing.t + thing.shot.stick;
-    };
-    const self2 = () => {
-      const head = o.camera.getWorldPosition(new Vector3());
-      const floor = o.rig.getWorldPosition(new Vector3()).y;
-      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
-    };
-    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
-    const reached = (thing, at) => {
-      const me = self2();
-      taken++;
-      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
-      const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
-      if (said2) o.tell(said2);
-      hear(thing.item, thing.send.strikes, null);
-      if (effect && clock >= own.downUntil) {
-        own.value = struck(own.value, effect.take);
-        own.struckAt = clock;
-        own.regenAt = 0;
-        own.flash = 1;
-        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
-        sayState();
-      }
-      gone(thing);
-    };
-    const fly = (thing, dt) => {
-      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
-      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
-      const step = b.clone().sub(a);
-      const length = step.length();
-      let first = 1.0001;
-      let done = null;
-      if (o.deferred && thing.late) {
-        const late = thing.late;
-        thing.late = null;
-        thing.landedAt = late.t;
-        thing.ref = late.ref;
-        stick(thing, late.point, null, "world");
-        hear(thing.item, thing.send.lands, late.point);
-        return;
-      }
-      if (!o.deferred && length > 1e-6) {
-        ray.set(a, step.clone().divideScalar(length));
-        ray.far = length;
-        const hit = ray.intersectObjects(worldShapes(), false)[0];
-        if (hit) {
-          first = hit.distance / length;
-          done = () => {
-            stick(thing, hit.point, hit.object, "world");
-            hear(thing.item, thing.send.lands, hit.point);
-            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
-          };
-        }
-      }
-      const me = o.me();
-      if (me && thing.by !== me && !muted(thing.by)) {
-        const mine = self2();
-        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => reached(thing, a.clone().addScaledVector(step, t));
-        }
-      }
-      for (const p of o.people()) {
-        if (p.pubkey === thing.by) continue;
-        const shape = shapeOf2(p);
-        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => {
-            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
-            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
-          };
-        }
-      }
-      const before = thing.t;
-      thing.t += dt;
-      if (done) {
-        thing.landedAt = before + dt * Math.min(1, first);
-        return done();
-      }
-      thing.object.position.copy(b);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      thing.object.lookAt(w.copy(b).add(going));
-      if (thing.t > PLAY_LIMITS.life) gone(thing);
-    };
-    let item = null;
-    let model2 = null;
-    let box = null;
-    let scriptState = "none";
-    let stoppedBecause = "";
-    let words2 = "";
-    let wordsSprite = null;
-    let holdingNo = 0;
-    const showWords = (text) => {
-      words2 = text;
-      if (wordsSprite) {
-        repaint(wordsSprite, (g, cw, ch) => {
-          if (!text) return;
-          g.font = "600 44px system-ui, sans-serif";
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          const wide = Math.min(cw - 8, g.measureText(text).width + 36);
-          g.fillStyle = "rgba(8,10,14,0.72)";
-          g.beginPath();
-          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
-          g.fill();
-          g.fillStyle = "#ffffff";
-          g.fillText(text, cw / 2, ch / 2 + 2, cw - 24);
-        });
-      }
-      o.onChange?.();
-    };
-    let pointed = null;
-    const wall = () => typeof performance !== "undefined" ? performance.now() : Date.now();
-    const aim = (lift) => {
-      const said2 = o.aim?.();
-      let from;
-      let to;
-      const tapped = pointed && wall() < pointed.until ? pointed.to : null;
-      pointed = null;
-      if (said2) ({ from, to } = said2);
-      else if (tapped || o.sighting?.()) {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
-        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      } else {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
-        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      }
-      const dir = to.clone().sub(from).normalize();
-      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
-      return { from, dir };
-    };
-    const asked = (ask) => {
-      if (!item || !active()) return;
-      if (ask.ask === "show") return showWords(ask.text);
-      if (ask.ask === "play") {
-        if (!item.sounds[ask.name]) return;
-        hear(item, ask.name, null);
-        const said3 = buildDid({ kind: "sound", name: ask.name });
-        if (said3 && o.me()) o.tell(said3);
-        return;
-      }
-      if (ask.ask === "clip") {
-        animate(item, model2, ask.name);
-        const said3 = buildDid({ kind: "clip", name: ask.name });
-        if (said3 && o.me()) o.tell(said3);
-        return;
-      }
-      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
-      const { from, dir } = aim(ask.lift);
-      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
-      const said2 = buildShot(shot);
-      const read6 = said2 ? parseShot(said2) : null;
-      if (!said2 || !read6) return;
-      sent++;
-      void launch(o.me() ?? "", item, read6);
-      if (o.me()) o.tell(said2);
-    };
-    const refreshOwn = () => {
-      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
-    };
-    const isPresenting = () => !!o.presenting?.();
-    return {
-      async held(next, drawnFor) {
-        const no = ++holdingNo;
-        if (box) {
-          box.tell("away");
-          const old = box;
-          box = null;
-          setTimeout(() => old.stop(), 250);
-        }
-        if (model2) mixers.delete(model2);
-        wordsSprite?.removeFromParent();
-        wordsSprite = null;
-        item = next;
-        model2 = drawnFor;
-        scriptState = "none";
-        stoppedBecause = "";
-        words2 = "";
-        refreshOwn();
-        o.onChange?.();
-        if (!next || !drawnFor || !active()) return;
-        if (next.does.use || next.script) {
-          wordsSprite = drawn(256, 72, () => {
-          });
-          wordsSprite.scale.set(0.1, 0.028, 1);
-          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
-          drawnFor.add(wordsSprite);
-        }
-        for (const s of next.sends) void o.items.sent(next, s.name);
-        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
-        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
-        const text = await o.items.script(next);
-        if (!text || no !== holdingNo) return;
-        const run2 = await runInBox(
-          text,
-          {
-            ask: (ask) => void (no === holdingNo && asked(ask)),
-            stopped: (why) => {
-              if (no !== holdingNo) return;
-              scriptState = "stopped";
-              stoppedBecause = why;
-              box = null;
-              showWords("");
-            }
-          },
-          typeof o.scripts === "object" ? o.scripts : {}
-        );
-        if (no !== holdingNo) return run2?.stop();
-        box = run2;
-        scriptState = run2 ? "running" : "stopped";
-        if (!run2) stoppedBecause = "no box";
-        run2?.tell("held");
-        o.onChange?.();
-      },
-      use(toward) {
-        if (!active() || !box) return;
-        pointed = toward ? { to: toward.clone(), until: wall() + 1e4 } : null;
-        box.tell("use");
-      },
-      second() {
-        pointed = null;
-        if (active()) box?.tell("second");
-      },
-      get does() {
-        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
-      },
-      get words() {
-        return words2;
-      },
-      get health() {
-        return { value: own.value, full: own.full };
-      },
-      heard(from, said2) {
-        if (!active() || muted(from)) return;
-        const person = o.people().find((p) => p.pubkey === from);
-        if (!person) return;
-        const state = parseState(said2);
-        if (state) {
-          let shown4 = bars.get(from);
-          if (!shown4) {
-            const sprite = drawn(320, 56, () => {
-            });
-            sprite.scale.set(0.44, 0.077, 1);
-            sprite.position.set(0, 0.62, 0);
-            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
-            bars.set(from, shown4);
-          }
-          shown4.value = state.value;
-          shown4.full = Math.min(state.full, 12);
-          shown4.until = clock + (state.value < state.full ? 30 : 2);
-          person.over.add(shown4.sprite);
-          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
-          return;
-        }
-        const hit = parseHit(said2);
-        if (hit) {
-          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
-          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
-          thing.agreed = true;
-          const feet = shapeOf2(person).feet;
-          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
-          if (thing.on !== from) stick(thing, at, person.body, from);
-          thing.agreeBy = null;
-          hear(thing.item, thing.send.strikes, at);
-          if (hit.by === o.me()) {
-            hear(thing.item, thing.send.tells, null);
-            landed++;
-            mark.visible = true;
-            markUntil = clock + 0.22;
-            o.onChange?.();
-          }
-          return;
-        }
-        if (!person.holding) return;
-        const did = parseDid(said2);
-        const shot = did ? null : parseShot(said2);
-        if (!did && !shot) return;
-        if (shot) {
-          let rate = rates.get(from);
-          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
-          if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
-          if (!rate.take(clock * 1e3)) return;
-          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
-        }
-        if (shot) {
-          heardShots.set(`${from}:${shot.id}`, clock);
-          if (heardShots.size > 256) {
-            for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
-          }
-        }
-        const does = (holding) => {
-          if (!holding) return;
-          if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : void 0, person.head);
-          else if (did) animate(holding, person.held, did.name, from);
-          else if (shot) void launch(from, holding, shot);
-        };
-        const known = o.items.known(person.holding);
-        if (known) does(known);
-        else {
-          if (shot) pending.add(`${from}:${shot.id}`);
-          const born = clock;
-          void o.items.describe(person.holding).then((found2) => {
-            if (shot) pending.delete(`${from}:${shot.id}`);
-            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
-          });
-        }
-      },
-      left(pubkey) {
-        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
-        bars.get(pubkey)?.sprite.removeFromParent();
-        bars.delete(pubkey);
-        rates.delete(pubkey);
-        for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
-      },
-      update(frame2) {
-        const at = typeof performance === "undefined" ? null : performance.now();
-        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
-        lastAt = at;
-        clock += dt;
-        for (const mixer of mixers.values()) mixer.update(dt);
-        if (mark.visible && clock > markUntil) mark.visible = false;
-        refreshOwn();
-        if (own.downUntil) {
-          if (clock >= own.downUntil) {
-            own.value = own.full;
-            own.downUntil = 0;
-            own.regenAt = 0;
-            sayState();
-          }
-        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
-          if (!own.regenAt) own.regenAt = clock;
-          if (clock - own.regenAt >= HEALTH.regenSeconds) {
-            own.value += 1;
-            own.regenAt = own.value < own.full ? clock : 0;
-            sayState();
-          }
-        }
-        const on3 = active();
-        const down = own.downUntil > 0;
-        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
-        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
-        const wide = tall * o.camera.aspect;
-        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
-        const scale = Math.min(0.3, wide * 0.62);
-        ownBar.scale.set(scale, scale / 6, 1);
-        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
-        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
-        ownBar.visible = own.shown > 0.02;
-        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
-        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
-        own.flash = Math.max(0, own.flash - dt / 0.55);
-        const low = !down && own.value < own.full && own.value <= 1;
-        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
-        edge.visible = red > 0.01;
-        edge.material.opacity = red;
-        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
-        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
-        if (glitch.visible) {
-          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
-          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
-          glitch.material.opacity = 0.18 + Math.random() * 0.3;
-          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
-        }
-        const people2 = o.people();
-        for (const [who2, shown4] of bars) {
-          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
-          const person = people2.find((x) => x.pubkey === who2);
-          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
-          if (person?.root) {
-            if (out && lively()) {
-              person.root.visible = person.root.visible && Math.random() > 0.3;
-              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
-              blinking.add(who2);
-            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
-          }
-        }
-        for (const thing of [...things]) {
-          if (thing.state === "flying") {
-            let left = Math.min(dt, 0.5);
-            const from = thing.t;
-            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
-              const step = Math.min(0.03, left);
-              fly(thing, step);
-              left -= step;
-            }
-            if (o.deferred && thing.state === "flying" && thing.t > from) {
-              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
-              if (thing.steps.length > 6) thing.steps.shift();
-            }
-            drawTrail(thing);
-          } else if (thing.state === "stuck") {
-            thing.t += dt;
-            drawTrail(thing);
-            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
-            else if (thing.t > thing.until) drop(thing);
-            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
-          } else if (thing.state === "falling") {
-            thing.t += dt;
-            drawTrail(thing);
-            thing.fall += GRAVITY * dt;
-            thing.object.position.y -= thing.fall * dt;
-            thing.object.rotation.x += dt * 5;
-            if (thing.object.position.y <= thing.floor + 0.02) {
-              thing.object.position.y = thing.floor + 0.02;
-              thing.state = "lying";
-              thing.until = 0.6;
-              hear(thing.item, thing.send.drops, thing.object.position);
-            }
-          } else {
-            thing.until -= dt;
-            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
-            if (thing.until <= 0) gone(thing);
-          }
-        }
-      },
-      snapshot() {
-        const clips = clipsSaid;
-        clipsSaid = [];
-        const q2 = new Quaternion();
-        const at = new Vector3();
-        const three2 = (x) => [x.x, x.y, x.z];
-        return {
-          things: things.map((t) => {
-            t.object.getWorldPosition(at);
-            t.object.getWorldQuaternion(q2);
-            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
-            return {
-              key: `${t.by}:${t.shot.id}`,
-              model: t.send.model.sha256,
-              size: t.send.size,
-              tints: t.tints,
-              state: t.state,
-              on: t.on,
-              ref: t.ref,
-              at: three2(at),
-              turn: [q2.x, q2.y, q2.z, q2.w],
-              scale: t.object.scale.x,
-              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
-              down: t.state === "falling" && !t.flooredAt
-            };
-          }),
-          trails: things.flatMap((t) => {
-            const mesh = t.trail;
-            if (!mesh || !mesh.visible) return [];
-            const position = mesh.geometry.getAttribute("position");
-            const color = mesh.geometry.getAttribute("color");
-            const base = mesh.userData.base;
-            const most = Math.max(base.r, base.g, base.b, 1e-6);
-            const points = [];
-            for (let i = 0; i < position.count; i += 2) {
-              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
-            }
-            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
-          }),
-          own: {
-            cross: cross.visible,
-            mark: mark.visible,
-            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
-            red: edge.visible ? edge.material.opacity : 0,
-            glitch: glitch.visible,
-            words: words2
-          },
-          clips
-        };
-      },
-      met(key, step, fraction, point, ref = "") {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        const tested = thing?.steps.find((s) => s.n === step);
-        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
-        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
-        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
-      },
-      floored(key, y) {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
-        thing.flooredAt = true;
-        thing.floor = y;
-      },
-      info() {
-        const count = (state) => things.filter((t) => t.state === state).length;
-        return {
-          flying: count("flying"),
-          stuck: count("stuck"),
-          falling: count("falling") + count("lying"),
-          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
-          sent,
-          landed,
-          taken,
-          health: { value: own.value, full: own.full },
-          words: words2,
-          script: scriptState,
-          stoppedBecause,
-          marked: mark.visible,
-          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
-        };
-      },
-      dispose() {
-        box?.stop();
-        for (const thing of [...things]) gone(thing);
-        for (const b of bars.values()) b.sprite.removeFromParent();
-        hud2.removeFromParent();
-      }
-    };
-  }
-
   // packages/sdk/src/presence.ts
   var SEND_EVERY_MS = 66;
   var FADE_START = 0.9;
@@ -50812,8 +50932,25 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       setAimScale(1);
     };
+    const bob = { x: 0, y: 0 };
+    const walked = { at: new Vector3(), has: false, far: 0, k: 0 };
+    const sway = (dt, still) => {
+      const at = d.rig.getWorldPosition(new Vector3());
+      const moved2 = walked.has ? Math.hypot(at.x - walked.at.x, at.z - walked.at.z) : 0;
+      walked.at.copy(at);
+      walked.has = true;
+      const speed = dt > 0 ? moved2 / dt : 0;
+      const walking = speed > 0.25 && speed < 14;
+      if (walking) walked.far += moved2;
+      walked.k += ((walking && !still ? 1 : 0) - walked.k) * (dt > 0 ? Math.min(1, dt * 7) : 0);
+      const swing = d.theme?.().motion === false ? 0 : walked.k * (1 - sightK);
+      const step = walked.far / STRIDE * Math.PI;
+      bob.x = Math.sin(step) * 0.012 * swing;
+      bob.y = -Math.abs(Math.sin(step)) * 0.016 * swing;
+    };
     const placeMine = (dt = 0) => {
       const now = hand();
+      sway(dt, now >= 0);
       if (!mineModel) return;
       const described = mine ? d.items?.known(mine) ?? null : null;
       if (now < 0) {
@@ -50839,6 +50976,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             if (sightK <= 2e-3 && !sightWant) endSight();
           }
         } else mineModel.position.copy(hip);
+        mineModel.position.x += bob.x * far;
+        mineModel.position.y += bob.y * far;
         mineModel.rotation.set(0, acts ? 0.1 * (1 - sightK) : 0, 0);
       }
       if (now === inHand) return;
@@ -51372,6 +51511,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       get play() {
         return play2;
       },
+      get heldBob() {
+        return [bob.x, bob.y];
+      },
       get holdingHand() {
         return mine ? hand() : -1;
       },
@@ -51697,7 +51839,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       shown4 = key;
       controls2.remove("item-use");
       controls2.remove("item-second");
-      if (!now) return;
+      if (!now) return void sight(false);
       if (now.use) controls2.add({ id: "item-use", section: "bag", icon: "check", tone: "primary", hotbar: true, lead: true, label: now.use, short: now.use, act: () => o.play()?.use() });
       if (now.second) controls2.add({ id: "item-second", section: "bag", icon: "turn", hotbar: true, lead: true, label: now.second, short: now.second, act: () => o.play()?.second() });
       if (now.use) controls2.say(`Tap or click where you want to ${now.use.toLowerCase()}. Hold a press to walk.`);
@@ -51715,10 +51857,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const onDown = (e) => {
       if (!document.pointerLockElement || !does()) return;
       if (e.button === 0 && does()?.use) o.play()?.use();
-      else if (e.button === 2) sight(true);
-    };
-    const onUp = (e) => {
-      if (e.button === 2) sight(false);
+      else if (e.button === 2) sight(!sighting);
     };
     const onMenu2 = (e) => {
       if (document.pointerLockElement && does()) e.preventDefault();
@@ -51731,7 +51870,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     o.dom?.addEventListener("mousedown", onDown);
     o.dom?.addEventListener("contextmenu", onMenu2);
-    if (typeof addEventListener === "function") addEventListener("mouseup", onUp);
     if (typeof document !== "undefined") document.addEventListener("pointerlockchange", onLock);
     if (typeof addEventListener === "function") addEventListener("keydown", onKey);
     refresh();
@@ -51750,7 +51888,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       dispose() {
         o.dom?.removeEventListener("mousedown", onDown);
         o.dom?.removeEventListener("contextmenu", onMenu2);
-        if (typeof removeEventListener === "function") removeEventListener("mouseup", onUp);
         if (typeof document !== "undefined") document.removeEventListener("pointerlockchange", onLock);
         sight(false);
         if (typeof removeEventListener === "function") removeEventListener("keydown", onKey);
@@ -51900,7 +52037,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const tints = state.presence.tints;
     return {
       rule: state.rule,
-      held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does } : null,
+      held: item ? { id: item.id, title: item.title, model: item.model.sha256, size: item.size, tints: Object.fromEntries(item.tints.map((t) => [t.slot, tints[t.slot] ?? t.color])), aim: item.aim, acts: !!state.play.does, bob: state.presence.heldBob } : null,
       sight: state.wantSight && !!item?.aim && !presenting,
       ...now
     };

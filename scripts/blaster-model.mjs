@@ -293,27 +293,71 @@ const gun = [
 const slide = slab("teal", rounded([[0.086, 0.1705], [0.168, 0.1705], [0.158, 0.187], [0.098, 0.187]], [0.003, 0.003, 0.008, 0.008]), 0.0145, 0.005);
 
 // The magazine comes away and goes back on a reload: two ends in the holder's colour, a clear middle, darts inside.
+// It holds the five darts the blaster fires, one above another, each a part of its own: as one is fired the rest
+// are pushed up a place, so what is seen in the magazine is what is left.
 const dartIn = (v) => [...tube("tint:dart", { u0: 0.149, u1: 0.186, r0: 0.0082, v, sides: 12 }), ...tube("foam", { u0: 0.186, u1: 0.197, r0: 0.0088, v, sides: 12 })];
+/** How far apart the darts lie in the magazine, and where each lies when it is full: the top one is fed in next. */
+const PITCH = 0.018;
+const DART_SLOTS = [0.0835, 0.0655, 0.0475, 0.0295, 0.0115];
+/** The foot of the magazine: two darts lower than the three it used to hold, and still above the foot of the grip. */
+const FOOT = 0.03 - 2 * PITCH;
 const clip = [
-  ...slab("tint:accent", rounded(rect(0.116, 0.03, 0.146, 0.1005), [0.012, 0.004, 0.004, 0.012]), BODY, 0.009),
-  ...slab("tint:accent", rounded(rect(0.199, 0.03, 0.229, 0.1005), [0.004, 0.016, 0.014, 0.004]), BODY, 0.009),
-  ...slab("tint:accent", rect(0.144, 0.03, 0.201, 0.0355), BODY - 0.0008, 0.003, 2),
+  ...slab("tint:accent", rounded(rect(0.116, FOOT, 0.146, 0.1005), [0.012, 0.004, 0.004, 0.012]), BODY, 0.009),
+  ...slab("tint:accent", rounded(rect(0.199, FOOT, 0.229, 0.1005), [0.004, 0.016, 0.014, 0.004]), BODY, 0.009),
+  ...slab("tint:accent", rect(0.144, FOOT, 0.201, FOOT + 0.0055), BODY - 0.0008, 0.003, 2),
   ...slab("tint:accent", rect(0.144, 0.095, 0.201, 0.1005), BODY - 0.0008, 0.003, 2),
-  ...dartIn(0.0475),
-  ...dartIn(0.0655),
-  ...dartIn(0.0835),
-  ...slab("clear", rect(0.1445, 0.035, 0.2005, 0.0955), BODY - 0.0018, 0.002, 1),
+  ...slab("clear", rect(0.1445, FOOT + 0.005, 0.2005, 0.0955), BODY - 0.0018, 0.002, 1),
 ];
 
 export const BLASTER_PARTS = [
   { name: "gun", shape: gun },
   { name: "slide", under: "gun", shape: slide },
   { name: "clip", under: "gun", shape: clip },
+  ...DART_SLOTS.map((v, i) => ({ name: `dart${i + 1}`, under: "clip", shape: dartIn(v) })),
 ];
 
 /** A turn about the x axis, as glTF says one: x, y, z, w. */
 const tip = (degrees) => [Math.sin((degrees * Math.PI) / 360), 0, 0, Math.cos((degrees * Math.PI) / 360)];
+/** A part that is there, and one that has gone: too small to see, since a part can't be nothing at all. */
+const THERE = [1, 1, 1];
+const GONE = [0.001, 0.001, 0.001];
+/** The kick of a shot: the blaster tips up and its rail slides back. */
+const kick = [
+  { node: "gun", path: "rotation", times: [0, 0.04, 0.16], values: [tip(0), tip(8), tip(0)] },
+  { node: "slide", path: "translation", times: [0, 0.04, 0.16], values: [[0, 0, 0], [0, 0, 0.028], [0, 0, 0]] },
+];
+/**
+ * A shot, leaving `left` darts: the kick, the top dart gone, and the rest pushed up a place into the blaster. Its
+ * name begins "pose", so the magazine stays as the shot left it (protocol/17-items.md): what is seen is what is left.
+ */
+const shot = (left) => {
+  const fired = DART_SLOTS.length - left;
+  return {
+    name: `pose${left}`,
+    moves: [
+      ...kick,
+      ...DART_SLOTS.flatMap((_, i) =>
+        i < fired
+          ? [{ node: `dart${i + 1}`, path: "scale", times: [0, 0.16], values: [GONE, GONE] }]
+          : [
+              { node: `dart${i + 1}`, path: "scale", times: [0, 0.16], values: [THERE, THERE] },
+              { node: `dart${i + 1}`, path: "translation", times: [0, 0.05, 0.16], values: [[0, (fired - 1) * PITCH, 0], [0, (fired - 1) * PITCH, 0], [0, fired * PITCH, 0]] },
+            ],
+      ),
+    ],
+  };
+};
+/** A full magazine: empty as it comes away, and filled while it is out of sight (the reload takes it away for half a second). */
+const full = {
+  name: `pose${DART_SLOTS.length}`,
+  moves: DART_SLOTS.flatMap((_, i) => [
+    { node: `dart${i + 1}`, path: "scale", times: [0, 0.5, 0.52, 1.4], values: [GONE, GONE, THERE, THERE] },
+    { node: `dart${i + 1}`, path: "translation", times: [0, 1.4], values: [[0, 0, 0], [0, 0, 0]] },
+  ]),
+};
 export const BLASTER_CLIPS = [
+  full,
+  ...[4, 3, 2, 1, 0].map(shot),
   {
     name: "reload",
     moves: [

@@ -150,6 +150,8 @@ type TestHooks = {
   itemUse?: () => void;
   itemSecond?: () => void;
   sight?: (on: boolean) => void;
+  /** How what they hold is swaying just now, across and up (presence.heldBob). */
+  heldBob?: () => [number, number];
   view?: () => { fov: number; sighting: boolean };
   /** What the visitor's hands are doing, as the input layer reads them. */
   input?: () => unknown;
@@ -885,6 +887,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // What is in their hand, pressed: on the bar, by the mouse and R at a desk, by the trigger in a headset.
   itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement, sight: (on) => presence.setSighting(on) });
   hooks.sight = (on) => presence.setSighting(on);
+  hooks.heldBob = () => presence.heldBob;
   hooks.view = () => ({ fov: Math.round(camera.fov * 10) / 10, sighting: presence.sighting });
   hooks.play = () => presence.play?.info() ?? null;
   hooks.itemUse = () => presence.play?.use();
