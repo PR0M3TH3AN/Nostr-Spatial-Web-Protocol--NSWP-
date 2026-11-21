@@ -131,7 +131,7 @@ together.
 | Says | Proposed tag | Example |
 |---|---|---|
 | What buying it gives | `nswp:for` | A world (`37300:<pubkey>:<name>`) or an item (`37303:<pubkey>:<name>`) |
-| For how long | (BitUnlock's own access policy) | Forever, or a number of days |
+| For how long | `nswp:term`, in seconds (decided: section 13, 34), agreeing with BitUnlock's own access policy | Forever, or a number of days |
 | The price | (BitUnlock's own) | 500 sats |
 | Who gets what | `nswp:share`, one per recipient | section 8 |
 | How it is gated | `nswp:gate` | `soft` or `sealed` (section 6.1) |
@@ -323,9 +323,9 @@ unlocked by it.
    lightning address itself beside it, since a name is anyone's to claim;
    and pays at a press.
 4. The tipper is told it went. The other person is told privately, and
-   nobody else is (decided). How, is still to settle: the plainest way is
-   the note that travels with the payment, where their wallet takes one
-   (section 14).
+   nobody else is (decided): by a note that goes with the payment, where
+   their lightning address takes one, saying who and in which world. The
+   tipper may leave their name off (section 13, 35). Not built yet.
 
 A tip is one sat at least. No share of a tip goes to anyone but the
 person tipped (decided).
@@ -1056,37 +1056,66 @@ section it belongs to.
 
 The owner, to these five as recommended: "Yes I agree with those last 5".
 
+**Decided after tips and buying were built** (the owner, 2026-11-21, to
+the recommended answer to each: "Yes to all your recommended decisions.")
+
+33. **A world remembers a visitor's receipts across a reload.** BitLogin
+    built `have` to answer from memory only, because keeping them is one
+    more thing a handed-over session may ask of its worker, and that list
+    is the owner's to widen. Widened, by that one thing: receipts for that
+    world's own listings, kept beside the world's grant. Otherwise a paid
+    world would show its front room again at every reload.
+34. **A listing says how long it lasts, where anyone can read it:**
+    `nswp:term`, in seconds, left out for something bought for good. It is
+    shown before paying. What BitUnlock holds for the product is still
+    what counts; the two must agree, and BitUnlock is the one to check
+    that they do when a listing is registered.
+35. **The person tipped is told by a note that goes with the payment,**
+    where their lightning address takes one: who, and in which world. The
+    tipper may leave their name off. No Nostr message in this version.
+36. **A room is shown the whole receipt** beside a held item, since a
+    receipt can't be cut down, and a person may switch that off for
+    themselves (14). Later, something smaller that BitUnlock signs for
+    showing.
+37. **What the lawyer is asked** (16): whether a service that checks
+    payments and never holds them is moving money; whether a share for
+    the client that brought the buyer changes that; and whose law applies
+    to the owner. Sales to a single seller go on meanwhile, and every
+    share stays paid straight from the buyer's wallet.
+38. **Section 10.6 is the plan.** BitPortal's own things are sold first.
+    Charging the people who make worlds is not designed until the first
+    sale has shown whether anyone pays.
+39. **The least price (28) is held in both places:** BitUnlock won't
+    register a listing under it, and BitLogin won't show a purchase under
+    it.
+40. **A paid world's taste is the world's to choose.** The kit offers one
+    plain way: a gate the world puts where it likes, with everything
+    before it free. No time limits.
+41. **"Under a tenth" is a guide, not a rule.** BitUnlock shows a seller
+    what they give up in all; nothing is refused for it.
+42. **The first makers invited** are three to five people the owner
+    knows, who have a world or will build one from the template. They are
+    told it is an experiment, that sums are small, and that shares aren't
+    there yet.
+43. **BitLogin's new permission** (25) is taken as BitLogin proposes it,
+    so long as BitLogin itself pins which application goes with which
+    service, builds the signed request itself, and never gives it to a
+    world.
+44. **Renewals** (29): BitUnlock's session checks what it does today
+    against what was decided, and changes it if they differ.
+
 ## 14. Still open
 
 Not decided by the above, and each needed before the part it belongs to:
 
-- **The lawyer's answer** (question 16). Shares and the client's share
-  wait for it.
-- **Whether the aim of "under a tenth"** given up in all is a rule or a
-  hope.
-- **How the person tipped is told.** The note that travels with a
-  Lightning payment is the plainest way and depends on their wallet
-  showing it. A private Nostr message is the other, and would be sent by
-  the tipper's own key.
-- **Whether BitUnlock's renewals already run on** as decided (section 13,
-  29), or need changing: its session's to check.
-- **The names** of the new tags and requests, which BitUnlock's, BitLogin's
-  and NSWP's sessions settle between them.
-- **Whose things are first** when "a few world makers by invitation"
-  begins, and what they are told.
-- **What a world's taste is allowed to be:** a separate room, a time
-  limit, or anything the world likes.
-- **Where the least price is held.** By BitUnlock when a listing is made,
-  by BitLogin when it shows one, or both.
-- **The sandbox's address,** and who may use it.
-- **How much of a receipt a room is shown.** All of it (it can't be cut
-  down), or a smaller thing BitUnlock signs for showing.
-- **The exact shape of the new permission** in BitLogin that lets a named
-  application have requests to its own service signed (decided in
-  principle: section 13, 25). Which applications are named, how the
-  service's address is tied to the application's, and the words of the
-  warning, are BitLogin's session's to propose.
-- **Whether the owner takes section 10.6 as the plan:** it was asked for
-  and written down, and not yet said yes to. If so: which of BitPortal's
-  own things are sold first, and what world makers would be charged for,
-  and how much.
+- **The lawyer's answer** (16, 37). Shares and the client's share wait
+  for it.
+- **The names** of the new tags and requests not yet built, which
+  BitUnlock's, BitLogin's and NSWP's sessions settle between them. Those
+  built are settled: `tip`, `buy`, `have`, `bought`, `receipt`, `none`,
+  and the `library` mode.
+- **The sandbox's address,** and who may use it (30).
+- **Which of BitPortal's own things is sold first** (18, 38).
+- **A lightning address for each world that is to take tips.** None of the
+  reference worlds names one, so "Tip this world" shows nowhere yet.
+- **Who the three to five makers are** (42).
