@@ -6,7 +6,7 @@
   not supported. And when the user hovers over one it should display in game
   text explaining what that icon means."
 - **Who:** BitPortal's session, both halves.
-- **State:** building. Stage 1 of three is written: the four capabilities, the list and its words, read by one function (`worldOffers` in `@nswp/core`). Not yet: the icons on the kit's doorway and the words when one is pointed at; BitPortal's room using them. Nothing is published: the announcements on relays are as they were.
+- **State:** building. Stages 1 and 2 of three are written: the list and its words (kit 0.71.1), and the tiles beside the kit's doorway with their words when pointed at. Not yet: BitPortal's room using them, and the template's and the Godot world's own doors. Nothing is published: the announcements on relays are as they were.
 
 ## What is already there
 
@@ -57,6 +57,42 @@ only flat "no" is `items` `none`, which a world does say.
 file (`sites/template-demo/world.json`, the template's) and the Foundry's
 (`engines/godot/world.json`) are as they were. What those two really offer
 should be said by whoever knows them.
+
+## Stage 2, as built
+
+- **One piece for every door** (`packages/sdk/src/door-offers.ts`,
+  `createDoorOffers`): a column of seven square tiles beside the doorway's
+  left jamb, top to bottom in the list's order, each the kit's line drawing
+  for that thing. Lit is the door's own colour; dark is a dim outline. The
+  kit's doorway (`createPortalGate`) stands it beside itself; a client that
+  draws doors its own way adds the same piece. The column is clear of the
+  frame and inside half of `DOOR_SPACING`, so two doors' columns never meet.
+- **Pointed at, never pressed.** On a flat screen what a tile means goes in
+  the card over the controls ("Saves: The Grove", then its sentence); in a
+  headset the piece shows the same words in front of the door.
+- **A door in a world is told what its destination offers by its own
+  site**, as it is told its category: `sites.json` carries each place's
+  `modes`, `capabilities` and `items`, word for word from that place's own
+  `world.json`, and the build refuses to go on if the two differ. A door
+  never asks the place it leads to.
+- **Other engines** get the same list with the drawings: `NSWP.offers(world)`.
+- **The Starter Home's and the Foundry's files** now say what they do too
+  (voice and looks; the Foundry also its room).
+
+**Seen** (built from the branch, served on this machine): the Gallery at a
+desk from where a visitor arrives and from a few steps off, a lit tile and
+a dark one pointed at with the card filled for each, and on a phone-sized
+touch screen. **Not seen:** the words in front of a door in a headset (the
+made-up headset entered VR and pointed, and from where a visitor arrives
+the door is too far off to read a picture of it); the Godot world, whose
+own gate doesn't draw the tiles yet; a real headset.
+
+**To be said before a release:** after a deploy, a reference world's doors
+would light what its neighbours' own files say, while BitPortal's room
+reads the announcements on relays, which say less until they are published
+again. The same door would be lit in one place and dark in the other. The
+deploy and the publish want to be one step, or the room's half held until
+then.
 
 ## The kit's half
 

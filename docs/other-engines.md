@@ -164,6 +164,7 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.claim(on)` | Take every key for the game, or give them back. |
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
+| `NSWP.offers(world)` | What a world offers, for the tiles beside its door: twelve lines in a set order, each lit or dark with a sentence for it, and a drawing for the seven a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
 
 The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter

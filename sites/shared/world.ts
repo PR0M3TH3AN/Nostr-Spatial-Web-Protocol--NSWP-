@@ -10,7 +10,7 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, WORLD_KIND, type Achievement, type Board, type ItemsRule } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
@@ -18,9 +18,15 @@ import previews from "../previews/index.json";
 import sites from "../sites.json";
 
 type V3 = [number, number, number];
-/** `category` is what kind of place it is, as its own announcement says (the build checks the two agree). */
-type Place = { d: string; url: string; title?: string; category?: string };
+/**
+ * `category` is what kind of place it is, as its own announcement says (the build checks the two agree). `modes`,
+ * `capabilities` and `items` are what it offers, word for word from the same announcement and checked the same way:
+ * a door says them from what its own site was told, and never asks the place it leads to.
+ */
+type Place = { d: string; url: string; title?: string; category?: string; modes?: string[]; capabilities?: string[]; items?: string };
 const places: Record<string, Place> = { ...sites.worlds, ...sites.elsewhere };
+/** Whether sites.json says what a place does with the things visitors carry, in one of the words there are. Saying nothing is not saying `allowed`. */
+const isItemsRule = (rule: unknown): rule is ItemsRule => typeof rule === "string" && (ITEM_RULES as readonly string[]).includes(rule);
 
 export interface Door {
   /** Which world it leads to: a name from sites.json. */
@@ -141,6 +147,8 @@ type TestHooks = {
   jump?: { jump(): boolean; readonly height: number; readonly airborne: boolean };
   state: Record<string, unknown>;
   doors(): { label: string; to: string; url: string; position: number[] }[];
+  /** The tiles beside each door that say what its world offers: what each says, where it is, and where on the screen just now. */
+  offers?(): { label: string; tiles: { id: string; on: boolean; words: string; where: number[]; screen: number[]; ahead: boolean }[] }[];
   goThrough(i: number): Promise<void>;
   /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
@@ -404,7 +412,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       url: place.url,
       entryPoint: "main-entrance",
     };
-    const gate = createPortalGate(destination, { label: door.label, category: place.category ?? null, color: accent, textColor: cfg.palette.text });
+    const offered = worldOffers({ modes: place.modes ?? [], capabilities: place.capabilities ?? [], ...(isItemsRule(place.items) ? { items: place.items } : {}) });
+    const gate = createPortalGate(destination, { label: door.label, category: place.category ?? null, color: accent, textColor: cfg.palette.text, offers: offered });
     gate.group.position.set(...door.position);
     if (door.rotation === undefined) gate.group.lookAt(spawn.position[0], door.position[1], spawn.position[2]);
     else gate.group.rotation.y = THREE.MathUtils.degToRad(door.rotation);
@@ -431,6 +440,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     }
   }
   hooks.doors = () => gates.map((g) => ({ label: g.door.label, to: g.door.to, url: g.place.url, position: g.gate.group.position.toArray() }));
+  // The tiles beside each door, for automation: what each says, and where it is on the screen just now.
+  hooks.offers = () =>
+    gates.map((g) => ({
+      label: g.door.label,
+      tiles: g.gate.offers.targets.map((tile) => {
+        const offer = g.gate.offers.offerOf(tile)!;
+        const at = tile.getWorldPosition(new THREE.Vector3()).project(camera);
+        const where = tile.getWorldPosition(new THREE.Vector3()).toArray();
+        return { id: offer.id, on: offer.on, words: offer.words, where, screen: [Math.round(((at.x + 1) / 2) * innerWidth), Math.round(((1 - at.y) / 2) * innerHeight)], ahead: at.z < 1 };
+      }),
+    }));
 
   // ------------------------------------------------------------- leaving
   // Whether the visitor is in the room here, and heard: it goes with them, so the next place needn't ask again.
@@ -593,6 +613,16 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   // ------------------------------------------------------------- input
   const targets = gates.map((g) => g.gate.target);
+  // The tiles beside each door that say what its world offers: pointed at, never pressed.
+  const offerTiles = gates.flatMap((g) => g.gate.offers.targets);
+  /** The tile the ray is on, and whose door it is beside. The ray is wherever the last aim left it. */
+  const offerAt = (): { door: number; offer: Offer } | null => {
+    const tile = raycaster.intersectObjects(offerTiles, false)[0]?.object;
+    if (!tile) return null;
+    const door = gates.findIndex((g) => g.gate.offers.targets.includes(tile as THREE.Mesh));
+    const offer = door >= 0 ? gates[door]!.gate.offers.offerOf(tile) : null;
+    return offer ? { door, offer } : null;
+  };
   /** Which door a pointed-at thing is, whether or not it is near enough to choose. */
   const anyDoorAt = (object: THREE.Object3D | undefined) => gates.findIndex((g) => g.gate.target === object);
   const gateAt = new THREE.Vector3();
@@ -1049,6 +1079,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     for (const f of figures) f.tick(t);
     handle.update?.(t, dt);
     let aimed = -1;
+    let tile: { door: number; offer: Offer } | null = null;
     let panelAimed: string | null = null;
     let hover: [number, number] | null = null;
     let going: readonly (readonly [number, number])[] | null = null;
@@ -1058,6 +1089,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       for (const c of controllers) {
         if (!c.visible) continue;
         const door = aimFrom(c);
+        tile = offerAt() ?? tile;
         const key = panels!.keyboard.pick(raycaster);
         const onMenu = key ? null : xrConsole.pick(raycaster);
         if (onMenu) {
@@ -1092,11 +1124,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       raycaster.setFromCamera(pointer, camera);
       panelAimed = panels!.pick(raycaster);
       aimed = panelAimed ? -1 : doorAt(raycaster.intersectObjects(targets, false)[0]?.object);
+      tile = panelAimed || aimed >= 0 ? null : offerAt();
       // Moving the intense way, the pointer's picture is the kit's to hide: the middle of the view is what points.
       if (!fps!.enabled) renderer.domElement.style.cursor = aimed >= 0 || panelAimed ? "pointer" : "grab";
       // The casual way, with a pointer that hovers: a ring on the floor where a press would take them. With a finger
       // there is nothing to hover with, so only where they are going is marked.
-      const mayHover = !fps!.enabled && !dragging && !panelAimed && aimed < 0 && Math.abs(pointer.x) <= 1 && Math.abs(pointer.y) <= 1 && currentForm() !== "touch";
+      const mayHover = !fps!.enabled && !dragging && !panelAimed && aimed < 0 && !tile && Math.abs(pointer.x) <= 1 && Math.abs(pointer.y) <= 1 && currentForm() !== "touch";
       if (!mayHover) hoverKept = null;
       else if (hoverTick++ % 3 === 0) {
         // Looked for every third frame: finding what is in the way means looking at everything in the place.
@@ -1118,8 +1151,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (panels!.keyboard.open) xrConsole.group.visible = false;
     const at = gates[aimed];
     const rated = at ? doorRatings.words(coordinateOf(at.place)) : "";
-    controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "", rated ? [rated] : []);
+    // A tile pointed at says what it means: in the card on a flat screen, and in front of its door in a headset.
+    const beside = tile ? gates[tile.door]! : null;
+    if (tile && beside) controls.setTarget(`${tile.offer.name}: ${beside.door.label}`, [tile.offer.words]);
+    else controls.setTarget(at ? `${at.door.label}, at ${host(at.place.url)}` : "", rated ? [rated] : []);
     gates.forEach((g, i) => {
+      g.gate.offers.point(tile && tile.door === i ? tile.offer : null, renderer.xr.isPresenting);
       g.gate.aimed = i === aimed ? 1 : 0;
       g.gate.update(t, dt);
     });
