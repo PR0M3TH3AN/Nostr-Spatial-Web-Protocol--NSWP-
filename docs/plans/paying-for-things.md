@@ -855,7 +855,8 @@ a frame there are three ways to get that signature:
   shows BitUnlock's seller pages itself. Nothing new to trust, and the
   two projects are then tied together in a way they aren't now.
 
-**Being paid, from inside the game.** A lightning address only: it is
+**Being paid, from inside the game.** Decided (section 13, 27). A
+lightning address only: it is
 public, and typing it gives nothing away. A wallet connection is a secret
 that can spend, a world can draw a copy of any panel, and so connecting
 one stays at BitUnlock's own address, with its address bar. Later, being
@@ -873,7 +874,7 @@ the means for, and is opened when the owner says.
 |---|---|
 | **BitUnlock** | A page made for a panel, framed only by named clients; the panel's few words; its seller pages laid out for that space; a way to open at "sell this thing". |
 | **BitLogin** | For A: the narrow permission for a named application to have requests to its own service signed. For B and C: see above. |
-| **BitPortal** | Its page that keeps the screen may frame BitUnlock's panel as well as BitLogin's. Today its rule is that it frames the sign-in address and the worlds it names and nothing else, so this is a change to that rule, by name, for one more address. |
+| **BitPortal** | Its page that keeps the screen may frame BitUnlock's panel as well as BitLogin's (decided: section 13, 26). Today its rule is that it frames the sign-in address and the worlds it names and nothing else, so this is a change to that rule, by name, for one more address, and its pinned tests change with it. |
 | **The kit** | A row to open it; "Sell this" on an item its maker holds and "Charge for this world" where its maker stands; a new mode for the client to pass on. |
 
 ### 11.7 What this does to the order of work
@@ -1001,6 +1002,16 @@ section it belongs to.
     "We can show a warning if needed for extra awareness." It needs one
     narrow new permission in BitLogin, which is not built.
 
+26. **BitPortal's page that keeps the screen may frame BitUnlock's panel,**
+    by name, as it frames BitLogin's. The owner, on the points left open
+    about that panel: "Ok go with your rec for the best user experience."
+    It frames that one page of BitUnlock's and nothing else of it.
+27. **Being paid from inside the game is by lightning address.** A wallet
+    connection, which is a secret that can spend, is connected only at
+    BitUnlock's own address. The best experience of all, later: paid
+    straight into the wallet BitLogin already holds, with nothing to type
+    (section 9).
+
 ## 14. Still open
 
 Not decided by the above, and each needed before the part it belongs to:
@@ -1035,10 +1046,6 @@ Not decided by the above, and each needed before the part it belongs to:
   principle: section 13, 25). Which applications are named, how the
   service's address is tied to the application's, and the words of the
   warning, are BitLogin's session's to propose.
-- **May BitPortal's page frame BitUnlock** as well as BitLogin? It is a
-  change to a rule BitPortal pins, for one named address.
-- **Being paid, in the game, by lightning address only,** with a wallet
-  connection kept to BitUnlock's own address?
 - **Whether the owner takes section 10.6 as the plan:** it was asked for
   and written down, and not yet said yes to. If so: which of BitPortal's
   own things are sold first, and what world makers would be charged for,
