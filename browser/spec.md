@@ -185,7 +185,7 @@ last as long as a world takes to load, which for a heavy one is a while:
 it belongs to the arriving page until that page asks once or goes
 elsewhere, and not to a timer.
 
-### For the home only
+### For a page the visitor has granted them to
 
 | Group | Calls | Notes |
 |---|---|---|
@@ -195,7 +195,11 @@ elsewhere, and not to a timer.
 
 Rules:
 
-- A call from any origin but the home's is as if the method didn't exist.
+- **Being the home grants nothing by itself** (section 2a, 4). Panels, the
+  workspace and programs are each something the visitor gives one site, at
+  the shell's own prompt, and can take back. The home is only the site most
+  likely to be given them. To a page that hasn't been, the method is as if
+  it didn't exist.
 - There is no identity on the bridge, for the home or anyone (section 2a,
   5). An earlier draft had the shell hold the visitor's signer.
 - Nothing here lets a page read a panel, type into one, or learn what is open.
@@ -366,8 +370,10 @@ start on headsets, and a companion for desktop programs. The changes:
 
 ## 10. Not decided
 
-- **Who may be a home.** Any origin the visitor types, or a short list? A
-  malicious home gets the wide half of the bridge.
+- ~~Who may be a home.~~ Settled on 2026-11-21: any address the visitor
+  chooses, since being the home grants nothing (section 4, "Rules"). A
+  malicious home gets what any site gets, until the visitor grants it more
+  at the shell's prompt.
 - **How the shell's layer is made unmistakable** in a headset, where there is
   no address bar. A colour or a sound can be copied. A secret the visitor
   chose, shown only by the shell, is the usual answer.

@@ -474,6 +474,22 @@ built), and what was answered:
   BitUnlock can pay them, which BitLogin can't know. BitLogin takes
   either plan, the client paid or the seller paid that part, and no
   other.
+- **What BitLogin's check proves, and what it doesn't** (BitLogin's
+  session, 2026-11-21). It holds the service's plan to its own working
+  out of the listing: how many payments, how much each, which key each is
+  said to be for, and its word. That stops a wrong amount, a share left
+  out or added, and a share said to be for someone the seller didn't
+  write. It does not prove where the money went: an invoice doesn't say
+  whose it is, so a service could hand over an invoice of its own under
+  the right name. That is as true of the seller's payment today, and it
+  rests on BitUnlock being the one service believed. Proof would mean
+  BitLogin fetching each share's invoice itself from that person's own
+  address, as it does for a tip. Not in this version; named so nobody
+  claims more than is so.
+- **A cost to know of:** the wallet's mint holds back a small reserve
+  for each payment it sends (two sats or so), so a sale in five parts
+  costs the buyer about five of them, and a 10-sat share costs a fifth of
+  itself to send.
 - **With shares switched off, a listing that carries them is registered
   as it would be today,** its seller paid whole. BitUnlock won't begin
   refusing listings on the live service for a tag it doesn't act on.
