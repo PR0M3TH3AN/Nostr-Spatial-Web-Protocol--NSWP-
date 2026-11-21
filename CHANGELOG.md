@@ -14,6 +14,7 @@ The front room: the first thing in the kit that asks a visitor to buy. No world 
 
 - **A listing's name is one line, and a carriage return ends a line** (`cleanListing`). It let one through where the selling service refuses it. That function is the one place the rule for a listing's coordinate is written, and a test fails if the pattern is written again.
 - **For a reader of the core:** `World.access` is a list of listings where it was one coordinate, and `WorldInput.access` takes either. `paidWorldReaches` says what a paid world's page may reach for the taken-back question (the issuer's address, by name), and nothing for a free one.
+- **A door says "paid" only where a listing is named** (`worldOffers`). `access` is a list now, and an empty list, or one with nothing in it that is a listing, is a free world: its door says nothing of paying.
 - **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing. `trials/front-room.mjs` walks one against the selling service's sandbox, with a stand-in for the sign-in address.
 
 ## 0.72.0

@@ -4418,6 +4418,17 @@ var NSWP = (() => {
 
   // packages/core/dist/listing.js
   var ACCESS_MOST = 8;
+  function cleanAccess(input, sellers) {
+    const out = [];
+    for (const said2 of Array.isArray(input) ? input : [input]) {
+      const listing = cleanListing(said2);
+      if (!listing || out.includes(listing) || sellers && !sellers.includes(listingSeller(listing)))
+        continue;
+      if (out.length < ACCESS_MOST)
+        out.push(listing);
+    }
+    return out;
+  }
 
   // packages/core/dist/offers.js
   var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"];
@@ -4465,7 +4476,8 @@ var NSWP = (() => {
         scores && achievements ? "It keeps scores, and marks what you achieve." : scores ? "It keeps scores." : achievements ? "It marks what you achieve." : "It doesn't say it keeps scores or marks what you achieve."
       ],
       // What costs money to go into names what is sold (the `access` tag). Saying it takes payments is not that.
-      paid: line("paid", !!world2.access),
+      // Only a listing counts: a list with nothing in it, or nothing in it that is a listing, is a free world.
+      paid: line("paid", cleanAccess(world2.access).length > 0),
       tips: line("tips", says("tips")),
       doors: line("doors", says("spatial-portals")),
       looks: line("looks", says("avatars")),
