@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795195781,
+  "created_at": 1795304981,
   "tags": [
     [
       "d",
@@ -44,6 +44,14 @@
     [
       "capability",
       "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
     ],
     [
       "comfort",
@@ -128,6 +136,6 @@
   ],
   "content": "A ring of seats round a hearth in a clearing of lantern trees. Press Join to see and hear whoever else is there.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "9eb8de94c3c154ddb8d915243fbfbe2384fa02c5d9d514fd29bed5774569c2f8",
-  "sig": "ed1f92d40b61ba205c6ad59d826651b1ea919e603a0450689f0fb13edef4499aa6d4e9d1e4a05e4c8685192ec47b66e779b44374fa39fd3d1317751df5df0f3b"
+  "id": "9fb0e7aa819e011bf6c541894ec2414ba2e9ae47efe938405719cc18d057a513",
+  "sig": "09148fc5ad06960abf34385f626a17a32493ed5fb730c27fccc1a9f0d220809240e5696ccfc325dd23825a22d0b7ffbd3cab9712e83638594cc7a5664c828398"
 }
