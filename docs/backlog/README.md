@@ -28,7 +28,7 @@ request that does the work. The page of what is in motion (the board,
 
 | File | What | Who | State |
 |---|---|---|---|
-| [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | building |
+| [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | merged |
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | building |
 | [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | briefed |
 | [paid-front-room](paid-front-room.md) | The first thing in a world that asks to buy | NSWP builder | building |
