@@ -9,7 +9,10 @@ were answered the same day too ("Yes to all of these", to the answers
 recommended): section 13 is what was decided, and section 14 what is
 still open. **Decided is not built: nothing here is built yet.** Section
 10.6 (how this pays for development) is an assessment the owner asked to
-have written down, and is not one of the things decided.
+have written down, and is not one of the things decided. Section 11 was
+rewritten after reading the code of all three projects at each place this
+touches them: it found nine things the first draft had wrong, which are
+listed there and corrected where they stood.
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -145,7 +148,10 @@ two listings. A bundle is not in this version (section 12).
 **Who may sell what.** A listing for a world must be signed by the key
 that signed the world's announcement, and a listing for an item by the key
 that signed the item, or it is ignored. Nobody can put a price on
-something that isn't theirs.
+something that isn't theirs. This is checked by whoever reads the receipt,
+and needs nothing from BitUnlock: a receipt names its listing, a listing's
+coordinate carries its seller's key, and that key is compared with the
+key that signed the world or the item.
 
 ## 5. The purchase: one loop for everything sold
 
@@ -180,6 +186,14 @@ belongs to the world asking (the listing's `nswp:for` is this world, or an
 item this world's own publisher sells). A world can't go through a
 visitor's purchases elsewhere. A visitor who would rather not say can turn
 this off, and is then asked each time.
+
+It is answered from what BitLogin has already saved in this browser, and
+not by asking BitUnlock then and there: the signer inside a world may
+reach relays and nothing else, and can't sign the kind of request
+BitUnlock needs (section 11.1). BitLogin's own page fills that store when
+the visitor signs in and after every purchase. So something bought on
+another device shows up here once the panel has next been open; and `buy`
+for something already owned finds the receipt and charges nothing.
 
 **Buying is not the same as paying.** `pay` (which exists) pays one
 invoice a world made, and that is all: nothing is signed, nothing is kept,
@@ -236,9 +250,11 @@ is built first.
   listing lasts forever.
 - **At the door.** The Airlock shows it on the plate before the crossing:
   "Paid: 500 sats, once" or, for someone who holds a receipt, "You have
-  this". It asks BitLogin with `have`. Decided: a world can be bought
-  wherever it is shown: from the plate, in BitPortal's room, and inside
-  the world. Always the same `buy`, on BitLogin's page.
+  this". The Airlock asks nobody for this: its own rule is that it never
+  waits on another site, so it reads a note BitPortal's room keeps in this
+  browser of what the visitor holds (section 11.1). Decided: a world can
+  be bought wherever it is shown: from the plate, in BitPortal's room, and
+  inside the world. Always the same `buy`, on BitLogin's page.
 - **On arrival.** The world asks `have`. With a good receipt it opens.
   Without one it shows a small front room (the kit's, the same in every
   world) with what it costs and two ways on: buy, or go home.
@@ -289,10 +305,11 @@ No BitUnlock, no listing, no receipt: a tip is a payment and nothing is
 unlocked by it.
 
 1. From a person's card: "Send a tip", and an amount.
-2. The world reads the lightning address in their own Nostr profile and
-   asks it for an invoice of that amount.
-3. `signer.pay(invoice)`. BitLogin shows who it is for and how much, and
-   pays at a press. The kit already checks the proof of payment.
+2. The world sends its signer `tip`, with the person's key and the amount
+   (a new request, proposed: section 11.1 says why a bare `pay` won't do).
+3. BitLogin's page reads that person's own Nostr profile, finds their
+   lightning address, asks it for an invoice of that amount, shows the
+   visitor who it is for by the name in that profile, and pays at a press.
 4. The tipper is told it went. The other person is told privately, and
    nobody else is (decided). How, is still to settle: the plainest way is
    the note that travels with the payment, where their wallet takes one
@@ -301,9 +318,9 @@ unlocked by it.
 A tip is one sat at least. No share of a tip goes to anyone but the
 person tipped (decided).
 
-A tip is a bare payment, so the limit on bare payments applies to it
-(section 10.2): a tip over the visitor's own limit is turned down by
-BitLogin with the reason, and they may raise the limit there.
+The limit on a bare payment (section 10.2) applies to a tip too, since
+nothing is owned afterwards: a tip over the visitor's own limit is turned
+down by BitLogin with the reason, and they may raise the limit there.
 
 Someone with no lightning address in their profile can't be tipped yet,
 and the row says so. Ecash straight from one person's wallet to another's
@@ -459,7 +476,10 @@ wall.
   would cost them to build and run their own. Decided: the aim is under a
   tenth of the price all in, far under what an app store takes; and
   BitUnlock's own fee stays as it is, so that two prices aren't changed
-  at once.
+  at once. These two pull against each other for cheap things: the fee is
+  1% but never under 10 sats, so on a 100-sat item it is a tenth by
+  itself, and on a 200-sat item a twentieth. Section 14 has this to
+  settle: a least price, or a lower floor.
 - **Say what is true, and block nothing.**
   - On BitLogin's page, a bare payment reads: "A payment to this world. No
     receipt: nothing will be recorded as yours." A purchase reads what
@@ -562,14 +582,192 @@ there being worlds worth visiting, which no way of charging provides. The
 cheapest thing that would show it is the one already planned: one item,
 at a low price, and whether anyone buys it.
 
-## 11. What each project would have to add
+## 11. Where the three projects meet, checked against their code
 
-| Project | To add |
-|---|---|
-| **BitUnlock** | The NSWP tags on a listing, and checking the seller owns the thing. A receipt that names what it is for. Later: more than two recipients (A above), and ecash received as locked tokens. |
-| **BitLogin** | Keeping receipts with the account, and finding them again (its own unbuilt design). `buy` and `have`. The purchase page in the panel. The words that tell a purchase from a bare payment, and the visitor's own limit on a bare payment (section 10.2). Later: sending a locked ecash token. |
-| **The kit (NSWP)** | `signer.buy`, `signer.have`. One receipt check, and the list of issuers it trusts. The front room of a paid world. A locked item in the bag, and receipts beside held items. Tip rows. The "Sells with receipts" mark on a plate. Perhaps a "bought it" mark on a rating. The new tags in NSWP-01 (worlds) and NSWP-17 (items), and a new section for all of this. |
-| **BitPortal** | The paid plate on a door, and the "Sells with receipts" mark. Saying which client it is at a purchase. A shelf for its own items. What it puts forward stays the owner's choice. |
+Read on 2026-11-21 in each project's own code: BitUnlock at `2218ee0`
+with uncommitted work in its checkout (read, not touched), BitLogin at
+`1dd171d`, the kit at 0.68.0 and BitPortal at `c1e2170`. Each line says
+whether something is there already, has to change, or is new.
+
+### 11.1 What the first draft had wrong
+
+1. **`have` can't be answered by asking BitUnlock.** The signer inside a
+   world is served with rules that let it reach relays only
+   (`connect-src 'self' wss:`), and a session handed to it can never sign
+   a request to a server (kind 27235 is on its never list). So it answers
+   from a store BitLogin's own page keeps in the same browser. Corrected
+   in section 5.
+2. **The Airlock can't ask BitLogin anything.** BitPortal pins that the
+   Airlock "loads nothing from the sign-in address" and reads only this
+   browser's own note. So "You have this" on a plate comes from a note the
+   room keeps. Corrected in section 7.1.
+3. **BitUnlock needn't check who owns what is sold.** The receipt names
+   the listing, and the listing's coordinate carries the seller's key, so
+   whoever checks the receipt compares keys. `nswp:for` is for BitLogin to
+   show and to decide which world may ask `have`. BitUnlock's check of a
+   listing looks at the tags it needs and ignores others, so the new tags
+   need no change there. Corrected in section 4.
+4. **A tip through a bare `pay` is a weak tip.** BitLogin sees an invoice
+   and the world that asked, and can't say who is being tipped: a world
+   could call a payment to itself a tip to someone. And a world that
+   draws no items may reach nothing but relays, so it couldn't ask a
+   lightning address for an invoice at all. So a tip is its own request,
+   `tip`, which BitLogin fulfils itself. "Tips need nothing new from
+   BitLogin" was wrong. Corrected in section 7.5.
+5. **"Under a tenth" and "the fee stays as it is" pull apart** for cheap
+   things: BitUnlock's fee is 1% and never under 10 sats
+   (`BITUNLOCK_FEE_MIN_SATS`). Noted in section 10.2; to settle in 14.
+6. **There is no sandbox to try against.** BitUnlock's pretend-sats
+   service exists as code and "is not publicly hosted". Someone has to
+   run one that BitLogin's page can reach, and BitLogin needs a way to be
+   pointed at it. Noted in section 13, 17.
+7. **A listing must deliver something.** BitUnlock won't register a
+   product with nothing to release (`sellerCiphertext` is required). A
+   `soft` listing delivers a small fixed note and nobody needs it.
+8. **The first sale can be simpler than described.** BitUnlock has a mode
+   for its own operator's products: one invoice to the seller and no fee
+   part (`single-recipient`, switched on per seller by the operator
+   only). Noted in section 13, 18.
+9. **A receipt shown to a room shows more than "bought it".** It carries
+   the order's number and the payment's hashes, and BitUnlock's own design
+   keeps receipts private (wrapped, on relays). Showing one beside a held
+   item is a new exposure, small but real; decision 14 lets a person turn
+   it off. A receipt can't be cut down, because its signature covers all
+   of it.
+
+### 11.2 BitUnlock
+
+**There already, nothing to change:**
+
+- Calls from any website: the API answers any origin, because every call
+  is signed and none rides on a cookie (`src/cors.ts`). BitLogin's page
+  and a world can both call it.
+- Buying as the buyer: quote, order, refresh, unlock, each signed by the
+  buyer (`docs/NIP98_AUTHORIZATION.md`), and safe to repeat.
+- A time limit on what is sold: `accessTermSeconds` on a product.
+- Receipts, a list of a buyer's own (`GET /v1/access-entitlements`), and a
+  public "is this one still good" answer for the taken-back check.
+- The price, read from the signed listing (`["price", "<sats>", "SAT"]`).
+- Being paid at a lightning address with nothing stored that could spend.
+- A checkout helper that takes whatever wallet and signer it is given
+  (`runBitUnlockCheckout`).
+
+**Has to be done before a first sale:**
+
+- A seller's account for BitPortal, a receiving wallet or address, and a
+  listing for the first item. Nothing to build: it is setting up.
+- A sandbox that can be reached (11.1, 6).
+- A way for BitLogin and the kit to take BitUnlock's code: its `sdk` and
+  `protocol` packages are private and unpublished. BitLogin would vendor
+  the checkout; the kit would rather have the receipt's exact form and
+  some examples to test against than a dependency.
+- Its service key written where the kit can pin it.
+- An answer on how a renewal's time is counted (section 14).
+
+**Has to change, later:**
+
+- More than two parties to a payment: the roles are fixed at two
+  (`PAYMENT_ROLES`), and its database and its published form allow at
+  most two parts, though its checkout helper already takes up to sixteen.
+- Saying which client brought the buyer, on a quote. No field for it.
+- Ecash received as tokens locked to each recipient (section 9), and the
+  list of mints.
+
+### 11.3 BitLogin
+
+**There already:** the panel, and the family of things put to the person
+(`asking`, then an answer); `pay`; the wallet that pays an invoice through
+its mint; the panel's page may reach any `https:` address, so it can call
+BitUnlock and a lightning address.
+
+**New, for tips:** `tip`, with a person's key and an amount: read their
+profile, find their lightning address, get an invoice, check its amount,
+show who it is for, pay. The same for a world's own address.
+
+**New, for anything sold:**
+
+- A store of receipts in this browser that both its page and its signer
+  can read; filled from BitUnlock at sign-in and after a purchase.
+- `buy`: BitUnlock's checkout, with this wallet and this session; the
+  page that shows what, whose, how much, each part and how long. Two
+  parts to a payment are two payments through the mint, each with its own
+  cost.
+- `have`, answered by the signer from the store, only for the world's
+  own listings.
+- The same three for an application (BitPortal's room), on its client, as
+  `propose` and `pay` were added.
+- A place to see what one owns, in the panel. Its ordinary account page
+  can't reach BitUnlock as it is served today (`connect-src 'self' wss:`).
+
+**Has to change:** `pay` gains its words ("no receipt") and the visitor's
+limit, 1,000 sats to begin (section 10.2).
+
+**Later:** sending a token locked to someone's key; paying from a wallet
+connection; the list of issuers a visitor may add to.
+
+### 11.4 The kit (NSWP)
+
+**There already:** the family of requests in `signer.ts` and the page
+being shown at `asking`; items, bags, and "I am holding this" told to a
+room (`hold:` on the room's own channel).
+
+**New:**
+
+- In the core: the three requests and their answers (`signing.ts`); a
+  receipt read and checked (its own file, with the issuers trusted);
+  `access` and `tip` on a world's announcement and `sold-by` on an item,
+  read without ever failing a world that has none (the Airlock's quick
+  path depends on that).
+- In the kit: `signer.buy`, `signer.have`, `signer.tip`; the front room;
+  a locked item in the bag; a receipt sent beside `hold:` and checked
+  before an item is drawn in someone's hand; tip rows on a person's card
+  and in a world's menu; the marks on a plate.
+- For worlds made with Godot: the same calls through the engine build and
+  the add-on.
+- In the rules a world is served with: a world that sells must be able to
+  reach BitUnlock for the taken-back check. A world that draws no items
+  may reach only relays today (`build-sites.mjs`, and the template's
+  build). BitUnlock's address is added by name, not "any https".
+- Written down: NSWP-01 (the announcement's tags), NSWP-10 (the
+  requests), NSWP-17 (a paid item), and a section of its own for the
+  rest.
+
+**Has to change:** nothing that exists. `pay` stays as it is; the kit
+simply never treats it as a purchase (decided, 24).
+
+### 11.5 BitPortal
+
+**There already:** the plate on a door and its marks (`plate.ts`); the
+page that draws BitLogin's panel, which needs nothing new for any of
+this; its room as an application of BitLogin's.
+
+**New:**
+
+- A mark on a plate for a paid world, and "Sells with receipts".
+- A note in this browser of what the visitor holds, kept by the room,
+  for the Airlock to read (11.1, 2).
+- The room buying and asking through BitLogin's client, and a shelf for
+  BitPortal's own things.
+
+**Not possible as things are, and to decide:**
+
+- **BitPortal can't write a listing.** It may sign application data only
+  under its own name (`bitportal/`), and a BitUnlock listing is not that.
+  A listing is made in BitUnlock's seller pages (or BitRoad) for now.
+- **Marking a world as paid is signing its announcement again,** and
+  publishing it, which is the owner's word each time. The reference
+  worlds are free and stay so unless the owner says.
+
+**Later:** saying which client it is, at a purchase.
+
+### 11.6 What this does to the order of work
+
+- **Tips** wait on BitLogin's `tip`. A lesser tip could be built today
+  with `pay`, for worlds that may reach a lightning address, and would
+  have to say "this world says it is for…". Not recommended.
+- **Receipts, `buy` and `have`** wait on a sandbox someone runs, and on
+  BitUnlock's checkout being something BitLogin can take.
+- **The first real sale** needs no new code in BitUnlock at all.
 
 ## 12. Left out on purpose, and how more is added later
 
@@ -656,10 +854,15 @@ section it belongs to.
 
 17. Tips. Then receipts, `buy` and `have`, against BitUnlock's sandbox
     with pretend sats. Then a paid world. Then paid items. Then shares and
-    ecash.
+    ecash. (Found since: BitUnlock has no sandbox anyone can reach, only
+    one that can be run; and a proper tip needs one new request from
+    BitLogin. Section 11.6.)
 18. **The first thing sold for real:** one of BitPortal's own items, at a
     low price. The owner is then seller, maker and client at once, so
-    nothing waits on shares or on anyone else.
+    nothing waits on shares or on anyone else. (Found since: because the
+    owner also runs BitUnlock, that sale can be one invoice with no fee
+    part at all, by a setting BitUnlock already has for its own
+    operator's things.)
 
 **Keeping worlds inside**
 
@@ -695,6 +898,14 @@ Not decided by the above, and each needed before the part it belongs to:
   begins, and what they are told.
 - **What a world's taste is allowed to be:** a separate room, a time
   limit, or anything the world likes.
+- **Cheap things.** A least price (500 sats would keep BitUnlock's fee
+  at 2%), or a lower floor on the fee, or accept that the cheapest things
+  give up more than a tenth.
+- **Who runs the sandbox,** and where.
+- **Where a listing is made:** BitUnlock's seller pages for now, or
+  something in BitPortal, which would need BitLogin to let it sign one.
+- **How much of a receipt a room is shown.** All of it (it can't be cut
+  down), or a smaller thing BitUnlock signs for showing.
 - **Whether the owner takes section 10.6 as the plan:** it was asked for
   and written down, and not yet said yes to. If so: which of BitPortal's
   own things are sold first, and what world makers would be charged for,
