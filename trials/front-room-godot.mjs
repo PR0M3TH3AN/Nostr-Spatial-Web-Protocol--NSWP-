@@ -7,8 +7,9 @@
 // `npm run build:godot` first, which needs Godot), the kit's own script inside it (the gate is the kit's, not
 // Godot's), the add-on's `Nswp.gate`, and the example's own gate: something solid across the way while it is shut.
 // What is a stand-in: the sign-in address and relays, as in front-room.mjs. BitLogin's own screen is NOT tried.
-// What doesn't happen here: sound. The engine's audio worklets are fetched in a way the scripted browser can't
-// answer, so they fail to load, and the trial lists them (`soundNotLoadedInThisTrial`) apart from the page's faults.
+// What can't be checked here: the engine's sound. Its audio worklets are fetched past the scripted browser's
+// interception, and nothing listens at this trial's address, so check 18 is reported as not run here, with why.
+// Served for real (the local sites service), the Foundry loads them with no error.
 //
 // Nothing leaves this machine (front-room-lib.mjs), and nothing on disk is changed: The Foundry is not made paid.
 // Needs: the sandbox at https://<this machine>:4312, and NODE_EXTRA_CA_CERTS set
@@ -124,9 +125,9 @@ try {
 
   r.refused = [...t.refused];
   r.errors = t.errors.slice(0, 6);
-  // Not the world's fault, and not hidden: see `worklets` in front-room-lib.mjs.
-  r.soundNotLoadedInThisTrial = [...t.worklets];
   want("17 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
+  // The engine's sound: a check this trial keeps, and can't run (see `workletCheck` in front-room-lib.mjs).
+  t.workletCheck("18 the engine's audio worklets load");
 } catch (e) {
   // Whatever stopped the walk is said with what it had found, not instead of it.
   bad.push(`the walk stopped: ${String(e).slice(0, 400)}`);

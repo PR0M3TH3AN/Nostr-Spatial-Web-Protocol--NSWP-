@@ -148,6 +148,7 @@ try {
   r.refused = [...t.refused];
   r.errors = t.errors.slice(0, 6);
   want("17 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
+  t.workletCheck("18 any audio worklet the page uses loads");
 } catch (e) {
   // Whatever stopped the walk is said with what it had found, not instead of it.
   bad.push(`the walk stopped: ${String(e).slice(0, 300)}`);

@@ -128,11 +128,14 @@ window.__trialWho().then((w) => { who = w; say({ t: "ready" }); });
   const refused = new Set();
   const errors = [];
   /**
-   * What an audio worklet failed to load. The scripted browser's interception doesn't reach a worklet's own
-   * requests, and nothing really listens at the trial's address, so those loads fail here and nowhere else: the
-   * world plays no sound in this trial. Kept apart from the page's faults, and said.
+   * Audio worklets that failed to load, and every path of the world the interception answered. Found on
+   * 2026-11-21 (the Foundry served for real loads its worklets with no error, with or without an interception
+   * that passes requests on): a worklet's own fetch goes past the scripted browser's interception, straight to
+   * the network, and nothing listens at the trial's address. So a worklet failure is the page's fault unless the
+   * interception never saw that request; then the check can't be run here, and is reported as not run.
    */
   const worklets = new Set();
+  const answered = new Set();
   const statusAsked = [];
   /**
    * A visit. `who`: who the sign-in address says is signed in as the page loads. `believe`: whether this browser's
@@ -166,6 +169,7 @@ window.__trialWho().then((w) => { who = w; say({ t: "ready" }); });
         if (url.pathname === "/connect/") return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: "<!doctype html><title>stand-in sign-in window</title><p>A stand-in for the sign-in address's own page. Nothing is asked here." });
       }
       if (url.origin === world) {
+        answered.add(url.pathname);
         const path = url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname;
         const headers = { ...headersFor(url.pathname), "access-control-allow-origin": "*" };
         if (url.pathname === "/.well-known/nswp.json") return route.fulfill({ status: 200, contentType: TYPES[".json"], headers, body: paidManifest });
@@ -221,7 +225,20 @@ window.__trialWho().then((w) => { who = w; say({ t: "ready" }); });
     return { ctx, page, popups, until, toFront, signIn, pressRow, close: () => ctx.close() };
   }
 
-  return { r, bad, want, A, B, LISTING, ISSUERS, held, asked, statusAsked, refused, errors, worklets, visit, browser, world };
+  /**
+   * The check that the page's audio worklets load. Passes when none failed; fails when one failed that the
+   * interception answered (the page's own fault); and where every failure is one the interception never saw, it
+   * is reported as not run here, with why, and neither passes nor fails.
+   */
+  const workletCheck = (name) => {
+    const failed = [...worklets];
+    if (!failed.length) return want(name, "loaded", "loaded");
+    const ours = failed.filter((p) => answered.has(p));
+    if (ours.length) return want(name, { failed: ours }, "loaded");
+    r[name] = { notRunHere: failed, why: "a worklet's own fetch goes past the scripted browser's interception, and nothing listens at the trial's address; served for real (the local sites service, port 4309), the Foundry loads them with no error" };
+  };
+
+  return { r, bad, want, A, B, LISTING, ISSUERS, held, asked, statusAsked, refused, errors, worklets, workletCheck, visit, browser, world };
 }
 
 /** Say what was found, and leave with 1 if anything wasn't as wanted. */
