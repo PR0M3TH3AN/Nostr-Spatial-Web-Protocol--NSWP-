@@ -23,6 +23,7 @@ import {
   buildShot,
   buildState,
   cleanItemsRule,
+  isPose,
   createRate,
   GRAVITY,
   HEALTH,
@@ -531,6 +532,8 @@ export function createPlay(o: PlayOptions): Play {
       o.sounds.playForeign(sound, { distance, pan });
     });
   };
+  /** The pose each thing was last put in. */
+  const poses = new WeakMap<THREE.Object3D, THREE.AnimationAction>();
   /** Animations begun since the last snapshot, for a world drawn by another engine to play on what it drew. */
   let clipsSaid: { who: string; name: string }[] = [];
   const animate = (item: Item, model: THREE.Object3D | null, name: string, who = ""): void => {
@@ -544,9 +547,17 @@ export function createPlay(o: PlayOptions): Play {
       mixers.set(model, mixer);
     }
     const action = mixer.clipAction(clip);
+    // A pose stays as it ended, and takes the place of the pose before it. Anything else is a moment: played
+    // once, over whatever pose the thing is in, and gone.
+    const pose = isPose(name);
+    if (pose) {
+      const was = poses.get(model);
+      if (was && was !== action) was.stop();
+      poses.set(model, action);
+    }
     action.reset();
     action.setLoop(THREE.LoopOnce, 1);
-    action.clampWhenFinished = false;
+    action.clampWhenFinished = pose;
     action.play();
   };
 
@@ -825,7 +836,7 @@ export function createPlay(o: PlayOptions): Play {
    */
   let pointed: { to: THREE.Vector3; until: number } | null = null;
   const wall = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
-  const aim = (lift: number): { from: THREE.Vector3; dir: THREE.Vector3 } => {
+  const aim = (lift: number, spread = 0): { from: THREE.Vector3; dir: THREE.Vector3 } => {
     const said = o.aim?.();
     let from: THREE.Vector3;
     let to: THREE.Vector3;
@@ -848,6 +859,17 @@ export function createPlay(o: PlayOptions): Play {
     }
     const dir = to.clone().sub(from).normalize();
     if (lift) dir.applyAxisAngle(new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize(), lift);
+    if (spread > 0) {
+      // Thrown off a little, anywhere within a small circle round where it was aimed: no two go quite the same
+      // way. Worked out here, once, and sent as where it really went: so everyone sees the same flight.
+      const across = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
+      if (across.lengthSq() < 1e-6) across.set(1, 0, 0);
+      across.normalize();
+      const over = new THREE.Vector3().crossVectors(across, dir).normalize();
+      const off = spread * Math.sqrt(Math.random());
+      const round = Math.random() * Math.PI * 2;
+      dir.applyAxisAngle(over, off * Math.cos(round)).applyAxisAngle(across, off * Math.sin(round)).normalize();
+    }
     return { from, dir };
   };
   const asked = (ask: BoxAsk): void => {
@@ -867,7 +889,7 @@ export function createPlay(o: PlayOptions): Play {
       return;
     }
     if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
-    const { from, dir } = aim(ask.lift);
+    const { from, dir } = aim(ask.lift, ask.spread);
     const shot: Shot = { id: nextId++, name: ask.name, from: from.toArray() as Shot["from"], velocity: dir.multiplyScalar(ask.speed).toArray() as Shot["velocity"], stick: ask.stick };
     const said = buildShot(shot);
     const read = said ? parseShot(said) : null;

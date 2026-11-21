@@ -11,7 +11,7 @@ import { bubbleSeconds, buildTints, cleanItemsRule, cleanTints, itemCoordinate, 
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
-import { MUSIC_DUCK, MUSIC_RANGE, musicFade, musicToHear } from "./sound-store.js";
+import { MUSIC_DUCK, MUSIC_RANGE, musicFade, musicToHear, STRIDE } from "./sound-store.js";
 
 import { loadPicture, onPicturesChange, showsPictures } from "./picture.js";
 import { onChatChange, showsChat, wrapWords } from "./ui/chat.js";
@@ -153,6 +153,11 @@ export interface Presence {
   readonly play: Play | null;
   /** Which hand holds the item in a headset: the index of its controller, or -1 at a desk or with nothing held. */
   readonly holdingHand: number;
+  /**
+   * How what they hold sways as they walk, across and up, as shares of how far off it is drawn: for another
+   * engine to add to where it draws the thing. Nought and nought while they stand, aim along it, or want no motion.
+   */
+  readonly heldBob: [number, number];
   /**
    * Aim along the sight of what is in hand, at a desk, or stop: it is brought up to the eye, and they see as much
    * narrower as the item asks (never narrower than a little under half). Nothing happens for an item with no sight.
@@ -496,8 +501,33 @@ export function createPresence(d: PresenceOptions): Presence {
     setAimScale(1);
   };
   /** Put what they hold where they see it from: in a hand in a headset, low and to the right of a screen. */
+  /**
+   * How what they hold sways as they walk, for whoever draws it: across and up, as shares of how far off it is
+   * drawn. In pace with their steps: once across for every two, and a dip at each. It is what the thing looks
+   * like in the hand and nothing else: where it is aimed is worked out from the view, so this moves no shot. None
+   * while it is up at their eye, in a headset (their own hand moves it there), or where they asked for no motion.
+   */
+  const bob = { x: 0, y: 0 };
+  const walked = { at: new THREE.Vector3(), has: false, far: 0, k: 0 };
+  const sway = (dt: number, still: boolean): void => {
+    const at = d.rig.getWorldPosition(new THREE.Vector3());
+    const moved = walked.has ? Math.hypot(at.x - walked.at.x, at.z - walked.at.z) : 0;
+    walked.at.copy(at);
+    walked.has = true;
+    // A jump from one place to another is not walking.
+    const speed = dt > 0 ? moved / dt : 0;
+    const walking = speed > 0.25 && speed < 14;
+    if (walking) walked.far += moved;
+    walked.k += ((walking && !still ? 1 : 0) - walked.k) * (dt > 0 ? Math.min(1, dt * 7) : 0);
+    const swing = d.theme?.().motion === false ? 0 : walked.k * (1 - sightK);
+    const step = (walked.far / STRIDE) * Math.PI;
+    bob.x = Math.sin(step) * 0.012 * swing;
+    bob.y = -Math.abs(Math.sin(step)) * 0.016 * swing;
+  };
   const placeMine = (dt = 0) => {
     const now = hand();
+    // Worked out whether or not this draws the thing: another engine draws it, and is told (`heldBob`).
+    sway(dt, now >= 0);
     if (!mineModel) return;
     const described = mine ? (d.items?.known(mine) ?? null) : null;
     if (now < 0) {
@@ -528,6 +558,9 @@ export function createPresence(d: PresenceOptions): Presence {
           if (sightK <= 0.002 && !sightWant) endSight();
         }
       } else mineModel.position.copy(hip);
+      // In step with their walking, a little: scaled by how far off it is drawn, so it is the same in the picture.
+      mineModel.position.x += bob.x * far;
+      mineModel.position.y += bob.y * far;
       // Something that is pointed is turned a little toward the middle, as a hand holds it.
       mineModel.rotation.set(0, acts ? 0.1 * (1 - sightK) : 0, 0);
     }
@@ -1123,6 +1156,9 @@ export function createPresence(d: PresenceOptions): Presence {
     },
     get play() {
       return play;
+    },
+    get heldBob() {
+      return [bob.x, bob.y] as [number, number];
     },
     get holdingHand() {
       return mine ? hand() : -1;

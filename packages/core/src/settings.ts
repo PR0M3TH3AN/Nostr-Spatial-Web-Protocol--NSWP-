@@ -21,6 +21,20 @@
  * who is blocked and hearing other people's music are not settings, and
  * travel under rules of their own or not at all.
  */
+import { itemCoordinate } from "./bag.js";
+
+/**
+ * What a visitor had in their hand as they left a world (protocol/17-items.md): which item, in which colours,
+ * and the mark of its own logic if that was running for them.
+ */
+export interface HeldThrough {
+  /** The item's address: `37303:<its maker>:<its name>`. */
+  item: string;
+  /** The colours they chose for it, by slot. */
+  tints?: Record<string, string>;
+  /** The SHA-256 of the item's script, if it was running: they had been told about it, and let it. */
+  script?: string;
+}
 
 /** What goes with a visitor. Every part is optional: what isn't said is the next world's to decide. */
 export interface TravelSettings {
@@ -67,6 +81,13 @@ export interface TravelSettings {
    * there. Only they pin: a world never does it for them.
    */
   pins?: string[];
+  /**
+   * What was in their hand, so that it is in their hand in the next world too; or `""`, when they put it away
+   * themselves. A link can say this falsely, so a world acts on it only as far as is safe whoever wrote the
+   * link: the thing is taken in hand only if it is in the visitor's own bag, as they signed it, and its logic
+   * runs unasked only if it is the very script the link names. Anything else is as if nothing had been said.
+   */
+  holding?: HeldThrough | "";
 }
 
 /** The most tabs of the menu a visitor may keep on their bar. */
@@ -79,7 +100,10 @@ export const LOOK_RANGE = [0.25, 3] as const;
 export const FOV_RANGE = [50, 110] as const;
 
 /** The longest a set of settings may be on a link, in characters. */
-export const SETTINGS_LINK_LIMIT = 400;
+export const SETTINGS_LINK_LIMIT = 900;
+/** A colour slot's name, and a colour, as they may travel. */
+const TINT_SLOT = /^[a-z][a-z0-9-]{0,15}$/;
+const TINT_COLOR = /^#[0-9a-f]{6}$/;
 
 const level = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 100) / 100 : undefined);
 
@@ -113,6 +137,25 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.chat === "boolean") out.chat = s.chat;
   if (typeof s.items === "boolean") out.items = s.items;
   if (Array.isArray(s.pins)) out.pins = [...new Set(s.pins.filter((name): name is string => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
+  if (s.holding === "") out.holding = "";
+  else if (s.holding && typeof s.holding === "object" && !Array.isArray(s.holding)) {
+    const from = s.holding as Record<string, unknown>;
+    const item = itemCoordinate(from.item);
+    if (item && item.length <= 160) {
+      const held: HeldThrough = { item };
+      if (from.tints && typeof from.tints === "object" && !Array.isArray(from.tints)) {
+        const tints = Object.fromEntries(
+          Object.entries(from.tints as Record<string, unknown>)
+            .filter((pair): pair is [string, string] => TINT_SLOT.test(pair[0]) && typeof pair[1] === "string" && TINT_COLOR.test(pair[1].toLowerCase()))
+            .slice(0, 6)
+            .map(([slot, color]) => [slot, color.toLowerCase()]),
+        );
+        if (Object.keys(tints).length) held.tints = tints;
+      }
+      if (typeof from.script === "string" && /^[0-9a-f]{64}$/.test(from.script)) held.script = from.script;
+      out.holding = held;
+    }
+  }
   return out;
 }
 
@@ -139,6 +182,11 @@ export function encodeSettings(settings: TravelSettings | undefined): string {
   // Too long to send whole: what is on their bar is the least of it, and goes first, so the rest still travels.
   if (clean.pins) {
     const { pins: _left, ...rest } = clean;
+    return encodeSettings(rest);
+  }
+  // Then what was in their hand: the rest are how they like things, and matter more.
+  if (clean.holding !== undefined) {
+    const { holding: _put, ...rest } = clean;
     return encodeSettings(rest);
   }
   return "";

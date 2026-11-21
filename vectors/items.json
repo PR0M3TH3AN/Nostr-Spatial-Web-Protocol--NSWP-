@@ -1141,7 +1141,8 @@
           "name": "dart",
           "speed": 14,
           "stick": 3,
-          "lift": 0
+          "lift": 0,
+          "spread": 0
         }
       },
       {
@@ -1158,7 +1159,8 @@
           "name": "dart",
           "speed": 40,
           "stick": 10,
-          "lift": 0
+          "lift": 0,
+          "spread": 0
         }
       },
       {

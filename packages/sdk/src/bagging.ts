@@ -13,12 +13,14 @@
  * the third row of a list, under two rows of housekeeping, and on a phone it was out of sight. Where a thing
  * can't be held, the tab says so in that button's place and says why. Housekeeping is last.
  */
-import { decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE } from "@nswp/core";
+import { cleanSettings, decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE, type HeldThrough } from "@nswp/core";
 import type { Bag } from "./bag.js";
 import { createItemPreviews, type ItemPreviews } from "./item-preview.js";
 import { onItemsChange, setShowsItems, showsItems, type ItemStore } from "./item-store.js";
 import type { Items } from "./items.js";
 import type { Keyboard } from "./keyboard.js";
+import { allowScript, scriptAllowed } from "./play.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls, UiAction } from "./ui/model.js";
 
 export interface BaggingOptions {
@@ -57,6 +59,25 @@ export interface BaggingOptions {
   offered?: () => string[];
   /** Read what the visitor copied. For tests; left out, the browser's own. */
   copied?: () => Promise<string>;
+}
+
+/** Where a site keeps what its visitor last held there. */
+export const HELD_KEY = "nswp:holding";
+/** What they last held here, read back through the check everything said of a held thing goes through. */
+function keptHolding(): HeldThrough | "" | undefined {
+  try {
+    const kept = globalThis.localStorage?.getItem(HELD_KEY);
+    return kept ? cleanSettings({ holding: JSON.parse(kept) as unknown }).holding : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function keepHolding(held: HeldThrough | ""): void {
+  try {
+    globalThis.localStorage?.setItem(HELD_KEY, JSON.stringify(held));
+  } catch {
+    /* a private window: for this visit only */
+  }
 }
 
 export interface Bagging {
@@ -131,10 +152,48 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     change(item, true);
   };
 
+  /** What there is to do with the thing they chose, by id: drawn inside its card, beside its picture. */
+  let cardActs: string[] = [];
+  /** They put what they held away with their own hand, here. */
+  let putAway = false;
+  /**
+   * What they arrived holding, until it has been taken in hand here or found that it can't be. A link says this,
+   * and a link can be written by anyone: so it is acted on only for a thing in the visitor's own bag, as they
+   * signed it, and its own logic runs unasked only if it is the very script they are said to have let run.
+   */
+  let cameHolding = ((): HeldThrough | null => {
+    // What a door said comes first: it is what they had a moment ago. Where nothing was said (they opened this
+    // place by its address, or loaded it again), it is what they last held here, kept by this site.
+    const came = arrivedSettings().holding ?? keptHolding();
+    return came && typeof came === "object" ? came : null;
+  })();
+  const carryOn = async (has: string[]): Promise<void> => {
+    const came = cameHolding;
+    cameHolding = null;
+    if (!came || opts.holding() || opts.rule() === "none" || !showsItems() || !has.includes(came.item)) return;
+    const described = await items.describe(came.item);
+    if (!described || opts.holding()) return;
+    if (described.script && came.script === described.script.sha256) allowScript(described.script.sha256);
+    taking = came.item;
+    refresh();
+    let done: { ok: boolean; said: string } = { ok: false, said: "" };
+    try {
+      done = await opts.hold(came.item, came.tints ?? bag.tints(came.item));
+    } catch {
+      /* it stays in their bag */
+    }
+    taking = "";
+    // Said only when it is in their hand: someone who arrives without it has lost nothing, and is told nothing.
+    if (done.ok) say(`${items.known(came.item)?.title ?? "What you were holding"} is still in your hand.`);
+    refresh();
+  };
   /** What was in their hand when the tab was last drawn. */
   let drawnHolding = "";
   const refresh = () => {
     drawnHolding = opts.holding();
+    // Kept by this site too, so it is in their hand when they come back to it or load it again.
+    const held = heldNow();
+    if (held !== undefined) keepHolding(held);
     for (const id of shown) controls.remove(id);
     shown = [];
     const me = opts.me();
@@ -146,6 +205,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     }
     const has = me ? bag.items() : null;
     const rule = opts.rule();
+    // Their bag is known: what they arrived holding is taken in hand again, once.
+    if (has && cameHolding) void carryOn(has);
     /** What is offered here that they don't have, where they could take it. */
     const offers = (): string[] => (has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : []);
     const add = (...actions: UiAction[]) => {
@@ -177,6 +238,9 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           picture: "",
           color: "",
           now: [],
+          // What to do with it sits in the card with it: what it does while it is in their hand (the kit's own
+          // rows for that, item-controls.ts), then holding it or putting it away, its colours, and keeping it.
+          acts: [...(opts.holding() === item.id ? ["item-use", "item-second"] : []), ...cardActs],
           // The thing itself, large and turning, in the colours they chose for it.
           ...(previews && showsItems() ? { draw: () => previews.turning(item, tints, opts.motion?.() ?? controls.theme?.motion ?? true) } : {}),
         };
@@ -226,12 +290,15 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       label: `Put ${titleOf(holding)} away`,
       short: "Away",
       act: async () => {
+        // Their own hand put it away: it isn't taken out again for them in the next world.
+        putAway = true;
         say((await opts.hold("")).said);
         // What the tab offers follows what is in their hand: with nothing in it, this is Hold again.
         refresh();
       },
     });
-    // ---- The thing they chose: what to do with it comes first, straight under its picture.
+    // ---- The thing they chose: what to do with it comes first, with its picture.
+    const firstOfTheirs = shown.length;
     if (chosen && has.includes(chosen)) {
       const item = chosen;
       if (taking === item)
@@ -267,6 +334,7 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
           act: async () => {
             taking = item;
+            putAway = false;
             refresh();
             let done: { ok: boolean; said: string };
             try {
@@ -307,6 +375,7 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       const item = chosen;
       add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change(item, true) });
     }
+    cardActs = shown.slice(firstOfTheirs);
     // Something else is in their hand than the thing they are looking at: the way to put it away is still here.
     if (holding && holding !== chosen) add(away());
     // ---- Everything they have, as the things themselves, side by side.
@@ -379,6 +448,20 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   onItemsChange(soon);
   // A thing's picture is ready: the tiles are drawn again with it.
   previews?.onChange(soon);
+  // What is in their hand goes with them through the next door (settings.ts): the thing, its colours, and the mark
+  // of its own logic where that is running for them. Nothing in hand says nothing, so what they arrived holding
+  // goes on through a place where it couldn't be held: unless they put it away themselves, which is said.
+  const heldNow = (): HeldThrough | "" | undefined => {
+    const item = opts.holding();
+    if (!item) return putAway ? "" : undefined;
+    const script = items.known(item)?.script?.sha256;
+    const tints = bag.tints(item);
+    return { item, ...(Object.keys(tints).length ? { tints } : {}), ...(script && scriptAllowed(script) ? { script } : {}) };
+  };
+  reportSettings("holding", () => {
+    const held = heldNow();
+    return held === undefined ? {} : { holding: held };
+  });
   refresh();
   // What is in their hand can change from elsewhere: the bar, a key, a rule of the place, another press still on
   // its way. The tab follows it, so it never offers to put away what isn't held, or to hold what is.

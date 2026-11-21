@@ -1,6 +1,6 @@
 // Pressing what is in hand (item-controls.ts): a tap is the item's first press, sent where it was pressed.
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { addItemControls, TAP_MS } from "../src/item-controls.js";
 import type { Play } from "../src/play.js";
 import type { Controls, UiAction } from "../src/ui/model.js";
@@ -48,6 +48,34 @@ describe("a press on the view, with something in hand that does something", () =
     const none = set(null);
     expect(none.actions.size).toBe(0);
     expect(none.said).toEqual([]);
+  });
+
+  it("aims along the sight at one press of the other mouse button, and puts it down at the next: nothing is held", () => {
+    // The pointer is the view's (moving the intense way): that is when the mouse buttons are the item's.
+    vi.stubGlobal("document", { pointerLockElement: {}, addEventListener: () => {}, removeEventListener: () => {} });
+    try {
+      const actions = new Map<string, UiAction>();
+      const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), say: () => {} } as unknown as Controls;
+      let does: { use: string; second: string } | null = { use: "Fire", second: "Reload" };
+      const play = { get does() { return does; }, use: () => {}, second: () => {} } as unknown as Play;
+      const sights: boolean[] = [];
+      const dom = new EventTarget();
+      const item = addItemControls(controls, { play: () => play, holdingHand: () => -1, dom: dom as unknown as HTMLElement, sight: (on) => void sights.push(on) });
+      const press = (button: number) => dom.dispatchEvent(Object.assign(new Event("mousedown"), { button }));
+      press(2);
+      expect(sights).toEqual([true]);
+      // Letting go changes nothing: there is no letting go to hear.
+      press(2);
+      expect(sights).toEqual([true, false]);
+      press(2);
+      // Put away while aiming: the sight comes down with it.
+      does = null;
+      item.refresh();
+      expect(sights).toEqual([true, false, true, false]);
+      item.dispose();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("is the item's by a headset's trigger only on the hand that holds it", () => {

@@ -81,8 +81,11 @@ describe("what an item did, and what a person has", () => {
 describe("what an item's script may ask for", () => {
   it("is a closed list, each thing tidied", () => {
     expect(cleanAsk("play", ["fire"])).toEqual({ ask: "play", name: "fire" });
-    expect(cleanAsk("send", ["dart", { speed: 14, stick: 3 }])).toEqual({ ask: "send", name: "dart", speed: 14, stick: 3, lift: 0 });
-    expect(cleanAsk("send", ["dart", { speed: 9999, stick: 9999 }])).toMatchObject({ speed: PLAY_LIMITS.speed, stick: PLAY_LIMITS.stick });
+    expect(cleanAsk("send", ["dart", { speed: 14, stick: 3 }])).toEqual({ ask: "send", name: "dart", speed: 14, stick: 3, lift: 0, spread: 0 });
+    expect(cleanAsk("send", ["dart", { speed: 9999, stick: 9999, spread: 9999 }])).toMatchObject({ speed: PLAY_LIMITS.speed, stick: PLAY_LIMITS.stick, spread: PLAY_LIMITS.spread });
+    // A little off its aim, when asked: never the other way, and never by more than the ceiling.
+    expect(cleanAsk("send", ["dart", { spread: 0.015 }])).toMatchObject({ spread: 0.015 });
+    expect(cleanAsk("send", ["dart", { spread: -1 }])).toMatchObject({ spread: 0 });
     expect(cleanAsk("send", ["dart", null])).toMatchObject({ speed: 12, stick: 3 });
     // Its own words can't pass for the kit's, or carry anything but a few plain characters.
     expect(cleanAsk("show", ["5 / 5 <b>\u202eYou were signed out\n"])).toEqual({ ask: "show", text: "5 / 5 bYou were signed o" });

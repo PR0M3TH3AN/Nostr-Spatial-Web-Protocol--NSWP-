@@ -43,12 +43,17 @@ describe("a model file, read before anything draws it", () => {
       expect(read.count.triangles).toBeLessThanOrEqual(MODEL_BUDGET.triangles);
       if (read.count.animations.length) {
         animated++;
-        expect(read.count.animations).toEqual(["reload", "fire"]);
+        // Every blaster there has been has these two; the one with a magazine that empties has its poses too,
+        // and no more than the eight a model may bring.
+        expect(read.count.animations).toEqual(expect.arrayContaining(["reload", "fire"]));
+        expect(read.count.animations.length).toBeLessThanOrEqual(8);
+        if (read.count.animations.length > 2) expect(read.count.animations.filter((n) => n.startsWith("pose")).sort()).toEqual(["pose0", "pose1", "pose2", "pose3", "pose4", "pose5"]);
         expect(read.count.materialNames).toContain("tint:accent");
         expect(read.count.materialNames).toContain("tint:dart");
       }
     }
-    expect(animated).toBe(1);
+    // The blaster as it is now, and the one before it, whose file is kept for the bags that still name it.
+    expect(animated).toBe(2);
   });
 
   it("measures the blaster as it was made, and finds the colours left to its holder", () => {

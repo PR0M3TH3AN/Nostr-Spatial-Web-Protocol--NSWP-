@@ -217,12 +217,24 @@ item.on("second", fn)    // its second press
 item.on("tick", fn)      // ten times a second, with the milliseconds since it began
 item.play("fire")        // one of its own sounds, by name
 item.clip("reload")      // one of the animations in its own model, by name
-item.send("dart", { speed: 14, stick: 3 })   // one of the things it described
+item.send("dart", { speed: 40, stick: 3, spread: 0.015 })   // one of the things it described
 item.show("4 / 5")       // its own few words: a counter, shown on it
 item.after(1400, fn)     // later, by the kit's clock
 ```
 
-That is all of it. Each ask has a ceiling (`ITEM_ASKS`): six sounds, four
+**A pose stays.** An animation whose name begins `pose` is a pose and not
+a moment: the thing stays as the animation ended, until another pose is
+played. Anything else is played once, over whatever pose the thing is in,
+and the thing is as it was. So a magazine shows the darts that are left,
+and a lid stays open. Which is which is the maker's to say, in the name
+they give the animation in the model; a model has eight at most.
+
+**A little off, each time.** `spread` throws what is sent out off its aim
+at random, by up to that many radians (a tenth at most, about six degrees):
+no two go quite the same way. It is worked out once, by the device of
+whoever sent it, and what is told to the room is where it really went.
+
+That is all of it. Each ask has a ceiling (`ITEM_ASKS`): six sounds, eight
 animations, six things sent out and eight changes of its words a second,
 after a small burst. What it shows is 24 plain characters at most, so it
 can't pass for anything of the kit's. It is told nothing of the visitor,
@@ -382,8 +394,13 @@ for in its description, for a renderer to grant within a ceiling.
 
 - A tap or a click on the view is the first press, and what it sends out
   goes where the visitor pressed. A press held is still how they walk.
-- Moving the intense way at a desk, the mouse button is the first press
-  and the other mouse button, held, aims along the item's sight.
+- Moving the intense way at a desk, the mouse button is the first press.
+  The other mouse button brings the item's sight up to the eye and leaves
+  it there; pressed again, it puts it down. Nothing is held while aiming.
+- What is in the hand sways a little in step with the visitor's walking.
+  It is how the thing looks and nothing else: where it is aimed is worked
+  out from the view, so no shot is moved by it. Not while it is up at the
+  eye, in a headset, or where they asked for no motion.
 - R is the second press at a desk; both are on the bar everywhere.
 - In a headset, the trigger of the hand that holds it.
 
@@ -481,6 +498,17 @@ says whether things can be carried in it. The page draws these pictures, in
 a small view of its own, whatever draws the world. So looking in a bag
 fetches the models of the things on show, from wherever their makers keep
 them, in a place with no items too: unless the visitor has items off.
+
+**What is in their hand goes through a door with them.** It is one of the
+settings that travel ([NSWP-11](11-the-visitors-console.md), `holding`):
+the item's address, the colours they chose, and the hash of its script if
+that was running for them. A link says it, and anyone can write a link. So
+the world they arrive in takes the thing in hand only if it is in their
+own bag, as they signed it; and lets its logic run unasked only if it is
+the very script the link names, since they were told of that one and let
+it. Anything else is as if nothing had been said. Someone who put it away
+themselves arrives with nothing. A site also keeps what its visitor last
+held there, for when they come back or load it again.
 
 **The visitor's switch.** "Items: off" in the Bag tab, and nothing of
 anyone's is fetched, drawn or run for them. It is one of the settings that

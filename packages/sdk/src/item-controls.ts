@@ -59,7 +59,8 @@ export function addItemControls(controls: Controls, o: ItemControlsOptions): Ite
     shown = key;
     controls.remove("item-use");
     controls.remove("item-second");
-    if (!now) return;
+    // Nothing in hand that is aimed: the sight is down.
+    if (!now) return void sight(false);
     if (now.use) controls.add({ id: "item-use", section: "bag", icon: "check", tone: "primary", hotbar: true, lead: true, label: now.use, short: now.use, act: () => o.play()?.use() });
     if (now.second) controls.add({ id: "item-second", section: "bag", icon: "turn", hotbar: true, lead: true, label: now.second, short: now.second, act: () => o.play()?.second() });
     // Said once each time something that does something is taken up: how it is pressed on the view itself.
@@ -78,10 +79,9 @@ export function addItemControls(controls: Controls, o: ItemControlsOptions): Ite
   const onDown = (e: MouseEvent) => {
     if (!document.pointerLockElement || !does()) return;
     if (e.button === 0 && does()?.use) o.play()?.use();
-    else if (e.button === 2) sight(true);
-  };
-  const onUp = (e: MouseEvent) => {
-    if (e.button === 2) sight(false);
+    // The other button brings the sight up and leaves it up, and the next press of it puts it down: nothing has
+    // to be held while they aim (the owner, 2026-11-20).
+    else if (e.button === 2) sight(!sighting);
   };
   // The other mouse button is the item's while the pointer is the view's: no menu comes up for it.
   const onMenu = (e: Event) => {
@@ -95,7 +95,6 @@ export function addItemControls(controls: Controls, o: ItemControlsOptions): Ite
   };
   o.dom?.addEventListener("mousedown", onDown);
   o.dom?.addEventListener("contextmenu", onMenu);
-  if (typeof addEventListener === "function") addEventListener("mouseup", onUp);
   if (typeof document !== "undefined") document.addEventListener("pointerlockchange", onLock);
   if (typeof addEventListener === "function") addEventListener("keydown", onKey);
   refresh();
@@ -114,7 +113,6 @@ export function addItemControls(controls: Controls, o: ItemControlsOptions): Ite
     dispose() {
       o.dom?.removeEventListener("mousedown", onDown);
       o.dom?.removeEventListener("contextmenu", onMenu);
-      if (typeof removeEventListener === "function") removeEventListener("mouseup", onUp);
       if (typeof document !== "undefined") document.removeEventListener("pointerlockchange", onLock);
       sight(false);
       if (typeof removeEventListener === "function") removeEventListener("keydown", onKey);

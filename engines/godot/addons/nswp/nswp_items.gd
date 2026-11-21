@@ -112,9 +112,30 @@ func _process(delta: float) -> void:
 	_draw_things(now.get("things", []))
 	_draw_trails(now.get("trails", []), camera)
 	for clip: Variant in now.get("clips", []):
-		if typeof(clip) == TYPE_DICTIONARY and str(clip.get("who", "")) == "" and _held_player != null and _held_player.has_animation(str(clip.get("name", ""))):
-			_held_player.stop()
-			_held_player.play(str(clip.get("name", "")))
+		if typeof(clip) == TYPE_DICTIONARY and str(clip.get("who", "")) == "":
+			play_clip(_held_player, str(clip.get("name", "")))
+
+
+## Play one of a model's own movements on it. A pose (its name begins "pose": the darts left in a
+## magazine, a lid that is open) stays as it ended, and takes the place of the pose before it.
+## Anything else is a moment, played once over whatever pose the thing is in. A player plays one
+## thing at a time, so a model's poses have a player of their own beside its first.
+static func play_clip(player: AnimationPlayer, clip: String) -> void:
+	if player == null or not player.has_animation(clip):
+		return
+	var on := player
+	if clip.begins_with("pose"):
+		var beside := player.get_parent()
+		on = beside.get_node_or_null("NswpPoses") as AnimationPlayer
+		if on == null:
+			on = AnimationPlayer.new()
+			on.name = "NswpPoses"
+			beside.add_child(on)
+			on.root_node = on.get_path_to(player.get_node(player.root_node))
+			for library in player.get_animation_library_list():
+				on.add_animation_library(library, player.get_animation_library(library))
+	on.stop()
+	on.play(clip)
 
 
 # ------------------------------------------------------------------------ a press on the view
@@ -191,6 +212,11 @@ func _draw_held(held: Variant, camera: Camera3D, delta: float, want_sight: bool,
 				_end_sight(camera)
 	else:
 		_held.position = hip
+	# It sways a little in step with their walking, as the kit says: not while it is up at the eye, and
+	# never where it is aimed, which is worked out from the view.
+	var bob: Variant = held.get("bob")
+	if typeof(bob) == TYPE_ARRAY and (bob as Array).size() == 2:
+		_held.position += Vector3(float(bob[0]), float(bob[1]), 0.0) * far * (1.0 - _sight_k)
 	# Something that is pointed is turned a little toward the middle, as a hand holds it.
 	_held.rotation = Vector3(0.0, 0.1 * (1.0 - _sight_k) if acts else 0.0, 0.0)
 

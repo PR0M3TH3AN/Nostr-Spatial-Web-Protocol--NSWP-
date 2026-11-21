@@ -1,6 +1,6 @@
 {
   "kind": 37303,
-  "created_at": 1795205716,
+  "created_at": 1795234465,
   "tags": [
     [
       "d",
@@ -16,9 +16,9 @@
     ],
     [
       "model",
-      "https://grove.bitblocks.network/items/1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be.glb",
+      "https://grove.bitblocks.network/items/4630d73db3924854409bf75232eb3320064bcf60c40d067966186e4367856085.glb",
       "glb",
-      "1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be"
+      "4630d73db3924854409bf75232eb3320064bcf60c40d067966186e4367856085"
     ],
     [
       "size",
@@ -35,8 +35,8 @@
     ],
     [
       "script",
-      "https://grove.bitblocks.network/items/d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba.js",
-      "d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba"
+      "https://grove.bitblocks.network/items/665b06840668a25803caacfa80de39c9b06f7bec9e6b8526f24be0576a7c414e.js",
+      "665b06840668a25803caacfa80de39c9b06f7bec9e6b8526f24be0576a7c414e"
     ],
     [
       "sound",
@@ -145,6 +145,6 @@
   ],
   "content": "",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "493e5d069f14f9f7a11657a8feefaad2983fc01e391c07b218b9b55bda3f8e77",
-  "sig": "4b831c9366a7e70fa1b0d4dbe40d1a4028b0fa55c70d3922113fa477556065a3f7506ccdef583d8c72916852c4b8990c8b4367293196523b2af8f931a01fdf85"
+  "id": "64d22e95b7cf0841a65fffbb763279e8272260af3c62641775b7fe90fc4f10fa",
+  "sig": "414b9288dc1c1aaab5994bafcba451fc18baa163879f34cc9224fc60d0d7834ab7c0e3beaa913fb7d95fc56e402ff986508147da833be2c64dbd83d5c5b05e02"
 }

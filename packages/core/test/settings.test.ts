@@ -80,6 +80,21 @@ describe("the tabs a visitor keeps on their bar", () => {
     expect(sent.length).toBeLessThanOrEqual(SETTINGS_LINK_LIMIT);
     expect(decodeSettings(sent)).toEqual(all);
   });
+  it("carry what was in their hand: an item's address, its colours, the mark of its logic, and nothing else", () => {
+    const item = `37303:${"a".repeat(64)}:dart-blaster`;
+    const script = "b".repeat(64);
+    expect(cleanSettings({ holding: { item, tints: { accent: "#F2691C", dart: "#35f0e0", "bad slot": "#000000", glow: "red" }, script, more: "x" } })).toEqual({ holding: { item, tints: { accent: "#f2691c", dart: "#35f0e0" }, script } });
+    // They put it away themselves: that is said too, so it isn't taken out for them in the next world.
+    expect(cleanSettings({ holding: "" })).toEqual({ holding: "" });
+    // Anything that isn't an item's address is as if nothing had been said.
+    for (const bad of [{ item: "37300:" + "a".repeat(64) + ":a-world" }, { item: "https://evil.example/x" }, { item: 7 }, "something", 5, [], { tints: {} }]) expect(cleanSettings({ holding: bad })).toEqual({});
+    expect(cleanSettings({ holding: { item, script: "not-a-hash" } })).toEqual({ holding: { item } });
+    // It goes on a link and comes off it the same, with everything else.
+    const all: TravelSettings = { ...mine, pins: ["bag", "people"], holding: { item, tints: { accent: "#8b5cf6" }, script } };
+    const sent = encodeSettings(all);
+    expect(sent.length).toBeLessThanOrEqual(SETTINGS_LINK_LIMIT);
+    expect(decodeSettings(sent)).toEqual(cleanSettings(all));
+  });
   it("are the first thing left behind if a link would be too long, so the rest still travels", () => {
     // The longest names there can be, with every other setting said: more than a link holds.
     const most: TravelSettings = { ...mine, sound: { off: false, effects: 0.77, music: 0.33, voices: 0.99, hum: false }, look: 1.25, text: 1.15, pictures: false, chat: false, items: false, pins: ["abcdefghijkl", "bcdefghijklm", "cdefghijklmn", "defghijklmno"] };

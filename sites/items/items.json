@@ -189,8 +189,8 @@
     "title": "Dart blaster",
     "summary": "A toy blaster. Five foam darts, then a reload. Darts stick where they land for a moment, then drop off.",
     "model": {
-      "url": "https://grove.bitblocks.network/items/1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be.glb",
-      "sha256": "1ec9a7f25ee3851e7531a715e9a9a701b3ad4b1dacf927d19f33b8f07fe131be"
+      "url": "https://grove.bitblocks.network/items/4630d73db3924854409bf75232eb3320064bcf60c40d067966186e4367856085.glb",
+      "sha256": "4630d73db3924854409bf75232eb3320064bcf60c40d067966186e4367856085"
     },
     "size": [
       0.075,
@@ -205,8 +205,8 @@
       "hand-right"
     ],
     "script": {
-      "url": "https://grove.bitblocks.network/items/d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba.js",
-      "sha256": "d85c189c4b79cffd7432a094f6551e114a9a83f5aea328858e154057cbeccfba"
+      "url": "https://grove.bitblocks.network/items/665b06840668a25803caacfa80de39c9b06f7bec9e6b8526f24be0576a7c414e.js",
+      "sha256": "665b06840668a25803caacfa80de39c9b06f7bec9e6b8526f24be0576a7c414e"
     },
     "sounds": {
       "equip": {
