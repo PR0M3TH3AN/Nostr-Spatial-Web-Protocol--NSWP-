@@ -6,9 +6,9 @@
   worked out. We have a project called BitGate that is for this." And:
   "For gated stuff id like to intigrate and even improve the BitGate
   project."
-- **Who:** not briefed. BitGate has no session yet; the owner has been
-  asked to start one.
-- **State:** asked
+- **Who:** BitGate (its session was started and briefed 2026-11-21; its
+  first report is owed).
+- **State:** briefed
 
 ## What BitGate is
 
