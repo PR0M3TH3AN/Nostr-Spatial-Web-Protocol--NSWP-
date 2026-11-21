@@ -412,6 +412,31 @@ and offers no Allow. A world can open a look-alike window on an address of
 its own: the address bar tells them apart, and a password manager fills a
 password in only at the address it was saved for.
 
+**The window, and a panel in its place.** A window opening gives up a
+filled screen. Where a world is shown inside a client that keeps the screen
+(NSWP-02, "A client that keeps the screen"), and that client can show the
+sign-in address's own panel, the world asks the client for the panel at the
+visitor's press and opens no window (kit 0.63.0: `signer.unlock()` does
+whichever applies, and `signer.panel` says which, for the words). The
+panel is the window's own page, in a frame the client draws above the
+world, and the steps above are the same: it finds the signer in the world
+below it, the signer says which world embeds it as the browser reported
+it, and on Allow the key is handed over. Three things are different, and
+a world should know them:
+
+- **The world never frames the panel itself.** A page that frames a
+  question can cover it, shrink it or slide it under a press. Only the
+  client does, by name on the sign-in address's own list, and a world
+  can't script the page above it.
+- **A panel has no address bar,** and a filled screen shows none anyway.
+  What tells the real one from a copy a world might draw is a passkey,
+  which can't be given to a copy, and a password manager, which fills a
+  password in only at the address it was saved for. That is the sign-in
+  address's to say to its visitor, and BitLogin does.
+- **It is used only where it can work:** the client's panel must be for
+  this world's own signer's address, and a panel that doesn't come up is
+  given up on for that page, so the next press opens the window.
+
 **What a world says to the signer**, as messages between the two pages,
 each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 

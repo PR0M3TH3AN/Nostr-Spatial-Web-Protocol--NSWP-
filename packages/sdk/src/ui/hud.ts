@@ -20,6 +20,7 @@
  * small mark in a corner) or hidden, so that it never competes with an
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
  */
+import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
 import { loadPicture } from "../picture.js";
 import { ago } from "./feed.js";
@@ -980,6 +981,26 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
     else focused()?.blur();
   };
+  // Shown inside a client that draws the sign-in address's panel over the world (client-frame.ts): the panel is
+  // drawn where this menu is, so the menu says where that is, steps aside while the panel is up, and comes back.
+  setMenuPlace(() => {
+    if (!open || sheet.hidden) return null;
+    const r = sheet.getBoundingClientRect();
+    return r.width > 0 ? { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(innerHeight - r.bottom) } : null;
+  });
+  let asideFor: string | null = null;
+  onClientSignIn((up, failed) => {
+    // It never came up (a sign-in address that has no panel yet, or can't be reached): said, and the old way is next.
+    if (failed) controls.say("The sign-in panel didn't come up. Press that again, and a window opens instead.");
+    if (up) {
+      asideFor = open ? section : null;
+      if (open) setOpen(false);
+    } else if (asideFor !== null) {
+      const back = asideFor;
+      asideFor = null;
+      setOpen(true, back);
+    }
+  });
   menu.addEventListener("click", () => setOpen(!open));
   quiet.addEventListener("click", () => setOpen(!open));
   close.addEventListener("click", () => setOpen(false));

@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.63.0
+
+Signing in without a window, in a client that keeps the screen.
+
+- **A world in its client's frame asks the client for the sign-in address's panel** (`client-frame.ts`, `signer.unlock()`). A window opening gives up a filled screen, so signing in threw a visitor out of fullscreen at every new world. Where the client says it can show the sign-in address's own panel over the world (`signIn` in its answer about the screen), and that is this world's own signer's address, the world asks for it at the visitor's press (`{ nswp: "sign-in", mode, menu }`) and opens no window. Everything that used to open the window goes this way: the Sign in row, a post, "this world needs your say" for following and messages.
+- **`signer.panel`** says whether `unlock()` will show a panel rather than a window, so the words are right ("bitlogin.network is asking, here").
+- **The menu steps aside for the panel and comes back** (`ui/hud.ts`). It says where it is, so the client can draw the panel in its place, closes while the panel is up, and opens again at the same tab when the panel goes.
+- **The window is the fallback, as before:** outside a frame, in a client with no panel, for a signer at another address, and for the rest of a page once a panel failed to come up (said in the world: "Press that again, and a window opens instead").
+- The world never frames the panel and never sees into it: whether the visitor said yes is asked of its own signer, as it always was (NSWP-10, "The window, and a panel in its place").
+
 ## 0.62.0
 
 A world in its client's frame asks the client for the screen.

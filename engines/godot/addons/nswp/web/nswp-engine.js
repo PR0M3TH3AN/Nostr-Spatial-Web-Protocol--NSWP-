@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.62.0";
+  var KIT_VERSION = "0.63.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -7496,6 +7496,14 @@ postMessage({ t: "started" });
   var filled = false;
   var met = false;
   var watchers2 = /* @__PURE__ */ new Set();
+  var signInAt = null;
+  var panelOpen = false;
+  var panelFailed = false;
+  var panelWatchers = /* @__PURE__ */ new Set();
+  var menuPlace = null;
+  function setMenuPlace(fn) {
+    menuPlace = fn;
+  }
   var clientHoldsScreen = () => holds;
   var clientScreenFilled = () => holds && filled;
   function onClientScreen(fn) {
@@ -7511,17 +7519,55 @@ postMessage({ t: "started" });
   function askClientForScreen(fill) {
     if (framed()) say({ nswp: "screen", fill });
   }
+  var clientSignsInAt = () => signInAt;
+  function onClientSignIn(fn) {
+    panelWatchers.add(fn);
+    return () => void panelWatchers.delete(fn);
+  }
+  function askClientForSignIn(mode = "ask") {
+    if (!framed() || !signInAt) return false;
+    let menu2 = null;
+    try {
+      menu2 = menuPlace?.() ?? null;
+    } catch {
+    }
+    say({ nswp: "sign-in", mode, ...menu2 ? { menu: menu2 } : {} });
+    return true;
+  }
+  var secureOrigin = (address) => {
+    if (typeof address !== "string" || address.length > 200) return null;
+    try {
+      const u = new URL(address);
+      return u.protocol === "https:" && u.origin === address.replace(/\/$/, "") ? u.origin : null;
+    } catch {
+      return null;
+    }
+  };
   function meetClient() {
     if (met || !framed()) return;
     met = true;
     addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
       const said2 = e.data;
-      if (!said2 || typeof said2 !== "object" || said2.nswp !== "screen" || typeof said2.holds !== "boolean") return;
-      const was = `${holds}${filled}`;
+      if (!said2 || typeof said2 !== "object") return;
+      if (said2.nswp === "sign-in" && typeof said2.open === "boolean") {
+        const failed2 = !said2.open && said2.failed === true;
+        if (failed2) {
+          panelFailed = true;
+          signInAt = null;
+        }
+        if (panelOpen === said2.open && !failed2) return;
+        panelOpen = said2.open;
+        for (const fn of panelWatchers) fn(panelOpen, failed2, !said2.open && said2.allowed === true);
+        if (failed2) for (const fn of watchers2) fn();
+        return;
+      }
+      if (said2.nswp !== "screen" || typeof said2.holds !== "boolean") return;
+      const was = `${holds}${filled}${signInAt}`;
       holds = said2.holds;
       filled = said2.filled === true;
-      if (was !== `${holds}${filled}`) for (const fn of watchers2) fn();
+      if (said2.signIn !== void 0 && !panelFailed) signInAt = secureOrigin(said2.signIn);
+      if (was !== `${holds}${filled}${signInAt}`) for (const fn of watchers2) fn();
     });
     let at = "/";
     try {
@@ -43148,6 +43194,7 @@ void main() {
     retry: () => false,
     copy: null,
     unlock: () => false,
+    panel: false,
     lock() {
     },
     sign: async () => null,
@@ -43360,8 +43407,12 @@ void main() {
           return null;
         }
       },
+      get panel() {
+        return !test && clientSignsInAt() === real.origin;
+      },
       unlock() {
         if (state === "none" || !windowAt) return false;
+        if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
         try {
           const opened = window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
           return !!opened;
@@ -43648,8 +43699,9 @@ void main() {
           if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
           return controls2.say(unansweredWords(signer));
         }
-        if (opts.presenting?.()) return controls2.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in, and come back in.`);
-        if (signer.unlock()) controls2.say(`A window from ${host} has opened. Say yes there, and you are signed in here.`);
+        if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+        const here = signer.panel;
+        if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
         else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
       }
     };
@@ -44767,6 +44819,23 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
       else focused()?.blur();
     };
+    setMenuPlace(() => {
+      if (!open2 || sheet.hidden) return null;
+      const r = sheet.getBoundingClientRect();
+      return r.width > 0 ? { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(innerHeight - r.bottom) } : null;
+    });
+    let asideFor = null;
+    onClientSignIn((up, failed2) => {
+      if (failed2) controls2.say("The sign-in panel didn't come up. Press that again, and a window opens instead.");
+      if (up) {
+        asideFor = open2 ? section : null;
+        if (open2) setOpen(false);
+      } else if (asideFor !== null) {
+        const back = asideFor;
+        asideFor = null;
+        setOpen(true, back);
+      }
+    });
     menu2.addEventListener("click", () => setOpen(!open2));
     quiet.addEventListener("click", () => setOpen(!open2));
     close.addEventListener("click", () => setOpen(false));
@@ -52915,7 +52984,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (opts.presenting?.()) return `This world needs your say before it can ${to}, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
       waitingFor.set(what, { then, at: Date.now() });
       signer.want([...signer.more, what]);
-      return signer.unlock() ? `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+      const here = signer.panel;
+      return signer.unlock() ? here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
     };
     const signedInHere = () => signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null;
     const worldFollows = () => ({
@@ -53421,6 +53491,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       onChange: (fn) => worldSigner().onChange(fn),
       locked: () => worldSigner().state === "locked",
       unlock: () => worldSigner().unlock(),
+      panel: () => worldSigner().panel,
       host: () => worldSigner().host,
       unanswered: () => worldSigner().unanswered ? unansweredWords(worldSigner()) : null,
       pubkey: () => worldSigner().pubkey,
@@ -53655,9 +53726,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           if (why) return tell2(why);
           const host = notes2.host?.() ?? "your sign-in address";
           if (presence3.presenting) return tell2(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+          const here = !!notes2.panel?.();
           wantsFeed = !!notes2.unlock?.();
           tell2(
-            wantsFeed ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.` : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`
+            wantsFeed ? here ? `${host} is asking, here. Sign in there if it asks, and say yes. Then your public feed opens.` : `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.` : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`
           );
         }
       },

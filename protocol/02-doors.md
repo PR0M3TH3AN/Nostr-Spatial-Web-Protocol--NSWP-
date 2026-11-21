@@ -326,8 +326,9 @@ A world may draw a chamber of its own, or none. `createCrossing` in
 
 ## A client that keeps the screen
 
-**Status:** a trial (kit 0.61.0, BitPortal's `/shell/`), for the reference
-worlds only. Not yet a rule for anyone else.
+**Status:** implemented for the reference worlds (kit 0.61.0 on;
+BitPortal's `/shell/`, the way in at a desk). Not yet a rule for anyone
+else.
 
 A browser gives up a filled screen whenever the page changes, so a visitor
 who prefers one has it taken away at every door, and gets it back at their
@@ -361,6 +362,31 @@ world still reads how they arrived: all of it happens in the frame.
   - the world, at the visitor's press: `{ nswp: "screen", fill }`.
   Nothing about the visitor is in any of it, and a world takes these
   words only from the page directly above it.
+- **Signing in doesn't take a window either.** A window opening gives up
+  a filled screen just as a door does. A client that keeps the screen can
+  show the sign-in address's own panel over the world instead, where the
+  world's menu is (kit 0.63.0; NSWP-10, "The window, and a panel in its
+  place"):
+  - the client says it has one, with its first answer:
+    `{ nswp: "screen", holds, filled, signIn }`, where `signIn` is the
+    sign-in address the panel belongs to. A world uses it only if that
+    is its own signer's address: no other panel could find its signer;
+  - the world, at the visitor's press:
+    `{ nswp: "sign-in", mode, menu? }`. `mode` is `"ask"` (let this world
+    sign), `"switch"` (another account) or `"account"` (the account's own
+    pages); `menu` is where the world's menu is on the screen
+    (`left`, `width`, `bottom`, in CSS pixels), which the client may use
+    and must clamp;
+  - the client, as the panel comes and goes:
+    `{ nswp: "sign-in", open }`, with `failed: true` if it never came up
+    (the world then opens the window at the next press, as before), and
+    `allowed` as it goes.
+  The panel is the sign-in address's own page, in a frame the client
+  draws above the world's. The world can't see into it, cover it or
+  press it, and neither page learns anything about the visitor from
+  these words: whether they said yes is asked of the world's own
+  signer, as ever. A client shows the panel only at a press, only for
+  the page in its frame, and one at a time.
 - **A place that doesn't say it came up is gone to the ordinary way.**
   The client leaves its own page for it, so a world that has changed who
   may frame it, or can't be reached, is never a blank frame.
