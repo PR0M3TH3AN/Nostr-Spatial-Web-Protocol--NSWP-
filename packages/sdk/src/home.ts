@@ -20,6 +20,8 @@ import { MeshBuilder } from "./mesh.js";
 import { PORTAL_SIGN_HEIGHT, PORTAL_SPRING as SPRING } from "./gate-size.js";
 import { addArchFrame, addBench, addLamp, addPictureFrame, addPlant, addPlinth, addTable, addWall, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH } from "./models.js";
 import { createPortalWindow, textSprite } from "./three.js";
+import { createDoorOffers, type DoorOffers } from "./door-offers.js";
+import type { Offer } from "@nswp/core";
 
 export interface PortalGateOptions {
   /** First line of the sign above the portal. The address is always shown beneath it. */
@@ -31,6 +33,11 @@ export interface PortalGateOptions {
   category?: string | null;
   color?: THREE.ColorRepresentation;
   textColor?: string;
+  /**
+   * What the place it leads to offers, as that place's own announcement says: the core's `worldOffers`. The door
+   * shows the seven a door shows, lit and dark, beside its frame. Left out, the door shows none: nothing is known.
+   */
+  offers?: readonly Offer[];
 }
 
 export interface PortalGate {
@@ -55,6 +62,13 @@ export interface PortalGate {
    * `allowed`, and a place that said nothing, says nothing: it is the ordinary rule.
    */
   setItems(rule: string | null | undefined): void;
+  /**
+   * The tiles beside the door that say what its world offers (door-offers.ts). Test rays against `offers.targets`,
+   * ask `offers.offerOf` what a pointed-at tile means, and tell it with `offers.point` which one is pointed at.
+   */
+  offers: DoorOffers;
+  /** Say what the place offers, when it is learned or changes: the core's `worldOffers`. */
+  setOffers(offers: readonly Offer[]): void;
   /** Show a preview of the destination through the portal (spec §5.8). Returns the window, for a world that needs to hide it while it photographs itself. */
   showThrough(pano: THREE.Texture): THREE.Mesh;
   update(t: number, dt: number): void;
@@ -213,7 +227,8 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
   target.name = "portal";
   target.position.y = PORTAL_HEIGHT / 2;
   const glow = gateGlow(color);
-  group.add(frame, target, glow.group);
+  const offers = createDoorOffers(opts.offers ?? [], { color, textColor });
+  group.add(frame, target, glow.group, offers.group);
 
   let sign: THREE.Sprite | null = null;
   let said = opts.label ?? "Portal";
@@ -240,6 +255,10 @@ export function createPortalGate(destination: PortalDestination, opts: PortalGat
     destination,
     aimed: 0,
     setLabel,
+    offers,
+    setOffers(next) {
+      offers.set(next);
+    },
     setCategory(next) {
       if ((next ?? null) === category) return;
       category = next ?? null;
@@ -491,6 +510,7 @@ export function createHome(layout: Layout, opts: HomeOptions = {}): Home {
 }
 
 export { PORTAL_WIDTH, PORTAL_HEIGHT } from "./models.js";
+export { createDoorOffers, doorOfferPlaces, OFFER_COLUMN_X, OFFER_ICONS, OFFER_TILE, type DoorOffers, type DoorOffersOptions } from "./door-offers.js";
 export { createEnvironment, GROUND, type Environment, type EnvironmentOptions } from "./environment.js";
 export { MeshBuilder, type Paint, type BoxOptions, type Frame, type V3, type P2 } from "./mesh.js";
 export { createAlloy, type Alloy, type AlloyOptions } from "./alloy.js";

@@ -22,7 +22,9 @@
  * What the engine still does itself: move the visitor, draw the doors, and
  * start a headset session when asked to.
  */
-import { checkDestination } from "@nswp/core";
+import { checkDestination, ITEM_RULES, worldOffers, type ItemsRule } from "@nswp/core";
+import { ICONS } from "./ui/icons.js";
+import { OFFER_ICONS } from "./offer-icons.js";
 import { DESK_WORDS, hasMouse, keepIntense, LOOK_SPEED, PITCH_LIMIT, SPRINT, startsIntense } from "./fps.js";
 import { DOOR_REACH, DOOR_SPACING, PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPRING, PORTAL_WIDTH } from "./gate-size.js";
 import { arrival, portal } from "./index.js";
@@ -119,6 +121,31 @@ export function check(url: string): string {
   const c = checkDestination(typeof url === "string" ? url : "");
   if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
   return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
+}
+
+/**
+ * What a world offers, for the tiles beside its door, as JSON: twelve lines
+ * in a set order, each with `id`, `on` (the world's announcement says it),
+ * `name`, `words` (one sentence, for whichever case it is) and `onDoor`. The
+ * seven a door shows also have `icon`: the kit's line drawing for it, as SVG
+ * path data on a 24-unit square. Draw them lit where `on`, dark where not,
+ * and say `words` when one is pointed at. `world` is JSON with what the
+ * place's announcement says: `modes`, `capabilities`, and `items` and
+ * `access` where it says them. Anything else in it is not read, and a world
+ * it can't read offers nothing.
+ */
+export function offers(world: string): string {
+  let said: { modes?: unknown; capabilities?: unknown; items?: unknown; access?: unknown } = {};
+  try {
+    const read: unknown = JSON.parse(typeof world === "string" ? world : "");
+    if (read && typeof read === "object") said = read as typeof said;
+  } catch {
+    /* nothing said */
+  }
+  const words = (list: unknown) => (Array.isArray(list) ? list.filter((w): w is string => typeof w === "string") : []);
+  const items = typeof said.items === "string" && (ITEM_RULES as readonly string[]).includes(said.items) ? (said.items as ItemsRule) : undefined;
+  const lines = worldOffers({ modes: words(said.modes), capabilities: words(said.capabilities), ...(items ? { items } : {}), ...(said.access ? { access: said.access as never } : {}) });
+  return JSON.stringify(lines.map((o) => ({ ...o, ...(o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id as keyof typeof OFFER_ICONS]] } : {}) })));
 }
 
 /**

@@ -33,7 +33,7 @@ import { onMenu, play as playCue, tellEngine } from "./engine-menu.js";
 import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, claim, door, events, headset, kit, load, menu, moved, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
+export { bump, check, claim, door, events, headset, kit, load, menu, moved, offers, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
 export { frame } from "./engine-world.js";
 export { items, itemSecond, itemsInfo, itemTap, itemUse, model } from "./engine-items.js";
 export { board, figure, people, peopleInfo } from "./engine-people.js";

@@ -53,6 +53,7 @@ var NSWP = (() => {
     menu: () => menu,
     model: () => model,
     moved: () => moved,
+    offers: () => offers,
     open: () => open,
     people: () => people,
     peopleInfo: () => peopleInfo,
@@ -4340,6 +4341,61 @@ var NSWP = (() => {
   var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"];
   var MORE_OFFERS = ["tips", "doors", "looks", "by-name", "home"];
   var OFFERS = [...DOOR_OFFERS, ...MORE_OFFERS];
+  var NAMES = {
+    headset: "Headset",
+    people: "People",
+    voice: "Voice",
+    items: "Items",
+    saves: "Saves",
+    records: "Scores",
+    paid: "Paid",
+    tips: "Tips",
+    doors: "Doors",
+    looks: "Looks",
+    "by-name": "By name",
+    home: "Home"
+  };
+  var WORDS = {
+    headset: ["You can go in with a VR headset.", "It doesn't say it works in a VR headset."],
+    people: ["You can meet other people here.", "It doesn't say you can meet other people here."],
+    voice: ["You can talk with people here.", "It doesn't say you can talk with people here."],
+    saves: ["Your progress is kept for you here.", "It doesn't say it keeps your progress."],
+    paid: ["It costs money to go in.", "It doesn't say it costs anything to go in."],
+    tips: ["You can tip this place.", "It doesn't say it takes tips."],
+    doors: ["It has doors on to other places.", "It doesn't say it has doors on to other places."],
+    looks: ["People appear as they chose to look.", "It doesn't say how people appear."],
+    "by-name": ["You can go by your name here.", "It doesn't say you can go by your name here."],
+    home: ["It can be the place its owner starts.", "It doesn't say it can be a home."]
+  };
+  function worldOffers(world2) {
+    const says = (capability) => world2.capabilities.includes(capability);
+    const scores = says("scores");
+    const achievements = says("achievements");
+    const read6 = {
+      headset: line("headset", world2.modes.includes("immersive-vr")),
+      people: line("people", says("rooms") || says("multiplayer")),
+      voice: line("voice", says("voice")),
+      // Its own tag, with three words. Only two of them are something to offer.
+      items: world2.items === "play" ? [true, "The things you carry are part of the game here."] : world2.items === "allowed" ? [true, "The things you carry work here."] : world2.items === "none" ? [false, "The things you carry are put away here."] : [false, "It doesn't say whether the things you carry work here."],
+      saves: line("saves", says("saves")),
+      records: [
+        scores || achievements,
+        scores && achievements ? "It keeps scores, and marks what you achieve." : scores ? "It keeps scores." : achievements ? "It marks what you achieve." : "It doesn't say it keeps scores or marks what you achieve."
+      ],
+      // What costs money to go into names what is sold (the `access` tag). Saying it takes payments is not that.
+      paid: line("paid", !!world2.access),
+      tips: line("tips", says("tips")),
+      doors: line("doors", says("spatial-portals")),
+      looks: line("looks", says("avatars")),
+      "by-name": line("by-name", says("entry-assertion")),
+      home: line("home", says("home"))
+    };
+    const onDoor = new Set(DOOR_OFFERS);
+    return OFFERS.map((id) => ({ id, on: read6[id][0], name: NAMES[id], words: read6[id][1], onDoor: onDoor.has(id) }));
+  }
+  function line(id, on3) {
+    return [on3, WORDS[id][on3 ? 0 : 1]];
+  }
 
   // packages/core/dist/manifest.js
   var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
@@ -7465,6 +7521,60 @@ postMessage({ t: "started" });
     };
   }
 
+  // packages/sdk/src/ui/icons.ts
+  var ICONS = {
+    home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
+    turn: "M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5",
+    room: "M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20a6 6 0 0 1 12 0M16.5 11.5a2.5 2.5 0 1 0 0-5M17.5 14.6A5 5 0 0 1 21.5 20",
+    leave: "M10 4H5v16h5M14 8l4 4-4 4M18 12H9",
+    mic: "M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6",
+    micOff: "M9 9v2a3 3 0 0 0 4.6 2.5M15 10.5V6a3 3 0 0 0-5.7-1.3M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.4 2.2M12 17v4M9 21h6M4 4l16 16",
+    list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+    vr: "M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3.5l-2-2.5h-3L8.5 17H5a2 2 0 0 1-2-2V9ZM8 12h.01M16 12h.01",
+    exit: "M18 6 6 18M6 6l12 12",
+    look: "M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11ZM9 14a3 3 0 0 0 3 3",
+    help: "M9.2 9a3 3 0 1 1 4.6 2.5c-1 .7-1.8 1.4-1.8 2.7M12 18h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
+    menu: "M4 7h16M4 12h16M4 17h10",
+    /** An arched doorway: this project's mark for a way through. */
+    door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
+    link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
+    save: "M7 4h10v17l-5-3.5L7 21V4Z",
+    pin: "M9 4h6l-1 6 3 3H7l3-3-1-6ZM12 13v7",
+    step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
+    size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
+    motion: "M3 12h4l3-7 4 14 3-7h4",
+    check: "M5 12.500 10 17.500 19 7",
+    camera: "M4 8h3l1.5-2h7L17 8h3v11H4ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
+    selfie: "M4 5h16v14H4ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM7.5 19a4.5 4.5 0 0 1 9 0",
+    record: "M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    /** A panel: a frame with a bar along its top. */
+    panel: "M4 5h16v14H4ZM4 9h16M15 7h.01M17.5 7h.01",
+    note: "M6 3h9l4 4v14H6ZM14 3v5h5M9 13h7M9 17h5",
+    /** A loudspeaker, sounding and crossed out. */
+    sound: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9a4.500 4.500 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11",
+    soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
+    you: "M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5ZM5 20.5a7 7 0 0 1 14 0",
+    close: "M6 6l12 12M18 6 6 18",
+    key: "M14.5 9.5a3.5 3.5 0 1 0-3.4 3.5L4 20v-3h3v-3h3l1.6-1.6M16 8h.01",
+    chat: "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM8 10h8M8 13h5",
+    people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9",
+    // What a door says its world offers (door-offers.ts), where no drawing above already says it.
+    bag: "M6 8h12l1.2 12H4.8L6 8ZM9 8V6.5a3 3 0 0 1 6 0V8",
+    trophy: "M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4",
+    coin: "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM14.6 9.6c-.5-1-1.4-1.6-2.6-1.6-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2 2.6.8 2.6 2-1.1 2-2.6 2c-1.2 0-2.1-.6-2.6-1.6M12 6.5V8M12 16v1.5"
+  };
+
+  // packages/sdk/src/offer-icons.ts
+  var OFFER_ICONS = {
+    headset: "vr",
+    people: "people",
+    voice: "mic",
+    items: "bag",
+    saves: "save",
+    records: "trophy",
+    paid: "coin"
+  };
+
   // packages/sdk/src/form.ts
   var matches = (query) => {
     try {
@@ -8196,9 +8306,9 @@ postMessage({ t: "started" });
           } else if (PLAY_WORD.test(e.data)) {
             if (peer.plays.take(Date.now())) this.emit("play", peer.member, e.data);
           } else if (e.data.startsWith("say:")) {
-            const line = parseSay(e.data);
+            const line2 = parseSay(e.data);
             const now = Date.now();
-            if (line && peer.words.take(line.id, now)) this.emit("said", peer.member, { ...line, at: now });
+            if (line2 && peer.words.take(line2.id, now)) this.emit("said", peer.member, { ...line2, at: now });
           }
           return;
         }
@@ -8598,13 +8708,13 @@ postMessage({ t: "started" });
      */
     say(text2) {
       const word = buildSay(text2);
-      const line = word ? parseSay(word) : null;
-      if (!word || !line || this.closed) return "nothing";
+      const line2 = word ? parseSay(word) : null;
+      if (!word || !line2 || this.closed) return "nothing";
       const now = Date.now();
-      if (!this.words.take(line.id, now)) return "slow";
+      if (!this.words.take(line2.id, now)) return "slow";
       this.tellAll(word);
       for (let i = 1; i < CHAT_LIMITS.repeats; i++) setTimeout(() => !this.closed && this.tellAll(word), i * CHAT_LIMITS.repeatGapMs);
-      this.emit("said", this.self, { ...line, at: now });
+      this.emit("said", this.self, { ...line2, at: now });
       return "said";
     }
     sendPose(pose) {
@@ -20661,20 +20771,20 @@ postMessage({ t: "started" });
      * @param {boolean} [clampToLine=true] - Whether to clamp the intersection to the line segment.
      * @return {?Vector3} The intersection point. Returns `null` if no intersection is detected.
      */
-    intersectLine(line, target2, clampToLine = true) {
-      const direction = line.delta(_vector1);
+    intersectLine(line2, target2, clampToLine = true) {
+      const direction = line2.delta(_vector1);
       const denominator = this.normal.dot(direction);
       if (denominator === 0) {
-        if (this.distanceToPoint(line.start) === 0) {
-          return target2.copy(line.start);
+        if (this.distanceToPoint(line2.start) === 0) {
+          return target2.copy(line2.start);
         }
         return null;
       }
-      const t = -(line.start.dot(this.normal) + this.constant) / denominator;
+      const t = -(line2.start.dot(this.normal) + this.constant) / denominator;
       if (clampToLine === true && (t < 0 || t > 1)) {
         return null;
       }
-      return target2.copy(line.start).addScaledVector(direction, t);
+      return target2.copy(line2.start).addScaledVector(direction, t);
     }
     /**
      * Returns `true` if the given line segment intersects with (passes through) the plane.
@@ -20682,9 +20792,9 @@ postMessage({ t: "started" });
      * @param {Line3} line - The line to test.
      * @return {boolean} Whether the given line segment intersects with the plane or not.
      */
-    intersectsLine(line) {
-      const startSign = this.distanceToPoint(line.start);
-      const endSign = this.distanceToPoint(line.end);
+    intersectsLine(line2) {
+      const startSign = this.distanceToPoint(line2.start);
+      const endSign = this.distanceToPoint(line2.end);
       return startSign < 0 && endSign > 0 || endSign < 0 && startSign > 0;
     }
     /**
@@ -34069,8 +34179,8 @@ postMessage({ t: "started" });
     const from = Math.max(errorLine - 6, 0);
     const to = Math.min(errorLine + 6, lines.length);
     for (let i = from; i < to; i++) {
-      const line = i + 1;
-      lines2.push(`${line === errorLine ? ">" : " "} ${line}: ${lines[i]}`);
+      const line2 = i + 1;
+      lines2.push(`${line2 === errorLine ? ">" : " "} ${line2}: ${lines[i]}`);
     }
     return lines2.join("\n");
   }
@@ -43450,7 +43560,7 @@ void main() {
     let about = null;
     let remembered = null;
     let more = [];
-    let offers = null;
+    let offers2 = null;
     let origin = "";
     let windowAt = "";
     let frame2 = null;
@@ -43529,7 +43639,7 @@ void main() {
         about = reply.unlocked ? reply.about ?? null : null;
         remembered = reply.unlocked ? reply.remembered ?? null : null;
         more = reply.unlocked ? cleanMore(reply.more) : [];
-        if (reply.offers) offers = reply.offers;
+        if (reply.offers) offers2 = reply.offers;
         for (const go2 of [...firstAnswer]) go2();
         return changed();
       }
@@ -43618,7 +43728,7 @@ void main() {
         return more;
       },
       get offers() {
-        return offers;
+        return offers2;
       },
       get unanswered() {
         return named2 && waited && state === "none" && !disposed;
@@ -43751,7 +43861,7 @@ void main() {
         return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
       },
       want(asked) {
-        const wanted = cleanMore([...asked]).filter((name2) => !offers || offers.includes(name2));
+        const wanted = cleanMore([...asked]).filter((name2) => !offers2 || offers2.includes(name2));
         if (state === "none" || !frame2 || wanted.length === 0) return false;
         tell2({ t: "want", id: `w${++n}`, more: wanted });
         return true;
@@ -44047,45 +44157,6 @@ void main() {
       }
     };
   }
-
-  // packages/sdk/src/ui/icons.ts
-  var ICONS = {
-    home: "M4 11.5 12 4l8 7.5M6 10v10h12V10M10 20v-5h4v5",
-    turn: "M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5",
-    room: "M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 20a6 6 0 0 1 12 0M16.5 11.5a2.5 2.5 0 1 0 0-5M17.5 14.6A5 5 0 0 1 21.5 20",
-    leave: "M10 4H5v16h5M14 8l4 4-4 4M18 12H9",
-    mic: "M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6",
-    micOff: "M9 9v2a3 3 0 0 0 4.6 2.5M15 10.5V6a3 3 0 0 0-5.7-1.3M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.4 2.2M12 17v4M9 21h6M4 4l16 16",
-    list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
-    vr: "M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3.5l-2-2.5h-3L8.5 17H5a2 2 0 0 1-2-2V9ZM8 12h.01M16 12h.01",
-    exit: "M18 6 6 18M6 6l12 12",
-    look: "M12 3s6 6.3 6 11a6 6 0 0 1-12 0c0-4.7 6-11 6-11ZM9 14a3 3 0 0 0 3 3",
-    help: "M9.2 9a3 3 0 1 1 4.6 2.5c-1 .7-1.8 1.4-1.8 2.7M12 18h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
-    menu: "M4 7h16M4 12h16M4 17h10",
-    /** An arched doorway: this project's mark for a way through. */
-    door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
-    link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
-    save: "M7 4h10v17l-5-3.5L7 21V4Z",
-    pin: "M9 4h6l-1 6 3 3H7l3-3-1-6ZM12 13v7",
-    step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
-    size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
-    motion: "M3 12h4l3-7 4 14 3-7h4",
-    check: "M5 12.500 10 17.500 19 7",
-    camera: "M4 8h3l1.5-2h7L17 8h3v11H4ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
-    selfie: "M4 5h16v14H4ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM7.5 19a4.5 4.5 0 0 1 9 0",
-    record: "M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
-    /** A panel: a frame with a bar along its top. */
-    panel: "M4 5h16v14H4ZM4 9h16M15 7h.01M17.5 7h.01",
-    note: "M6 3h9l4 4v14H6ZM14 3v5h5M9 13h7M9 17h5",
-    /** A loudspeaker, sounding and crossed out. */
-    sound: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9a4.500 4.500 0 0 1 0 6M19 6.500a8 8 0 0 1 0 11",
-    soundOff: "M4 9.500v5h3.500L13 19V5L7.500 9.500ZM16.500 9.500l4.500 5M21 9.500l-4.500 5",
-    you: "M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5ZM5 20.5a7 7 0 0 1 14 0",
-    close: "M6 6l12 12M18 6 6 18",
-    key: "M14.5 9.5a3.5 3.5 0 1 0-3.4 3.5L4 20v-3h3v-3h3l1.6-1.6M16 8h.01",
-    chat: "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM8 10h8M8 13h5",
-    people: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20a6 6 0 0 1 12 0M16 11a2.5 2.5 0 1 0 0-5M21 20a5 5 0 0 0-4-4.9"
-  };
 
   // packages/sdk/src/picture.ts
   var PICTURES_KEY = "nswp:pictures";
@@ -44880,7 +44951,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
         chatLines.replaceChildren(
           ...l.lines.map(
-            (line) => el("li", { class: `letter ${line.mine ? "mine" : ""} ${line.state}` }, el("b", {}, line.mine ? "You" : line.who), " ", line.text, el("small", {}, line.state === "sending" ? "Sending\u2026" : line.state === "failed" ? "Not sent" : ago(line.at, nowSec)))
+            (line2) => el("li", { class: `letter ${line2.mine ? "mine" : ""} ${line2.state}` }, el("b", {}, line2.mine ? "You" : line2.who), " ", line2.text, el("small", {}, line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)))
           )
         );
         chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
@@ -44893,9 +44964,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
       const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
       chatLines.replaceChildren(
-        ...lines.map((line) => {
-          const li = el("li", { class: line.note ? "aside" : line.mine ? "mine" : "" }, !line.note && el("b", {}, line.mine ? "You" : line.who), line.note ? "" : " ", line.text);
-          if (line.color && !line.mine) li.style.setProperty("--who", line.color);
+        ...lines.map((line2) => {
+          const li = el("li", { class: line2.note ? "aside" : line2.mine ? "mine" : "" }, !line2.note && el("b", {}, line2.mine ? "You" : line2.who), line2.note ? "" : " ", line2.text);
+          if (line2.color && !line2.mine) li.style.setProperty("--who", line2.color);
           return li;
         })
       );
@@ -45034,7 +45105,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (target2.dataset.shown !== shown4) {
         target2.dataset.shown = shown4;
         target2.classList.toggle("card", view2.detail.length > 0);
-        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line) => el("span", {}, line)));
+        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line2) => el("span", {}, line2)));
         else target2.textContent = view2.target;
       }
       drawChat(view2);
@@ -45281,11 +45352,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     addEventListener("keyup", swallow, listening);
     for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching2);
     const stopSay = controls2.onSay((text2) => {
-      const line = el("div", { class: "say glass" }, text2);
-      says.append(line);
+      const line2 = el("div", { class: "say glass" }, text2);
+      says.append(line2);
       while (says.childElementCount > 3) says.firstElementChild?.remove();
-      setTimeout(() => line.classList.add("going"), 3600);
-      setTimeout(() => line.remove(), 4200);
+      setTimeout(() => line2.classList.add("going"), 3600);
+      setTimeout(() => line2.remove(), 4200);
     });
     const stop = controls2.subscribe(draw);
     const stopAsking = controls2.onSignal((name) => {
@@ -45417,13 +45488,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         unread = 0;
         bump2();
       },
-      add(line) {
+      add(line2) {
         if (!send || !showsChat()) return;
-        const text2 = cleanChat(line.text);
+        const text2 = cleanChat(line2.text);
         if (!text2) return;
-        lines.push({ key: `${line.id ?? "n"}-${++count}`, who: line.note ? "" : cleanChat(line.who ?? "").slice(0, 48), text: text2, mine: !!line.mine, note: !!line.note, color: line.color ?? "", at: Date.now() });
+        lines.push({ key: `${line2.id ?? "n"}-${++count}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
         if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
-        if (!line.mine && !line.note) unread++;
+        if (!line2.mine && !line2.note) unread++;
         bump2();
       },
       send(text2) {
@@ -45508,14 +45579,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!mine) return "There is nobody to write to: choose someone first.";
         const words2 = cleanMessage(text2);
         if (!words2) return null;
-        const line = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        waiting3.push(line);
+        const line2 = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        waiting3.push(line2);
         said2 = "";
         bump2();
         void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
           if (opts !== mine) return;
-          if (how.ok) waiting3 = waiting3.filter((l) => l !== line);
-          else line.state = "failed";
+          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
+          else line2.state = "failed";
           said2 = how.said;
           bump2();
         });
@@ -45682,7 +45753,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         changed();
       },
       setTarget(text2, more = []) {
-        const next = text2 ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
+        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
         if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
         target2 = text2;
         detail = next;
@@ -45859,6 +45930,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const c = checkDestination(typeof url === "string" ? url : "");
     if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
     return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
+  }
+  function offers(world2) {
+    let said2 = {};
+    try {
+      const read6 = JSON.parse(typeof world2 === "string" ? world2 : "");
+      if (read6 && typeof read6 === "object") said2 = read6;
+    } catch {
+    }
+    const words2 = (list) => Array.isArray(list) ? list.filter((w) => typeof w === "string") : [];
+    const items2 = typeof said2.items === "string" && ITEM_RULES.includes(said2.items) ? said2.items : void 0;
+    const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {} });
+    return JSON.stringify(lines.map((o) => ({ ...o, ...o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id]] } : {} })));
   }
   function menu(options) {
     if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
@@ -47637,7 +47720,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const has = me ? bag.items() : null;
       const rule = opts.rule();
       if (has && cameHolding) void carryOn(has);
-      const offers = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
+      const offers2 = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
       const add = (...actions) => {
         for (const a of actions) shown4.push(a.id);
         controls2.add(...actions.map((a) => ({ section: "bag", ...a })));
@@ -47650,7 +47733,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
           if (!me) return "Sign in to keep a bag.";
           if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
-          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
+          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers2().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
           return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
         },
         card: () => {
@@ -47791,7 +47874,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           });
         }
         if (bag.canChange()) add({ id: "bag-remove", icon: "close", label: `Take ${titleOf(item)} out of my bag`, act: () => change2(item, false) });
-      } else if (chosen && offers().includes(chosen)) {
+      } else if (chosen && offers2().includes(chosen)) {
         const item = chosen;
         add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
       }
@@ -47818,7 +47901,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           })
         )
       );
-      const offered = offers();
+      const offered = offers2();
       for (const item of offered) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
       add(
         ...offered.map(
@@ -51321,9 +51404,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     g.fill();
     g.fillStyle = color;
     g.textBaseline = "top";
-    lines.forEach((line, i) => {
+    lines.forEach((line2, i) => {
       g.font = i === 0 ? "bold 56px system-ui, sans-serif" : "44px system-ui, sans-serif";
-      g.fillText(line, 40, 32 + i * 72, canvas.width - 80);
+      g.fillText(line2, 40, 32 + i * 72, canvas.width - 80);
     });
     const tex = new CanvasTexture(canvas);
     tex.colorSpace = SRGBColorSpace;
@@ -51877,9 +51960,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         pendingStreams.delete(m.pubkey);
         changed();
       });
-      s.on("said", (m, line) => {
+      s.on("said", (m, line2) => {
         const a = avatars.get(m.pubkey);
-        if (a) showBubble(a, line.text, bubbleSeconds(line.text));
+        if (a) showBubble(a, line2.text, bubbleSeconds(line2.text));
       });
       s.on("pose", (m, pose) => {
         const a = avatars.get(m.pubkey);
@@ -53113,20 +53196,20 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         g.globalAlpha = 1;
       }
       for (let i = view2.lines.length - 1; i >= 0; i--) {
-        const line = view2.lines[i];
+        const line2 = view2.lines[i];
         g.font = "32px system-ui, sans-serif";
-        const rows = line.text.split("\n").flatMap((part) => wrapWords(part, measure, W - 56, 6)).slice(0, 8);
+        const rows = line2.text.split("\n").flatMap((part) => wrapWords(part, measure, W - 56, 6)).slice(0, 8);
         const tall = (rows.length + 1) * ROW + 10;
         if (y - tall < LEAD) break;
         y -= tall;
         g.font = "600 26px system-ui, sans-serif";
-        g.fillStyle = line.mine ? t.accent : t.ink;
-        g.globalAlpha = line.state === "failed" ? 1 : 0.75;
-        if (line.state === "failed") g.fillStyle = t.warn;
-        g.fillText(`${line.mine ? "You" : line.who}  \xB7  ${line.state === "sending" ? "Sending\u2026" : line.state === "failed" ? "Not sent" : ago(line.at, nowSec)}`, 28, y + ROW * 0.5);
+        g.fillStyle = line2.mine ? t.accent : t.ink;
+        g.globalAlpha = line2.state === "failed" ? 1 : 0.75;
+        if (line2.state === "failed") g.fillStyle = t.warn;
+        g.fillText(`${line2.mine ? "You" : line2.who}  \xB7  ${line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)}`, 28, y + ROW * 0.5);
         g.font = "32px system-ui, sans-serif";
         g.fillStyle = t.ink;
-        g.globalAlpha = line.state === "sending" ? 0.6 : 1;
+        g.globalAlpha = line2.state === "sending" ? 0.6 : 1;
         rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 1.5)));
         g.globalAlpha = 1;
       }
@@ -53781,10 +53864,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const measure = (text2) => g.measureText(text2).width;
       let y = CHAT_H - WRITE_H - 18;
       for (let i = view2.lines.length - 1; i >= 0; i--) {
-        const line = view2.lines[i];
-        const lead = line.note ? "" : `${line.mine ? "You" : line.who}:`;
-        g.font = line.note ? "italic 32px system-ui, sans-serif" : "34px system-ui, sans-serif";
-        const rows = wrapWords(lead ? `${lead} ${line.text}` : line.text, measure, CHAT_W - 56, 6);
+        const line2 = view2.lines[i];
+        const lead = line2.note ? "" : `${line2.mine ? "You" : line2.who}:`;
+        g.font = line2.note ? "italic 32px system-ui, sans-serif" : "34px system-ui, sans-serif";
+        const rows = wrapWords(lead ? `${lead} ${line2.text}` : line2.text, measure, CHAT_W - 56, 6);
         y -= rows.length * ROW;
         if (y < 12) break;
         rows.forEach((row, r) => {
@@ -53793,14 +53876,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           let rest = row;
           if (r === 0 && lead && row.startsWith(lead)) {
             g.font = "600 34px system-ui, sans-serif";
-            g.fillStyle = line.mine ? t.ink : line.color || t.accent;
-            g.globalAlpha = line.mine ? 0.62 : 1;
+            g.fillStyle = line2.mine ? t.ink : line2.color || t.accent;
+            g.globalAlpha = line2.mine ? 0.62 : 1;
             g.fillText(lead, x, at);
             x += measure(lead);
             rest = row.slice(lead.length);
             g.font = "34px system-ui, sans-serif";
           }
-          g.globalAlpha = line.note ? 0.62 : 1;
+          g.globalAlpha = line2.note ? 0.62 : 1;
           g.fillStyle = t.ink;
           g.fillText(rest, x, at);
         });
@@ -53894,9 +53977,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         { title: presence3.roomName ? "Private room chat" : "Room chat" }
       );
       chatStops.push(
-        s.on("said", (m, line) => {
+        s.on("said", (m, line2) => {
           const mine = m.pubkey === s.self.pubkey;
-          controls2.chat.add({ id: line.id, who: m.name, text: line.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
+          controls2.chat.add({ id: line2.id, who: m.name, text: line2.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
           if (mine || !showsChat()) return;
           controls2.signal("heard");
           const where = presence3.whereIs(m.pubkey);

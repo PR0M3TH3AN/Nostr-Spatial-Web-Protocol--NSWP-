@@ -8,7 +8,10 @@
     "inline-3d"
   ],
   "capabilities": [
-    "spatial-portals"
+    "spatial-portals",
+    "rooms",
+    "voice",
+    "avatars"
   ],
   "comfort": {
     "locomotion": "teleport",
