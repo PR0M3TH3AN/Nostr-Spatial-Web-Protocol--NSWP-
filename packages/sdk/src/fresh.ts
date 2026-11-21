@@ -52,6 +52,29 @@ export interface FreshOptions {
   manual?: boolean;
 }
 
+/**
+ * Load the page again, having first asked for it afresh. A plain reload asks the site whether the page has
+ * changed, and where its HTML hasn't, the browser goes on with the copy it kept and the headers that copy came
+ * with: the page's content rules among them, however they have changed since. Asking for the page outright
+ * replaces that copy, headers and all, so the page that then loads is under the rules its site sends today.
+ * (Every page is also marked so that it changes with its rules, core `stampPage`: this is for a page that isn't.)
+ */
+export function reloadAfresh(): void {
+  let gone = false;
+  const go = () => {
+    if (gone) return;
+    gone = true;
+    location.reload();
+  };
+  try {
+    void fetch(location.href, { cache: "reload", credentials: "same-origin" }).then(go, go);
+    // Not waited on for long: a site that is slow to answer is still loaded again.
+    setTimeout(go, 4000);
+  } catch {
+    go();
+  }
+}
+
 /** No more often than this, however often they come and go. */
 const LEAST_MS = 30_000;
 /** While the page is in front of them, this often. */
@@ -81,7 +104,7 @@ async function pageStamp(): Promise<string | null> {
 export function watchFresh(o: FreshOptions = {}): Fresh {
   const stamp = o.stamp ?? pageStamp;
   const now = o.now ?? (() => Date.now());
-  const reload = o.reload ?? (() => location.reload());
+  const reload = o.reload ?? reloadAfresh;
   let first: string | null | undefined;
   let stale = false;
   let told = false;

@@ -154,6 +154,8 @@ void startWorld({
           // Close enough, measured along the ground so height doesn't matter.
           if (Math.hypot(l.group.position.x - kit.head.x, l.group.position.z - kit.head.z) > 0.8) continue;
           l.caught = true;
+          // Heard: the kit's own sound for taking hold of something.
+          kit.sound("grab");
           l.group.visible = false;
           if (startedAt < 0) startedAt = now;
           caught++;
