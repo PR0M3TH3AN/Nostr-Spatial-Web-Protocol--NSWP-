@@ -1212,7 +1212,8 @@ const files: Record<string, unknown> = {
     { name: "not_a_key", description: "Who is a key, or the word client.", tags: [tag(SELLER, "9500"), tag("alice@example.com", "500")] },
     { name: "a_word_too_long", description: "A word of at most 32 characters.", tags: [tag(SELLER, "9500"), tag(MAKER, "500", "x".repeat(33))] },
     { name: "a_hidden_mark_in_a_word", description: "Nothing unseen in a word.", tags: [tag(SELLER, "9500"), tag(MAKER, "500", "maker\u202e")] },
-    { name: "too_many", description: "Six at most.", tags: [tag(SELLER, "4000"), ...[1, 2, 3, 4, 5, 6].map((n) => tag(bytesToHex(sha256(utf8ToBytes(`share ${n}`))), "1000"))] },
+    { name: "four", description: "Four at most, the seller among them: this many is allowed.", tags: [tag(SELLER, "7000"), ...[1, 2, 3].map((n) => tag(bytesToHex(sha256(utf8ToBytes(`share ${n}`))), "1000"))] },
+    { name: "too_many", description: "And one more is too many.", tags: [tag(SELLER, "6000"), ...[1, 2, 3, 4].map((n) => tag(bytesToHex(sha256(utf8ToBytes(`share ${n}`))), "1000"))] },
     { name: "an_extra_piece", description: "A share is three pieces or four, and no more.", tags: [tag(SELLER, "9500"), [...tag(MAKER, "500", "maker"), "more"]] },
   ].map((v) => ({ ...v, seller: SELLER, expect: readShares(v.tags, SELLER) }));
   const three: Share[] = [{ to: SELLER, parts: 8500, label: "world" }, { to: MAKER, parts: 1000, label: "maker" }, { to: "client", parts: 500, label: "client" }];
@@ -1237,12 +1238,14 @@ const files: Record<string, unknown> = {
   expectEqual("shares/no_shares", by("no_shares"), { ok: true, parts: [{ to: SELLER, sats: 490, label: "seller", seller: true }] });
   expectEqual("shares/not_whole", reading.find((v) => v.name === "not_whole")!.expect, { ok: false, why: "not-whole" });
   expectEqual("shares/none", reading.find((v) => v.name === "none")!.expect, { ok: true, shares: [] });
+  expectEqual("shares/four", (reading.find((v) => v.name === "four")!.expect as { ok: boolean }).ok, true);
+  expectEqual("shares/too_many", reading.find((v) => v.name === "too_many")!.expect, { ok: false, why: "too-many" });
   for (const v of splitting) if (v.expect.ok) expectEqual(`shares/${v.name} adds up`, v.expect.parts.reduce((sum, p) => sum + p.sats, 0), v.price - (v.charge ?? 0));
   files["shares.json"] = {
     description:
-      "Shares (docs/plans/paying-for-things.md, section 8; protocol/10-identity.md, \"Shares\"). WRITTEN DOWN AND NOT IN FORCE: nothing pays a share yet. `reading`: what a listing's tags give for a listing sold by `seller` (`readShares`): its shares, none, or why it has none it can be sold with. `splitting`: what a `price` in sats comes to for those `shares`, where `client` is the key of the client that brought the buyer (left out where none did) and `charge` is what the selling service takes, in sats, out of the seller's part (`splitPrice`): the payments in the order they are made, smallest first and the seller last, or why it can't be sold this way. The parts of every split add up to the price less the charge.",
+      "Shares (docs/plans/paying-for-things.md, section 8; protocol/10-identity.md, \"Shares\"). WRITTEN DOWN AND NOT IN FORCE: nothing pays a share yet. `reading`: what a listing's tags give for a listing sold by `seller` (`readShares`): its shares, none, or why it has none it can be sold with. `splitting`: what a `price` in sats comes to for those `shares`, where `client` is the key of the client that brought the buyer and can be paid (left out where none did, or where the selling service can't pay it: so one listing and one client have two right answers, with and without) and `charge` is what the selling service takes, in sats, out of the seller's part (`splitPrice`): the payments in the order they are made, smallest first and the seller last, or why it can't be sold this way. The parts of every split add up to the price less the charge.",
     testKeys,
-    limits: { most: 6, whole: 10000, least: 10, label: 32 },
+    limits: { most: 4, whole: 10000, least: 10, label: 32 },
     reading,
     splitting,
   };

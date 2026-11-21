@@ -705,7 +705,7 @@ price is divided between, the seller included:
   it. Left out, the share is called `seller`, `client` or `share`.
 
 A listing with no such tag has no shares. One with any must have them
-all right: at most six; nobody twice; the seller among them; adding up to
+all right: at most four; nobody twice; the seller among them; adding up to
 exactly 10000. Otherwise it can't be sold with shares at all. Nothing is
 dropped, guessed or made to fit.
 
@@ -728,6 +728,15 @@ which page is showing its panel, and reads that client's key from the
 client's own `/.well-known/nswp.json` (`share`), at the client's own
 address. A client who is also named in the listing is one person, paid
 once.
+
+**Nobody is sent money they didn't agree to take.** The selling service
+pays only a key that has told it, signed by that key, where to be paid.
+A listing naming anyone else can't be sold with shares. The same holds
+for a client: where the service can't pay the client named, that share
+is the seller's. So for one listing and one client there are two right
+plans, one with the client paid and one without, and the service's plan
+says which. A sign-in address that checks the plan against the listing
+takes either, and nothing else.
 
 **The buyer sees every share,** by its word and by who it is for, before
 paying.

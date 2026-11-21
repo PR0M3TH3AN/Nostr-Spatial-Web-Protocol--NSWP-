@@ -1,5 +1,5 @@
 {
-  "description": "Shares (docs/plans/paying-for-things.md, section 8; protocol/10-identity.md, \"Shares\"). WRITTEN DOWN AND NOT IN FORCE: nothing pays a share yet. `reading`: what a listing's tags give for a listing sold by `seller` (`readShares`): its shares, none, or why it has none it can be sold with. `splitting`: what a `price` in sats comes to for those `shares`, where `client` is the key of the client that brought the buyer (left out where none did) and `charge` is what the selling service takes, in sats, out of the seller's part (`splitPrice`): the payments in the order they are made, smallest first and the seller last, or why it can't be sold this way. The parts of every split add up to the price less the charge.",
+  "description": "Shares (docs/plans/paying-for-things.md, section 8; protocol/10-identity.md, \"Shares\"). WRITTEN DOWN AND NOT IN FORCE: nothing pays a share yet. `reading`: what a listing's tags give for a listing sold by `seller` (`readShares`): its shares, none, or why it has none it can be sold with. `splitting`: what a `price` in sats comes to for those `shares`, where `client` is the key of the client that brought the buyer and can be paid (left out where none did, or where the selling service can't pay it: so one listing and one client have two right answers, with and without) and `charge` is what the selling service takes, in sats, out of the seller's part (`splitPrice`): the payments in the order they are made, smallest first and the seller last, or why it can't be sold this way. The parts of every split add up to the price less the charge.",
   "testKeys": {
     "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
     "key1": {
@@ -19,7 +19,7 @@
     }
   },
   "limits": {
-    "most": 6,
+    "most": 4,
     "whole": 10000,
     "least": 10,
     "label": 32
@@ -333,13 +333,65 @@
       }
     },
     {
-      "name": "too_many",
-      "description": "Six at most.",
+      "name": "four",
+      "description": "Four at most, the seller among them: this many is allowed.",
       "tags": [
         [
           "nswp:share",
           "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
-          "4000"
+          "7000"
+        ],
+        [
+          "nswp:share",
+          "9b2193603716ba6549f27272315a3dc849ecde9c8a8bd90ae5fdd29e6dc7ab42",
+          "1000"
+        ],
+        [
+          "nswp:share",
+          "e0b843af26a482959db3b37dfa6a4c1a45b97365e033c2b18be550297ab3c951",
+          "1000"
+        ],
+        [
+          "nswp:share",
+          "b5c0ed4abefd52507822c55d3e23fa41f4a2e2c7205f4b941b0deea25eac936a",
+          "1000"
+        ]
+      ],
+      "seller": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+      "expect": {
+        "ok": true,
+        "shares": [
+          {
+            "to": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            "parts": 7000,
+            "label": "seller"
+          },
+          {
+            "to": "9b2193603716ba6549f27272315a3dc849ecde9c8a8bd90ae5fdd29e6dc7ab42",
+            "parts": 1000,
+            "label": "share"
+          },
+          {
+            "to": "e0b843af26a482959db3b37dfa6a4c1a45b97365e033c2b18be550297ab3c951",
+            "parts": 1000,
+            "label": "share"
+          },
+          {
+            "to": "b5c0ed4abefd52507822c55d3e23fa41f4a2e2c7205f4b941b0deea25eac936a",
+            "parts": 1000,
+            "label": "share"
+          }
+        ]
+      }
+    },
+    {
+      "name": "too_many",
+      "description": "And one more is too many.",
+      "tags": [
+        [
+          "nswp:share",
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "6000"
         ],
         [
           "nswp:share",
@@ -359,16 +411,6 @@
         [
           "nswp:share",
           "72d003f24c201ab007f1452c51ec6fbafe7cdd381691ae018cb4d20db683e16e",
-          "1000"
-        ],
-        [
-          "nswp:share",
-          "3eb76dd741938c739022dab77aaecbd985710d573c99e69e2ce6f734fbdf38d7",
-          "1000"
-        ],
-        [
-          "nswp:share",
-          "f6f5ee0900c7423b3d6c880dda16bc7cd5cd230285730b86e97c112cd2e8631e",
           "1000"
         ]
       ],
