@@ -8,7 +8,12 @@
  * one and checks it, the same way for every world and every client, with no call to anyone.
  *
  * What it can't tell is whether a receipt was taken back since it was signed (a refund, a seller's decision). That
- * is a fact from after the signature, and only the service that signed it knows.
+ * is a fact from after the signature, and only the service that signed it knows: BitUnlock answers it for anyone at
+ * `<its address>/entitlements/<the receipt's fulfillment>/status`.
+ *
+ * Two things a caller should know. Someone who bought a thing for a time more than once holds more than one
+ * receipt for it, each with its own end: any one that has not run out is enough. And a receipt for something the
+ * seller gave away (a voucher) reads here exactly as one that was paid for: it is a receipt.
  */
 import { isHex64, verifyEvent, type NostrEvent } from "./event.js";
 
@@ -39,9 +44,10 @@ export const RECEIPT_ISSUERS: readonly ReceiptIssuer[] = Object.freeze([
  * The seller's key is in it, which is what lets anyone see whose thing was sold with no call to anyone.
  */
 export function cleanListing(input: unknown): string {
-  if (typeof input !== "string" || input.length > 300) return "";
-  // As the selling service takes one: its name may hold anything but a line break.
-  return /^30078:[0-9a-f]{64}:.{1,200}$/.test(input) ? input : "";
+  if (typeof input !== "string" || input.length > 400) return "";
+  // As the selling service takes one (BitUnlock, `src/nostr/product.ts`): a name of 1 to 256 characters that
+  // doesn't begin with a colon. Narrower here and a listing it sold would have a receipt this refused.
+  return /^30078:[0-9a-f]{64}:[^:\n][^\n]{0,255}$/.test(input) ? input : "";
 }
 /** The key that sells a listing: the one in its coordinate. "" where it isn't one. */
 export function listingSeller(listing: unknown): string {
