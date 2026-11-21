@@ -7,7 +7,9 @@ started. Section 10 (why a world would sell this way and not its own) was
 added the same day, at the owner's asking. The questions it ended with
 were answered the same day too ("Yes to all of these", to the answers
 recommended): section 13 is what was decided, and section 14 what is
-still open. **Decided is not built: nothing here is built yet.**
+still open. **Decided is not built: nothing here is built yet.** Section
+10.6 (how this pays for development) is an assessment the owner asked to
+have written down, and is not one of the things decided.
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -512,6 +514,54 @@ A large world with its own crowd can do without all of it and lose
 little. This doesn't have to stop that. It has to make it uncommon, and
 not worth the trouble for nearly everyone.
 
+### 10.6 How this pays for development
+
+Written down at the owner's asking (2026-11-21: "Is this the right
+business model for bitportal?"). It is an assessment, not a decision.
+
+**The share is the right shape, and it is not income yet.**
+
+- It is the right shape because nothing on the open web can be made to
+  pay a toll. A small share that a seller offers by choice, for a wallet,
+  receipts and buyers they couldn't have had alone, is the only kind that
+  lasts; it is worth more with every world and person added; and a world
+  maker who can leave is one the client has to go on being useful to.
+- It is not income yet because the sums are small until there are a great
+  many of them. A 500-sat item is about half a dollar, and under a tenth
+  of that is a few cents. The share is the seller's to offer, any client
+  may claim it, and a world opened by its own address pays none. And it
+  waits on a lawyer (section 13, 16).
+- Of the three projects, the client is the easiest to replace: that is
+  what being open means. What people keep is their identity and wallet
+  (BitLogin) and the record of what they bought (BitUnlock). BitPortal is
+  where the buyers come from more than where the money stays.
+
+**So the business is the three together:** BitPortal brings people,
+BitLogin holds who they are and what they can spend, and BitUnlock keeps
+the records and takes its fee.
+
+**What can pay sooner,** in the order it could start:
+
+1. **BitPortal's own things, sold at full margin.** Items, looks, passes,
+   things for a home. This is how most virtual worlds earn, it needs no
+   shares and no outside sellers, and it is already the first real sale
+   chosen (section 13, 18).
+2. **Charging the people who make worlds, for convenience.** Publishing
+   and hosting a world from the template at one press, an address of
+   their own, more room for files. People pay for that by the month long
+   before a marketplace has any volume. Nothing of this is designed yet.
+3. **BitUnlock's fee, across everything that uses it.** It is taken on
+   sales in the owner's other applications already, whatever happens in
+   worlds.
+
+The client's share is then what grows with the whole, and not what
+development depends on.
+
+**What this can't say** is whether enough people will come. That rests on
+there being worlds worth visiting, which no way of charging provides. The
+cheapest thing that would show it is the one already planned: one item,
+at a low price, and whether anyone buys it.
+
 ## 11. What each project would have to add
 
 | Project | To add |
@@ -645,3 +695,7 @@ Not decided by the above, and each needed before the part it belongs to:
   begins, and what they are told.
 - **What a world's taste is allowed to be:** a separate room, a time
   limit, or anything the world likes.
+- **Whether the owner takes section 10.6 as the plan:** it was asked for
+  and written down, and not yet said yes to. If so: which of BitPortal's
+  own things are sold first, and what world makers would be charged for,
+  and how much.
