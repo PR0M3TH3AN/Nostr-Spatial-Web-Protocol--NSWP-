@@ -23,8 +23,9 @@ in order of how much they change a visit:
 
 1. **A crossing with no flat pages.** Today a headset session ends at every
    door: three actions, two of them on a flat panel
-   ([NSWP-02](../protocol/02-doors.md)). A browser owns the session, so it
-   can keep it while the page underneath changes. One action: the door.
+   ([NSWP-02](../protocol/02-doors.md)). A browser owns what the headset
+   shows, so it can keep showing while the page underneath changes and let
+   the next page begin with no press (section 5). One action: the door.
 2. **An Airlock a world can't forge, inside the headset.** The Airlock is a
    flat page today because a world draws everything a visitor sees in VR. A
    browser draws above the world, where no world can reach. The check moves
@@ -143,16 +144,27 @@ browser. This is built in stage A, before any native code exists.
 ## 5. A crossing, in the browser
 
 1. The visitor selects a door. The world calls `portal.go()`, which calls
-   `nswp.navigate()`. The session does not end.
+   `nswp.navigate()`. The visitor stays in the headset view: the shell is
+   what is drawing from here on.
 2. The shell draws the chamber round the visitor and the Airlock on its wall:
    the real address, whether the site vouches for its announcement, how they
    will go (by name, as a guest, plain). This is the shell's drawing, so for
    the first time the chamber is part of the check instead of scenery.
 3. For a world they have approved before, the doors close and open with a
    moment to cancel. Otherwise they select **Continue**.
-4. The shell loads the destination underneath and grants it the session
-   (the `sessiongranted` event, which the SDK already listens for). The doors
-   open when the world has drawn its first frame.
+4. The world's own session ends, and the shell keeps presenting. The shell
+   loads the destination underneath and lets it start a new session of its
+   own with no press (the `sessiongranted` event, which the SDK already
+   listens for). The doors open when the world has drawn its first frame.
+
+Nothing is handed from one site to the next. A session belongs to the page
+that asked for it and ends with it; what carries across is the visitor's
+view, which is the shell's, and the shell's leave for the next page to begin
+at once. (Corrected on 2026-11-21: this step used to say the shell "grants
+it the session", which read as if the second site inherited the first
+one's. No browser works that way. The stock Meta Quest browser has the
+event behind a setting; it is in neither upstream Chromium nor Wolvic, so
+a browser of ours has to make it.)
 
 One action for a familiar world, two for a new one, none of them on a flat
 panel. If the destination never asks for a session, it is a flat site, and it
@@ -249,7 +261,7 @@ show pages at a lower rate, or the shell changes.
 | | Build | Done when |
 |---|---|---|
 | C0 | Build Wolvic unchanged and run it | BitPortal Web's room and one crossing work in it as they do in Quest Browser |
-| C1 | `nswp.navigate` and the shell's Airlock, in a fork | A crossing between two worlds keeps the session: one action, no flat panel |
+| C1 | `nswp.navigate` and the shell's Airlock, in a fork | A crossing between two worlds keeps the visitor in the headset view: one action, no flat panel |
 | C2 | The rest of the bridge | Panels opened by the home appear in the headset |
 
 Stops if: Wolvic can't keep a session across a page change without deep
