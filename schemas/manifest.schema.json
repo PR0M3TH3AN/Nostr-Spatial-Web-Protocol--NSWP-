@@ -47,7 +47,8 @@
             "properties": { "endpoint": { "type": "string", "description": "Must be wss://; clients ignore other values with a warning." }, "auth": { "type": "string" } }
           },
           "budgets": { "type": "object", "properties": { "initial_download_mb": { "type": "number", "minimum": 0 } } },
-          "airlock": { "type": "string", "description": "Must be https://; clients ignore other values with a warning." }
+          "airlock": { "type": "string", "description": "Must be https://; clients ignore other values with a warning." },
+          "access": { "type": "array", "items": { "type": "string", "description": "A listing's coordinate, 30078:<pubkey>:<name>, sold by a key this file names as a publisher of this world. Clients ignore others with a warning." }, "description": "The listings a paid world is entered by, at most 8. Left out, the world is free." }
         }
       }
     },

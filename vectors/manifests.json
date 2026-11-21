@@ -316,6 +316,128 @@
           "invalid_field"
         ]
       }
+    },
+    {
+      "name": "paid_world",
+      "description": "A paid world names its listings, each sold by a key the file lets announce that world.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "access": [
+              "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+              "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good"
+            ]
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [
+          "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+          "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good"
+        ]
+      }
+    },
+    {
+      "name": "priced_by_someone_else",
+      "description": "A listing sold by a key that isn't a publisher of that world is left out, and so is anything that isn't a listing. With none left, the world is free.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "access": [
+              "30078:9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6:museum day pass",
+              "paid",
+              "37303:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:a-lantern"
+            ]
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "access_not_own",
+          "invalid_listing",
+          "invalid_listing"
+        ],
+        "access": []
+      }
+    },
+    {
+      "name": "free_world",
+      "description": "A world that names no listing is free.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": []
+      }
     }
   ],
   "verification": [

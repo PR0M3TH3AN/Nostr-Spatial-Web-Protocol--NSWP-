@@ -1,0 +1,812 @@
+{
+  "description": "Listings (protocol/10-identity.md, \"A listing\"): a thing for sale, as its seller signed it. `reading`: what `readListing` makes of each `event` when asked for `coordinate`, believing the services in `issuers` (the kit as shipped believes BitUnlock alone, and reads these as `unknown-service`): the listing, or the first reason it is not shown for sale. `words`: how long a `term` in seconds lasts, as it is put after a price (`termWords`); null is something bought for good.",
+  "testKeys": {
+    "note": "TEST-ONLY keys derived from public strings: sha256(utf8(label)). Anyone can sign as them. Signatures use 32 zero bytes of BIP-340 aux randomness so they are reproducible.",
+    "key1": {
+      "label": "nswp test vector key 1",
+      "secretKey": "a2b21391e4eb08443bfc5f24d7e778410f717b0509e82999e71a2bee98ad4912",
+      "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+    },
+    "key2": {
+      "label": "nswp test vector key 2",
+      "secretKey": "5bc5ca1924bd664c612999947060bd3785d1e568e3b0fde563b73fea0a4b9959",
+      "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+    },
+    "session": {
+      "label": "nswp test vector session key",
+      "secretKey": "2046112f77ef7e117c03898e53aec40c7d33e8aa5a164efe66d7b7672c4db4c9",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  },
+  "issuers": [
+    {
+      "name": "Test service",
+      "service": "https://unlock.example",
+      "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+    }
+  ],
+  "least": 500,
+  "reading": [
+    {
+      "name": "for_a_day",
+      "description": "For a day, at the least price. Its name is the seller's own, from the words inside.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "86400"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "02e3b147a183067c9bf77be0d49ea8f26a0b08c7be4821f09f159d25cf733357",
+        "sig": "8a2f3ead9d112c91f6e9191d33d1ac4091ea56743567c5e09c41a06677aaa4656443515984f026ae60178f17c735f6f34e181da0f8def8c24cca306da96e060e"
+      },
+      "expect": {
+        "ok": true,
+        "listing": {
+          "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+          "seller": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "name": "A day in the museum",
+          "sats": 500,
+          "term": 86400,
+          "for": "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum",
+          "issuer": {
+            "name": "Test service",
+            "service": "https://unlock.example",
+            "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          }
+        }
+      }
+    },
+    {
+      "name": "for_good",
+      "description": "No term said: bought for good. With no words inside, it is called by the name it is filed under.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum-for-good"
+          ],
+          [
+            "price",
+            "2100",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ]
+        ],
+        "content": "",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "04db8ec00d0ef4dd2a325cfedb0996ee3fa0b018e5f3407e451722b3896929a5",
+        "sig": "e16f3cea37282120e7296f6a897bbf2805ff0e7780eddf731dd4c3eb3dc8fd198bbc0bd742e777eeb9ce413b8f3c9e3f66d696ea5a9aa00fd9205dc4b16eed1e"
+      },
+      "expect": {
+        "ok": true,
+        "listing": {
+          "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+          "seller": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "name": "museum-for-good",
+          "sats": 2100,
+          "term": null,
+          "for": "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum",
+          "issuer": {
+            "name": "Test service",
+            "service": "https://unlock.example",
+            "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          }
+        }
+      }
+    },
+    {
+      "name": "named_by_a_tag",
+      "description": "A `title` tag is the name, before the words inside.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum-for-good"
+          ],
+          [
+            "price",
+            "2100",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "title",
+            "The museum, for good"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "7f39fa2ce7323d05b6bbbb66d29921bebf8c12942bfc8c975f47a274e4f8307e",
+        "sig": "ecd927d74093350f07581a97754dac4ac8d0ae488bae4a0f42fc5fbacd53d11d036ec917483cb28cbd7438b75d021170b81b92e8c5fefd8c4159d3ffe3ccc681"
+      },
+      "expect": {
+        "ok": true,
+        "listing": {
+          "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+          "seller": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+          "name": "The museum, for good",
+          "sats": 2100,
+          "term": null,
+          "for": "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum",
+          "issuer": {
+            "name": "Test service",
+            "service": "https://unlock.example",
+            "pubkey": "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          }
+        }
+      }
+    },
+    {
+      "name": "signed_by_someone_else",
+      "description": "The coordinate names one seller and another key signed this: nobody prices what isn't theirs.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "86400"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+        "id": "884d2ba574bc41f43e9412bb8bafa1d128eadc894a85eed45d535e45be34f62e",
+        "sig": "f8b00f734d848d98d0cbe10448baf48b1c98dfd970e3fb26f30cf8ff6fe9c5a8971ec51a3c8542a7da11b68a92a25e6b27ca2f7831d285da51af2f312e1011c3"
+      },
+      "expect": {
+        "ok": false,
+        "why": "other-seller"
+      }
+    },
+    {
+      "name": "changed_after_signing",
+      "description": "The price was changed after it was signed.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "5",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "86400"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "02e3b147a183067c9bf77be0d49ea8f26a0b08c7be4821f09f159d25cf733357",
+        "sig": "8a2f3ead9d112c91f6e9191d33d1ac4091ea56743567c5e09c41a06677aaa4656443515984f026ae60178f17c735f6f34e181da0f8def8c24cca306da96e060e"
+      },
+      "expect": {
+        "ok": false,
+        "why": "not-signed"
+      }
+    },
+    {
+      "name": "another_listing",
+      "description": "A real listing of the same seller's, and not the one asked for.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum-for-good",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "86400"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "02e3b147a183067c9bf77be0d49ea8f26a0b08c7be4821f09f159d25cf733357",
+        "sig": "8a2f3ead9d112c91f6e9191d33d1ac4091ea56743567c5e09c41a06677aaa4656443515984f026ae60178f17c735f6f34e181da0f8def8c24cca306da96e060e"
+      },
+      "expect": {
+        "ok": false,
+        "why": "other-listing"
+      }
+    },
+    {
+      "name": "under_the_least_price",
+      "description": "499 sats: nothing is shown for sale under 500.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "499",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "86400"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "516667eded74887eb1897d01c0a221d1993abb7321fc1d27a1a12d028091b3be",
+        "sig": "7380d76863d42e8cedc97ca787eab1efd44cdb95fc9cc60ce94427de6a8795848a57bfc8e38b0f6b88d844de71a2c4d824b8b8d86d3061013403501c52502328"
+      },
+      "expect": {
+        "ok": false,
+        "why": "too-cheap"
+      }
+    },
+    {
+      "name": "not_for_sale_now",
+      "description": "Withdrawn by its seller.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "withdrawn"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "06b5fbd648c70310b78c9f2a8e6f2ff16b2ee542a968e9dc27f15e9ad95cd1ef",
+        "sig": "468e4eae58c68cbfecc2793b128075292a7b049b21718726fe113a5760077473a6a6bed2f33e6c180525d9b6e48ea0683be0495c11ff6a4632d135914168a5df"
+      },
+      "expect": {
+        "ok": false,
+        "why": "not-for-sale"
+      }
+    },
+    {
+      "name": "a_service_nobody_knows",
+      "description": "Sold through a service whose receipts are not believed: a purchase there would end in a receipt nothing could take.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "23c9b0e3d700fdac7f1f95b2db71806ecb7f5d4af609d5cd055d69c4104fb4a6",
+        "sig": "465f0ae2eef80e3bab06a584a01965db425c96585590f61e8a1503d064c469cc51e467e93e8ce8e4b2c79850af025c70b0a81ebf5c1a4fd63fa6292f895f1cf3"
+      },
+      "expect": {
+        "ok": false,
+        "why": "unknown-service"
+      }
+    },
+    {
+      "name": "a_term_that_does_not_read",
+      "description": "A term that isn't whole seconds is never taken as \"for good\".",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:term",
+            "a day"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "21e42d1dd89f452cb6e89b707d3482044b3c40abbb999ba830b36231b176eb79",
+        "sig": "5d1044e861bbd73df0a6f25c925c8b532db1258ef3657122d7e9fb15cb78f0f5e7525a3acaa6ab839f6341f36b96eb998a5ce432d469f2ebba05a312b6db0390"
+      },
+      "expect": {
+        "ok": false,
+        "why": "not-a-listing"
+      }
+    },
+    {
+      "name": "two_prices",
+      "description": "Two prices: neither is believed.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "price",
+            "900",
+            "SAT"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "34b823b970e6bb4eed57a1db8fef1626476ed47ff1054f625a0ee7754b7e3f15",
+        "sig": "b7c0cc80ecffcc700c722b246ec0319c6c98652915d4301ea1f41ff11019a732ea414cdb72b81e7e7e4d06313a6d24e2be69a39909ac9a32c274eea87091e05f"
+      },
+      "expect": {
+        "ok": false,
+        "why": "not-a-listing"
+      }
+    },
+    {
+      "name": "with_shares",
+      "description": "Its price is divided between several people. Shares are written down and not in force, so it is not shown for sale.",
+      "coordinate": "30078:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:museum day pass",
+      "event": {
+        "kind": 30078,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "museum day pass"
+          ],
+          [
+            "price",
+            "500",
+            "SAT"
+          ],
+          [
+            "status",
+            "active"
+          ],
+          [
+            "br:delivery",
+            "seller-unlock-service-v1"
+          ],
+          [
+            "br:delivery-mode",
+            "static"
+          ],
+          [
+            "br:unlock-service",
+            "https://unlock.example"
+          ],
+          [
+            "br:unlock-service-pubkey",
+            "23a35533eaea86ba656ca56746e877f082945ca174e2ec13e52ad1815840461f"
+          ],
+          [
+            "br:claim-epoch",
+            "1"
+          ],
+          [
+            "nswp:for",
+            "37300:01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6:example-museum"
+          ],
+          [
+            "nswp:share",
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+            "9000"
+          ],
+          [
+            "nswp:share",
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+            "1000"
+          ]
+        ],
+        "content": "{\"title\":\"A day in the museum\",\"summary\":\"An example listing. Not for sale.\"}",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "8c7330a3755cfe62e8b84bdb392a6495fb1bfc81bb32d65716b0f015f3408e0f",
+        "sig": "69bc649fdb259e83a2b8586a101f3c1b200d471ab4503f73e279d8d7241a954a3b4e6ee311e77965f22561eec55c3792ea6193157e49a1e601ca483618d20fef"
+      },
+      "expect": {
+        "ok": false,
+        "why": "shared"
+      }
+    }
+  ],
+  "words": [
+    {
+      "term": null,
+      "expect": "once"
+    },
+    {
+      "term": 60,
+      "expect": "for 1 minute"
+    },
+    {
+      "term": 3600,
+      "expect": "for 1 hour"
+    },
+    {
+      "term": 5400,
+      "expect": "for 90 minutes"
+    },
+    {
+      "term": 86400,
+      "expect": "for 1 day"
+    },
+    {
+      "term": 2592000,
+      "expect": "for 30 days"
+    },
+    {
+      "term": 45,
+      "expect": "for 45 seconds"
+    }
+  ]
+}

@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.70.2";
+  var KIT_VERSION = "0.71.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4336,6 +4336,88 @@ var NSWP = (() => {
     }
   }
 
+  // packages/core/dist/receipt.js
+  var RECEIPT_KIND = 30078;
+  var RECEIPT_NAME = "bitunlock:entitlement:v1";
+  var RECEIPT_FORM = { schemaVersion: 1, protocolVersion: "seller-unlock-service-v1" };
+  var RECEIPT_ISSUERS = Object.freeze([
+    Object.freeze({ name: "BitUnlock", service: "https://api.bitunlock.network", pubkey: "66be61cf5b8d286391f7b1a72ffa7c799ec2dc49eff0830c40df1cc964e6787d" })
+  ]);
+  function cleanListing(input) {
+    if (typeof input !== "string" || input.length > 400)
+      return "";
+    return /^30078:[0-9a-f]{64}:[^:\n][^\n]{0,255}$/.test(input) ? input : "";
+  }
+  function listingSeller(listing) {
+    return cleanListing(listing).slice(6, 70);
+  }
+  var no = (why) => ({ ok: false, why });
+  var text = (v2, most = 300) => typeof v2 === "string" && v2.length > 0 && v2.length <= most;
+  function readReceipt(event, expect = {}) {
+    const e = event;
+    if (!e || typeof e !== "object" || e.kind !== RECEIPT_KIND || typeof e.content !== "string" || e.content.length > 8e3 || !Array.isArray(e.tags) || !isHex64(e.pubkey))
+      return no("not-a-receipt");
+    const issuer = (expect.issuers ?? RECEIPT_ISSUERS).find((i) => i.pubkey === e.pubkey);
+    if (!issuer)
+      return no("unknown-issuer");
+    let signed = false;
+    try {
+      signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
+    } catch {
+      signed = false;
+    }
+    if (!signed)
+      return no("not-signed");
+    let d;
+    try {
+      const parsed = JSON.parse(e.content);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return no("not-a-receipt");
+      d = parsed;
+    } catch {
+      return no("not-a-receipt");
+    }
+    if (d.schemaVersion !== RECEIPT_FORM.schemaVersion || d.protocolVersion !== RECEIPT_FORM.protocolVersion || d.status !== "active")
+      return no("not-a-receipt");
+    const listing = cleanListing(d.productCoordinate);
+    const issuedAt = d.issuedAt;
+    if (!listing || !isHex64(d.buyerPubkey) || !isHex64(d.sellerPubkey) || !text(d.fulfillmentId) || typeof issuedAt !== "number" || !Number.isSafeInteger(issuedAt) || issuedAt < 1)
+      return no("not-a-receipt");
+    if (d.sellerPubkey !== listingSeller(listing))
+      return no("not-a-receipt");
+    const names = e.tags.filter((t) => t[0] === "d");
+    if (names.length !== 1 || names[0][1] !== `${RECEIPT_NAME}:${d.fulfillmentId}`)
+      return no("not-a-receipt");
+    let expiresAt = null;
+    const policy = d.accessPolicy;
+    if (policy !== void 0 && policy !== "perpetual-v1") {
+      const term = policy;
+      if (!term || typeof term !== "object" || term.kind !== "term-v1" || typeof term.expiresAt !== "number" || !Number.isSafeInteger(term.expiresAt) || term.expiresAt <= issuedAt)
+        return no("not-a-receipt");
+      expiresAt = term.expiresAt;
+    }
+    if (expect.listing !== void 0 && listing !== expect.listing)
+      return no("other-listing");
+    if (expect.buyer !== void 0 && d.buyerPubkey !== expect.buyer)
+      return no("other-buyer");
+    if (expiresAt !== null && (expect.now ?? Math.floor(Date.now() / 1e3)) >= expiresAt)
+      return no("run-out");
+    return { ok: true, receipt: { issuer, listing, buyer: d.buyerPubkey, seller: d.sellerPubkey, issuedAt, expiresAt, fulfillment: d.fulfillmentId } };
+  }
+  function cleanLightningAddress(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const address = input.trim().toLowerCase();
+    return /^[a-z0-9._+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/.test(address) ? address : "";
+  }
+  var TIP_LIMITS = { least: 1, most: 1e6 };
+  function cleanTip(input) {
+    return typeof input === "number" && Number.isSafeInteger(input) && input >= TIP_LIMITS.least && input <= TIP_LIMITS.most ? input : null;
+  }
+
+  // packages/core/dist/listing.js
+  var ACCESS_MOST = 8;
+
   // packages/core/dist/manifest.js
   var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
   var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
@@ -4432,6 +4514,28 @@ var NSWP = (() => {
             w.airlock = raw.airlock;
           else
             c.warn("url_not_https", `${p}.airlock`, "airlock must be an https URL; ignored.");
+        }
+        if (raw.access !== void 0) {
+          if (!stringArray(raw.access))
+            c.warn("invalid_field", `${p}.access`, "access must be an array of listing coordinates; ignored.");
+          else {
+            const access = [];
+            for (const said2 of raw.access) {
+              const listing2 = cleanListing(said2);
+              if (!listing2)
+                c.warn("invalid_listing", `${p}.access`, "Ignoring an access entry that is not a listing's coordinate (30078:<pubkey>:<name>).");
+              else if (!publishers[listingSeller(listing2)]?.worlds.includes(id))
+                c.warn("access_not_own", `${p}.access`, "Ignoring an access listing sold by a key that isn't a publisher of this world.");
+              else if (access.includes(listing2))
+                continue;
+              else if (access.length >= ACCESS_MOST)
+                c.warn("too_many_listings", `${p}.access`, `Only the first ${ACCESS_MOST} access listings are used.`);
+              else
+                access.push(listing2);
+            }
+            if (access.length)
+              w.access = access;
+          }
         }
         worlds[id] = w;
       }
@@ -6267,85 +6371,6 @@ ${roomName}`)));
     const clean3 = cleanFileUrl(url);
     const named2 = /\/([0-9a-f]{64})(\.[a-z0-9]{1,10})?$/.exec(clean3 ? new URL(clean3).pathname : "")?.[1];
     return !!named2 && named2 === bytesToHex(sha256(bytes));
-  }
-
-  // packages/core/dist/receipt.js
-  var RECEIPT_KIND = 30078;
-  var RECEIPT_NAME = "bitunlock:entitlement:v1";
-  var RECEIPT_FORM = { schemaVersion: 1, protocolVersion: "seller-unlock-service-v1" };
-  var RECEIPT_ISSUERS = Object.freeze([
-    Object.freeze({ name: "BitUnlock", service: "https://api.bitunlock.network", pubkey: "66be61cf5b8d286391f7b1a72ffa7c799ec2dc49eff0830c40df1cc964e6787d" })
-  ]);
-  function cleanListing(input) {
-    if (typeof input !== "string" || input.length > 400)
-      return "";
-    return /^30078:[0-9a-f]{64}:[^:\n][^\n]{0,255}$/.test(input) ? input : "";
-  }
-  function listingSeller(listing) {
-    return cleanListing(listing).slice(6, 70);
-  }
-  var no = (why) => ({ ok: false, why });
-  var text = (v2, most = 300) => typeof v2 === "string" && v2.length > 0 && v2.length <= most;
-  function readReceipt(event, expect = {}) {
-    const e = event;
-    if (!e || typeof e !== "object" || e.kind !== RECEIPT_KIND || typeof e.content !== "string" || e.content.length > 8e3 || !Array.isArray(e.tags) || !isHex64(e.pubkey))
-      return no("not-a-receipt");
-    const issuer = (expect.issuers ?? RECEIPT_ISSUERS).find((i) => i.pubkey === e.pubkey);
-    if (!issuer)
-      return no("unknown-issuer");
-    let signed = false;
-    try {
-      signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
-    } catch {
-      signed = false;
-    }
-    if (!signed)
-      return no("not-signed");
-    let d;
-    try {
-      const parsed = JSON.parse(e.content);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-        return no("not-a-receipt");
-      d = parsed;
-    } catch {
-      return no("not-a-receipt");
-    }
-    if (d.schemaVersion !== RECEIPT_FORM.schemaVersion || d.protocolVersion !== RECEIPT_FORM.protocolVersion || d.status !== "active")
-      return no("not-a-receipt");
-    const listing = cleanListing(d.productCoordinate);
-    const issuedAt = d.issuedAt;
-    if (!listing || !isHex64(d.buyerPubkey) || !isHex64(d.sellerPubkey) || !text(d.fulfillmentId) || typeof issuedAt !== "number" || !Number.isSafeInteger(issuedAt) || issuedAt < 1)
-      return no("not-a-receipt");
-    if (d.sellerPubkey !== listingSeller(listing))
-      return no("not-a-receipt");
-    const names = e.tags.filter((t) => t[0] === "d");
-    if (names.length !== 1 || names[0][1] !== `${RECEIPT_NAME}:${d.fulfillmentId}`)
-      return no("not-a-receipt");
-    let expiresAt = null;
-    const policy = d.accessPolicy;
-    if (policy !== void 0 && policy !== "perpetual-v1") {
-      const term = policy;
-      if (!term || typeof term !== "object" || term.kind !== "term-v1" || typeof term.expiresAt !== "number" || !Number.isSafeInteger(term.expiresAt) || term.expiresAt <= issuedAt)
-        return no("not-a-receipt");
-      expiresAt = term.expiresAt;
-    }
-    if (expect.listing !== void 0 && listing !== expect.listing)
-      return no("other-listing");
-    if (expect.buyer !== void 0 && d.buyerPubkey !== expect.buyer)
-      return no("other-buyer");
-    if (expiresAt !== null && (expect.now ?? Math.floor(Date.now() / 1e3)) >= expiresAt)
-      return no("run-out");
-    return { ok: true, receipt: { issuer, listing, buyer: d.buyerPubkey, seller: d.sellerPubkey, issuedAt, expiresAt, fulfillment: d.fulfillmentId } };
-  }
-  function cleanLightningAddress(input) {
-    if (typeof input !== "string" || input.length > 200)
-      return "";
-    const address = input.trim().toLowerCase();
-    return /^[a-z0-9._+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/.test(address) ? address : "";
-  }
-  var TIP_LIMITS = { least: 1, most: 1e6 };
-  function cleanTip(input) {
-    return typeof input === "number" && Number.isSafeInteger(input) && input >= TIP_LIMITS.least && input <= TIP_LIMITS.most ? input : null;
   }
 
   // packages/core/dist/signing.js

@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { readShares, splitPrice, type Share } from "../packages/core/src/shares.js";
+import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
+import { accessFor } from "../packages/core/src/manifest.js";
 import {
   buildAvatarEvent,
   buildEntryAssertion,
@@ -142,7 +144,7 @@ const withTags = (f: (tags: string[][]) => string[][]): EventTemplate => {
   return { ...t, tags: f(t.tags) };
 };
 
-type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null; items?: string | null } };
+type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null; items?: string | null; access?: string[] } };
 const worldCases: Omit<WorldVector, "event"> & { event: unknown }[] = [];
 const goodWorld = sign(buildWorldEvent(baseWorld));
 const tampered = { ...goodWorld, content: "edited after signing" };
@@ -171,6 +173,12 @@ const worldVectors: WorldVector[] = [
   { name: "items_are_the_game", description: "Says items are part of play: a door and the Airlock say so before a visitor goes in.", event: sign(buildWorldEvent({ ...baseWorld, items: "play" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], items: "play" } },
   { name: "items_turned_off", description: "Says it has no items. A world that says nothing has them, so this is how one turns them off.", event: sign(buildWorldEvent({ ...baseWorld, items: "none" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], items: "none" } },
   { name: "an_items_rule_nobody_knows", description: "A rule for items that isn't on the list is treated as none: never as the ordinary rule, which is allowed.", event: withTags((t) => [...t, ["items", "anything-goes"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_items_rule"], items: "none" } },
+  // What a world is entered by, where it is paid. `access` in `expect` is the listings a reader takes from it; none is a free world.
+  { name: "paid_by_two_listings", description: "A paid world names the listings it is entered by: here a day and for good, both sold by the key that signs the announcement.", event: sign(buildWorldEvent({ ...baseWorld, access: [`30078:${PK1}:museum day pass`, `30078:${PK1}:museum-for-good`] })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], access: [`30078:${PK1}:museum day pass`, `30078:${PK1}:museum-for-good`] } },
+  { name: "free_says_nothing", description: "A world that names no listing is free, as every world was before.", event: goodWorld, expect: { valid: true, signatureValid: true, errors: [], warnings: [], access: [] } },
+  { name: "priced_by_someone_else", description: "A listing sold by another key is left out: nobody puts a price on a world that isn't theirs. With none left, the world is free.", event: sign(buildWorldEvent({ ...baseWorld, access: `30078:${PK2}:museum day pass` })), expect: { valid: true, signatureValid: true, errors: [], warnings: ["access_not_own"], access: [] } },
+  { name: "access_that_is_no_listing", description: "An access tag that isn't a listing's coordinate is left out.", event: withTags((t) => [...t, ["a", `37303:${PK1}:a-lantern`, "", "access"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["invalid_coordinate"], access: [] } },
+  { name: "one_listing_named_twice", description: "The same listing twice is one listing.", event: withTags((t) => [...t, ["a", `30078:${PK1}:museum-for-good`, "", "access"], ["a", `30078:${PK1}:museum-for-good`, "", "access"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: [], access: [`30078:${PK1}:museum-for-good`] } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",
@@ -255,6 +263,7 @@ for (const v of worldVectors) {
   if (v.expect.audience !== undefined && r.ok) expectEqual(`world/${v.name} audience`, audienceOf(r.value), v.expect.audience);
   if (v.expect.category !== undefined && r.ok) expectEqual(`world/${v.name} category`, r.value.category ?? null, v.expect.category);
   if (v.expect.items !== undefined && r.ok) expectEqual(`world/${v.name} items`, r.value.items ?? null, v.expect.items);
+  if (v.expect.access !== undefined && r.ok) expectEqual(`world/${v.name} access`, r.value.access ?? [], v.expect.access);
 }
 void worldCases;
 
@@ -291,9 +300,24 @@ const manifestVectors = [
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, multiplayer: { endpoint: "ws://museum.example/session" } } } }),
     expect: { valid: true, errors: [], warnings: ["invalid_field"] },
   },
-];
+  // What a world is entered by, where it is paid. `access` in `expect` is what `accessFor` gives for the world's address.
+  {
+    name: "paid_world",
+    description: "A paid world names its listings, each sold by a key the file lets announce that world.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, access: [`30078:${PK1}:museum day pass`, `30078:${PK1}:museum-for-good`] } } }),
+    expect: { valid: true, errors: [], warnings: [], access: [`30078:${PK1}:museum day pass`, `30078:${PK1}:museum-for-good`] },
+  },
+  {
+    name: "priced_by_someone_else",
+    description: "A listing sold by a key that isn't a publisher of that world is left out, and so is anything that isn't a listing. With none left, the world is free.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, access: [`30078:${PK2}:museum day pass`, "paid", `37303:${PK1}:a-lantern`] } } }),
+    expect: { valid: true, errors: [], warnings: ["access_not_own", "invalid_listing", "invalid_listing"], access: [] },
+  },
+  { name: "free_world", description: "A world that names no listing is free.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [] } },
+] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[] } }[];
 for (const v of manifestVectors) {
   const r = parseManifest(v.manifest, v.byteLength === undefined ? {} : { byteLength: v.byteLength });
+  if (v.expect.access !== undefined && r.ok) expectEqual(`manifest/${v.name} access`, accessFor(r.value, "https://museum.example/world")?.listings ?? null, v.expect.access);
   expectEqual(`manifest/${v.name} valid`, r.ok, v.expect.valid);
   expectEqual(`manifest/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
   expectEqual(`manifest/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
@@ -1248,6 +1272,53 @@ const files: Record<string, unknown> = {
     limits: { most: 4, whole: 10000, least: 10, label: 32 },
     reading,
     splitting,
+  };
+}
+
+// ---- Listings (docs/plans/paying-for-things.md, section 4; protocol/10-identity.md, "A listing"): a thing for sale,
+// as its seller signed it, read so that its name, its price and how long it lasts can be shown before anyone pays.
+{
+  const SELLER = PK1;
+  // A selling service for these examples: a listing is taken only where it names one whose receipts are believed.
+  const issuers = [{ name: "Test service", service: "https://unlock.example", pubkey: PK3 }];
+  const tagsOf = (name: string, price: string, more: string[][] = []): string[][] => [["d", name], ["price", price, "SAT"], ["status", "active"], ["br:delivery", "seller-unlock-service-v1"], ["br:delivery-mode", "static"], ["br:unlock-service", issuers[0]!.service], ["br:unlock-service-pubkey", issuers[0]!.pubkey], ["br:claim-epoch", "1"], ["nswp:for", `37300:${SELLER}:example-museum`], ...more];
+  const made = (name: string, price: string, more: string[][] = [], o: { key?: Uint8Array; content?: string; tags?: (t: string[][]) => string[][] } = {}): NostrEvent =>
+    sign({ kind: 30078, created_at: T0, content: o.content ?? JSON.stringify({ title: "A day in the museum", summary: "An example listing. Not for sale." }), tags: (o.tags ?? ((t) => t))(tagsOf(name, price, more)) }, o.key ?? KEY1);
+  const DAY = `30078:${SELLER}:museum day pass`;
+  const GOOD = `30078:${SELLER}:museum-for-good`;
+  const day = made("museum day pass", "500", [["nswp:term", "86400"]]);
+  const listing = (name: string, description: string, event: unknown, coordinate: string) => ({ name, description, coordinate, event, expect: readListing(event, coordinate, { issuers }) });
+  const reading = [
+    listing("for_a_day", "For a day, at the least price. Its name is the seller's own, from the words inside.", day, DAY),
+    listing("for_good", "No term said: bought for good. With no words inside, it is called by the name it is filed under.", made("museum-for-good", "2100", [], { content: "" }), GOOD),
+    listing("named_by_a_tag", "A `title` tag is the name, before the words inside.", made("museum-for-good", "2100", [["title", "The museum, for good"]]), GOOD),
+    listing("signed_by_someone_else", "The coordinate names one seller and another key signed this: nobody prices what isn't theirs.", made("museum day pass", "500", [["nswp:term", "86400"]], { key: KEY2 }), DAY),
+    listing("changed_after_signing", "The price was changed after it was signed.", { ...day, tags: day.tags.map((t) => (t[0] === "price" ? ["price", "5", "SAT"] : t)) }, DAY),
+    listing("another_listing", "A real listing of the same seller's, and not the one asked for.", day, GOOD),
+    listing("under_the_least_price", "499 sats: nothing is shown for sale under 500.", made("museum day pass", "499", [["nswp:term", "86400"]]), DAY),
+    listing("not_for_sale_now", "Withdrawn by its seller.", made("museum day pass", "500", [], { tags: (t) => t.map((x) => (x[0] === "status" ? ["status", "withdrawn"] : x)) }), DAY),
+    listing("a_service_nobody_knows", "Sold through a service whose receipts are not believed: a purchase there would end in a receipt nothing could take.", made("museum day pass", "500", [], { tags: (t) => t.map((x) => (x[0] === "br:unlock-service-pubkey" ? [x[0], PK2] : x)) }), DAY),
+    listing("a_term_that_does_not_read", "A term that isn't whole seconds is never taken as \"for good\".", made("museum day pass", "500", [["nswp:term", "a day"]]), DAY),
+    listing("two_prices", "Two prices: neither is believed.", made("museum day pass", "500", [["price", "900", "SAT"]]), DAY),
+    listing("with_shares", "Its price is divided between several people. Shares are written down and not in force, so it is not shown for sale.", made("museum day pass", "500", [["nswp:share", SELLER, "9000"], ["nswp:share", PK2, "1000"]]), DAY),
+  ];
+  const by = (name: string) => reading.find((v) => v.name === name)!.expect;
+  expectEqual("listings/for_a_day", by("for_a_day"), { ok: true, listing: { coordinate: DAY, seller: SELLER, name: "A day in the museum", sats: 500, term: 86400, for: `37300:${SELLER}:example-museum`, issuer: issuers[0] } });
+  expectEqual("listings/for_good", by("for_good"), { ok: true, listing: { coordinate: GOOD, seller: SELLER, name: "museum-for-good", sats: 2100, term: null, for: `37300:${SELLER}:example-museum`, issuer: issuers[0] } });
+  expectEqual("listings/named_by_a_tag", (by("named_by_a_tag") as { listing?: { name: string } }).listing?.name, "The museum, for good");
+  for (const [name, why] of [["signed_by_someone_else", "other-seller"], ["changed_after_signing", "not-signed"], ["another_listing", "other-listing"], ["under_the_least_price", "too-cheap"], ["not_for_sale_now", "not-for-sale"], ["a_service_nobody_knows", "unknown-service"], ["a_term_that_does_not_read", "not-a-listing"], ["two_prices", "not-a-listing"], ["with_shares", "shared"]] as const) expectEqual(`listings/${name}`, by(name), { ok: false, why });
+  // The kit as shipped believes one service, and these examples name another.
+  expectEqual("listings/as shipped", readListing(day, DAY), { ok: false, why: "unknown-service" });
+  const words = [null, 60, 3600, 5400, 86400, 2_592_000, 45].map((term) => ({ term, expect: termWords(term) }));
+  expectEqual("listings/words", words.map((w) => w.expect), ["once", "for 1 minute", "for 1 hour", "for 90 minutes", "for 1 day", "for 30 days", "for 45 seconds"]);
+  files["listings.json"] = {
+    description:
+      "Listings (protocol/10-identity.md, \"A listing\"): a thing for sale, as its seller signed it. `reading`: what `readListing` makes of each `event` when asked for `coordinate`, believing the services in `issuers` (the kit as shipped believes BitUnlock alone, and reads these as `unknown-service`): the listing, or the first reason it is not shown for sale. `words`: how long a `term` in seconds lasts, as it is put after a price (`termWords`); null is something bought for good.",
+    testKeys,
+    issuers,
+    least: LEAST_PRICE_SATS,
+    reading,
+    words,
   };
 }
 

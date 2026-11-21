@@ -2,6 +2,13 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.71.0
+
+A paid world can say so. No world of ours is paid.
+
+- **A world says it is paid by naming what it is entered by** (NSWP-01, "A paid world"): `access`, the coordinates of its listings, in its announcement (`["a", "30078:<key>:<name>", "", "access"]`, one for each) and in its own manifest, inside the world's entry. A world that names none is free, exactly as before. A listing counts only where its seller is the world's own key; any other is left out with a warning. `World.access` is now a list (it was one coordinate of any kind, which nothing read); core `accessFor`, `cleanAccess`.
+- **A listing can be read and shown** (NSWP-10, "A listing"; core `readListing`, `termWords`, `priceWords`; `vectors/listings.json`): its name, its price, and how long it lasts from `nswp:term`. Refused, with the first reason: signed by someone other than the seller in its coordinate, a signature that doesn't hold, not for sale, a price or a term that doesn't read, a service whose receipts the kit doesn't believe, under 500 sats, or a price divided by shares (which are still not in force).
+
 ## 0.70.2
 
 - **A browser that takes a door itself is handed what the visitor carries** (`window.nswp.navigate(dest, carried)`). It was handed the destination and nothing else, so a visitor crossing in such a browser would have arrived without their settings, their room, or word that they were in a headset. Found by the session building BitBrowser, before any browser existed to show it.

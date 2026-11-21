@@ -679,6 +679,55 @@ that service; the kit does not yet.
 **A bare payment is not a purchase.** `pay` pays an invoice and leaves
 nothing behind. The kit treats nothing as bought without a receipt.
 
+## A listing
+
+**Status:** implemented in the core (kit 0.71.0: `readListing`,
+`termWords`) · **Vectors:** [`listings`](../vectors/listings.json) ·
+**Code:** [`listing.ts`](../packages/core/src/listing.ts)
+
+A thing for sale is its seller's own signed note, kind `30078`, at the
+coordinate `30078:<the seller's key>:<its name>`. It is the selling
+service's product listing, with a few tags that say what it means here.
+A world reads one only to show it; the visitor's sign-in address reads
+it again for itself before anyone pays.
+
+| Tag | What it says |
+|---|---|
+| `d` | Its name. With the seller's key, its coordinate |
+| `price` | `["price", "<whole sats>", "SAT"]`, once |
+| `status` | `active` while it is for sale |
+| `br:delivery` | `seller-unlock-service-v1`: sold through a service that signs receipts |
+| `br:unlock-service`, `br:unlock-service-pubkey` | That service: its address and the key it signs with |
+| `nswp:for` | What buying it gives: a world's coordinate (`37300:…`) or an item's |
+| `nswp:term` | How long it lasts, in whole seconds. Left out for something bought for good |
+| `title` | What it is called. Without it, `title` or `name` in the content's JSON, and failing those its `d` |
+
+Shown for sale only if all of these hold. The first that doesn't is why
+not (`readListing`):
+
+1. It was signed by the key in the coordinate asked for (`other-seller`),
+   and the signature is real (`not-signed`). Nobody prices what isn't
+   theirs.
+2. Its `d` is the name asked for, once (`other-listing`).
+3. It is `active`, through a service that signs receipts
+   (`not-for-sale`).
+4. It has one price in whole sats, and a term, where it has one, said
+   once and in whole seconds (`not-a-listing`). A term that doesn't read
+   is never taken as "for good".
+5. The service it names is one whose receipts the reader believes
+   (`unknown-service`). Bought anywhere else, it would end in a receipt
+   nothing here could take.
+6. It costs at least 500 sats (`too-cheap`). Nothing is sold under that:
+   the selling service registers nothing under it, the sign-in address
+   shows no purchase under it, and nor does a world.
+7. Its price isn't divided between several people (`shared`), while
+   shares are not in force.
+
+Its name is the seller's own words: shown as plain text on one line, at
+most eighty characters, with nothing in it a reader can't see. How long
+it lasts is said after the price, in the largest whole unit: "500 sats,
+for 30 days", "500 sats, once".
+
 ## Shares
 
 **Status: written down, and not in force.** Nothing pays a share: a

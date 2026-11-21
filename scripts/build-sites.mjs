@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, RECEIPT_ISSUERS } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -30,6 +30,18 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
     if (inCode !== carried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its src/main.ts says "${inCode}". They must agree.`);
   }
 }
+/**
+ * What a world is entered by, where it is paid (protocol/01-worlds.md, "A paid world"): the listings its own
+ * world.json names under `access`, each sold by the key these worlds are announced with. None of the worlds here
+ * names any: they are free, and a test keeps them so until the owner says otherwise (`listing.test.ts`). A listing
+ * that isn't this publisher's to sell stops the build: a world must never be built half paid.
+ */
+const accessOf = (world) => {
+  const said = world.access === undefined ? [] : [world.access].flat();
+  const listings = cleanAccess(said, [config.publisher]);
+  if (listings.length !== said.length) throw new Error(`${world.d}: "access" in its world.json must be listings' coordinates (30078:<pubkey>:<name>), each once, sold by the publisher in sites.json, and at most eight.`);
+  return listings;
+};
 /** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */
 const carries = (s) => {
   return (config.worlds[s.name]?.items ?? "allowed") !== "none";
@@ -86,6 +98,9 @@ const manifest = (world) => ({
       rooms: { transports: ["mesh"], max_mesh: 8 },
       budgets: { initial_download_mb: 2 },
       airlock: config.airlock,
+      // What it is entered by, where it is paid. The world reads this, its visitor's sign-in address reads this,
+      // and a client can before anyone crosses. Left out, the world is free.
+      ...(accessOf(world).length ? { access: accessOf(world) } : {}),
     },
   },
   relays: config.relays,
@@ -165,7 +180,9 @@ for (const s of sites) {
     // A world that draws what its visitors carry (protocol/17-items.md) fetches each item's model from wherever its
     // maker keeps it, so it may reach any https address. Every file is checked against the hash its description
     // gives before it is used. A world with no items reaches only itself and relays, as before.
-    s.world && !carries(s) ? "connect-src 'self' wss:" : "connect-src 'self' https: wss:",
+    // A paid world asks the service that signed a receipt whether it was taken back since: that service by name,
+    // and nothing else is added for it.
+    s.world && !carries(s) ? `connect-src 'self' wss:${accessOf(world).length ? ` ${RECEIPT_ISSUERS.map((i) => i.service).join(" ")}` : ""}` : "connect-src 'self' https: wss:",
     // A world embeds one thing from elsewhere: its visitor's own client's signer, which it can't read
     // (protocol/10-identity.md, "Signing from a world"). Which client that is, is the visitor's choice.
     ...(s.world ? ["frame-src 'self' https:"] : []),
