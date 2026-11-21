@@ -50676,7 +50676,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         a.head.add(a.light);
       }
     };
-    const itemsRule = () => cleanItemsRule(d.itemsRule?.());
+    const itemsRule = () => d.items ? cleanItemsRule(d.itemsRule?.()) : "none";
     const canBeHeld = (item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
     let mine = "";
     let mineModel = null;
