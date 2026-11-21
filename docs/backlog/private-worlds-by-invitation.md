@@ -101,6 +101,29 @@ ones, and it is the smallest first piece.
 - **Voice.** Whether a by-invitation room's voice refuses a person who is
   not on the list at the connection, not only on the screen.
 
+## What BitGate's session says its lists are (2026-11-21, from its source; not tried against a relay)
+
+- Kind 30078, addressable. An allow list and a block list are two events,
+  told apart by `d` = `<namespace>:governance:<scope>:v1`, scope
+  `user-allow` or `user-deny`. One `["p", <hex>]` a person; content empty.
+  A person is a key only. Newest wins.
+- With the world's owner as root, the owner's two lists are the whole
+  authority: no role set, no curator, no service. A reader needs the event
+  and a signature check and nothing of BitGate's.
+- Blocked beats allowed already. The owner can't be blocked.
+- **No list scoped to one world exists yet.** BitGate is adding it in its
+  own repository, with vectors (the orchestrator's go-ahead, as design):
+  `d` = `nswp:governance:<scope>:v1:37300:<owner>:<world-d>` with a
+  required `subject` tag equal to that suffix, counted only for that world
+  and only when signed by the subject's own key; `scope` and `d` must
+  agree; hex only; at most 2,000 people an event.
+- Hidden entries: none, and hashing keys hides nobody. So lists start
+  public, and the menus say so, including that **a public block list
+  tells the world whom the owner blocked.**
+- The orchestrator's opinion: the kit reads these two events with a small
+  reader of its own in `@nswp/core`, held to BitGate's vectors, and does
+  not vendor BitGate for this.
+
 ## Done looks like
 
 Stage 1: an owner blocks a person and that person is stopped at the gate
