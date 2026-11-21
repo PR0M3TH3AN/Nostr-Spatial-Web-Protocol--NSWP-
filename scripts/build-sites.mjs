@@ -34,6 +34,12 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
 const carries = (s) => {
   return (config.worlds[s.name]?.items ?? "allowed") !== "none";
 };
+/** The headset test page's sender (sites/shared/xr-test-post.js), built once and written into every world. */
+let xrTestPostBuilt = null;
+const xrTestPost = async () =>
+  (xrTestPostBuilt ??= (
+    await build({ entryPoints: [join(root, "sites", "shared", "xr-test-post.js")], bundle: true, format: "iife", target: "es2022", minify: true, write: false, legalComments: "none", logLevel: "warning" })
+  ).outputFiles[0].text);
 // Every world in sites.json, and the reference Airlock. Pass names to build only those.
 const only = process.argv.slice(2);
 const sites = [...Object.keys(config.worlds).map((name) => ({ name, entry: "src/main.ts", world: true })), { name: "airlock", entry: "src/airlock.ts", world: false }].filter(
@@ -126,6 +132,8 @@ for (const s of sites) {
     // A test page for finding out what a headset's browser does at a door (sites/shared/xr-test): on every world,
     // since the question is what happens between two sites. It is linked from nowhere.
     cpSync(join(root, "sites", "shared", "xr-test"), join(out, "xr-test"), { recursive: true });
+    // The part of it that sends a guided run's log out: signing needs a library, and the test itself stays without one.
+    writeFileSync(join(out, "xr-test", "post.js"), await xrTestPost());
     copySounds(join(root, "packages", "sdk", "sounds"), join(out, "sounds", "kit"));
     if (existsSync(join(dir, "sounds"))) copySounds(join(dir, "sounds"), join(out, "sounds"));
     // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
