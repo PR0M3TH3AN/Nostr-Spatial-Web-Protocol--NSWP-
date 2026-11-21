@@ -2,6 +2,7 @@
  * The control that fills the screen with the world, and gives it back. The
  * same in every world, whatever draws it.
  */
+import { askClientForScreen, clientHoldsScreen, clientScreenFilled, framed, meetClient, onClientScreen } from "../client-frame.js";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import type { Controls, UiAction } from "./model.js";
 
@@ -66,51 +67,74 @@ export function resumeFullscreen(presenting: () => boolean = () => false): void 
   if (came === undefined) prefers = kept;
   else keepFull(came);
   reportSettings("screen", () => ({ full: prefers }));
-  waiting = prefers && document.fullscreenEnabled && !document.fullscreenElement;
+  // Shown inside their client, which holds the screen (client-frame.ts): it is asked, and says when it is filled.
+  // Whether it does hold it is heard a moment after this page loads, so a framed page waits to hear.
+  meetClient();
+  const mayAsk = framed();
+  waiting = prefers && ((document.fullscreenEnabled && !document.fullscreenElement) || mayAsk);
   if (!waiting) return;
   const presses = ["keydown", "pointerdown", "pointerup", "touchend"] as const;
   const stop = () => {
     waiting = false;
     for (const type of presses) removeEventListener(type, onPress, true);
     document.removeEventListener("fullscreenchange", onChange);
+    forget();
   };
   const onChange = () => {
     // Filled: done. And once it has been filled, leaving it is theirs to do and is never undone here.
-    if (document.fullscreenElement) stop();
+    if (document.fullscreenElement || clientScreenFilled()) stop();
   };
+  const forget = onClientScreen(onChange);
   const onPress = (e: Event) => {
     // Escape is how a visitor leaves fullscreen: never the press that enters it.
     if ((e as KeyboardEvent).code === "Escape" || held || presenting() || document.fullscreenElement) return;
+    if (clientHoldsScreen()) return void (clientScreenFilled() ? stop() : askClientForScreen(true));
+    // In a frame whose page hasn't said it holds the screen, and may not fill it itself: nothing to ask.
+    if (!document.fullscreenEnabled) return;
     // Some presses a browser won't take (it decides which). The next one is tried, until one is.
     void document.documentElement.requestFullscreen().then(stop, () => {});
   };
   for (const type of presses) addEventListener(type, onPress, true);
   document.addEventListener("fullscreenchange", onChange);
+  onChange();
 }
 
+/** Whether the screen is filled just now: by this page, or by the client it is shown in. */
+const isFilled = (): boolean => (clientHoldsScreen() ? clientScreenFilled() : !!document.fullscreenElement);
+/** Whether there is any way to fill it here: this page may, or the client that holds it can be asked. */
+const canFill = (): boolean => clientHoldsScreen() || document.fullscreenEnabled;
+
 /** Whether the screen is still waiting for a press to fill it again. */
-export const fullscreenWaiting = (): boolean => waiting;
+export const fullscreenWaiting = (): boolean => waiting && canFill() && !isFilled();
 
 export function fullscreenAction(controls: Controls, presenting: () => boolean): UiAction {
   resumeFullscreen(presenting);
   // Still waiting once there is somewhere to say so: tell them the one thing that will do it.
   setTimeout(() => {
-    if (waiting && !held && !presenting()) controls.say("Press any key, or click, to fill the screen again.");
+    if (waiting && !held && !presenting() && canFill() && !isFilled()) controls.say("Press any key, or click, to fill the screen again.");
   }, 600);
+  // What the client says of the screen changes what this control says, and whether there is one.
+  onClientScreen(() => controls.setTarget(""));
   return {
     id: "fullscreen",
     section: "view",
     icon: "size",
     on: () => prefers,
     // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
-    hidden: () => !document.fullscreenEnabled || presenting(),
+    hidden: () => !canFill() || presenting(),
     // It says what they prefer, in every world, and whether the screen is filled just now.
-    label: () => (!prefers ? "Fullscreen: off" : document.fullscreenElement ? "Fullscreen: on, in every world" : "Fullscreen: on, in every world. Press to fill the screen again"),
+    label: () => (!prefers ? "Fullscreen: off" : isFilled() ? "Fullscreen: on, in every world" : "Fullscreen: on, in every world. Press to fill the screen again"),
     act: async () => {
       // Preferred, and not filled just now (they pressed Escape, or have only just arrived): fill it. Otherwise
       // this is them changing what they prefer.
-      const fill = !document.fullscreenElement;
+      const fill = !isFilled();
       if (!fill) keepFull(false);
+      // Their client holds the screen: it is asked, from this press, and says when it is done.
+      if (clientHoldsScreen()) {
+        if (fill) keepFull(true);
+        askClientForScreen(fill);
+        return void controls.setTarget("");
+      }
       try {
         if (fill) {
           await document.documentElement.requestFullscreen();

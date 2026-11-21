@@ -348,10 +348,22 @@ world still reads how they arrived: all of it happens in the frame.
 - **A place that can't be framed is gone to the ordinary way.** The client
   leaves its own page for it, and the screen is filled again there at the
   visitor's next press, as before.
-- **The client holds the screen, and the frame doesn't ask for it.** A
-  world in a frame is not given the screen to fill (`fullscreen` is not
-  handed on), so it never asks, and what it would have asked the visitor
-  is the client's to offer.
+- **The client holds the screen, and a world asks it.** A world in a
+  frame is not given the screen to fill (`fullscreen` is not handed on:
+  a frame that filled the screen would take the client's with it when it
+  left). It asks the page above it instead, in a few words passed between
+  the two pages, so the visitor's own control for the screen works in a
+  frame as it does anywhere, and their preference is what decides:
+  - the world, as it loads: `{ nswp: "here", at }`, its own path. The
+    client then knows the place came up, and where to come back to;
+  - the client, in answer and whenever it changes:
+    `{ nswp: "screen", holds: true, filled }`;
+  - the world, at the visitor's press: `{ nswp: "screen", fill }`.
+  Nothing about the visitor is in any of it, and a world takes these
+  words only from the page directly above it.
+- **A place that doesn't say it came up is gone to the ordinary way.**
+  The client leaves its own page for it, so a world that has changed who
+  may frame it, or can't be reached, is never a blank frame.
 - **A microphone and a headset are handed on by name,** to the worlds the
   client frames and no others. The browser asks the visitor in the
   client's name, so the client answers for which worlds it hands them to.

@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.62.0
+
+A world in its client's frame asks the client for the screen.
+
+- **The Fullscreen control works in a world shown inside a client** (`client-frame.ts`). A world in a frame can't fill the screen itself, and in 0.61.0 its control simply wasn't there. It now asks the page above it, at the visitor's press, and that page says back whether the screen is filled: so the same control, the same words and the same preference decide, in a frame as anywhere. A visitor who prefers a filled screen has it at their first press, as before.
+- **A world says it came up** (`{ nswp: "here" }`), as it loads. A client that shows worlds in a frame can then go to one the ordinary way if it doesn't come up there, and knows where to come back to.
+- Outside a frame none of this does anything: a world opened as a page of its own is exactly as it was.
+
 ## 0.61.0
 
 A trial of a filled screen that stays filled from world to world.
