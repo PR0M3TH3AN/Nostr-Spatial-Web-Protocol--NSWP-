@@ -2,6 +2,12 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.71.1
+
+- **A world can say four more things about itself in its announcement:** `saves`, `scores`, `achievements` and `tips`, beside the capabilities it could already name (NSWP-01, "What a world offers"). Each is a claim, like the rest, and a client that doesn't know one ignores it.
+- **`worldOffers(world)`** in the core reads an announcement into twelve plain lines: seven a door will show (a headset, people, voice, items, saves, scores and achievements, paid to go in) and five more for a door's details. A line is on only for what the announcement says in so many words; what it doesn't say reads "It doesn't say …", never "it doesn't". Nothing is drawn with it yet: the icons on a door are the next change. Asked for by the owner on 2026-11-21.
+- The reference worlds' own settings now say what they really offer (voice, looks, items; and for the Arcade saves, scores and achievements). Their announcements on relays are unchanged until they are signed and published again, which is the owner's word.
+
 ## 0.71.0
 
 - **A least distance between two doors: 2.5 metres between their middles** (`DOOR_SPACING`, beside the doorway's own sizes). Asked for by the owner on 2026-11-21: "Let's make sure there is a minimum distance separation between each door." It is what keeps two doors' frames, signs and marks from running into each other; which door a press takes is still settled by what is pointed at. `doorRow`, `doorArcStep` and `doorsOnArc` lay doors out by it, and `doorsTooClose` says which two are not. The same number is given to other engines (`doorSpacing` in `kit()`, and in the Godot addon). Every reference world already kept to it; nothing a visitor sees has moved yet. BitPortal's room, which stood its doors 1.8 metres apart, follows in its own change.
