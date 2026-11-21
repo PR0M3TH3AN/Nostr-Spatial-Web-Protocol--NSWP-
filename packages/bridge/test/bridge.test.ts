@@ -384,7 +384,10 @@ describe("how often it asks, and how often it answers", () => {
 
   it("answers a stranger once, however many times they ask", async () => {
     const other = await startRelay();
-    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => Promise.resolve(true) });
+    // A stranger is answered once in a while (`strangerReplyMs`, a second by default). The while is made long here,
+    // so that this asks what it means to ask: six requests inside one of them get one reply. With the default, a
+    // machine busy enough to take over a second about it gave a second reply, rightly, and the test failed.
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => Promise.resolve(true), strangerReplyMs: 10 * 60_000 });
     b.start();
     while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
     const stranger = key();
@@ -395,6 +398,23 @@ describe("how often it asks, and how often it answers", () => {
     expect(b.state().refused).toBe(6);
     // Six requests, one reply: the rest got silence.
     expect(other.events.filter((e) => e.pubkey === b.pubkey).length).toBe(1);
+    await b.stop();
+    await other.close();
+  }, 40000);
+
+  it("answers a stranger again once the while has passed", async () => {
+    const other = await startRelay();
+    // No while at all: every request is past it, so each is answered. The other side of the rule above.
+    const b = createBridge({ key: key(), owner, relays: [other.url], command: ["/bin/sh"], iceServers: [], ask: () => Promise.resolve(true), strangerReplyMs: 0 });
+    b.start();
+    while (!b.state().relays) await new Promise((r) => setTimeout(r, 20));
+    const stranger = key();
+    for (let i = 0; i < 3; i++) {
+      const a = await attempt({ to: b.pubkey, on: other.url, signer: stranger });
+      expect(a.refused).toBeDefined();
+      await a.close();
+    }
+    expect(other.events.filter((e) => e.pubkey === b.pubkey).length).toBe(3);
     await b.stop();
     await other.close();
   }, 40000);
