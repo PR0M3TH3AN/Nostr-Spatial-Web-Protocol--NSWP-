@@ -148,6 +148,7 @@ var kit: Dictionary = {
 	"gateSpring": 1.35,
 	"gateSignHeight": 2.82,
 	"doorReach": 3.05,
+	"doorSpacing": 2.5,
 	"cues": [],
 }
 

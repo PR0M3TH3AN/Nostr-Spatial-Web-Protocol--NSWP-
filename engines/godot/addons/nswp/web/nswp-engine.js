@@ -7669,6 +7669,7 @@ postMessage({ t: "started" });
   var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
   var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
   var DOOR_REACH = 3.05;
+  var DOOR_SPACING = 2.5;
 
   // packages/sdk/src/client-frame.ts
   var framed = () => {
@@ -45844,6 +45845,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       gateSpring: PORTAL_SPRING,
       gateSignHeight: PORTAL_SIGN_HEIGHT,
       doorReach: DOOR_REACH,
+      // The least distance between two doors' middles: lay doors out no nearer than this.
+      doorSpacing: DOOR_SPACING,
       cues: CUES
     });
   }
