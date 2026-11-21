@@ -22,7 +22,7 @@ export const WELL_KNOWN_PATH = "/.well-known/nswp.json";
  * client can tell how old a world's controls are without loading the world
  * (protocol/01-worlds.md, "Which kit a world was built with").
  */
-export const KIT_VERSION = "0.71.0";
+export const KIT_VERSION = "0.72.0";
 
 /** A version as three numbers, or null for anything that isn't one. */
 export function parseKitVersion(v: unknown): [number, number, number] | null {
@@ -55,7 +55,14 @@ export const CAPABILITIES = [
   "spatial-portals",
   "avatars",
   "entry-assertion",
-  "payments", "home"] as const;
+  "payments",
+  "home",
+  // What a door can say a world offers (offers.ts): each a claim, like the rest, and said only by a world that does it.
+  "saves",
+  "scores",
+  "achievements",
+  "tips",
+] as const;
 /**
  * Who a world is for, as its maker says. `kids`: made for children. `general`:
  * not made for children, and nothing an adult would need warning about.

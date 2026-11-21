@@ -11,8 +11,14 @@
   "capabilities": [
     "webxr",
     "spatial-portals",
-    "rooms"
+    "rooms",
+    "voice",
+    "avatars",
+    "saves",
+    "scores",
+    "achievements"
   ],
+  "items": "allowed",
   "comfort": {
     "locomotion": "teleport",
     "intensity": "medium",

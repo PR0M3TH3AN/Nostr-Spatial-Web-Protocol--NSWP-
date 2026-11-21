@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.71.0";
+  var KIT_VERSION = "0.72.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4346,7 +4346,7 @@ var NSWP = (() => {
   function cleanListing(input) {
     if (typeof input !== "string" || input.length > 400)
       return "";
-    return /^30078:[0-9a-f]{64}:[^:\n][^\n]{0,255}$/.test(input) ? input : "";
+    return /^30078:[0-9a-f]{64}:[^:\r\n][^\r\n]{0,255}$/.test(input) ? input : "";
   }
   function listingSeller(listing) {
     return cleanListing(listing).slice(6, 70);
@@ -4417,6 +4417,11 @@ var NSWP = (() => {
 
   // packages/core/dist/listing.js
   var ACCESS_MOST = 8;
+
+  // packages/core/dist/offers.js
+  var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"];
+  var MORE_OFFERS = ["tips", "doors", "looks", "by-name", "home"];
+  var OFFERS = [...DOOR_OFFERS, ...MORE_OFFERS];
 
   // packages/core/dist/manifest.js
   var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
@@ -7694,6 +7699,7 @@ postMessage({ t: "started" });
   var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
   var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
   var DOOR_REACH = 3.05;
+  var DOOR_SPACING = 2.5;
 
   // packages/sdk/src/client-frame.ts
   var framed = () => {
@@ -45869,6 +45875,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       gateSpring: PORTAL_SPRING,
       gateSignHeight: PORTAL_SIGN_HEIGHT,
       doorReach: DOOR_REACH,
+      // The least distance between two doors' middles: lay doors out no nearer than this.
+      doorSpacing: DOOR_SPACING,
       cues: CUES
     });
   }

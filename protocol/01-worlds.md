@@ -47,7 +47,7 @@ how everything else refers to the world.
 | `image` | | A small card image, with optional dimensions |
 | `preview` | yes | The view through a door, which a world must have: a 360° `pano`, or a `flat` for a place that is only a web page. A reader draws a placeholder for a world that has none. See [NSWP-04](04-previews.md) |
 | `mode` | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`. Repeat in order of preference |
-| `capability` | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `items`, `entry-assertion`, `payments`, `home` |
+| `capability` | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `entry-assertion`, `payments`, `home`, `saves`, `scores`, `achievements`, `tips`. What a world does with the things visitors carry is not one of these: it is the `items` tag |
 | `comfort` | | `locomotion`: `stationary`, `teleport`, `smooth`, `vehicle`. `intensity`: `low`, `medium`, `high`. `seated`: `supported`, `required`, `unsupported` |
 | `input` | | `controllers`, `hands`, `gaze`, `keyboard-mouse`, `touch`, `gamepad` |
 | `perf` | | The weakest device it targets: `mobile`, `standalone`, `desktop` |
@@ -67,6 +67,40 @@ permissions.
 
 A newer event with the same coordinate replaces the older one. To close a
 world, publish it with `status` `retired`.
+
+### What a world offers
+
+A client has a world's announcement before anyone looks at its door, so a
+door can say what its world offers without a site being asked anything.
+Twelve things, read by one function (`worldOffers` in `@nswp/core`), each
+from what the announcement says in so many words:
+
+| A door shows | It is said by |
+|---|---|
+| It works in a headset | `mode` `immersive-vr` |
+| Other people can be met there | `capability` `rooms` or `multiplayer` |
+| People can talk there | `capability` `voice` |
+| The things visitors carry work there | `items` `allowed` or `play` |
+| A visitor's progress is kept ([NSWP-12](12-saves.md)) | `capability` `saves` |
+| It keeps scores, or marks what a visitor achieves ([NSWP-15](15-scores.md), [NSWP-16](16-achievements.md)) | `capability` `scores`, `achievements` |
+| It costs money to go in | an `a` tag marked `access`, naming what is sold |
+
+| A door's details add | It is said by |
+|---|---|
+| It takes tips | `capability` `tips` |
+| It has doors onward | `capability` `spatial-portals` |
+| People appear as they chose to look ([NSWP-05](05-looks.md)) | `capability` `avatars` |
+| A visitor can go by name ([NSWP-10](10-identity.md)) | `capability` `entry-assertion` |
+| It can be a home ([NSWP-07](07-homes.md)) | `capability` `home` |
+
+**Only what is said is shown as offered.** Nothing is lit by a default, by a
+guess from something else the world said, or because most worlds have it. A
+world that leaves out `items` does allow them ([NSWP-17](17-items.md)), and
+its door still doesn't say so. Saying it takes `payments` is not saying it
+costs money to go in. So a line that isn't lit never means "this world
+doesn't": it means "this world doesn't say", and a reader's words must say
+that and no more. They are claims, like every capability: a world's own
+word, checked by nobody.
 
 ### What kind of place it is
 

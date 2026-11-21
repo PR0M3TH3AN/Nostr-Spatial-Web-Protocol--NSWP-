@@ -637,7 +637,7 @@ always will. A world can put them to the visitor instead:
 **Status:** the kit's half is implemented (kit 0.69.0: `signer.tip`,
 `signer.buy`, `signer.have`, and `readReceipt` in the core). BitLogin's
 half is built and not yet live. The kit offers tips in its menu, and
-since 0.71.0 a gate for a paid world ("The front room", below); no world
+since 0.72.0 a gate for a paid world ("The front room", below); no world
 of ours is paid. The whole plan, and what the owner decided, is
 `docs/plans/paying-for-things.md`.
 
@@ -683,7 +683,7 @@ nothing behind. The kit treats nothing as bought without a receipt.
 
 ## A listing
 
-**Status:** implemented in the core (kit 0.71.0: `readListing`,
+**Status:** implemented in the core (kit 0.72.0: `readListing`,
 `termWords`) · **Vectors:** [`listings`](../vectors/listings.json) ·
 **Code:** [`listing.ts`](../packages/core/src/listing.ts)
 
@@ -732,7 +732,7 @@ for 30 days", "500 sats, once".
 
 ## The front room
 
-**Status:** implemented (kit 0.71.0: `createPaidGate`, `worldGate`,
+**Status:** implemented (kit 0.72.0: `createPaidGate`, `worldGate`,
 `addGateControls`), the `soft` kind only. Walked on one machine against
 the selling service's sandbox with pretend sats, with a stand-in for the
 sign-in address (`trials/front-room.mjs`). Not tried: a sign-in address's

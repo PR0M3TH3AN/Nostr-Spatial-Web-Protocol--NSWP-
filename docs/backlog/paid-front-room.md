@@ -4,7 +4,7 @@
   (`docs/plans/paying-for-things.md`, sections 6.1 and 7.1; decisions 1 to
   5, 33, 34, 39, 40). The owner started its builder from a written brief.
 - **Who:** the NSWP builder.
-- **State:** merged, as kit 0.71.0 (commits aebcc4e, 4f7551f, 6c0a747). Not live, and no world is paid.
+- **State:** merged, as kit 0.72.0 (commits aebcc4e, 4f7551f, 6c0a747). Not live, and no world is paid.
 
 The first thing in the kit that asks a visitor to buy: a world says it is
 paid and by which listing; a gate the world puts where it likes, with

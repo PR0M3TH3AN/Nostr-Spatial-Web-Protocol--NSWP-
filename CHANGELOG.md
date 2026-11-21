@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## 0.71.0
+## 0.72.0
 
 The front room: the first thing in the kit that asks a visitor to buy. No world of ours is paid.
 
@@ -15,6 +15,11 @@ The front room: the first thing in the kit that asks a visitor to buy. No world 
 - **A listing's name is one line, and a carriage return ends a line** (`cleanListing`). It let one through where the selling service refuses it. That function is the one place the rule for a listing's coordinate is written, and a test fails if the pattern is written again.
 - **For a reader of the core:** `World.access` is a list of listings where it was one coordinate, and `WorldInput.access` takes either. `paidWorldReaches` says what a paid world's page may reach for the taken-back question (the issuer's address, by name), and nothing for a free one.
 - **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing. `trials/front-room.mjs` walks one against the selling service's sandbox, with a stand-in for the sign-in address.
+
+## 0.71.0
+
+- **A least distance between two doors: 2.5 metres between their middles** (`DOOR_SPACING`, beside the doorway's own sizes). Asked for by the owner on 2026-11-21: "Let's make sure there is a minimum distance separation between each door." It is what keeps two doors' frames, signs and marks from running into each other; which door a press takes is still settled by what is pointed at. `doorRow`, `doorArcStep` and `doorsOnArc` lay doors out by it, and `doorsTooClose` says which two are not. The same number is given to other engines (`doorSpacing` in `kit()`, and in the Godot addon). Every reference world already kept to it; nothing a visitor sees has moved yet. BitPortal's room, which stood its doors 1.8 metres apart, follows in its own change.
+- **A Bridge test no longer depends on how busy the machine is.** It counted on six requests landing inside one second.
 
 ## 0.70.2
 
