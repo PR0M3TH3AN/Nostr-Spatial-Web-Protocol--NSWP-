@@ -35,6 +35,7 @@ Node's own requests need this machine's certificate: run a trial with
 | `room-tip.mjs` | A tip to a person in BitPortal's room, two throwaway visitors, a stand-in for BitLogin's client |
 | `panel.mjs` | BitLogin's real panel opening over a local world and closing, desk and phone sizes, signed out |
 | `xr-test-look.mjs` | The headset test page loads and sends nothing by itself |
+| `xr-test-guided.mjs` | A whole guided run of the headset test with a made-up headset and made-up relays: each step lands, asks, and is sent; the notes are signed and whole. Needs only `npm run build`, nothing running. `LIVE_SHELL=1` also takes the two steps inside BitPortal's page, through the live one, read only |
 | `live.mjs` | After a deploy, read-only: every public site is on this kit, the shell is the way in, the real panel opens |
 
 ## Rules
