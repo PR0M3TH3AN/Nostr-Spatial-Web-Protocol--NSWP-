@@ -9,6 +9,7 @@
     "build": "npm run build -w @nswp/core && npm run build -w @nswp/cli && npm run build -w nswp-bridge && node scripts/build-sites.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/sdk && tsc -p packages/bridge && tsc -p sites",
+    "gate": "node scripts/gate.mjs",
     "vectors": "tsx scripts/generate-vectors.ts",
     "vectors:check": "tsx scripts/generate-vectors.ts --check",
     "nswp": "tsx packages/cli/src/index.ts",
@@ -19,7 +20,9 @@
     "release:all": "node scripts/release-all.mjs",
     "build:engine": "node scripts/build-engine.mjs",
     "engine:check": "node scripts/build-engine.mjs --check",
-    "build:godot": "node scripts/build-godot-example.mjs"
+    "build:godot": "node scripts/build-godot-example.mjs",
+    "trial": "NODE_EXTRA_CA_CERTS=\"$HOME/.config/nswp/dev-https/cert.pem\" node",
+    "relay": "node trials/stand-in-relay.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
