@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP, stampPage } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -213,5 +213,8 @@ for (const s of sites) {
   const was = config.worlds[s.name]?.was;
   const redirects = was ? [{ source: "/(.*)", has: [{ type: "host", value: was }], destination: `${config.worlds[s.name].url}$1`, permanent: false }] : undefined;
   writeFileSync(join(out, "vercel.json"), `${JSON.stringify({ headers, redirects }, null, 2)}\n`);
+  // The page is marked with this kit and with everything it is served with, so that it changes whenever either
+  // does. A browser keeps a page's old content rules for as long as the page itself is unchanged (core stamp.ts).
+  writeFileSync(join(out, "index.html"), stampPage(readFileSync(join(out, "index.html"), "utf8"), KIT_VERSION, headers));
   console.log(`built sites/${s.name}/dist`);
 }

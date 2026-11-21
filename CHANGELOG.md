@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.59.1
+
+Items that load every time, and a menu the arrow keys go along.
+
+- **Returning visitors were kept under a world's old content rules, and so couldn't fetch items.** A host says "not modified" for a page whose HTML hasn't changed, and a browser then goes on using the headers it first kept with that page. 0.58.0 let every world fetch what visitors carry by changing a header and nothing else: so anyone who had been to a world before went on being refused, however often they reloaded, while a browser that had never been there was fine. Seen on the live sites in the owner's own browser. Every page a build writes is now marked with the kit and with everything it is served with (`stampPage`), so a page changes whenever its rules do. This release's pages differ from the last, which puts right everyone caught by it.
+- **Nothing that failed to load is remembered as gone.** A model, sound or script that didn't come was kept as missing for the rest of the visit: a plain frame in the hand, a letter in the bag. It is asked for again a few seconds later, and a picture that can then be drawn is. A file that came and failed its check is still refused for good. A fetch is no longer waited on for ever.
+- **The Bag tab follows what is in the hand.** After Put away it went on offering Put away, and said "You are holding nothing" at each press. It now changes with what is held, however that changed.
+- **Taking something in hand says so while it happens,** and holds are done one at a time, in the order asked: a second press made while the first was still fetching could leave the tab and the hand disagreeing.
+- **Left and right go along the menu's tabs,** from anywhere in the menu that has no use of its own for them. Home and End go to the first and last. The Tab key stops once on the strip, at the tab that is up.
+- **The wheel slides the tabs from anywhere on the strip,** the arrows at its ends included.
+
 ## 0.59.0
 
 A world must have the picture its doors show, and a world made with Godot can take one.

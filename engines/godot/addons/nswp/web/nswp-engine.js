@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.59.0";
+  var KIT_VERSION = "0.59.1";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -44163,7 +44163,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     tabs.addEventListener("scroll", tendTabs, { passive: true });
     const tabsWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendTabs());
     tabsWatch?.observe(tabs);
-    tabs.addEventListener(
+    tabbar.addEventListener(
       "wheel",
       (e) => {
         if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tabs.scrollWidth <= tabs.clientWidth) return;
@@ -44538,7 +44538,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       hotbar.hidden = view2.hotbar.length === 0 && view2.pins.length === 0;
       tabs.replaceChildren(
         ...view2.sections.map((s) => {
-          const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
+          const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
           b.addEventListener("click", () => {
             section = s.id;
             chose = true;
@@ -44673,6 +44673,26 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (pin) openPin(pin.id);
     };
     addEventListener("keydown", onKey);
+    const onTabKey = (e) => {
+      if (!open2 || host.hidden || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const at = e.composedPath()[0];
+      const onStrip = !!at && typeof at.tagName === "string" && tabs.contains(at);
+      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!step && !(onStrip && (e.key === "Home" || e.key === "End"))) return;
+      if (at && !onStrip && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.tagName === "SELECT" || at.isContentEditable)) return;
+      const ids = controls2.view().sections.map((x) => x.id);
+      if (ids.length < 2) return;
+      const now = Math.max(0, ids.indexOf(section));
+      const to = step ? (now + step + ids.length) % ids.length : e.key === "Home" ? 0 : ids.length - 1;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (to === now) return;
+      section = ids[to];
+      chose = true;
+      draw();
+      tabs.querySelector('[aria-selected="true"]')?.focus();
+    };
+    addEventListener("keydown", onTabKey, true);
     const onSummonKey = (e) => {
       if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
@@ -44756,6 +44776,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stopSay();
         removeEventListener("keydown", onKey);
         removeEventListener("keydown", onSummonKey, listening);
+        removeEventListener("keydown", onTabKey, true);
         removeEventListener("keyup", swallow, listening);
         for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching2);
         hold.cancel();
@@ -45788,17 +45809,29 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             if (materials.every((m) => m.wireframe === true)) frames++;
             else solids++;
           });
-          if (frames > 0 && solids === 0) return;
+          if (frames > 0 && solids === 0) return void again(key);
           const box = new Box3().setFromObject(object);
           const ball = box.getBoundingSphere(new Sphere());
           if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
           ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
           for (const fn of watchers6) fn();
         },
-        () => void ready2.delete(key)
+        () => void again(key)
       );
       return null;
     };
+    const AGAIN_MS2 = 6e3;
+    const tries = /* @__PURE__ */ new Map();
+    function again(key) {
+      const n = (tries.get(key) ?? 0) + 1;
+      tries.set(key, n);
+      if (n > 5) return;
+      setTimeout(() => {
+        if (ready2.get(key) !== null) return;
+        ready2.delete(key);
+        for (const fn of watchers6) fn();
+      }, AGAIN_MS2 * n);
+    }
     return {
       still(item, tints) {
         const made = want2(item, tints);
@@ -45856,9 +45889,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     watchers4.add(fn);
     return () => void watchers4.delete(fn);
   }
+  var FETCH_MS = 3e4;
+  var AGAIN_MS = 4e3;
   async function fetchWithin(url, most) {
     try {
-      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
       if (!res.ok) return null;
       const stated = Number(res.headers.get("content-length") ?? 0);
       if (stated > most) return null;
@@ -45876,10 +45911,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const settled = /* @__PURE__ */ new Map();
     const files2 = /* @__PURE__ */ new Map();
     const models2 = /* @__PURE__ */ new Map();
+    const forgetSoon = (kept2, key, asked) => {
+      setTimeout(() => {
+        if (kept2.get(key) === asked) kept2.delete(key);
+      }, AGAIN_MS);
+    };
     const file = (named2, most) => {
       let got = files2.get(named2.sha256);
       if (!got) {
-        got = fetchBytes(named2.url).then((bytes) => bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null).catch(() => null);
+        const asking = fetchBytes(named2.url).then((bytes) => {
+          if (!bytes) forgetSoon(files2, named2.sha256, asking);
+          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null;
+        }).catch(() => (forgetSoon(files2, named2.sha256, asking), null));
+        got = asking;
         files2.set(named2.sha256, got);
       }
       return got;
@@ -45909,10 +45953,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!showsItems()) return Promise.resolve(null);
         let got = models2.get(named2.model.sha256);
         if (!got) {
-          got = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
+          const asking = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
             const read6 = bytes ? readGlb(bytes) : null;
+            if (!bytes) forgetSoon(models2, named2.model.sha256, asking);
             return bytes && read6?.ok ? { bytes, count: read6.count } : null;
           });
+          got = asking;
           models2.set(named2.model.sha256, got);
         }
         return got;
@@ -45956,6 +46002,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let wasMe = null;
     let looked = false;
     let asking = "";
+    let taking = "";
     const say2 = (text) => controls2.say(text);
     const model2 = items2.model;
     const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
@@ -45992,7 +46039,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       chosen = item;
       change2(item, true);
     };
+    let drawnHolding = "";
     const refresh = () => {
+      drawnHolding = opts.holding();
       for (const id of shown4) controls2.remove(id);
       shown4 = [];
       const me = opts.me();
@@ -46074,16 +46123,28 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
       const holding = opts.holding();
-      const away = () => ({ id: "bag-away", icon: "close", tone: chosen === holding ? "primary" : "normal", label: `Put ${titleOf(holding)} away`, short: "Away", act: async () => say2((await opts.hold("")).said) });
+      const away = () => ({
+        id: "bag-away",
+        icon: "close",
+        tone: chosen === holding ? "primary" : "normal",
+        label: `Put ${titleOf(holding)} away`,
+        short: "Away",
+        act: async () => {
+          say2((await opts.hold("")).said);
+          refresh();
+        }
+      });
       if (chosen && has.includes(chosen)) {
         const item = chosen;
-        if (holding === item) add(away());
+        if (taking === item)
+          add({ id: "bag-taking", icon: "check", label: `Taking ${titleOf(item)} in hand\u2026`, act: () => say2("It is on its way: its files are being fetched and checked.") });
+        else if (holding === item) add(away());
         else if (rule === "none") {
           add({
             id: "bag-nohold",
             icon: "close",
             label: `Can't be held here: ${opts.place?.() || "this place"} doesn't have items`,
-            act: () => say2(`Each place says whether things can be carried in it. Where they can, a door's sign says "Items work", and Hold is here.`)
+            act: () => say2("Each place says whether things can be carried in it. Most let them; this one has turned them off.")
           });
         } else if (!showsItems()) {
           add({
@@ -46104,7 +46165,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             // An item that does things of its own runs its maker's code, shut away: the second press is their yes.
             label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
             act: async () => {
-              const done = await opts.hold(item, bag.tints(item));
+              taking = item;
+              refresh();
+              let done;
+              try {
+                done = await opts.hold(item, bag.tints(item));
+              } catch {
+                done = { ok: false, said: "That couldn't be taken in hand just now." };
+              }
+              taking = "";
               asking = !done.ok && /Press Hold again/.test(done.said) ? item : "";
               say2(done.said);
               refresh();
@@ -46202,6 +46271,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     onItemsChange(soon2);
     previews?.onChange(soon2);
     refresh();
+    const watch2 = setInterval(() => {
+      if (!taking && opts.holding() !== drawnHolding) refresh();
+    }, 400);
+    watch2.unref?.();
     return { refresh };
   }
 
@@ -48990,9 +49063,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const key = `${named2.model.sha256}:${named2.size.join(",")}`;
       let got = made.get(key);
       if (!got) {
-        got = (async () => {
+        const asking = (async () => {
           const checked = await store2.modelBytes(named2);
-          if (!checked) return null;
+          if (!checked) {
+            queueMicrotask(() => {
+              if (made.get(key) === asking) made.delete(key);
+            });
+            return null;
+          }
           const { bytes } = checked;
           try {
             const read6 = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), "");
@@ -49008,6 +49086,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             return null;
           }
         })();
+        got = asking;
         made.set(key, got);
       }
       return got;
@@ -50682,6 +50761,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const itemsRule = () => d.items ? cleanItemsRule(d.itemsRule?.()) : "none";
     const canBeHeld = (item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
     let mine = "";
+    let holdTurn = Promise.resolve();
     let mineModel = null;
     let mineTints = {};
     const heardTints = (a, said2) => {
@@ -51239,36 +51319,41 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         sayTints();
         changed();
       },
-      async setHolding(itemIn2, tints) {
-        const item = itemCoordinate(itemIn2);
-        const put = () => {
-          mine = "";
-          mineModel?.removeFromParent();
-          mineModel = null;
-          inHand = -2;
-          endSight();
-          void play2?.held(null, null);
-          session2?.setHolding("");
-        };
-        if (!item) {
-          const had = !!mine;
+      setHolding(itemIn2, tints) {
+        const turn = async () => {
+          const item = itemCoordinate(itemIn2);
+          const put = () => {
+            mine = "";
+            mineModel?.removeFromParent();
+            mineModel = null;
+            inHand = -2;
+            endSight();
+            void play2?.held(null, null);
+            session2?.setHolding("");
+          };
+          if (!item) {
+            const had = !!mine;
+            put();
+            return { ok: true, said: had ? "Put away." : "You are holding nothing." };
+          }
+          if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
+          const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
+          const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
+          if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
+          mineTints = cleanTints(described, tints ?? {});
+          const model2 = await d.items.model(described, mineTints);
           put();
-          return { ok: true, said: had ? "Put away." : "You are holding nothing." };
-        }
-        if (!d.items) return { ok: false, said: "Nothing carried is drawn or works in this place." };
-        const described = itemsRule() === "none" || !showsItems() ? null : await d.items.describe(item);
-        const may = mayHold(described, { rule: itemsRule(), scripts: !!d.itemScripts, asked: askedScript });
-        if (!may.ok || !described) return may.ok ? { ok: false, said: "That item's description couldn't be found." } : may;
-        mineTints = cleanTints(described, tints ?? {});
-        const model2 = await d.items.model(described, mineTints);
-        put();
-        mine = item;
-        mineModel = model2;
-        placeMine();
-        session2?.setHolding(item);
-        sayTints();
-        await play2?.held(described, model2);
-        return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
+          mine = item;
+          mineModel = model2;
+          placeMine();
+          session2?.setHolding(item);
+          sayTints();
+          await play2?.held(described, model2);
+          return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
+        };
+        const result = holdTurn.then(turn, turn);
+        holdTurn = result.then(() => changed(), () => changed());
+        return result;
       },
       get play() {
         return play2;
