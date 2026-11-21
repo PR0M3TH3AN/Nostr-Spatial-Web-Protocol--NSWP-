@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.72.0
+
+- **A door shows what its world offers: seven small tiles by its frame,** lit for what the world's announcement says and dim for what it doesn't say (`createDoorOffers`; `createPortalGate` takes `offers`). A headset, people, voice, items, saves, scores and achievements, paid to go in. Asked for by the owner on 2026-11-21: "useful icons that poll the world's features ... lit up or dark if not supported. And when the user hovers over one it should display in game text explaining what that icon means."
+- **Pointed at, a tile says what it means, in the game:** in the card over the buttons on a flat screen, and in front of the door in a headset. A dim one reads "It doesn't say ...": the announcement is silent, which is not the same as the world not doing it.
+- **A door never asks its destination.** A reference world's door is told what its neighbour offers by the build, from that neighbour's own settings, and the build stops if the two disagree, as it does for a door's kind of place. A world that holds its destinations' announcements may read them with `worldOffers`.
+- **For other engines:** `NSWP.offers(world)` hands out the same list and drawings. The Godot doorway doesn't draw them yet.
+- The reference worlds' doors light what their neighbours' settings say as soon as this is released. Their announcements on relays say less until they are signed and published again, which is the owner's word.
+
 ## 0.71.1
 
 - **A world can say four more things about itself in its announcement:** `saves`, `scores`, `achievements` and `tips`, beside the capabilities it could already name (NSWP-01, "What a world offers"). Each is a claim, like the rest, and a client that doesn't know one ignores it.
