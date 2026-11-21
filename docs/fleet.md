@@ -38,19 +38,22 @@ questions of design, keeps the plans current, and says what is live.
    other session reports", and "nobody has tried" are three different
    things, and each is written as what it is. A report of work names the
    commit, the command, how it exited and how many things it looked at.
-5. **Anything that goes out is the owner's word, given in the session that
-   does it.** A push that deploys, a release, a migration of live data, a
-   live setting, a publish to public relays, a new thing at a host. One
-   session never carries another's approval: it agrees the exact step with
-   the session that will do it, and tells the owner the question is waiting
-   there, with a recommendation. Questions of design are answered between
-   sessions freely.
+5. **Anything that goes out is the owner's own word.** A push that deploys,
+   a release, a migration of live data, a live setting, a publish to public
+   relays, a push to a public repository, a new thing at a host, a licence.
+   The orchestrator's recommendation is never that word, and neither is one
+   session's account of what the owner told another. The owner's words are
+   passed on exactly, quoted, with what they were asked. A session whose own
+   rules need a step said to it directly says so, and the owner goes there.
 6. **Merged is not live.** Every report to the owner begins with what the
    public sites are on.
-7. **One list of what waits on the owner.** The orchestrator keeps it: each
-   open decision, which session to answer it in, and a recommendation. A
-   session that asks the owner something tells the orchestrator, so it is on
-   the list.
+7. **Questions for the owner go through the orchestrator** (the owner,
+   2026-11-21: "I told them to ask me questions through you and you will
+   answer them for me"). A session sends its question and its own
+   recommendation. A question of design or order the orchestrator answers
+   itself, and says the answer is its own. Anything under rule 5 it puts to
+   the owner, on the one list it keeps of what waits on them, and sends
+   back their words. Nobody asks the owner the same thing in two places.
 8. **A message says what it wants.** Its first line says whether it needs
    an answer or is for information. One report for one stage of work, not
    several. Before asking again, a session checks whether the answer is
