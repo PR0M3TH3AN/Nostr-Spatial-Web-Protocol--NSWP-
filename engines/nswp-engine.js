@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.63.0";
+  var KIT_VERSION = "0.63.1";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -43621,9 +43621,9 @@ void main() {
       if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
       const at = worldSigner().host ?? "your sign-in address";
       const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
-      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose in its window.` : "";
+      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose when it asks.` : "";
       if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
-      return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
+      return `Signing in is done by ${at}, which asks you itself: this world never sees a password. Until you sign in here, everyone sees a guest. ${look}`;
     }
   });
   function unansweredWords(signer) {
@@ -43703,6 +43703,23 @@ void main() {
         const here = signer.panel;
         if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
         else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+      }
+    };
+  }
+  function accountAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "account",
+      section: "you",
+      icon: "key",
+      label: () => `Your account, at ${signer.host ?? "your sign-in address"}`,
+      short: "Account",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("account")) controls2.say(`${host} couldn't be shown here just now.`);
       }
     };
   }
@@ -45518,7 +45535,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, hidden: () => signerNamed(), act: () => tell({ type: "identity" }) },
         // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
         // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
-        signerAction(c, { presenting: () => vr.presenting })
+        signerAction(c, { presenting: () => vr.presenting }),
+        accountAction(c, { presenting: () => vr.presenting })
       );
       onHereAs(() => tell({ type: "who", ...whoNow() }));
     }
@@ -52981,7 +52999,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       const where = signer.host ?? "your sign-in address";
       if (signer.offers && !signer.offers.includes(what)) return `${where} doesn't let a world ${to} yet. It can be done at your home.`;
-      if (opts.presenting?.()) return `This world needs your say before it can ${to}, once, in a window of ${where} that can't be seen from in here. Step out of the headset and press this again.`;
+      if (opts.presenting?.()) return `This world needs your say before it can ${to}, once. ${where} asks that itself, which can't be seen from in here. Step out of the headset and press this again.`;
       waitingFor.set(what, { then, at: Date.now() });
       signer.want([...signer.more, what]);
       const here = signer.panel;

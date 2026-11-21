@@ -13,6 +13,7 @@
  * to go back to, there is nobody to ask.
  */
 import { encodeNpub, getPublicKey, shortNpub, signerAt, type NostrEvent } from "@nswp/core";
+import { askClientForSignIn, onClientScreen } from "../client-frame.js";
 import { arrival, portal, type GoOptions } from "../index.js";
 import { createPeople, type People } from "../people.js";
 import { createSaves, type Saves } from "../saves.js";
@@ -157,9 +158,9 @@ export const identitySection = (): UiSection => ({
     const at = worldSigner().host ?? "your sign-in address";
     const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
     // For this visit only: said, so that being asked again next time is no surprise, and where that is chosen.
-    const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose in its window.` : "";
+    const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose when it asks.` : "";
     if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
-    return `Signing in is done at ${at}, in a window of its own: nothing is typed in this world. Until you sign in here, everyone sees a guest. ${look}`;
+    return `Signing in is done by ${at}, which asks you itself: this world never sees a password. Until you sign in here, everyone sees a guest. ${look}`;
   },
 });
 
@@ -314,6 +315,30 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
       const here = signer.panel;
       if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
       else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+    },
+  };
+}
+
+/**
+ * Their account at the sign-in address, without leaving the world: its own pages (other accounts, the lock, the
+ * password, recovery, what it keeps), in the panel the visitor's client draws over the world (client-frame.ts).
+ * Only where there is such a panel, for this world's own signer's address: a world never shows any of it itself.
+ */
+export function accountAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
+  const signer = worldSigner();
+  // Whether there is a panel is said by the client a moment after the world loads.
+  onClientScreen(() => controls.signal("signer"));
+  return {
+    id: "account",
+    section: "you",
+    icon: "key",
+    label: () => `Your account, at ${signer.host ?? "your sign-in address"}`,
+    short: "Account",
+    hidden: () => !signer.panel,
+    act: () => {
+      const host = signer.host ?? "your sign-in address";
+      if (opts.presenting?.()) return controls.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+      if (!askClientForSignIn("account")) controls.say(`${host} couldn't be shown here just now.`);
     },
   };
 }
