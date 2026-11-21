@@ -557,7 +557,8 @@ and the signer remembers a world the visitor allowed (BitLogin's
 
 **Status:** the kit's half is implemented (kit 0.64.0: `signer.propose`,
 `signer.wallet`; 0.65.0: `signer.pay`). BitLogin's half is built and not
-yet live. Nothing in the reference worlds uses any of them yet.
+yet live. One thing in the kit uses it: deleting your own post (0.66.0,
+"Posting from a world"). Nothing asks for a wallet or a payment yet.
 
 Some things a visitor should be asked each time, in words, by their own
 sign-in address, and never have done for them on a world's say: a change
@@ -726,6 +727,18 @@ nobody takes one for the other.
   fetched, and nothing opens. It is cut to 420 characters and one line.
 - **It needs no room.** It is there whenever the visitor has a signer; signed
   out, the row says where they sign in first, and pressing it leads there.
+
+**Deleting a post (kit 0.66.0).** Each of the visitor's own posts in that
+window has a Delete. It is a deletion in the ordinary Nostr sense (NIP-09:
+kind 5, naming the note), and a careful kind, so the world's signer signs
+none on the world's word: it is put to the visitor at their sign-in
+address ("Asking the person"), which tells them what it is and that it
+can't be undone. The world checks what comes back (really signed, by
+them, naming that one post and nothing else) and sends it to the relays
+their posts go to. The window says what that is worth: relays are asked
+to drop the post, and a copy kept somewhere else may remain. Nothing is
+offered where nothing can ask them: a client's own room that signs as an
+application has no Delete until its sign-in address lets it ask.
 
 ## In code
 

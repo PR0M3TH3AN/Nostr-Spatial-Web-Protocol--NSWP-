@@ -26,8 +26,10 @@ export interface FeedPost {
   text: string;
   /** When it was posted, in seconds. */
   at: number;
-  /** "out": it is on a relay. "sending": on its way. "failed": it wasn't sent. */
-  state: "out" | "sending" | "failed";
+  /** "out": it is on a relay. "sending": on its way. "failed": it wasn't sent. "removing": its deletion is being asked for. */
+  state: "out" | "sending" | "failed" | "removing";
+  /** The note's own id, once it is known: what a deletion names. */
+  id?: string;
 }
 
 export interface FeedView {
@@ -47,6 +49,8 @@ export interface FeedView {
   lead: string;
   /** The most characters in one post written here. */
   limit: number;
+  /** A post here can be asked to be deleted: the visitor's sign-in address can be asked to sign that. */
+  removable: boolean;
   /** Goes up whenever anything above changes. */
   version: number;
 }
@@ -66,8 +70,13 @@ export interface FeedOptions {
    * the world that asked (protocol/10-identity.md, "Signing from a world"), and the visitor is told so.
    */
   marked?: string;
-  /** Sign and send what they wrote. Resolves to a few words on how it went, and whether it did. */
-  send(text: string): Promise<{ ok: boolean; said: string }>;
+  /** Sign and send what they wrote. Resolves to a few words on how it went, whether it did, and the note's id if it went. */
+  send(text: string): Promise<{ ok: boolean; said: string; id?: string }>;
+  /**
+   * Ask for one of their posts to be deleted, by the note's id: a deletion they sign themselves, at their own
+   * sign-in address (protocol/10-identity.md, "Asking the person"). Left out where nothing can ask them.
+   */
+  remove?(id: string): Promise<{ ok: boolean; said: string }>;
   /** Their posts so far, or null if they couldn't be had. */
   load?(): Promise<FeedSource[] | null>;
 }
@@ -81,6 +90,8 @@ export interface UiFeed {
   opened(): void;
   /** Send out what the visitor wrote. Returns a few words if it couldn't even be tried, or null. */
   send(text: string): string | null;
+  /** Ask for the post with this key to be deleted. Returns a few words if it couldn't even be tried, or null. */
+  remove(key: string): string | null;
   view(): FeedView;
 }
 
@@ -140,7 +151,7 @@ export function createUiFeed(changed: () => void, now: () => number = () => Date
               const text = cleanLine(p.text, FEED_LIMITS.shown);
               if (!text || seen.has(p.id) || !Number.isFinite(p.at)) continue;
               seen.add(p.id);
-              posts.push({ key: p.id, text, at: p.at, state: "out" });
+              posts.push({ key: p.id, text, at: p.at, state: "out", id: p.id });
             }
             sort();
           }
@@ -158,10 +169,32 @@ export function createUiFeed(changed: () => void, now: () => number = () => Date
       bump();
       void mine
         .send(words)
-        .catch(() => ({ ok: false, said: "That wasn't sent." }))
+        .catch((): { ok: boolean; said: string; id?: string } => ({ ok: false, said: "That wasn't sent." }))
         .then((how) => {
           if (opts !== mine) return;
           post.state = how.ok ? "out" : "failed";
+          if (how.ok && how.id) post.id = how.id;
+          said = how.said;
+          bump();
+        });
+      return null;
+    },
+    remove(key) {
+      const mine = opts;
+      const post = posts.find((p) => p.key === key);
+      if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
+      const id = post.id;
+      post.state = "removing";
+      said = "";
+      bump();
+      void mine
+        .remove(id)
+        .catch(() => ({ ok: false, said: "That wasn't deleted." }))
+        .then((how) => {
+          if (opts !== mine) return;
+          // Gone from here once relays have been asked. Where it was refused, it is as it was.
+          if (how.ok) posts = posts.filter((p) => p !== post);
+          else post.state = "out";
           said = how.said;
           bump();
         });
@@ -169,8 +202,10 @@ export function createUiFeed(changed: () => void, now: () => number = () => Date
     },
     view() {
       const who = typeof opts?.who === "function" ? opts.who() : (opts?.who ?? "");
-      const lead = `Public, like a tweet: anyone can read what you send out here, as ${who}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-      return { ready: !!opts, title: "My public feed", who, posts, loading, said, lead, limit: CHAT_LIMITS.chars, version };
+      // A deletion is a request relays may honour: said plainly, so nobody posts on the strength of it.
+      const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
+      const lead = `Public, like a tweet: anyone can read what you send out here, as ${who}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+      return { ready: !!opts, title: "My public feed", who, posts, loading, said, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
     },
   };
 }
