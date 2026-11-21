@@ -453,6 +453,9 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `pay`, with `invoice`: a Lightning invoice the world made | `asking` at once; then, under the same `id`, `paid`, with `preimage` where there is one, or `refused` ("Asking the person", below) |
 | `file-save`, with `name`, `type`, `bytes`, and `private` (true unless said) | `asking` at once; then, under the same `id`, `file-saved` with `name`, `size`, `private`, and `url` for a public file; or `refused` ("Asking the person", below) |
 | `file-pick` | `asking` at once; then, under the same `id`, `file` with `name`, `type`, `bytes`, and `url` for a public file; or `refused` ("Asking the person", below) |
+| `tip`, with `sats`, and `to` (a person's key) or nobody (this world itself) | `asking` at once; then, under the same `id`, `paid`, or `refused` ("Tips, buying, and receipts", below) |
+| `buy`, with `listing`: a listing's coordinate | `asking` at once; then, under the same `id`, `bought` with `receipt`, and `delivery` where something is released; or `refused` ("Tips, buying, and receipts", below) |
+| `have`, with `listing` | At once, and with no question put to anyone: `receipt` with the visitor's receipt, or `none` ("Tips, buying, and receipts", below) |
 | `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `seal`, with `to` and `text` | `sealed`, with the message as written and its two seals; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
@@ -628,6 +631,53 @@ always will. A world can put them to the visitor instead:
 - **A world never draws these questions itself,** and nothing here lets a
   world sign a careful kind without the visitor reading it on their own
   sign-in address's page.
+
+## Tips, buying, and receipts
+
+**Status:** the kit's half is implemented (kit 0.69.0: `signer.tip`,
+`signer.buy`, `signer.have`, and `readReceipt` in the core). BitLogin's
+half is built and not yet live. The kit offers tips in its menu; nothing
+in it sells anything yet. The whole plan, and what the owner decided, is
+`docs/plans/paying-for-things.md`.
+
+**A world names what it wants, and never where the money goes or who is
+buying.**
+
+- **A tip** (`tip`): a person's key and an amount, or just an amount for
+  the world itself. The sign-in address finds the lightning address (in
+  that person's own profile; or, for the world, in the `tip` of the
+  world's own `/.well-known/nswp.json`, read from the world's own
+  address), shows the visitor who it is for with the address beside the
+  name, and pays at their press. The world hears `paid` or `refused`,
+  and nothing else. Nothing is owned afterwards and no one takes a share.
+  A world can't call a payment to itself a tip to somebody.
+- **A purchase** (`buy`): a listing's coordinate,
+  `30078:<the seller's key>:<its name>`. The sign-in address reads the
+  listing, shows what it is, whose and what it costs, pays, and keeps the
+  receipt. The world never signs as the buyer: that kind of note stays
+  off a world's signer for good.
+- **What is held** (`have`): answered at once, from what the signer has
+  been handed, with no question and no network. A world is told only of
+  its own listings (sold by a key its own manifest names) and of things
+  bought through it. A world loaded again may hear `none` for something
+  held, until the sign-in address has next been shown there; `buy` then
+  returns the receipt and charges nothing.
+
+**A receipt is the only proof.** It is the selling service's own signed
+note: which key bought which listing, and until when. A world believes a
+receipt and nothing else, and checks it itself (`readReceipt`): really
+signed, by a service on the kit's list; in the form the kit knows; for
+the listing asked about; the visitor's own; not run out. The word
+`bought` is not believed without it. The list of services is short (one:
+BitUnlock, by the key in its own signed policy), it can't be changed by
+the page using it, and adding to it is not a world's to do.
+
+**What a receipt can't say** is whether it was taken back since it was
+signed. Only the service that signed it knows. A world that cares asks
+that service; the kit does not yet.
+
+**A bare payment is not a purchase.** `pay` pays an invoice and leaves
+nothing behind. The kit treats nothing as bought without a receipt.
 
 ## One sign-in
 

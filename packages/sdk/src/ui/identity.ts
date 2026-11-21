@@ -368,6 +368,29 @@ export function filesAction(controls: Controls, opts: { presenting?: () => boole
 }
 
 /**
+ * What they have bought, without leaving the world: the receipts their sign-in address keeps for them, in the
+ * panel their client draws over the world. The world sees none of it: a world is told only of its own things
+ * (`signer.have`). Only where there is such a panel.
+ */
+export function libraryAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
+  const signer = worldSigner();
+  onClientScreen(() => controls.signal("signer"));
+  return {
+    id: "library",
+    section: "you",
+    icon: "save",
+    label: () => `Your purchases, at ${signer.host ?? "your sign-in address"}`,
+    short: "Purchases",
+    hidden: () => !signer.panel,
+    act: () => {
+      const host = signer.host ?? "your sign-in address";
+      if (opts.presenting?.()) return controls.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+      if (!askClientForSignIn("library")) controls.say(`${host} couldn't be shown here just now.`);
+    },
+  };
+}
+
+/**
  * The way to change how they look. Their look is kept by their own client and
  * is the same in every world, so it is changed there: this leaves for it and
  * comes back, as signing in does.

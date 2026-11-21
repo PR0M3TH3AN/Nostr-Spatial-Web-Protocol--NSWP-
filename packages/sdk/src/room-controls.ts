@@ -4,7 +4,7 @@
  * renderer, so it is the same in a world drawn with Three.js and in one made with another engine.
  */
 import * as THREE from "three";
-import { CHAT_LIMITS, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
+import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
@@ -140,6 +140,19 @@ export function addRoomControls(
     about?: PersonLines | null;
     /** Whether the visitor is in a headset: a window that opens can't be seen from in there. */
     presenting?: () => boolean;
+    /**
+     * What sends a tip when the visitor asks (docs/plans/paying-for-things.md, 7.5): a person, by their key, or
+     * with no `to` this place itself. Left out, the page's own signer, which puts it to the visitor at their
+     * sign-in address. A visitor's own client gives its own. Resolves whether it went, and never why not. Null
+     * where nothing here can send one: then no tip is offered at all.
+     */
+    tip?: ((o: { to?: string; sats: number }) => Promise<boolean>) | null;
+    /**
+     * Whether this place takes tips. Left out, it is read from the place's own `/.well-known/nswp.json`, which
+     * names an address for them (`tip`) if it does: the same file the visitor's sign-in address reads the address
+     * from. The address itself is never passed here. False for a place that should offer no such row.
+     */
+    tipsWorld?: boolean;
   } = {},
 ): { refresh(): void; travelling(): Travelling; following: Following; messaging: Messaging } {
   const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
@@ -222,6 +235,69 @@ export function addRoomControls(
   });
   let followsKept: RoomFollows | null = null;
   const follows = (): RoomFollows => (followsKept ??= opts.follows ?? worldFollows());
+  // ---- Tips (docs/plans/paying-for-things.md, 7.5 and 7.6). A world says who and how much, and nothing else: the
+  // visitor's sign-in address finds where the money goes, shows them, and pays at their press there. Nothing is
+  // owned afterwards, and nobody takes a share. Three amounts and no more: a row to type a number in is a row a
+  // headset can't use, and the visitor's own limit is theirs to keep at their sign-in address.
+  const TIP_AMOUNTS = [21, 100, 500] as const;
+  const tipper = opts.tip === null ? null : (opts.tip ?? ((o: { to?: string; sats: number }) => worldSigner().tip(o)));
+  /** Whose amounts are showing: a person's key, "world", or nobody's. */
+  let tipping: string | null = null;
+  const sendTip = (to: string | null, name: string, sats: number): void => {
+    const host = notes.host?.() ?? worldSigner().host ?? "your sign-in address";
+    // A headset draws nothing but the world, so the page that asks them can't be seen from in one.
+    if (opts.presenting?.() ?? presence.presenting) return tell(`${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
+    tipping = null;
+    tell(`${host} is asking: ${sats} sats to ${name}. Say yes there, and it goes.`);
+    if (!tipper) return;
+    void tipper({ sats, ...(to ? { to } : {}) })
+      .catch(() => false)
+      .then((went) => tell(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+    refresh();
+  };
+  /** The rows for tipping someone: one to say so, and under it the amounts, shown only once it is pressed. */
+  const tipRows = (key: string, section: string, to: string | null, name: string, ask: string): { id: string }[] => {
+    const rows: { id: string }[] = [{ id: `${key}-tip` }];
+    controls.add({
+      id: `${key}-tip`,
+      section,
+      icon: "key",
+      on: () => tipping === (to ?? "world"),
+      label: ask,
+      short: "Tip",
+      act: () => {
+        tipping = tipping === (to ?? "world") ? null : (to ?? "world");
+        refresh();
+      },
+    });
+    if (tipping === (to ?? "world")) {
+      for (const sats of TIP_AMOUNTS) {
+        rows.push({ id: `${key}-tip-${sats}` });
+        controls.add({ id: `${key}-tip-${sats}`, section, icon: "check", label: `${sats} sats to ${name}`, act: () => sendTip(to, name, sats) });
+      }
+    }
+    return rows;
+  };
+  /** Whether this place takes tips: as it was told, or as its own file says, once that has been read. */
+  let takesTips = opts.tipsWorld ?? false;
+  if (opts.tipsWorld === undefined && typeof fetch === "function") {
+    void fetch("/.well-known/nswp.json", { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((file: { tip?: unknown } | null) => {
+        takesTips = !!cleanLightningAddress(file?.tip);
+        if (takesTips) refresh();
+      })
+      .catch(() => undefined);
+  }
+  /** The world's own tip rows, taken away and put back as they open and close. */
+  let worldTipRows: string[] = [];
+  const tendWorldTip = (): void => {
+    for (const id of worldTipRows) controls.remove(id);
+    worldTipRows = [];
+    // Only for someone signed in here: a tip is paid from their own wallet, at their sign-in address.
+    if (!tipper || !takesTips || !follows().pubkey()) return;
+    worldTipRows = tipRows("world", "travel", null, "this world", "Tip this world").map((r) => r.id);
+  };
   // Who they follow, in a tab of its own: the same in every world and at their home (following.ts).
   const following = addFollowingControls(controls, {
     follows: follows(),
@@ -256,6 +332,7 @@ export function addRoomControls(
     tendChat();
     tendFeed();
     people();
+    tendWorldTip();
     remember();
   };
   // What a refresh needs to put the visitor back among the people they were with.
@@ -500,6 +577,8 @@ export function addRoomControls(
       const them = who.identity;
       extras.push("person-write");
       controls.add({ id: "person-write", section: "people", icon: "chat", label: `Write to ${who.name}, privately`, act: () => messaging.write(them) });
+      // A tip to them: to someone who came by name (their key is what their sign-in address is asked about).
+      if (tipper) for (const row of tipRows("person", "people", them, who.name, `Send ${who.name} a tip`)) extras.push(row.id);
     }
     if (who) {
       extras.push("person-mute", "person-music", "person-block");

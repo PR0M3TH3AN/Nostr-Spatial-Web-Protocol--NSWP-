@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.68.0";
+  var KIT_VERSION = "0.69.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -1082,8 +1082,8 @@ var NSWP = (() => {
     const powered = F.pow(n, p1mod2);
     const yes = F.eql(powered, F.ONE);
     const zero = F.eql(powered, F.ZERO);
-    const no = F.eql(powered, F.neg(F.ONE));
-    if (!yes && !zero && !no)
+    const no2 = F.eql(powered, F.neg(F.ONE));
+    if (!yes && !zero && !no2)
       throw new Error("invalid Legendre symbol result");
     return yes ? 1 : zero ? 0 : -1;
   }
@@ -3380,17 +3380,17 @@ var NSWP = (() => {
     return bech32.encode("npub", bech32.toWords(hexToBytes(pubkey)), BECH32_LIMIT);
   }
   function decodeNpub(s) {
-    const text = s.trim();
+    const text2 = s.trim();
     const real = (hex) => {
       if (!isPublicKey(hex))
         throw new NswpError("npub_invalid", "not a public key: no key has that value");
       return hex;
     };
-    if (/^[0-9a-f]{64}$/i.test(text))
-      return real(text.toLowerCase());
+    if (/^[0-9a-f]{64}$/i.test(text2))
+      return real(text2.toLowerCase());
     let decoded;
     try {
-      decoded = bech32.decode(text, BECH32_LIMIT);
+      decoded = bech32.decode(text2, BECH32_LIMIT);
     } catch (cause) {
       throw new NswpError("npub_invalid", "not a public key: expected npub1\u2026 or 64 hex characters", { cause });
     }
@@ -4501,23 +4501,23 @@ var NSWP = (() => {
     [65529, 65531]
   ];
   var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
-  function cleanLine(text, chars) {
-    if (typeof text !== "string")
+  function cleanLine(text2, chars) {
+    if (typeof text2 !== "string")
       return "";
     let out = "";
-    for (const ch of text.slice(0, chars * 8).normalize("NFC"))
+    for (const ch of text2.slice(0, chars * 8).normalize("NFC"))
       out += unseen(ch.codePointAt(0)) ? " " : ch;
     out = out.replace(/\s+/g, " ").trim();
     return [...out].slice(0, chars).join("").trim();
   }
-  var cleanChat = (text) => cleanLine(text, CHAT_LIMITS.chars);
+  var cleanChat = (text2) => cleanLine(text2, CHAT_LIMITS.chars);
   function chatId() {
     const bytes = new Uint8Array(4);
     globalThis.crypto.getRandomValues(bytes);
     return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   }
-  function buildSay(text, id = chatId()) {
-    const cleaned = cleanChat(text);
+  function buildSay(text2, id = chatId()) {
+    const cleaned = cleanChat(text2);
     if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
       return null;
     return `say:${id}:${cleaned}`;
@@ -4528,8 +4528,8 @@ var NSWP = (() => {
     const id = data.slice(4, 12);
     if (!/^[0-9a-f]{8}$/.test(id))
       return null;
-    const text = cleanChat(data.slice(13));
-    return text ? { id, text } : null;
+    const text2 = cleanChat(data.slice(13));
+    return text2 ? { id, text: text2 } : null;
   }
   function createChatGate(limits = CHAT_LIMITS) {
     const ids = [];
@@ -4552,8 +4552,8 @@ var NSWP = (() => {
       }
     };
   }
-  function bubbleSeconds(text) {
-    return Math.min(12, 4 + [...text].length * 0.06);
+  function bubbleSeconds(text2) {
+    return Math.min(12, 4 + [...text2].length * 0.06);
   }
 
   // packages/core/dist/rating.js
@@ -4738,8 +4738,8 @@ var NSWP = (() => {
     return out;
   }
   var hasSettings = (s) => !!s && Object.keys(s).length > 0;
-  var toBase64Url = (text) => {
-    const bytes = new TextEncoder().encode(text);
+  var toBase64Url = (text2) => {
+    const bytes = new TextEncoder().encode(text2);
     let bin = "";
     for (const b of bytes)
       bin += String.fromCharCode(b);
@@ -4749,9 +4749,9 @@ var NSWP = (() => {
     const clean3 = cleanSettings(settings);
     if (!hasSettings(clean3))
       return "";
-    const text = toBase64Url(JSON.stringify(clean3));
-    if (text.length <= SETTINGS_LINK_LIMIT)
-      return text;
+    const text2 = toBase64Url(JSON.stringify(clean3));
+    if (text2.length <= SETTINGS_LINK_LIMIT)
+      return text2;
     if (clean3.pins) {
       const { pins: _left, ...rest } = clean3;
       return encodeSettings(rest);
@@ -4839,15 +4839,15 @@ var NSWP = (() => {
     return { look, warnings };
   }
   var LOOK_LIMITS = { chars: 600, seedChars: 64 };
-  function decodeLook(text) {
+  function decodeLook(text2) {
     const c = new Collector();
-    if (text.length > LOOK_LIMITS.chars) {
+    if (text2.length > LOOK_LIMITS.chars) {
       c.error("look_too_large", "", "A look is at most 600 characters.");
       return c.result({ look: generatedLook(""), seed: "" });
     }
     let json;
     try {
-      json = JSON.parse(text);
+      json = JSON.parse(text2);
     } catch {
       c.error("invalid_json", "", "A look must be a JSON object.");
       return c.result({ look: generatedLook(""), seed: "" });
@@ -5045,8 +5045,8 @@ var NSWP = (() => {
     return keys.length ? [`blocked=${keys.join(",")}`] : [];
   };
   var settingsFlag = (opts) => {
-    const text = encodeSettings(opts.settings);
-    return text ? [`set=${text}`] : [];
+    const text2 = encodeSettings(opts.settings);
+    return text2 ? [`set=${text2}`] : [];
   };
   function stateFlags(opts) {
     return [...opts.immersive ? ["xr=1"] : [], ...opts.moving === "intense" ? ["moving=intense"] : [], ...opts.joined ? ["joined=1"] : [], ...opts.joined && opts.mic ? ["mic=1"] : []];
@@ -5828,21 +5828,21 @@ ${roomName}`)));
     if (event.pubkey === self2)
       return null;
     const to = getTagValue(event, "p");
-    let text;
+    let text2;
     if (to === void 0)
-      text = event.content;
+      text2 = event.content;
     else {
       if (to !== self2 || !isHex64(to))
         return null;
       try {
-        text = nip44Decrypt(event.content, getConversationKey(sessionKey, event.pubkey));
+        text2 = nip44Decrypt(event.content, getConversationKey(sessionKey, event.pubkey));
       } catch {
         return null;
       }
     }
     let message;
     try {
-      message = JSON.parse(text);
+      message = JSON.parse(text2);
     } catch {
       return null;
     }
@@ -6035,11 +6035,11 @@ ${roomName}`)));
     [65279, 65279],
     [65529, 65531]
   ];
-  function cleanMessage(text) {
-    if (typeof text !== "string")
+  function cleanMessage(text2) {
+    if (typeof text2 !== "string")
       return "";
     let out = "";
-    for (const ch of text.slice(0, MESSAGE_LIMITS.chars * 8).normalize("NFC")) {
+    for (const ch of text2.slice(0, MESSAGE_LIMITS.chars * 8).normalize("NFC")) {
       const code = ch.codePointAt(0);
       out += UNSEEN2.some(([from, to]) => code >= from && code <= to) ? " " : ch;
     }
@@ -6101,8 +6101,8 @@ ${roomName}`)));
     if (!m || typeof m !== "object" || !isHex64(m.id) || !isHex64(m.from) || !Array.isArray(m.to) || typeof m.at !== "number" || !Number.isFinite(m.at))
       return null;
     const to = [...new Set(m.to.filter((k) => isHex64(k)))];
-    const text = cleanMessage(m.text);
-    return to.length && text ? { id: m.id, from: m.from, to, text, at: m.at } : null;
+    const text2 = cleanMessage(m.text);
+    return to.length && text2 ? { id: m.id, from: m.from, to, text: text2, at: m.at } : null;
   }
   function buildMessageRelays(relays, now) {
     const clean3 = [...new Set(relays.map(cleanRelayUrl).filter(Boolean))].slice(0, MESSAGE_LIMITS.relays);
@@ -6269,6 +6269,85 @@ ${roomName}`)));
     return !!named2 && named2 === bytesToHex(sha256(bytes));
   }
 
+  // packages/core/dist/receipt.js
+  var RECEIPT_KIND = 30078;
+  var RECEIPT_NAME = "bitunlock:entitlement:v1";
+  var RECEIPT_FORM = { schemaVersion: 1, protocolVersion: "seller-unlock-service-v1" };
+  var RECEIPT_ISSUERS = Object.freeze([
+    Object.freeze({ name: "BitUnlock", service: "https://api.bitunlock.network", pubkey: "66be61cf5b8d286391f7b1a72ffa7c799ec2dc49eff0830c40df1cc964e6787d" })
+  ]);
+  function cleanListing(input) {
+    if (typeof input !== "string" || input.length > 300)
+      return "";
+    return /^30078:[0-9a-f]{64}:.{1,200}$/.test(input) ? input : "";
+  }
+  function listingSeller(listing) {
+    return cleanListing(listing).slice(6, 70);
+  }
+  var no = (why) => ({ ok: false, why });
+  var text = (v2, most = 300) => typeof v2 === "string" && v2.length > 0 && v2.length <= most;
+  function readReceipt(event, expect = {}) {
+    const e = event;
+    if (!e || typeof e !== "object" || e.kind !== RECEIPT_KIND || typeof e.content !== "string" || e.content.length > 8e3 || !Array.isArray(e.tags) || !isHex64(e.pubkey))
+      return no("not-a-receipt");
+    const issuer = (expect.issuers ?? RECEIPT_ISSUERS).find((i) => i.pubkey === e.pubkey);
+    if (!issuer)
+      return no("unknown-issuer");
+    let signed = false;
+    try {
+      signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
+    } catch {
+      signed = false;
+    }
+    if (!signed)
+      return no("not-signed");
+    let d;
+    try {
+      const parsed = JSON.parse(e.content);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return no("not-a-receipt");
+      d = parsed;
+    } catch {
+      return no("not-a-receipt");
+    }
+    if (d.schemaVersion !== RECEIPT_FORM.schemaVersion || d.protocolVersion !== RECEIPT_FORM.protocolVersion || d.status !== "active")
+      return no("not-a-receipt");
+    const listing = cleanListing(d.productCoordinate);
+    const issuedAt = d.issuedAt;
+    if (!listing || !isHex64(d.buyerPubkey) || !isHex64(d.sellerPubkey) || !text(d.fulfillmentId) || typeof issuedAt !== "number" || !Number.isSafeInteger(issuedAt) || issuedAt < 1)
+      return no("not-a-receipt");
+    if (d.sellerPubkey !== listingSeller(listing))
+      return no("not-a-receipt");
+    const names = e.tags.filter((t) => t[0] === "d");
+    if (names.length !== 1 || names[0][1] !== `${RECEIPT_NAME}:${d.fulfillmentId}`)
+      return no("not-a-receipt");
+    let expiresAt = null;
+    const policy = d.accessPolicy;
+    if (policy !== void 0 && policy !== "perpetual-v1") {
+      const term = policy;
+      if (!term || typeof term !== "object" || term.kind !== "term-v1" || typeof term.expiresAt !== "number" || !Number.isSafeInteger(term.expiresAt) || term.expiresAt <= issuedAt)
+        return no("not-a-receipt");
+      expiresAt = term.expiresAt;
+    }
+    if (expect.listing !== void 0 && listing !== expect.listing)
+      return no("other-listing");
+    if (expect.buyer !== void 0 && d.buyerPubkey !== expect.buyer)
+      return no("other-buyer");
+    if (expiresAt !== null && (expect.now ?? Math.floor(Date.now() / 1e3)) >= expiresAt)
+      return no("run-out");
+    return { ok: true, receipt: { issuer, listing, buyer: d.buyerPubkey, seller: d.sellerPubkey, issuedAt, expiresAt, fulfillment: d.fulfillmentId } };
+  }
+  function cleanLightningAddress(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const address = input.trim().toLowerCase();
+    return /^[a-z0-9._+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/.test(address) ? address : "";
+  }
+  var TIP_LIMITS = { least: 1, most: 1e6 };
+  function cleanTip(input) {
+    return typeof input === "number" && Number.isSafeInteger(input) && input >= TIP_LIMITS.least && input <= TIP_LIMITS.most ? input : null;
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -6330,6 +6409,7 @@ ${roomName}`)));
   }
   var PROPOSE_KINDS = [0, 5, 10002];
   var DELETION_KIND = 5;
+  var DELIVERY_LIMIT = 2e4;
   function cleanWalletUri(input) {
     return typeof input === "string" && input.length <= 2e3 && /^nostr\+walletconnect:\/\/[0-9a-f]{64}\?[\x21-\x7e]+$/.test(input) ? input : "";
   }
@@ -6383,6 +6463,12 @@ ${roomName}`)));
       return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
     if (d.t === "paid")
       return { t: "paid", id: d.id, ...isHex64(d.preimage) ? { preimage: d.preimage } : {} };
+    if (d.t === "none")
+      return { t: "none", id: d.id };
+    if ((d.t === "bought" || d.t === "receipt") && d.receipt && typeof d.receipt === "object") {
+      const delivery = d.t === "bought" && typeof d.delivery === "string" && d.delivery.length > 0 && d.delivery.length <= DELIVERY_LIMIT ? d.delivery : void 0;
+      return d.t === "bought" ? { t: "bought", id: d.id, receipt: d.receipt, ...delivery !== void 0 ? { delivery } : {} } : { t: "receipt", id: d.id, receipt: d.receipt };
+    }
     if (d.t === "file-saved" && cleanFileName(d.name) && typeof d.size === "number" && Number.isSafeInteger(d.size) && d.size >= 0) {
       const kept2 = d.private !== false;
       return { t: "file-saved", id: d.id, name: cleanFileName(d.name), size: d.size, private: kept2, ...!kept2 && cleanFileUrl(d.url) ? { url: cleanFileUrl(d.url) } : {} };
@@ -6442,10 +6528,10 @@ ${roomName}`)));
       return null;
     }
   }
-  var numbers = (text, n) => {
-    if (typeof text !== "string")
+  var numbers = (text2, n) => {
+    if (typeof text2 !== "string")
       return null;
-    const parts3 = text.trim().split(/\s+/).map(Number);
+    const parts3 = text2.trim().split(/\s+/).map(Number);
     return parts3.length === n && parts3.every((x) => Number.isFinite(x) && Math.abs(x) <= 100) ? parts3 : null;
   };
   var within = (n) => n > 0 && n <= ITEM_LIMITS.metres;
@@ -6583,10 +6669,10 @@ ${roomName}`)));
     const stick = Number.isFinite(o.stick) ? Math.min(PLAY_LIMITS.stick, Math.max(0, o.stick)) : 0;
     return { id: o.id, name: o.name, from: [...o.from], velocity: o.velocity.map((v2) => v2 * k), stick };
   }
-  function parseShot(text) {
-    if (typeof text !== "string" || !text.startsWith("shot:") || text.length > 200)
+  function parseShot(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith("shot:") || text2.length > 200)
       return null;
-    const parts3 = text.slice(5).split(",");
+    const parts3 = text2.slice(5).split(",");
     if (parts3.length !== 9)
       return null;
     const n = parts3.slice(2).map(Number);
@@ -6600,10 +6686,10 @@ ${roomName}`)));
       return null;
     return `hit:${o.by},${o.id},${o.at.map(num2).join(",")}`;
   }
-  function parseHit(text) {
-    if (typeof text !== "string" || !text.startsWith("hit:") || text.length > 160)
+  function parseHit(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith("hit:") || text2.length > 160)
       return null;
-    const parts3 = text.slice(4).split(",");
+    const parts3 = text2.slice(4).split(",");
     if (parts3.length !== 5)
       return null;
     const at = parts3.slice(2).map(Number);
@@ -6620,11 +6706,11 @@ ${roomName}`)));
       return null;
     return `did:${o.kind},${o.name}`;
   }
-  function parseDid(text) {
-    if (typeof text !== "string" || !text.startsWith("did:") || text.length > 90)
+  function parseDid(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith("did:") || text2.length > 90)
       return null;
-    const at = text.indexOf(",");
-    const did = { kind: text.slice(4, at), name: text.slice(at + 1) };
+    const at = text2.indexOf(",");
+    const did = { kind: text2.slice(4, at), name: text2.slice(at + 1) };
     return at > 0 && buildDid(did) ? did : null;
   }
   var TINT_PALETTE = [
@@ -6654,11 +6740,11 @@ ${roomName}`)));
     const parts3 = Object.entries(chosen ?? {}).filter(([slot, color]) => NAME4.test(slot) && /^#[0-9a-f]{6}$/.test(color)).slice(0, 4).map(([slot, color]) => `${slot}=${color.slice(1)}`);
     return `tint:${parts3.join(",")}`;
   }
-  function parseTints(text) {
-    if (typeof text !== "string" || !text.startsWith("tint:") || text.length > 120)
+  function parseTints(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith("tint:") || text2.length > 120)
       return null;
     const out = {};
-    for (const part of text.slice(5).split(",").filter(Boolean).slice(0, 4)) {
+    for (const part of text2.slice(5).split(",").filter(Boolean).slice(0, 4)) {
       const [slot, color] = part.split("=");
       if (!slot || !NAME4.test(slot) || !/^[0-9a-f]{6}$/.test(color ?? ""))
         return null;
@@ -6683,10 +6769,10 @@ ${roomName}`)));
       return null;
     return `st:${o.name},${o.value},${o.full}`;
   }
-  function parseState(text) {
-    if (typeof text !== "string" || !text.startsWith("st:") || text.length > 40)
+  function parseState(text2) {
+    if (typeof text2 !== "string" || !text2.startsWith("st:") || text2.length > 40)
       return null;
-    const [name, value, full] = text.slice(3).split(",");
+    const [name, value, full] = text2.slice(3).split(",");
     const state = { name, value: Number(value), full: Number(full) };
     return buildState(state) ? state : null;
   }
@@ -7042,11 +7128,11 @@ postMessage({ t: "started" });
       return false;
     return a === 127 || a === 10 || a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 || a === 169 && b === 254;
   }
-  function originOf(text, most = 300) {
-    if (typeof text !== "string" || text.length > most)
+  function originOf(text2, most = 300) {
+    if (typeof text2 !== "string" || text2.length > most)
       return null;
     try {
-      const u = new URL(text);
+      const u = new URL(text2);
       return u.username || u.password ? null : u;
     } catch {
       return null;
@@ -7860,11 +7946,11 @@ postMessage({ t: "started" });
         try {
           const named2 = hexToBytes3(opts.identity.sessionKey);
           const checked = verifyRoomPass(opts.identity.pass, { origin: this.origin, session: getPublicKey(named2) });
-          const text = JSON.stringify(opts.identity.pass);
-          if (checked.ok && text.length <= PASS_LIMITS.chars) {
+          const text2 = JSON.stringify(opts.identity.pass);
+          if (checked.ok && text2.length <= PASS_LIMITS.chars) {
             key = named2;
             proven = checked.value;
-            this.pass = text;
+            this.pass = text2;
             this.passUntil = checked.value.expiresAt;
           }
         } catch {
@@ -8132,12 +8218,12 @@ postMessage({ t: "started" });
      * and names the session key they are speaking with, which they have already
      * proved they hold: the handshake was signed with it.
      */
-    checkPass(peer, text) {
-      if (text === peer.shown || text.length > PASS_LIMITS.chars || peer.refused >= PASS_TRIES) return;
-      peer.shown = text;
+    checkPass(peer, text2) {
+      if (text2 === peer.shown || text2.length > PASS_LIMITS.chars || peer.refused >= PASS_TRIES) return;
+      peer.shown = text2;
       let event;
       try {
-        event = JSON.parse(text);
+        event = JSON.parse(text2);
       } catch {
         peer.refused++;
         return;
@@ -8504,8 +8590,8 @@ postMessage({ t: "started" });
      * first. Returns "said" (and `said` fires here too, with `self`), "nothing" if there was nothing to say, or
      * "slow" if this visitor has said too much in a short while: nothing is sent then.
      */
-    say(text) {
-      const word = buildSay(text);
+    say(text2) {
+      const word = buildSay(text2);
       const line = word ? parseSay(word) : null;
       if (!word || !line || this.closed) return "nothing";
       const now = Date.now();
@@ -26233,9 +26319,9 @@ postMessage({ t: "started" });
           case "blob":
             return response.blob();
           case "document":
-            return response.text().then((text) => {
+            return response.text().then((text2) => {
               const parser = new DOMParser();
-              return parser.parseFromString(text, mimeType);
+              return parser.parseFromString(text2, mimeType);
             });
           case "json":
             return response.json();
@@ -42598,8 +42684,8 @@ void main() {
       let added = 0;
       let refused = "";
       for (const file of [...picker.files ?? []]) {
-        const no = await sounds2.jukebox.add(file);
-        if (no) refused = no;
+        const no2 = await sounds2.jukebox.add(file);
+        if (no2) refused = no2;
         else added++;
       }
       picker.value = "";
@@ -43095,8 +43181,8 @@ void main() {
     };
     const keep5 = (list) => {
       try {
-        const text = JSON.stringify(list);
-        if (text.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text);
+        const text2 = JSON.stringify(list);
+        if (text2.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text2);
         else store2?.removeItem(keyFor(list.pubkey));
       } catch {
       }
@@ -43299,6 +43385,9 @@ void main() {
     pay: () => Promise.resolve(null),
     saveFile: () => Promise.resolve(null),
     pickFile: () => Promise.resolve(null),
+    tip: () => Promise.resolve(false),
+    buy: () => Promise.resolve(null),
+    have: () => Promise.resolve(null),
     panel: false,
     lock() {
     },
@@ -43587,6 +43676,29 @@ void main() {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
         return putToThem({ t: "file-pick", id: `fp${++n}` }, (reply) => reply.t === "file" ? { name: reply.name, type: reply.type, bytes: reply.bytes, url: reply.url && fileUrlNames(reply.url, reply.bytes) ? reply.url : null } : null);
       },
+      tip(o) {
+        const sats = cleanTip(o.sats);
+        if (state !== "unlocked" || !frame2 || sats === null || o.to !== void 0 && !isHex64(o.to)) return Promise.resolve(false);
+        return putToThem({ t: "tip", id: `t${++n}`, sats, ...o.to ? { to: o.to } : {} }, (reply) => reply.t === "paid" ? true : null).then((paid) => paid === true);
+      },
+      buy(listing) {
+        const asked = cleanListing(listing);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return putToThem({ t: "buy", id: `b${++n}`, listing: asked }, (reply) => {
+          if (reply.t !== "bought") return null;
+          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
+          return checked.ok ? { ...checked.receipt, event: reply.receipt, delivery: reply.delivery ?? null } : null;
+        });
+      },
+      have(listing) {
+        const asked = cleanListing(listing);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return askAbout({ t: "have", id: `h${++n}`, listing: asked }, (reply) => {
+          if (reply.t !== "receipt") return null;
+          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
+          return checked.ok ? { ...checked.receipt, event: reply.receipt } : null;
+        });
+      },
       pay(invoice) {
         const asked = cleanInvoice(invoice);
         if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
@@ -43644,8 +43756,8 @@ void main() {
         if (state !== "unlocked" || !frame2 || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
         return askAbout({ t: "follow", id: `w${++n}`, list, ...add ? { add } : { remove } }, (reply) => reply.t === "signed" && isFollowAsked(reply.event, { list, ...add ? { add } : { remove }, pubkey }) ? reply.event : null);
       },
-      seal(to, text) {
-        const words2 = cleanMessage(text);
+      seal(to, text2) {
+        const words2 = cleanMessage(text2);
         if (state !== "unlocked" || !frame2 || !more.includes("messages") || !isHex64(to) || !words2) return Promise.resolve(null);
         return askAbout({ t: "seal", id: `m${++n}`, to, text: words2 }, (reply) => reply.t === "sealed" && isSealAsked(reply, { pubkey, to, text: words2 }) ? { message: reply.message, seals: reply.seals } : null);
       },
@@ -43912,6 +44024,23 @@ void main() {
       }
     };
   }
+  function libraryAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "library",
+      section: "you",
+      icon: "save",
+      label: () => `Your purchases, at ${signer.host ?? "your sign-in address"}`,
+      short: "Purchases",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("library")) controls2.say(`${host} couldn't be shown here just now.`);
+      }
+    };
+  }
 
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
@@ -44098,20 +44227,20 @@ void main() {
           else {
             const seen = new Set(posts.map((p) => p.key));
             for (const p of got) {
-              const text = cleanLine(p.text, FEED_LIMITS.shown);
-              if (!text || seen.has(p.id) || !Number.isFinite(p.at)) continue;
+              const text2 = cleanLine(p.text, FEED_LIMITS.shown);
+              if (!text2 || seen.has(p.id) || !Number.isFinite(p.at)) continue;
               seen.add(p.id);
-              posts.push({ key: p.id, text, at: p.at, state: "out", id: p.id });
+              posts.push({ key: p.id, text: text2, at: p.at, state: "out", id: p.id });
             }
             sort();
           }
           bump2();
         });
       },
-      send(text) {
+      send(text2) {
         const mine = opts;
         if (!mine) return "There is nothing to post with: sign in first.";
-        const words2 = cleanChat(text);
+        const words2 = cleanChat(text2);
         if (!words2) return null;
         const post = { key: `new-${++count}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         posts.unshift(post);
@@ -44809,9 +44938,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     tabLetters.addEventListener("click", () => setChatOpen(true, "letters"));
     chatForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const text = chatField.value;
-      if (!text.trim()) return setChatOpen(false);
-      const trouble = dockTab === "feed" ? controls2.feed.send(text) : dockTab === "letters" ? controls2.letters.send(text) : controls2.chat.send(text);
+      const text2 = chatField.value;
+      if (!text2.trim()) return setChatOpen(false);
+      const trouble = dockTab === "feed" ? controls2.feed.send(text2) : dockTab === "letters" ? controls2.letters.send(text2) : controls2.chat.send(text2);
       chatHint.textContent = trouble ?? "";
       if (!trouble) chatField.value = "";
       if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
@@ -45145,8 +45274,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     addEventListener("keydown", onSummonKey, listening);
     addEventListener("keyup", swallow, listening);
     for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching2);
-    const stopSay = controls2.onSay((text) => {
-      const line = el("div", { class: "say glass" }, text);
+    const stopSay = controls2.onSay((text2) => {
+      const line = el("div", { class: "say glass" }, text2);
       says.append(line);
       while (says.childElementCount > 3) says.firstElementChild?.remove();
       setTimeout(() => line.classList.add("going"), 3600);
@@ -45284,17 +45413,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       add(line) {
         if (!send || !showsChat()) return;
-        const text = cleanChat(line.text);
-        if (!text) return;
-        lines.push({ key: `${line.id ?? "n"}-${++count}`, who: line.note ? "" : cleanChat(line.who ?? "").slice(0, 48), text, mine: !!line.mine, note: !!line.note, color: line.color ?? "", at: Date.now() });
+        const text2 = cleanChat(line.text);
+        if (!text2) return;
+        lines.push({ key: `${line.id ?? "n"}-${++count}`, who: line.note ? "" : cleanChat(line.who ?? "").slice(0, 48), text: text2, mine: !!line.mine, note: !!line.note, color: line.color ?? "", at: Date.now() });
         if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
         if (!line.mine && !line.note) unread++;
         bump2();
       },
-      send(text) {
+      send(text2) {
         if (!send || !showsChat()) return "There is nobody to write to: join the room first.";
-        if (!cleanChat(text)) return null;
-        return send(text) ?? null;
+        if (!cleanChat(text2)) return null;
+        return send(text2) ?? null;
       },
       seen() {
         if (!unread) return;
@@ -45306,7 +45435,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
     };
   }
-  function wrapWords(text, measure, width, rows) {
+  function wrapWords(text2, measure, width, rows) {
     const out = [];
     let row = "";
     const push = (word) => {
@@ -45320,7 +45449,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         else row = piece;
       }
     };
-    for (const word of text.split(" ").filter(Boolean)) {
+    for (const word of text2.split(" ").filter(Boolean)) {
       const tried = row ? `${row} ${word}` : word;
       if (measure(tried) <= width) row = tried;
       else {
@@ -45368,10 +45497,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       seen() {
         opts?.seen?.();
       },
-      send(text) {
+      send(text2) {
         const mine = opts;
         if (!mine) return "There is nobody to write to: choose someone first.";
-        const words2 = cleanMessage(text);
+        const words2 = cleanMessage(text2);
         if (!words2) return null;
         const line = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         waiting3.push(line);
@@ -45546,15 +45675,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         claimed = next;
         changed();
       },
-      setTarget(text, more = []) {
-        const next = text ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
-        if (text === target2 && next.join("\n") === detail.join("\n")) return;
-        target2 = text;
+      setTarget(text2, more = []) {
+        const next = text2 ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
+        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
+        target2 = text2;
         detail = next;
         changed();
       },
-      say(text) {
-        for (const fn of sayers) fn(text);
+      say(text2) {
+        for (const fn of sayers) fn(text2);
       },
       run(id) {
         const a = actions.find((x) => x.id === id);
@@ -45666,9 +45795,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine-menu.ts
-  var read3 = (text) => {
+  var read3 = (text2) => {
     try {
-      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
       return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
     } catch {
       return {};
@@ -45760,7 +45889,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
         signerAction(c, { presenting: () => vr.presenting }),
         accountAction(c, { presenting: () => vr.presenting }),
-        filesAction(c, { presenting: () => vr.presenting })
+        filesAction(c, { presenting: () => vr.presenting }),
+        libraryAction(c, { presenting: () => vr.presenting })
       );
       onHereAs(() => tell({ type: "who", ...whoNow() }));
     }
@@ -45870,8 +46000,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function bump() {
     sounds?.bump();
   }
-  function say2(text) {
-    const t = words(text, 300);
+  function say2(text2) {
+    const t = words(text2, 300);
     if (t) controls?.say(t);
   }
   function target(name, detail) {
@@ -45943,9 +46073,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine-world.ts
-  var read4 = (text) => {
+  var read4 = (text2) => {
     try {
-      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
       return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
     } catch {
       return {};
@@ -45954,9 +46084,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var three = (v2) => Array.isArray(v2) && v2.length === 3 && v2.every((x) => typeof x === "number" && Number.isFinite(x)) ? v2 : null;
   var num3 = (v2, otherwise) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : otherwise;
   function base642(bytes) {
-    let text = "";
-    for (let at = 0; at < bytes.length; at += 32768) text += String.fromCharCode(...bytes.subarray(at, at + 32768));
-    return btoa(text);
+    let text2 = "";
+    for (let at = 0; at < bytes.length; at += 32768) text2 += String.fromCharCode(...bytes.subarray(at, at + 32768));
+    return btoa(text2);
   }
   var world = null;
   function engineWorld() {
@@ -46957,21 +47087,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let words2 = "";
     let wordsSprite = null;
     let holdingNo = 0;
-    const showWords = (text) => {
-      words2 = text;
+    const showWords = (text2) => {
+      words2 = text2;
       if (wordsSprite) {
         repaint(wordsSprite, (g, cw, ch) => {
-          if (!text) return;
+          if (!text2) return;
           g.font = "600 44px system-ui, sans-serif";
           g.textAlign = "center";
           g.textBaseline = "middle";
-          const wide = Math.min(cw - 8, g.measureText(text).width + 36);
+          const wide = Math.min(cw - 8, g.measureText(text2).width + 36);
           g.fillStyle = "rgba(8,10,14,0.72)";
           g.beginPath();
           g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
           g.fill();
           g.fillStyle = "#ffffff";
-          g.fillText(text, cw / 2, ch / 2 + 2, cw - 24);
+          g.fillText(text2, cw / 2, ch / 2 + 2, cw - 24);
         });
       }
       o.onChange?.();
@@ -47041,7 +47171,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const isPresenting = () => !!o.presenting?.();
     return {
       async held(next, drawnFor) {
-        const no = ++holdingNo;
+        const no2 = ++holdingNo;
         if (box) {
           box.tell("away");
           const old = box;
@@ -47069,14 +47199,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         for (const s of next.sends) void o.items.sent(next, s.name);
         for (const name of Object.keys(next.sounds)) void soundOf(next, name);
         if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
-        const text = await o.items.script(next);
-        if (!text || no !== holdingNo) return;
+        const text2 = await o.items.script(next);
+        if (!text2 || no2 !== holdingNo) return;
         const run2 = await runInBox(
-          text,
+          text2,
           {
-            ask: (ask) => void (no === holdingNo && asked(ask)),
+            ask: (ask) => void (no2 === holdingNo && asked(ask)),
             stopped: (why) => {
-              if (no !== holdingNo) return;
+              if (no2 !== holdingNo) return;
               scriptState = "stopped";
               stoppedBecause = why;
               box = null;
@@ -47085,7 +47215,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           },
           typeof o.scripts === "object" ? o.scripts : {}
         );
-        if (no !== holdingNo) return run2?.stop();
+        if (no2 !== holdingNo) return run2?.stop();
         box = run2;
         scriptState = run2 ? "running" : "stopped";
         if (!run2) stoppedBecause = "no box";
@@ -47400,11 +47530,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
   }
   var PAGE = 24;
-  function itemIn(text) {
-    if (typeof text !== "string") return "";
-    const plain = itemCoordinate(/37303:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,63}/.exec(text)?.[0]);
+  function itemIn(text2) {
+    if (typeof text2 !== "string") return "";
+    const plain = itemCoordinate(/37303:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,63}/.exec(text2)?.[0]);
     if (plain) return plain;
-    const address = /naddr1[02-9ac-hj-np-z]{20,400}/.exec(text)?.[0];
+    const address = /naddr1[02-9ac-hj-np-z]{20,400}/.exec(text2)?.[0];
     if (!address) return "";
     try {
       const to = decodeNaddr(address);
@@ -47422,7 +47552,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let looked = false;
     let asking = "";
     let taking = "";
-    const say3 = (text) => controls2.say(text);
+    const say3 = (text2) => controls2.say(text2);
     const model2 = items2.model;
     const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
     const still = (item) => () => {
@@ -47441,17 +47571,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       void now();
     };
     const fromCopy = async () => {
-      let text = "";
+      let text2 = "";
       const keyboard = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard) text = await keyboard.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
+      if (keyboard) text2 = await keyboard.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
       else {
         try {
-          text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
         } catch {
           return say3("What you copied couldn't be read here. Copy an item's address, allow this site to read what you copy, and press again.");
         }
       }
-      const item = itemIn(text);
+      const item = itemIn(text2);
       if (!item) return say3("That isn't an item's address. Copy one from the place that keeps the item, and press again.");
       const described = await items2.describe(item);
       if (!described) return say3("No description of that item could be found, so it wasn't put in your bag.");
@@ -51171,8 +51301,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var FADE_END = 0.45;
   var TOO_CLOSE = 1;
   var ARRIVAL_GAP = 1.4;
-  function textSprite(text, color, width) {
-    const lines = text.split("\n");
+  function textSprite(text2, color, width) {
+    const lines = text2.split("\n");
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
     canvas.height = 64 + lines.length * 72;
@@ -51193,7 +51323,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     sprite.scale.set(width, width * canvas.height / canvas.width, 1);
     return sprite;
   }
-  function speechSprite(text, width = 0.8) {
+  function speechSprite(text2, width = 0.8) {
     const FULL = 768;
     const PAD = 30;
     const LINE = 54;
@@ -51202,7 +51332,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const g = canvas.getContext("2d");
     const font = "500 42px system-ui, sans-serif";
     g.font = font;
-    const rows = wrapWords(text, (t) => g.measureText(t).width, FULL - PAD * 2, 5);
+    const rows = wrapWords(text2, (t) => g.measureText(t).width, FULL - PAD * 2, 5);
     const wide = Math.ceil(Math.max(80, ...rows.map((r) => g.measureText(r).width))) + PAD * 2;
     canvas.width = Math.min(FULL, wide);
     canvas.height = rows.length * LINE + PAD * 1.4 + TAIL;
@@ -51453,11 +51583,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       delete a.bubble;
       delete a.bubbleText;
     };
-    const showBubble = (a, text, seconds) => {
+    const showBubble = (a, text2, seconds) => {
       dropBubble(a);
       if (d.bubbles === false || !showsChat()) return;
-      a.bubble = speechSprite(text);
-      a.bubbleText = text;
+      a.bubble = speechSprite(text2);
+      a.bubbleText = text2;
       a.bubbleFrom = performance.now();
       a.bubbleUntil = a.bubbleFrom + seconds * 1e3;
       a.bubble.material.opacity = 0;
@@ -52522,9 +52652,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
 
   // packages/sdk/src/following.ts
   var PAGE2 = 24;
-  function keyIn(text) {
-    if (typeof text !== "string") return null;
-    const found2 = /npub1[02-9ac-hj-np-z]{58}/.exec(text)?.[0] ?? /\b[0-9a-f]{64}\b/i.exec(text)?.[0];
+  function keyIn(text2) {
+    if (typeof text2 !== "string") return null;
+    const found2 = /npub1[02-9ac-hj-np-z]{58}/.exec(text2)?.[0] ?? /\b[0-9a-f]{64}\b/i.exec(text2)?.[0];
     if (!found2) return null;
     try {
       return decodeNpub(found2);
@@ -52541,7 +52671,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let wasMe = null;
     let looked = false;
     const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
-    const say3 = (text) => controls2.say(text);
+    const say3 = (text2) => controls2.say(text2);
     const press = (pubkey, name, adding) => {
       const now = async () => {
         const done = await (adding ? f.people.follow(pubkey, name) : f.people.unfollow(pubkey, name));
@@ -52556,17 +52686,17 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const byKey = async () => {
       const me = f.pubkey();
       if (!me) return say3("Sign in to follow people: it is under You.");
-      let text = "";
+      let text2 = "";
       const keyboard = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard) text = await keyboard.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
+      if (keyboard) text2 = await keyboard.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
       else {
         try {
-          text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
         } catch {
           return say3("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
         }
       }
-      const key = keyIn(text);
+      const key = keyIn(text2);
       if (!key) return say3(keyboard ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
       if (key === me) return say3("That is your own key.");
       chosen = key;
@@ -52847,7 +52977,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return out.sort((a, b) => b.last.at - a.last.at);
       },
       thread: (peer) => threads().get(peer) ?? [],
-      async send(to, text, name = "") {
+      async send(to, text2, name = "") {
         const me = hand.pubkey();
         const them = name || "them";
         if (!me || !hand.ready()) return { ok: false, said: "Sign in to write to people." };
@@ -52859,7 +52989,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           const answered = !!asked && Object.values(asked.relays).some((said2) => said2 === "eose");
           return { ok: false, said: answered ? `${name || "They"} ${name ? "hasn't" : "haven't"} said where private messages reach them, so one can't be sent. Nothing was sent.` : "No relay could be reached. Nothing was sent." };
         }
-        const sealed = await hand.seal(to, text).catch(() => null);
+        const sealed = await hand.seal(to, text2).catch(() => null);
         if (!sealed) return { ok: false, said: "It couldn't be signed. Nothing was sent." };
         const t = now() / 1e3;
         const forThem = wrapSeal(sealed.seals[0], to, { now: t });
@@ -52916,7 +53046,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let wasMe = null;
     let fetching = false;
     const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
-    const say3 = (text) => controls2.say(text);
+    const say3 = (text2) => controls2.say(text2);
     const inHeadset = () => !!opts.presenting?.() && !!opts.panels;
     let panel = null;
     const closePanel = () => {
@@ -52938,7 +53068,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       g.fillRect(0, 0, W, H);
       g.textBaseline = "middle";
       g.textAlign = "left";
-      const measure = (text) => g.measureText(text).width;
+      const measure = (text2) => g.measureText(text2).width;
       g.fillStyle = t.ink;
       g.globalAlpha = 0.72;
       g.font = "27px system-ui, sans-serif";
@@ -53012,8 +53142,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             onPress: (_x2, y) => {
               if (y < (H - WRITE) / H || !opts.panels) return;
               const view2 = controls2.letters.view();
-              void opts.panels.keyboard.ask({ title: `Write to ${view2.with}. Only they can read it. Done sends it.`, maxLength: MESSAGE_LIMITS.chars, multiline: true }).then((text) => {
-                const trouble = text ? controls2.letters.send(text) : null;
+              void opts.panels.keyboard.ask({ title: `Write to ${view2.with}. Only they can read it. Done sends it.`, maxLength: MESSAGE_LIMITS.chars, multiline: true }).then((text2) => {
+                const trouble = text2 ? controls2.letters.send(text2) : null;
                 if (trouble) say3(trouble);
               });
             },
@@ -53038,7 +53168,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       controls2.letters.attach({
         with: () => nameOf(pubkey),
         lines: () => m.thread(pubkey).map((x) => ({ key: x.id, mine: x.from !== pubkey, who: nameOf(x.from), text: x.text, at: x.at })),
-        send: (text) => m.send(pubkey, text, profiles.get(pubkey)?.name ?? ""),
+        send: (text2) => m.send(pubkey, text2, profiles.get(pubkey)?.name ?? ""),
         seen: () => m.seen(pubkey)
       });
       if (inHeadset()) {
@@ -53195,9 +53325,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let invited = roomNameFromHash(location.hash);
     let busy = false;
     let last = invited ? "You were invited to a private room. Joining shows your IP address to the others in it." : "Joining lets you see and hear others here. It shows your IP address to them.";
-    const tell2 = (text) => {
-      last = text;
-      controls2.say(text);
+    const tell2 = (text2) => {
+      last = text2;
+      controls2.say(text2);
     };
     const status = () => {
       const s = presence3.session;
@@ -53241,7 +53371,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         hand: {
           pubkey: signedInHere,
           ready: () => worldSigner().more.includes("messages"),
-          seal: (to, text) => worldSigner().seal(to, text),
+          seal: (to, text2) => worldSigner().seal(to, text2),
           open: (wrap) => worldSigner().unwrap(wrap),
           reach: (relays) => worldSigner().reach(relays)
         },
@@ -53254,6 +53384,54 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     });
     let followsKept = null;
     const follows = () => followsKept ?? (followsKept = opts.follows ?? worldFollows());
+    const TIP_AMOUNTS = [21, 100, 500];
+    const tipper = opts.tip === null ? null : opts.tip ?? ((o) => worldSigner().tip(o));
+    let tipping = null;
+    const sendTip = (to, name, sats) => {
+      const host = notes2.host?.() ?? worldSigner().host ?? "your sign-in address";
+      if (opts.presenting?.() ?? presence3.presenting) return tell2(`${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
+      tipping = null;
+      tell2(`${host} is asking: ${sats} sats to ${name}. Say yes there, and it goes.`);
+      if (!tipper) return;
+      void tipper({ sats, ...to ? { to } : {} }).catch(() => false).then((went) => tell2(went ? `${sats} sats went to ${name}.` : `The tip to ${name} didn't go.`));
+      refresh();
+    };
+    const tipRows = (key, section, to, name, ask) => {
+      const rows = [{ id: `${key}-tip` }];
+      controls2.add({
+        id: `${key}-tip`,
+        section,
+        icon: "key",
+        on: () => tipping === (to ?? "world"),
+        label: ask,
+        short: "Tip",
+        act: () => {
+          tipping = tipping === (to ?? "world") ? null : to ?? "world";
+          refresh();
+        }
+      });
+      if (tipping === (to ?? "world")) {
+        for (const sats of TIP_AMOUNTS) {
+          rows.push({ id: `${key}-tip-${sats}` });
+          controls2.add({ id: `${key}-tip-${sats}`, section, icon: "check", label: `${sats} sats to ${name}`, act: () => sendTip(to, name, sats) });
+        }
+      }
+      return rows;
+    };
+    let takesTips = opts.tipsWorld ?? false;
+    if (opts.tipsWorld === void 0 && typeof fetch === "function") {
+      void fetch("/.well-known/nswp.json", { cache: "no-cache" }).then((r) => r.ok ? r.json() : null).then((file) => {
+        takesTips = !!cleanLightningAddress(file?.tip);
+        if (takesTips) refresh();
+      }).catch(() => void 0);
+    }
+    let worldTipRows = [];
+    const tendWorldTip = () => {
+      for (const id of worldTipRows) controls2.remove(id);
+      worldTipRows = [];
+      if (!tipper || !takesTips || !follows().pubkey()) return;
+      worldTipRows = tipRows("world", "travel", null, "this world", "Tip this world").map((r) => r.id);
+    };
     const following = addFollowingControls(controls2, {
       follows: follows(),
       ...opts.noteRelays ? { relays: opts.noteRelays } : {},
@@ -53284,6 +53462,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       tendChat();
       tendFeed();
       people2();
+      tendWorldTip();
       remember();
     };
     const remember = () => {
@@ -53488,6 +53667,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         const them = who2.identity;
         extras.push("person-write");
         controls2.add({ id: "person-write", section: "people", icon: "chat", label: `Write to ${who2.name}, privately`, act: () => messaging.write(them) });
+        if (tipper) for (const row of tipRows("person", "people", them, who2.name, `Send ${who2.name} a tip`)) extras.push(row.id);
       }
       if (who2) {
         extras.push("person-mute", "person-music", "person-block");
@@ -53590,7 +53770,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       g.fillRect(0, 0, CHAT_W, CHAT_H);
       g.textBaseline = "middle";
       const ROW = 46;
-      const measure = (text) => g.measureText(text).width;
+      const measure = (text2) => g.measureText(text2).width;
       let y = CHAT_H - WRITE_H - 18;
       for (let i = view2.lines.length - 1; i >= 0; i--) {
         const line = view2.lines[i];
@@ -53649,8 +53829,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     const writeInHeadset = () => {
       if (!opts.panels || !controls2.chat.view().ready) return;
-      void opts.panels.keyboard.ask({ title: "Write to the room. Done sends it.", maxLength: CHAT_LIMITS.chars }).then((text) => {
-        const trouble = text ? controls2.chat.send(text) : null;
+      void opts.panels.keyboard.ask({ title: "Write to the room. Done sends it.", maxLength: CHAT_LIMITS.chars }).then((text2) => {
+        const trouble = text2 ? controls2.chat.send(text2) : null;
         if (trouble) tell2(trouble);
       });
     };
@@ -53697,8 +53877,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       closeChatPanel();
       if (!s) return;
       controls2.chat.attach(
-        (text) => {
-          const how = s.say(text);
+        (text2) => {
+          const how = s.say(text2);
           if (how === "slow") return "That is a lot at once. Wait a moment, then send it again.";
           if (how === "said" && s.members.length === 0) controls2.chat.add({ note: true, text: "Nobody else is in the room yet, so nobody read that." });
           return null;
@@ -53812,7 +53992,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       g.textBaseline = "middle";
       g.textAlign = "left";
       const ROW = 44;
-      const measure = (text) => g.measureText(text).width;
+      const measure = (text2) => g.measureText(text2).width;
       g.font = "30px system-ui, sans-serif";
       g.fillStyle = t.ink;
       g.globalAlpha = 0.72;
@@ -53832,10 +54012,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       g.fillText("Send out a post", CHAT_W / 2, FEED_LEAD + (WRITE_H - 32) / 2);
       g.textAlign = "left";
       let y = FEED_LEAD + WRITE_H;
-      const say3 = (text) => {
+      const say3 = (text2) => {
         g.font = "italic 30px system-ui, sans-serif";
         g.globalAlpha = 0.7;
-        wrapWords(text, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
+        wrapWords(text2, measure, CHAT_W - 56, 3).forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 0.5)));
         g.globalAlpha = 1;
         y += ROW * 2;
       };
@@ -53878,8 +54058,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             aspect: CHAT_W / CHAT_H,
             onPress: (_x2, y) => {
               if (y < FEED_LEAD / CHAT_H || y > (FEED_LEAD + WRITE_H) / CHAT_H || !opts.panels) return;
-              void opts.panels.keyboard.ask({ title: "Write a post. Done sends it out, for anyone to read.", maxLength: CHAT_LIMITS.chars }).then((text) => {
-                const trouble = text ? controls2.feed.send(text) : null;
+              void opts.panels.keyboard.ask({ title: "Write a post. Done sends it out, for anyone to read.", maxLength: CHAT_LIMITS.chars }).then((text2) => {
+                const trouble = text2 ? controls2.feed.send(text2) : null;
                 if (trouble) tell2(trouble);
               });
             },
@@ -54444,9 +54624,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   // packages/sdk/src/engine.ts
   var VERSION = 14;
   var KIT = KIT_VERSION;
-  var read5 = (text) => {
+  var read5 = (text2) => {
     try {
-      const v2 = typeof text === "string" && text ? JSON.parse(text) : text;
+      const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
       return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
     } catch {
       return {};
@@ -54504,8 +54684,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     play("cross");
     void room2.leave(to).then(going, going);
   }
-  function stateOf(text) {
-    const s = read5(text);
+  function stateOf(text2) {
+    const s = read5(text2);
     const room3 = travellingNow();
     const joined = s.joined === true || room3.joined === true;
     const blocked = [...Array.isArray(s.blocked) ? s.blocked.filter((k) => typeof k === "string") : [], ...room3.blocked ?? []];

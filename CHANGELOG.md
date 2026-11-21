@@ -2,6 +2,17 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.69.0
+
+Tips, and the first of buying.
+
+- **A tip, from a person's card.** Select someone who came by name, "Send … a tip", and one of three amounts (21, 100, 500 sats). The world says who and how much and nothing more (`signer.tip`): the visitor's sign-in address finds that person's lightning address in their own profile, shows the name with the address beside it, and pays at their press. Nothing is owned afterwards and nobody takes a share.
+- **"Tip this world",** in Travel, where the world's own `/.well-known/nswp.json` names an address for tips (`tip`, a new field; `world.json` gains `tip`). The sign-in address reads the address from that file at the world's own address. No reference world names one yet.
+- **`signer.buy(listing)` and `signer.have(listing)`** (NSWP-10, "Tips, buying, and receipts"). The sign-in address runs the purchase and keeps the receipt; a world never signs as the buyer. What comes back is checked here whatever else checked it.
+- **`readReceipt`** in the core: one check of a selling service's receipt, the same for every world. Signed by a service on the kit's list (BitUnlock, by the key in its own signed policy; the list is frozen, and not a world's to add to), in the form the kit knows, for the listing asked about, the visitor's own, not run out.
+- **"Your purchases, at …"** in the You tab, where the visitor's client can show the sign-in address's panel (`mode: "library"`).
+- Nothing in the kit sells anything yet, and nothing treats a bare payment as a purchase.
+
 ## 0.68.0
 
 - **"Your files, at …" in the You tab,** where the visitor's client can show the sign-in address's panel (`filesAction`): their own file browser, opened over the world (`mode: "files"`). The world sees none of it: a world is handed a file only when the visitor picks one for it. Hidden where there is no panel.
