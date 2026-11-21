@@ -8,14 +8,17 @@ is how they stay one system, written down on 2026-11-21 when the owner said:
 
 | Session | Its project | It decides |
 |---|---|---|
-| **NSWP** (the orchestrator) | This repository (the protocol, the kit, the reference worlds), BitPortal the website, the world template | The kit and the protocol; what the others are asked to build to; what is recorded as decided |
+| **The orchestrator** (the NSWP session) | No code of its own to build. It holds the plans, the board and the list of what waits on the owner; reviews and merges what the builders hand it for this repository and BitPortal; vendors the kit; releases the sites on the owner's word | What the others are asked to build to; what is recorded as decided; what is merged here |
+| **NSWP builder** | This repository: the protocol, the kit, the reference worlds | How its brief is built; nothing that changes a decision of the owner's |
+| **BitPortal** (was "Bitportal VR") | BitPortal the website, and what was learnt on a headset | How a feature it is briefed on is built |
 | **Bitlogin** | The sign-in address: accounts, the signer, the wallet, the buy and tip screens | Everything in its own code and its own releases |
 | **Bitunlock** | The selling service: listings, payments, receipts | Everything in its own code and its own releases |
-| **Bitportal VR** | Headsets: staying in VR, world to world | What a headset test shows; proposes changes to the kit by pull request |
 | **BitBrowser** | A headset browser of our own (a fork) | Everything in its own code; nothing of payments or identity (`browser/spec.md`, section 2a) |
 
-The owner speaks to any of them. The orchestrator answers the others'
-questions of design, keeps the plans current, and says what is live.
+The owner works through the orchestrator (2026-11-21: "id like to work
+through you directly"): they say what they want, it is written as a brief
+for the session whose project it is, and their questions and answers pass
+the same way. The orchestrator says what is live.
 
 ## The rules
 
@@ -38,26 +41,37 @@ questions of design, keeps the plans current, and says what is live.
    other session reports", and "nobody has tried" are three different
    things, and each is written as what it is. A report of work names the
    commit, the command, how it exited and how many things it looked at.
-5. **Anything that goes out is the owner's word, given in the session that
-   does it.** A push that deploys, a release, a migration of live data, a
-   live setting, a publish to public relays, a new thing at a host. One
-   session never carries another's approval: it agrees the exact step with
-   the session that will do it, and tells the owner the question is waiting
-   there, with a recommendation. Questions of design are answered between
-   sessions freely.
+5. **A pull request that is ready doesn't wait for the owner** (the owner,
+   2026-11-21: "tell all the sessions not to wait for me to approve a PR.
+   If its ready commit, push and merge it"). Ready means the gate exited 0.
+   In this repository and BitPortal's, a session hands its pull request to
+   the orchestrator to merge, since it vendors and releases what goes in;
+   that is not a wait on the owner. **What goes live is still the owner's
+   own word:** a deploy, a release, a migration of live data, a live
+   setting, a publish to public relays, a new thing at a host, a licence.
+   Where a merge is itself a release, it is asked like a release. The
+   orchestrator's recommendation is never that word. The owner's words are
+   passed on exactly, quoted, with what they were asked and the exact step
+   beside them. A session whose own rules need a step said to it directly
+   says so, and the owner goes there.
 6. **Merged is not live.** Every report to the owner begins with what the
    public sites are on.
-7. **One list of what waits on the owner.** The orchestrator keeps it: each
-   open decision, which session to answer it in, and a recommendation. A
-   session that asks the owner something tells the orchestrator, so it is on
-   the list.
+7. **Questions for the owner go through the orchestrator** (the owner,
+   2026-11-21: "I told them to ask me questions through you and you will
+   answer them for me"). A session sends its question and its own
+   recommendation. A question of design or order the orchestrator answers
+   itself, and says the answer is its own. Anything under rule 5 it puts to
+   the owner, on the one list it keeps of what waits on them, and sends
+   back their words. Nobody asks the owner the same thing in two places.
 8. **A message says what it wants.** Its first line says whether it needs
    an answer or is for information. One report for one stage of work, not
    several. Before asking again, a session checks whether the answer is
    already waiting for it: messages cross.
-9. **What a session runs for the others is said.** The local sites, the
-   stand-in relay and the sandbox each belong to one session and stop with
-   it. Whoever runs one says so, and says before it changes under someone.
+9. **What is shared doesn't belong to a session.** The local sites and the
+   stand-in relay run as services on the owner's machine
+   (`trials/README.md`), so they outlive every session. What one session
+   does run for the others (the sandbox) it says so, and says before it
+   changes under someone.
 10. **A big piece of work starts in a session of its own,** from a written
     brief that names the files and what done looks like. The orchestrator
     reviews it; it doesn't hold everything in its own head.

@@ -511,8 +511,26 @@ throwaway keys, pretend sats, shares switched on there only):
   Once the maker took their agreement back, no new sale: refused, with
   the reason.
 - An ordinary sale with no shares, on the same build: exactly as before.
-- Not yet: BitLogin's screen showing and paying shares; BitUnlock's
-  reporting; anything real.
+- BitLogin's own side (its session's report): its port of the rule
+  passes the kit's examples; its buyer code and then its real screen
+  bought that listing from the sandbox, the plan held to the listing and
+  to the service's signed fee, paid in the order 21, 105, 210, 1,764; and
+  four dishonest plans from a pretend service (a wrong amount, a wrong
+  key, a share dropped, a person added) were each refused.
+- All three together: a world built on the kit, in the local page that
+  keeps the screen, asks BitLogin's real screen for that listing. Every
+  share is on the screen before the press ("for the world", "for the
+  client", "for the maker", with BitUnlock's fee); one press; the kit
+  believes the receipt for that listing and that buyer; asked again, it
+  is held. Run by BitLogin's session with this session's sealed set-up,
+  in which the page that keeps the screen names a client's key in the
+  scripted browser only. This session read the record.
+- BitUnlock's reporting: what was paid to others in a seller's totals,
+  and everyone an order paid in its order list, so that an order doesn't
+  read as settled while a share is unpaid (its session's report).
+- Not yet: the daily figures and the two screens in BitUnlock;
+  anything real. Shares are switched off everywhere but that sandbox and
+  BitLogin's local copy.
 
 **What is left out on purpose:** shares in ecash (needed for anything
 under 10 sats, section 9); a share that changes after a listing is
@@ -842,9 +860,14 @@ corrected:
     that every name that can be registered can be handed over. Deployed
     to the live service the same day, on the owner's word in BitUnlock's
     own session, as the commit that was live plus only this fix
-    (581d674), and merged to its main. Nobody has looked at whether a
-    real buyer was caught by it before the fix: that look reads live
-    data, and waits for the owner.
+    (581d674), and merged to its main. Nobody was caught by it: with the
+    owner's leave, BitUnlock's session read the live service's records
+    the same day (reading only) and found 43 listings, none with a space
+    in its name, and 432 orders, none on such a listing. The same family
+    of fault turned up once more that day, in the order reports' filter
+    (reading only; nobody lost anything), and was fixed too: the rule
+    for a listing's name had been written out separately in several
+    places.
 11. **Collecting BitUnlock's fee from a seller later has never run with
     real money.** Fees are recorded on the live service for sellers
     billed that way; the invoice that collects them had not been issued
@@ -1509,9 +1532,6 @@ Not decided by the above, and each needed before the part it belongs to:
   Nothing in the kit asks to buy yet (the paid front room is next), and
   nothing is listed, so opening it now adds a live path nobody is
   watching and gives a visitor nothing.
-- **A look at BitUnlock's live data** for anyone caught by the fault
-  with a name with a space (section 11.1a, 10): the owner's word, in
-  BitUnlock's session.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;

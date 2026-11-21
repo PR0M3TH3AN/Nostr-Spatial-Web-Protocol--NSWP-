@@ -1,0 +1,12 @@
+[Unit]
+Description=NSWP stand-in relay for tests (memory only; ports 4313 and 4314)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documents/GitHub/Nostr-Spatial-Web-Protocol--NSWP-
+ExecStart=%h/.local/bin/node trials/stand-in-relay.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
