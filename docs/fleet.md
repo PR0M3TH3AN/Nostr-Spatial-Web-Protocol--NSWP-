@@ -36,7 +36,8 @@ questions of design, keeps the plans current, and says what is live.
    said.
 4. **A report says what was seen and what wasn't.** "Passed here", "the
    other session reports", and "nobody has tried" are three different
-   things, and each is written as what it is.
+   things, and each is written as what it is. A report of work names the
+   commit, the command, how it exited and how many things it looked at.
 5. **Anything that goes out is the owner's word, given in the session that
    does it.** A push that deploys, a release, a migration of live data, a
    live setting, a publish to public relays, a new thing at a host. One
@@ -60,6 +61,57 @@ questions of design, keeps the plans current, and says what is live.
 10. **A big piece of work starts in a session of its own,** from a written
     brief that names the files and what done looks like. The orchestrator
     reviews it; it doesn't hold everything in its own head.
+
+## What a bigger fleet taught us
+
+The owner runs a fleet of about fifty sessions on another project, and sent
+the orchestrator to ask its dispatcher what had gone wrong there
+(2026-11-21). These are the lessons taken, and the few left for later.
+
+- **Messages cross whatever you do, so make it not matter.** Every piece of
+  work between sessions is a row on the board (below). A message points at a
+  row; when two messages cross, both sides read the row again, not their
+  memory of a message.
+- **Done means on `main`, and seen there.** Not "committed", not "on my
+  branch", not "queued". For something a visitor uses, done means live, and
+  checked on the live site.
+- **A report that can be believed has four things:** the commit, the exact
+  command, how it exited (its exit code, never a count pulled out of its
+  output), and how many things it looked at ("no failures" out of how many?).
+  Whoever receives it checks one thing cheaply: that the commit is on `main`,
+  or the line is there, or the page answers.
+- **A check that can't fail proves nothing.** When a check is added, it is
+  seen to go red once on something wrong.
+- **"Passed every check" is not "works".** Both of today's real faults were
+  found by trying the thing end to end, not by a check.
+- **Memory holds lessons, never the state of things.** What is live, what is
+  waiting and who is doing what go stale in hours. They are read from the
+  board, the repository and the live sites each time. A rule is read again
+  from the file before it is acted on.
+- **Whoever orchestrates doesn't also build.** A session that does both
+  fills with diffs and loses the thread. (Rule 10 was the start of this.)
+- **Keep this file short.** A rule goes in only if it is easy to break, and
+  each new one should push an old one out or earn its place.
+
+Left for when five becomes more: a queue for merging, a set rhythm of
+reminders, reports made by a tool. At five, the board and a look at `main`
+do most of it.
+
+Small things worth knowing on this machine, each learnt the hard way there:
+close every browser a script opens; never stop a program by matching its
+name (the command doing the matching matches itself); never `git stash` in a
+repository with worktrees (the stack is shared); never `git add -A` while
+something else is still writing files.
+
+## The board
+
+One page holds what is waiting on the owner and what each session has in
+hand: who, where it stands, what it waits on, and what stands behind that.
+The orchestrator keeps it. It is the owner's private page ("Waiting on you"),
+with a small store behind it; a session that can't read it asks the
+orchestrator, and says the row's name in any message about that work. The
+plans in `docs/plans/` stay the record of what was decided and why; the board
+is only what is in motion.
 
 ## Trying things together
 
