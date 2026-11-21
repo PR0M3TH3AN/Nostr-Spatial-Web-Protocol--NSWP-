@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.66.0";
+  var KIT_VERSION = "0.67.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6230,6 +6230,45 @@ ${roomName}`)));
     return !!hash && bytesToHex(sha256(hexToBytes(preimage))) === hash;
   }
 
+  // packages/core/dist/files.js
+  var FILE_LIMITS = {
+    /** The most a file passed this way may hold: 25 MB. */
+    bytes: 25 * 1024 * 1024,
+    /** The most characters in its name. */
+    name: 120
+  };
+  var hidden = (c) => c < 32 || c >= 127 && c <= 159 || c >= 8203 && c <= 8207 || c >= 8232 && c <= 8238 || c >= 8288 && c <= 8297 || c === 65279;
+  function cleanFileName(input) {
+    if (typeof input !== "string")
+      return "";
+    const tidy = Array.from(input.slice(0, 2e3), (ch) => hidden(ch.codePointAt(0) ?? 0) || ch === "/" || ch === "\\" ? " " : ch).join("").split(" ").filter(Boolean).join(" ");
+    const cut = [...tidy].slice(0, FILE_LIMITS.name).join("").trim();
+    return cut === "." || cut === ".." ? "" : cut;
+  }
+  function cleanFileType(input) {
+    const type = typeof input === "string" ? input.trim().toLowerCase() : "";
+    return type.length <= 100 && /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(type) ? type : "application/octet-stream";
+  }
+  function cleanFileBytes(input) {
+    const bytes = input instanceof Uint8Array ? input : input instanceof ArrayBuffer ? new Uint8Array(input) : null;
+    return bytes && bytes.length > 0 && bytes.length <= FILE_LIMITS.bytes ? bytes : null;
+  }
+  function cleanFileUrl(input) {
+    if (typeof input !== "string" || input.length > 500)
+      return "";
+    try {
+      const u = new URL(input);
+      return u.protocol === "https:" && !u.username && !u.password && !u.search && !u.hash && /\/[0-9a-f]{64}(\.[a-z0-9]{1,10})?$/.test(u.pathname) ? u.href : "";
+    } catch {
+      return "";
+    }
+  }
+  function fileUrlNames(url, bytes) {
+    const clean3 = cleanFileUrl(url);
+    const named2 = /\/([0-9a-f]{64})(\.[a-z0-9]{1,10})?$/.exec(clean3 ? new URL(clean3).pathname : "")?.[1];
+    return !!named2 && named2 === bytesToHex(sha256(bytes));
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -6344,6 +6383,12 @@ ${roomName}`)));
       return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
     if (d.t === "paid")
       return { t: "paid", id: d.id, ...isHex64(d.preimage) ? { preimage: d.preimage } : {} };
+    if (d.t === "file-saved" && cleanFileName(d.name) && typeof d.size === "number" && Number.isSafeInteger(d.size) && d.size >= 0) {
+      const kept2 = d.private !== false;
+      return { t: "file-saved", id: d.id, name: cleanFileName(d.name), size: d.size, private: kept2, ...!kept2 && cleanFileUrl(d.url) ? { url: cleanFileUrl(d.url) } : {} };
+    }
+    if (d.t === "file" && cleanFileName(d.name) && cleanFileBytes(d.bytes))
+      return { t: "file", id: d.id, name: cleanFileName(d.name), type: cleanFileType(d.type), bytes: cleanFileBytes(d.bytes), ...cleanFileUrl(d.url) ? { url: cleanFileUrl(d.url) } : {} };
     if (d.t === "signed" && d.event && typeof d.event === "object")
       return { t: "signed", id: d.id, event: d.event };
     if (d.t === "found" && isHex64(d.d))
@@ -43252,6 +43297,8 @@ void main() {
     propose: () => Promise.resolve(null),
     wallet: () => Promise.resolve(null),
     pay: () => Promise.resolve(null),
+    saveFile: () => Promise.resolve(null),
+    pickFile: () => Promise.resolve(null),
     panel: false,
     lock() {
     },
@@ -43523,6 +43570,22 @@ void main() {
       wallet() {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
         return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null);
+      },
+      saveFile(file) {
+        const name2 = cleanFileName(file.name);
+        const bytes = cleanFileBytes(file.bytes);
+        if (state !== "unlocked" || !frame2 || !name2 || !bytes) return Promise.resolve(null);
+        return putToThem(
+          { t: "file-save", id: `fs${++n}`, name: name2, type: cleanFileType(file.type), bytes, private: file.private !== false },
+          (reply) => (
+            // An address is passed on only for a public file, and only if it names exactly the bytes that were offered.
+            reply.t === "file-saved" ? { name: reply.name, size: reply.size, private: reply.private, url: !reply.private && reply.url && fileUrlNames(reply.url, bytes) ? reply.url : null } : null
+          )
+        );
+      },
+      pickFile() {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        return putToThem({ t: "file-pick", id: `fp${++n}` }, (reply) => reply.t === "file" ? { name: reply.name, type: reply.type, bytes: reply.bytes, url: reply.url && fileUrlNames(reply.url, reply.bytes) ? reply.url : null } : null);
       },
       pay(invoice) {
         const asked = cleanInvoice(invoice);
@@ -45106,9 +45169,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const high = id.getBoundingClientRect();
         return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
       },
-      setHidden(hidden) {
-        host.hidden = hidden;
-        if (hidden) {
+      setHidden(hidden2) {
+        host.hidden = hidden2;
+        if (hidden2) {
           setOpen(false);
           setChatOpen(false);
         }
@@ -51873,9 +51936,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       people() {
         return [...avatars.values()].map((a) => a.member);
       },
-      setHidden(hidden) {
-        hiddenAll = hidden;
-        if (hidden) for (const a of avatars.values()) a.root.visible = false;
+      setHidden(hidden2) {
+        hiddenAll = hidden2;
+        if (hidden2) for (const a of avatars.values()) a.root.visible = false;
       },
       setVolume(volume) {
         voiceVolume = Math.min(1, Math.max(0, volume));
