@@ -77,6 +77,22 @@ the same way. The orchestrator says what is live.
 10. **A big piece of work starts in a session of its own,** from a written
     brief that names the files and what done looks like. The orchestrator
     reviews it; it doesn't hold everything in its own head.
+11. **Where there is one of something, it is given, not taken.** Two
+    sessions took kit 0.72.0 on the same afternoon (2026-11-21), and one
+    had to change every mention of it. So a pull request that changes the
+    kit leaves `KIT_VERSION` alone and writes its changelog entry under a
+    heading `## Next` at the top of `CHANGELOG.md` (the check reads the
+    newest numbered heading, so this passes). The orchestrator gives it
+    the next number after the merge, in a pull request of its own: the
+    heading, `KIT_VERSION`, the engine script rebuilt. The same holds for
+    anything else two sessions could both reach for: an event kind, a tag's
+    name, a port. It is asked for before it is used, and written on the
+    board.
+12. **A branch handed over to be merged is left alone** until it is merged
+    or answered. The orchestrator gates the exact commit it was told of and
+    merges only if the head is still that commit; a push meanwhile means the
+    gate is run twice (it happened, 2026-11-21). A fix found after handing
+    over is said in a message first.
 
 ## What a bigger fleet taught us
 
