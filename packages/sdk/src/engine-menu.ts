@@ -34,7 +34,7 @@ import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
-import { accountAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldSaves } from "./ui/identity.js";
+import { accountAction, filesAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldSaves } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -177,6 +177,7 @@ export function menu(options?: string): string {
       // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
       signerAction(c, { presenting: () => vr.presenting }),
       accountAction(c, { presenting: () => vr.presenting }),
+      filesAction(c, { presenting: () => vr.presenting }),
     );
     // Who they are here has changed: the engine is told, so it can write a name over them or take it away.
     onHereAs(() => tell({ type: "who", ...whoNow() }));

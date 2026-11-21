@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.68.0
+
+- **"Your files, at …" in the You tab,** where the visitor's client can show the sign-in address's panel (`filesAction`): their own file browser, opened over the world (`mode: "files"`). The world sees none of it: a world is handed a file only when the visitor picks one for it. Hidden where there is no panel.
+- A panel can also be asked for at the visitor's wallet (`mode: "wallet"`). Nothing in the menu asks for it yet: their account page leads there.
+
 ## 0.67.0
 
 A world can offer a file to be saved, and ask to be handed one.

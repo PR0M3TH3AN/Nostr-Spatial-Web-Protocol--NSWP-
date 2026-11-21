@@ -47,10 +47,9 @@ describe("a world in its client's frame, and the sign-in address's panel", () =>
     expect(frame.clientSignsInAt()).toBe("https://signin.example");
     expect(frame.askClientForSignIn()).toBe(true);
     expect(frame.askClientForSignIn("switch")).toBe(true);
-    expect(sent("sign-in")).toEqual([
-      { nswp: "sign-in", mode: "ask" },
-      { nswp: "sign-in", mode: "switch" },
-    ]);
+    // And for the sign-in address's own pages, each by its name: their account, their files, their wallet.
+    for (const mode of ["account", "files", "wallet"] as const) expect(frame.askClientForSignIn(mode)).toBe(true);
+    expect(sent("sign-in")).toEqual([{ nswp: "sign-in", mode: "ask" }, { nswp: "sign-in", mode: "switch" }, { nswp: "sign-in", mode: "account" }, { nswp: "sign-in", mode: "files" }, { nswp: "sign-in", mode: "wallet" }]);
   });
 
   it("says where its menu is, so the panel can be drawn in its place", () => {

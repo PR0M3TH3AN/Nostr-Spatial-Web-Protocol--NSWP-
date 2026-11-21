@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.67.0";
+  var KIT_VERSION = "0.68.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -43895,6 +43895,23 @@ void main() {
       }
     };
   }
+  function filesAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "files",
+      section: "you",
+      icon: "list",
+      label: () => `Your files, at ${signer.host ?? "your sign-in address"}`,
+      short: "Files",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("files")) controls2.say(`${host} couldn't be shown here just now.`);
+      }
+    };
+  }
 
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
@@ -45742,7 +45759,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
         // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
         signerAction(c, { presenting: () => vr.presenting }),
-        accountAction(c, { presenting: () => vr.presenting })
+        accountAction(c, { presenting: () => vr.presenting }),
+        filesAction(c, { presenting: () => vr.presenting })
       );
       onHereAs(() => tell({ type: "who", ...whoNow() }));
     }
