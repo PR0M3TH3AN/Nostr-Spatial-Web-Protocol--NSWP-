@@ -1407,9 +1407,23 @@ machine, with throwaway keys and pretend sats):
   the world is handed a receipt; asked again, it is held, and a second
   purchase returns the same receipt with no second order. Reported by
   BitLogin's session; not run from here.
-- Not tried by anyone: a world built on the kit asking BitLogin's real
-  screen (each has been tried against the sandbox, not yet together); a
-  tip or a purchase with real sats; anything in a headset.
+- **All three together** (2026-11-21): a world built on the kit, in the
+  local page that keeps the screen, asks BitLogin's real screen to buy
+  the test listing from BitUnlock's sandbox. The screen shows 500 sats,
+  490 to the seller, the fee of 10, and that the sats are pretend; one
+  press pays both; the kit, told to believe the sandbox, is handed a
+  receipt and believes it, for that listing and that buyer; asked again,
+  the world is told it is held. Run by BitLogin's session with this
+  session's sealed set-up (nothing but this machine reached, every relay a
+  stand-in) and its own throwaway account; this session checked the
+  record. The first run looked like a failure and was two mistakes in
+  this session's own script.
+- What the runs found and had fixed: the live service taking payment for
+  a name with a space and never handing it over (section 11.1a, 10);
+  BitLogin's screen taking 53 seconds to appear, from waiting on the
+  slowest relay for every question; "It lasts 1 day" for an hour.
+- Not tried by anyone: a tip or a purchase with real sats; anything in a
+  headset.
 
 Two things BitLogin's "finish it later" rests on, which BitUnlock's
 session has pinned with tests: an unpaid part is given a new invoice
@@ -1469,10 +1483,13 @@ Not decided by the above, and each needed before the part it belongs to:
 - **Who may be paid a share** (section 8.1): anyone who registers, or
   only those the owner approves. Recommended: approved, to begin, as
   selling itself is by invitation (12). Built as a setting either way.
-- **Opening buying at bitlogin.network** (45): the owner's word.
-  BitLogin's half is released there (2026-11-21) with buying closed, and
-  BitUnlock's fix is live. What is left before asking: the kit and
-  BitLogin's real screen tried together.
+- **Opening buying at bitlogin.network** (45): the owner's word, in
+  BitLogin's session. Both things it waited on are done: the kit and
+  BitLogin's real screen have bought together, and BitUnlock's fix is
+  live. Recommended all the same: not until something is for sale.
+  Nothing in the kit asks to buy yet (the paid front room is next), and
+  nothing is listed, so opening it now adds a live path nobody is
+  watching and gives a visitor nothing.
 - **A look at BitUnlock's live data** for anyone caught by the fault
   with a name with a space (section 11.1a, 10): the owner's word, in
   BitUnlock's session.
