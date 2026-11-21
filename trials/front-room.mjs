@@ -200,7 +200,9 @@ async function visit({ who = null, believe = true, hands = null, clock = false }
       await page.waitForTimeout(1500);
       await page.reload();
     } else await page.goto(`${WORLD}/`);
-    await until(() => page.evaluate(() => window.__nswpTest?.state?.ready === true && !!window.__nswpTest.gate?.() && window.__nswpTest.gate().state !== "checking"));
+    // Ready means the gate has made up its mind and has read what is for sale. On a busy machine the first asking of
+    // relays can run out of time; the gate asks again by itself twenty seconds on, so this waits for that.
+    await until(() => page.evaluate(() => { const g = window.__nswpTest?.state?.ready === true ? window.__nswpTest.gate?.() : null; return !!g && g.state !== "checking" && (g.offers.length > 0 || Object.values(g.unread).some((why) => why !== "no-relay" && why !== "not-found")); }), 120000);
     // What the world says from here on is kept.
     await page.evaluate(() => { window.__said = []; window.__nswpTest.controls.onSay((t) => window.__said.push(t)); });
   };
