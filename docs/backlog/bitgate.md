@@ -56,7 +56,9 @@ agrees, as a matter of design):
   asking another service during a quote. BitGate's lists are copied into
   a table it reads.
 
-## BitGate's first report (2026-11-21, its session; to be committed in its own repository)
+## BitGate's first report (2026-11-21, its session)
+
+In its repository: [the report](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/reports/2026-11-21-integration-report.md) and [the answer on lists](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/reports/2026-11-21-lists-answer.md) (merged at 8396b05). The list shape is specified in [`docs/governance-lists.md`](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/governance-lists.md) with vectors (merged at 3594470); a follow-up adds a root the reader is given and refuses lists dated in the future.
 
 What it does today: targets are a person, an event or an address; one
 evaluation gives four answers (ranking, visibility, interaction,
