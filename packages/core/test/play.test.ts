@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BAG_KIND, bagIn, bagTints, buildDid, buildHit, buildItem, buildShot, buildState, buildTints, changeBag, cleanAsk, cleanTints, parseTints, tintBag, TINT_PALETTE, createRate, finalizeEvent, GRAVITY, ITEM_BOX_CSP, ITEM_BOX_HTML, meetsPerson, parseDid, parseHit, parseItem, parseShot, parseState, PLAY_LIMITS, shotAt, struck } from "../src/index.js";
+import { BAG_KIND, bagIn, bagTints, buildDid, buildHit, buildItem, buildShot, buildState, buildTints, changeBag, cleanAsk, cleanTints, parseTints, tintBag, TINT_PALETTE, createRate, finalizeEvent, GRAVITY, ITEM_BOX_CSP, itemBoxCsp, ITEM_BOX_HTML, meetsPerson, parseDid, parseHit, parseItem, parseShot, parseState, PLAY_LIMITS, shotAt, struck } from "../src/index.js";
 import { TEST_KEY_1 } from "./helpers.js";
 
 const H = (c: string) => c.repeat(64);
@@ -102,6 +102,13 @@ describe("what an item's script may ask for", () => {
   it("runs in a page that may reach nothing", () => {
     expect(ITEM_BOX_CSP).toContain("default-src 'none'");
     for (const open of ["connect-src", "unsafe-eval", "http", "*"]) expect(ITEM_BOX_CSP).not.toContain(open);
+    // In a world that its visitors' client may show in a frame, the box lets that one client be above it too, and
+    // nothing else about it changes: it still reaches nothing.
+    const framed = itemBoxCsp("https://client.example");
+    expect(framed).toBe(`${ITEM_BOX_CSP} https://client.example`);
+    expect(framed.split(";").filter((part) => !part.trim().startsWith("frame-ancestors")).join(";")).toBe(ITEM_BOX_CSP.split(";").filter((part) => !part.trim().startsWith("frame-ancestors")).join(";"));
+    // Anything that isn't one plain https site leaves the box as it was: never a scheme, a star, a path or a second rule.
+    for (const no of [undefined, "", "*", "https:", "http://client.example", "https://client.example/", "https://client.example; connect-src *", "https://a.example https://b.example", "'unsafe-inline'"]) expect(itemBoxCsp(no as string), String(no)).toBe(ITEM_BOX_CSP);
     // The page itself names no address, loads nothing, and keeps nothing.
     expect(ITEM_BOX_HTML).not.toMatch(/https?:|src=|localStorage|indexedDB\.|document\.cookie/);
     expect(ITEM_BOX_HTML).toContain("worker.terminate()");

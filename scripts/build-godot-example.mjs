@@ -56,7 +56,7 @@ cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: 
 // The example is also a public world, The Foundry (engines/godot/world.json; sites/sites.json, "elsewhere"). What
 // makes an export a world is beside the page, and has nothing to do with Godot: the file that says which key may
 // announce it, and what its host is to send with each file.
-const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP, stampPage } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 const world = JSON.parse(readFileSync(join(project, "world.json"), "utf8"));
 mkdirSync(join(dist, ".well-known"), { recursive: true });
@@ -133,7 +133,7 @@ writeFileSync(
             { key: "Permissions-Policy", value: "xr-spatial-tracking=(self), microphone=(self), camera=()" },
           ],
         },
-        ...(carries ? [{ source: "/item-box\\.html", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "no-referrer" }, { key: "Content-Security-Policy", value: ITEM_BOX_CSP }] }] : []),
+        ...(carries ? [{ source: "/item-box\\.html", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "no-referrer" }, { key: "Content-Security-Policy", value: itemBoxCsp(new URL(config.airlock).origin) }] }] : []),
         // Always the latest (protocol/09-what-a-world-owes.md): a browser asks before it uses a copy it kept. The
         // engine is forty megabytes, and a browser that has the latest is told so in a few bytes.
         { source: "/((?!previews/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] },

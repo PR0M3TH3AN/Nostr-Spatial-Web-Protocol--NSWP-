@@ -15,13 +15,36 @@
  *   do with each (`cleanAsk`, `ITEM_ASKS`).
  *
  * A world that draws items serves this page as `item-box.html` with exactly `ITEM_BOX_CSP` as its
- * Content-Security-Policy, and with none of its other content rules, which would stop the page's own script.
+ * Content-Security-Policy (or `itemBoxCsp(client)`, where the world lets its visitors' client show it in a frame:
+ * the box must then let that client be above it too), and with none of its other content rules, which would stop
+ * the page's own script.
  * Where it isn't served, or is served under other rules, scripts simply don't run there, and items are shapes.
  */
 import { ITEM_EVENTS, SCRIPT_LIMITS } from "./play.js";
 
 /** The content rules the box's page must be served with. Nothing may be reached; only its own inline script and the worker it makes may run. */
 export const ITEM_BOX_CSP = "default-src 'none'; script-src 'unsafe-inline' blob:; worker-src blob:; frame-ancestors 'self'";
+
+/**
+ * The box's rules for a world that may itself be shown in a frame by its visitors' client (protocol/02-doors.md,
+ * "A client that keeps the screen"). A page says who may be above it all the way up: the box is in its world, and
+ * the world is then in the client, so the box has to let that client be above it too or it won't start there.
+ *
+ * Only who may be above the box changes, and only by that one site: what the box may reach is the same nothing.
+ * `client` is the client's origin, as the world's own rules name it. Anything that isn't one https origin, and
+ * no client at all, gives the box's ordinary rules.
+ */
+export function itemBoxCsp(client?: string): string {
+  if (typeof client !== "string") return ITEM_BOX_CSP;
+  let origin = "";
+  try {
+    const at = new URL(client);
+    if (at.protocol === "https:" && at.origin === client && /^https:\/\/[a-z0-9.-]+(:\d+)?$/.test(client)) origin = at.origin;
+  } catch {
+    /* not an address */
+  }
+  return origin ? `${ITEM_BOX_CSP} ${origin}` : ITEM_BOX_CSP;
+}
 
 /** What goes round a script inside the worker: the one object it is given, and nothing else. */
 const WORKER_HEAD = `"use strict";
