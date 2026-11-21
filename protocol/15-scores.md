@@ -29,6 +29,10 @@ A world may keep score on one board or several. Each has:
 
 A score is a whole number from 0 up. What it counts is the board's to say.
 
+A world that has a board says so in its announcement, with the capability
+`scores` ([NSWP-01](01-worlds.md), "What a world offers"), so that its door
+can say it keeps scores. Which boards it has is not said there yet.
+
 ## The note
 
 A score is addressable (experimental kind **37306**), one for each person
@@ -148,6 +152,7 @@ addScoreControls(controls, { scores, signedIn: () => worldSigner().state === "un
 - **A checked score.** A service a reader trusts looks at how a score was
   made and signs that it holds. A client then shows that score as checked,
   by whom. Nothing above changes: a check is laid over a claim.
-- **A world saying its boards in its announcement,** so that a visitor's own
-  client can show a board on the world's door before they go in.
+- **A world naming its boards in its announcement,** so that a visitor's own
+  client can show a board on the world's door before they go in. (That it
+  has one, it says already: the capability `scores`.)
 - **Boards across worlds,** which need someone to say which worlds count.

@@ -11,7 +11,9 @@
   "capabilities": [
     "webxr",
     "spatial-portals",
-    "rooms"
+    "rooms",
+    "voice",
+    "avatars"
   ],
   "comfort": {
     "locomotion": "teleport",

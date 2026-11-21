@@ -55,7 +55,14 @@ export const CAPABILITIES = [
   "spatial-portals",
   "avatars",
   "entry-assertion",
-  "payments", "home"] as const;
+  "payments",
+  "home",
+  // What a door can say a world offers (offers.ts): each a claim, like the rest, and said only by a world that does it.
+  "saves",
+  "scores",
+  "achievements",
+  "tips",
+] as const;
 /**
  * Who a world is for, as its maker says. `kids`: made for children. `general`:
  * not made for children, and nothing an adult would need warning about.

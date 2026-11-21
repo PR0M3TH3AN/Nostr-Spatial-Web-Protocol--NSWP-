@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENT_KIND, AVATAR_KIND, BAG_KIND, CURATION_SET_KIND, MESSAGE_RELAYS_KIND, RATING_KIND, SCORE_KIND, SAVE_KIND, ENTRY_ASSERTION_KIND, HOME_LAYOUT_KIND, ITEM_KIND, LOOK_PARTS, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, WORLD_KIND } from "../src/index.js";
+import { CAPABILITIES, ACHIEVEMENT_KIND, AVATAR_KIND, BAG_KIND, CURATION_SET_KIND, MESSAGE_RELAYS_KIND, RATING_KIND, SCORE_KIND, SAVE_KIND, ENTRY_ASSERTION_KIND, HOME_LAYOUT_KIND, ITEM_KIND, LOOK_PARTS, ROOM_PASS_KIND, ROOM_SIGNAL_KIND, WORLD_KIND } from "../src/index.js";
 
 const root = join(import.meta.dirname, "../../..");
 const dir = join(root, "protocol");
@@ -15,6 +15,11 @@ const read = (file: string) => readFileSync(join(dir, file), "utf8");
 const links = (text: string) => [...text.matchAll(/\]\(([^)#\s]+)(?:#[^)]*)?\)/g)].map((m) => m[1]!).filter((l) => !/^[a-z]+:/.test(l));
 
 describe("the protocol documents", () => {
+  it("01-worlds.md: the capabilities it lists are the library's, no more and no fewer", () => {
+    const row = /^\| `capability` \| \| ([^.|]+)/m.exec(read("01-worlds.md"))?.[1] ?? "";
+    expect([...row.matchAll(/`([a-z-]+)`/g)].map((m) => m[1])).toEqual([...CAPABILITIES]);
+  });
+
   it("are all there, numbered without gaps", () => {
     expect(docs.map((f) => f.slice(0, 2))).toEqual(docs.map((_, i) => String(i + 1).padStart(2, "0")));
     expect(docs.length).toBeGreaterThanOrEqual(9);

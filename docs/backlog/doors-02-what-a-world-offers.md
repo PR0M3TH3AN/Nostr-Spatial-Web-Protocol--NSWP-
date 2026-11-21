@@ -6,7 +6,7 @@
   not supported. And when the user hovers over one it should display in game
   text explaining what that icon means."
 - **Who:** BitPortal's session, both halves.
-- **State:** briefed
+- **State:** building. Stage 1 of three is written: the four capabilities, the list and its words, read by one function (`worldOffers` in `@nswp/core`). Not yet: the icons on the kit's doorway and the words when one is pointed at; BitPortal's room using them. Nothing is published: the announcements on relays are as they were.
 
 ## What is already there
 
@@ -25,6 +25,38 @@ today without contacting the world, and what would have to be added to the
 announcement for the rest. Adding to that list changes the protocol, and a
 world says the new things only once its announcement is signed and published
 again, which is the owner's word each time.
+
+## Decided (the orchestrator, 2026-11-21, on the builder's report)
+
+- **Lit only for what the announcement says in so many words.** Nothing by a
+  default, by a guess from another capability, or because every kit world
+  has it. Items are lit only where the `items` tag says `allowed` or `play`:
+  a world with no tag still allows them, and its door doesn't say so.
+- **Four capabilities added:** `saves`, `scores`, `achievements`, `tips`.
+  Nothing new for buying: `payments` and the `a … access` tag say it.
+- **Seven on a door, in this order:** in a headset; people; voice; items;
+  saves; scores and achievements as one; paid to enter (lit only when the
+  announcement names an `access` listing). Tips, doors onward, looks, going
+  by name and home are for a door's details (doors-03).
+- **The reference worlds' own files say everything they do** (voice, looks,
+  items; the Arcade its saves, scores and achievements), so that what is
+  published on the owner's word is true. Signing and publishing them again
+  is the owner's word, asked once, after the kit's half is merged. Until
+  then the live doors show mostly dark icons, which is honest.
+- `items` came out of the capability row of `protocol/01-worlds.md`: it was
+  never on the library's list. A test now holds that row to the list.
+
+**One thing built differently from the brief's example, and why.** The
+brief gave "Nothing is saved here" as the words for a dark icon. A dark
+icon means the announcement doesn't say, not that the world doesn't: the
+Arcade keeps saves today and its announcement on relays won't say so until
+it is published again. So every dark line reads "It doesn't say …", and the
+only flat "no" is `items` `none`, which a world does say.
+
+**Not done in stage 1, and not checked by the builder:** the Starter Home's
+file (`sites/template-demo/world.json`, the template's) and the Foundry's
+(`engines/godot/world.json`) are as they were. What those two really offer
+should be said by whoever knows them.
 
 ## The kit's half
 
