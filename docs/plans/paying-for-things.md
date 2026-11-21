@@ -511,8 +511,26 @@ throwaway keys, pretend sats, shares switched on there only):
   Once the maker took their agreement back, no new sale: refused, with
   the reason.
 - An ordinary sale with no shares, on the same build: exactly as before.
-- Not yet: BitLogin's screen showing and paying shares; BitUnlock's
-  reporting; anything real.
+- BitLogin's own side (its session's report): its port of the rule
+  passes the kit's examples; its buyer code and then its real screen
+  bought that listing from the sandbox, the plan held to the listing and
+  to the service's signed fee, paid in the order 21, 105, 210, 1,764; and
+  four dishonest plans from a pretend service (a wrong amount, a wrong
+  key, a share dropped, a person added) were each refused.
+- All three together: a world built on the kit, in the local page that
+  keeps the screen, asks BitLogin's real screen for that listing. Every
+  share is on the screen before the press ("for the world", "for the
+  client", "for the maker", with BitUnlock's fee); one press; the kit
+  believes the receipt for that listing and that buyer; asked again, it
+  is held. Run by BitLogin's session with this session's sealed set-up,
+  in which the page that keeps the screen names a client's key in the
+  scripted browser only. This session read the record.
+- BitUnlock's reporting: what was paid to others in a seller's totals,
+  and everyone an order paid in its order list, so that an order doesn't
+  read as settled while a share is unpaid (its session's report).
+- Not yet: the daily figures and the two screens in BitUnlock;
+  anything real. Shares are switched off everywhere but that sandbox and
+  BitLogin's local copy.
 
 **What is left out on purpose:** shares in ecash (needed for anything
 under 10 sats, section 9); a share that changes after a listing is
