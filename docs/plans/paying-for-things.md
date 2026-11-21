@@ -4,7 +4,10 @@
 is built unless a line says "exists". It is to be argued with, and the
 open questions at the end are the owner's to answer before any of it is
 started. Section 10 (why a world would sell this way and not its own) was
-added the same day, at the owner's asking.
+added the same day, at the owner's asking. The questions it ended with
+were answered the same day too ("Yes to all of these", to the answers
+recommended): section 13 is what was decided, and section 14 what is
+still open. **Decided is not built: nothing here is built yet.**
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -201,14 +204,16 @@ done the same way everywhere. A receipt is good only if all of these hold:
 - it has not run out;
 - it has not been taken back. This is the one check that needs BitUnlock,
   so it is asked at most every few minutes and remembered. If BitUnlock
-  can't be reached, a receipt that was good a moment ago stays good for a
-  short while and then is treated as unknown: section 13, question 9.
+  can't be reached, a receipt that was last found good within a day stays
+  good; after that the door is shut until BitUnlock answers (decided:
+  someone who paid isn't locked out by a short outage).
 
 ### 6.1 How shut is a paid door
 
 A world is a static website. Its files are public, so a check made by the
 page can be got round by someone who means to. Three strengths, chosen per
-listing:
+listing. Decided: `soft` and `sealed` are both in the design, and `soft`
+is built first.
 
 - **`soft`.** The world and every honest client enforce it. Right for
   anything whose worth is in being there with others or being seen to own
@@ -229,11 +234,15 @@ listing:
   listing lasts forever.
 - **At the door.** The Airlock shows it on the plate before the crossing:
   "Paid: 500 sats, once" or, for someone who holds a receipt, "You have
-  this". It asks BitLogin with `have`. It does not sell: the purchase is
-  made in the world, or in the panel from the plate (question 4).
+  this". It asks BitLogin with `have`. Decided: a world can be bought
+  wherever it is shown: from the plate, in BitPortal's room, and inside
+  the world. Always the same `buy`, on BitLogin's page.
 - **On arrival.** The world asks `have`. With a good receipt it opens.
   Without one it shows a small front room (the kit's, the same in every
   world) with what it costs and two ways on: buy, or go home.
+- **A taste first, if the world wants.** Decided: a paid world may have a
+  part anyone can walk into before being asked. It is the world's choice,
+  and a world with none goes straight to the front room.
 - **Coming back** on another device: sign in, and BitLogin finds the
   receipt again from BitUnlock or from the account's own copy.
 
@@ -247,8 +256,8 @@ listing:
   this version nothing renews by itself: every payment is a press (rule
   3). The world may remind someone whose time is nearly up.
 - **Running out mid-visit.** Checked on arrival and every few minutes. On
-  running out the visitor is told, given a moment, and shown the front
-  room again. Nobody is thrown out mid-sentence.
+  running out the visitor is told, given a couple of minutes, and shown
+  the front room again (decided). Nobody is thrown out mid-sentence.
 
 ### 7.3 A paid item
 
@@ -259,7 +268,9 @@ listing:
   an item, their client shows the others their receipt beside it. Every
   client checks it (section 6) before drawing the item in that person's
   hand. No receipt, no item, however their own client is behaving. This is
-  what makes a soft gate enough for items.
+  what makes a soft gate enough for items. Decided: showing the receipt is
+  the ordinary way, and a person may turn it off for themselves, in which
+  case they are not seen holding the item.
 - **Where it is sold.** Anywhere the item is shown: a stall in a world, a
   shelf in BitPortal's room, the bag itself. The same `buy` in each.
 - A world still has the last word on items (NSWP-17): one that has none,
@@ -280,8 +291,13 @@ unlocked by it.
    asks it for an invoice of that amount.
 3. `signer.pay(invoice)`. BitLogin shows who it is for and how much, and
    pays at a press. The kit already checks the proof of payment.
-4. The tipper is told it went. The other person is told only if this
-   version includes a notice (question 11).
+4. The tipper is told it went. The other person is told privately, and
+   nobody else is (decided). How, is still to settle: the plainest way is
+   the note that travels with the payment, where their wallet takes one
+   (section 14).
+
+A tip is one sat at least. No share of a tip goes to anyone but the
+person tipped (decided).
 
 A tip is a bare payment, so the limit on bare payments applies to it
 (section 10.2): a tip over the visitor's own limit is turned down by
@@ -297,7 +313,7 @@ The same, to an address the world's announcement names (`tip`), or its
 publisher's profile where it names none. Offered in the world's menu and
 on its door plate.
 
-No share is taken from a tip (question 10).
+No share is taken from a tip (decided).
 
 ## 8. Shares: who gets what
 
@@ -311,7 +327,10 @@ A share for **the client** is the one that pays BitPortal, or any other
 client: it names no key, and goes to whichever client brought the buyer.
 The client says who it is when the purchase starts. The seller agrees to
 it by signing it into the listing, so nothing is ever taken that the
-seller didn't offer. Which clients may claim it is question 6.
+seller didn't offer. Decided: each seller chooses the number, and
+BitPortal publishes the rate it suggests; any client may claim it, so
+this stays open to other clients; and where no client brought the buyer
+(a world opened by its own address), that share goes to the seller.
 
 **What the buyer sees.** Every share, by label and name, before paying.
 
@@ -333,8 +352,9 @@ marketplace's cut is not its business. Three ways:
   is needed, the seller holds other people's money for a while, and the
   others must trust the seller.
 
-The recommendation is A, and until it is decided, sales to a single
-seller only.
+Decided: A. And decided with it: a lawyer is asked about shares between
+several parties, and about the client's share, before either is built.
+Until then, sales to a single seller only. Nothing else waits on it.
 
 **Small shares.** Over Lightning each share is its own payment, with its
 own cost and its own least amount. A 2% share of a 100-sat item is 2 sats
@@ -342,7 +362,9 @@ and may cost more than that to send. So either small shares are added up
 and paid later (which is holding money, and so is out), or they need
 ecash, where a payment can be cut into pieces of any size, each locked to
 its recipient's key. That is the real case for BitUnlock taking ecash
-(section 9), and question 7.
+(section 9). Decided: over Lightning no share may be under about 10 sats,
+and a listing whose shares would be smaller can't be sold until ecash is
+in.
 
 ## 9. Wallets: what pays and what is paid
 
@@ -368,8 +390,14 @@ moment and breaks rule 2. The alternative proposed here:
 - the recipient collects it whenever they like.
 
 It needs a short list of mints BitUnlock will accept, since a token is
-only worth what its mint is good for. And it needs BitLogin's wallet to be
-able to send a locked token, which it can't yet.
+only worth what its mint is good for. Decided: the list is short and the
+owner approves each mint on it, beginning with one or two well-known
+ones. And it needs BitLogin's wallet to be able to send a locked token,
+which it can't yet.
+
+Decided for the first real sale: BitLogin's wallet is marked Experimental
+and has never held real sats, so the first thing sold for real costs
+under about 1,000 sats.
 
 ## 10. Why a world would sell this way, and not its own
 
@@ -404,8 +432,8 @@ and that it is worth more the more worlds and people there are.
    that, by choice.
 6. **Being trusted.** A rating from someone who really bought the thing; a
    record of refunds given; a seller's history. None of these can exist
-   without receipts. (A "bought it" mark on a rating, NSWP-13, is proposed
-   here and not built: question 20.)
+   without receipts. (A "bought it" mark on a rating, NSWP-13, is wanted
+   and decided for later, not for the first version.)
 7. **A maker's share that follows the item.** Whoever sells an item, in
    whatever world, the maker's share is in its listing, and no world can
    list an item without its maker's signature (section 4).
@@ -426,8 +454,10 @@ wall.
 
 - **A small take.** What a seller gives up in all (BitUnlock's fee, and
   the client's share where they offer one) has to stay well under what it
-  would cost them to build and run their own. The numbers are the owner's
-  (questions 6, 15 and 22).
+  would cost them to build and run their own. Decided: the aim is under a
+  tenth of the price all in, far under what an app store takes; and
+  BitUnlock's own fee stays as it is, so that two prices aren't changed
+  at once.
 - **Say what is true, and block nothing.**
   - On BitLogin's page, a bare payment reads: "A payment to this world. No
     receipt: nothing will be recorded as yours." A purchase reads what
@@ -442,10 +472,15 @@ wall.
   raise it for themselves on BitLogin's page. A purchase has no such
   limit, because the visitor has been shown a signed listing and gets a
   receipt. The reason is safety (a world that asks for a great deal, for
-  nothing), and it also sends anything of worth the receipted way. The
-  amount is question 19.
+  nothing), and it also sends anything of worth the receipted way.
+  Decided: 1,000 sats by default, one limit for tips and everything else.
+- **Nothing is "paid" without a receipt.** Decided: the kit gives a world
+  no way to treat a bare payment as a purchase. A world that wants to
+  sell its own way can still build that itself; the kit doesn't help.
 - **What BitPortal puts forward is the owner's.** Its shelves, its starter
-  set and its lists show what the owner chooses, as they do now.
+  set and its lists show what the owner chooses, as they do now. Decided:
+  worlds that sell with receipts are put first, and the others are not
+  left out.
 
 ### 10.3 Staying open
 
@@ -453,8 +488,10 @@ wall.
   and anyone may implement them.
 - The issuers a client trusts are a list. Another service that signs
   receipts the same way can be added to it, by a client or by a visitor
-  for themselves (question 21). BitUnlock is first on the list because it
-  is there, not because the list is closed.
+  for themselves. Decided: a visitor may add an issuer for themselves; a
+  world may not name its own; and the list BitPortal ships with is short
+  and the owner's. BitUnlock is first on it because it is there, not
+  because the list is closed.
 - `pay` stays. Nothing in the kit refuses to run in a world that sells its
   own way, and nothing hides such a world.
 
@@ -465,8 +502,7 @@ wall.
 - **BitPortal does not hold people's balances.** Running the mint that
   everyone's wallet uses would be the strongest hold of all, and it means
   holding other people's money, with everything that follows in law. If it
-  is ever wanted it is its own decision (question 8), not a step toward
-  this.
+  is ever wanted it is its own decision, not a step toward this.
 - **No world is marked down for selling its own way.** It goes without the
   marks, the travel and the trust above, and that is all.
 
@@ -517,83 +553,95 @@ So that more can be added without starting again:
   can be sold, which gates there are), so widening one is a decision
   someone makes and not an accident.
 
-## 13. Open questions for the owner
+## 13. What the owner decided
+
+On 2026-11-21 the owner was given a recommended answer to each of the
+twenty-four questions this proposal first ended with, and said: "Yes to
+all of these." These are those answers. Each is also written into the
+section it belongs to.
 
 **Gates and access**
 
-1. **How shut should a paid world be** in this version: `soft` only, or
-   `sealed` as well? (Recommended: both in the design, `soft` built first.)
-2. **When a subscription runs out mid-visit:** a notice and a moment, as
-   proposed, or straight to the front room?
-3. **May a world be paid and still let people look?** A free front room is
-   proposed. Should a world be able to show a taste of itself (a preview
-   area) before asking?
-4. **Where is a world bought:** only on arrival inside it, or also from
-   the door's plate at the Airlock and in BitPortal's room, before going?
+1. **How shut a paid world is:** `soft` and `sealed` both designed, `soft`
+   built first.
+2. **A subscription that runs out mid-visit:** a notice and a couple of
+   minutes, then the front room.
+3. **A taste before paying:** allowed, the world's choice.
+4. **Where a world is bought:** wherever it is shown: the door's plate,
+   BitPortal's room, and inside the world.
 
 **Money**
 
-5. **How are shares paid:** A (BitUnlock, one leg each), B (BitLogin pays
-   them) or C (the seller pays the others on)? A is recommended and is the
-   one BitUnlock's notes say needs a legal view first.
-6. **BitPortal's own share.** Is it a number each seller chooses, a number
-   BitPortal asks for and a seller accepts or not, or fixed? May any
-   client claim the client's share, or only ones the seller names? What
-   happens to it when someone opens a world directly, with no client?
-7. **Small shares.** Is there a least price, or a least share, below which
-   something can't be sold over Lightning? Or does this wait for ecash?
-8. **Mints.** Which ecash mints would BitUnlock accept, and who decides?
-   BitLogin's wallet is marked Experimental and has never held real sats:
-   is that acceptable for the first real sale?
-9. **If BitUnlock can't be reached** when a receipt needs its
-   taken-back check: let the visitor in for a while, or keep the door
-   shut?
-10. **Tips.** No share taken from a tip, as proposed? A least and a most?
-11. **Does the person tipped get told,** and does anyone else see it?
+5. **How shares are paid:** by BitUnlock, one payment to each recipient.
+   A single seller only until question 16 is answered.
+6. **The client's share:** each seller chooses it, BitPortal publishes a
+   suggested rate, any client may claim it, and with no client it goes to
+   the seller.
+7. **Small shares:** none under about 10 sats over Lightning; smaller
+   waits for ecash.
+8. **Mints:** a short list the owner approves, one or two well-known ones
+   to begin. The first real sale stays under about 1,000 sats while the
+   wallet is Experimental.
+9. **BitUnlock out of reach:** a receipt found good within the last day
+   stays good; after that the door is shut.
+10. **Tips:** no share taken. One sat at least; at most, the limit on a
+    bare payment.
+11. **The person tipped is told,** privately. Nobody else is.
 
 **Selling**
 
-12. **Who can sell.** Any world and any item maker, by signing up with
-    BitUnlock themselves? Or only BitPortal's own things to begin with?
-13. **Refunds.** Who can give one, and does a refunded receipt stop
-    working at once?
-14. **Privacy.** A receipt shown beside a held item tells everyone in the
-    room that this key bought it. Acceptable, or should that be something
-    a person can turn off (and then not be seen holding it)?
-15. **BitUnlock's fee** stays as it is (1%, 10-sat floor, billed to the
-    seller), or changes for things sold in worlds?
-16. **Law.** Shares between several parties, and a share for the client
-    that brought the buyer, are the parts most likely to need a lawyer's
-    view. Who asks, and does anything wait on the answer?
+12. **Who can sell:** BitPortal's own things first; then a few world
+    makers by invitation; then anyone.
+13. **Refunds:** the seller gives them, as BitUnlock records now; a
+    refunded receipt stops at the next check. No refund screen in the
+    game yet.
+14. **A receipt beside a held item:** the ordinary way, and a person may
+    turn it off, and is then not seen holding it.
+15. **BitUnlock's fee:** unchanged.
+16. **Law:** the owner asks a lawyer about shares between several parties
+    and about the client's share, before either is built. Everything else
+    goes ahead.
 
 **Order of work**
 
-17. **What comes first?** Proposed: tips (needs nothing new from
-    BitUnlock); then receipts in BitLogin with `buy` and `have`, tried
-    against BitUnlock's sandbox with pretend sats; then a paid world; then
-    paid items; then shares and ecash once questions 5 to 8 are answered.
-18. **Which thing is sold first for real?** One real product gives all of
-    this something to be tested against: a world, a pass, or one of
-    BitPortal's own items.
+17. Tips. Then receipts, `buy` and `have`, against BitUnlock's sandbox
+    with pretend sats. Then a paid world. Then paid items. Then shares and
+    ecash.
+18. **The first thing sold for real:** one of BitPortal's own items, at a
+    low price. The owner is then seller, maker and client at once, so
+    nothing waits on shares or on anyone else.
 
-**Keeping worlds inside (section 10)**
+**Keeping worlds inside**
 
-19. **The limit on a bare payment.** What should it be by default: 100
-    sats, 1,000, more? One limit for everything, or one for tips and one
-    for anything else a world asks?
-20. **A "bought it" mark on ratings.** In this version, or later? It makes
-    receipts worth having for sellers and it shows, a little, who bought
-    what (question 14).
-21. **Who else may sign receipts.** May a visitor add an issuer for
-    themselves? May a world name its own? What does a service have to
-    show to be on the list BitPortal ships with?
-22. **How much a seller gives up in all.** Is there a number it must stay
-    under (BitUnlock's fee and the client's share together) for this to
-    be the obvious choice?
-23. **What BitPortal puts forward.** Should its own shelves and lists show
-    only worlds that sell with receipts, prefer them, or make no
-    difference?
-24. **Should a bare payment be allowed to open anything?** The kit could
-    refuse to treat a bare payment as a purchase at all (no "paid" state
-    without a receipt). It would be a rule for honest worlds only, and a
-    clear one.
+19. **The limit on a bare payment:** 1,000 sats by default, one limit for
+    everything, the visitor's to raise.
+20. **A "bought it" mark on ratings:** later.
+21. **Other issuers:** a visitor may add one for themselves; a world may
+    not name its own; BitPortal's own list is short and the owner's.
+22. **What a seller gives up in all:** aimed under a tenth of the price.
+23. **What BitPortal puts forward:** worlds that sell with receipts first;
+    the others not left out.
+24. **A bare payment opens nothing:** the kit treats nothing as paid
+    without a receipt.
+
+## 14. Still open
+
+Not decided by the above, and each needed before the part it belongs to:
+
+- **The lawyer's answer** (question 16). Shares and the client's share
+  wait for it.
+- **The rate BitPortal suggests** for the client's share, and whether the
+  aim of "under a tenth" is a rule or a hope.
+- **Which mints,** by name.
+- **How the person tipped is told.** The note that travels with a
+  Lightning payment is the plainest way and depends on their wallet
+  showing it. A private Nostr message is the other, and would be sent by
+  the tipper's own key.
+- **Whether a renewal runs on** from the old receipt's end or from the day
+  it was bought: BitUnlock's to confirm.
+- **The names** of the new tags and requests, which BitUnlock's, BitLogin's
+  and NSWP's sessions settle between them.
+- **Whose things are first** when "a few world makers by invitation"
+  begins, and what they are told.
+- **What a world's taste is allowed to be:** a separate room, a time
+  limit, or anything the world likes.
