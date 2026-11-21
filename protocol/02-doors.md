@@ -144,6 +144,28 @@ A door inside a world is drawn by that world, so it is the world's word. The
 Airlock repeats it, which is why the Airlock is never skipped for a
 destination the visitor hasn't approved.
 
+### What a door says its destination offers
+
+A door may show what the place it leads to offers
+([NSWP-01](01-worlds.md), "What a world offers"): beside it, lit for what
+that place's announcement says and dark for what it doesn't. Whoever draws
+the door learns it in one of two ways, and no other:
+
+- **From the destination's announcement,** where the page has it: a client's
+  lobby or room does, and so does a world that looks its doors' destinations
+  up on relays.
+- **From the builder's own word, checked when the world is built:** the
+  world's build is handed what each destination's announcement says, and
+  refuses to go on if what it was handed differs from the announcement it
+  can read. A door then says what was true when it was placed.
+
+**Never by asking the destination's site when a door is looked at.** Looking
+at a door contacts nobody; only going through one does.
+
+What is shown is the same list in the same order, with the same words,
+whichever way it was learned and whoever draws it. Pointing at one of them
+says what it means; it is never something to press.
+
 ## How many actions a crossing takes
 
 Between two sites a browser shows flat pages, and it won't let a page start a

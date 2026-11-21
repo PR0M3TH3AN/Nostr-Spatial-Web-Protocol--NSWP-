@@ -6,16 +6,16 @@
   "signer": "https://bitlogin.network/",
   "keepsItems": "grove",
   "worlds": {
-    "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "category": "experience", "was": "nswp-world-a.vercel.app" },
-    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "category": "social", "items": "allowed", "was": "nswp-world-b.vercel.app" },
-    "tour": { "d": "tour", "url": "https://tour.bitblocks.network/", "category": "experience" },
-    "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/", "category": "game" },
-    "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/", "category": "experience" },
-    "workshop": { "d": "workshop", "url": "https://workshop.bitblocks.network/", "category": "experience" },
-    "library": { "d": "library", "url": "https://library.bitblocks.network/", "category": "site" }
+    "gallery": { "d": "nswp-reference-world-a", "url": "https://gallery.bitblocks.network/", "category": "experience", "was": "nswp-world-a.vercel.app", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" },
+    "grove": { "d": "nswp-reference-world-b", "url": "https://grove.bitblocks.network/", "category": "social", "items": "allowed", "was": "nswp-world-b.vercel.app", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"] },
+    "tour": { "d": "tour", "url": "https://tour.bitblocks.network/", "category": "experience", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" },
+    "arcade": { "d": "arcade", "url": "https://arcade.bitblocks.network/", "category": "game", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars", "saves", "scores", "achievements"], "items": "allowed" },
+    "observatory": { "d": "observatory", "url": "https://observatory.bitblocks.network/", "category": "experience", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" },
+    "workshop": { "d": "workshop", "url": "https://workshop.bitblocks.network/", "category": "experience", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" },
+    "library": { "d": "library", "url": "https://library.bitblocks.network/", "category": "site", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" }
   },
   "elsewhere": {
-    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "category": "experience", "was": "nswp-world-template.vercel.app" },
-    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry", "category": "experience", "items": "allowed" }
+    "starter": { "d": "starter", "url": "https://starter.bitblocks.network/", "title": "The Starter Home", "category": "experience", "was": "nswp-world-template.vercel.app", "modes": ["immersive-vr", "inline-3d"], "capabilities": ["webxr", "spatial-portals", "rooms", "voice", "avatars"], "items": "allowed" },
+    "foundry": { "d": "foundry", "url": "https://foundry.bitblocks.network/", "title": "The Foundry", "category": "experience", "items": "allowed", "modes": ["inline-3d"], "capabilities": ["spatial-portals", "rooms", "voice", "avatars"] }
   }
 }

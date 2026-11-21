@@ -20,6 +20,17 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "allowed";
   const ownCarried = (read.world ?? read).items ?? "allowed";
   if (carried !== ownCarried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its own world.json says "${ownCarried}". They must agree.`);
+  // And what it offers (NSWP-01, "What a world offers"): a door shows lit and dark tiles for the place it leads to,
+  // from what its own site was told, so that must be the place's own word, exactly: the same modes, the same
+  // capabilities, and the same word for items or the same silence. Saying nothing is not saying `allowed` here.
+  const place = config.worlds[name] ?? config.elsewhere[name];
+  const world = read.world ?? read;
+  for (const key of ["modes", "capabilities"]) {
+    if (JSON.stringify(place?.[key] ?? null) !== JSON.stringify(world[key] ?? null))
+      throw new Error(`sites.json says ${name}'s ${key} are ${JSON.stringify(place?.[key] ?? null)}, and its own world.json says ${JSON.stringify(world[key] ?? null)}. They must agree: copy the world's own.`);
+  }
+  if ((place?.items ?? null) !== (world.items ?? null))
+    throw new Error(`sites.json says ${name}'s items are ${JSON.stringify(place?.items ?? null)}, and its own world.json says ${JSON.stringify(world.items ?? null)}. They must agree, word for word or both silent.`);
   // And every world has the picture its doors show (protocol/04-previews.md): a 360° still, which is required.
   // `--before-pictures` builds without, which is how a new world's first one gets taken (`npm run previews`).
   if (!((read.world ?? read).previews ?? []).some((p) => p.type === "pano") && !process.argv.includes("--before-pictures"))
