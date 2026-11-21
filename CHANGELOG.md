@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.67.0
+
+A world can offer a file to be saved, and ask to be handed one.
+
+- **`signer.saveFile({ name, type, bytes, private })`** offers the visitor a file to keep among their own files, which their sign-in address keeps on servers they chose. They are shown where it would go and it is saved only at their press there (NSWP-10, "Asking the person": `file-save`, `file-saved`). Private, sealed so only they can read it, unless the world says otherwise.
+- **`signer.pickFile()`** asks them to hand this world one of their files: they browse their own, choose, and say yes (`file-pick`, `file`).
+- **A world gets two dialogs and nothing else.** It can't list their files, can't save without a press, and reads back what it saved only by asking.
+- **What crosses is tidied on the way** (`files.ts` in the core): a name with no path and nothing unseen in it, a type that is only a media type, bytes up to 25 MB, and an address passed on only for a public file and only when the hash in it is those bytes' own.
+- Nothing in the reference worlds saves or asks for a file yet.
+
 ## 0.66.0
 
 Deleting your own post, from inside a world.

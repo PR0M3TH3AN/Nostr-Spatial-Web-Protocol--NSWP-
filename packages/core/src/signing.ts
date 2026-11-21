@@ -23,6 +23,7 @@ import { worldCoordinate } from "./rating.js";
 import { cleanBoard, cleanScore, SCORE_LIMITS } from "./score.js";
 import { ACHIEVEMENT_LIMITS, cleanAchievementId } from "./achievement.js";
 import { cleanInvoice } from "./invoice.js";
+import { cleanFileBytes, cleanFileName, cleanFileType, cleanFileUrl } from "./files.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -231,7 +232,14 @@ export type SignerRequest =
    * Ask the person to pay this Lightning invoice, the same way. The world made the invoice; the sign-in address
    * shows them the amount and pays at their press. The world is told it was paid and nothing about their wallet.
    */
-  | { t: "pay"; id: string; invoice: string };
+  | { t: "pay"; id: string; invoice: string }
+  /**
+   * Offer the person a file to keep among their own files, the same way: the sign-in address shows them where it
+   * would go, and it is saved only at their press there. `private` (the default) is sealed so only they can read it.
+   */
+  | { t: "file-save"; id: string; name: string; type: string; bytes: Uint8Array; private: boolean }
+  /** Ask the person to hand this world one of their files, the same way: they choose it, and say yes. */
+  | { t: "file-pick"; id: string };
 
 /**
  * The careful kinds a world may put to its visitor, to be signed at their own press on the sign-in address's page:
@@ -289,6 +297,13 @@ export type SignerReply =
   | { t: "wallet"; id: string; uri: string }
   /** Answers `pay`, once the person has paid: with the payment's proof, where their wallet was given one. */
   | { t: "paid"; id: string; preimage?: string }
+  /**
+   * Answers `file-save`, once the person has saved it: under what name, how big, and whether privately. `url` is
+   * where it is kept, only if they kept it public. Never a folder, never a server for a private file, never a key.
+   */
+  | { t: "file-saved"; id: string; name: string; size: number; private: boolean; url?: string }
+  /** Answers `file-pick`, once the person has chosen one: the file itself, already opened if it was private. */
+  | { t: "file"; id: string; name: string; type: string; bytes: Uint8Array; url?: string }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -325,6 +340,8 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "propose" && d.event && typeof d.event === "object" && PROPOSE_KINDS.includes((d.event as { kind?: unknown }).kind as number)) return { t: "propose", id: d.id, event: d.event as { kind: number; content: string; tags: string[][] } };
   if (d.t === "wallet") return { t: "wallet", id: d.id };
   if (d.t === "pay" && cleanInvoice(d.invoice)) return { t: "pay", id: d.id, invoice: cleanInvoice(d.invoice) };
+  if (d.t === "file-pick") return { t: "file-pick", id: d.id };
+  if (d.t === "file-save" && cleanFileName(d.name) && cleanFileBytes(d.bytes)) return { t: "file-save", id: d.id, name: cleanFileName(d.name), type: cleanFileType(d.type), bytes: cleanFileBytes(d.bytes)!, private: d.private !== false };
   if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
     return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
   }
@@ -361,6 +378,12 @@ export function readSignerReply(data: unknown): SignerReply | null {
   if (d.t === "asking") return { t: "asking", id: d.id };
   if (d.t === "wallet" && cleanWalletUri(d.uri)) return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
   if (d.t === "paid") return { t: "paid", id: d.id, ...(isHex64(d.preimage) ? { preimage: d.preimage } : {}) };
+  if (d.t === "file-saved" && cleanFileName(d.name) && typeof d.size === "number" && Number.isSafeInteger(d.size) && d.size >= 0) {
+    // Private unless it says otherwise, and an address only for a public one.
+    const kept = d.private !== false;
+    return { t: "file-saved", id: d.id, name: cleanFileName(d.name), size: d.size, private: kept, ...(!kept && cleanFileUrl(d.url) ? { url: cleanFileUrl(d.url) } : {}) };
+  }
+  if (d.t === "file" && cleanFileName(d.name) && cleanFileBytes(d.bytes)) return { t: "file", id: d.id, name: cleanFileName(d.name), type: cleanFileType(d.type), bytes: cleanFileBytes(d.bytes)!, ...(cleanFileUrl(d.url) ? { url: cleanFileUrl(d.url) } : {}) };
   if (d.t === "signed" && d.event && typeof d.event === "object") return { t: "signed", id: d.id, event: d.event as NostrEvent };
   if (d.t === "found" && isHex64(d.d)) return { t: "found", id: d.id, d: d.d };
   if (d.t === "sealed" && d.message && typeof d.message === "object" && Array.isArray(d.seals) && d.seals.length === 2) return { t: "sealed", id: d.id, message: d.message as SealedMessage["message"], seals: d.seals as SealedMessage["seals"] };

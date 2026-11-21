@@ -16,7 +16,7 @@
  * is the client's own page, which this page can't read.
  */
 import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
-import { isAchievementAsked, cleanInvoice, cleanMessage, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { isAchievementAsked, cleanFileBytes, cleanFileName, cleanFileType, cleanInvoice, cleanMessage, fileUrlNames, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -98,6 +98,27 @@ export interface WorldSigner {
    * learns nothing else: no balance, no wallet, never a token.
    */
   pay(invoice: string): Promise<{ preimage: string | null; proven: boolean } | null>;
+  /**
+   * Offer the visitor a file to keep among their own files, kept by their
+   * sign-in address on servers they chose. Their sign-in address shows them
+   * where it would go (a folder of this world's, unless they choose
+   * another) and saves it only at their press there. `private`, the
+   * default, is sealed so that only they can read it. Call it from a
+   * press. Resolves null if they didn't save it; else with the name they
+   * saved it under, its size, whether privately, and `url`: where it is
+   * kept, only for a public file, and only if that address really names
+   * these bytes. A world can't list their files or read this one back: it
+   * asks for it with `pickFile`. At most 25 MB.
+   */
+  saveFile(file: { name: string; type?: string; bytes: Uint8Array | ArrayBuffer; private?: boolean }): Promise<{ name: string; size: number; private: boolean; url: string | null } | null>;
+  /**
+   * Ask the visitor to hand this world one of their files: they browse
+   * their own files on their sign-in address's page, choose one, and say
+   * yes. Call it from a press. Resolves with the file (already opened, if
+   * it was private), or null. What comes back is a stranger's file as far
+   * as the world's code is concerned: show it, never run it.
+   */
+  pickFile(): Promise<{ name: string; type: string; bytes: Uint8Array; url: string | null } | null>;
   /**
    * Whether `unlock()` shows a panel in the visitor's client rather than a
    * window: this world is in the frame of a client that has one, for this
@@ -213,6 +234,8 @@ const NONE: WorldSigner = {
   propose: () => Promise.resolve(null),
   wallet: () => Promise.resolve(null),
   pay: () => Promise.resolve(null),
+  saveFile: () => Promise.resolve(null),
+  pickFile: () => Promise.resolve(null),
   panel: false,
   lock() {},
   sign: async () => null,
@@ -538,6 +561,19 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     wallet() {
       if (state !== "unlocked" || !frame) return Promise.resolve(null);
       return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => (reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null));
+    },
+    saveFile(file) {
+      const name = cleanFileName(file.name);
+      const bytes = cleanFileBytes(file.bytes);
+      if (state !== "unlocked" || !frame || !name || !bytes) return Promise.resolve(null);
+      return putToThem({ t: "file-save", id: `fs${++n}`, name, type: cleanFileType(file.type), bytes, private: file.private !== false }, (reply) =>
+        // An address is passed on only for a public file, and only if it names exactly the bytes that were offered.
+        reply.t === "file-saved" ? { name: reply.name, size: reply.size, private: reply.private, url: !reply.private && reply.url && fileUrlNames(reply.url, bytes) ? reply.url : null } : null,
+      );
+    },
+    pickFile() {
+      if (state !== "unlocked" || !frame) return Promise.resolve(null);
+      return putToThem({ t: "file-pick", id: `fp${++n}` }, (reply) => (reply.t === "file" ? { name: reply.name, type: reply.type, bytes: reply.bytes, url: reply.url && fileUrlNames(reply.url, reply.bytes) ? reply.url : null } : null));
     },
     pay(invoice) {
       const asked = cleanInvoice(invoice);

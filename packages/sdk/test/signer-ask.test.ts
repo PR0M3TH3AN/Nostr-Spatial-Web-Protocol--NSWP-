@@ -181,4 +181,64 @@ describe("asking the person: careful kinds, and a wallet", () => {
     expect(await signer.pay("https://example.com/pay")).toBeNull();
     expect(sentTo().filter((m) => m.t === "pay").length).toBe(before);
   });
+
+  it("offers them a file to keep, and passes on where it is kept only for a public file that is really these bytes", async () => {
+    const bytes = new TextEncoder().encode("a drawing, as bytes");
+    const url = `https://files.example/${Array.from(sha256(bytes), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+    type Sent = { t: string; id: string; name?: string; type?: string; bytes?: Uint8Array; private?: boolean };
+    // Private unless the world says otherwise; the name tidied before it is sent.
+    const kept = signer.saveFile({ name: "drawings/mine.png", type: "image/png", bytes });
+    const sent = last("file-save") as Sent;
+    expect([sent.name, sent.type, sent.private, sent.bytes]).toEqual(["drawings mine.png", "image/png", true, bytes]);
+    expect(opened).not.toHaveBeenCalled();
+    say({ t: "asking", id: sent.id });
+    expect(opened).toHaveBeenCalledTimes(1);
+    say({ t: "file-saved", id: sent.id, name: "renamed by them.png", size: bytes.length, private: true });
+    expect(await kept).toEqual({ name: "renamed by them.png", size: bytes.length, private: true, url: null });
+    // Kept public, at an address that names these bytes.
+    const open = signer.saveFile({ name: "mine.png", bytes, private: false });
+    expect((last("file-save") as Sent).type).toBe("application/octet-stream");
+    say({ t: "asking", id: last("file-save").id });
+    say({ t: "file-saved", id: last("file-save").id, name: "mine.png", size: bytes.length, private: false, url });
+    expect(await open).toEqual({ name: "mine.png", size: bytes.length, private: false, url });
+    // Kept public, at an address that names something else: saved, and the address is not passed on.
+    const odd = signer.saveFile({ name: "mine.png", bytes, private: false });
+    say({ t: "asking", id: last("file-save").id });
+    say({ t: "file-saved", id: last("file-save").id, name: "mine.png", size: bytes.length, private: false, url: `https://files.example/${"ab".repeat(32)}` });
+    expect(await odd).toEqual({ name: "mine.png", size: bytes.length, private: false, url: null });
+    // Not saved; and nothing is offered that isn't a file.
+    const no = signer.saveFile({ name: "mine.png", bytes });
+    say({ t: "asking", id: last("file-save").id });
+    say({ t: "refused", id: last("file-save").id });
+    expect(await no).toBeNull();
+    const before = sentTo().filter((m) => m.t === "file-save").length;
+    expect(await signer.saveFile({ name: "..", bytes })).toBeNull();
+    expect(await signer.saveFile({ name: "empty.txt", bytes: new Uint8Array(0) })).toBeNull();
+    expect(sentTo().filter((m) => m.t === "file-save").length).toBe(before);
+  });
+
+  it("asks them to hand over one of their files, and takes it as a name, a type and bytes", async () => {
+    const bytes = new TextEncoder().encode("one of their own files");
+    const url = `https://files.example/${Array.from(sha256(bytes), (b) => b.toString(16).padStart(2, "0")).join("")}.txt`;
+    const picked = signer.pickFile();
+    const sent = last("file-pick");
+    say({ t: "asking", id: sent.id });
+    expect(opened).toHaveBeenCalledTimes(1);
+    say({ t: "file", id: sent.id, name: "notes/../mine.txt", type: "TEXT/PLAIN", bytes, url });
+    expect(await picked).toEqual({ name: "notes .. mine.txt", type: "text/plain", bytes, url });
+    // A private file comes with no address; one whose address names other bytes has it left off.
+    const lone = signer.pickFile();
+    say({ t: "asking", id: last("file-pick").id });
+    say({ t: "file", id: last("file-pick").id, name: "mine.txt", type: "text/plain", bytes, url: `https://files.example/${"ab".repeat(32)}` });
+    expect(await lone).toEqual({ name: "mine.txt", type: "text/plain", bytes, url: null });
+    // They chose nothing.
+    const none = signer.pickFile();
+    say({ t: "asking", id: last("file-pick").id });
+    say({ t: "refused", id: last("file-pick").id });
+    expect(await none).toBeNull();
+    // Nothing is asked while nobody is signed in here.
+    say({ t: "state", unlocked: false });
+    expect(await signer.pickFile()).toBeNull();
+    expect(await signer.saveFile({ name: "mine.txt", bytes })).toBeNull();
+  });
 });

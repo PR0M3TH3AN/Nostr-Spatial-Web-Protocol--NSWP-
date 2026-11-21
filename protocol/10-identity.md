@@ -451,6 +451,8 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `propose`, with `event`: `kind`, `content`, `tags`, of kind 0, 5 or 10002 | `asking` at once; then, under the same `id`, `signed` with the whole signed note, or `refused` ("Asking the person", below) |
 | `wallet` | `asking` at once; then, under the same `id`, `wallet` with `uri`, or `refused` ("Asking the person", below) |
 | `pay`, with `invoice`: a Lightning invoice the world made | `asking` at once; then, under the same `id`, `paid`, with `preimage` where there is one, or `refused` ("Asking the person", below) |
+| `file-save`, with `name`, `type`, `bytes`, and `private` (true unless said) | `asking` at once; then, under the same `id`, `file-saved` with `name`, `size`, `private`, and `url` for a public file; or `refused` ("Asking the person", below) |
+| `file-pick` | `asking` at once; then, under the same `id`, `file` with `name`, `type`, `bytes`, and `url` for a public file; or `refused` ("Asking the person", below) |
 | `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `seal`, with `to` and `text` | `sealed`, with the message as written and its two seals; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
@@ -558,7 +560,8 @@ and the signer remembers a world the visitor allowed (BitLogin's
 **Status:** the kit's half is implemented (kit 0.64.0: `signer.propose`,
 `signer.wallet`; 0.65.0: `signer.pay`). BitLogin's half is built and not
 yet live. One thing in the kit uses it: deleting your own post (0.66.0,
-"Posting from a world"). Nothing asks for a wallet or a payment yet.
+"Posting from a world"). Nothing asks for a wallet, a payment or a file
+yet (`signer.saveFile`, `signer.pickFile`: 0.67.0).
 
 Some things a visitor should be asked each time, in words, by their own
 sign-in address, and never have done for them on a world's say: a change
@@ -600,6 +603,23 @@ always will. A world can put them to the visitor instead:
   whoever it made the invoice with. `paid` with no proof is the sign-in
   address's say-so. This is the way to take a payment: a world that only
   wants paying has no need of a wallet.
+- **A visitor's files are theirs, and a world gets a save dialog and an
+  open dialog, no more** (`file-save`, `file-pick`). Their files are kept
+  by their sign-in address, on servers they chose. A world can offer one
+  to be saved: the sign-in address shows where it would go (a folder made
+  for that world, unless they choose another), under what name, and
+  whether sealed so only they can read it (`private`, the default), and
+  saves it at their press. And a world can ask to be handed one: they
+  browse their own files, choose, and say yes. A world can't list
+  anything, not even what it saved; can't save without a press; and reads
+  a file back only by asking for it. Bytes cross as bytes, 25 MB at most.
+  A name is only a name and a type only a type (`files.ts` in the core).
+  `url` comes only with a public file, and the kit passes it on only if
+  the hash in it is these bytes' own. A file handed to a world is a
+  stranger's file as far as the world's code goes: shown, never run.
+  Saving can fail for reasons that are nobody's fault (a server that
+  takes only pictures refuses a sealed file): the visitor is told why on
+  that page, and the world hears `refused` only if they give up.
 - **A wallet connection is spending power.** What comes back from `wallet`
   is a Nostr Wallet Connect address: this world can spend with it, within
   what the wallet itself allows. A world asks for one only for something
