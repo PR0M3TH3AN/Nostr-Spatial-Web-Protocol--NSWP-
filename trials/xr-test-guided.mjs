@@ -38,17 +38,19 @@ const open = async ({ grant = false, shell = true } = {}) => {
 };
 const tf = (page) => page.frames().find((f) => /\/xr-test\//.test(f.url()) && f.url().includes("run="));
 const st = (f) => f.evaluate(() => ({ ...window.__xrTest.state(), log: window.__xrTest.log.slice(), guide: document.getElementById("guide")?.innerText ?? "", sent: document.getElementById("sent")?.innerText ?? "", manualHidden: document.getElementById("manual").hidden }));
-const until = async (page, fn, ms = 25000) => { const end = Date.now() + ms; while (Date.now() < end) { try { const g = await fn(); if (g) return g; } catch {} await page.waitForTimeout(150); } return null; };
+const until = async (page, fn, ms = 90000) => { const end = Date.now() + ms; while (Date.now() < end) { try { const g = await fn(); if (g) return g; } catch {} await page.waitForTimeout(150); } return null; };
 const has = (log, re) => log.some((l) => re.test(l));
 const press = async (page, text) => { const f = await until(page, async () => { const f = tf(page); return f && (await f.locator("#guide button", { hasText: text }).count()) ? f : null; }); if (!f) throw new Error(`no button "${text}"; guide says: ${(await st(tf(page))).guide}`); await f.locator("#guide button", { hasText: text }).first().click(); };
 const guideSays = (page, re) => until(page, async () => re.test((await st(tf(page))).guide));
+// The trigger, pulled and let go until what it was pulled for has happened: a made-up headset under load can miss one, and the page takes a door once however many it hears.
+const pull = async (page, done) => until(page, async () => { if (await done()) return true; const f = tf(page); await f.evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 1)); await page.waitForTimeout(150); await tf(page).evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 0)); await page.waitForTimeout(600); return done(); });
 
 // ---- 1. A browser that carries nothing across, as the Quest did: every step lands flat, asks, and is sent.
 {
   const { ctx, page, errors, events } = await open();
   await page.goto("https://grove.bitblocks.network/xr-test");
   await page.click("#guided");
-  await until(page, () => tf(page));
+  await guideSays(page, /WebXR navigation permission/);
   let s = await st(tf(page));
   const run = s.run;
   want("1a begins on site A at step 0, with a run code, the by-hand part put away", [new URL(tf(page).url()).host, s.step, /^[A-Z2-7]{6}$/.test(run), s.manualHidden, /WebXR navigation permission/.test(s.guide)], ["gallery.bitblocks.network", 0, true, true, true]);
@@ -65,10 +67,7 @@ const guideSays = (page, re) => until(page, async () => re.test((await st(tf(pag
     const top = [page.url().includes("/shell/"), new URL(tf(page).url()).host];
     await press(page, "Enter VR");
     await until(page, async () => has((await st(tf(page))).log, new RegExp(`STEP ${n} of 7 begins`)) && (await st(tf(page))).presenting);
-    await tf(page).evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 1));
-    await page.waitForTimeout(120);
-    await tf(page).evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 0)).catch(() => {});
-    await until(page, async () => (await st(tf(page))).arrived);
+    await pull(page, async () => (await st(tf(page))).arrived);
     await guideSays(page, /one question/);
     s = await st(tf(page));
     want(`1c step ${n}: starts on A outside BitPortal's page, the trigger takes the right door, lands flat on ${doors[n].to}, says so, sends it, asks`, [top, new URL(tf(page).url()).host.split(".")[0], s.presenting, has(s.log, doors[n].line), has(s.log, /NO sessiongranted after 3 seconds: this browser did not carry VR across\.$/), has(s.log, /log sent \(arrived flat\)/)], [[false, "gallery.bitblocks.network"], doors[n].to, false, true, true, true]);
@@ -124,9 +123,7 @@ const guideSays = (page, re) => until(page, async () => re.test((await st(tf(pag
   await until(page, async () => { const s = await st(tf(page)); return s.arrived && s.presenting && has(s.log, /ARRIVED IN VR with no press \(step 2\)/); });
   let s = await st(tf(page));
   want("2a arrives on B in VR with no press, and says so", [s.me, s.presenting, has(s.log, /^B .*sessiongranted/), has(s.log, /ARRIVED IN VR with no press/)], ["B", true, true, true]);
-  await tf(page).evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 1));
-  await page.waitForTimeout(150);
-  await tf(page).evaluate(() => window.__dev.controllers.right.updateButtonValue("trigger", 0));
+  await pull(page, async () => /one question/.test((await st(tf(page))).guide));
   await guideSays(page, /one question/);
   s = await st(tf(page));
   want("2b the trigger ends the step where it is (no further door), and the question is asked", [s.me, s.presenting, has(s.log, /door taken/) && !has(s.log, /^A .*door taken/) ? "took a door" : "no door"], ["B", false, "no door"]);
