@@ -860,9 +860,14 @@ corrected:
     that every name that can be registered can be handed over. Deployed
     to the live service the same day, on the owner's word in BitUnlock's
     own session, as the commit that was live plus only this fix
-    (581d674), and merged to its main. Nobody has looked at whether a
-    real buyer was caught by it before the fix: that look reads live
-    data, and waits for the owner.
+    (581d674), and merged to its main. Nobody was caught by it: with the
+    owner's leave, BitUnlock's session read the live service's records
+    the same day (reading only) and found 43 listings, none with a space
+    in its name, and 432 orders, none on such a listing. The same family
+    of fault turned up once more that day, in the order reports' filter
+    (reading only; nobody lost anything), and was fixed too: the rule
+    for a listing's name had been written out separately in several
+    places.
 11. **Collecting BitUnlock's fee from a seller later has never run with
     real money.** Fees are recorded on the live service for sellers
     billed that way; the invoice that collects them had not been issued
@@ -1527,9 +1532,6 @@ Not decided by the above, and each needed before the part it belongs to:
   Nothing in the kit asks to buy yet (the paid front room is next), and
   nothing is listed, so opening it now adds a live path nobody is
   watching and gives a visitor nothing.
-- **A look at BitUnlock's live data** for anyone caught by the fault
-  with a name with a space (section 11.1a, 10): the owner's word, in
-  BitUnlock's session.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;
