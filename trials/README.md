@@ -15,10 +15,23 @@ None names a machine: the address is this machine's own on its network
 
 | Needed by | What | How |
 |---|---|---|
-| nearly all | The local sites, over https on the network address | `node scripts/serve-local.mjs --lan --https` (docs/local-server.md) |
-| anything with a relay | The stand-in relay: `ws://127.0.0.1:4313` and `wss://<this machine>:4314` | `npm run relay` |
+| nearly all | The local sites, over https on the network address | On the owner's machine: a service, always up (below). Anywhere else: `node scripts/serve-local.mjs --lan --https` (docs/local-server.md) |
+| anything with a relay | The stand-in relay: `ws://127.0.0.1:4313` and `wss://<this machine>:4314` | On the owner's machine: a service, always up. Anywhere else: `npm run relay` |
 | `sandbox-*`, `buy-screen*` | BitUnlock's sandbox at `https://<this machine>:4312` | Its own repository's session runs it |
 | `buy-screen*`, `panel` | BitLogin's local copy at port 4311 | The local sites serve its built folder |
+
+**The two services** (on the owner's machine since 2026-11-21, at their
+word, so that neither stops with a session or a restart):
+`scripts/services/nswp-local-sites.service` and
+`nswp-stand-in-relay.service`, copied into `~/.config/systemd/user/` and
+turned on with `systemctl --user enable --now <name>`. They run from this
+repository's main folder, so they serve what is on `main` and built there.
+`systemctl --user status nswp-local-sites` says how one is;
+`systemctl --user restart nswp-local-sites` picks up a site's changed
+headers; `journalctl --user -u nswp-local-sites -n 50` shows what it said.
+Don't start a second copy of either by hand: the ports are taken. The
+relay keeps nothing across a restart, so a test listing put on it is gone
+after one: run `sandbox-buy.mjs` again to put a fresh one up.
 
 Node's own requests need this machine's certificate: run a trial with
 `npm run trial -- trials/<name>.mjs`, which sets it.
