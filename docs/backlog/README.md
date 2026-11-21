@@ -37,6 +37,9 @@ request that does the work. The page of what is in motion (the board,
 | [achievements-granted](achievements-granted.md) | Achievements a world grants, and ones across worlds | not briefed | asked |
 | [items-given-and-won](items-given-and-won.md) | An item given by a world, or won | not briefed | asked |
 | [hidden-items-easter-eggs](hidden-items-easter-eggs.md) | Hidden items to find across worlds, with proof of who found one | not briefed (the owner asked to think about it) | asked |
+| [rooms-start-or-join](rooms-start-or-join.md) | Start a room or join one, a list of open rooms, public, invite only or private, up to large servers | not briefed | asked |
+| [shared-physics](shared-physics.md) | Physics that everyone in a room sees the same, and what happens when the one in charge leaves | not briefed (the owner asked to talk it through) | asked |
+| [spawn-points](spawn-points.md) | Enough places to arrive at that nobody arrives inside someone | not briefed | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
 | [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
 | [bridge-test-fails-when-busy](bridge-test-fails-when-busy.md) | A test that fails only when the machine is busy | the orchestrator | merged |
