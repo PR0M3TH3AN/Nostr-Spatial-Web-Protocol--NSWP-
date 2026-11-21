@@ -23,7 +23,7 @@ import { PANORAMA_VIEWS, paintPanorama, panoramaWidth, type PanoramaPainter } fr
 import { offerHeadset, whenSessionGranted, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
-import { figureAction, identityAction, identityHost, identitySection, signerAction, type Leaving } from "./ui/identity.js";
+import { accountAction, figureAction, identityAction, identityHost, identitySection, signerAction, type Leaving } from "./ui/identity.js";
 import type { GoOptions } from "./index.js";
 
 export { createPresence, speechSprite, textSprite, type AvatarInfo, type Presence, type PresenceOptions } from "./presence.js";
@@ -280,7 +280,7 @@ export async function addViewControls(
   if (!controls.has("identity") && identityHost()) {
     const leaving: Leaving = async (to) => ({ ...(await d.leaving?.(to)), xrSession: d.renderer.xr.getSession() });
     controls.addSection(identitySection());
-    controls.add(figureAction(controls, leaving), identityAction(controls, leaving), signerAction(controls, { presenting: () => d.renderer.xr.isPresenting }));
+    controls.add(figureAction(controls, leaving), identityAction(controls, leaving), signerAction(controls, { presenting: () => d.renderer.xr.isPresenting }), accountAction(controls, { presenting: () => d.renderer.xr.isPresenting }));
   }
   // Leaving fullscreen with the browser's own key changes what the control should say.
   document.addEventListener("fullscreenchange", () => controls.setTarget(""));

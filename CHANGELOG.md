@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.63.1
+
+- **"Your account, at …" in the You tab,** where the visitor's client can show the sign-in address's panel (`accountAction`). It asks the client for the panel at the account's own pages (`mode: "account"`): other accounts, the lock, the password, recovery. Hidden where there is no panel: a world shows none of that itself.
+- **The words about signing in are true either way.** "In a window of its own" is no longer said where it may be a panel: "Signing in is done by bitlogin.network, which asks you itself: this world never sees a password."
+
 ## 0.63.0
 
 Signing in without a window, in a client that keeps the screen.
