@@ -155,6 +155,7 @@ The things a visitor has, by the names a world presses them by:
 | `jump` | Jumps |
 | `sound-all`, `sound-effects`, `sound-music`, `sound-voices`, `sound-hum` | Their volumes |
 | `sound-piece` | Says which piece of the place's music is playing, and goes on to the next |
+| `gate-buy`, `gate-buy-2`… | In a paid world, while its gate is shut: asks their sign-in address to sell them what the row names, or signs them in first ([NSWP-10](10-identity.md), "The front room"). Absent everywhere else |
 | `room-join`, `room-mic` | Joining the room here, and their microphone |
 | `room-chat` | What the people in the room have written, and a place to write ([NSWP-06](06-rooms.md), "Words") |
 | `room-chat-show` | Whether they see what people write at all |
