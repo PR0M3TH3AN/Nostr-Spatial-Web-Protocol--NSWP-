@@ -13,7 +13,7 @@ import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
-import { createControls, mountHud, type Controls } from "nswp-sdk/ui";
+import { addDoorControls, createControls, mountHud, type Controls, type MenuDoor } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
 
@@ -517,7 +517,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.goThrough = go;
   hooks.goThroughPortal = () => go(0);
 
-  gates.forEach((g, i) => controls.add({ id: `door-${i}`, section: "travel", icon: "door", label: g.door.label, short: "Door", act: () => void go(i) }));
+  // Every door, in the Travel tab: chosen, it shows its details and what its world offers, as the tiles beside it do,
+  // and "Travel here" takes it the same way pointing at it does (door-controls.ts).
+  const menuDoors: MenuDoor[] = gates.map((g, i) => ({
+    id: String(i),
+    title: g.door.label,
+    url: g.place.url,
+    // A door in a world doesn't ask whether the place's site vouches for it: the Airlock does, on the way.
+    vouched: "unknown",
+    offers: worldOffers({ modes: g.place.modes ?? [], capabilities: g.place.capabilities ?? [], ...(isItemsRule(g.place.items) ? { items: g.place.items } : {}) }),
+  }));
+  addDoorControls(controls, { doors: () => menuDoors, travel: (door) => void go(Number(door.id)) });
   controls.add({
     id: "home",
     section: "travel",

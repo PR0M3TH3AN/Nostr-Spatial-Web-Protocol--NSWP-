@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## Next
+
+- **A door's details in the menu, with "Travel here"** (SDK `addDoorControls`, `MenuDoor`, `vouchedWords`; `docs/backlog/doors-03-details-and-travel.md`). The owner, 2026-11-21: "in the menus doors need a details section like the items with this same info and a travel here button." A door is chosen from the list as an item is: its card says its name, its address in full and, where the page checked, whether its site vouches for it (in the Airlock's words); under it, what its world offers, the same twelve lines in the same words as the tiles beside the door; and one button, "Travel here", which calls the page's own way through the door, so it goes through the visitor's Airlock and every check a door does. The reference worlds' Travel tab uses it.
+- **A line in the menu: something to read, not to press** (`kind: "line"` in `ui/model.ts`, drawn by `ui/hud.ts` and `console.ts`). An icon, a whole sentence and whether it is so. It never answers a press (`run` refuses it), is never focused as a button, never goes on the hotbar, and the headset console draws every sentence whole, wrapped, smaller rather than cut. General: not only for doors.
+
 ## 0.73.0
 
 The front room: the first thing in the kit that asks a visitor to buy. No world of ours is paid.

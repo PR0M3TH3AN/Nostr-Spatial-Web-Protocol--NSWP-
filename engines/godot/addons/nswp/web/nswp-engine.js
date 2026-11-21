@@ -7598,6 +7598,7 @@ postMessage({ t: "started" });
     // What a door says its world offers (door-offers.ts), where no drawing above already says it.
     bag: "M6 8h12l1.2 12H4.8L6 8ZM9 8V6.5a3 3 0 0 1 6 0V8",
     trophy: "M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4",
+    tip: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
     coin: "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM14.6 9.6c-.5-1-1.4-1.6-2.6-1.6-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2 2.6.8 2.6 2-1.1 2-2.6 2c-1.2 0-2.1-.6-2.6-1.6M12 6.5V8M12 16v1.5"
   };
 
@@ -7610,6 +7611,14 @@ postMessage({ t: "started" });
     saves: "save",
     records: "trophy",
     paid: "coin"
+  };
+  var OFFER_LINE_ICONS = {
+    ...OFFER_ICONS,
+    tips: "tip",
+    doors: "door",
+    looks: "look",
+    "by-name": "key",
+    home: "home"
   };
 
   // packages/sdk/src/form.ts
@@ -44624,6 +44633,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
   border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
 .row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
+/* A line is read and not pressed: no edge, no hover, nothing that looks like a button. Lit is the accent; dark is dim. */
+.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 4px 12px; line-height: 1.35; color: rgba(var(--ink), .55); }
+.line svg { flex: none; margin-top: 1px; opacity: .55; }
+.line.on { color: rgb(var(--ink)); }
+.line.on svg { opacity: 1; color: rgb(var(--accent)); }
 .row .grow { flex: 1; min-width: 0; }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
@@ -45244,13 +45258,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         b.addEventListener("click", () => press(item));
         return b;
       };
+      const drawLine = (item) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
       const lay = (items2) => {
         const laid2 = [];
         let run2 = null;
         for (const item of items2) {
-          if (item.kind === "button") {
+          if (item.kind === "button" || item.kind === "line") {
             run2 = null;
-            laid2.push(drawRow(item));
+            laid2.push(item.kind === "line" ? drawLine(item) : drawRow(item));
             continue;
           }
           if (run2?.kind !== item.kind) {
@@ -45801,7 +45816,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       run(id) {
         const a = actions.find((x) => x.id === id);
-        if (!a || a.hidden?.()) return false;
+        if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
         void Promise.resolve().then(() => a.act()).catch(() => {
         }).finally(changed);
@@ -45829,7 +45844,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       view() {
         const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-        const bar = [...showing.filter((a) => a.hotbar && a.lead), ...showing.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
+        const pressable = showing.filter((a) => a.kind !== "line");
+        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
           return { id: a.id, label: read2(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read2(a.short) || read2(a.label), kind: a.kind ?? "button", color: read2(a.color), ...a.picture ? { picture: a.picture } : {} };

@@ -49,9 +49,11 @@ export interface UiAction {
    * What kind of control it is. Each kind is drawn by one small function in
    * each renderer, so a new kind is added there and nowhere else.
    * "swatch" is a choice of colour, and needs `color`. "tile" is a thing with a picture of itself, one of several
-   * laid out side by side: it needs `picture`.
+   * laid out side by side: it needs `picture`. "line" is something to read and not to press: an icon, its words
+   * (the whole sentence, in `label`) and whether it is so (`on`). A line never answers a press, is never focused
+   * as a button and never goes on the hotbar; its `act` is never called.
    */
-  kind?: "button" | "swatch" | "tile";
+  kind?: "button" | "swatch" | "tile" | "line";
   /**
    * For a tile: its picture as it is now, or null while there is none (a renderer then shows its first letter).
    * Asked again whenever the menu is drawn.
@@ -117,7 +119,7 @@ export interface UiItemView {
   /** The number key that presses it from the hotbar, or "". */
   key: string;
   short: string;
-  kind: "button" | "swatch" | "tile";
+  kind: "button" | "swatch" | "tile" | "line";
   color: string;
   /** A tile's picture, asked for as it is drawn. Not part of what is written out as text. */
   picture?: () => CanvasImageSource | null;
@@ -443,7 +445,8 @@ export function createControls(opts: ControlsOptions): Controls {
     },
     run(id) {
       const a = actions.find((x) => x.id === id);
-      if (!a || a.hidden?.()) return false;
+      // A line is read, never pressed: nothing runs it, by a key, a click or a ray.
+      if (!a || a.hidden?.() || a.kind === "line") return false;
       for (const fn of signals) fn("press");
       void Promise.resolve()
         .then(() => a.act())
@@ -473,7 +476,8 @@ export function createControls(opts: ControlsOptions): Controls {
     },
     view() {
       const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-      const bar = [...showing.filter((a) => a.hotbar && a.lead), ...showing.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
+      const pressable = showing.filter((a) => a.kind !== "line");
+      const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
         return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color), ...(a.picture ? { picture: a.picture } : {}) };

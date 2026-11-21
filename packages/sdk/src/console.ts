@@ -44,7 +44,7 @@ export interface XrConsole {
   /** Call every frame. `presenting` is whether a headset session is running. */
   update(dt: number, camera: THREE.Camera, presenting: boolean): void;
   /** What it shows right now, in words. For tests. */
-  describe(): { showing: boolean; open: boolean; mount: "wrist" | "floating"; section: string; sections: string[]; buttons: string[]; note: string; card: string };
+  describe(): { showing: boolean; open: boolean; mount: "wrist" | "floating"; section: string; sections: string[]; buttons: string[]; lines: string[]; note: string; card: string };
   /** Press the thing with these words: a button, a section, "Menu" or "Close". For tests. */
   pressLabelled(label: string): boolean;
 }
@@ -308,7 +308,9 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
 
     // The open section's buttons, in two columns, or three when there are many.
     const current = view.sections.find((s) => s.id === section);
-    const items: UiItemView[] = current?.items ?? [];
+    // Lines are read, not pressed: they are laid out under the buttons, and are no region a ray can choose.
+    const items: UiItemView[] = (current?.items ?? []).filter((item) => item.kind !== "line");
+    const lines: UiItemView[] = (current?.items ?? []).filter((item) => item.kind === "line");
     noteNow = current?.note ?? "";
     g.font = `400 ${Math.round(24 * k)}px ${SANS}`;
     const noteLines = noteNow ? wrap(g, noteNow, W - 330, 3) : [];
@@ -382,7 +384,10 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     const cols = items.length > 8 ? 3 : 2;
     const rowsN = Math.max(1, Math.ceil(items.length / cols));
     const cellW = (areaW - (cols - 1) * 14) / cols;
-    const cellH = Math.min(96, (H - 150 - noteH - cardH - (rowsN - 1) * 12) / rowsN);
+    // Room kept for the lines: at least as much as two lines of words for each row of them.
+    const lineRows = Math.ceil(lines.length / 2);
+    const linesH = lines.length ? lineRows * 50 + 10 : 0;
+    const cellH = items.length ? Math.min(96, (H - 150 - noteH - cardH - linesH - (rowsN - 1) * 12) / rowsN) : 0;
     items.forEach((item, i) => {
       const x = left + (i % cols) * (cellW + 14);
       const y = 138 + cardH + Math.floor(i / cols) * (cellH + 12);
@@ -424,6 +429,33 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         g.textBaseline = "alphabetic";
       });
     });
+
+    // The lines: two columns, each its whole sentence, wrapped and never cut. The words are made smaller until every
+    // one fits the room there is, rather than any being shortened.
+    if (lines.length) {
+      const top = 138 + cardH + (items.length ? rowsN * (cellH + 12) : 0) + 4;
+      const room = H - 14 - noteH - top;
+      const colW = (areaW - 14) / 2;
+      const textW = colW - 44;
+      let size = Math.round(22 * k);
+      let laid: string[][] = [];
+      let rowH = 0;
+      for (; size >= 12; size--) {
+        g.font = `400 ${size}px ${SANS}`;
+        laid = lines.map((item) => wrap(g, item.label, textW, 99));
+        rowH = Math.max(...laid.map((l) => l.length)) * (size + 4) + 8;
+        if (lineRows * rowH <= room) break;
+      }
+      lines.forEach((item, i) => {
+        const x = left + (i % 2) * (colW + 14);
+        const y = top + Math.floor(i / 2) * rowH;
+        g.strokeStyle = g.fillStyle = item.on ? t.accent : `rgba(${I}, 0.4)`;
+        strokeIcon(g, item.icon, x + 4, y + 2, Math.min(28, size + 6));
+        g.fillStyle = item.on ? t.ink : `rgba(${I}, 0.6)`;
+        g.font = `${item.on ? 500 : 400} ${size}px ${SANS}`;
+        laid[i]!.forEach((line, n) => g.fillText(line, x + 40, y + size + n * (size + 4)));
+      });
+    }
 
     // What a visitor should know before using this section.
     if (noteLines.length) {
@@ -608,7 +640,8 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         mount,
         section: open ? (current?.id ?? "") : "",
         sections: open ? view.sections.map((s) => s.label) : [],
-        buttons: open ? (current?.items.map((i) => i.label) ?? []) : opener.visible ? ["Menu"] : [],
+        buttons: open ? (current?.items.filter((i) => i.kind !== "line").map((i) => i.label) ?? []) : opener.visible ? ["Menu"] : [],
+        lines: open ? (current?.items.filter((i) => i.kind === "line").map((i) => i.label) ?? []) : [],
         note: open ? (current?.note ?? "") : "",
         card: open ? (current?.card?.title ?? "") : "",
       };

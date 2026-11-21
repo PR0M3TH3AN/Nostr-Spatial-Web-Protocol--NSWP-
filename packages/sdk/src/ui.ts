@@ -5,6 +5,8 @@
  */
 export { createControls, type Controls, type ControlsOptions, type UiAction, type UiCard, type UiSection, type UiView, type UiItemView, type UiSectionView, type Presence, type Corner, type UiKeys } from "./ui/model.js";
 export { mountHud, type Hud } from "./ui/hud.js";
+// A door's details in the menu, with "Travel here" (door-controls.ts).
+export { addDoorControls, vouchedWords, type DoorControls, type DoorControlsOptions, type MenuDoor } from "./door-controls.js";
 // What the people in a room write to each other, as the controls hold it, and the visitor's switch for it.
 export { CHAT_KEY, onChatChange, setShowsChat, showsChat, type ChatLine, type ChatView, type UiChat } from "./ui/chat.js";
 export { ago, FEED_LIMITS, type FeedOptions, type FeedPost, type FeedSource, type FeedView, type UiFeed } from "./ui/feed.js";

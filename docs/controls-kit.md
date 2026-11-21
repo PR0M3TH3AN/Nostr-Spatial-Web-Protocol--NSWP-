@@ -60,7 +60,7 @@ if (hit) xrConsole.press(hit);
 | Words for a moment | `controls.say("Saved")` |
 | What is being pointed at | `controls.setTarget("World B, at example.org")` |
 | An icon | One line of SVG path data in `packages/sdk/src/ui/icons.ts`. Both renderers draw from it |
-| A new kind of control | A `kind` in `ui/model.ts`, and one drawing function for it in `ui/hud.ts` and in `console.ts`. `"swatch"`, a choice of colour, is the worked example. `"tile"` is a thing with a picture of itself (`picture`), laid out side by side with its neighbours: what is in a bag. Rows are drawn in the order they were added, and swatches or tiles that come together are one strip or one grid, where they were put |
+| A new kind of control | A `kind` in `ui/model.ts`, and one drawing function for it in `ui/hud.ts` and in `console.ts`. `"swatch"`, a choice of colour, is the worked example. `"tile"` is a thing with a picture of itself (`picture`), laid out side by side with its neighbours: what is in a bag. Rows are drawn in the order they were added, and swatches or tiles that come together are one strip or one grid, where they were put `"line"` is something to read and not to press: an icon, a whole sentence (`label`) and whether it is so (`on`); `run` refuses it, it is never focused or on the hotbar, and the console wraps it whole. A door's details list what its world offers as lines (`door-controls.ts`). |
 
 ## People and the camera
 

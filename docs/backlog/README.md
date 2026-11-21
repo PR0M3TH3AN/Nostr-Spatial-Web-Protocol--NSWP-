@@ -30,7 +30,7 @@ request that does the work. The page of what is in motion (the board,
 |---|---|---|---|
 | [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | merged |
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | building (kit and room merged; template and Godot left) |
-| [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | briefed |
+| [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | building |
 | [paid-front-room](paid-front-room.md) | The first thing in a world that asks to buy | NSWP builder | merged (kit 0.73.0; not live, no world paid) |
 | [scores-across-worlds](scores-across-worlds.md) | A leaderboard shared by several worlds | not briefed | asked |
 | [scores-checked](scores-checked.md) | Scores somebody has checked, not only claimed | not briefed | asked |
