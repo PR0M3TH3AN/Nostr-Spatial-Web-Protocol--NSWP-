@@ -827,9 +827,18 @@ be paid; making a listing for a world or an item (the price, how long it
 lasts, and later its shares); what has been sold; taking a receipt back.
 It is BitUnlock's seller pages, made to fit a panel.
 
-**Signing in is the hard part, and it needs deciding.** Every call a
-seller makes to BitUnlock is signed as them (NIP-98). Inside a frame
-there are three ways to get that signature:
+**Signing in is the hard part.** Decided by the owner on 2026-11-21: A,
+through BitLogin, as the best experience (already signed in, one identity
+for playing and selling, one place to take it back), and "We can show a
+warning if needed for extra awareness". So: when BitLogin first asks
+whether BitUnlock may act as the person for selling, it says plainly what
+that lets BitUnlock do (make and change listings, see what was sold, say
+where to be paid), that it is for BitUnlock's own service and nowhere
+else, and where it can be taken back. The wording is BitLogin's. The
+three ways that were weighed:
+
+Every call a seller makes to BitUnlock is signed as them (NIP-98). Inside
+a frame there are three ways to get that signature:
 
 - **A. Through BitLogin, as an application.** BitUnlock's page embeds
   BitLogin's signer and asks it. Today that kind of signature (27235) is
@@ -984,6 +993,14 @@ section it belongs to.
 24. **A bare payment opens nothing:** the kit treats nothing as paid
     without a receipt.
 
+**Decided after the first twenty-four**
+
+25. **A seller signs in to BitUnlock's panel through BitLogin** (section
+    11.6, A), with a plain warning the first time it is allowed. The
+    owner, asked which was the best experience and told it was this one:
+    "We can show a warning if needed for extra awareness." It needs one
+    narrow new permission in BitLogin, which is not built.
+
 ## 14. Still open
 
 Not decided by the above, and each needed before the part it belongs to:
@@ -1013,10 +1030,11 @@ Not decided by the above, and each needed before the part it belongs to:
   something in BitPortal, which would need BitLogin to let it sign one.
 - **How much of a receipt a room is shown.** All of it (it can't be cut
   down), or a smaller thing BitUnlock signs for showing.
-- **How a seller signs in to BitUnlock's panel** (section 11.6): through
-  BitLogin with one narrow new permission (A, recommended), by signing in
-  again inside the panel (B), or by BitLogin showing the selling pages
-  itself (C). A changes something BitLogin holds as "never", by a little.
+- **The exact shape of the new permission** in BitLogin that lets a named
+  application have requests to its own service signed (decided in
+  principle: section 13, 25). Which applications are named, how the
+  service's address is tied to the application's, and the words of the
+  warning, are BitLogin's session's to propose.
 - **May BitPortal's page frame BitUnlock** as well as BitLogin? It is a
   change to a rule BitPortal pins, for one named address.
 - **Being paid, in the game, by lightning address only,** with a wallet
