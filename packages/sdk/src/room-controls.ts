@@ -4,7 +4,7 @@
  * renderer, so it is the same in a world drawn with Three.js and in one made with another engine.
  */
 import * as THREE from "three";
-import { CHAT_LIMITS, DEFAULT_RELAYS, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
+import { CHAT_LIMITS, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
@@ -65,6 +65,11 @@ export interface RoomNotes {
   unlock?(): boolean;
   /** Whether that is a panel in the visitor's client rather than a window (signer.ts, `panel`). */
   panel?(): boolean;
+  /**
+   * Put a note of a careful kind to the visitor themselves, at their sign-in address (signer.ts, `propose`): what
+   * deleting a post takes. Left out where nothing can ask them, and then no post offers to be deleted.
+   */
+  propose?(note: { kind: number; content: string; tags: string[][] }): Promise<NostrEvent | null>;
   /** Where that happens, as an address to name, or null. */
   host?(): string | null;
   /** A signer was named and didn't answer: then what to say about it. Null when that isn't so. */
@@ -769,6 +774,7 @@ export function addRoomControls(
     locked: () => worldSigner().state === "locked",
     unlock: () => worldSigner().unlock(),
     panel: () => worldSigner().panel,
+    propose: (n) => worldSigner().propose(n),
     host: () => worldSigner().host,
     unanswered: () => (worldSigner().unanswered ? unansweredWords(worldSigner()) : null),
     pubkey: () => worldSigner().pubkey,
@@ -792,7 +798,7 @@ export function addRoomControls(
   };
   /** They pressed the row while signed out: once they are signed in, their feed is what they asked for. */
   let wantsFeed = false;
-  const postNote = async (words: string): Promise<{ ok: boolean; said: string }> => {
+  const postNote = async (words: string): Promise<{ ok: boolean; said: string; id?: string }> => {
     const signed = await notes.sign({ kind: 1, content: words, tags: [] }).catch(() => null);
     // Whatever signed it, what is sent on is checked first: a real signature, on a note, saying what was written.
     const note = signed && verifyEvent(signed) && signed.kind === 1 && signed.content === words ? signed : null;
@@ -805,7 +811,26 @@ export function addRoomControls(
     const n = to?.relays.length ?? 0;
     const own = to?.own ?? 0;
     const where = own === n ? `${kept} of your ${n} relays` : own ? `${kept} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept} of the ${n} usual relays: you have published no relay list of your own`;
-    return kept ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+    return kept ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.`, id: note.id } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+  };
+  /**
+   * Delete one of their own posts (NIP-09): a deletion they sign themselves. No world's signer signs one on a
+   * world's word, so it is put to them at their sign-in address, which shows them what it is (protocol/10-identity.md,
+   * "Asking the person"), and sent to the relays their posts go to. A relay may honour it; a copy elsewhere may stay.
+   */
+  const removeNote = async (id: string): Promise<{ ok: boolean; said: string }> => {
+    const host = notes.host?.() ?? "your sign-in address";
+    // A headset draws nothing but the world, so the page that asks them can't be seen from in one.
+    if (presence.presenting) return { ok: false, said: `Not deleted: ${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press Delete again.` };
+    const key = notes.pubkey?.();
+    const signed = await notes.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id], ["k", "1"]] }).catch(() => null);
+    // Whatever signed it, what is sent on is checked first: a real signature, by them, deleting this post and nothing else.
+    const names = signed ? signed.tags.filter((t) => t[0] === "e" || t[0] === "a") : [];
+    const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0]![1] === id ? signed : null;
+    if (!note) return { ok: false, said: `Not deleted: ${host} didn't sign it. Either you said no there, or it can't do this yet.` };
+    const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
+    const kept = to?.took ?? 0;
+    return kept ? { ok: true, said: `Deleted: ${kept} ${kept === 1 ? "relay was" : "relays were"} asked to drop it. A copy kept somewhere else may remain.` } : { ok: false, said: "Signed, but no relay took it. It wasn't deleted." };
   };
   /**
    * The visitor's own posts, asked of the relays their posts go to. This is the one thing a world asks a relay
@@ -839,7 +864,7 @@ export function addRoomControls(
     }
     // A world's signer marks each note with the world that asked. A client signing in its own room says whether
     // its sign-in marks what it signs, and with what.
-    controls.feed.attach({ who: () => notes.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? (opts.notes.marked?.() ?? "") : location.host, send: postNote, load: loadPosts });
+    controls.feed.attach({ who: () => notes.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? (opts.notes.marked?.() ?? "") : location.host, send: postNote, load: loadPosts, ...(notes.propose ? { remove: removeNote } : {}) });
   };
   /** The feed in a headset: the same posts, on a panel of the visitor's own. Where to write is at the top. */
   const drawFeedPanel = () => {
@@ -898,7 +923,7 @@ export function addRoomControls(
       g.font = "26px system-ui, sans-serif";
       g.fillStyle = post.state === "failed" ? t.warn : t.ink;
       g.globalAlpha = post.state === "failed" ? 1 : 0.55;
-      g.fillText(post.state === "sending" ? "Sending…" : post.state === "failed" ? "Not sent" : ago(post.at, nowSec), 28, y + 20);
+      g.fillText(post.state === "sending" ? "Sending…" : post.state === "failed" ? "Not sent" : post.state === "removing" ? "Deleting…" : ago(post.at, nowSec), 28, y + 20);
       g.globalAlpha = 0.14;
       g.fillStyle = t.ink;
       g.fillRect(28, y + ROW + 4, CHAT_W - 56, 2);

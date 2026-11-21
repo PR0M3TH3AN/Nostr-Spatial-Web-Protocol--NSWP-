@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.65.0";
+  var KIT_VERSION = "0.66.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6290,6 +6290,7 @@ ${roomName}`)));
     }
   }
   var PROPOSE_KINDS = [0, 5, 10002];
+  var DELETION_KIND = 5;
   function cleanWalletUri(input) {
     return typeof input === "string" && input.length <= 2e3 && /^nostr\+walletconnect:\/\/[0-9a-f]{64}\?[\x21-\x7e]+$/.test(input) ? input : "";
   }
@@ -44020,7 +44021,7 @@ void main() {
               const text = cleanLine(p.text, FEED_LIMITS.shown);
               if (!text || seen.has(p.id) || !Number.isFinite(p.at)) continue;
               seen.add(p.id);
-              posts.push({ key: p.id, text, at: p.at, state: "out" });
+              posts.push({ key: p.id, text, at: p.at, state: "out", id: p.id });
             }
             sort();
           }
@@ -44039,6 +44040,24 @@ void main() {
         void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
           if (opts !== mine) return;
           post.state = how.ok ? "out" : "failed";
+          if (how.ok && how.id) post.id = how.id;
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      remove(key) {
+        const mine = opts;
+        const post = posts.find((p) => p.key === key);
+        if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
+        const id = post.id;
+        post.state = "removing";
+        said2 = "";
+        bump2();
+        void mine.remove(id).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) posts = posts.filter((p) => p !== post);
+          else post.state = "out";
           said2 = how.said;
           bump2();
         });
@@ -44046,8 +44065,9 @@ void main() {
       },
       view() {
         const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
-        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, and it can't be taken back.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, version };
+        const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
+        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
       }
     };
   }
@@ -44218,7 +44238,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat li.letter.failed small { color: rgb(var(--warn)); opacity: 1; }
 .chat li.letter small, .chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
 .chat li.post.failed small { color: rgb(var(--warn)); }
-.chat li.post.sending { opacity: .7; }
+.chat li.post.sending, .chat li.post.removing { opacity: .7; }
+.chat li.post .post-remove { font: inherit; color: rgba(var(--ink), .8); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; margin: -6px 0; pointer-events: auto; }
+.chat li.post .post-remove:hover { color: rgb(var(--warn)); }
 .chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
 .chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
 .chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
@@ -44617,7 +44639,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         feedLead.textContent = f.lead;
         feedSaid.textContent = f.said;
         const nowSec = Math.floor(Date.now() / 1e3);
-        chatLines.replaceChildren(...f.posts.map((p) => el("li", { class: `post ${p.state}` }, p.text, el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : ago(p.at, nowSec)))));
+        chatLines.replaceChildren(
+          ...f.posts.map((p) => {
+            const when = el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : p.state === "removing" ? "Deleting\u2026" : ago(p.at, nowSec));
+            if (f.removable && p.id && p.state === "out") {
+              const remove = el("button", { type: "button", class: "post-remove" }, "Delete");
+              remove.addEventListener("click", () => {
+                const trouble = controls2.feed.remove(p.key);
+                if (trouble) controls2.say(trouble);
+              });
+              when.append(" \xB7 ", remove);
+            }
+            return el("li", { class: `post ${p.state}` }, p.text, when);
+          })
+        );
         chatEmpty.textContent = f.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
         chatEmpty.hidden = f.posts.length > 0;
         chatLines.hidden = f.posts.length === 0;
@@ -53618,6 +53653,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       locked: () => worldSigner().state === "locked",
       unlock: () => worldSigner().unlock(),
       panel: () => worldSigner().panel,
+      propose: (n) => worldSigner().propose(n),
       host: () => worldSigner().host,
       unanswered: () => worldSigner().unanswered ? unansweredWords(worldSigner()) : null,
       pubkey: () => worldSigner().pubkey,
@@ -53642,7 +53678,19 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const n = to?.relays.length ?? 0;
       const own = to?.own ?? 0;
       const where = own === n ? `${kept3} of your ${n} relays` : own ? `${kept3} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept3} of the ${n} usual relays: you have published no relay list of your own`;
-      return kept3 ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.` } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+      return kept3 ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.`, id: note.id } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
+    };
+    const removeNote = async (id) => {
+      const host = notes2.host?.() ?? "your sign-in address";
+      if (presence3.presenting) return { ok: false, said: `Not deleted: ${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press Delete again.` };
+      const key = notes2.pubkey?.();
+      const signed = await notes2.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id], ["k", "1"]] }).catch(() => null);
+      const names = signed ? signed.tags.filter((t) => t[0] === "e" || t[0] === "a") : [];
+      const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0][1] === id ? signed : null;
+      if (!note) return { ok: false, said: `Not deleted: ${host} didn't sign it. Either you said no there, or it can't do this yet.` };
+      const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
+      const kept3 = to?.took ?? 0;
+      return kept3 ? { ok: true, said: `Deleted: ${kept3} ${kept3 === 1 ? "relay was" : "relays were"} asked to drop it. A copy kept somewhere else may remain.` } : { ok: false, said: "Signed, but no relay took it. It wasn't deleted." };
     };
     const loadPosts = async () => {
       const key = notes2.pubkey?.();
@@ -53668,7 +53716,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         controls2.feed.detach();
         return closeFeedPanel();
       }
-      controls2.feed.attach({ who: () => notes2.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? opts.notes.marked?.() ?? "" : location.host, send: postNote, load: loadPosts });
+      controls2.feed.attach({ who: () => notes2.who?.() || (key ? shortNpub(key) : "you"), marked: opts.notes ? opts.notes.marked?.() ?? "" : location.host, send: postNote, load: loadPosts, ...notes2.propose ? { remove: removeNote } : {} });
     };
     const drawFeedPanel = () => {
       if (!feedPanel) return;
@@ -53724,7 +53772,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         g.font = "26px system-ui, sans-serif";
         g.fillStyle = post.state === "failed" ? t.warn : t.ink;
         g.globalAlpha = post.state === "failed" ? 1 : 0.55;
-        g.fillText(post.state === "sending" ? "Sending\u2026" : post.state === "failed" ? "Not sent" : ago(post.at, nowSec), 28, y + 20);
+        g.fillText(post.state === "sending" ? "Sending\u2026" : post.state === "failed" ? "Not sent" : post.state === "removing" ? "Deleting\u2026" : ago(post.at, nowSec), 28, y + 20);
         g.globalAlpha = 0.14;
         g.fillStyle = t.ink;
         g.fillRect(28, y + ROW + 4, CHAT_W - 56, 2);

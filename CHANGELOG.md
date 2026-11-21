@@ -2,6 +2,15 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.66.0
+
+Deleting your own post, from inside a world.
+
+- **Each of your posts in "My public feed" has a Delete.** A deletion is a careful kind, so the world's signer signs none on a world's word: it is put to you at your sign-in address (`signer.propose`, the first use of "Asking the person"), which shows what it is, in its panel where your client has one. On your yes the world checks what came back, sends it to the relays your posts go to, and takes the post out of the list. On your no nothing is sent and the post stays.
+- **It says what a deletion is worth.** "Deleted: 3 relays were asked to drop it. A copy kept somewhere else may remain." And where you write, "it can't be taken back" is now "deleting it later only asks relays to drop it: copies may remain".
+- `FeedOptions.remove`, `UiFeed.remove`, `FeedView.removable`, and `RoomNotes.propose` for a client's own room. With no `propose` there is no Delete.
+- Not in a headset: the page that asks you can't be seen from in one, and the post says so.
+
 ## 0.65.0
 
 A world can ask to be paid.

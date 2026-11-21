@@ -127,4 +127,66 @@ describe("my public feed (protocol/10-identity.md, Posting from a world)", () =>
     expect(ago(now - 86400 * 3, now)).toBe("3 days ago");
     expect(ago(0, 10_000_000)).toBe("1970-01-01");
   });
+
+  it("offers to delete a post only where their sign-in address can be asked, and says a deletion is only a request", () => {
+    const feed = createUiFeed(() => {});
+    feed.attach({ who: "Ada", send: async () => ({ ok: true, said: "" }) });
+    expect(feed.view().removable).toBe(false);
+    expect(feed.view().lead).toMatch(/can't be taken back/);
+    expect(feed.remove("anything")).toMatch(/can't be deleted from here/);
+    feed.attach({ who: "Ada", send: async () => ({ ok: true, said: "" }), remove: async () => ({ ok: true, said: "" }) });
+    expect(feed.view().removable).toBe(true);
+    expect(feed.view().lead).toMatch(/only asks relays to drop it: copies may remain/);
+    expect(feed.view().lead).not.toMatch(/can't be taken back/);
+  });
+
+  it("deletes one of their posts by its own id, and takes it away only once that is done", async () => {
+    const asked: string[] = [];
+    let answer: (how: { ok: boolean; said: string }) => void = () => {};
+    const feed = createUiFeed(() => {});
+    feed.attach({
+      who: "Ada",
+      send: async () => ({ ok: true, said: "Sent out.", id: "id-of-the-new-one" }),
+      load: async () => [
+        { id: "aa", text: "an older post", at: 100 },
+        { id: "bb", text: "an old one", at: 50 },
+      ],
+      remove: (id) => {
+        asked.push(id);
+        return new Promise((done) => (answer = done));
+      },
+    });
+    feed.opened();
+    await tick();
+    // While it is being asked for, it is still there, and can't be asked for twice.
+    expect(feed.remove("aa")).toBeNull();
+    expect(feed.view().posts.find((p) => p.key === "aa")?.state).toBe("removing");
+    expect(feed.remove("aa")).toMatch(/can't be deleted/);
+    expect(asked).toEqual(["aa"]);
+    // They said no at their sign-in address: it is as it was, and why is said.
+    answer({ ok: false, said: "Not deleted: you said no." });
+    await tick();
+    expect(feed.view().posts.map((p) => [p.key, p.state])).toEqual([
+      ["aa", "out"],
+      ["bb", "out"],
+    ]);
+    expect(feed.view().said).toBe("Not deleted: you said no.");
+    // They said yes: gone from here.
+    expect(feed.remove("aa")).toBeNull();
+    answer({ ok: true, said: "Deleted: 3 relays were asked to drop it." });
+    await tick();
+    expect(feed.view().posts.map((p) => p.key)).toEqual(["bb"]);
+    expect(feed.view().said).toMatch(/^Deleted/);
+    // One sent from here can be deleted once it is out: by the id it was given, not by its place in the list.
+    feed.send("a new post");
+    const fresh = feed.view().posts[0]!;
+    expect(feed.remove(fresh.key)).toMatch(/can't be deleted/);
+    await tick();
+    expect(feed.remove(fresh.key)).toBeNull();
+    expect(asked.at(-1)).toBe("id-of-the-new-one");
+    // A post that never went out has nothing to delete.
+    answer({ ok: false, said: "" });
+    await tick();
+    expect(feed.remove("no such post")).toMatch(/can't be deleted/);
+  });
 });
