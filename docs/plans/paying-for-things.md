@@ -495,6 +495,25 @@ built), and what was answered:
   refusing listings on the live service for a tag it doesn't act on.
   BitLogin, with shares off, doesn't show such a listing for sale.
 
+**What has been tried** (2026-11-21, BitUnlock's sandbox on one machine,
+throwaway keys, pretend sats, shares switched on there only):
+
+- BitUnlock's own port of the rule passes every one of the kit's
+  examples.
+- By this session's script, a listing divided 85 / 10 / 5 between a
+  seller, a maker and the client, at 2,100 sats. Before the maker had
+  agreed to be paid, it could not be registered, and the refusal said
+  who. With a client that had: the seller 1,764, the maker 210, the
+  client 105, and BitUnlock's 21, which is the kit's own working out to
+  the sat. With no client, or one who had never agreed to be paid: the
+  seller 1,869 and the maker 210, and no third answer. Nothing was
+  handed over until the last payment; then a receipt the kit believed.
+  Once the maker took their agreement back, no new sale: refused, with
+  the reason.
+- An ordinary sale with no shares, on the same build: exactly as before.
+- Not yet: BitLogin's screen showing and paying shares; BitUnlock's
+  reporting; anything real.
+
 **What is left out on purpose:** shares in ecash (needed for anything
 under 10 sats, section 9); a share that changes after a listing is
 registered (a new listing, as for a new price); a refund divided back
