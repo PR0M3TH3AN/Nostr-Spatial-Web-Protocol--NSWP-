@@ -49,7 +49,9 @@ the same way. The orchestrator says what is live.
    that is not a wait on the owner. **What goes live is still the owner's
    own word:** a deploy, a release, a migration of live data, a live
    setting, a publish to public relays, a new thing at a host, a licence.
-   Where a merge is itself a release, it is asked like a release. The
+   In BitLogin's repository a merge to `main` is a release to
+   bitlogin.network, and that too goes when it is ready (the owner, asked
+   exactly that: "if they are ready then commit and push to main too"). The
    orchestrator's recommendation is never that word. The owner's words are
    passed on exactly, quoted, with what they were asked and the exact step
    beside them. A session whose own rules need a step said to it directly
