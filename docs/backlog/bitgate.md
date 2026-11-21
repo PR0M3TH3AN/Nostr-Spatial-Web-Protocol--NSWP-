@@ -56,6 +56,46 @@ agrees, as a matter of design):
   asking another service during a quote. BitGate's lists are copied into
   a table it reads.
 
+## BitGate's first report (2026-11-21, its session)
+
+In its repository: [the report](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/reports/2026-11-21-integration-report.md) and [the answer on lists](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/reports/2026-11-21-lists-answer.md) (merged at 8396b05). The list shape is specified in [`docs/governance-lists.md`](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/governance-lists.md) with vectors (merged at 3594470); a follow-up adds a root the reader is given and refuses lists dated in the future.
+
+What it does today: targets are a person, an event or an address; one
+evaluation gives four answers (ranking, visibility, interaction,
+transaction); a root key, roles and capabilities; lists on kind 30078,
+and it reads NIP-32 labels, NIP-56 reports and NIP-51 mutes. Its own
+checks pass (914 tests). Nobody has run it against a real relay, and it
+has never run in a Worker.
+
+What it lacks, in the order that blocks an integration:
+
+1. **The licence.** GPL-3.0 there, MIT in BitLogin, BitPortal and NSWP.
+   It blocks copying its code into any of them. The owner's word.
+2. Allow for worlds and listings, not only people ("curated until the
+   kinks are worked out" is an allow list of worlds and listings).
+3. Reading the lists that already exist: BitPortal's allow list and
+   starter set are NSWP-08 kind 30004 sets, which it can't read. Without
+   that a curator publishes the same worlds twice, the second list this
+   entry forbids.
+4. Several named lists under one curator (sellers, payees, starter
+   worlds), with an agreed vocabulary written as vectors.
+5. Signature checks that fail closed where there is no runtime.
+6. A trial end to end against the stand-in relay.
+7. A target that is a website (an origin), for "block this website" and a
+   tip to a website. Needs a design decision first.
+
+Its proposed way in: shadow first (each project computes BitGate's answer
+beside its own list, logs disagreements, enforces nothing); then the
+curator's signed lists are filled from the lists that exist, which is a
+publish and the owner's word; then each project switches, one at a time,
+BitUnlock last.
+
+**The keys, which need the owner:** its recommendation is the owner's own
+published key as root, signing one thing rarely (who the curators are),
+through the owner's own signer and never a file; and a curator key of its
+own, held in a signer too, because a curator who may allow can let a
+seller be paid.
+
 ## Done looks like
 
 To be written when briefed. The first piece is a report from a session

@@ -11,7 +11,7 @@
   be inviting and try to get the user into the game/vr experience first. ...
   keeping users on the landing is not necessary."
 - **Who:** BitPortal's session. The client's alone: no kit half.
-- **State:** briefed
+- **State:** building (2026-11-21: the reading below is chosen; no pull request yet)
 
 ## What it is
 
@@ -31,6 +31,31 @@ They are built now (NSWP-12, 15, 16, 17; tips since kit 0.69). The page
 says what a visitor can do today, and names as coming only what is: paying
 to enter a world or for an item, shares, boards across worlds. Check each
 claim against the code the day it is written, not against this file.
+
+## Which doors go (2026-11-21: the orchestrator's decision as design, told to the owner, theirs to overturn)
+
+The page at `/` is two things today: the hero (the room drawn live, the
+way in) and, under it, the lobby (every door as a list, search, hashtags,
+lists, Settings, the operator's list). The owner's words: "remove all the
+unnecessary doors" and "keeping users on the landing is not necessary".
+
+Chosen: the landing page becomes the way in and a few words, and the
+lobby moves to a page of its own. Held to:
+
+- Nothing changes about what is shown or allowed, only where: every way
+  to a world still asks `catalog.permits`.
+- Nothing a person kept breaks: an old link to `/#…` lands on the same
+  thing at the new address, and the room's "front page" control leads to
+  the page that now has settings and announcing.
+- BitPortal's `AGENTS.md` rules that name "the front page" are rewritten
+  to name the right page in the same pull request; each rule kept.
+- "Sign in", "Your doors" and "Your look" stay reachable from the landing
+  page.
+- The new page's address is asked for before it is used.
+- Two pull requests if cleaner: the move (no change in looks), then the
+  new landing page.
+- Until landing-02 exists, the getting-started link points at the
+  template's repository.
 
 ## Done looks like
 

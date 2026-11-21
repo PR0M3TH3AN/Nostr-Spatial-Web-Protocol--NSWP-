@@ -145,6 +145,18 @@ orchestrator, and says the row's name in any message about that work. The
 plans in `docs/plans/` stay the record of what was decided and why; the board
 is only what is in motion.
 
+## Names given
+
+Rule 11's record: each thing there is one of, who it was given to, and
+when. Ask the orchestrator before using one that isn't here.
+
+| Name | Given to | For | When |
+|---|---|---|---|
+| Kit version numbers (`KIT_VERSION`, the changelog's headings) | the orchestrator, at each merge | the kit | 2026-11-21 |
+| Kind 30078 with `d` = `<namespace>:governance:<scope>:v1[:<subject>]` | BitGate (its shape, `docs/governance-lists.md` in its repository) | allow and block lists, per world and per owner | 2026-11-21 |
+| The tag `subject` inside those lists | BitGate | which world a list is for | 2026-11-21 |
+| The namespace `nswp` in those lists | the kit | every client's lists for worlds | 2026-11-21 (provisional until BitGate's follow-up is merged) |
+
 ## Trying things together
 
 `trials/` holds the scripts that try the projects together on one machine,
