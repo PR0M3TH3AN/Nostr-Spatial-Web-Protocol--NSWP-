@@ -32,3 +32,9 @@ request that does the work. The page of what is in motion (the board,
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | briefed |
 | [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | briefed |
 | [paid-front-room](paid-front-room.md) | The first thing in a world that asks to buy | NSWP builder | building |
+| [scores-across-worlds](scores-across-worlds.md) | A leaderboard shared by several worlds | not briefed | asked |
+| [scores-checked](scores-checked.md) | Scores somebody has checked, not only claimed | not briefed | asked |
+| [achievements-granted](achievements-granted.md) | Achievements a world grants, and ones across worlds | not briefed | asked |
+| [items-given-and-won](items-given-and-won.md) | An item given by a world, or won | not briefed | asked |
+| [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
+| [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
