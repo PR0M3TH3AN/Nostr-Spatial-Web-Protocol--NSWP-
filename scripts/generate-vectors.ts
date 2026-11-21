@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+import { readShares, splitPrice, type Share } from "../packages/core/src/shares.js";
 import {
   buildAvatarEvent,
   buildEntryAssertion,
@@ -1187,6 +1188,63 @@ const files: Record<string, unknown> = {
     reading,
     bag: { reading: bagReading, changing },
     play,
+  };
+}
+
+// ---- Shares (docs/plans/paying-for-things.md, section 8): how a listing divides its price. Written down and not
+// in force: nothing pays a share yet. These are what the service that sells, the sign-in address that pays, and the
+// kit must all agree on before anything does.
+{
+  const SELLER = PK1;
+  const MAKER = PK2;
+  const CLIENT = PK3;
+  const tag = (to: string, parts: string, label?: string) => ["nswp:share", to, parts, ...(label === undefined ? [] : [label])];
+  const reading = [
+    { name: "none", description: "A listing with no share at all: the seller is paid everything.", tags: [["d", "a-lantern"], ["price", "500", "SAT"]] as string[][] },
+    { name: "seller_maker_client", description: "Three shares, adding up to the whole.", tags: [tag(SELLER, "8500", "world"), tag(MAKER, "1000", "maker"), tag("client", "500")] },
+    { name: "words_left_out", description: "A share with no word is called by what it is: seller, client, or share.", tags: [tag(SELLER, "9000"), tag(MAKER, "500"), tag("client", "500")] },
+    { name: "not_whole", description: "Parts that don't add up to ten thousand: no shares at all, and nothing is made to fit.", tags: [tag(SELLER, "8500"), tag(MAKER, "1000")] },
+    { name: "seller_left_out", description: "The seller must be among them.", tags: [tag(MAKER, "9500"), tag("client", "500")] },
+    { name: "someone_twice", description: "Nobody is named twice.", tags: [tag(SELLER, "8000"), tag(MAKER, "1000"), tag(MAKER, "1000")] },
+    { name: "two_clients", description: "Nor the client.", tags: [tag(SELLER, "9000"), tag("client", "500"), tag("client", "500")] },
+    { name: "parts_not_digits", description: "Parts are whole numbers in digits, with no leading zero.", tags: [tag(SELLER, "09500"), tag(MAKER, "500")] },
+    { name: "parts_with_a_point", description: "No fractions.", tags: [tag(SELLER, "9500.5"), tag(MAKER, "499.5")] },
+    { name: "not_a_key", description: "Who is a key, or the word client.", tags: [tag(SELLER, "9500"), tag("alice@example.com", "500")] },
+    { name: "a_word_too_long", description: "A word of at most 32 characters.", tags: [tag(SELLER, "9500"), tag(MAKER, "500", "x".repeat(33))] },
+    { name: "a_hidden_mark_in_a_word", description: "Nothing unseen in a word.", tags: [tag(SELLER, "9500"), tag(MAKER, "500", "maker\u202e")] },
+    { name: "too_many", description: "Six at most.", tags: [tag(SELLER, "4000"), ...[1, 2, 3, 4, 5, 6].map((n) => tag(bytesToHex(sha256(utf8ToBytes(`share ${n}`))), "1000"))] },
+    { name: "an_extra_piece", description: "A share is three pieces or four, and no more.", tags: [tag(SELLER, "9500"), [...tag(MAKER, "500", "maker"), "more"]] },
+  ].map((v) => ({ ...v, seller: SELLER, expect: readShares(v.tags, SELLER) }));
+  const three: Share[] = [{ to: SELLER, parts: 8500, label: "world" }, { to: MAKER, parts: 1000, label: "maker" }, { to: "client", parts: 500, label: "client" }];
+  const split = (name: string, description: string, price: number, shares: Share[], o: { client?: string; charge?: number } = {}) => ({ name, description, price, shares, seller: SELLER, ...o, expect: splitPrice(price, shares, SELLER, o) });
+  const splitting = [
+    split("no_shares", "No shares: the seller is paid the price, less the service's charge.", 500, [], { charge: 10 }),
+    split("three_with_a_client", "A client brought the buyer: three payments, smallest first, the seller last. The charge comes out of the seller's part only.", 2100, three, { client: CLIENT, charge: 21 }),
+    split("three_and_no_client", "Nobody brought the buyer: the client's share is the seller's.", 2100, three, { charge: 21 }),
+    split("the_client_is_the_seller", "A seller who is their own client is paid once.", 2100, three, { client: SELLER, charge: 21 }),
+    split("the_client_is_the_maker", "A client who is also named in the listing is one person, paid once.", 2100, three, { client: MAKER, charge: 21 }),
+    split("rounded_down", "Each other part is rounded down to a whole sat, and what is left over is the seller's.", 999, three, { client: CLIENT, charge: 10 }),
+    split("a_part_too_small", "At 150 sats the client's 5% is 7 sats, under the least a payment may be: this can't be sold with shares.", 150, three, { client: CLIENT, charge: 10 }),
+    split("the_same_and_no_client", "The same listing sells where nobody brought the buyer, since that part is then the seller's.", 150, three, { charge: 10 }),
+    split("the_charge_eats_the_seller", "A seller whose part doesn't cover the service's charge and the least payment: refused.", 200, [{ to: SELLER, parts: 1000, label: "seller" }, { to: MAKER, parts: 9000, label: "maker" }], { charge: 15 }),
+    split("two_the_same", "Two parts of the same size go in the order of their keys, so everyone computes one order.", 1000, [{ to: SELLER, parts: 8000, label: "seller" }, { to: MAKER, parts: 1000, label: "maker" }, { to: CLIENT, parts: 1000, label: "host" }], { charge: 10 }),
+  ];
+  const by = (name: string) => splitting.find((v) => v.name === name)!.expect;
+  expectEqual("shares/three_with_a_client", by("three_with_a_client"), { ok: true, parts: [{ to: CLIENT, sats: 105, label: "client", seller: false }, { to: MAKER, sats: 210, label: "maker", seller: false }, { to: SELLER, sats: 1764, label: "world", seller: true }] });
+  expectEqual("shares/three_and_no_client", by("three_and_no_client"), { ok: true, parts: [{ to: MAKER, sats: 210, label: "maker", seller: false }, { to: SELLER, sats: 1869, label: "world", seller: true }] });
+  expectEqual("shares/rounded_down", by("rounded_down"), { ok: true, parts: [{ to: CLIENT, sats: 49, label: "client", seller: false }, { to: MAKER, sats: 99, label: "maker", seller: false }, { to: SELLER, sats: 841, label: "world", seller: true }] });
+  expectEqual("shares/a_part_too_small", by("a_part_too_small"), { ok: false, why: "too-small" });
+  expectEqual("shares/no_shares", by("no_shares"), { ok: true, parts: [{ to: SELLER, sats: 490, label: "seller", seller: true }] });
+  expectEqual("shares/not_whole", reading.find((v) => v.name === "not_whole")!.expect, { ok: false, why: "not-whole" });
+  expectEqual("shares/none", reading.find((v) => v.name === "none")!.expect, { ok: true, shares: [] });
+  for (const v of splitting) if (v.expect.ok) expectEqual(`shares/${v.name} adds up`, v.expect.parts.reduce((sum, p) => sum + p.sats, 0), v.price - (v.charge ?? 0));
+  files["shares.json"] = {
+    description:
+      "Shares (docs/plans/paying-for-things.md, section 8; protocol/10-identity.md, \"Shares\"). WRITTEN DOWN AND NOT IN FORCE: nothing pays a share yet. `reading`: what a listing's tags give for a listing sold by `seller` (`readShares`): its shares, none, or why it has none it can be sold with. `splitting`: what a `price` in sats comes to for those `shares`, where `client` is the key of the client that brought the buyer (left out where none did) and `charge` is what the selling service takes, in sats, out of the seller's part (`splitPrice`): the payments in the order they are made, smallest first and the seller last, or why it can't be sold this way. The parts of every split add up to the price less the charge.",
+    testKeys,
+    limits: { most: 6, whole: 10000, least: 10, label: 32 },
+    reading,
+    splitting,
   };
 }
 
