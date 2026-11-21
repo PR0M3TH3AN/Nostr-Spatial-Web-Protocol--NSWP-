@@ -126,6 +126,33 @@ your world: someone who signs in may have one from another device. Your
 world can read its own saves and nobody else's, and never needs to know
 where one is kept.
 
+## A paid world's gate
+
+A world that is paid ([NSWP-01](../protocol/01-worlds.md), "A paid world")
+has the same gate in any engine as in a Three.js world, because none of it
+is drawing ([NSWP-10](../protocol/10-identity.md), "The front room").
+`NSWP.gate()`, called once after `start()`, asks what the visitor holds,
+reads what is for sale, and puts the one control that asks to buy
+(`gate-buy`) in the kit's menu. It returns how the gate stands, and a
+`gate` event with the same fields comes whenever that changes. Act on
+`open`: while it is false, nobody goes past. It is false until the gate
+knows. `why` is why it is shut, in plain words; `offers` is what can be
+bought, with `words` such as "500 sats, for 1 hour".
+
+The engine draws the gate and stops the visitor at it: something solid
+across the way, wherever the world likes, with everything before it free.
+`NSWP.run("gate-buy")` presses the control, for a gate pressed in the
+world. What the world is entered by is its own manifest's word (`access`);
+a world that isn't paid never calls this, or calls it with
+`{"paid":false}` and gets "free" with nothing made, read or asked. A world
+never takes the money and never draws the question about paying: the
+visitor's own sign-in address does. In Godot: `Nswp.gate(paid)`,
+`Nswp.gate_open()`, `Nswp.gate_press()`, and the signal `gate_changed`.
+
+When a timed pass runs out with the visitor inside, `open` stays true for
+two minutes (`state` "ending") and then turns false: stand them before the
+gate again, and load nothing.
+
 ## The latest, always
 
 Serve your export's page and its scripts with `Cache-Control: no-cache`, as
@@ -165,6 +192,7 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
 | `NSWP.offers(world)` | What a world offers, for the tiles beside its door: twelve lines in a set order, each lit or dark with a sentence for it, and a drawing for the seven a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
+| `NSWP.gate(options)` | A paid world's gate: what the visitor holds, what is for sale, and `gate-buy` in the menu. Returns JSON (`state`, `open`, `reason`, `why`, `offers`, `until`); a `gate` event with the same fields comes when it changes. `{"paid":false}` makes nothing. See "A paid world's gate" |
 
 The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter

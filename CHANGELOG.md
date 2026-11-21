@@ -2,6 +2,13 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## Next
+
+- **A paid world's gate in any engine** (`NSWP.gate()`, the `gate` event; in Godot `Nswp.gate()`, `gate_changed`, `gate_open()`, `gate_press()`; `docs/other-engines.md`, "A paid world's gate"). The same gate as a Three.js world's, from the kit's own script: it asks what the visitor holds, shows what is for sale, and puts `gate-buy` in the kit's menu. The engine draws the gate and stops the visitor at it. The engine script's `VERSION` is 15.
+- **The Foundry can have a gate, and has none.** Its example draws a gate across the way and calls `Nswp.gate(false)`; the build stops if `PAID` in its code and its `world.json` disagree. `trials/front-room-godot.mjs` walks it against the selling service's sandbox.
+- **A gate notices a sign-in address named after it began.** A world made in another engine may start its gate before the kit knows the visitor's sign-in address; the gate looked again only every five minutes. It now looks again every few seconds, ten times, and listens to the signer from the moment there is one.
+- `trials/front-room-lib.mjs`: what the two front-room trials share.
+
 ## 0.73.0
 
 The front room: the first thing in the kit that asks a visitor to buy. No world of ours is paid.

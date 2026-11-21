@@ -33,7 +33,7 @@ import { onMenu, play as playCue, tellEngine } from "./engine-menu.js";
 import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
-export { bump, check, claim, door, events, headset, kit, load, menu, moved, offers, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
+export { bump, check, claim, door, events, gate, headset, kit, load, menu, moved, offers, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
 export { frame } from "./engine-world.js";
 export { items, itemSecond, itemsInfo, itemTap, itemUse, model } from "./engine-items.js";
 export { board, figure, people, peopleInfo } from "./engine-people.js";
@@ -41,7 +41,7 @@ export { capturePreview, previewFaces, previewViews } from "./engine-panorama.js
 import { travellingNow } from "./engine-people.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 14;
+export const VERSION = 15;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 

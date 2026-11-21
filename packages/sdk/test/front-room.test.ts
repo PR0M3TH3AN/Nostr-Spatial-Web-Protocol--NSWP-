@@ -398,6 +398,25 @@ describe("the one control", () => {
     expect([second.reason, c2.labels()[1]]).toEqual(["nothing-held", "Buy An hour here: 500 sats, for 1 hour"]);
   });
 
+  it("notices a sign-in address that is named a moment after the gate began", async () => {
+    // A world that starts its gate before it has said where signing in is done: nobody to ask, at first.
+    let named: StandIn | null = null;
+    const gate = createPaidGate({ signer: () => named as unknown as GateSigner | null, url: WORLD, manifest: () => file(), query, status, now: () => clock });
+    await pass(0);
+    await pass(0);
+    expect([gate.state, gate.reason]).toEqual(["shut", "no-signer"]);
+    named = standIn({ state: "locked", pubkey: null });
+    await pass(3000);
+    expect([gate.state, gate.reason]).toEqual(["shut", "signed-out"]);
+    // And from then on it is listened to: signing in, holding a receipt, opens the gate with no wait.
+    named.holds[HOUR] = receipt();
+    named.change({ state: "unlocked", pubkey: ME });
+    await pass(0);
+    await pass(0);
+    expect(gate.open).toBe(true);
+    gate.dispose();
+  });
+
   it("says so where there is no sign-in address at all, and offers nothing to press", async () => {
     const gate = await settled(null);
     expect([gate.state, gate.reason]).toEqual(["shut", "no-signer"]);

@@ -334,6 +334,40 @@ applies whatever the engine. The ones a Godot world is most likely to miss:
   the page's address. Only `Nswp.arrival` says so.
 - Connect a visitor to nobody in `Nswp.arrival.blocked`.
 
+## A paid world's gate
+
+The kit's own script holds the gate of a paid world: what the visitor
+holds, what is for sale, and the one control that asks to buy, in the menu
+(`docs/other-engines.md`, "A paid world's gate"). Your world draws the gate
+and stops the visitor where it stands.
+
+```gdscript
+func _ready() -> void:
+	Nswp.menu(TITLE, ACCENT)
+	Nswp.gate_changed.connect(func(_g: Dictionary) -> void: _tend_gate())
+	Nswp.gate()          # in a world whose own site names what it is entered by
+	_tend_gate()
+
+func _tend_gate() -> void:
+	var shut := not Nswp.gate_open()
+	$Gate.visible = shut
+	$Gate/Shape.set_deferred("disabled", not shut)
+```
+
+`Nswp.gate_now` is what it last said: `why`, `offers`, `until`. Outside a
+browser there is nobody to ask: in the editor the gate is open for you to
+walk your own world, and in anything else exported it is shut. The example
+has a gate across its way and calls `Nswp.gate(false)`, because The Foundry
+is free: nothing is made, read or asked.
+
+**Tried (2026-11-21):** the example, exported with Godot 4.7, with its gate
+switched on in a scripted browser and BitUnlock's sandbox on one machine
+(`trials/front-room-godot.mjs`): a visitor stopped at the gate, a purchase
+with pretend sats, the gate opening on the receipt, the kit as shipped
+refusing that receipt, another visitor kept out, a pass running out with
+the visitor inside. **Not tried:** a real headset, a real sign-in address's
+screen, a real purchase.
+
 ## Not here yet
 
 - **A screen someone shares** in a room: it is watched on one of the kit's
