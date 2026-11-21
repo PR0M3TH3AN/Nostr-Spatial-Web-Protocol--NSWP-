@@ -174,7 +174,9 @@ Three things to do beside the code:
 2. **Serve the locked box.** An item's own logic runs in a page of its own
    that can reach nothing: `item-box.html`, beside your `index.html`. Its
    text is `ITEM_BOX_HTML` in the kit's core, and your host must send it
-   with exactly `ITEM_BOX_CSP` as its Content-Security-Policy and none of
+   with exactly `ITEM_BOX_CSP` as its Content-Security-Policy (or
+   `itemBoxCsp(client)`, if your world lets its visitors' client show it in
+   a frame: the box must let that client be above it too) and none of
    your site's other content rules. `scripts/build-godot-example.mjs` in
    the kit's repository does both for the example. Where it isn't served
    that way, items are shapes in your world and do nothing of their own;
