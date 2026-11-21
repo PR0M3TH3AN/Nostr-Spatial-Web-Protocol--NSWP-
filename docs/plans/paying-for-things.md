@@ -421,11 +421,27 @@ moment and breaks rule 2. The alternative proposed here:
   releases;
 - the recipient collects it whenever they like.
 
-It needs a short list of mints BitUnlock will accept, since a token is
-only worth what its mint is good for. Decided: the list is short and the
-owner approves each mint on it, beginning with one or two well-known
-ones. And it needs BitLogin's wallet to be able to send a locked token,
-which it can't yet.
+A token is only worth what its mint is good for, so whoever is paid in
+ecash has to be willing to trust the mint it comes from. Nobody keeps a
+list for this. It is done the way Nostr already does it (the owner,
+2026-11-21, of the first answer, which had the owner approving a short
+list: "Don't we display a ranked list of mints? And let the user
+choose?" and "It's a Nostr nip"):
+
+- **Choosing a mint** is the buyer's, from the mints people recommend
+  (NIP-87), ranked with the people they follow first. BitLogin's wallet
+  does this today.
+- **Saying which mints one will be paid from** is each recipient's own,
+  published by them with the key a token is to be locked to (NIP-61).
+  BitLogin's wallet record already carries that key.
+- **BitUnlock checks,** for each share paid in ecash, that the token is
+  from a mint that recipient named. It names none itself.
+- **Where the buyer's mint is not one the recipient named,** that share
+  is paid over Lightning through the buyer's mint, as every share is
+  today. So a payment never fails for the choice of a mint.
+
+It also needs BitLogin's wallet to be able to send a locked token, which
+it can't yet.
 
 Decided for the first real sale: BitLogin's wallet is marked Experimental
 and has never held real sats, so the first thing sold for real costs
@@ -688,8 +704,9 @@ whether something is there already, has to change, or is new.
   (`PAYMENT_ROLES`), and its database and its published form allow at
   most two parts, though its checkout helper already takes up to sixteen.
 - Saying which client brought the buyer, on a quote. No field for it.
-- Ecash received as tokens locked to each recipient (section 9), and the
-  list of mints.
+- Ecash received as tokens locked to each recipient (section 9), checked
+  against the mints that recipient has named for themselves (NIP-61).
+  No list of BitUnlock's own.
 
 ### 11.3 BitLogin
 
@@ -947,9 +964,14 @@ section it belongs to.
    the seller.
 7. **Small shares:** none under about 10 sats over Lightning; smaller
    waits for ecash.
-8. **Mints:** a short list the owner approves, one or two well-known ones
-   to begin. The first real sale stays under about 1,000 sats while the
-   wallet is Experimental.
+8. **Mints:** changed by the owner the same day. First answered as "a
+   short list the owner approves"; then: "Don't we display a ranked list
+   of mints? And let the user choose?" and "It's a Nostr nip". So: nobody
+   keeps a list. A buyer chooses their mint from the ones people
+   recommend (NIP-87), each recipient says which mints they will be paid
+   from (NIP-61), and where the two don't meet the share goes over
+   Lightning (section 9). The first real sale stays under about 1,000
+   sats while the wallet is Experimental.
 9. **BitUnlock out of reach:** a receipt found good within the last day
    stays good; after that the door is shut.
 10. **Tips:** no share taken. One sat at least; at most, the limit on a
@@ -1042,7 +1064,6 @@ Not decided by the above, and each needed before the part it belongs to:
   wait for it.
 - **Whether the aim of "under a tenth"** given up in all is a rule or a
   hope.
-- **Which mints,** by name.
 - **How the person tipped is told.** The note that travels with a
   Lightning payment is the plainest way and depends on their wallet
   showing it. A private Nostr message is the other, and would be sent by
