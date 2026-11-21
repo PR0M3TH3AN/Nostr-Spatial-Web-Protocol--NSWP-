@@ -3,7 +3,7 @@
 - **Asked:** 2026-11-21. The owner: "for doors. Let's make sure there is a
   minimum distance separation between each door."
 - **Who:** BitPortal's session, both halves.
-- **State:** building. The kit's half is written (`DOOR_SPACING` in `gate-size.ts`, `door-layout.ts`, `doorSpacing` in `kit()`); the client's half follows once the kit is vendored into BitPortal.
+- **State:** merged, both halves (the kit: NSWP pull requests 234 and 239, kit 0.71.0; BitPortal's room: BitPortal pull request 159). Not live: it goes out with the next release of the sites.
 
 ## The kit's half
 
