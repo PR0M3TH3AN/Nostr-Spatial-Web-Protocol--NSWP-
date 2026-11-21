@@ -448,6 +448,8 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `lock` | `state`, locked. The visitor's own way to end it, from the world's menu |
 | `save`, `find`, `open` | A save kept, found or opened for this world and no other: [NSWP-12](12-saves.md) |
 | `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
+| `propose`, with `event`: `kind`, `content`, `tags`, of kind 0, 5 or 10002 | `asking` at once; then, under the same `id`, `signed` with the whole signed note, or `refused` ("Asking the person", below) |
+| `wallet` | `asking` at once; then, under the same `id`, `wallet` with `uri`, or `refused` ("Asking the person", below) |
 | `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `seal`, with `to` and `text` | `sealed`, with the message as written and its two seals; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
@@ -466,7 +468,7 @@ why.
 | | Kinds | When |
 |---|---|---|
 | Ordinary | A note (1), a reaction (7) | Once the visitor has allowed that world |
-| Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | `sign` refuses them. Who they follow is changed by `follow`, for a world they let ("Asking for more") |
+| Careful | Their profile (0), who they follow (3), a deletion (5), their relay list (10002), and anything not named here | `sign` refuses them. Who they follow is changed by `follow`, for a world they let ("Asking for more"). A profile, a deletion and a relay list can be put to the visitor themselves, each time ("Asking the person") |
 | Never | Private messages and their wrappings (4, 13, 14, 15, 1059, 1060), passes and room signals (27300, 27301), proofs of identity to a relay or a server (22242, 27235), wallet and remote-signer traffic (13194, 23194, 23195, 24133), application data (30078) | `sign` refuses them, whatever anyone says. A message is sent and read by `seal` and `unwrap`, for a world they let ("Asking for more") |
 
 - **The note is the signer's to finish.** It sets the time itself, and adds
@@ -549,6 +551,50 @@ The reference signer is BitLogin's own site. The key moves from the
 window's crypto worker to the signer's without passing through either page,
 and the signer remembers a world the visitor allowed (BitLogin's
 `docs/sign-in-window.md`).
+
+## Asking the person
+
+**Status:** the kit's half is implemented (kit 0.64.0: `signer.propose`,
+`signer.wallet`). BitLogin's half is built and not yet live. Nothing in
+the reference worlds uses either yet.
+
+Some things a visitor should be asked each time, in words, by their own
+sign-in address, and never have done for them on a world's say: a change
+to their profile, a deletion, a change to their relay list, and a wallet
+for a world to spend with. `sign` refuses the first three and always will.
+A world can put them to the visitor instead:
+
+1. At the visitor's press, the world sends `propose` (a note of kind 0, 5
+   or 10002) or `wallet`.
+2. The signer answers `asking` at once, or `refused`. It has signed
+   nothing: it holds the question for the sign-in address's own page.
+3. On `asking`, the world has that page shown, exactly as for signing in:
+   the client's panel where there is one, the window otherwise ("The
+   window, and a panel in its place"). The page shows the visitor what is
+   asked, in words, and who it is asked as.
+4. At their press there, the answer comes back under the same `id`:
+   `signed` with the whole note, or `wallet` with a connection, or
+   `refused`.
+
+- **A closed list of kinds:** 0, 5, 10002 (`PROPOSE_KINDS`). Not who they
+  follow: a whole list signed for a world could unfollow everyone, so that
+  stays one person at a time (`follow`). Never a never-kind, and nothing
+  unnamed.
+- **A world checks what comes back** as it checks anything a signer hands
+  it: really signed, by the key signed in here, exactly the kind, words
+  and tags it put to them, and marked with this world's address. The kit
+  does.
+- **One question at a time, and not for long.** The sign-in address keeps
+  one, for five minutes, and a few a minute at most; a new one ends the
+  one before. A world waits no longer than that.
+- **A wallet connection is spending power.** What comes back from `wallet`
+  is a Nostr Wallet Connect address: this world can spend with it, within
+  what the wallet itself allows. A world asks for one only for something
+  the visitor is doing just then, keeps it no longer than it must, and
+  never sends it anywhere.
+- **A world never draws these questions itself,** and nothing here lets a
+  world sign a careful kind without the visitor reading it on their own
+  sign-in address's page.
 
 ## One sign-in
 

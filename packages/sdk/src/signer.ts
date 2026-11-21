@@ -16,7 +16,7 @@
  * is the client's own page, which this page can't read.
  */
 import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
-import { isAchievementAsked, cleanMessage, cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { isAchievementAsked, cleanMessage, cleanMore, cleanWalletUri, PROPOSE_KINDS, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -70,6 +70,22 @@ export interface WorldSigner {
    * over it (`panel`), that is asked for instead, and no window opens.
    */
   unlock(): boolean;
+  /**
+   * Put a note of a careful kind to the visitor themselves: their profile
+   * (0), a deletion (5) or their relay list (10002). The signer signs none
+   * of these on a world's word: the sign-in address shows the visitor what
+   * it is, in words, on its own page (its panel in a client that has one,
+   * else its window), and signs it only at their press there. Call it from
+   * a press. Resolves with the signed note, checked, or null: they said no,
+   * closed it, took longer than five minutes, or the signer doesn't do this.
+   */
+  propose(note: { kind: number; content: string; tags?: string[][] }): Promise<NostrEvent | null>;
+  /**
+   * Ask the visitor for a wallet connection for this world, the same way.
+   * Call it from a press. Resolves with a Nostr Wallet Connect address
+   * this world may spend with, within what the wallet allows, or null.
+   */
+  wallet(): Promise<string | null>;
   /**
    * Whether `unlock()` shows a panel in the visitor's client rather than a
    * window: this world is in the frame of a client that has one, for this
@@ -182,6 +198,8 @@ const NONE: WorldSigner = {
   retry: () => false,
   copy: null,
   unlock: () => false,
+  propose: () => Promise.resolve(null),
+  wallet: () => Promise.resolve(null),
   panel: false,
   lock() {},
   sign: async () => null,
@@ -213,6 +231,9 @@ function namedAddresses(at: { signer: string; window: string }): { origin: strin
   }
 }
 
+/** How long the visitor has to answer a question put to them: as long as the sign-in address keeps it. */
+const ASK_PERSON_MS = 5 * 60_000;
+
 /** A signer for this page, from the visitor's client. With no client, or off a browser, one that is always "none". */
 export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   const real = opts.at ? namedAddresses(opts.at) : (signerAt(opts.under) ?? signerAddresses(opts.airlock));
@@ -231,6 +252,11 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       kept.set(request.id, { answer: (reply) => done(reply ? read(reply) : null), timer });
       tell(request);
     });
+  /**
+   * Questions put to the visitor themselves ("Asking the person"): answered twice. First "asking", at which the
+   * sign-in address's page is shown; then, at their press there, the answer.
+   */
+  const put = new Map<string, { shown: boolean; finish: (reply: SignerReply | null) => void; timer: ReturnType<typeof setTimeout> }>();
   let state: SignerState = "none";
   let pubkey: string | null = null;
   let name: string | null = null;
@@ -292,6 +318,38 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
   };
   const tell = (message: Parameters<typeof signerMessage>[0]) => frame?.contentWindow?.postMessage(signerMessage(message), origin);
 
+  /**
+   * Show the sign-in address's own page, at the visitor's press: its panel, where this world is in the frame of a
+   * client that has one for this address (client-frame.ts), and otherwise its window. False if neither could be.
+   */
+  const showPage = (): boolean => {
+    if (!windowAt) return false;
+    if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
+    try {
+      // A window of its own, never a tab the visitor would lose the world behind. It must keep its link to this
+      // page: that is how it finds the signer here. So no "noopener".
+      return !!window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
+    } catch {
+      return false;
+    }
+  };
+  /** Put a question to the visitor themselves, and read its answer. A signer that doesn't do this says nothing: then there is none. */
+  const putToThem = <T>(request: SignerRequest, read: (reply: SignerReply) => T | null): Promise<T | null> =>
+    new Promise((done) => {
+      // One at a time, as the sign-in address keeps them: a new question ends the one before.
+      for (const [id, earlier] of put) {
+        put.delete(id);
+        clearTimeout(earlier.timer);
+        earlier.finish(null);
+      }
+      const timer = setTimeout(() => {
+        put.delete(request.id);
+        done(null);
+      }, 8000);
+      put.set(request.id, { shown: false, finish: (reply) => done(reply ? read(reply) : null), timer });
+      tell(request);
+    });
+
   const onMessage = (e: MessageEvent) => {
     // Only the signer itself is listened to: that frame, at that address.
     if (!frame || e.source !== frame.contentWindow || e.origin !== origin) return;
@@ -316,6 +374,23 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       if (reply.offers) offers = reply.offers;
       for (const go of [...firstAnswer]) go();
       return changed();
+    }
+    const personal = put.get(reply.id);
+    if (personal) {
+      const end = (answer: SignerReply | null): void => {
+        put.delete(reply.id);
+        clearTimeout(personal.timer);
+        personal.finish(answer);
+      };
+      if (reply.t !== "asking") return end(reply.t === "refused" ? null : reply);
+      if (personal.shown) return;
+      personal.shown = true;
+      // They have as long as the sign-in address keeps the question, and no longer.
+      clearTimeout(personal.timer);
+      personal.timer = setTimeout(() => end(null), ASK_PERSON_MS);
+      // The page where they are asked: nothing to wait for if it can't be shown.
+      if (!showPage()) end(null);
+      return;
     }
     const question = kept.get(reply.id);
     if (question) {
@@ -433,16 +508,23 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       return !test && clientSignsInAt() === real.origin;
     },
     unlock() {
-      if (state === "none" || !windowAt) return false;
-      if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
-      try {
-        // A window of its own, never a tab the visitor would lose the world behind. It must keep its link to this
-        // page: that is how it finds the signer here. So no "noopener".
-        const opened = window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
-        return !!opened;
-      } catch {
-        return false;
-      }
+      return state !== "none" && showPage();
+    },
+    propose(note) {
+      const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+      if (state !== "unlocked" || !frame || !PROPOSE_KINDS.includes(asked.kind)) return Promise.resolve(null);
+      // Checked as anything a signer hands back is: really signed, by the key it holds, exactly what was put to
+      // them, and marked for this world.
+      return putToThem({ t: "propose", id: `r${++n}`, event: asked }, (reply) => {
+        if (reply.t !== "signed") return null;
+        const signed = reply.event;
+        const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+        return verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(asked, signed) ? signed : null;
+      });
+    },
+    wallet() {
+      if (state !== "unlocked" || !frame) return Promise.resolve(null);
+      return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => (reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null));
     },
     lock() {
       if (state === "unlocked") tell({ t: "lock", id: `l${++n}` });

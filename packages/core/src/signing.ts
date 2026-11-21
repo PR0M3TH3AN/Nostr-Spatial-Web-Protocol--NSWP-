@@ -217,7 +217,27 @@ export type SignerRequest =
    * Sign that my visitor holds one of my achievements (protocol/16-achievements.md). The world gives its own
    * coordinate, the achievement's name and what it is called: the signer writes the note and marks it.
    */
-  | { t: "achieve"; id: string; world: string; achievement: string; title: string };
+  | { t: "achieve"; id: string; world: string; achievement: string; title: string }
+  /**
+   * Put this to the person themselves (protocol/10-identity.md, "Asking the person"): a note of a careful kind,
+   * which the signer never signs on a world's word. The sign-in address shows it to them in words, on a page of
+   * its own, and it is signed only at their press there.
+   */
+  | { t: "propose"; id: string; event: { kind: number; content: string; tags: string[][] } }
+  /** Ask the person for a wallet connection for this world, the same way: on the sign-in address's own page. */
+  | { t: "wallet"; id: string };
+
+/**
+ * The careful kinds a world may put to its visitor, to be signed at their own press on the sign-in address's page:
+ * their profile (0), a deletion (5), their relay list (10002). A closed list. Not who they follow (3): a whole
+ * list signed for a world could unfollow everyone, so following is one person at a time (`follow`).
+ */
+export const PROPOSE_KINDS: readonly number[] = [0, 5, 10002];
+
+/** A wallet connection as it may be handed to a world: a Nostr Wallet Connect address, and not too long. */
+export function cleanWalletUri(input: unknown): string {
+  return typeof input === "string" && input.length <= 2000 && /^nostr\+walletconnect:\/\/[0-9a-f]{64}\?[\x21-\x7e]+$/.test(input) ? input : "";
+}
 
 /**
  * What a world may ask its visitor to let it do, beyond a note and a reaction. A closed list: each is a thing a
@@ -252,6 +272,13 @@ export type SignerReply =
   | { t: "sealed"; id: string; message: SealedMessage["message"]; seals: SealedMessage["seals"] }
   /** Answers `unwrap`: the message that was inside. */
   | { t: "message"; id: string; message: Message }
+  /**
+   * Answers `propose` and `wallet`, at once: the person is to be asked. The world has the sign-in address's page
+   * shown (its panel, or its window), and the real answer comes later under the same `id`.
+   */
+  | { t: "asking"; id: string }
+  /** Answers `wallet`, once the person has said yes: the connection, for this world. */
+  | { t: "wallet"; id: string; uri: string }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -285,6 +312,8 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "seal" && isHex64(d.to) && cleanMessage(d.text)) return { t: "seal", id: d.id, to: d.to, text: cleanMessage(d.text) };
   if (d.t === "unwrap" && d.event && typeof d.event === "object") return { t: "unwrap", id: d.id, event: d.event as NostrEvent };
   if (d.t === "reach" && Array.isArray(d.relays) && d.relays.length <= 8 && d.relays.every((r) => typeof r === "string" && r.length <= 200)) return { t: "reach", id: d.id, relays: d.relays as string[] };
+  if (d.t === "propose" && d.event && typeof d.event === "object" && PROPOSE_KINDS.includes((d.event as { kind?: unknown }).kind as number)) return { t: "propose", id: d.id, event: d.event as { kind: number; content: string; tags: string[][] } };
+  if (d.t === "wallet") return { t: "wallet", id: d.id };
   if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
     return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
   }
@@ -318,6 +347,8 @@ export function readSignerReply(data: unknown): SignerReply | null {
   }
   if (typeof d.id !== "string" || !ID.test(d.id)) return null;
   if (d.t === "refused") return { t: "refused", id: d.id };
+  if (d.t === "asking") return { t: "asking", id: d.id };
+  if (d.t === "wallet" && cleanWalletUri(d.uri)) return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
   if (d.t === "signed" && d.event && typeof d.event === "object") return { t: "signed", id: d.id, event: d.event as NostrEvent };
   if (d.t === "found" && isHex64(d.d)) return { t: "found", id: d.id, d: d.d };
   if (d.t === "sealed" && d.message && typeof d.message === "object" && Array.isArray(d.seals) && d.seals.length === 2) return { t: "sealed", id: d.id, message: d.message as SealedMessage["message"], seals: d.seals as SealedMessage["seals"] };
