@@ -344,6 +344,30 @@ export function accountAction(controls: Controls, opts: { presenting?: () => boo
 }
 
 /**
+ * Their own files, without leaving the world: the file browser of their sign-in address (folders, public and
+ * private files, the servers they keep them on), in the panel their client draws over the world. The world sees
+ * none of it: it is the sign-in address's page, and a world is handed a file only when the visitor picks one for
+ * it (`signer.pickFile`). Only where there is such a panel.
+ */
+export function filesAction(controls: Controls, opts: { presenting?: () => boolean } = {}): UiAction {
+  const signer = worldSigner();
+  onClientScreen(() => controls.signal("signer"));
+  return {
+    id: "files",
+    section: "you",
+    icon: "list",
+    label: () => `Your files, at ${signer.host ?? "your sign-in address"}`,
+    short: "Files",
+    hidden: () => !signer.panel,
+    act: () => {
+      const host = signer.host ?? "your sign-in address";
+      if (opts.presenting?.()) return controls.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+      if (!askClientForSignIn("files")) controls.say(`${host} couldn't be shown here just now.`);
+    },
+  };
+}
+
+/**
  * The way to change how they look. Their look is kept by their own client and
  * is the same in every world, so it is changed there: this leaves for it and
  * comes back, as signing in does.

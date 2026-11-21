@@ -373,8 +373,9 @@ world still reads how they arrived: all of it happens in the frame.
     is its own signer's address: no other panel could find its signer;
   - the world, at the visitor's press:
     `{ nswp: "sign-in", mode, menu? }`. `mode` is `"ask"` (let this world
-    sign), `"switch"` (another account) or `"account"` (the account's own
-    pages); `menu` is where the world's menu is on the screen
+    sign), `"switch"` (another account), `"account"` (the account's own
+    pages), `"files"` (their own files) or `"wallet"` (their own wallet);
+    `menu` is where the world's menu is on the screen
     (`left`, `width`, `bottom`, in CSS pixels), which the client may use
     and must clamp;
   - the client, as the panel comes and goes:
