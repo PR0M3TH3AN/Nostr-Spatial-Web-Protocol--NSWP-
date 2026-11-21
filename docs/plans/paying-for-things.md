@@ -12,7 +12,8 @@ still open. **Decided is not built: nothing here is built yet.** Section
 have written down, and is not one of the things decided. Section 11 was
 rewritten after reading the code of all three projects at each place this
 touches them: it found nine things the first draft had wrong, which are
-listed there and corrected where they stood.
+listed there and corrected where they stood. BitLogin's own session then
+read section 11.3 and corrected three more points, which are in.
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -187,13 +188,18 @@ item this world's own publisher sells). A world can't go through a
 visitor's purchases elsewhere. A visitor who would rather not say can turn
 this off, and is then asked each time.
 
-It is answered from what BitLogin has already saved in this browser, and
-not by asking BitUnlock then and there: the signer inside a world may
-reach relays and nothing else, and can't sign the kind of request
-BitUnlock needs (section 11.1). BitLogin's own page fills that store when
-the visitor signs in and after every purchase. So something bought on
-another device shows up here once the panel has next been open; and `buy`
-for something already owned finds the receipt and charges nothing.
+It is answered from what that world's signer has been handed, and not by
+asking BitUnlock then and there: the signer inside a world may reach
+relays and nothing else, and can't sign the kind of request BitUnlock
+needs (section 11.1). BitLogin's own page hands a world's signer the
+receipts for that world's own listings, and no others, when the visitor
+signs in there and after every purchase: the same way it hands over the
+session, and for the same reason (a browser keeps a framed page's storage
+apart, so the two can't simply share a store). A world's signer therefore
+never holds what a person bought elsewhere. Something bought on another
+device shows up here once BitLogin's page has next been open for this
+world; and `buy` for something already owned finds the receipt and
+charges nothing.
 
 **Buying is not the same as paying.** `pay` (which exists) pays one
 invoice a world made, and that is all: nothing is signed, nothing is kept,
@@ -308,8 +314,11 @@ unlocked by it.
 2. The world sends its signer `tip`, with the person's key and the amount
    (a new request, proposed: section 11.1 says why a bare `pay` won't do).
 3. BitLogin's page reads that person's own Nostr profile, finds their
-   lightning address, asks it for an invoice of that amount, shows the
-   visitor who it is for by the name in that profile, and pays at a press.
+   lightning address, and asks it for an invoice of that amount. The
+   invoice must be for exactly that amount, or nothing is shown. It shows
+   the visitor who it is for, by the name in that profile and by the
+   lightning address itself beside it, since a name is anyone's to claim;
+   and pays at a press.
 4. The tipper is told it went. The other person is told privately, and
    nobody else is (decided). How, is still to settle: the plainest way is
    the note that travels with the payment, where their wallet takes one
@@ -329,8 +338,9 @@ is better for small tips and is not built in BitLogin yet (section 12).
 ### 7.6 A tip to a world
 
 The same, to an address the world's announcement names (`tip`), or its
-publisher's profile where it names none. Offered in the world's menu and
-on its door plate.
+publisher's profile where it names none. BitLogin reads that address from
+the world's signed announcement itself, never from what the world says
+when it asks. Offered in the world's menu and on its door plate.
 
 No share is taken from a tip (decided).
 
@@ -595,8 +605,12 @@ whether something is there already, has to change, or is new.
    world is served with rules that let it reach relays only
    (`connect-src 'self' wss:`), and a session handed to it can never sign
    a request to a server (kind 27235 is on its never list). So it answers
-   from a store BitLogin's own page keeps in the same browser. Corrected
-   in section 5.
+   from what BitLogin's own page has handed it. (A second draft said "a
+   store in the same browser". BitLogin's session corrected that: a
+   framed page's storage is kept apart by the site it is framed in, so a
+   world opened by itself shares none with BitLogin's window. Receipts
+   are handed to a world's signer the way the session is.) Corrected in
+   section 5.
 2. **The Airlock can't ask BitLogin anything.** BitPortal pins that the
    Airlock "loads nothing from the sign-in address" and reads only this
    browser's own note. So "You have this" on a plate comes from a note the
@@ -686,8 +700,17 @@ show who it is for, pay. The same for a world's own address.
 
 **New, for anything sold:**
 
-- A store of receipts in this browser that both its page and its signer
-  can read; filled from BitUnlock at sign-in and after a purchase.
+- Receipts kept with the account by its own page, fetched from BitUnlock
+  at sign-in and after a purchase; and handed to each world's signer, for
+  that world's own listings only, by the sealed message that hands over
+  the session.
+- The calls to BitUnlock and to a lightning address made by the page
+  itself, as its wallet and files code do: its crypto worker is served
+  the stricter rule (`'self' wss:`) even when the panel started it, so
+  the worker only signs. The buyer's signed request to BitUnlock is one
+  worker action of its own, which signs that kind for a named BitUnlock
+  address and nothing else. Kind 27235 stays on the never list for worlds
+  and applications.
 - `buy`: BitUnlock's checkout, with this wallet and this session; the
   page that shows what, whose, how much, each part and how long. Two
   parts to a payment are two payments through the mint, each with its own
@@ -700,7 +723,8 @@ show who it is for, pay. The same for a world's own address.
   can't reach BitUnlock as it is served today (`connect-src 'self' wss:`).
 
 **Has to change:** `pay` gains its words ("no receipt") and the visitor's
-limit, 1,000 sats to begin (section 10.2).
+limit, 1,000 sats to begin (section 10.2): one setting, for `pay` and
+`tip` together.
 
 **Later:** sending a token locked to someone's key; paying from a wallet
 connection; the list of issuers a visitor may add to.
