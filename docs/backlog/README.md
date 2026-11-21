@@ -36,6 +36,7 @@ request that does the work. The page of what is in motion (the board,
 | [scores-checked](scores-checked.md) | Scores somebody has checked, not only claimed | not briefed | asked |
 | [achievements-granted](achievements-granted.md) | Achievements a world grants, and ones across worlds | not briefed | asked |
 | [items-given-and-won](items-given-and-won.md) | An item given by a world, or won | not briefed | asked |
+| [hidden-items-easter-eggs](hidden-items-easter-eggs.md) | Hidden items to find across worlds, with proof of who found one | not briefed (the owner asked to think about it) | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
 | [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
 | [bridge-test-fails-when-busy](bridge-test-fails-when-busy.md) | A test that fails only when the machine is busy | the orchestrator | merged |
