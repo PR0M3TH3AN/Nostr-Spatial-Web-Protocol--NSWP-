@@ -3,7 +3,8 @@
 **Status:** a proposal, written for the owner on 2026-11-21. Nothing in it
 is built unless a line says "exists". It is to be argued with, and the
 open questions at the end are the owner's to answer before any of it is
-started.
+started. Section 10 (why a world would sell this way and not its own) was
+added the same day, at the owner's asking.
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -134,7 +135,7 @@ anyone pays:
   such tag is free, as now.
 
 One listing sells one thing. Two prices for one thing (a day, a year) are
-two listings. A bundle is not in this version (section 11).
+two listings. A bundle is not in this version (section 12).
 
 **Who may sell what.** A listing for a world must be signed by the key
 that signed the world's announcement, and a listing for an item by the key
@@ -175,6 +176,14 @@ item this world's own publisher sells). A world can't go through a
 visitor's purchases elsewhere. A visitor who would rather not say can turn
 this off, and is then asked each time.
 
+**Buying is not the same as paying.** `pay` (which exists) pays one
+invoice a world made, and that is all: nothing is signed, nothing is kept,
+nothing is owned afterwards. It stays, because a tip needs it and because
+a world is free to sell its own way. But BitLogin's page says which of the
+two is happening, in words (section 10.2): a purchase names what will be
+yours and who vouches for it; a bare payment says that nothing will be
+recorded as yours.
+
 **In a headset.** The panel can't be seen from inside the headset view. A
 world says so, as it does for signing in: step out for a moment, buy, step
 back in.
@@ -193,7 +202,7 @@ done the same way everywhere. A receipt is good only if all of these hold:
 - it has not been taken back. This is the one check that needs BitUnlock,
   so it is asked at most every few minutes and remembered. If BitUnlock
   can't be reached, a receipt that was good a moment ago stays good for a
-  short while and then is treated as unknown: section 12, question 9.
+  short while and then is treated as unknown: section 13, question 9.
 
 ### 6.1 How shut is a paid door
 
@@ -274,9 +283,13 @@ unlocked by it.
 4. The tipper is told it went. The other person is told only if this
    version includes a notice (question 11).
 
+A tip is a bare payment, so the limit on bare payments applies to it
+(section 10.2): a tip over the visitor's own limit is turned down by
+BitLogin with the reason, and they may raise the limit there.
+
 Someone with no lightning address in their profile can't be tipped yet,
 and the row says so. Ecash straight from one person's wallet to another's
-is better for small tips and is not built in BitLogin yet (section 11).
+is better for small tips and is not built in BitLogin yet (section 12).
 
 ### 7.6 A tip to a world
 
@@ -358,16 +371,121 @@ It needs a short list of mints BitUnlock will accept, since a token is
 only worth what its mint is good for. And it needs BitLogin's wallet to be
 able to send a locked token, which it can't yet.
 
-## 10. What each project would have to add
+## 10. Why a world would sell this way, and not its own
+
+**The plain fact first.** Nothing here can stop a world selling its own
+things its own way, and nothing here tries to. A world is a website: it
+can show its own invoice, and with `pay` it can have a visitor pay it from
+their BitLogin wallet at one press, with no BitUnlock, no receipt and no
+share for anyone. That is left open on purpose. So the reason to sell this
+way has to be that it is worth more and costs less than the alternative,
+and that it is worth more the more worlds and people there are.
+
+### 10.1 What a world can't make by itself
+
+1. **Ownership nobody can forge.** A static world can take a payment, but
+   it can't keep a record of who bought what that a visitor can't fake:
+   everything a world keeps for a visitor is the visitor's own to write
+   (their saves, their browser). A purchase that lasts needs someone
+   independent to sign it. That is the receipt (rule 1).
+2. **Things that come with you.** A receipt is in the buyer's library on
+   every device and is honoured in every world. Something bought privately
+   inside one world stays in that world.
+3. **Being seen to own it.** Other people's clients draw a paid item in
+   someone's hand only when their receipt checks out (section 7.3). An
+   item sold outside can't be shown as owned anywhere else.
+4. **A wallet with something in it.** The visitor's balance and the one
+   press are BitLogin's. Selling outside means asking people to fund
+   something else, or to scan a code, which in a headset is close to
+   impossible.
+5. **Being found.** BitPortal's doors, shelves and lists are where buyers
+   come from, and a paid door there says what it costs before anyone
+   crosses. The client's share (section 8) is what a seller offers for
+   that, by choice.
+6. **Being trusted.** A rating from someone who really bought the thing; a
+   record of refunds given; a seller's history. None of these can exist
+   without receipts. (A "bought it" mark on a rating, NSWP-13, is proposed
+   here and not built: question 20.)
+7. **A maker's share that follows the item.** Whoever sells an item, in
+   whatever world, the maker's share is in its listing, and no world can
+   list an item without its maker's signature (section 4).
+
+Every one of these but the fourth is worth more with each world and each
+person added. That is what makes it a position worth holding, and not a
+wall.
+
+### 10.2 Making it the easy way
+
+- **A few lines to sell.** A world needs no server, no wallet of its own,
+  no records and no checkout page:
+
+  ```js
+  const receipt = (await signer.have(listing)) ?? (await signer.buy(listing));
+  if (receipt && (await checkReceipt(receipt, listing)).ok) open();
+  ```
+
+- **A small take.** What a seller gives up in all (BitUnlock's fee, and
+  the client's share where they offer one) has to stay well under what it
+  would cost them to build and run their own. The numbers are the owner's
+  (questions 6, 15 and 22).
+- **Say what is true, and block nothing.**
+  - On BitLogin's page, a bare payment reads: "A payment to this world. No
+    receipt: nothing will be recorded as yours." A purchase reads what
+    will be yours, for how long, and that BitUnlock vouches for it.
+  - On a door, a world that sells through receipts is marked "Sells with
+    receipts". A world that doesn't is not marked down: it simply has no
+    mark it hasn't earned.
+  - In a bag and in a hand, nothing is ever shown as owned without a
+    receipt from an issuer the client trusts.
+- **A limit on bare payments.** By default, BitLogin pays no more than a
+  set amount in one bare payment a world asks for, and the visitor can
+  raise it for themselves on BitLogin's page. A purchase has no such
+  limit, because the visitor has been shown a signed listing and gets a
+  receipt. The reason is safety (a world that asks for a great deal, for
+  nothing), and it also sends anything of worth the receipted way. The
+  amount is question 19.
+- **What BitPortal puts forward is the owner's.** Its shelves, its starter
+  set and its lists show what the owner chooses, as they do now.
+
+### 10.3 Staying open
+
+- The receipt, the listing's tags, and `buy` and `have` are written down
+  and anyone may implement them.
+- The issuers a client trusts are a list. Another service that signs
+  receipts the same way can be added to it, by a client or by a visitor
+  for themselves (question 21). BitUnlock is first on the list because it
+  is there, not because the list is closed.
+- `pay` stays. Nothing in the kit refuses to run in a world that sells its
+  own way, and nothing hides such a world.
+
+### 10.4 What is not done, and why
+
+- **Nothing blocks a payment made outside.** It can't work on the open
+  web, and world makers would rightly stop trusting a client that tried.
+- **BitPortal does not hold people's balances.** Running the mint that
+  everyone's wallet uses would be the strongest hold of all, and it means
+  holding other people's money, with everything that follows in law. If it
+  is ever wanted it is its own decision (question 8), not a step toward
+  this.
+- **No world is marked down for selling its own way.** It goes without the
+  marks, the travel and the trust above, and that is all.
+
+### 10.5 The limit of this
+
+A large world with its own crowd can do without all of it and lose
+little. This doesn't have to stop that. It has to make it uncommon, and
+not worth the trouble for nearly everyone.
+
+## 11. What each project would have to add
 
 | Project | To add |
 |---|---|
 | **BitUnlock** | The NSWP tags on a listing, and checking the seller owns the thing. A receipt that names what it is for. Later: more than two recipients (A above), and ecash received as locked tokens. |
-| **BitLogin** | Keeping receipts with the account, and finding them again (its own unbuilt design). `buy` and `have`. The purchase page in the panel. Later: sending a locked ecash token. |
-| **The kit (NSWP)** | `signer.buy`, `signer.have`. One receipt check. The front room of a paid world. A locked item in the bag, and receipts beside held items. Tip rows. The new tags in NSWP-01 (worlds) and NSWP-17 (items), and a new section for all of this. |
-| **BitPortal** | The paid plate on a door. Saying which client it is at a purchase. A shelf for its own items. |
+| **BitLogin** | Keeping receipts with the account, and finding them again (its own unbuilt design). `buy` and `have`. The purchase page in the panel. The words that tell a purchase from a bare payment, and the visitor's own limit on a bare payment (section 10.2). Later: sending a locked ecash token. |
+| **The kit (NSWP)** | `signer.buy`, `signer.have`. One receipt check, and the list of issuers it trusts. The front room of a paid world. A locked item in the bag, and receipts beside held items. Tip rows. The "Sells with receipts" mark on a plate. Perhaps a "bought it" mark on a rating. The new tags in NSWP-01 (worlds) and NSWP-17 (items), and a new section for all of this. |
+| **BitPortal** | The paid plate on a door, and the "Sells with receipts" mark. Saying which client it is at a purchase. A shelf for its own items. What it puts forward stays the owner's choice. |
 
-## 11. Left out on purpose, and how more is added later
+## 12. Left out on purpose, and how more is added later
 
 Not in this version:
 
@@ -399,7 +517,7 @@ So that more can be added without starting again:
   can be sold, which gates there are), so widening one is a decision
   someone makes and not an accident.
 
-## 12. Open questions for the owner
+## 13. Open questions for the owner
 
 **Gates and access**
 
@@ -457,3 +575,25 @@ So that more can be added without starting again:
 18. **Which thing is sold first for real?** One real product gives all of
     this something to be tested against: a world, a pass, or one of
     BitPortal's own items.
+
+**Keeping worlds inside (section 10)**
+
+19. **The limit on a bare payment.** What should it be by default: 100
+    sats, 1,000, more? One limit for everything, or one for tips and one
+    for anything else a world asks?
+20. **A "bought it" mark on ratings.** In this version, or later? It makes
+    receipts worth having for sellers and it shows, a little, who bought
+    what (question 14).
+21. **Who else may sign receipts.** May a visitor add an issuer for
+    themselves? May a world name its own? What does a service have to
+    show to be on the list BitPortal ships with?
+22. **How much a seller gives up in all.** Is there a number it must stay
+    under (BitUnlock's fee and the client's share together) for this to
+    be the obvious choice?
+23. **What BitPortal puts forward.** Should its own shelves and lists show
+    only worlds that sell with receipts, prefer them, or make no
+    difference?
+24. **Should a bare payment be allowed to open anything?** The kit could
+    refuse to treat a bare payment as a purchase at all (no "paid" state
+    without a receipt). It would be a rule for honest worlds only, and a
+    clear one.
