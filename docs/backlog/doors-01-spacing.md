@@ -3,7 +3,7 @@
 - **Asked:** 2026-11-21. The owner: "for doors. Let's make sure there is a
   minimum distance separation between each door."
 - **Who:** BitPortal's session, both halves.
-- **State:** briefed
+- **State:** building. The kit's half is written (`DOOR_SPACING` in `gate-size.ts`, `door-layout.ts`, `doorSpacing` in `kit()`); the client's half follows once the kit is vendored into BitPortal.
 
 ## The kit's half
 
@@ -15,10 +15,29 @@ number is in what other engines take from the kit (`engine-menu.ts`, `kit()`)
 so a world made in another engine has the same one.
 
 It follows from what a door already is: two doors must never be so close
-that their reach overlaps so a visitor can't tell which one a press takes,
-or that their frames, signs and marks run into each other.
+that their frames, signs and marks run into each other. (This file first
+gave reach as a reason too. It can't be one: see "As built".)
+
+**As built.** `DOOR_SPACING` is 2.5 m between two doors' middles: a door's
+own width and a clear metre of wall. Proposed by the builder and agreed by
+the orchestrator on 2026-11-21; changing it is one line. The helper (`doorRow`,
+`doorArcStep`, `doorsOnArc`, `doorsTooClose`) is numbers only, with no
+renderer. Reach is not what the number is measured by: `DOOR_REACH` is
+3.05 m, so two doors' reaches overlap at anything under 6.1 m, in every
+reference world too; which door a press takes is settled by what is pointed
+at. The reference worlds' nearest pair is 3.4 m (the Gallery), so none had to
+move; BitPortal's room stood its doors 1.81 m apart. Not done here: the
+template's own scene, which is in its own repository and gets the number
+when the kit is next copied into it.
 
 ## The client's half
+
+**Decided by the orchestrator, 2026-11-21, and told to the owner so they can
+overturn it:** BitPortal's room grows from a radius of 8 m to 10 m, and a
+wall still shows a dozen. At 2.5 m a dozen no longer fit a wall of the room
+as it was; the other way was to keep the room and show eight, which takes
+four saved doors off each full wall. No saved door leaves its wall or its
+place.
 
 BitPortal's room lays its doors out by the kit's number and no other. Where
 there are more doors than a wall holds at that spacing, the rest go to the

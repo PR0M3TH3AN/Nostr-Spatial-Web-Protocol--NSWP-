@@ -5,7 +5,7 @@
   the failed gate by a slip (pull request 233; `main` was run again
   afterwards and passed).
 - **Who:** the NSWP builder.
-- **State:** asked
+- **State:** merged (by the orchestrator, since it was stopping every merge while the machine was busy)
 
 `packages/bridge/test/bridge.test.ts`, "answers a stranger once, however
 many times they ask": expected 1, got 2, with the machine's load above 30.
@@ -25,3 +25,15 @@ answer twice.
 
 Be skipped, retried until green, or given a longer timeout and called
 fixed.
+
+## What was done
+
+The Bridge answers a stranger once in a while, a second by default, and the
+test sent six requests and counted one reply. A machine busy enough to take
+more than a second over six requests got a second reply, which was the
+Bridge doing right and the test asking the wrong thing. The test now sets
+the while to ten minutes, so it asks what it means: six requests inside one
+while get one reply. A second test sets it to nothing and sees every request
+answered, so the rule is held from both sides. No wait was lengthened and
+nothing is retried. Other Bridge tests have also failed under load for
+another session; they are not touched here and stay to be looked at.

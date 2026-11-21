@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.70.2";
+  var KIT_VERSION = "0.71.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -7674,6 +7674,7 @@ postMessage({ t: "started" });
   var PORTAL_SPRING = PORTAL_HEIGHT - PORTAL_WIDTH / 2;
   var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
   var DOOR_REACH = 3.05;
+  var DOOR_SPACING = 2.5;
 
   // packages/sdk/src/client-frame.ts
   var framed = () => {
@@ -45849,6 +45850,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       gateSpring: PORTAL_SPRING,
       gateSignHeight: PORTAL_SIGN_HEIGHT,
       doorReach: DOOR_REACH,
+      // The least distance between two doors' middles: lay doors out no nearer than this.
+      doorSpacing: DOOR_SPACING,
       cues: CUES
     });
   }
