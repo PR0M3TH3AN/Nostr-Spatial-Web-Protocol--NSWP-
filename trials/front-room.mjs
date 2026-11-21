@@ -222,18 +222,27 @@ async function visit({ who = null, believe = true, hands = null, clock = false }
     // The stand-in's windows are put away first: a page behind another window draws nothing, and so walks nowhere.
     for (const other of ctx.pages()) if (other !== page) await other.close().catch(() => undefined);
     await page.bringToFront();
-    await page.evaluate(() => { const t = window.__nswpTest; t.teleport(0, 1.5); t.face(0); t.step(0, -3.5); });
-    // A walk, at whatever pace this machine draws it: watched until they are past, or have stood still a while.
-    let last = 99;
+    const start = () => page.evaluate(() => { const t = window.__nswpTest; t.teleport(0, 1.5); t.face(0); t.step(0, -3.5); });
+    await start();
+    // A walk is drawn frame by frame, at whatever pace this machine manages, so nothing here goes by the clock
+    // alone: it is watched until they are past, or have moved and then stood still a good while. A page that had
+    // been behind a window may take a moment to draw again, so a walk that never began is asked for once more.
+    const samples = [];
     let still = 0;
-    for (let i = 0; i < 60 && still < 4; i++) {
+    let asked = 1;
+    for (let i = 0; i < 160; i++) {
       await page.waitForTimeout(500);
       const z = await page.evaluate(() => window.__nswpTest.where()[1]);
-      if (z < -1) return z;
-      still = Math.abs(z - last) < 0.01 ? still + 1 : 0;
-      last = z;
+      still = samples.length && Math.abs(z - samples.at(-1)) < 0.01 ? still + 1 : 0;
+      samples.push(z);
+      if (z < -1) break;
+      const moved = Math.abs(z - 1.5) > 0.05;
+      if (moved && still >= 12) break;
+      if (!moved && still >= 12 && asked < 4) { asked++; still = 0; await page.bringToFront(); await start(); }
+      if (!moved && still >= 12 && asked >= 4) break;
     }
-    return last;
+    (r.walks ??= []).push({ asked, to: samples.at(-1), samples: samples.length });
+    return samples.at(-1);
   };
   const signIn = async (pubkey) => {
     signedIn.who = pubkey;
