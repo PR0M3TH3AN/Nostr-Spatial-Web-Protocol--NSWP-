@@ -28,6 +28,7 @@ import {
   type Arrival,
   type Issue,
   type NostrEvent,
+  type AirlockUrlOptions,
   type PortalDestination,
 } from "@nswp/core";
 
@@ -308,8 +309,11 @@ export const portal = {
     // A browser made for this takes the door itself, and is asked first: with the headset session still running,
     // since how and when that ends is then the browser's to manage (it may want the last frame, or to put its own
     // room up before the page's goes). Ending it here first took that from it.
+    // It is handed what the visitor carries besides (that they are in a headset, in a room, how they move, their
+    // settings): what an Airlock's address would have said, for the browser to put in the arrival it makes for the
+    // place they approve, and nowhere else.
     if (typeof window.nswp?.navigate === "function") {
-      window.nswp.navigate(dest);
+      window.nswp.navigate(dest, carried(opts, immersive));
       return;
     }
     if (opts.xrSession) {
@@ -434,8 +438,13 @@ export const portal = {
 
 declare global {
   interface Window {
-    /** A future dedicated browser may provide native navigation (spec §6.6). */
-    nswp?: { navigate?: (dest: PortalDestination) => void };
+    /**
+     * A browser made for this may take a door itself (browser/spec.md, section 4). It is found by asking, never
+     * by which browser it is. `navigate` is handed the destination and what the visitor carries; `can` says whether
+     * it offers something by name. There is no identity on it, and nothing that pays: a browser holds no key
+     * (browser/spec.md, section 2a).
+     */
+    nswp?: { navigate?: (dest: PortalDestination, carried?: AirlockUrlOptions) => void; can?: (name: string) => boolean };
   }
 }
 
