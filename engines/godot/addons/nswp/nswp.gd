@@ -200,6 +200,9 @@ func _process(_delta: float) -> void:
 				menu_toggled.emit(menu_open)
 			"vr":
 				vr_pressed.emit(bool(event.get("enter", true)))
+			"preview":
+				# Whoever makes this world asked for its 360° picture (`NSWP.capturePreview` on the page).
+				_take_preview(int(event.get("size", 1024)))
 			"changed":
 				# The visitor may have changed how fast the view turns or how wide they see: the numbers are read again.
 				var again: Variant = JSON.parse_string(str(_js.kit()))
@@ -555,6 +558,92 @@ func entry_marker(entry: String = "") -> Node3D:
 		if node.name == MAIN_ENTRANCE:
 			main = node
 	return main
+
+
+# ------------------------------------------------------------------------ the picture a door shows
+
+## Nodes in this group are left out of the world's 360° picture: anything about one visitor.
+## `NswpPeople` and `NswpItems` put themselves in it.
+const NOT_IN_PREVIEW_GROUP := "nswp_not_in_preview"
+## Emitted before the six views are taken, and after: hide and show anything else that is about
+## one visitor, or changes from moment to moment.
+signal preview_taking(taking: bool)
+
+var _taking_preview: bool = false
+
+
+## Take the six views the world's 360° picture is made from, and hand them to the page, which
+## paints them into one picture (the kit's own painting, the same a Three.js world uses). Taken
+## from the main entrance, at eye height, without fog or glow: those differ from view to view
+## and would leave seams.
+##
+## A world needn't call this. Whoever makes it asks the page: `await NSWP.capturePreview(2048)`.
+func _take_preview(size: int) -> void:
+	if _js == null or _taking_preview:
+		return
+	var marker := entry_marker(MAIN_ENTRANCE)
+	if marker == null:
+		_js.previewFaces("{}")
+		return
+	_taking_preview = true
+	preview_taking.emit(true)
+	var hidden: Array[Node3D] = []
+	for node in get_tree().get_nodes_in_group(NOT_IN_PREVIEW_GROUP):
+		if node is Node3D and node.visible:
+			node.visible = false
+			hidden.append(node)
+	var views: Variant = JSON.parse_string(str(_js.previewViews()))
+	var faces: Array[String] = []
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(clampi(size, 128, 2048), clampi(size, 128, 2048))
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewport.msaa_3d = Viewport.MSAA_4X
+	var camera := Camera3D.new()
+	camera.fov = 90.0
+	camera.near = 0.05
+	camera.far = 700.0
+	# The world's own light and sky, without what changes with the way a camera faces.
+	for found in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+		var world_environment := found as WorldEnvironment
+		if world_environment != null and world_environment.environment != null:
+			var plain := world_environment.environment.duplicate() as Environment
+			plain.fog_enabled = false
+			plain.volumetric_fog_enabled = false
+			plain.glow_enabled = false
+			plain.ssao_enabled = false
+			plain.ssr_enabled = false
+			camera.environment = plain
+			break
+	viewport.add_child(camera)
+	add_child(viewport)
+	viewport.world_3d = get_viewport().world_3d
+	camera.current = true
+	var eye := marker.global_position + Vector3(0.0, 1.6, 0.0)
+	if typeof(views) == TYPE_ARRAY:
+		for view: Variant in views:
+			if typeof(view) != TYPE_DICTIONARY:
+				continue
+			var forward := _three(view.get("forward"))
+			var up := _three(view.get("up"))
+			camera.look_at_from_position(eye, eye + forward, up)
+			# Two frames: one for the camera to be where it was put, one for the picture of it.
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+			var image := viewport.get_texture().get_image()
+			faces.append(Marshalls.raw_to_base64(image.save_png_to_buffer()))
+	viewport.queue_free()
+	for node in hidden:
+		if is_instance_valid(node):
+			node.visible = true
+	_taking_preview = false
+	preview_taking.emit(false)
+	_js.previewFaces(JSON.stringify({"faces": faces}))
+
+
+func _three(value: Variant) -> Vector3:
+	if typeof(value) == TYPE_ARRAY and value.size() == 3:
+		return Vector3(float(value[0]), float(value[1]), float(value[2]))
+	return Vector3.ZERO
 
 
 ## Stand `visitor` where they arrived, facing the way that place faces. Returns false if the

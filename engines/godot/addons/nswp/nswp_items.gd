@@ -67,6 +67,8 @@ var last: Dictionary = {}
 
 
 func _ready() -> void:
+	# Nothing anyone carries is in the world's 360° picture: it is about whoever was here when it was taken.
+	add_to_group(Nswp.NOT_IN_PREVIEW_GROUP)
 	_trail_paint = StandardMaterial3D.new()
 	_trail_paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_trail_paint.vertex_color_use_as_albedo = true
@@ -153,6 +155,7 @@ func _draw_held(held: Variant, camera: Camera3D, delta: float, want_sight: bool,
 		_held_id = id
 		_held_model = sha
 		_held_player = _player_in(made)
+		made.add_to_group(Nswp.NOT_IN_PREVIEW_GROUP)
 		camera.add_child(made)
 	_tint(_held, held.get("tints", {}))
 	# Where a hand would hold it: about a third of the height of the view, to the right and clear

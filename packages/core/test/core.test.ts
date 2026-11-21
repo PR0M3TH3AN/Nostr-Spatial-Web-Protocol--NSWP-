@@ -13,6 +13,7 @@ import {
   buildWorldEvent,
   checkDestination,
   checkPreviewBytes,
+  doorPictureOwed,
   previewOnWorldOrigin,
   decodeArrival,
   decodeNaddr,
@@ -398,6 +399,24 @@ describe("previews (spec §5.8)", () => {
     expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: sha }, bytes)).toEqual({ ok: true });
     expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: real }, bytes)).toMatchObject({ ok: false, code: "preview_hash_mismatch" });
     expect(checkPreviewBytes({ url: "https://b.example/a", type: "flat", sha256: sha }, new Uint8Array(600 * 1024))).toMatchObject({ ok: false, code: "preview_too_large" });
+  });
+
+  it("a world owes the picture its doors show: a 360° still wherever there is somewhere to stand", () => {
+    const pano = { type: "pano" };
+    const flat = { type: "flat" };
+    expect(doorPictureOwed({ modes: ["inline-3d"] })).toBe("pano");
+    expect(doorPictureOwed({ modes: ["immersive-vr", "inline-3d"], previews: [] })).toBe("pano");
+    // An ordinary picture isn't the view through a door.
+    expect(doorPictureOwed({ modes: ["inline-3d"], previews: [flat] })).toBe("pano");
+    expect(doorPictureOwed({ modes: ["inline-3d"], previews: [pano] })).toBeNull();
+    expect(doorPictureOwed({ modes: ["inline-3d", "2d"], previews: [flat, pano] })).toBeNull();
+    // A place that is only a web page has nowhere to stand: an ordinary picture will do, and one is still owed.
+    expect(doorPictureOwed({ modes: ["2d"] })).toBe("flat");
+    expect(doorPictureOwed({ modes: ["2d"], previews: [flat] })).toBeNull();
+    expect(doorPictureOwed({ modes: ["2d"], previews: [pano] })).toBeNull();
+    // One that doesn't say what it is, is taken to be a place.
+    expect(doorPictureOwed({})).toBe("pano");
+    expect(doorPictureOwed({ modes: [], previews: [flat] })).toBe("pano");
   });
 
   it("knows when a preview lives on the world's own site", () => {

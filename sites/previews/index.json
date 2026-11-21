@@ -41,6 +41,13 @@
     "height": 1024,
     "bytes": 92224
   },
+  "foundry": {
+    "sha256": "095384b8781a9413b733ec091bbb810b114d3ca9af9a707b973e4707044f292a",
+    "width": 2048,
+    "height": 1024,
+    "bytes": 44650,
+    "godot": true
+  },
   "starter": {
     "sha256": "521417007877f0cdbc00cfd6ff6681d3faecb9c930e32b86379f367b512eac56",
     "width": 2048,

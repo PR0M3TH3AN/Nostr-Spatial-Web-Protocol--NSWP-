@@ -45,7 +45,7 @@ how everything else refers to the world.
 | `alt` | yes | Fallback text for clients that don't know the kind (NIP-31) |
 | `summary` | | One line |
 | `image` | | A small card image, with optional dimensions |
-| `preview` | | The view through a door: see [NSWP-04](04-previews.md) |
+| `preview` | yes | The view through a door, which a world must have: a 360° `pano`, or a `flat` for a place that is only a web page. A reader draws a placeholder for a world that has none. See [NSWP-04](04-previews.md) |
 | `mode` | | `2d`, `inline-3d`, `immersive-vr`, `immersive-ar`. Repeat in order of preference |
 | `capability` | | `webxr`, `rooms`, `multiplayer`, `voice`, `spatial-portals`, `avatars`, `items`, `entry-assertion`, `payments`, `home` |
 | `comfort` | | `locomotion`: `stationary`, `teleport`, `smooth`, `vehicle`. `intensity`: `low`, `medium`, `high`. `seated`: `supported`, `required`, `unsupported` |

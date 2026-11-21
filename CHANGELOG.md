@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.59.0
+
+A world must have the picture its doors show, and a world made with Godot can take one.
+
+- **A world's 360° picture is required** (decided by the owner): a `pano` for a place that can be stood in, or a `flat` for a place that is only a web page. `nswp sign-world` won't sign an announcement without it (`doorPictureOwed`), and the reference worlds won't build without one. A reader still refuses nobody: a world made before this, or a site that never announced itself, is drawn with the placeholder as before.
+- **A world made with another engine can take its picture.** From its page, `await NSWP.capturePreview(2048)`. The engine takes six square views from where a visitor arrives and the kit paints them into one picture (`NSWP.previewViews`, `NSWP.previewFaces`). The Godot addon does its part by itself, leaving out other people and whatever anyone carries (`Nswp.NOT_IN_PREVIEW_GROUP`, `preview_taking`).
+- **One painting for every picture.** What turned six views into a panorama was inside `capturePanorama`; it is now `paintPanorama` (`panorama.ts`), used by a Three.js world's capture and by another engine's alike.
+- **The Foundry has its picture,** so a door to it shows the place. Its announcement names it and has to be signed and published again.
+- `npm run previews -- --only <name>` takes only the named worlds' pictures and leaves every other hash as it is.
+
 ## 0.58.0
 
 Items in every world, and one press anywhere to go back into a headset.

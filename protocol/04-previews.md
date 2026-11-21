@@ -1,10 +1,22 @@
 # NSWP-04: Previews
 
-**Status:** Implemented · **Kinds:** a tag on 37300 · **Vectors:** [`world-events`](../vectors/world-events.json) · **Code:** [`world.ts`](../packages/core/src/world.ts) (`checkPreviewBytes`), SDK `capturePanorama`, `createPortalWindow`
+**Status:** Implemented · **Kinds:** a tag on 37300 · **Vectors:** [`world-events`](../vectors/world-events.json) · **Code:** [`world.ts`](../packages/core/src/world.ts) (`checkPreviewBytes`, `doorPictureOwed`), SDK `capturePanorama`, `createPortalWindow`, [`panorama.ts`](../packages/sdk/src/panorama.ts); for other engines `NSWP.capturePreview`
 
 A preview is what a visitor would see standing at a world's entry point. A
 client draws it as the view through a door, so a door looks into the place it
 leads to.
+
+**A world must have one** (decided by the owner on 2026-11-20). A place that
+can be stood in gives a `pano`: the 360° still a doorway is drawn from. A
+place that is only an ordinary web page (every mode `2d`) has nowhere to
+stand, and may give a `flat` instead.
+
+Whoever makes a world is held to this by their tools: the reference tools
+won't sign an announcement without the picture (`doorPictureOwed`), and
+won't build a reference world without one. A reader holds nobody to it. It
+never refuses or warns about a world for having no picture, because the
+worlds made before this, and the sites that never announced themselves,
+have none: it draws the placeholder below.
 
 ## The tag
 
@@ -19,7 +31,7 @@ On the world's announcement ([NSWP-01](01-worlds.md)):
 | `pano` | A 360° still, equirectangular, twice as wide as tall, taken from the default entry point at eye height. The middle of the image looks along -Z | 4096 × 2048, 2 MB |
 | `flat` | An ordinary picture | 1920 × 1080, 500 KB |
 
-A world may give one of each. WebP, JPEG or PNG.
+A world gives a `pano` (or, if it is only a web page, a `flat`), and may give one of each. WebP, JPEG or PNG.
 
 ## Rules
 
@@ -39,11 +51,20 @@ A world may give one of each. WebP, JPEG or PNG.
   for any world with a `content-warning`, it shows a placeholder until asked.
 - **A preview is a claim.** It is the publisher's own picture. Being verified
   doesn't make it honest, and the Airlock still shows the real address.
-- **Without one,** a client draws a placeholder generated from the world's
-  address.
+- **Without one,** which a world made before this may be, a client draws a
+  placeholder generated from the world's address.
 
 ## Making and drawing one
 
+- The picture is six ordinary views from where a visitor arrives, each 90°
+  wide and square, painted into one. Whatever draws the world takes the
+  six views; the painting is the kit's, once, so a picture comes out the
+  same whatever made the world. A Three.js world calls `capturePanorama`.
+  A world made with another engine is asked from its page,
+  `await NSWP.capturePreview(2048)`: its engine takes the views and hands
+  them back ([other engines](../docs/other-engines.md)).
+- Taken without fog or glow, which differ from one view to the next and
+  would leave seams.
 - A capture leaves out anything about one visitor, and leaves out the views
   through the world's own doors. A preview that held another world's preview
   would change whenever either was retaken.

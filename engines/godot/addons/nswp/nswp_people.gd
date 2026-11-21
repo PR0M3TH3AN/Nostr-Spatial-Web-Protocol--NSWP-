@@ -41,6 +41,11 @@ var _pictures: Dictionary = {}
 var last: Dictionary = {}
 
 
+func _ready() -> void:
+	# Nobody who happens to be here is in the world's 360° picture.
+	add_to_group(Nswp.NOT_IN_PREVIEW_GROUP)
+
+
 func _process(delta: float) -> void:
 	if not Nswp.is_live():
 		return

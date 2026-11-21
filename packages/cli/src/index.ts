@@ -53,6 +53,7 @@ import {
   kitAge,
   KIT_VERSION,
   servedFresh,
+  doorPictureOwed,
 } from "@nswp/core";
 
 const argv = process.argv.slice(2);
@@ -360,6 +361,16 @@ function signWorld(inputPath: string): number {
     return 1;
   }
   const input = JSON.parse(readFileSync(inputPath, "utf8")) as WorldInput;
+  // A world must have the picture its doors show (NSWP-04), so one without isn't signed.
+  const owed = doorPictureOwed(input);
+  if (owed) {
+    console.log(
+      owed === "pano"
+        ? `${BAD} ${input.d} has no 360° picture for doors to show ("previews", type "pano"), and a world must have one. Take it from where a visitor arrives (capturePanorama in nswp-sdk/three, or NSWP.capturePreview in another engine), then sign.`
+        : `${BAD} ${input.d} has no picture for doors to show ("previews"), and a world must have one: for a place that is only a web page, an ordinary picture (type "flat") will do.`,
+    );
+    return 1;
+  }
   const event = finalizeEvent(buildWorldEvent(input), readKey(keyFile));
   const r = parseWorldEvent(event, { requireSigned: true });
   if (!r.ok) {

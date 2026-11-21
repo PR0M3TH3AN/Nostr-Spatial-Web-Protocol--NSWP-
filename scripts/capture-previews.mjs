@@ -7,6 +7,11 @@
 // sites/previews/. It then records the hashes in sites/previews/index.json
 // and in each world.json. Re-sign and republish the announcements afterwards.
 //
+//   npm run previews -- --only foundry    take only the named worlds' pictures, and keep the rest
+//
+// The world made with Godot (engines/godot, `npm run build:godot` first) is asked the same way:
+// its engine takes six views and the kit paints them into one picture (NSWP.capturePreview).
+//
 // Needs Google Chrome installed (it is driven through playwright-core).
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -18,7 +23,9 @@ import { chromium } from "playwright-core";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sites = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 const outDir = join(root, "sites", "previews");
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".webp": "image/webp", ".css": "text/css", ".txt": "text/plain" };
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".webp": "image/webp", ".css": "text/css", ".txt": "text/plain", ".wasm": "application/wasm", ".png": "image/png", ".ogg": "audio/ogg" };
+/** The world made with another engine: where it is built to, and where its own details are kept. */
+const GODOT = { name: "foundry", dist: join(root, "engines", "godot", "dist"), world: join(root, "engines", "godot", "world.json") };
 
 function serve(dir) {
   const server = createServer((req, res) => {
@@ -35,10 +42,22 @@ function serve(dir) {
 
 // --elsewhere-only: take no pictures; only bring in the previews of worlds kept elsewhere.
 const elsewhereOnly = process.argv.includes("--elsewhere-only");
+// --only a b: take only these worlds' pictures. Every other picture is kept as it is, so its hash doesn't change.
+const onlyAt = process.argv.indexOf("--only");
+const only = onlyAt < 0 ? null : process.argv.slice(onlyAt + 1).filter((a) => !a.startsWith("--"));
+const wanted = (name) => !elsewhereOnly && (!only || only.includes(name));
+const before = existsSync(join(outDir, "index.json")) ? JSON.parse(readFileSync(join(outDir, "index.json"), "utf8")) : {};
 const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
-const index = elsewhereOnly ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(join(outDir, "index.json"), "utf8"))).filter(([, p]) => !p.elsewhere)) : {};
+const index = elsewhereOnly || only ? Object.fromEntries(Object.entries(before).filter(([, p]) => !p.elsewhere)) : {};
+const keep = (name, shot) => {
+  const bytes = Buffer.from(shot.base64, "base64");
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  writeFileSync(join(outDir, `${sha256}.webp`), bytes);
+  console.log(`${name}: ${shot.width}x${shot.height}, ${bytes.length} bytes, ${sha256}`);
+  return { sha256, width: shot.width, height: shot.height, bytes: bytes.length };
+};
 try {
-  for (const name of elsewhereOnly ? [] : Object.keys(sites.worlds)) {
+  for (const name of Object.keys(sites.worlds).filter(wanted)) {
     const dist = join(root, "sites", name, "dist");
     if (!existsSync(join(dist, "index.html"))) throw new Error(`sites/${name}/dist is missing; run npm run build`);
     const server = await serve(dist);
@@ -52,11 +71,23 @@ try {
     await page.close();
     server.close();
     if (errors.length) throw new Error(`${name}: ${errors.join("; ")}`);
-    const bytes = Buffer.from(shot.base64, "base64");
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
-    writeFileSync(join(outDir, `${sha256}.webp`), bytes);
-    index[name] = { sha256, width: shot.width, height: shot.height, bytes: bytes.length };
-    console.log(`${name}: ${shot.width}x${shot.height}, ${bytes.length} bytes, ${sha256}`);
+    index[name] = keep(name, shot);
+  }
+  // The world made with Godot. Its engine takes the views; the page hands back the finished picture.
+  if (wanted(GODOT.name)) {
+    if (!existsSync(join(GODOT.dist, "index.html"))) throw new Error("engines/godot/dist is missing; run npm run build:godot");
+    const server = await serve(GODOT.dist);
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.waitForFunction(() => typeof window.NSWP?.capturePreview === "function" && !!window.nswpExample, null, { timeout: 120000 });
+    await page.waitForTimeout(1500); // let the scene settle
+    const shot = await page.evaluate(() => window.NSWP.capturePreview(2048));
+    await page.close();
+    server.close();
+    if (errors.length) throw new Error(`${GODOT.name}: ${errors.join("; ")}`);
+    index[GODOT.name] = { ...keep(GODOT.name, shot), godot: true };
   }
 } finally {
   await browser.close();
@@ -74,15 +105,15 @@ for (const [name, place] of Object.entries(sites.elsewhere ?? {})) {
 }
 
 // Drop preview files that no world uses any more.
-const keep = new Set(Object.values(index).map((p) => `${p.sha256}.webp`));
-for (const f of readdirSync(outDir)) if (f.endsWith(".webp") && !keep.has(f)) rmSync(join(outDir, f));
+const used = new Set(Object.values(index).map((p) => `${p.sha256}.webp`));
+for (const f of readdirSync(outDir)) if (f.endsWith(".webp") && !used.has(f)) rmSync(join(outDir, f));
 writeFileSync(join(outDir, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
 
 for (const [name, p] of Object.entries(index)) {
-  if (p.elsewhere || elsewhereOnly) continue;
-  const path = join(root, "sites", name, "world.json");
+  if (p.elsewhere || !wanted(name)) continue;
+  const path = p.godot ? GODOT.world : join(root, "sites", name, "world.json");
   const world = JSON.parse(readFileSync(path, "utf8"));
-  world.previews = [{ url: new URL(`/previews/${p.sha256}.webp`, sites.worlds[name].url).href, type: "pano", sha256: p.sha256, width: p.width, height: p.height }];
+  world.previews = [{ url: new URL(`/previews/${p.sha256}.webp`, (sites.worlds[name] ?? sites.elsewhere[name]).url).href, type: "pano", sha256: p.sha256, width: p.width, height: p.height }];
   writeFileSync(path, `${JSON.stringify(world, null, 2)}\n`);
 }
 console.log("updated sites/previews/index.json and each world.json");

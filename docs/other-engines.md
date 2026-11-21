@@ -152,6 +152,9 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.bump()` | They walked into something. |
 | `NSWP.say(text)` | A few words shown for a moment. |
 | `NSWP.target(name, detail)` | What the visitor is pointing at, shown in a card beside the controls. |
+| `NSWP.capturePreview(width)` | For whoever makes the world, called from the page: resolves to its 360° picture (`{ base64, width, height, bytes }`, a WebP file), which a world must have for doors to show ([NSWP-04](../protocol/04-previews.md)). The engine hears `{ type: "preview", size }`, takes six square views from the main entrance at eye height, and answers with `previewFaces`. |
+| `NSWP.previewViews()` | The six views, as JSON, in the order to hand them back: each one's `forward` and `up`. 90° wide. |
+| `NSWP.previewFaces(faces)` | The six views, as JSON: `faces`, six PNG files as base64. The kit paints them into the picture. Taken with nobody and nothing carried in them, and without fog or glow. |
 | `NSWP.headset(state)` | Whether a headset session can start (`supported`), whether one is running (`presenting`), and whether one just failed to start (`failed`). The menu offers the way in. Someone who left a headset to come here is offered it by the page, as in every world: a press anywhere reaches the engine as `{ type: "vr", enter: true }`. |
 | `NSWP.door(entry)` | List a door in the menu. |
 | `NSWP.view()` | Everything in the visitor's console, as JSON, for an engine that draws some of it in an interface of its own. |
