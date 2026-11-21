@@ -19,6 +19,7 @@ export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { offerHeadset, whenSessionGranted, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
 import { figureAction, identityAction, identityHost, identitySection, signerAction, type Leaving } from "./ui/identity.js";
@@ -211,51 +212,6 @@ export function createPortalWindow(geometry: THREE.BufferGeometry, pano: THREE.T
   return mesh;
 }
 
-/**
- * A room's controls, added to a world's controls (ui/model.ts): join or leave,
- * the microphone, and a private room to invite someone to. The HUD and the
- * headset console both draw them from there, so neither has room logic of its own.
- *
- * Joining shows a visitor's IP address to the others in the room. The Room
- * section says so before they join, on a flat screen and in a headset.
- */
-
-function offerHeadset(title: string, enter: () => void, stay: () => void): { remove(): void } {
-  const scrim = document.createElement("div");
-  scrim.id = "nswp-enter";
-  scrim.setAttribute("role", "dialog");
-  scrim.setAttribute("aria-label", `You've arrived at ${title}`);
-  Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center" });
-  const heading = document.createElement("p");
-  heading.textContent = title;
-  Object.assign(heading.style, { margin: "0", font: "700 clamp(28px, 6vw, 56px)/1.1 system-ui, sans-serif", color: "#eef5fb" });
-  const go = document.createElement("button");
-  go.type = "button";
-  go.id = "nswp-enter-vr";
-  go.textContent = "Enter VR";
-  // Large enough to hit with a controller's ray on a headset's flat panel, first try.
-  Object.assign(go.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
-  const flat = document.createElement("button");
-  flat.type = "button";
-  flat.id = "nswp-enter-flat";
-  flat.textContent = "Look around on this screen";
-  Object.assign(flat.style, { font: "500 18px/1 system-ui, sans-serif", padding: "14px 20px", border: "0", background: "none", color: "#eef5fb", textDecoration: "underline", cursor: "pointer" });
-  scrim.append(heading, go, flat);
-  const remove = () => {
-    removeEventListener("keydown", onKey);
-    scrim.remove();
-  };
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") stay();
-  };
-  go.addEventListener("click", enter);
-  flat.addEventListener("click", stay);
-  addEventListener("keydown", onKey);
-  document.body.append(scrim);
-  go.focus();
-  return { remove };
-}
-
 export async function addViewControls(
   controls: Controls,
   d: {
@@ -293,33 +249,57 @@ export async function addViewControls(
   const presenting = () => d.renderer.xr.isPresenting;
   d.renderer.xr.addEventListener("sessionstart", () => d.hud?.setHidden(true));
   d.renderer.xr.addEventListener("sessionend", () => d.hud?.setHidden(false));
-  let offer: { remove(): void } | null = null;
+  let offer: HeadsetOffer | null = null;
   const answered = () => {
     if (!offer) return;
     offer.remove();
     offer = null;
     d.onOffer?.(false);
   };
+  const init = { optionalFeatures: ["local-floor", "hand-tracking"] };
+  const begin = async (session: XRSession) => {
+    await d.renderer.xr.setSession(session);
+    d.onState?.("presenting");
+    session.addEventListener("end", () => {
+      d.onState?.("ended");
+      setTimeout(propose, 0);
+    });
+    answered();
+  };
+  let entering = false;
   const enter = async () => {
-    if (presenting()) return;
+    if (presenting() || entering) return;
+    entering = true;
     try {
-      const session = await xr!.requestSession("immersive-vr", { optionalFeatures: ["local-floor", "hand-tracking"] });
-      await d.renderer.xr.setSession(session);
-      d.onState?.("presenting");
-      session.addEventListener("end", () => d.onState?.("ended"));
-      answered();
+      await begin(await xr!.requestSession("immersive-vr", init));
     } catch (err) {
       d.onState?.(`error: ${err instanceof Error ? err.message : String(err)}`);
-      controls.say("Couldn't start VR on this device.");
+      // The offer says so itself, and takes the next press. Anywhere else, they are told.
+      if (offer) offer.failed();
+      else controls.say("Couldn't start VR on this device.");
+    } finally {
+      entering = false;
     }
   };
-  // Where a browser lets a headset session carry on across a crossing, it says so with this event, and
-  // nothing need be asked at all. It is a proposal that few browsers have; everywhere else, nothing happens.
-  try {
-    (xr as unknown as EventTarget | undefined)?.addEventListener?.("sessiongranted", () => void enter());
-  } catch {
-    /* not offered here */
-  }
+  // Some headsets' browsers have a control of their own for starting a session, beside the address. It is given
+  // this world to start, now and each time a session ends: so that way in is in the same place whatever a world
+  // looks like, and needs nothing on the page to be aimed at.
+  const propose = () => {
+    const offers = xr as unknown as { offerSession?: (mode: string, init: object) => Promise<XRSession> } | undefined;
+    if (!supported || presenting() || typeof offers?.offerSession !== "function") return;
+    try {
+      offers.offerSession("immersive-vr", init).then(
+        (session) => void begin(session).catch(() => {}),
+        () => {},
+      );
+    } catch {
+      /* not offered here */
+    }
+  };
+  // Where a browser lets a headset session carry on from the page before, it says so, and nothing need be asked
+  // at all. Few do, and none between two sites: everywhere else, nothing happens.
+  whenSessionGranted(() => void enter());
+  propose();
   if (supported && d.arrived && !presenting()) {
     offer = offerHeadset(d.arrived.title, () => void enter(), answered);
     d.onOffer?.(true);

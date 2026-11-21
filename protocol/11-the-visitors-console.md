@@ -205,9 +205,12 @@ keyboard. So the form travels:
 
 A browser ends a headset session when the page changes, and only a press can
 start another. So headset to headset costs one press on arriving, and no
-more. That is the web's rule, not this protocol's. Where a browser offers to
-carry a session across (the `sessiongranted` proposal), the reference SDK
-takes it and nothing is asked.
+more. That is the web's rule, not this protocol's. The press is made as
+small as it can be: it may land anywhere on the page, and be made with
+anything, as the press that fills a screen again may ([NSWP-02](02-doors.md)).
+Where a browser offers to carry a session across (the `sessiongranted`
+proposal), the reference SDK takes it and nothing is asked. No browser does
+between two sites.
 
 ## Settings that travel
 

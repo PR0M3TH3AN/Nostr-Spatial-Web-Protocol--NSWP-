@@ -20,8 +20,8 @@ extends Node3D
 ##     items.rule = "allowed"              # what your world's announcement says of items
 ##     add_child(items)
 ##
-## A world that says nothing about items has none: leave this node out, and nothing carried is
-## fetched, drawn or run.
+## A world has items unless it turns them off. One that leaves this node out fetches, draws and
+## runs nothing carried, and says so in its announcement: `"items": "none"` in its world.json.
 ##
 ## The ring to aim by, the mark of a hit, how the visitor is and their item's counter are drawn
 ## by the page over the canvas, as the menu is. In a headset they aren't drawn yet.
@@ -31,7 +31,7 @@ extends Node3D
 ## view more slowly while they aim.
 @export var visitor: Node3D
 ## What this world does with items: "allowed", or "play" where they are the game. It must be
-## what the world's announcement says (`"items"` in its world.json).
+## what the world's announcement says (`"items"` in its world.json; nothing said is "allowed").
 @export var rule: String = "allowed"
 ## Whether an item's own logic runs here, in its locked box. The page must serve the kit's
 ## `item-box.html` beside it, under that page's own content rules: see the README.

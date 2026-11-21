@@ -76,7 +76,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.57.1";
+  var KIT_VERSION = "0.58.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -84,6 +84,8 @@ var NSWP = (() => {
   var MODES = ["2d", "inline-3d", "immersive-vr", "immersive-ar"];
   var ITEM_RULES = ["none", "allowed", "play"];
   function cleanItemsRule(rule) {
+    if (rule === void 0 || rule === null)
+      return "allowed";
     return typeof rule === "string" && ITEM_RULES.includes(rule) ? rule : "none";
   }
   var PREVIEW_LIMITS = {
@@ -7465,6 +7467,10 @@ postMessage({ t: "started" });
     } catch {
     }
   };
+  var held = false;
+  var holdFullscreen = (on3) => {
+    held = on3;
+  };
   function resumeFullscreen(presenting = () => false) {
     if (resumed || typeof document === "undefined") return;
     resumed = true;
@@ -7489,7 +7495,7 @@ postMessage({ t: "started" });
       if (document.fullscreenElement) stop();
     };
     const onPress = (e) => {
-      if (e.code === "Escape" || presenting() || document.fullscreenElement) return;
+      if (e.code === "Escape" || held || presenting() || document.fullscreenElement) return;
       void document.documentElement.requestFullscreen().then(stop, () => {
       });
     };
@@ -7499,7 +7505,7 @@ postMessage({ t: "started" });
   function fullscreenAction(controls2, presenting) {
     resumeFullscreen(presenting);
     setTimeout(() => {
-      if (waiting && !presenting()) controls2.say("Press any key, or click, to fill the screen again.");
+      if (waiting && !held && !presenting()) controls2.say("Press any key, or click, to fill the screen again.");
     }, 600);
     return {
       id: "fullscreen",
@@ -7613,11 +7619,11 @@ postMessage({ t: "started" });
       let proven = null;
       if (opts.identity) {
         try {
-          const named = hexToBytes3(opts.identity.sessionKey);
-          const checked = verifyRoomPass(opts.identity.pass, { origin: this.origin, session: getPublicKey(named) });
+          const named2 = hexToBytes3(opts.identity.sessionKey);
+          const checked = verifyRoomPass(opts.identity.pass, { origin: this.origin, session: getPublicKey(named2) });
           const text = JSON.stringify(opts.identity.pass);
           if (checked.ok && text.length <= PASS_LIMITS.chars) {
-            key = named;
+            key = named2;
             proven = checked.value;
             this.pass = text;
             this.passUntil = checked.value.expiresAt;
@@ -8487,8 +8493,8 @@ postMessage({ t: "started" });
      */
     signer() {
       try {
-        const named = session()?.getItem(SIGNER_KEY);
-        if (named) return named;
+        const named2 = session()?.getItem(SIGNER_KEY);
+        if (named2) return named2;
         if (session()?.getItem(RETURN_KEY)) return void 0;
       } catch {
       }
@@ -42602,6 +42608,94 @@ void main() {
     };
   }
 
+  // packages/sdk/src/ui/headset.ts
+  var granted = false;
+  var waitingForGrant = /* @__PURE__ */ new Set();
+  try {
+    if (typeof navigator !== "undefined" && navigator.xr && !/WebXRViewer\//i.test(navigator.userAgent)) {
+      navigator.xr.addEventListener("sessiongranted", () => {
+        granted = true;
+        for (const fn of [...waitingForGrant]) fn();
+        waitingForGrant.clear();
+      });
+    }
+  } catch {
+  }
+  var NOT_A_PRESS = /* @__PURE__ */ new Set(["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock", "ContextMenu"]);
+  var TRYING_MS = 2e3;
+  var GIVE_UP_MS = 12e3;
+  function offerHeadset(title, enter, stay) {
+    const scrim = document.createElement("div");
+    scrim.id = "nswp-enter";
+    scrim.setAttribute("role", "dialog");
+    scrim.setAttribute("aria-label", `You've arrived at ${title}`);
+    Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center", cursor: "pointer" });
+    const heading = document.createElement("p");
+    heading.textContent = title;
+    Object.assign(heading.style, { margin: "0", font: "700 clamp(28px, 6vw, 56px)/1.1 system-ui, sans-serif", color: "#eef5fb" });
+    const go2 = document.createElement("button");
+    go2.type = "button";
+    go2.id = "nswp-enter-vr";
+    go2.textContent = "Enter VR";
+    Object.assign(go2.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
+    const hint2 = document.createElement("p");
+    hint2.id = "nswp-enter-hint";
+    hint2.setAttribute("aria-live", "polite");
+    hint2.textContent = "Press anywhere, with anything, to go back in.";
+    Object.assign(hint2.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
+    const flat = document.createElement("button");
+    flat.type = "button";
+    flat.id = "nswp-enter-flat";
+    flat.textContent = "Look around on this screen";
+    Object.assign(flat.style, { font: "500 18px/1 system-ui, sans-serif", padding: "14px 20px", border: "0", background: "none", color: "#eef5fb", textDecoration: "underline", cursor: "pointer" });
+    scrim.append(heading, go2, hint2, flat);
+    let tried = -Infinity;
+    let up = true;
+    let gaveUp;
+    const presses = ["pointerup", "touchend", "keydown"];
+    const onPress = (e) => {
+      if (!up) return;
+      const key = e.key;
+      if (e.type === "keydown") {
+        if (key === "Escape") return void stay();
+        if (NOT_A_PRESS.has(key) || e.repeat) return;
+      }
+      const at = e.target instanceof Element ? e.target : null;
+      const onStay = !!at && flat.contains(at);
+      if (onStay && (e.type !== "keydown" || key === "Enter" || key === " ")) return;
+      if (at && !scrim.contains(at) && at !== document.body && at !== document.documentElement && !(at instanceof HTMLCanvasElement)) return;
+      const now = performance.now();
+      if (now - tried < TRYING_MS) return;
+      tried = now;
+      hint2.textContent = "Starting VR\u2026";
+      clearTimeout(gaveUp);
+      gaveUp = setTimeout(failed2, GIVE_UP_MS);
+      enter();
+    };
+    const failed2 = () => {
+      clearTimeout(gaveUp);
+      if (!up) return;
+      tried = -Infinity;
+      hint2.textContent = "That press didn't start VR. Press again, anywhere.";
+    };
+    flat.addEventListener("click", stay);
+    for (const type of presses) addEventListener(type, onPress, true);
+    holdFullscreen(true);
+    document.body.append(scrim);
+    go2.focus();
+    return {
+      remove() {
+        if (!up) return;
+        up = false;
+        clearTimeout(gaveUp);
+        for (const type of presses) removeEventListener(type, onPress, true);
+        holdFullscreen(false);
+        scrim.remove();
+      },
+      failed: failed2
+    };
+  }
+
   // packages/sdk/src/relay-book.ts
   var KEY2 = "nswp:relays";
   var notes = null;
@@ -43005,7 +43099,7 @@ void main() {
     let windowAt = "";
     let frame2 = null;
     let disposed = false;
-    const named = !!opts.at || !!signerAt(opts.under);
+    const named2 = !!opts.at || !!signerAt(opts.under);
     let waited = false;
     let asking = false;
     let again = 0;
@@ -43134,13 +43228,13 @@ void main() {
         return offers;
       },
       get unanswered() {
-        return named && waited && state === "none" && !disposed;
+        return named2 && waited && state === "none" && !disposed;
       },
       get asking() {
         return asking && state === "none" && !disposed;
       },
       retry() {
-        if (!named || state !== "none" || disposed || !frame2) return false;
+        if (!named2 || state !== "none" || disposed || !frame2) return false;
         again++;
         asking = true;
         reload();
@@ -45140,6 +45234,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var sounds = null;
   var moving = "casual";
   var vr = { supported: false, presenting: false };
+  var named = "";
+  var headsetOffer = null;
+  var headsetOffered = false;
   var doors = /* @__PURE__ */ new Map();
   function kit() {
     return JSON.stringify({
@@ -45176,6 +45273,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
     const o = read3(options);
     const title = words(o.title, 80) || "A world";
+    named = title;
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
     const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
     for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
@@ -45335,6 +45433,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     vr.presenting = s.presenting === true;
     hud?.setHidden(vr.presenting);
     controls?.setTarget("");
+    const put = () => {
+      headsetOffer?.remove();
+      headsetOffer = null;
+    };
+    if (vr.presenting) {
+      headsetOffered = true;
+      put();
+    } else if (headsetOffer && s.failed === true) headsetOffer.failed();
+    else if (vr.supported && controls && !headsetOffered && arrival.read().context?.immersive) {
+      headsetOffered = true;
+      headsetOffer = offerHeadset(named, () => tell({ type: "vr", enter: true }), put);
+    }
   }
   function view() {
     if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
@@ -45763,11 +45873,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const settled = /* @__PURE__ */ new Map();
     const files2 = /* @__PURE__ */ new Map();
     const models2 = /* @__PURE__ */ new Map();
-    const file = (named, most) => {
-      let got = files2.get(named.sha256);
+    const file = (named2, most) => {
+      let got = files2.get(named2.sha256);
       if (!got) {
-        got = fetchBytes(named.url).then((bytes) => bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named.sha256 ? bytes : null).catch(() => null);
-        files2.set(named.sha256, got);
+        got = fetchBytes(named2.url).then((bytes) => bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null).catch(() => null);
+        files2.set(named2.sha256, got);
       }
       return got;
     };
@@ -45792,21 +45902,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return found2;
       },
       known: (coordinate2) => settled.get(itemCoordinate(coordinate2)) ?? null,
-      modelBytes(named) {
+      modelBytes(named2) {
         if (!showsItems()) return Promise.resolve(null);
-        let got = models2.get(named.model.sha256);
+        let got = models2.get(named2.model.sha256);
         if (!got) {
-          got = file(named.model, ITEM_BUDGET.bytes).then((bytes) => {
+          got = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
             const read6 = bytes ? readGlb(bytes) : null;
             return bytes && read6?.ok ? { bytes, count: read6.count } : null;
           });
-          models2.set(named.model.sha256, got);
+          models2.set(named2.model.sha256, got);
         }
         return got;
       },
       async sound(item, name) {
-        const named = item.sounds[name];
-        return named && showsItems() ? file(named, ITEM_BUDGET.sound) : null;
+        const named2 = item.sounds[name];
+        return named2 && showsItems() ? file(named2, ITEM_BUDGET.sound) : null;
       },
       async script(item) {
         if (!item.script || !showsItems()) return null;
@@ -48873,12 +48983,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       holder.add(box);
       return holder;
     };
-    const load3 = (named) => {
-      const key = `${named.model.sha256}:${named.size.join(",")}`;
+    const load3 = (named2) => {
+      const key = `${named2.model.sha256}:${named2.size.join(",")}`;
       let got = made.get(key);
       if (!got) {
         got = (async () => {
-          const checked = await store2.modelBytes(named);
+          const checked = await store2.modelBytes(named2);
           if (!checked) return null;
           const { bytes } = checked;
           try {
@@ -48890,7 +49000,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             for (const o of extra) o.removeFromParent();
             if (!withinBudget(read6.scene)) return null;
             clipsOf.set(key, (read6.animations ?? []).slice(0, 8));
-            return fitToSize(read6.scene, named.size);
+            return fitToSize(read6.scene, named2.size);
           } catch {
             return null;
           }
@@ -49782,12 +49892,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       o.onChange?.();
     };
     const soundOf = (item2, name) => {
-      const named = item2.sounds[name];
-      if (!named || !o.sounds) return Promise.resolve(null);
-      let got = soundsOf.get(named.sha256);
+      const named2 = item2.sounds[name];
+      if (!named2 || !o.sounds) return Promise.resolve(null);
+      let got = soundsOf.get(named2.sha256);
       if (!got) {
         got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
-        soundsOf.set(named.sha256, got);
+        soundsOf.set(named2.sha256, got);
       }
       return got;
     };
@@ -51427,7 +51537,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const shapeless = {
       describe: (id) => engineItemStore().describe(id),
       known: (id) => engineItemStore().known(id),
-      modelBytes: (named) => engineItemStore().modelBytes(named),
+      modelBytes: (named2) => engineItemStore().modelBytes(named2),
       sound: (...a) => engineItemStore().sound(...a),
       script: (...a) => engineItemStore().script(...a),
       model: nothing,
@@ -51551,10 +51661,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   // packages/sdk/src/engine-items.ts
   var on = null;
   var models = /* @__PURE__ */ new Map();
-  function want(named) {
-    if (models.has(named.model.sha256)) return;
-    models.set(named.model.sha256, "");
-    void engineItemStore().modelBytes(named).then((got) => models.set(named.model.sha256, got ? base642(got.bytes) : "!"));
+  function want(named2) {
+    if (models.has(named2.model.sha256)) return;
+    models.set(named2.model.sha256, "");
+    void engineItemStore().modelBytes(named2).then((got) => models.set(named2.model.sha256, got ? base642(got.bytes) : "!"));
   }
   function wantAll(item) {
     want(item);
@@ -51924,9 +52034,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         add({ id: "following-toggle", icon: "check", on: () => following, label: following ? `Unfollow ${nameOf(them)}` : `Follow ${nameOf(them)}`, act: () => press(them, nameOf(them), !following) });
         add(...opts.more?.({ pubkey: them, name: nameOf(them) }) ?? []);
       }
-      const named = follows.filter((k) => profiles.get(k)?.name).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+      const named2 = follows.filter((k) => profiles.get(k)?.name).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
       const rest = follows.filter((k) => !profiles.get(k)?.name);
-      const listed = [...named, ...rest].slice(0, pages * PAGE2);
+      const listed = [...named2, ...rest].slice(0, pages * PAGE2);
       void profiles.fetch(follows.slice(0, pages * PAGE2 * 2));
       add(
         ...listed.map((k) => ({
@@ -53565,7 +53675,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 12;
+  var VERSION = 13;
   var KIT = KIT_VERSION;
   var read5 = (text) => {
     try {

@@ -333,8 +333,10 @@ await addViewControls(controls, { renderer, rig, camera, hud,
 - **Arriving,** a visitor who came through an Airlock starts inside the
   chamber. Its doors open when `ready` settles, and then it sinks away.
 - **From a headset,** they are first shown one large **Enter VR**, focused,
-  with a quiet "Look around on this screen" under it. The doors wait for
-  their answer, so they are seen to open from inside.
+  with a quiet "Look around on this screen" under it. The whole page is
+  that button: a press anywhere but on the quiet link, with anything,
+  starts the session (`ui/headset.ts`). The doors wait for their answer,
+  so they are seen to open from inside.
 - **Leaving,** the walls rise round them with the destination over the doors,
   and the page goes on to their Airlock about half a second later.
 - **Where a browser carries the session over** (`sessiongranted`), the offer
@@ -649,9 +651,11 @@ visitor's own client.
 
 ### What they carry, and hold
 
-Optional. A world that says `allowed` or `play` for items in its
-announcement ([NSWP-17](../protocol/17-items.md)) can draw the one thing
-each person holds, and let its visitor take something from their bag:
+A world has items unless its announcement says `none`
+([NSWP-17](../protocol/17-items.md)). It draws the one thing each person
+holds, and lets its visitor take something from their bag, by giving its
+presence somewhere to fetch items from. A world that doesn't do this can't
+draw them, and says `"items": "none"` in its announcement:
 
 ```ts
 import { addBagControls, createBag, createItems, createPresence, worldSigner } from "nswp-sdk/three";

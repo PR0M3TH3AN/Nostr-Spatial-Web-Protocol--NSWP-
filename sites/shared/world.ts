@@ -801,7 +801,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   let refreshRoom = () => {};
   let itemControls: ItemControls | null = null;
   // They are drawn to the others as they chose to arrive: wearing their look, or plain (spec §4.2).
-  // What this world does with items. `?items=allowed` is for trying it on a copy of a world that has none, on the
+  // What this world does with items. `?items=none` (or `play`) is for trying another rule on a copy of a world, on the
   // maker's own network: a published world is what its announcement says and nothing a link can change, or a
   // link could put someone in a place where items work with no warning on any door.
   const onMyNetwork = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);

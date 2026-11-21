@@ -31,6 +31,7 @@ import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
 import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
 import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
 import { hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldSaves } from "./ui/identity.js";
@@ -65,6 +66,11 @@ let hud: Hud | null = null;
 let sounds: Sounds | null = null;
 let moving: "casual" | "intense" = "casual";
 const vr = { supported: false, presenting: false };
+/** The world's name, for the offer below. */
+let named = "";
+/** The way back into a headset, while it is offered, and whether it has been: it is offered once. */
+let headsetOffer: HeadsetOffer | null = null;
+let headsetOffered = false;
 const doors = new Map<string, string>();
 
 /**
@@ -132,6 +138,7 @@ export function menu(options?: string): string {
   if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
   const o = read(options);
   const title = words(o.title, 80) || "A world";
+  named = title;
   const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : undefined;
   const c = (controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) }));
   for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
@@ -353,8 +360,14 @@ export function target(name: string, detail?: string): void {
 
 /**
  * Tell the menu about a headset, as JSON: `supported` (this browser can start
- * a session, so the way in is offered) and `presenting` (one is running, so
- * the page's menu is put away and the control becomes the way out).
+ * a session, so the way in is offered), `presenting` (one is running, so
+ * the page's menu is put away and the control becomes the way out) and
+ * `failed` (a session was asked for and didn't start).
+ *
+ * A visitor who left a headset to come here is offered the way back in as
+ * soon as the engine says one can start: the whole page is its button, as in
+ * every world (ui/headset.ts). A press on it reaches the engine as the
+ * menu's own control would: `{ type: "vr", enter: true }`.
  */
 export function headset(state: string): void {
   const s = read(state);
@@ -362,6 +375,18 @@ export function headset(state: string): void {
   vr.presenting = s.presenting === true;
   hud?.setHidden(vr.presenting);
   controls?.setTarget("");
+  const put = () => {
+    headsetOffer?.remove();
+    headsetOffer = null;
+  };
+  if (vr.presenting) {
+    headsetOffered = true;
+    put();
+  } else if (headsetOffer && s.failed === true) headsetOffer.failed();
+  else if (vr.supported && controls && !headsetOffered && arrival.read().context?.immersive) {
+    headsetOffered = true;
+    headsetOffer = offerHeadset(named, () => tell({ type: "vr", enter: true }), put);
+  }
 }
 
 /**

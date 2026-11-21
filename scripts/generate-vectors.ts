@@ -166,9 +166,10 @@ const worldVectors: WorldVector[] = [
   // What kind of place a world is. `category` in `expect` is what a reader takes from it; null is "didn't say".
   { name: "a_game", description: "Says what kind of place it is, from the closed list.", event: sign(buildWorldEvent({ ...baseWorld, category: "game" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], category: "game" } },
   { name: "a_category_nobody_knows", description: "A category that isn't on the list is treated as not stated.", event: withTags((t) => [...t, ["category", "casino"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_category"], category: null } },
-  // What a world does with the things visitors carry. `items` in `expect` is what a reader takes from it; null is "nothing", which is what saying nothing means.
+  // What a world does with the things visitors carry. `items` in `expect` is what a reader takes from it; null is a world that said nothing, where items are allowed.
   { name: "items_are_the_game", description: "Says items are part of play: a door and the Airlock say so before a visitor goes in.", event: sign(buildWorldEvent({ ...baseWorld, items: "play" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], items: "play" } },
-  { name: "an_items_rule_nobody_knows", description: "A rule for items that isn't on the list is treated as none.", event: withTags((t) => [...t, ["items", "anything-goes"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_items_rule"], items: null } },
+  { name: "items_turned_off", description: "Says it has no items. A world that says nothing has them, so this is how one turns them off.", event: sign(buildWorldEvent({ ...baseWorld, items: "none" })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], items: "none" } },
+  { name: "an_items_rule_nobody_knows", description: "A rule for items that isn't on the list is treated as none: never as the ordinary rule, which is allowed.", event: withTags((t) => [...t, ["items", "anything-goes"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_items_rule"], items: "none" } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",

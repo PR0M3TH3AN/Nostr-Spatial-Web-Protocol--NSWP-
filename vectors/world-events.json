@@ -1537,8 +1537,122 @@
       }
     },
     {
+      "name": "items_turned_off",
+      "description": "Says it has no items. A world that says nothing has them, so this is how one turns them off.",
+      "event": {
+        "kind": 37300,
+        "created_at": 1794430800,
+        "tags": [
+          [
+            "d",
+            "example-museum"
+          ],
+          [
+            "title",
+            "Example Virtual Museum"
+          ],
+          [
+            "summary",
+            "An immersive art gallery with three wings."
+          ],
+          [
+            "r",
+            "https://museum.example/world"
+          ],
+          [
+            "image",
+            "https://blossom.example/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0.webp",
+            "1920x1080"
+          ],
+          [
+            "mode",
+            "immersive-vr"
+          ],
+          [
+            "mode",
+            "inline-3d"
+          ],
+          [
+            "capability",
+            "webxr"
+          ],
+          [
+            "capability",
+            "spatial-portals"
+          ],
+          [
+            "capability",
+            "entry-assertion"
+          ],
+          [
+            "comfort",
+            "locomotion",
+            "teleport"
+          ],
+          [
+            "comfort",
+            "intensity",
+            "low"
+          ],
+          [
+            "comfort",
+            "seated",
+            "supported"
+          ],
+          [
+            "input",
+            "controllers"
+          ],
+          [
+            "input",
+            "hands"
+          ],
+          [
+            "perf",
+            "standalone"
+          ],
+          [
+            "t",
+            "museum"
+          ],
+          [
+            "t",
+            "art"
+          ],
+          [
+            "L",
+            "ISO-639-1"
+          ],
+          [
+            "l",
+            "en",
+            "ISO-639-1"
+          ],
+          [
+            "items",
+            "none"
+          ],
+          [
+            "alt",
+            "Spatial world listing: Example Virtual Museum"
+          ]
+        ],
+        "content": "Walk through three wings of rotating exhibitions.",
+        "pubkey": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+        "id": "77e2f4e2ba6f0ea0dc9fd92f5156ebae94736ed4afb09c904734db47020c54df",
+        "sig": "5df73c9c342f1bf192872fd097b815df3b6f8fdc90acc19ba6a7f6a6511ecd77d6fc8dc76943e63829135fbef5ba8d50fb75435ab7f667ea7b8c81e9057a029f"
+      },
+      "expect": {
+        "valid": true,
+        "signatureValid": true,
+        "errors": [],
+        "warnings": [],
+        "items": "none"
+      }
+    },
+    {
       "name": "an_items_rule_nobody_knows",
-      "description": "A rule for items that isn't on the list is treated as none.",
+      "description": "A rule for items that isn't on the list is treated as none: never as the ordinary rule, which is allowed.",
       "event": {
         "kind": 37300,
         "created_at": 1794430800,
@@ -1646,7 +1760,7 @@
         "warnings": [
           "unknown_items_rule"
         ],
-        "items": null
+        "items": "none"
       }
     },
     {

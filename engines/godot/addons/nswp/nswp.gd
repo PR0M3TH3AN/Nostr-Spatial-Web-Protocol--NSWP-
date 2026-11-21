@@ -12,7 +12,7 @@ extends Node
 ##
 ##     func _ready() -> void:
 ##         Nswp.place($Player)                        # stand them at the entry they asked for
-##         if Nswp.arrival.immersive: offer_vr()      # they left a headset to come here
+##         # (someone who left a headset to come here is offered the way back in by the page)
 ##
 ##     Nswp.go("https://gallery.example/")            # through a door
 ##     Nswp.home()                                    # back to their own start
@@ -82,7 +82,7 @@ const MAIN_ENTRANCE := "main-entrance"
 ##
 ## - `arrived`: false for someone who came by an ordinary link.
 ## - `entry`: the entry point the door named, or "".
-## - `immersive`: they left a headset session to come here. Offer the way back in first.
+## - `immersive`: they left a headset session to come here. The page offers the way back in, once you call `headset(true, false)`: a press anywhere reaches you as `vr_pressed(true)`.
 ## - `home`: this world is where they start, and their own client brought them. Offer the way
 ##   to their doors (`doors()`) and leave the way home out.
 ## - `joined`, `mic`: they were among people where they came from, and heard.
@@ -239,7 +239,7 @@ func _process(_delta: float) -> void:
 # is the node that draws: a world adds that, and has no need to call these itself.
 
 ## Begin: the Bag tab joins the menu, and what a visitor holds can be drawn. `rule` is what the
-## world's announcement says of items: "allowed" or "play". Call after `menu()`. Returns
+## world's announcement says of items: "allowed" (which is what saying nothing means) or "play". Call after `menu()`. Returns
 ## `{ "ok": true }` once it has begun.
 func items(rule: String, options: Dictionary = {}) -> Dictionary:
 	if _js == null or not _menu:
@@ -469,9 +469,13 @@ func target(name_of_it: String, detail: PackedStringArray = PackedStringArray())
 
 ## Tell the menu about a headset: whether this browser can start a session (the way in is then
 ## offered) and whether one is running (the page's menu is put away, and the control is the way out).
-func headset(supported: bool, presenting: bool) -> void:
+##
+## A visitor who left a headset to come here is offered the way back in by the page, as in every
+## world: a press anywhere on it reaches you as `vr_pressed(true)`. Say `failed` when a session you
+## asked for didn't start, so the next press is taken.
+func headset(supported: bool, presenting: bool, failed: bool = false) -> void:
 	if _menu:
-		_js.headset(JSON.stringify({"supported": supported, "presenting": presenting}))
+		_js.headset(JSON.stringify({"supported": supported, "presenting": presenting, "failed": failed}))
 
 
 ## Everything in the visitor's console, for drawing some or all of it in an interface of

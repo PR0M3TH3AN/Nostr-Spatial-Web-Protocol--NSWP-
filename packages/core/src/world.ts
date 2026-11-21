@@ -64,7 +64,7 @@ export interface WorldInput {
   audience?: Audience;
   /** What kind of place it is: one of `CATEGORIES`. */
   category?: Category;
-  /** What it does with the things visitors carry: one of `ITEM_RULES`. Left out, nothing carried works there. */
+  /** What it does with the things visitors carry: one of `ITEM_RULES`. Left out, they work there (`allowed`); `none` turns them off. */
   items?: ItemsRule;
   status?: string;
   /** Only when the manifest is not at the well-known path (it then can't verify). */
@@ -99,7 +99,7 @@ export interface World {
   audience?: Audience;
   /** What kind of place its maker says it is. Left out when they didn't say, or said something else. */
   category?: Category;
-  /** What its maker says it does with the things visitors carry. Left out when they didn't say: then it is `none`. */
+  /** What its maker says it does with the things visitors carry. Left out when they didn't say: then it is `allowed`. A word nobody knows is `none`. */
   items?: ItemsRule;
   status: string;
   manifest?: string;
@@ -154,8 +154,9 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
   if (warning !== undefined) tags.push(warning === true ? ["content-warning"] : ["content-warning", warning]);
   if (w.audience) tags.push(["audience", w.audience]);
   if (w.category) tags.push(["category", w.category]);
-  // Said only where it is more than nothing: a world that says nothing draws and runs nothing carried.
-  if (w.items && w.items !== "none") tags.push(["items", w.items]);
+  // Whatever the world said, as it said it. One that says nothing has items (`allowed`), so turning them off
+  // is something an announcement has to say.
+  if (w.items) tags.push(["items", w.items]);
   if (w.status) tags.push(["status", w.status]);
   if (w.manifest) tags.push(["manifest", w.manifest]);
   for (const p of w.coCreators ?? []) tags.push(["p", p, "", "co-creator"]);
@@ -335,7 +336,11 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   const carried = getTags({ tags }, "items")[0]?.[1];
   if (carried !== undefined) {
     if ((ITEM_RULES as readonly string[]).includes(carried)) items = carried as ItemsRule;
-    else c.warn("unknown_items_rule", "tags.items", `Unknown rule for items "${carried}"; treated as none.`);
+    else {
+      // Something was said that this doesn't know: taken as turned off, never as the ordinary rule.
+      items = "none";
+      c.warn("unknown_items_rule", "tags.items", `Unknown rule for items "${carried}"; treated as none.`);
+    }
   }
   if (audience === "adult" && contentWarning === undefined) c.warn("adult_without_warning", "tags.audience", "An adult world should also carry a content-warning, which other clients read.");
   if (audience === "kids" && contentWarning !== undefined) c.warn("kids_with_warning", "tags.audience", "A world for kids carries a content warning. One of the two is wrong.");
@@ -387,7 +392,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (contentWarning !== undefined) world.contentWarning = contentWarning;
   if (audience) world.audience = audience;
   if (category) world.category = category;
-  if (items && items !== "none") world.items = items;
+  if (items) world.items = items;
   if (manifest) world.manifest = manifest;
   if (access) world.access = access;
   return c.result(world);
