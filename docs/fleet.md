@@ -58,9 +58,11 @@ questions of design, keeps the plans current, and says what is live.
    an answer or is for information. One report for one stage of work, not
    several. Before asking again, a session checks whether the answer is
    already waiting for it: messages cross.
-9. **What a session runs for the others is said.** The local sites, the
-   stand-in relay and the sandbox each belong to one session and stop with
-   it. Whoever runs one says so, and says before it changes under someone.
+9. **What is shared doesn't belong to a session.** The local sites and the
+   stand-in relay run as services on the owner's machine
+   (`trials/README.md`), so they outlive every session. What one session
+   does run for the others (the sandbox) it says so, and says before it
+   changes under someone.
 10. **A big piece of work starts in a session of its own,** from a written
     brief that names the files and what done looks like. The orchestrator
     reviews it; it doesn't hold everything in its own head.

@@ -1,0 +1,12 @@
+[Unit]
+Description=NSWP local test sites (https on this machine's network address, ports 4300 to 4311)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Documents/GitHub/Nostr-Spatial-Web-Protocol--NSWP-
+ExecStart=%h/.local/bin/node scripts/serve-local.mjs --lan --https
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
