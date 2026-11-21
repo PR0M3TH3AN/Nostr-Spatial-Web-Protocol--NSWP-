@@ -28,6 +28,7 @@ var NSWP = (() => {
     arrival: () => arrival2,
     board: () => board,
     bump: () => bump,
+    capturePreview: () => capturePreview,
     changeLook: () => changeLook,
     check: () => check,
     claim: () => claim,
@@ -57,6 +58,8 @@ var NSWP = (() => {
     peopleInfo: () => peopleInfo,
     play: () => play,
     presence: () => presence,
+    previewFaces: () => previewFaces,
+    previewViews: () => previewViews,
     ready: () => ready,
     run: () => run,
     save: () => save,
@@ -76,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.58.0";
+  var KIT_VERSION = "0.59.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -5836,14 +5839,14 @@ ${roomName}`)));
     if (raw !== name)
       c.warn("name_cleaned", "tags.name", "The name was tidied before being shown.");
     const shown4 = getTags(event, "picture")[0]?.[1] ?? "";
-    const picture = cleanPicture(shown4);
-    if (shown4 && !picture)
+    const picture2 = cleanPicture(shown4);
+    if (shown4 && !picture2)
       c.warn("picture_ignored", "tags.picture", "The picture's address isn't one that can be fetched, so none is shown.");
     const told = getTags(event, "about")[0]?.[1] ?? "";
     const about = cleanAbout(told);
     if (told !== about)
       c.warn("about_cleaned", "tags.about", "What they wrote about themselves was tidied or cut short before being shown.");
-    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture, about, expiresAt, id: event.id });
+    return c.result({ pubkey: event.pubkey, session: session2 ?? "", name, picture: picture2, about, expiresAt, id: event.id });
   }
 
   // packages/core/dist/save.js
@@ -8450,8 +8453,8 @@ postMessage({ t: "started" });
           session()?.removeItem(PASS_KEY);
           return void 0;
         }
-        const { pubkey, name, picture, about } = checked.value;
-        return { pubkey, name, ...picture ? { picture } : {}, ...about ? { about } : {}, pass: kept2.pass, sessionKey: kept2.sessionKey };
+        const { pubkey, name, picture: picture2, about } = checked.value;
+        return { pubkey, name, ...picture2 ? { picture: picture2 } : {}, ...about ? { about } : {}, pass: kept2.pass, sessionKey: kept2.sessionKey };
       } catch {
         return void 0;
       }
@@ -43090,7 +43093,7 @@ void main() {
     let state = "none";
     let pubkey = null;
     let name = null;
-    let picture = null;
+    let picture2 = null;
     let about = null;
     let remembered = null;
     let more = [];
@@ -43103,15 +43106,15 @@ void main() {
     let waited = false;
     let asking = false;
     let again = 0;
-    let waiting2;
+    let waiting3;
     let signerUrl = "";
     const reload = () => {
       if (frame2 && signerUrl) frame2.src = signerUrl;
     };
     const wait = () => {
       waited = false;
-      clearTimeout(waiting2);
-      waiting2 = setTimeout(() => {
+      clearTimeout(waiting3);
+      waiting3 = setTimeout(() => {
         if (state !== "none" || disposed) return;
         if (again === 0) {
           again = 1;
@@ -43147,7 +43150,7 @@ void main() {
         state = reply.unlocked ? "unlocked" : "locked";
         pubkey = reply.unlocked ? reply.pubkey ?? null : null;
         name = reply.unlocked ? reply.name ?? null : null;
-        picture = reply.unlocked ? reply.picture ?? null : null;
+        picture2 = reply.unlocked ? reply.picture ?? null : null;
         about = reply.unlocked ? reply.about ?? null : null;
         remembered = reply.unlocked ? reply.remembered ?? null : null;
         more = reply.unlocked ? cleanMore(reply.more) : [];
@@ -43161,19 +43164,19 @@ void main() {
         clearTimeout(question.timer);
         return question.answer(reply.t === "refused" ? null : reply);
       }
-      const waiting3 = pending.get(reply.id);
-      if (!waiting3) return;
+      const waiting4 = pending.get(reply.id);
+      if (!waiting4) return;
       pending.delete(reply.id);
-      clearTimeout(waiting3.timer);
-      if (reply.t !== "signed") return waiting3.done(null);
+      clearTimeout(waiting4.timer);
+      if (reply.t !== "signed") return waiting4.done(null);
       const signed = reply.event;
-      if (waiting3.session) {
-        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting3.session });
-        return waiting3.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
+      if (waiting4.session) {
+        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting4.session });
+        return waiting4.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
       }
-      if (!waiting3.asked) return waiting3.done(null);
+      if (!waiting4.asked) return waiting4.done(null);
       const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
-      waiting3.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting3.asked, signed) ? signed : null);
+      waiting4.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting4.asked, signed) ? signed : null);
     };
     void (async () => {
       try {
@@ -43213,7 +43216,7 @@ void main() {
         return name;
       },
       get picture() {
-        return picture;
+        return picture2;
       },
       get about() {
         return about;
@@ -43355,7 +43358,7 @@ void main() {
       dispose() {
         disposed = true;
         for (const go2 of [...firstAnswer]) go2();
-        clearTimeout(waiting2);
+        clearTimeout(waiting3);
         removeEventListener("message", onMessage);
         frame2?.remove();
         frame2 = null;
@@ -44568,11 +44571,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       };
       const drawTile = (item) => {
         const shown5 = el("span", { class: "shown", "aria-hidden": "true" }, [...item.short][0]?.toUpperCase() ?? "");
-        const picture = item.picture?.();
-        if (picture) {
+        const picture2 = item.picture?.();
+        if (picture2) {
           const canvas = document.createElement("canvas");
           canvas.width = canvas.height = 192;
-          canvas.getContext("2d")?.drawImage(picture, 0, 0, 192, 192);
+          canvas.getContext("2d")?.drawImage(picture2, 0, 0, 192, 192);
           shown5.replaceChildren(canvas);
         }
         const b = el("button", { class: "tile", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, shown5, el("span", {}, item.label));
@@ -44888,7 +44891,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   // packages/sdk/src/ui/letters.ts
   function createUiLetters(changed, now = () => Date.now()) {
     let opts = null;
-    let waiting2 = [];
+    let waiting3 = [];
     let said2 = "";
     let version = 0;
     let count = 0;
@@ -44899,14 +44902,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return {
       attach(next) {
         opts = next;
-        waiting2 = [];
+        waiting3 = [];
         said2 = "";
         bump2();
       },
       detach() {
         if (!opts) return;
         opts = null;
-        waiting2 = [];
+        waiting3 = [];
         said2 = "";
         bump2();
       },
@@ -44920,12 +44923,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const words2 = cleanMessage(text);
         if (!words2) return null;
         const line = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        waiting2.push(line);
+        waiting3.push(line);
         said2 = "";
         bump2();
         void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
           if (opts !== mine) return;
-          if (how.ok) waiting2 = waiting2.filter((l) => l !== line);
+          if (how.ok) waiting3 = waiting3.filter((l) => l !== line);
           else line.state = "failed";
           said2 = how.said;
           bump2();
@@ -44934,7 +44937,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       view() {
         const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
-        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting2].sort((a, b) => a.at - b.at) : [];
+        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
         return {
           ready: !!opts,
           title: name ? `${name}, privately` : "Private messages",
@@ -53674,8 +53677,146 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return JSON.stringify(on2 ? { joined: !!on2.presence.session, me: on2.presence.session?.self.pubkey ?? null, room: on2.presence.roomName, people: on2.presence.info() } : null);
   }
 
+  // packages/sdk/src/panorama.ts
+  var PANORAMA_VIEWS = [
+    { forward: [0, 0, -1], up: [0, 1, 0] },
+    { forward: [1, 0, 0], up: [0, 1, 0] },
+    { forward: [0, 0, 1], up: [0, 1, 0] },
+    { forward: [-1, 0, 0], up: [0, 1, 0] },
+    { forward: [0, 1, 0], up: [0, 0, 1] },
+    { forward: [0, -1, 0], up: [0, 0, -1] }
+  ];
+  var panoramaWidth = (asked) => Math.min(4096, Math.max(256, Math.round((asked ?? 2048) / 2) * 2));
+  function paintPanorama(renderer, width) {
+    const height = width / 2;
+    const flatTarget = new WebGLRenderTarget(width, height);
+    flatTarget.texture.colorSpace = SRGBColorSpace;
+    const material = new ShaderMaterial({
+      uniforms: { face: { value: null }, forward: { value: new Vector3() }, up: { value: new Vector3() }, right: { value: new Vector3() } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      fragmentShader: `uniform sampler2D face; uniform vec3 forward; uniform vec3 up; uniform vec3 right; varying vec2 vUv;
+      void main(){
+        float lon = (vUv.x - 0.5) * 6.283185307179586;
+        float lat = (vUv.y - 0.5) * 3.141592653589793;
+        vec3 dir = vec3(sin(lon) * cos(lat), sin(lat), -cos(lon) * cos(lat));
+        float along = dot(dir, forward);
+        // Only the directions this view is the best one for (with a hair of overlap).
+        if (along < max(abs(dir.x), max(abs(dir.y), abs(dir.z))) - 0.0005) discard;
+        vec2 p = vec2(dot(dir, right), dot(dir, up)) / along;
+        gl_FragColor = texture2D(face, clamp(p * 0.5 + 0.5, 0.0, 1.0));
+        #include <colorspace_fragment>
+      }`,
+      depthTest: false,
+      depthWrite: false
+    });
+    const quad = new Mesh(new PlaneGeometry(2, 2), material);
+    const quadScene = new Scene();
+    quadScene.add(quad);
+    const quadCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    renderer.setRenderTarget(flatTarget);
+    renderer.autoClear = true;
+    renderer.clear();
+    return {
+      paint(face, view2) {
+        const v2 = PANORAMA_VIEWS[view2];
+        if (!v2) return;
+        material.uniforms.face.value = face;
+        material.uniforms.forward.value.fromArray(v2.forward);
+        material.uniforms.up.value.fromArray(v2.up);
+        material.uniforms.right.value.crossVectors(material.uniforms.forward.value, material.uniforms.up.value);
+        renderer.autoClear = false;
+        renderer.setRenderTarget(flatTarget);
+        renderer.render(quadScene, quadCamera);
+      },
+      async blob(quality = 0.82) {
+        const pixels = new Uint8Array(width * height * 4);
+        renderer.readRenderTargetPixels(flatTarget, 0, 0, width, height, pixels);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const g = canvas.getContext("2d");
+        const image = g.createImageData(width, height);
+        for (let y = 0; y < height; y++) image.data.set(pixels.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
+        g.putImageData(image, 0, 0);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+        if (!blob) throw new Error("nswp-sdk: this browser couldn't encode the preview");
+        return blob;
+      },
+      dispose() {
+        flatTarget.dispose();
+        material.dispose();
+        quad.geometry.dispose();
+      }
+    };
+  }
+
+  // packages/sdk/src/engine-panorama.ts
+  var waiting2 = null;
+  function previewViews() {
+    return JSON.stringify(PANORAMA_VIEWS);
+  }
+  function capturePreview(width) {
+    const wide = panoramaWidth(width);
+    waiting2?.reject(new Error("nswp-sdk: another picture was asked for"));
+    if (waiting2) clearTimeout(waiting2.timer);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        waiting2 = null;
+        reject(new Error("nswp-sdk: the engine didn't hand over its six views"));
+      }, 3e4);
+      waiting2 = { width: wide, resolve, reject, timer };
+      tellEngine({ type: "preview", size: Math.min(2048, wide / 2) });
+    });
+  }
+  var picture = (png) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("nswp-sdk: one of the six views isn't a picture"));
+    image.src = `data:image/png;base64,${png}`;
+  });
+  function previewFaces(faces) {
+    const asked = waiting2;
+    if (!asked) return "false";
+    waiting2 = null;
+    clearTimeout(asked.timer);
+    const given = read4(faces).faces;
+    const pngs = Array.isArray(given) ? given.filter((f) => typeof f === "string" && /^[A-Za-z0-9+/=]+$/.test(f)) : [];
+    if (pngs.length !== PANORAMA_VIEWS.length) {
+      asked.reject(new Error("nswp-sdk: a picture needs six views"));
+      return "true";
+    }
+    void (async () => {
+      const renderer = new WebGLRenderer({ antialias: false, alpha: false });
+      const textures = [];
+      let painter = null;
+      try {
+        const images = await Promise.all(pngs.map(picture));
+        painter = paintPanorama(renderer, asked.width);
+        images.forEach((image, i) => {
+          const texture = new Texture(image);
+          texture.colorSpace = SRGBColorSpace;
+          texture.generateMipmaps = false;
+          texture.minFilter = LinearFilter;
+          texture.needsUpdate = true;
+          textures.push(texture);
+          painter.paint(texture, i);
+        });
+        const bytes = new Uint8Array(await (await painter.blob()).arrayBuffer());
+        asked.resolve({ base64: base642(bytes), width: asked.width, height: asked.width / 2, bytes: bytes.length });
+      } catch (err) {
+        asked.reject(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        painter?.dispose();
+        for (const t of textures) t.dispose();
+        renderer.dispose();
+        renderer.forceContextLoss();
+      }
+    })();
+    return "true";
+  }
+
   // packages/sdk/src/engine.ts
-  var VERSION = 13;
+  var VERSION = 14;
   var KIT = KIT_VERSION;
   var read5 = (text) => {
     try {

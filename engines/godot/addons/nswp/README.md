@@ -202,6 +202,36 @@ someone is, and muting one person's items all work as in every world.
 
 **Not here yet:** anything of this in a headset.
 
+## The picture a door shows
+
+A world must have one: a 360° picture taken from where a visitor arrives,
+which a door to your world shows before anyone comes through
+([NSWP-04](../../../../protocol/04-previews.md)). The addon takes it for
+you. With your world open in a browser, in the page's console:
+
+```js
+const shot = await NSWP.capturePreview(2048); // { base64, width, height, bytes }: a WebP file
+```
+
+The addon takes six square views from your `main-entrance`, at eye height,
+and the kit paints them into one picture: the same painting every other
+world's picture is made with. Keep the file under its SHA-256, serve it
+from your site, and name it in your `world.json`:
+
+```json
+"previews": [{ "url": "https://your.site/previews/<sha256>.webp", "type": "pano", "sha256": "<sha256>", "width": 2048, "height": 1024 }]
+```
+
+Then sign and publish your announcement again: the picture's hash is part
+of it.
+
+- **Left out of it:** other people, and whatever anyone carries. Put any
+  node of your own that is about one visitor, or changes from moment to
+  moment, in the group `nswp_not_in_preview` (`Nswp.NOT_IN_PREVIEW_GROUP`),
+  or hide it when `Nswp.preview_taking(true)` is emitted.
+- **Taken without fog or glow:** they differ from one view to the next and
+  would leave seams.
+
 ## Other people
 
 A visitor may join the room of your world, and then sees and hears whoever

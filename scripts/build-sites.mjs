@@ -20,6 +20,10 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   const carried = (config.worlds[name] ?? config.elsewhere[name])?.items ?? "allowed";
   const ownCarried = (read.world ?? read).items ?? "allowed";
   if (carried !== ownCarried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its own world.json says "${ownCarried}". They must agree.`);
+  // And every world has the picture its doors show (protocol/04-previews.md): a 360° still, which is required.
+  // `--before-pictures` builds without, which is how a new world's first one gets taken (`npm run previews`).
+  if (!((read.world ?? read).previews ?? []).some((p) => p.type === "pano") && !process.argv.includes("--before-pictures"))
+    throw new Error(`${name} has no 360° picture for doors to show, and a world must have one. Take it: npm run build -- --before-pictures, then npm run previews -- --only ${name}, then npm run build.`);
   // And the page must do what the announcement says: a reference world's own code names the same rule.
   if (config.worlds[name]) {
     const inCode = /^\s*items: "([a-z]+)",?\s*$/m.exec(readFileSync(join(root, "sites", name, "src", "main.ts"), "utf8"))?.[1] ?? "allowed";

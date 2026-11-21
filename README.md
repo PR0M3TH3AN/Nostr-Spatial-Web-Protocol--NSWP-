@@ -205,10 +205,20 @@ has been published yet.)
 
 Each reference world has a preview: a 360° picture taken from where a visitor
 arrives, which a portal or a lobby can show before anyone goes there (spec
-§5.8). To retake them:
+§5.8). A world must have one, and a reference world won't build without it.
+To retake them all:
 
 ```bash
 npm run build && npm run previews && npm run build
+```
+
+Retaking a picture changes its hash, so that world's announcement has to be
+signed and published again. To take one world's and leave the rest as they
+are (The Foundry's is taken from the Godot export, so `npm run build:godot`
+first; a new world with no picture yet builds with `-- --before-pictures`):
+
+```bash
+npm run previews -- --only foundry
 ```
 
 `npm run previews` opens each built world in headless Chrome (it needs Google

@@ -19,6 +19,7 @@ export { turnVisitor } from "./turn.js";
 export { createConsole, type XrConsole } from "./console.js";
 import type { Controls } from "./ui/model.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
+import { PANORAMA_VIEWS, paintPanorama, panoramaWidth, type PanoramaPainter } from "./panorama.js";
 import { offerHeadset, whenSessionGranted, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, watchFov } from "./desk.js";
 import { freshAction } from "./ui/fresh.js";
@@ -46,8 +47,7 @@ export interface CaptureOptions {
  * carries the address, the type `pano`, the SHA-256 and the dimensions.
  */
 export async function capturePanorama(renderer: THREE.WebGLRenderer, scene: THREE.Scene, position: THREE.Vector3, opts: CaptureOptions = {}): Promise<Blob> {
-  const width = Math.min(4096, Math.max(256, Math.round(opts.width ?? 2048)));
-  const height = width / 2;
+  const width = panoramaWidth(opts.width);
   const hidden = (opts.hide ?? []).filter((o) => o.visible);
   const xrWasEnabled = renderer.xr.enabled;
   const previousTarget = renderer.getRenderTarget();
@@ -56,76 +56,26 @@ export async function capturePanorama(renderer: THREE.WebGLRenderer, scene: THRE
   // differently and leave seams. A preview is taken without it.
   const fog = scene.fog;
   // Six ordinary 90° views, one at a time, each painted onto the part of the
-  // panorama it covers. (Half-float, so dark scenes don't band on the way.)
+  // panorama it covers (panorama.ts). (Half-float, so dark scenes don't band on the way.)
   const faceTarget = new THREE.WebGLRenderTarget(Math.min(2048, width / 2), Math.min(2048, width / 2), { type: THREE.HalfFloatType });
-  const flatTarget = new THREE.WebGLRenderTarget(width, height);
-  flatTarget.texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.ShaderMaterial({
-    uniforms: { face: { value: faceTarget.texture }, forward: { value: new THREE.Vector3() }, up: { value: new THREE.Vector3() }, right: { value: new THREE.Vector3() } },
-    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
-    fragmentShader: `uniform sampler2D face; uniform vec3 forward; uniform vec3 up; uniform vec3 right; varying vec2 vUv;
-      void main(){
-        float lon = (vUv.x - 0.5) * 6.283185307179586;
-        float lat = (vUv.y - 0.5) * 3.141592653589793;
-        vec3 dir = vec3(sin(lon) * cos(lat), sin(lat), -cos(lon) * cos(lat));
-        float along = dot(dir, forward);
-        // Only the directions this view is the best one for (with a hair of overlap).
-        if (along < max(abs(dir.x), max(abs(dir.y), abs(dir.z))) - 0.0005) discard;
-        vec2 p = vec2(dot(dir, right), dot(dir, up)) / along;
-        gl_FragColor = texture2D(face, clamp(p * 0.5 + 0.5, 0.0, 1.0));
-        #include <colorspace_fragment>
-      }`,
-    depthTest: false,
-    depthWrite: false,
-  });
-  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-  const quadScene = new THREE.Scene();
-  quadScene.add(quad);
-  const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const faceCamera = new THREE.PerspectiveCamera(90, 1, 0.05, 700);
   faceCamera.position.copy(position);
-  // [looking along, with this way up]
-  const views: [THREE.Vector3, THREE.Vector3][] = [
-    [new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0)],
-    [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0)],
-    [new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)],
-    [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0)],
-    [new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)],
-    [new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1)],
-  ];
+  let painter: PanoramaPainter | null = null;
   try {
     for (const o of hidden) o.visible = false;
     scene.fog = null;
     renderer.xr.enabled = false; // a capture is never an XR frame
-    renderer.setRenderTarget(flatTarget);
-    renderer.clear();
-    for (const [forward, up] of views) {
-      faceCamera.up.copy(up);
-      faceCamera.lookAt(position.clone().add(forward));
+    painter = paintPanorama(renderer, width);
+    PANORAMA_VIEWS.forEach((view, i) => {
+      faceCamera.up.fromArray(view.up);
+      faceCamera.lookAt(position.clone().add(new THREE.Vector3().fromArray(view.forward)));
       faceCamera.updateMatrixWorld(true);
       renderer.autoClear = true;
       renderer.setRenderTarget(faceTarget);
       renderer.render(scene, faceCamera);
-      material.uniforms.forward!.value.copy(forward);
-      material.uniforms.up!.value.copy(up);
-      material.uniforms.right!.value.crossVectors(forward, up);
-      renderer.autoClear = false;
-      renderer.setRenderTarget(flatTarget);
-      renderer.render(quadScene, quadCamera);
-    }
-    const pixels = new Uint8Array(width * height * 4);
-    renderer.readRenderTargetPixels(flatTarget, 0, 0, width, height, pixels);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext("2d")!;
-    const image = g.createImageData(width, height);
-    // WebGL rows run bottom-up; images run top-down.
-    for (let y = 0; y < height; y++) image.data.set(pixels.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
-    g.putImageData(image, 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", opts.quality ?? 0.82));
-    if (!blob) throw new Error("nswp-sdk: this browser couldn't encode the preview");
-    return blob;
+      painter!.paint(faceTarget.texture, i);
+    });
+    return await painter.blob(opts.quality ?? 0.82);
   } finally {
     for (const o of hidden) o.visible = true;
     scene.fog = fog;
@@ -133,9 +83,7 @@ export async function capturePanorama(renderer: THREE.WebGLRenderer, scene: THRE
     renderer.autoClear = autoClearWas;
     renderer.setRenderTarget(previousTarget);
     faceTarget.dispose();
-    flatTarget.dispose();
-    material.dispose();
-    quad.geometry.dispose();
+    painter?.dispose();
   }
 }
 

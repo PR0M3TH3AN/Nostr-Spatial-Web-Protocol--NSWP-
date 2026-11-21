@@ -35,5 +35,14 @@
   "entryPoints": [
     "main-entrance",
     "balcony"
+  ],
+  "previews": [
+    {
+      "url": "https://foundry.bitblocks.network/previews/095384b8781a9413b733ec091bbb810b114d3ca9af9a707b973e4707044f292a.webp",
+      "type": "pano",
+      "sha256": "095384b8781a9413b733ec091bbb810b114d3ca9af9a707b973e4707044f292a",
+      "width": 2048,
+      "height": 1024
+    }
   ]
 }

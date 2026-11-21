@@ -89,6 +89,18 @@ writeFileSync(
 // with no items has no such page.
 const carries = (world.items ?? "allowed") !== "none";
 if (carries) writeFileSync(join(dist, "item-box.html"), ITEM_BOX_HTML);
+// The picture a door to this world shows (protocol/04-previews.md), served from here under its hash, as the
+// announcement says. `npm run previews -- --only foundry` takes it and records it in world.json.
+const pictures = (world.previews ?? []).filter((p) => /^[0-9a-f]{64}$/.test(p.sha256 ?? "") && new URL(p.url).origin === new URL(world.url).origin);
+// A world must have one. `--before-pictures` builds it without, which is how the first one gets taken.
+if (!(world.previews ?? []).some((p) => p.type === "pano") && !process.argv.includes("--before-pictures"))
+  throw new Error("engines/godot/world.json has no 360° picture for doors to show, and a world must have one. Take it: npm run build:godot -- --before-pictures, then npm run previews -- --only foundry, then npm run build:godot.");
+if (pictures.length) mkdirSync(join(dist, "previews"), { recursive: true });
+for (const p of pictures) {
+  const from = join(root, "sites", "previews", `${p.sha256}.webp`);
+  if (!existsSync(from)) throw new Error(`engines/godot/world.json names a picture that isn't in sites/previews/ (${p.sha256.slice(0, 12)}…). Run npm run previews -- --only foundry.`);
+  cpSync(from, join(dist, "previews", `${p.sha256}.webp`));
+}
 const csp = [
   "default-src 'self'",
   // Godot's engine is WebAssembly. Nothing is written into the page itself (addons/nswp/web/shell.html).
@@ -121,7 +133,15 @@ writeFileSync(
         ...(carries ? [{ source: "/item-box\\.html", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "no-referrer" }, { key: "Content-Security-Policy", value: ITEM_BOX_CSP }] }] : []),
         // Always the latest (protocol/09-what-a-world-owes.md): a browser asks before it uses a copy it kept. The
         // engine is forty megabytes, and a browser that has the latest is told so in a few bytes.
-        { source: "/((?!\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+        { source: "/((?!previews/|\\.well-known/nswp\\.json).*)", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+        // A picture is named by its hash, so it never changes; and any site may show it in a doorway.
+        {
+          source: "/previews/(.*)",
+          headers: [
+            { key: "Access-Control-Allow-Origin", value: "*" },
+            { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          ],
+        },
         {
           source: "/.well-known/nswp.json",
           headers: [
