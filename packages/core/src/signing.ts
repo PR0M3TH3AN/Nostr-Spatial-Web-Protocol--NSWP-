@@ -22,6 +22,7 @@ import { cleanMessage, cleanRead, type Message, type SealedMessage } from "./mes
 import { worldCoordinate } from "./rating.js";
 import { cleanBoard, cleanScore, SCORE_LIMITS } from "./score.js";
 import { ACHIEVEMENT_LIMITS, cleanAchievementId } from "./achievement.js";
+import { cleanInvoice } from "./invoice.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -225,7 +226,12 @@ export type SignerRequest =
    */
   | { t: "propose"; id: string; event: { kind: number; content: string; tags: string[][] } }
   /** Ask the person for a wallet connection for this world, the same way: on the sign-in address's own page. */
-  | { t: "wallet"; id: string };
+  | { t: "wallet"; id: string }
+  /**
+   * Ask the person to pay this Lightning invoice, the same way. The world made the invoice; the sign-in address
+   * shows them the amount and pays at their press. The world is told it was paid and nothing about their wallet.
+   */
+  | { t: "pay"; id: string; invoice: string };
 
 /**
  * The careful kinds a world may put to its visitor, to be signed at their own press on the sign-in address's page:
@@ -279,6 +285,8 @@ export type SignerReply =
   | { t: "asking"; id: string }
   /** Answers `wallet`, once the person has said yes: the connection, for this world. */
   | { t: "wallet"; id: string; uri: string }
+  /** Answers `pay`, once the person has paid: with the payment's proof, where their wallet was given one. */
+  | { t: "paid"; id: string; preimage?: string }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -314,6 +322,7 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "reach" && Array.isArray(d.relays) && d.relays.length <= 8 && d.relays.every((r) => typeof r === "string" && r.length <= 200)) return { t: "reach", id: d.id, relays: d.relays as string[] };
   if (d.t === "propose" && d.event && typeof d.event === "object" && PROPOSE_KINDS.includes((d.event as { kind?: unknown }).kind as number)) return { t: "propose", id: d.id, event: d.event as { kind: number; content: string; tags: string[][] } };
   if (d.t === "wallet") return { t: "wallet", id: d.id };
+  if (d.t === "pay" && cleanInvoice(d.invoice)) return { t: "pay", id: d.id, invoice: cleanInvoice(d.invoice) };
   if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
     return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
   }
@@ -349,6 +358,7 @@ export function readSignerReply(data: unknown): SignerReply | null {
   if (d.t === "refused") return { t: "refused", id: d.id };
   if (d.t === "asking") return { t: "asking", id: d.id };
   if (d.t === "wallet" && cleanWalletUri(d.uri)) return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
+  if (d.t === "paid") return { t: "paid", id: d.id, ...(isHex64(d.preimage) ? { preimage: d.preimage } : {}) };
   if (d.t === "signed" && d.event && typeof d.event === "object") return { t: "signed", id: d.id, event: d.event as NostrEvent };
   if (d.t === "found" && isHex64(d.d)) return { t: "found", id: d.id, d: d.d };
   if (d.t === "sealed" && d.message && typeof d.message === "object" && Array.isArray(d.seals) && d.seals.length === 2) return { t: "sealed", id: d.id, message: d.message as SealedMessage["message"], seals: d.seals as SealedMessage["seals"] };

@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.64.0";
+  var KIT_VERSION = "0.65.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -6186,6 +6186,50 @@ ${roomName}`)));
     return !!a && a.world === worldCoordinate(o.world) && a.id === o.id && a.title === cleanLine(o.title, ACHIEVEMENT_LIMITS.title) && a.askedAt.includes(cleanOrigin(o.origin));
   }
 
+  // packages/core/dist/invoice.js
+  var INVOICE_LIMIT = 2e3;
+  function cleanInvoice(input) {
+    if (typeof input !== "string")
+      return "";
+    const invoice = input.trim().toLowerCase().replace(/^lightning:/, "");
+    return invoice.length <= INVOICE_LIMIT && /^ln(bc|tb|tbs|bcrt)[0-9a-z]+$/.test(invoice) ? invoice : "";
+  }
+  var TIMESTAMP_WORDS = 7;
+  var SIGNATURE_WORDS = 104;
+  var PAYMENT_HASH = 1;
+  var PAYMENT_HASH_WORDS = 52;
+  function invoicePaymentHash(invoice) {
+    const clean3 = cleanInvoice(invoice);
+    if (!clean3)
+      return null;
+    let words2;
+    try {
+      words2 = bech32.decode(clean3, INVOICE_LIMIT).words;
+    } catch {
+      return null;
+    }
+    const end = words2.length - SIGNATURE_WORDS;
+    let at = TIMESTAMP_WORDS;
+    while (at + 3 <= end) {
+      const length = words2[at + 1] * 32 + words2[at + 2];
+      const data = words2.slice(at + 3, at + 3 + length);
+      if (at + 3 + length > end)
+        return null;
+      if (words2[at] === PAYMENT_HASH && length === PAYMENT_HASH_WORDS) {
+        const bytes = bech32.fromWordsUnsafe(data);
+        return bytes && bytes.length === 32 ? bytesToHex(bytes) : null;
+      }
+      at += 3 + length;
+    }
+    return null;
+  }
+  function provesPayment(invoice, preimage) {
+    if (typeof preimage !== "string" || !/^[0-9a-f]{64}$/.test(preimage))
+      return false;
+    const hash = invoicePaymentHash(invoice);
+    return !!hash && bytesToHex(sha256(hexToBytes(preimage))) === hash;
+  }
+
   // packages/core/dist/signing.js
   var SIGNER_PROTOCOL = "nswp-signer";
   var SIGNER_VERSION = 1;
@@ -6297,6 +6341,8 @@ ${roomName}`)));
       return { t: "asking", id: d.id };
     if (d.t === "wallet" && cleanWalletUri(d.uri))
       return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
+    if (d.t === "paid")
+      return { t: "paid", id: d.id, ...isHex64(d.preimage) ? { preimage: d.preimage } : {} };
     if (d.t === "signed" && d.event && typeof d.event === "object")
       return { t: "signed", id: d.id, event: d.event };
     if (d.t === "found" && isHex64(d.d))
@@ -43204,6 +43250,7 @@ void main() {
     unlock: () => false,
     propose: () => Promise.resolve(null),
     wallet: () => Promise.resolve(null),
+    pay: () => Promise.resolve(null),
     panel: false,
     lock() {
     },
@@ -43475,6 +43522,11 @@ void main() {
       wallet() {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
         return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null);
+      },
+      pay(invoice) {
+        const asked = cleanInvoice(invoice);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return putToThem({ t: "pay", id: `y${++n}`, invoice: asked }, (reply) => reply.t === "paid" ? { preimage: reply.preimage ?? null, proven: !!reply.preimage && provesPayment(asked, reply.preimage) } : null);
       },
       lock() {
         if (state === "unlocked") tell2({ t: "lock", id: `l${++n}` });

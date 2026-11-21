@@ -2,6 +2,14 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.65.0
+
+A world can ask to be paid.
+
+- **`signer.pay(invoice)`** asks the visitor to pay a Lightning invoice the world made, on their sign-in address's own page, like `propose` and `wallet` (NSWP-10, "Asking the person": `pay`, `paid`). The sign-in address shows the amount and pays at the visitor's press; the world learns that it was paid and nothing about their wallet.
+- **A payment's proof is checked.** `paid` may carry a preimage; the kit says whether it really is this invoice's (`proven`). New in the core: `cleanInvoice`, `invoicePaymentHash`, `provesPayment` (`invoice.ts`), which read a BOLT 11 invoice only as far as its payment hash, and are tested against the specification's own examples.
+- Nothing in the reference worlds asks for a payment yet.
+
 ## 0.64.0
 
 Asking the person: careful kinds and a wallet, put to the visitor on their sign-in address's own page.

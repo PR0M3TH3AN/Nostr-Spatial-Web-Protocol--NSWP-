@@ -450,6 +450,7 @@ each `{ "nswp": "nswp-signer", "v": 1, "t": ..., "id": ... }`:
 | `want`, with `more`: a list of names | `state`. It approves nothing: the signer remembers it for its own window ("Asking for more", below) |
 | `propose`, with `event`: `kind`, `content`, `tags`, of kind 0, 5 or 10002 | `asking` at once; then, under the same `id`, `signed` with the whole signed note, or `refused` ("Asking the person", below) |
 | `wallet` | `asking` at once; then, under the same `id`, `wallet` with `uri`, or `refused` ("Asking the person", below) |
+| `pay`, with `invoice`: a Lightning invoice the world made | `asking` at once; then, under the same `id`, `paid`, with `preimage` where there is one, or `refused` ("Asking the person", below) |
 | `follow`, with `list` and `add` or `remove` | `signed`, with the visitor's new follow list; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `seal`, with `to` and `text` | `sealed`, with the message as written and its two seals; or `refused` ([NSWP-14](14-people-and-messages.md)) |
 | `unwrap`, with `event`: a wrapped message a relay gave it | `message`, with what was inside; or `refused` |
@@ -555,17 +556,17 @@ and the signer remembers a world the visitor allowed (BitLogin's
 ## Asking the person
 
 **Status:** the kit's half is implemented (kit 0.64.0: `signer.propose`,
-`signer.wallet`). BitLogin's half is built and not yet live. Nothing in
-the reference worlds uses either yet.
+`signer.wallet`; 0.65.0: `signer.pay`). BitLogin's half is built and not
+yet live. Nothing in the reference worlds uses any of them yet.
 
 Some things a visitor should be asked each time, in words, by their own
 sign-in address, and never have done for them on a world's say: a change
-to their profile, a deletion, a change to their relay list, and a wallet
-for a world to spend with. `sign` refuses the first three and always will.
-A world can put them to the visitor instead:
+to their profile, a deletion, a change to their relay list, a payment,
+and a wallet for a world to spend with. `sign` refuses the first three and
+always will. A world can put them to the visitor instead:
 
 1. At the visitor's press, the world sends `propose` (a note of kind 0, 5
-   or 10002) or `wallet`.
+   or 10002), `pay` (a Lightning invoice it made) or `wallet`.
 2. The signer answers `asking` at once, or `refused`. It has signed
    nothing: it holds the question for the sign-in address's own page.
 3. On `asking`, the world has that page shown, exactly as for signing in:
@@ -573,8 +574,8 @@ A world can put them to the visitor instead:
    window, and a panel in its place"). The page shows the visitor what is
    asked, in words, and who it is asked as.
 4. At their press there, the answer comes back under the same `id`:
-   `signed` with the whole note, or `wallet` with a connection, or
-   `refused`.
+   `signed` with the whole note, `paid`, or `wallet` with a connection;
+   or `refused`.
 
 - **A closed list of kinds:** 0, 5, 10002 (`PROPOSE_KINDS`). Not who they
   follow: a whole list signed for a world could unfollow everyone, so that
@@ -587,6 +588,17 @@ A world can put them to the visitor instead:
 - **One question at a time, and not for long.** The sign-in address keeps
   one, for five minutes, and a few a minute at most; a new one ends the
   one before. A world waits no longer than that.
+- **To be paid, a world asks for one payment** (`pay`). It makes the
+  invoice itself, with whoever it takes payments through, and the sign-in
+  address shows the visitor the amount and pays at their press. The world
+  learns that it was paid and nothing about their wallet: no balance, and
+  never a token. `paid` may carry a `preimage`, which is the payment's
+  proof: its SHA-256 is the payment hash in the invoice, and the kit says
+  whether it is (`proven`; `provesPayment` in the core). A world that
+  hands over something of value goes by that, or by its own word from
+  whoever it made the invoice with. `paid` with no proof is the sign-in
+  address's say-so. This is the way to take a payment: a world that only
+  wants paying has no need of a wallet.
 - **A wallet connection is spending power.** What comes back from `wallet`
   is a Nostr Wallet Connect address: this world can spend with it, within
   what the wallet itself allows. A world asks for one only for something
