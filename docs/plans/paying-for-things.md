@@ -277,8 +277,9 @@ is built first.
 - The same, with a listing that lasts a number of days. The receipt
   carries its end date, and any client can read it offline.
 - **Renewing is buying again.** The new receipt is tied to the one it
-  renews, as BitUnlock already records. Whether it runs on from the old
-  one's end or from the day it was bought is BitUnlock's to confirm. In
+  renews, as BitUnlock already records. Decided: it runs on from the old
+  one's end if bought before that end, and from the day it is bought
+  otherwise. In
   this version nothing renews by itself: every payment is a press (rule
   3). The world may remind someone whose time is nearly up.
 - **Running out mid-visit.** Checked on arrival and every few minutes. On
@@ -359,7 +360,7 @@ client: it names no key, and goes to whichever client brought the buyer.
 The client says who it is when the purchase starts. The seller agrees to
 it by signing it into the listing, so nothing is ever taken that the
 seller didn't offer. Decided: each seller chooses the number, and
-BitPortal publishes the rate it suggests; any client may claim it, so
+BitPortal publishes the rate it suggests (5%); any client may claim it, so
 this stays open to other clients; and where no client brought the buyer
 (a world opened by its own address), that share goes to the seller.
 
@@ -490,8 +491,9 @@ wall.
   BitUnlock's own fee stays as it is, so that two prices aren't changed
   at once. These two pull against each other for cheap things: the fee is
   1% but never under 10 sats, so on a 100-sat item it is a tenth by
-  itself, and on a 200-sat item a twentieth. Section 14 has this to
-  settle: a least price, or a lower floor.
+  itself, and on a 200-sat item a twentieth. Decided since: nothing is
+  sold under 500 sats to begin, which keeps the fee at 2% (section 13,
+  28).
 - **Say what is true, and block nothing.**
   - On BitLogin's page, a bare payment reads: "A payment to this world. No
     receipt: nothing will be recorded as yours." A purchase reads what
@@ -634,9 +636,9 @@ whether something is there already, has to change, or is new.
    things: BitUnlock's fee is 1% and never under 10 sats
    (`BITUNLOCK_FEE_MIN_SATS`). Noted in section 10.2; to settle in 14.
 6. **There is no sandbox to try against.** BitUnlock's pretend-sats
-   service exists as code and "is not publicly hosted". Someone has to
-   run one that BitLogin's page can reach, and BitLogin needs a way to be
-   pointed at it. Noted in section 13, 17.
+   service exists as code and "is not publicly hosted". Decided since:
+   BitUnlock hosts one, and BitLogin's page can be pointed at it only on
+   a local copy or its beta address (section 13, 30).
 7. **A listing must deliver something.** BitUnlock won't register a
    product with nothing to release (`sellerCiphertext` is required). A
    `soft` listing delivers a small fixed note and nobody needs it.
@@ -779,7 +781,8 @@ this; its room as an application of BitLogin's.
 
 - **BitPortal can't write a listing.** It may sign application data only
   under its own name (`bitportal/`), and a BitUnlock listing is not that.
-  A listing is made in BitUnlock's seller pages (or BitRoad) for now.
+  Decided: a listing is made in BitUnlock's own panel, and BitPortal
+  doesn't ask to be let sign one.
 - **Marking a world as paid is signing its announcement again,** and
   publishing it, which is the owner's word each time. The reference
   worlds are free and stay so unless the owner says.
@@ -1012,33 +1015,49 @@ section it belongs to.
     straight into the wallet BitLogin already holds, with nothing to type
     (section 9).
 
+28. **Nothing is sold under 500 sats, to begin.** BitUnlock's fee is 1%
+    and never under 10 sats, so at 500 it is 2%. This is what settles the
+    pull between "under a tenth" and "the fee stays as it is" for cheap
+    things (section 10.2).
+29. **A renewal runs on** from the old receipt's end if it is bought
+    before that end, and from the day it is bought otherwise. What
+    BitUnlock does today has still to be checked against this, and
+    changed if it differs.
+30. **BitUnlock hosts a sandbox with pretend sats,** at an address of its
+    own. BitLogin's page can be pointed at it only on a local copy or on
+    its beta address, never on bitlogin.network.
+31. **A listing is made in BitUnlock's own panel** (section 11.6).
+    BitPortal doesn't ask BitLogin to let it sign one.
+32. **BitPortal suggests 5%** as the client's share. It is a suggestion to
+    sellers, who choose their own number (6), and it waits on the lawyer
+    like everything about shares (16).
+
+The owner, to these five as recommended: "Yes I agree with those last 5".
+
 ## 14. Still open
 
 Not decided by the above, and each needed before the part it belongs to:
 
 - **The lawyer's answer** (question 16). Shares and the client's share
   wait for it.
-- **The rate BitPortal suggests** for the client's share, and whether the
-  aim of "under a tenth" is a rule or a hope.
+- **Whether the aim of "under a tenth"** given up in all is a rule or a
+  hope.
 - **Which mints,** by name.
 - **How the person tipped is told.** The note that travels with a
   Lightning payment is the plainest way and depends on their wallet
   showing it. A private Nostr message is the other, and would be sent by
   the tipper's own key.
-- **Whether a renewal runs on** from the old receipt's end or from the day
-  it was bought: BitUnlock's to confirm.
+- **Whether BitUnlock's renewals already run on** as decided (section 13,
+  29), or need changing: its session's to check.
 - **The names** of the new tags and requests, which BitUnlock's, BitLogin's
   and NSWP's sessions settle between them.
 - **Whose things are first** when "a few world makers by invitation"
   begins, and what they are told.
 - **What a world's taste is allowed to be:** a separate room, a time
   limit, or anything the world likes.
-- **Cheap things.** A least price (500 sats would keep BitUnlock's fee
-  at 2%), or a lower floor on the fee, or accept that the cheapest things
-  give up more than a tenth.
-- **Who runs the sandbox,** and where.
-- **Where a listing is made:** BitUnlock's seller pages for now, or
-  something in BitPortal, which would need BitLogin to let it sign one.
+- **Where the least price is held.** By BitUnlock when a listing is made,
+  by BitLogin when it shows one, or both.
+- **The sandbox's address,** and who may use it.
 - **How much of a receipt a room is shown.** All of it (it can't be cut
   down), or a smaller thing BitUnlock signs for showing.
 - **The exact shape of the new permission** in BitLogin that lets a named
