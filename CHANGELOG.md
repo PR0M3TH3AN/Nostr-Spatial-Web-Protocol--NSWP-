@@ -2,6 +2,10 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.69.1
+
+- **A listing's name may be as long as BitUnlock allows** (256 characters, not beginning with a colon; it was 200). A listing with a longer name would have sold there and had its receipt refused here. Found by BitUnlock's own session reading the kit's check, which it otherwise confirmed field for field.
+
 ## 0.69.0
 
 Tips, and the first of buying.

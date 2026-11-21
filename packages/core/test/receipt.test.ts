@@ -65,6 +65,11 @@ describe("a receipt: who bought what, and until when", () => {
     for (const not of [null, undefined, "receipt", 7, {}, { kind: 30078 }, []]) expect(read(not).ok).toBe(false);
   });
 
+  it("reads something the seller gave away as a receipt like any other", () => {
+    // No payment was made, so it names none: it is still the service's word that this key holds this listing.
+    expect(read(receipt({ settlementBasis: "voucher", paymentHashes: [] }), { listing: LISTING, buyer: BUYER }).ok).toBe(true);
+  });
+
   it("never changes what it was handed", () => {
     const e = receipt();
     const before = JSON.stringify(e);
@@ -76,7 +81,9 @@ describe("a receipt: who bought what, and until when", () => {
     expect(cleanListing(LISTING)).toBe(LISTING);
     expect(listingSeller(LISTING)).toBe(SELLER);
     expect(cleanListing(`30078:${SELLER}:a name with spaces`)).toBe(`30078:${SELLER}:a name with spaces`);
-    for (const not of ["", `37300:${SELLER}:a-world`, `30078:${SELLER.toUpperCase()}:x`, `30078:${SELLER}:`, `30078:short:x`, `30078:${SELLER}:two\nlines`, `30078:${SELLER}:${"x".repeat(400)}`, 7, null]) {
+    // As long a name as the selling service takes, and no longer; and never one that begins with a colon.
+    expect(cleanListing(`30078:${SELLER}:${"x".repeat(256)}`)).not.toBe("");
+    for (const not of ["", `37300:${SELLER}:a-world`, `30078:${SELLER.toUpperCase()}:x`, `30078:${SELLER}:`, `30078:${SELLER}::x`, `30078:short:x`, `30078:${SELLER}:two\nlines`, `30078:${SELLER}:${"x".repeat(257)}`, 7, null]) {
       expect(cleanListing(not), String(not).slice(0, 40)).toBe("");
       expect(listingSeller(not)).toBe("");
     }

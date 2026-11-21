@@ -12,7 +12,8 @@ still open. **Decided is not built: nothing here is built yet.** Section
 have written down, and is not one of the things decided. Section 11 was
 rewritten after reading the code of all three projects at each place this
 touches them: it found nine things the first draft had wrong, which are
-listed there and corrected where they stood. BitLogin's own session then
+listed there and corrected where they stood. BitUnlock's own session then
+read it against its source and corrected nine more (section 11.1a). BitLogin's own session then
 read section 11.3 and corrected three more points, which are in. Section
 11.6 (BitUnlock's own pages inside the game) was added at the owner's
 asking and is not decided.
@@ -276,10 +277,12 @@ is built first.
 
 - The same, with a listing that lasts a number of days. The receipt
   carries its end date, and any client can read it offline.
-- **Renewing is buying again.** The new receipt is tied to the one it
-  renews, as BitUnlock already records. Decided: it runs on from the old
-  one's end if bought before that end, and from the day it is bought
-  otherwise. In
+- **Renewing is buying again.** Decided: it runs on from the old one's
+  end if bought before that end, and from the day it is bought otherwise,
+  and the new receipt names the one it renews. BitUnlock does neither
+  today (section 11.1a, 2): it counts from the first unlock and loses any
+  overlap, so this needs building there, for products that ask for it.
+  In
   this version nothing renews by itself: every payment is a press (rule
   3). The world may remind someone whose time is nearly up.
 - **Running out mid-visit.** Checked on arrival and every few minutes. On
@@ -669,6 +672,50 @@ whether something is there already, has to change, or is new.
    it off. A receipt can't be cut down, because its signature covers all
    of it.
 
+### 11.1a What BitUnlock's own session corrected
+
+BitUnlock's session read sections 11.1 and 11.2 and the kit's receipt
+check against its source (`main` at `2a7758d`, not the deployed service)
+on 2026-11-21. The receipt check it confirmed field for field. These it
+corrected:
+
+1. **A lightning address is not enough to sell with, today.** A seller is
+   only ready to sell once a wallet connection (NWC) is stored; an address
+   can be added to a seller who already is, and doesn't make one ready.
+   An address is also refused unless it can confirm a payment by itself
+   (LUD-21), and that path has never taken a real order. So "paid from
+   inside the game by lightning address" (section 13, 27) needs a change
+   in BitUnlock first. The first sale can use a wallet connection as
+   things are.
+2. **A renewal doesn't work as decided** (section 13, 29). Today the time
+   runs from the moment something is first unlocked, for the listing's
+   length, whatever was held before: buying again early simply loses the
+   overlap, and a receipt never names the one it renews. Changing it
+   changes how existing sellers' timed products behave, so BitUnlock
+   won't without the owner, and would make it something a product opts
+   into.
+3. **A price is read once.** BitUnlock reads a listing's price when the
+   listing is registered, and keeps it. Changing the tag afterwards
+   changes nothing, and the same listing can't be registered twice. For
+   now a new price is a new listing with a new name.
+4. **The fee comes out of the price, in two invoices.** At 500 sats the
+   buyer pays 490 to the seller and 10 to BitUnlock. Whatever pays must
+   pay every part it is given. Only the mode for the operator's own
+   products is one invoice for the whole price.
+5. **Selling is by invitation in BitUnlock already:** a key must be on its
+   list, or be its operator, to register as a seller at all. The mode for
+   the operator's own products is two more steps, both the operator's.
+6. **A listing's name may be 256 characters,** not 200. Corrected in the
+   kit (0.69.1).
+7. **Someone can hold several receipts for one timed listing,** one for
+   each time they bought it. Any that hasn't run out is enough.
+8. **Something given away has a receipt too** (a voucher: not live yet).
+   It names no payment, and reads as a receipt everywhere. Section 14.
+9. **One key is pinned, and keys get changed.** If BitUnlock's signing key
+   is ever replaced, every copy that pins the old one stops believing
+   new receipts. The kit's list can hold both for a while, which is what
+   it is a list for.
+
 ### 11.2 BitUnlock
 
 **There already, nothing to change:**
@@ -682,21 +729,54 @@ whether something is there already, has to change, or is new.
 - Receipts, a list of a buyer's own (`GET /v1/access-entitlements`), and a
   public "is this one still good" answer for the taken-back check.
 - The price, read from the signed listing (`["price", "<sats>", "SAT"]`).
-- Being paid at a lightning address with nothing stored that could spend.
+- Being paid at a lightning address with nothing stored that could spend,
+  but only for a seller who already has a wallet connection (11.1a, 1).
 - A checkout helper that takes whatever wallet and signer it is given
   (`runBitUnlockCheckout`).
 
+**What a listing must be, to be registered** (as BitUnlock's session set
+it out): found on one of three relays at that moment
+(`wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`);
+signed by the seller; exactly one each of `d`, `br:delivery`
+(`seller-unlock-service-v1`), `br:delivery-mode`, `br:unlock-service`
+(its address), `br:unlock-service-pubkey`, `br:unlock-policy`,
+`br:claim-epoch` and `status` (`active`); exactly one
+`["price", "<digits>", "SAT"]`. A second of any of those fails. Any other
+tag is ignored, so `nswp:for` and `nswp:term` can sit on one today.
+
+**To check a receipt was not taken back:**
+`GET <its address>/entitlements/<the receipt's fulfillment>/status`,
+with no signature, from any site, a few a minute for each caller. It
+answers `revokedAt`, or nothing where it wasn't.
+
+**To build against,** since its code is private and has no licence yet
+(so whether anyone may copy it is the owner's to say): its
+`openapi/bitunlock-v1.json`, its `schemas/`, and its `test-vectors/`
+(receipts, payment plans, listings, what is delivered, fees, the states
+of an order, its own policy). BitLogin's and the kit's own versions
+should be run against those.
+
 **Has to be done before a first sale:**
 
-- A seller's account for BitPortal, a receiving wallet or address, and a
-  listing for the first item. Nothing to build: it is setting up.
-- A sandbox that can be reached (11.1, 6).
+- A seller's account for BitPortal (the key put on BitUnlock's list), a
+  wallet connection to be paid at, and a listing for the first item.
+  Nothing to build: it is setting up.
+- A sandbox that can be reached (11.1, 6). Today it is only code: it is
+  paid by a call of its own and not over Lightning, so a wallet can't pay
+  it. There is also a staging copy on real payment rails, which can't be
+  deployed just now because it shares the live service's lightning
+  address.
 - A way for BitLogin and the kit to take BitUnlock's code: its `sdk` and
   `protocol` packages are private and unpublished. BitLogin would vendor
   the checkout; the kit would rather have the receipt's exact form and
   some examples to test against than a dependency.
 - Its service key written where the kit can pin it.
-- An answer on how a renewal's time is counted (section 14).
+- Renewals changed to what was decided, for products that ask for it
+  (11.1a, 2).
+- The least price, and the check that `nswp:term` agrees with the
+  product's own length, for listings that carry `nswp:` tags and no
+  others, so that no other seller sees a change.
+- A seller made ready by a lightning address alone (11.1a, 1).
 
 **Has to change, later:**
 
@@ -1033,7 +1113,8 @@ section it belongs to.
     It frames that one page of BitUnlock's and nothing else of it.
 27. **Being paid from inside the game is by lightning address.** A wallet
     connection, which is a secret that can spend, is connected only at
-    BitUnlock's own address. The best experience of all, later: paid
+    BitUnlock's own address. (BitUnlock can't do this yet: a seller needs
+    a wallet connection to be ready at all. Section 11.1a, 1.) The best experience of all, later: paid
     straight into the wallet BitLogin already holds, with nothing to type
     (section 9).
 
@@ -1114,7 +1195,19 @@ Not decided by the above, and each needed before the part it belongs to:
   BitUnlock's, BitLogin's and NSWP's sessions settle between them. Those
   built are settled: `tip`, `buy`, `have`, `bought`, `receipt`, `none`,
   and the `library` mode.
-- **The sandbox's address,** and who may use it (30).
+- **The sandbox's address,** and who may use it (30). BitUnlock's session
+  is asking the owner: it means new resources at its host, and letting
+  BitLogin's test copy make the call that settles a pretend payment.
+- **BitUnlock's own questions for the owner,** put in its session:
+  changing how a renewal counts, as something a product opts into; a
+  seller made ready by a lightning address alone; the least price and
+  the `nswp:term` check, for `nswp:`-tagged listings only; and whether
+  its code may be copied by the other two, or only its published
+  examples built against.
+- **Does something given away count as a receipt?** (A voucher.) The kit
+  reads it as one today. Recommended: yes.
+- **Changing a price.** A new listing under a new name, as things are;
+  or BitUnlock lets a listing be registered again.
 - **Which of BitPortal's own things is sold first** (18, 38).
 - **A lightning address for each world that is to take tips.** None of the
   reference worlds names one, so "Tip this world" shows nowhere yet.
