@@ -1,6 +1,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { bech32 } from "@scure/base";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { cleanWalletUri, finalizeEvent, getPublicKey, PROPOSE_KINDS, readSignerReply, readSignerRequest, signerMessage, WORLD_TAG, type NostrEvent } from "@nswp/core";
 
 /**
@@ -144,5 +146,39 @@ describe("asking the person: careful kinds, and a wallet", () => {
     say({ t: "wallet", id: sent.id, uri: "https://example.com/not-a-wallet" } as Parameters<typeof signerMessage>[0]);
     say({ t: "wallet", id: sent.id, uri: WALLET });
     expect(await answer).toBe(WALLET);
+  });
+
+  it("asks them to pay an invoice this world made, and says whether what came back proves it", async () => {
+    const preimage = "1a".repeat(32);
+    const hashWords = bech32.toWords(sha256(hexToBytes(preimage)));
+    const invoice = bech32.encode("lnbc400n", [...new Array<number>(7).fill(3), 1, hashWords.length >> 5, hashWords.length & 31, ...hashWords, ...new Array<number>(104).fill(9)], 2000);
+    // Paid, with the proof: the invoice's own.
+    const proven = signer.pay(`lightning:${invoice.toUpperCase()}`);
+    const sent = last("pay") as { t: string; id: string; invoice?: string };
+    expect(sent.invoice).toBe(invoice);
+    expect(opened).not.toHaveBeenCalled();
+    say({ t: "asking", id: sent.id });
+    expect(opened).toHaveBeenCalledTimes(1);
+    say({ t: "paid", id: sent.id, preimage });
+    expect(await proven).toEqual({ preimage, proven: true });
+    // Paid, with a proof that is some other payment's: handed on, and said not to prove this one.
+    const wrong = signer.pay(invoice);
+    say({ t: "asking", id: last("pay").id });
+    say({ t: "paid", id: last("pay").id, preimage: "2b".repeat(32) });
+    expect(await wrong).toEqual({ preimage: "2b".repeat(32), proven: false });
+    // Paid, on the sign-in address's word alone: some wallets are given no proof.
+    const bare = signer.pay(invoice);
+    say({ t: "asking", id: last("pay").id });
+    say({ t: "paid", id: last("pay").id });
+    expect(await bare).toEqual({ preimage: null, proven: false });
+    // Not paid.
+    const no = signer.pay(invoice);
+    say({ t: "asking", id: last("pay").id });
+    say({ t: "refused", id: last("pay").id });
+    expect(await no).toBeNull();
+    // And nothing is asked for what isn't an invoice.
+    const before = sentTo().filter((m) => m.t === "pay").length;
+    expect(await signer.pay("https://example.com/pay")).toBeNull();
+    expect(sentTo().filter((m) => m.t === "pay").length).toBe(before);
   });
 });

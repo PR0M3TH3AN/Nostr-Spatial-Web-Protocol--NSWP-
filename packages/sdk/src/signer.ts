@@ -16,7 +16,7 @@
  * is the client's own page, which this page can't read.
  */
 import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
-import { isAchievementAsked, cleanMessage, cleanMore, cleanWalletUri, PROPOSE_KINDS, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { isAchievementAsked, cleanInvoice, cleanMessage, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -86,6 +86,18 @@ export interface WorldSigner {
    * this world may spend with, within what the wallet allows, or null.
    */
   wallet(): Promise<string | null>;
+  /**
+   * Ask the visitor to pay a Lightning invoice this world made, the same
+   * way: their sign-in address shows them the amount and pays at their
+   * press. Call it from a press. Resolves null if they didn't pay; else
+   * with the payment's `preimage` where their wallet was given one, and
+   * `proven`: whether that preimage really is this invoice's proof. A
+   * world that hands over something of value should go by `proven`, or
+   * by its own word from whoever it made the invoice with: "paid" with
+   * no proof is the sign-in address's say-so and nothing more. The world
+   * learns nothing else: no balance, no wallet, never a token.
+   */
+  pay(invoice: string): Promise<{ preimage: string | null; proven: boolean } | null>;
   /**
    * Whether `unlock()` shows a panel in the visitor's client rather than a
    * window: this world is in the frame of a client that has one, for this
@@ -200,6 +212,7 @@ const NONE: WorldSigner = {
   unlock: () => false,
   propose: () => Promise.resolve(null),
   wallet: () => Promise.resolve(null),
+  pay: () => Promise.resolve(null),
   panel: false,
   lock() {},
   sign: async () => null,
@@ -525,6 +538,11 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
     wallet() {
       if (state !== "unlocked" || !frame) return Promise.resolve(null);
       return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => (reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null));
+    },
+    pay(invoice) {
+      const asked = cleanInvoice(invoice);
+      if (state !== "unlocked" || !frame || !asked) return Promise.resolve(null);
+      return putToThem({ t: "pay", id: `y${++n}`, invoice: asked }, (reply) => (reply.t === "paid" ? { preimage: reply.preimage ?? null, proven: !!reply.preimage && provesPayment(asked, reply.preimage) } : null));
     },
     lock() {
       if (state === "unlocked") tell({ t: "lock", id: `l${++n}` });
