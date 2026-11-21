@@ -13,7 +13,9 @@ have written down, and is not one of the things decided. Section 11 was
 rewritten after reading the code of all three projects at each place this
 touches them: it found nine things the first draft had wrong, which are
 listed there and corrected where they stood. BitLogin's own session then
-read section 11.3 and corrected three more points, which are in.
+read section 11.3 and corrected three more points, which are in. Section
+11.6 (BitUnlock's own pages inside the game) was added at the owner's
+asking and is not decided.
 
 **What was asked for** (the owner, 2026-11-21): one-time paid access to a
 world; subscription or time-limited access to a world; paid items, in a
@@ -784,7 +786,88 @@ this; its room as an application of BitLogin's.
 
 **Later:** saying which client it is, at a purchase.
 
-### 11.6 What this does to the order of work
+### 11.6 BitUnlock's own pages, inside the game
+
+Asked for by the owner on 2026-11-21: "I'd like for bitunlock to have
+some nice in-game framed UI as well so anyone can sign up and use and
+sell or see their owned items inside of bitportal like we have for
+bitlogin." Proposed here; nothing of it is built, and three decisions it
+needs are in section 14.
+
+**Two different things were asked for, and they live in two places.**
+
+- **Seeing what you own** is the buyer's side, and it is already in this
+  proposal as BitLogin's: the receipts are kept with the account, and its
+  panel shows them (the "library" mode, section 11.3). BitUnlock is where
+  they were issued, not where a person looks for them.
+- **Signing up to sell, and selling,** is BitUnlock's. It has seller pages
+  today at `bitunlock.network/portal` (an overview, orders, connections),
+  which no other site may frame (`frame-ancestors 'none'`), and which sign
+  a seller in with BitLogin's widget on BitUnlock's own address.
+
+**The same shape as BitLogin's panel.** A second panel, BitUnlock's own
+page, drawn by the page that keeps the screen over the world, where the
+menu is:
+
+- BitUnlock serves a page made for it (say `/panel/`) that only a client
+  it names may frame, as BitLogin does. Never a world: a page that frames
+  a seller's pages could cover them or slide them under a press.
+- It speaks the same few words to the client that BitLogin's panel does
+  (who asked, ready, the size it would like, close), so the client's
+  panel code is one thing with a short list of whose panel it is, and not
+  two things.
+- What it opens at is named by the client: selling in general; or selling
+  one named thing, from "Sell this" on an item its maker is holding or
+  "Charge for this world" in a world its maker is standing in.
+- The kit's menu gains a row for it beside "Your account" and "Your
+  files", in every world and in BitPortal's room.
+
+**What it shows,** for a first version: signing up as a seller; where to
+be paid; making a listing for a world or an item (the price, how long it
+lasts, and later its shares); what has been sold; taking a receipt back.
+It is BitUnlock's seller pages, made to fit a panel.
+
+**Signing in is the hard part, and it needs deciding.** Every call a
+seller makes to BitUnlock is signed as them (NIP-98). Inside a frame
+there are three ways to get that signature:
+
+- **A. Through BitLogin, as an application.** BitUnlock's page embeds
+  BitLogin's signer and asks it. Today that kind of signature (27235) is
+  on BitLogin's never list for worlds and applications. It would need one
+  narrow new permission: a named application may have a request signed
+  that is addressed to its own service and nowhere else. No second
+  sign-in, no password typed in BitUnlock's frame. Recommended.
+- **B. BitLogin's widget on BitUnlock's address, as now.** A browser keeps
+  a framed page's storage apart, so the seller would sign in again inside
+  BitUnlock's panel, typing a password or using a passkey there. It works
+  with nothing new, and it is one more place a password is asked for
+  with no address bar.
+- **C. BitLogin's page does the selling too.** No second panel: BitLogin
+  shows BitUnlock's seller pages itself. Nothing new to trust, and the
+  two projects are then tied together in a way they aren't now.
+
+**Being paid, from inside the game.** A lightning address only: it is
+public, and typing it gives nothing away. A wallet connection is a secret
+that can spend, a world can draw a copy of any panel, and so connecting
+one stays at BitUnlock's own address, with its address bar. Later, being
+paid straight into BitLogin's own wallet (section 9) would need no
+address at all.
+
+**"Anyone can sign up" and "by invitation first".** The owner decided
+that selling opens in stages (section 13, 12). The panel is built so that
+anyone can use it; who may register is a switch BitUnlock already has
+the means for, and is opened when the owner says.
+
+**What each project adds for it:**
+
+| Project | Adds |
+|---|---|
+| **BitUnlock** | A page made for a panel, framed only by named clients; the panel's few words; its seller pages laid out for that space; a way to open at "sell this thing". |
+| **BitLogin** | For A: the narrow permission for a named application to have requests to its own service signed. For B and C: see above. |
+| **BitPortal** | Its page that keeps the screen may frame BitUnlock's panel as well as BitLogin's. Today its rule is that it frames the sign-in address and the worlds it names and nothing else, so this is a change to that rule, by name, for one more address. |
+| **The kit** | A row to open it; "Sell this" on an item its maker holds and "Charge for this world" where its maker stands; a new mode for the client to pass on. |
+
+### 11.7 What this does to the order of work
 
 - **Tips** wait on BitLogin's `tip`. A lesser tip could be built today
   with `pay`, for worlds that may reach a lightning address, and would
@@ -880,7 +963,7 @@ section it belongs to.
     with pretend sats. Then a paid world. Then paid items. Then shares and
     ecash. (Found since: BitUnlock has no sandbox anyone can reach, only
     one that can be run; and a proper tip needs one new request from
-    BitLogin. Section 11.6.)
+    BitLogin. Section 11.7.)
 18. **The first thing sold for real:** one of BitPortal's own items, at a
     low price. The owner is then seller, maker and client at once, so
     nothing waits on shares or on anyone else. (Found since: because the
@@ -930,6 +1013,14 @@ Not decided by the above, and each needed before the part it belongs to:
   something in BitPortal, which would need BitLogin to let it sign one.
 - **How much of a receipt a room is shown.** All of it (it can't be cut
   down), or a smaller thing BitUnlock signs for showing.
+- **How a seller signs in to BitUnlock's panel** (section 11.6): through
+  BitLogin with one narrow new permission (A, recommended), by signing in
+  again inside the panel (B), or by BitLogin showing the selling pages
+  itself (C). A changes something BitLogin holds as "never", by a little.
+- **May BitPortal's page frame BitUnlock** as well as BitLogin? It is a
+  change to a rule BitPortal pins, for one named address.
+- **Being paid, in the game, by lightning address only,** with a wallet
+  connection kept to BitUnlock's own address?
 - **Whether the owner takes section 10.6 as the plan:** it was asked for
   and written down, and not yet said yes to. If so: which of BitPortal's
   own things are sold first, and what world makers would be charged for,
