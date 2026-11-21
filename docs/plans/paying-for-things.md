@@ -715,6 +715,16 @@ corrected:
    is ever replaced, every copy that pins the old one stops believing
    new receipts. The kit's list can hold both for a while, which is what
    it is a list for.
+10. **A name with a space could be paid for and never handed over.**
+    Found on 2026-11-21 by this session's walk of a pretend purchase,
+    whose test listing happened to be named with a space. Registering,
+    quoting and paying all took the name; the last step, which wraps what
+    was bought for the buyer, held names to a stricter rule and failed
+    every time. BitUnlock's session fixed it on its branch, with a test
+    that every name that can be registered can be handed over. The same
+    fault is in the live service until that fix is deployed, which is the
+    owner's word to BitUnlock's session. Until then no real listing is
+    named with a space.
 
 ### 11.2 BitUnlock
 
@@ -1185,6 +1195,20 @@ the recommended answer to each: "Yes to all your recommended decisions.")
 44. **Renewals** (29): BitUnlock's session checks what it does today
     against what was decided, and changes it if they differ.
 
+**Decided once buying had been walked through** (the owner, 2026-11-21:
+"1. yes release to main bitlogin.network and go with your rec on the
+other. Prioritize user experience")
+
+45. **BitLogin's tips, limit, receipts and purchases are released to
+    bitlogin.network.** Buying stays switched off there, as the owner was
+    told when asked: it opens by a separate word, once BitLogin's screen
+    has bought from the sandbox and BitUnlock's fix for a name with a
+    space (section 11.1a, 10) is live.
+46. **One invoice for things sold in worlds is decided after the first
+    sale,** as recommended. The first sale is one invoice either way.
+    Where a choice is open, the better experience for the person paying
+    comes first, which leans this towards one invoice when it is decided.
+
 ### 13.1 Answered for the owner, by this session
 
 On 2026-11-21 the owner made this session the go-between for the three:
@@ -1251,6 +1275,29 @@ time.
 - Order: the local sandbox, the least price and term check, renewals,
   then ready by lightning address.
 
+**What has been tried, and what has not** (2026-11-21, all on one
+machine, with throwaway keys and pretend sats):
+
+- BitUnlock's sandbox and the kit, by script: a seller signs up; a world
+  listing under 500 sats is refused; one at 500 is registered and its
+  time runs on without being asked; with only BitUnlock's part paid
+  nothing is handed over; with both paid a receipt comes back; the kit's
+  own check reads it when told to believe the sandbox and refuses it as
+  shipped; bought again before its end, the time runs on from that end
+  and the new receipt names the old; and the buyer is handed both again
+  when they ask.
+- BitPortal's room and a tip to a person, with a stand-in for BitLogin's
+  client and two throwaway visitors: the row, the three amounts, exactly
+  a key and an amount handed over, and what the room says after.
+- Not tried by anyone: BitLogin's own screen buying from the sandbox; a
+  tip or a purchase with real sats; anything in a headset.
+
+Two things BitLogin's "finish it later" rests on, which BitUnlock's
+session has pinned with tests: an unpaid part is given a new invoice
+however long after, and only that part; and nothing on BitUnlock's side
+ever cancels an order that is part paid. There is no way for a buyer to
+list their orders, so BitLogin keeps each order itself.
+
 **One invoice paid and the other not.** BitUnlock's fee is a second
 invoice (section 11.1a, 4). BitUnlock's session traced what its service
 does, on 2026-11-21:
@@ -1292,17 +1339,14 @@ Not decided by the above, and each needed before the part it belongs to:
   BitUnlock's, BitLogin's and NSWP's sessions settle between them. Those
   built are settled: `tip`, `buy`, `have`, `bought`, `receipt`, `none`,
   and the `library` mode.
-- **The owner's own word, when each is reached:** pushing BitLogin's
-  `beta` and its test address being built; BitLogin's release to
-  bitlogin.network; making the sandbox at BitUnlock's host, and its
-  address (30); turning on BitUnlock's switch for the least price and the
+- **The owner's own word, when each is reached:** making the sandbox at
+  BitUnlock's host, and its address (30); turning on BitUnlock's switch for the least price and the
   term check; and whether BitUnlock's code may be copied by the other
   two, or only its published examples built against.
-- **One invoice for things sold in worlds?** BitUnlock's session
-  recommends it as the standing arrangement: the seller is billed
-  BitUnlock's fee later, in one sum, and the buyer pays once, so there is
-  no half-paid order at all (section 13.1). It changes how BitUnlock is
-  paid, so it is the owner's. The first sale is one invoice either way.
+- **One invoice for things sold in worlds** (46): decided after the first
+  sale.
+- **Opening buying at bitlogin.network** (45), and **deploying
+  BitUnlock's fix** for a name with a space: each the owner's word.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;
