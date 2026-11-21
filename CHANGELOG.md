@@ -12,6 +12,8 @@ The front room: the first thing in the kit that asks a visitor to buy. No world 
 - **A pass for a time closes the gate at its end:** a notice, two minutes, then the front room, with no page loaded again. (The owner's decision, 2 in the plan.)
 - **A receipt taken back shuts the gate.** The service that signed it is asked every five minutes at most; out of reach, a receipt found good within the last day stays good (the owner's decision, 9). A paid world that draws no items is served with rules that let it reach that service by name.
 
+- **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing.
+
 ## 0.70.2
 
 - **A browser that takes a door itself is handed what the visitor carries** (`window.nswp.navigate(dest, carried)`). It was handed the destination and nothing else, so a visitor crossing in such a browser would have arrived without their settings, their room, or word that they were in a headset. Found by the session building BitBrowser, before any browser existed to show it.

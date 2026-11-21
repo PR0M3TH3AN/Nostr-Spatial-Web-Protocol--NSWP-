@@ -26,7 +26,7 @@
  * Nothing here draws anything: a world shows the gate its own way and reads `open`. The control is added to the
  * visitor's console, so it is the same on a flat screen and in a headset.
  */
-import { accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, LISTING_KIND, listingSeller, parseManifest, priceWords, readListing, readReceipt, WORLD_KIND, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
+import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, LISTING_KIND, listingSeller, parseManifest, priceWords, readListing, readReceipt, WORLD_KIND, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
 import { askWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 import type { Controls } from "./ui/model.js";
@@ -95,6 +95,8 @@ export interface PaidGate {
   readonly why: string;
   /** What can be bought to get in: each listing that was read and holds up. */
   readonly offers: readonly GateOffer[];
+  /** Whether what is for sale has been looked for yet: each listing read, or found not to hold up. */
+  readonly read: boolean;
   /** When the pass that holds it open stops, in seconds, or null: it doesn't, or nothing is held. */
   readonly until: number | null;
   /** Whether the visitor is signed in here: buying needs it. */
@@ -440,6 +442,9 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     get offers() {
       return offerList();
     },
+    get read() {
+      return offers.size > 0 || unread.size > 0;
+    },
     get until() {
       return state === "open" && held ? held.expiresAt : null;
     },
@@ -522,9 +527,8 @@ export function addGateControls(
 ): { refresh(): void; press(listing?: string): void } {
   const section = opts.section ?? "travel";
   const signIn = opts.signIn ?? (() => controls.run("signer"));
-  let rows: string[] = [];
-  let was: GateState = gate.state;
-  let said = "";
+  /** Which state its words were last said for: they are said once as each comes to be so. */
+  let saidFor = "";
 
   const press = (listing?: string): void => {
     const offer = gate.offers.find((o) => o.listing === listing) ?? gate.offers[0];
@@ -547,25 +551,41 @@ export function addGateControls(
     });
   };
 
+  // Whether there is anything to press: shut, or about to be, for a reason a press could help with.
+  const showing = (): boolean => (gate.state === "shut" || gate.state === "ending") && gate.reason !== "no-manifest" && gate.reason !== "not-own" && gate.reason !== "no-signer";
+  // One row for each thing a world may sell, there only while it has that thing to offer. They are added once, so
+  // they keep their place: ahead of whatever the world adds after them, behind the things every place has.
+  for (let i = 0; i < ACCESS_MOST; i++) {
+    const offer = (): GateOffer | undefined => gate.offers[i];
+    controls.add({
+      id: i === 0 ? "gate-buy" : `gate-buy-${i + 1}`,
+      section,
+      icon: "key",
+      tone: "primary",
+      hotbar: i === 0,
+      short: () => (gate.signedIn ? "Buy" : "Sign in"),
+      // With nothing that could be read, the first row is still a way to sign in and show what is held, or to ask again.
+      label: () => {
+        const o = offer();
+        if (o) return `${gate.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
+        return gate.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
+      },
+      hidden: () => !showing() || (!offer() && (i > 0 || gate.offers.length > 0)),
+      act: () => press(offer()?.listing),
+    });
+  }
+
   const refresh = (): void => {
-    for (const id of rows) controls.remove(id);
-    rows = [];
-    const showing = gate.state === "shut" || gate.state === "ending";
-    if (showing && gate.reason !== "no-manifest" && gate.reason !== "not-own" && gate.reason !== "no-signer") {
-      const offers = gate.offers;
-      const add = (id: string, label: string, listing?: string): void => {
-        rows.push(id);
-        controls.add({ id, section, icon: "key", tone: "primary", hotbar: id === "gate-buy", short: gate.signedIn ? "Buy" : "Sign in", label, act: () => press(listing) });
-      };
-      offers.forEach((o, i) => add(i === 0 ? "gate-buy" : `gate-buy-${i + 1}`, `${gate.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`, o.listing));
-      // Nothing that could be read: still a way to sign in and show what is held, or to ask again.
-      if (!offers.length) add("gate-buy", gate.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold");
+    // Said once as it comes to be so: why the way is shut, or that their time has run out. An open gate says
+    // nothing, and nothing is said of a price before it has been read.
+    const closed = gate.state === "shut" || gate.state === "ending";
+    if (!closed) saidFor = "";
+    else if (saidFor !== gate.state && (gate.state === "ending" || gate.read || !showing())) {
+      saidFor = gate.state;
+      controls.say(gate.why);
     }
-    // Said once as it comes to be so: why the way is shut, or that their time has run out. An open gate says nothing.
-    const words = gate.state === "shut" || gate.state === "ending" ? gate.why : "";
-    if (words && words !== said && (gate.state !== was || !said)) controls.say(words);
-    said = words;
-    was = gate.state;
+    // The rows' words follow the gate: whatever draws the console is told to look again.
+    controls.signal("gate");
   };
   gate.onChange(refresh);
   refresh();

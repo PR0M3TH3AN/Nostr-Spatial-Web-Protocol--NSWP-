@@ -328,6 +328,28 @@ describe("the one control", () => {
     expect(c.labels()).toEqual(["Go home"]);
   });
 
+  it("keeps its place: ahead of what a world adds after it, so it is the first thing in the tab after the way home", async () => {
+    const c = consoleFor(await settled(standIn()));
+    c.controls.add({ id: "door-0", section: "travel", label: "A door", act: () => {} });
+    expect(c.labels()).toEqual(["Go home", "Buy An hour here: 500 sats, for 1 hour", "A door"]);
+  });
+
+  it("says nothing of a price before it has been read", async () => {
+    // Relays take their time: the visitor is known to hold nothing before what is for sale is known.
+    let answer: () => void = () => {};
+    const slow = vi.fn((relays: string[], filter: Filter) => new Promise<QueryResult>((done) => (answer = () => void query(relays, filter).then(done))));
+    const gate = await settled(standIn(), { query: slow });
+    const c = consoleFor(gate);
+    expect([gate.state, gate.read, c.said]).toEqual(["shut", false, []]);
+    answer();
+    await pass(0);
+    await pass(0);
+    expect(c.said).toEqual(["Past here is for people who have bought it: An hour here, 500 sats, for 1 hour."]);
+    // And it is said once: a later look changes nothing.
+    await pass(GATE_TIMES.look * 1000);
+    expect(c.said).toHaveLength(1);
+  });
+
   it("comes after the things every place has: the way home keeps the first key", async () => {
     const c = consoleFor(await settled(standIn()));
     expect(c.controls.view().hotbar.map((i) => [i.id, i.key])).toEqual([["home", "1"], ["gate-buy", "2"]]);
