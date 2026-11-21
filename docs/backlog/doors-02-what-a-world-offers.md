@@ -6,7 +6,7 @@
   not supported. And when the user hovers over one it should display in game
   text explaining what that icon means."
 - **Who:** BitPortal's session, both halves.
-- **State:** building. Merged: the list and its words (kit 0.71.1), the tiles beside the kit's doorway with their words when pointed at (kit 0.72.0), and BitPortal's room using them (BitPortal pull request 162, its main at 78d76c4; the plate drops "VR, 3D" where tiles say it, and a place a curator described has no tiles). Not live. Not yet: the template's and the Godot world's own doors. Nothing is published: the announcements on relays are as they were.
+- **State:** building. Merged: the list and its words (kit 0.71.1), the tiles beside the kit's doorway with their words when pointed at (kit 0.72.0), and BitPortal's room using them (BitPortal pull request 162, its main at 78d76c4; the plate drops "VR, 3D" where tiles say it, and a place a curator described has no tiles). A world made from the template has the same door (template pull request 113, its main at 93560cb). Not live. Not yet: the Godot doorway drawing the tiles, and the publish that makes the room's doors say more than two things. Nothing is published: the announcements on relays are as they were.
 
 ## What is already there
 
