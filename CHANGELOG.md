@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## 0.72.0
+## 0.73.0
 
 The front room: the first thing in the kit that asks a visitor to buy. No world of ours is paid.
 
@@ -15,6 +15,14 @@ The front room: the first thing in the kit that asks a visitor to buy. No world 
 - **A listing's name is one line, and a carriage return ends a line** (`cleanListing`). It let one through where the selling service refuses it. That function is the one place the rule for a listing's coordinate is written, and a test fails if the pattern is written again.
 - **For a reader of the core:** `World.access` is a list of listings where it was one coordinate, and `WorldInput.access` takes either. `paidWorldReaches` says what a paid world's page may reach for the taken-back question (the issuer's address, by name), and nothing for a free one.
 - **The Gallery can have a gate, and has none.** `paid` in a reference world's settings says where one would stand; it is made only where the world's own `world.json` names listings, and none does. A test fails if any world here is made paid. `__nswpTest.gate()` says how a gate stands, for a script, and can open nothing. `trials/front-room.mjs` walks one against the selling service's sandbox, with a stand-in for the sign-in address.
+
+## 0.72.0
+
+- **A door shows what its world offers: seven small tiles by its frame,** lit for what the world's announcement says and dim for what it doesn't say (`createDoorOffers`; `createPortalGate` takes `offers`). A headset, people, voice, items, saves, scores and achievements, paid to go in. Asked for by the owner on 2026-11-21: "useful icons that poll the world's features ... lit up or dark if not supported. And when the user hovers over one it should display in game text explaining what that icon means."
+- **Pointed at, a tile says what it means, in the game:** in the card over the buttons on a flat screen, and in front of the door in a headset. A dim one reads "It doesn't say ...": the announcement is silent, which is not the same as the world not doing it.
+- **A door never asks its destination.** A reference world's door is told what its neighbour offers by the build, from that neighbour's own settings, and the build stops if the two disagree, as it does for a door's kind of place. A world that holds its destinations' announcements may read them with `worldOffers`.
+- **For other engines:** `NSWP.offers(world)` hands out the same list and drawings. The Godot doorway doesn't draw them yet.
+- The reference worlds' doors light what their neighbours' settings say as soon as this is released. Their announcements on relays say less until they are signed and published again, which is the owner's word.
 
 ## 0.71.1
 
