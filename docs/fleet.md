@@ -38,13 +38,19 @@ questions of design, keeps the plans current, and says what is live.
    other session reports", and "nobody has tried" are three different
    things, and each is written as what it is. A report of work names the
    commit, the command, how it exited and how many things it looked at.
-5. **Anything that goes out is the owner's own word.** A push that deploys,
-   a release, a migration of live data, a live setting, a publish to public
-   relays, a push to a public repository, a new thing at a host, a licence.
-   The orchestrator's recommendation is never that word, and neither is one
-   session's account of what the owner told another. The owner's words are
-   passed on exactly, quoted, with what they were asked. A session whose own
-   rules need a step said to it directly says so, and the owner goes there.
+5. **A pull request that is ready doesn't wait for the owner** (the owner,
+   2026-11-21: "tell all the sessions not to wait for me to approve a PR.
+   If its ready commit, push and merge it"). Ready means the gate exited 0.
+   In this repository and BitPortal's, a session hands its pull request to
+   the orchestrator to merge, since it vendors and releases what goes in;
+   that is not a wait on the owner. **What goes live is still the owner's
+   own word:** a deploy, a release, a migration of live data, a live
+   setting, a publish to public relays, a new thing at a host, a licence.
+   Where a merge is itself a release, it is asked like a release. The
+   orchestrator's recommendation is never that word. The owner's words are
+   passed on exactly, quoted, with what they were asked and the exact step
+   beside them. A session whose own rules need a step said to it directly
+   says so, and the owner goes there.
 6. **Merged is not live.** Every report to the owner begins with what the
    public sites are on.
 7. **Questions for the owner go through the orchestrator** (the owner,
