@@ -29,6 +29,33 @@ It carries no policy of its own: each application supplies one.
   starter set.
 - **BitLogin:** whether a purchase or a tip is offered at all.
 
+## What BitUnlock's session says of itself (2026-11-21, read only, its report)
+
+BitUnlock does not use BitGate anywhere today. (Its folder
+`bitunlock-moderation` is not this: it is a second checkout on another
+branch, named for an experiment that was dropped.) Where a decision would
+be asked in its code:
+
+- **"This key may not sell":** when a key signs up as a seller
+  (`src/onboarding-gate.ts`, asked by `POST /v1/tenants`), which today
+  reads the operator's key and one invitation list in its database; and
+  the suspension check at quote time (`src/api/quote.ts`).
+- **"This key may not be paid a share":** payee registration
+  (`src/api/payees.ts`), behind the same invitation gate, and the point in
+  a quote where the people to pay are resolved.
+- **"This listing may not be sold":** when a listing is registered
+  (`src/api/product.ts`), and at quote time. There is no operator block on
+  one listing today; only its seller can withdraw it.
+
+Two rules its code already keeps, and any design keeps (the orchestrator
+agrees, as a matter of design):
+
+- A block stops new sales only. It never stops a paid buyer's unlock,
+  refresh or recovery.
+- Every such decision is answered from BitUnlock's own database, never by
+  asking another service during a quote. BitGate's lists are copied into
+  a table it reads.
+
 ## Done looks like
 
 To be written when briefed. The first piece is a report from a session
