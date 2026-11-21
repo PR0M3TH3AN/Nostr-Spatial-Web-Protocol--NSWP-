@@ -4336,6 +4336,11 @@ var NSWP = (() => {
     }
   }
 
+  // packages/core/dist/offers.js
+  var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"];
+  var MORE_OFFERS = ["tips", "doors", "looks", "by-name", "home"];
+  var OFFERS = [...DOOR_OFFERS, ...MORE_OFFERS];
+
   // packages/core/dist/manifest.js
   var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
   var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;

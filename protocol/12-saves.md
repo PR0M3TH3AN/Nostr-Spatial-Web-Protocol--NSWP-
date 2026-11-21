@@ -21,6 +21,10 @@ Saves are optional. A world that keeps nothing owes nothing here.
    where a save is kept. The visitor's signer works that out from the
    address of the world that asked.
 
+A world that keeps saves says so in its announcement, with the capability
+`saves` ([NSWP-01](01-worlds.md), "What a world offers"), so that a door can
+tell a visitor their progress is kept there before they go in.
+
 ## The note
 
 A save is addressable (experimental kind **37304**), so a relay keeps the

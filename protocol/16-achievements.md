@@ -23,6 +23,10 @@ reasons.
 
 ## An achievement
 
+A world that marks achievements says so in its announcement, with the
+capability `achievements` ([NSWP-01](01-worlds.md), "What a world offers"),
+so that its door can say so. Which ones is not said there yet.
+
 A world names the ones it has. Each has:
 
 | | |
@@ -132,6 +136,7 @@ addAchievementControls(controls, { achievements, signedIn: () => worldSigner().s
   client then shows it as granted, and by whom. Nothing above changes: a
   grant is laid over a claim.
 - **A world naming its achievements in its announcement,** so that a
-  visitor's own client can show them on the world's door.
+  visitor's own client can show them on the world's door. (That it has
+  some, it says already: the capability `achievements`.)
 - **What someone has earned across every world there is,** beyond the ones
   a visitor's client already knows.

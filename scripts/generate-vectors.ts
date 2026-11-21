@@ -203,6 +203,12 @@ const worldVectors: WorldVector[] = [
     expect: { valid: true, signatureValid: null, errors: [], warnings: ["unknown_value", "unknown_value", "unknown_value"] },
   },
   {
+    name: "says_what_it_offers",
+    description: "Saves, scores, achievements and tips are capabilities a world may say: a door shows them (NSWP-01, \"What a world offers\").",
+    event: withTags((t) => [...t, ["capability", "saves"], ["capability", "scores"], ["capability", "achievements"], ["capability", "tips"]]),
+    expect: { valid: true, signatureValid: null, errors: [], warnings: [] },
+  },
+  {
     name: "label_without_namespace",
     description: "An l tag needs its L namespace (NIP-32).",
     event: withTags((t) => t.filter((x) => x[0] !== "L")),
