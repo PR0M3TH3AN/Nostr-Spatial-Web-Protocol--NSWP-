@@ -63,6 +63,8 @@ export interface RoomNotes {
   locked?(): boolean;
   /** Start unlocking it, from a press. False if nothing could be opened. */
   unlock?(): boolean;
+  /** Whether that is a panel in the visitor's client rather than a window (signer.ts, `panel`). */
+  panel?(): boolean;
   /** Where that happens, as an address to name, or null. */
   host?(): string | null;
   /** A signer was named and didn't answer: then what to say about it. Null when that isn't so. */
@@ -187,7 +189,8 @@ export function addRoomControls(
     waitingFor.set(what, { then, at: Date.now() });
     // Everything they have let it do already is asked for again beside it: an answer is for the whole of it.
     signer.want([...signer.more, what]);
-    return signer.unlock() ? `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.` : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
+    const here = signer.panel;
+    return signer.unlock() ? (here ? `This world needs your say before it can ${to}: once. ${where} is asking, here.` : `This world needs your say before it can ${to}: once, in the window of ${where} that has opened.`) : `The window of ${where} couldn't be opened. Allow this site to open windows, and press again.`;
   };
   const signedInHere = () => (signerNamed() && worldSigner().state === "unlocked" ? worldSigner().pubkey : null);
   const worldFollows = (): RoomFollows => ({
@@ -765,6 +768,7 @@ export function addRoomControls(
     onChange: (fn) => worldSigner().onChange(fn),
     locked: () => worldSigner().state === "locked",
     unlock: () => worldSigner().unlock(),
+    panel: () => worldSigner().panel,
     host: () => worldSigner().host,
     unanswered: () => (worldSigner().unanswered ? unansweredWords(worldSigner()) : null),
     pubkey: () => worldSigner().pubkey,
@@ -1030,10 +1034,13 @@ export function addRoomControls(
         const host = notes.host?.() ?? "your sign-in address";
         // A headset draws nothing but the world, so no window can open in one.
         if (presence.presenting) return tell(`A window from ${host} is needed first, and none can open in a headset. Leave the headset view for a moment, press this again, and come back in.`);
+        const here = !!notes.panel?.();
         wantsFeed = !!notes.unlock?.();
         tell(
           wantsFeed
-            ? `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.`
+            ? here
+              ? `${host} is asking, here. Sign in there if it asks, and say yes. Then your public feed opens.`
+              : `A window from ${host} has opened. Sign in there if it asks, and say yes. Then your public feed opens here.`
             : `Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`,
         );
       },

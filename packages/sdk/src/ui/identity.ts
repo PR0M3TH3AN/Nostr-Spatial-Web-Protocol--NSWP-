@@ -308,9 +308,11 @@ export function signerAction(controls: Controls, opts: { presenting?: () => bool
         if (signer.retry()) return controls.say(`Asking ${host} again. It has ten seconds to answer.`);
         return controls.say(unansweredWords(signer));
       }
-      // A headset draws nothing but the world, so no window of the client's can open in one.
-      if (opts.presenting?.()) return controls.say(`A window from ${host} is needed for this, and none can open in a headset. Leave the headset view for a moment, sign in, and come back in.`);
-      if (signer.unlock()) controls.say(`A window from ${host} has opened. Say yes there, and you are signed in here.`);
+      // A headset draws nothing but the world, so no window or panel of the client's can be seen in one.
+      if (opts.presenting?.()) return controls.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+      // Shown inside a client that draws the sign-in address's panel over the world: no window, and the screen stays as it is.
+      const here = signer.panel;
+      if (signer.unlock()) controls.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
       else controls.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
     },
   };

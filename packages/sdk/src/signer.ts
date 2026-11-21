@@ -15,6 +15,7 @@
  * refusal. Nothing is asked of the visitor here. The window that unlocks it
  * is the client's own page, which this page can't read.
  */
+import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
 import { isAchievementAsked, cleanMessage, cleanMore, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
@@ -64,9 +65,17 @@ export interface WorldSigner {
   /**
    * Open the client's window, where the visitor unlocks it for this world.
    * Call it from a press: a browser opens a window for nothing else. False
-   * if there is no signer, or no window could be opened.
+   * if there is no signer, or no window could be opened. Where this world
+   * is shown inside a client that draws the sign-in address's own panel
+   * over it (`panel`), that is asked for instead, and no window opens.
    */
   unlock(): boolean;
+  /**
+   * Whether `unlock()` shows a panel in the visitor's client rather than a
+   * window: this world is in the frame of a client that has one, for this
+   * signer's own address (client-frame.ts). Something to choose words by.
+   */
+  readonly panel: boolean;
   /**
    * Load the signer again and ask it once more: for one that was named and said nothing. False if there is nothing
    * to ask again (none was named, or it has answered).
@@ -173,6 +182,7 @@ const NONE: WorldSigner = {
   retry: () => false,
   copy: null,
   unlock: () => false,
+  panel: false,
   lock() {},
   sign: async () => null,
   pass: async () => null,
@@ -418,8 +428,13 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
         return null;
       }
     },
+    get panel() {
+      // Only the panel of this signer's own address can find this signer: any other client's is no use here.
+      return !test && clientSignsInAt() === real.origin;
+    },
     unlock() {
       if (state === "none" || !windowAt) return false;
+      if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
       try {
         // A window of its own, never a tab the visitor would lose the world behind. It must keep its link to this
         // page: that is how it finds the signer here. So no "noopener".
