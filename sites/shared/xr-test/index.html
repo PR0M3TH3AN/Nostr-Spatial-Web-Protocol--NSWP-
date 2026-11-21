@@ -28,10 +28,11 @@
   <button id="enter">Enter VR</button>
   <button id="door" class="quiet">Go through the door without VR</button>
   <a id="framed" class="btn quiet" href="#">Open this test inside BitPortal's page</a>
-  <a id="fresh" class="btn quiet" href="./">Start again with an empty log</a>
+  <a id="fresh" class="btn quiet" href="/xr-test/">Start again with an empty log</a>
 </p>
 <pre id="log"></pre>
 <canvas id="gl"></canvas>
-<script src="./test.js"></script>
+<!-- By its whole path: opened as /xr-test, with no slash at the end, "./test.js" was looked for at /test.js, and nothing on the page worked (found 2026-11-21). -->
+<script src="/xr-test/test.js"></script>
 </body>
 </html>
