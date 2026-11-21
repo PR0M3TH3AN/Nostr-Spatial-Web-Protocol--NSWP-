@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.71.0
+
+- **A least distance between two doors: 2.5 metres between their middles** (`DOOR_SPACING`, beside the doorway's own sizes). Asked for by the owner on 2026-11-21: "Let's make sure there is a minimum distance separation between each door." It is what keeps two doors' frames, signs and marks from running into each other; which door a press takes is still settled by what is pointed at. `doorRow`, `doorArcStep` and `doorsOnArc` lay doors out by it, and `doorsTooClose` says which two are not. The same number is given to other engines (`doorSpacing` in `kit()`, and in the Godot addon). Every reference world already kept to it; nothing a visitor sees has moved yet. BitPortal's room, which stood its doors 1.8 metres apart, follows in its own change.
+- **A Bridge test no longer depends on how busy the machine is.** It counted on six requests landing inside one second.
+
 ## 0.70.2
 
 - **A browser that takes a door itself is handed what the visitor carries** (`window.nswp.navigate(dest, carried)`). It was handed the destination and nothing else, so a visitor crossing in such a browser would have arrived without their settings, their room, or word that they were in a headset. Found by the session building BitBrowser, before any browser existed to show it.
