@@ -114,7 +114,8 @@ const csp = [
   "frame-src 'self' https:",
   "base-uri 'none'",
   "form-action 'none'",
-  "frame-ancestors 'self'",
+  // It may be shown inside the client it sends its visitors through, and by nobody else (as every reference world).
+  `frame-ancestors 'self' ${new URL(config.airlock).origin}`,
 ].join("; ");
 writeFileSync(
   join(dist, "vercel.json"),
@@ -127,7 +128,9 @@ writeFileSync(
             { key: "X-Content-Type-Options", value: "nosniff" },
             { key: "Referrer-Policy", value: "no-referrer" },
             { key: "Content-Security-Policy", value: csp },
-            { key: "Permissions-Policy", value: "xr-spatial-tracking=(self), microphone=(), camera=()" },
+            // A microphone, for the room's voices: a world made with Godot has rooms since kit 0.55.0, and this still
+            // said nobody's microphone could be used here.
+            { key: "Permissions-Policy", value: "xr-spatial-tracking=(self), microphone=(self), camera=()" },
           ],
         },
         ...(carries ? [{ source: "/item-box\\.html", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "no-referrer" }, { key: "Content-Security-Policy", value: ITEM_BOX_CSP }] }] : []),

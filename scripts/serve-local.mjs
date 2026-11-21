@@ -170,7 +170,12 @@ function withLocal(headers, map) {
   if (!key) return headers;
   let policy = headers[key];
   for (const [real, local] of Object.entries(map)) policy = policy.replace(new RegExp(`(^|[\\s;])${real.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=[\\s;]|$)`, "g"), `$1${real} ${local}`);
-  return { ...headers, [key]: policy };
+  // And what a page may hand on to the sites it frames (a microphone, a headset) names those sites the same way,
+  // each in quotes: the local copy is named beside the real one there too.
+  const handed = Object.keys(headers).find((k) => k.toLowerCase() === "permissions-policy");
+  let passes = handed ? headers[handed] : null;
+  if (passes !== null) for (const [real, local] of Object.entries(map)) passes = passes.split(`"${real}"`).join(`"${real}" "${local}"`);
+  return { ...headers, [key]: policy, ...(handed ? { [handed]: passes } : {}) };
 }
 
 for (const { name, dist, note, headers, port: here, built } of served) {
