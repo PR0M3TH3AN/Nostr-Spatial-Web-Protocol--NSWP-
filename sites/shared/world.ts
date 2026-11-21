@@ -145,6 +145,12 @@ type TestHooks = {
   /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
+  /**
+   * This page's own signer, or null where it names none: what any script of the world's already has. For a test
+   * to ask what no control here asks yet (a purchase, whether something is held). Nothing is signed, paid or
+   * handed over but at the visitor's press on their sign-in address's own page, whoever asks.
+   */
+  signer?: () => unknown;
   /** Items in play: what is in the air and stuck, this visitor's health, what their item shows. For tests. */
   play?: () => unknown;
   itemUse?: () => void;
@@ -275,6 +281,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
   const hud = mountHud(controls);
   hooks.controls = controls;
+  hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
   // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
   // are theirs, kept for this site.
