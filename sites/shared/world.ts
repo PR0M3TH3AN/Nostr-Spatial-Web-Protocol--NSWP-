@@ -52,6 +52,11 @@ export interface WorldKit {
   /** Leave a note for tests: it shows up in `__nswpTest.state`. */
   note(key: string, value: unknown): void;
   /**
+   * Play one of the kit's own sounds: at the visitor's own volume, and not at all where they have effects off.
+   * A world plays the kit's sounds for its own moments rather than bring files of its own.
+   */
+  sound(cue: "grab" | "drop" | "notice" | "press" | "land"): void;
+  /**
    * This world's scores (protocol/15-scores.md), where it names boards in its configuration; null where it names
    * none. `scores.record(board, score)` keeps a visitor's best on the device. Posting it is theirs to do, from
    * the Scores tab the kit adds to the menu.
@@ -336,6 +341,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     head,
     controls,
     alloy,
+    sound(cue) {
+      sounds.play(cue);
+      state.sounded = [...((state.sounded as string[] | undefined) ?? []), cue].slice(-12);
+    },
     sign(heading, text, at, width = 1.8) {
       const sprite = textSprite([heading, ...wrap(text, 38)].join("\n"), cfg.palette.text, width);
       sprite.position.set(...at);

@@ -79,7 +79,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.59.1";
+  var KIT_VERSION = "0.59.2";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -42498,6 +42498,20 @@ void main() {
   var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
 
   // packages/sdk/src/fresh.ts
+  function reloadAfresh() {
+    let gone = false;
+    const go2 = () => {
+      if (gone) return;
+      gone = true;
+      location.reload();
+    };
+    try {
+      void fetch(location.href, { cache: "reload", credentials: "same-origin" }).then(go2, go2);
+      setTimeout(go2, 4e3);
+    } catch {
+      go2();
+    }
+  }
   var LEAST_MS = 3e4;
   var EVERY_MS = 10 * 6e4;
   async function markOf(url) {
@@ -42519,7 +42533,7 @@ void main() {
   function watchFresh(o = {}) {
     const stamp = o.stamp ?? pageStamp;
     const now = o.now ?? (() => Date.now());
-    const reload = o.reload ?? (() => location.reload());
+    const reload = o.reload ?? reloadAfresh;
     let first;
     let stale = false;
     let told = false;

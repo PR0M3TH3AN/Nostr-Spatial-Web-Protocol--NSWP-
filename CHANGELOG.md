@@ -2,6 +2,11 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## 0.59.2
+
+- **A page that finds it has been updated asks for itself afresh before it loads again** (`reloadAfresh`). A plain reload keeps the headers a browser first had with a page whose HTML hasn't changed, its content rules among them; asking for the page outright replaces that copy, so the page that then loads is under the rules its site sends today. With the mark every page now carries (0.59.1), a change to a site's rules reaches returning visitors either way.
+- **Catching a lantern in the Arcade is heard:** the kit's own sound for taking hold of something. A reference world's scene can play one of the kit's sounds for a moment of its own (`kit.sound`), at the visitor's own volume.
+
 ## 0.59.1
 
 Items that load every time, and a menu the arrow keys go along.
