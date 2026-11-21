@@ -170,6 +170,28 @@ building the browser and the kit:
 | `windows` | A window this page opens at the visitor's press is shown to them where they are, a headset included, as a surface of the shell's with the address drawn by the shell. One at a time for a page, and it stays the opener's window in every other way, so what a page and its window say to each other is unchanged. This is how a sign-in address's page is shown: nothing in it knows whose page it is |
 | `panels` | Later: web pages on surfaces the visitor places |
 
+**What a window needs, to be a `windows` surface.** Stated by the session
+that builds the sign-in address (2026-11-21), for its page as it ships;
+any site's window needs no more:
+
+- It is a real window of the page that opened it: `window.opener` is that
+  page, alive, for as long as the window is. Nothing that cuts a window off
+  from its opener.
+- `postMessage` goes from the window to a frame inside its opener that
+  comes from another site, and back to the window. That is all a sign-in
+  uses: no shared storage, no other channel.
+- The window's own storage is the one that site's pages use everywhere else
+  in the browser, so someone signed in there is signed in here.
+- The address the shell draws is the true address of the page in it.
+- `window.close()` from the page closes it. The shell closing it, or
+  closing it when the page beneath goes elsewhere, breaks nothing: whatever
+  was being asked is simply never answered.
+- It can fetch and open connections as any page may, and a passkey works in
+  it as in any top-level page, with the extension that derives a key from
+  one (PRF).
+- It is up and running within a few seconds of the press. The page inside
+  looks for whoever asked for it for about six seconds and then gives up.
+
 **What the shell's Airlock checks** is what any Airlock checks, and it is
 held to the same examples as the kit, with no code shared: a destination's
 address (`vectors/destinations.json`), a world's announcement
