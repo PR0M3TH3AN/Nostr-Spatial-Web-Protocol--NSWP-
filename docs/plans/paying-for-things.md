@@ -1251,10 +1251,36 @@ time.
 - Order: the local sandbox, the least price and term check, renewals,
   then ready by lightning address.
 
-**Asked of both, not yet answered.** BitUnlock's fee is a second invoice
-(section 11.1a, 4). What happens when one is paid and the other is not:
-can a buyer have paid the seller and hold no receipt? To be closed before
-anything is sold.
+**One invoice paid and the other not.** BitUnlock's fee is a second
+invoice (section 11.1a, 4). BitUnlock's session traced what its service
+does, on 2026-11-21:
+
+- Nothing is handed over until every invoice is paid. With one paid, the
+  order waits, and nothing ever cancels it. An invoice lasts ten minutes;
+  after that the buyer's side asks again and is given a new invoice for
+  the unpaid part only. A paid part is never asked for twice.
+- Nothing watches. A payment is seen only when the buyer's side asks, so
+  it is the buyer's side that must remember the order and come back.
+- So a buyer can have paid and hold no receipt if they pay one part and
+  never the other, if their side forgets the order, or if the seller
+  takes the listing back while it is half paid (it can't then be
+  finished). BitUnlock never holds the money and can't return it.
+
+What BitLogin was asked to do about it (this session's judgement):
+
+- Keep the order with the account before paying anything.
+- Pay BitUnlock's part first and the seller's last, so that a payment cut
+  short leaves 10 sats astray and not 490. With more parts (shares):
+  smallest first, the seller last.
+- Call nothing bought until every part is paid and the receipt has come
+  back and been checked.
+- Show an unfinished purchase as unfinished, with one press to finish it,
+  and never start a second order for the same thing.
+- Say so plainly if it can no longer be finished, with what was paid and
+  to whom.
+
+This has to exist whatever else is decided, since shares mean several
+invoices by design (section 8).
 
 ## 14. Still open
 
@@ -1272,8 +1298,11 @@ Not decided by the above, and each needed before the part it belongs to:
   address (30); turning on BitUnlock's switch for the least price and the
   term check; and whether BitUnlock's code may be copied by the other
   two, or only its published examples built against.
-- **One invoice paid and the other not** (section 13.1): what each side
-  does, and whether a buyer can pay and hold no receipt.
+- **One invoice for things sold in worlds?** BitUnlock's session
+  recommends it as the standing arrangement: the seller is billed
+  BitUnlock's fee later, in one sum, and the buyer pays once, so there is
+  no half-paid order at all (section 13.1). It changes how BitUnlock is
+  paid, so it is the owner's. The first sale is one invoice either way.
 - **Does something given away count as a receipt?** (A voucher.) The kit
   reads it as one today. Recommended: yes.
 - **Changing a price.** A new listing under a new name, as things are;
