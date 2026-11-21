@@ -241,4 +241,27 @@ describe("asking the person: careful kinds, and a wallet", () => {
     expect(await signer.pickFile()).toBeNull();
     expect(await signer.saveFile({ name: "mine.txt", bytes })).toBeNull();
   });
+
+  it("asks them to tip a person, or this world, and hears only whether it went", async () => {
+    type Sent = { t: string; id: string; to?: string; sats?: number };
+    const person = "ab".repeat(32);
+    const toPerson = signer.tip({ to: person, sats: 21 });
+    const sent = last("tip") as Sent;
+    expect([sent.to, sent.sats]).toEqual([person, 21]);
+    expect(opened).not.toHaveBeenCalled();
+    say({ t: "asking", id: sent.id });
+    expect(opened).toHaveBeenCalledTimes(1);
+    say({ t: "paid", id: sent.id });
+    expect(await toPerson).toBe(true);
+    // With nobody named it is for this world, and the world names no address: their sign-in address finds it.
+    const toWorld = signer.tip({ sats: 100 });
+    expect(Object.keys(last("tip")).sort()).toEqual(["id", "nswp", "sats", "t", "v"]);
+    say({ t: "asking", id: last("tip").id });
+    say({ t: "refused", id: last("tip").id });
+    expect(await toWorld).toBe(false);
+    // Nothing is asked that isn't a whole amount within the limits, or isn't for a key.
+    const before = sentTo().filter((m) => m.t === "tip").length;
+    for (const bad of [{ sats: 0 }, { sats: 1.5 }, { sats: 2_000_000 }, { sats: 21, to: "ada" }]) expect(await signer.tip(bad)).toBe(false);
+    expect(sentTo().filter((m) => m.t === "tip").length).toBe(before);
+  });
 });

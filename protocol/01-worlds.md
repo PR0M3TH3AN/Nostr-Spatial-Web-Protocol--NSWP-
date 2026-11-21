@@ -136,6 +136,13 @@ A JSON file at exactly `https://<origin>/.well-known/nswp.json`.
 }
 ```
 
+`tip`, where a world has one, is a lightning address (`name@host`) that
+tips to the world go to. It is left out of the example because most
+worlds have none. A visitor's sign-in address reads it from this file, at
+the world's own address, and from nowhere else: the world never passes it
+along when it asks ([NSWP-10](10-identity.md), "Tips, buying, and
+receipts"). The file is readable from any site, as it already must be.
+
 `capabilities` are what the world says it can do. A client that doesn't know
 one ignores it. `home` says it can be the place its owner starts
 ([NSWP-07](07-homes.md)).

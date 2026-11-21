@@ -374,7 +374,8 @@ world still reads how they arrived: all of it happens in the frame.
   - the world, at the visitor's press:
     `{ nswp: "sign-in", mode, menu? }`. `mode` is `"ask"` (let this world
     sign), `"switch"` (another account), `"account"` (the account's own
-    pages), `"files"` (their own files) or `"wallet"` (their own wallet);
+    pages), `"files"` (their own files), `"wallet"` (their own wallet) or
+    `"library"` (what they have bought);
     `menu` is where the world's menu is on the screen
     (`left`, `width`, `bottom`, in CSS pixels), which the client may use
     and must clamp;

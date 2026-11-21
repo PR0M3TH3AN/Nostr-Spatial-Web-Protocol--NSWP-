@@ -24,6 +24,7 @@ import { cleanBoard, cleanScore, SCORE_LIMITS } from "./score.js";
 import { ACHIEVEMENT_LIMITS, cleanAchievementId } from "./achievement.js";
 import { cleanInvoice } from "./invoice.js";
 import { cleanFileBytes, cleanFileName, cleanFileType, cleanFileUrl } from "./files.js";
+import { cleanListing, cleanTip } from "./receipt.js";
 
 export const SIGNER_PROTOCOL = "nswp-signer";
 export const SIGNER_VERSION = 1;
@@ -239,7 +240,22 @@ export type SignerRequest =
    */
   | { t: "file-save"; id: string; name: string; type: string; bytes: Uint8Array; private: boolean }
   /** Ask the person to hand this world one of their files, the same way: they choose it, and say yes. */
-  | { t: "file-pick"; id: string };
+  | { t: "file-pick"; id: string }
+  /**
+   * Ask the person to tip someone, the same way: a person, by their key, or (with no `to`) this world itself. The
+   * world names who and how much and nothing else: the sign-in address finds where the money goes and shows it.
+   */
+  | { t: "tip"; id: string; to?: string; sats: number }
+  /**
+   * Ask the person to buy a listing, the same way. The sign-in address reads the listing, shows what it is and
+   * what it costs, pays, and keeps the receipt. The world never signs as the buyer and never sees the wallet.
+   */
+  | { t: "buy"; id: string; listing: string }
+  /**
+   * Does my visitor hold a receipt for this listing? Answered at once, with no question put to them, and only
+   * for a listing that is this world's own or was bought through it.
+   */
+  | { t: "have"; id: string; listing: string };
 
 /**
  * The careful kinds a world may put to its visitor, to be signed at their own press on the sign-in address's page:
@@ -249,6 +265,9 @@ export type SignerRequest =
 export const PROPOSE_KINDS: readonly number[] = [0, 5, 10002];
 /** A deletion (NIP-09): a request, signed by whoever wrote a note, that relays drop it. */
 export const DELETION_KIND = 5;
+
+/** The most text a purchase may release to a world: room for a key, not for the goods. */
+export const DELIVERY_LIMIT = 20_000;
 
 /** A wallet connection as it may be handed to a world: a Nostr Wallet Connect address, and not too long. */
 export function cleanWalletUri(input: unknown): string {
@@ -304,6 +323,15 @@ export type SignerReply =
   | { t: "file-saved"; id: string; name: string; size: number; private: boolean; url?: string }
   /** Answers `file-pick`, once the person has chosen one: the file itself, already opened if it was private. */
   | { t: "file"; id: string; name: string; type: string; bytes: Uint8Array; url?: string }
+  /**
+   * Answers `buy`, once it is bought: the receipt, whole and as the selling service signed it, and what the
+   * purchase released where the listing releases something (a key for a sealed world), as text.
+   */
+  | { t: "bought"; id: string; receipt: NostrEvent; delivery?: string }
+  /** Answers `have`: the visitor's receipt for that listing. */
+  | { t: "receipt"; id: string; receipt: NostrEvent }
+  /** Answers `have`: they hold none that this world may be told of. */
+  | { t: "none"; id: string }
   | { t: "refused"; id: string };
 
 const ID = /^[0-9a-z-]{1,40}$/i;
@@ -341,6 +369,8 @@ export function readSignerRequest(data: unknown): SignerRequest | null {
   if (d.t === "wallet") return { t: "wallet", id: d.id };
   if (d.t === "pay" && cleanInvoice(d.invoice)) return { t: "pay", id: d.id, invoice: cleanInvoice(d.invoice) };
   if (d.t === "file-pick") return { t: "file-pick", id: d.id };
+  if (d.t === "tip" && cleanTip(d.sats) !== null && (d.to === undefined || isHex64(d.to))) return { t: "tip", id: d.id, sats: cleanTip(d.sats)!, ...(isHex64(d.to) ? { to: d.to } : {}) };
+  if ((d.t === "buy" || d.t === "have") && cleanListing(d.listing)) return { t: d.t, id: d.id, listing: cleanListing(d.listing) };
   if (d.t === "file-save" && cleanFileName(d.name) && cleanFileBytes(d.bytes)) return { t: "file-save", id: d.id, name: cleanFileName(d.name), type: cleanFileType(d.type), bytes: cleanFileBytes(d.bytes)!, private: d.private !== false };
   if (d.t === "follow" && (d.list === null || (d.list && typeof d.list === "object")) && isHex64(d.add) !== isHex64(d.remove)) {
     return { t: "follow", id: d.id, list: d.list as NostrEvent | null, ...(isHex64(d.add) ? { add: d.add } : { remove: d.remove as string }) };
@@ -378,6 +408,12 @@ export function readSignerReply(data: unknown): SignerReply | null {
   if (d.t === "asking") return { t: "asking", id: d.id };
   if (d.t === "wallet" && cleanWalletUri(d.uri)) return { t: "wallet", id: d.id, uri: cleanWalletUri(d.uri) };
   if (d.t === "paid") return { t: "paid", id: d.id, ...(isHex64(d.preimage) ? { preimage: d.preimage } : {}) };
+  if (d.t === "none") return { t: "none", id: d.id };
+  // A receipt is taken as a signed note and nothing more here: whoever asked checks it (`readReceipt`).
+  if ((d.t === "bought" || d.t === "receipt") && d.receipt && typeof d.receipt === "object") {
+    const delivery = d.t === "bought" && typeof d.delivery === "string" && d.delivery.length > 0 && d.delivery.length <= DELIVERY_LIMIT ? d.delivery : undefined;
+    return d.t === "bought" ? { t: "bought", id: d.id, receipt: d.receipt as NostrEvent, ...(delivery !== undefined ? { delivery } : {}) } : { t: "receipt", id: d.id, receipt: d.receipt as NostrEvent };
+  }
   if (d.t === "file-saved" && cleanFileName(d.name) && typeof d.size === "number" && Number.isSafeInteger(d.size) && d.size >= 0) {
     // Private unless it says otherwise, and an address only for a public one.
     const kept = d.private !== false;

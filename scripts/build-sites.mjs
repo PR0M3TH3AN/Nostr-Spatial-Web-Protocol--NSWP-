@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -69,6 +69,9 @@ const manifest = (world) => ({
   kit: KIT_VERSION,
   listing: "allow",
   publishers: { [config.publisher]: { worlds: [world.d] } },
+  // Where a tip to this world goes, if it takes them: a lightning address, which is public. A visitor's sign-in
+  // address reads it from here, at this world's own address, and from nowhere else (protocol/10-identity.md).
+  ...(cleanLightningAddress(world.tip) ? { tip: cleanLightningAddress(world.tip) } : {}),
   worlds: {
     [world.d]: {
       entry: { url: world.url, modes: world.modes },
