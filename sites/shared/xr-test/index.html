@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Headset door test</title>
+<style>
+  body { margin: 0; padding: 20px; background: #0b1016; color: #eef5fb; font: 16px/1.45 system-ui, sans-serif; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { margin: 6px 0 12px; max-width: 46em; color: #c3ced8; }
+  button, a.btn { font: inherit; font-weight: 600; color: #0b1016; background: #7fd4ff; border: 0; border-radius: 10px; padding: 14px 22px; margin: 4px 8px 4px 0; display: inline-block; text-decoration: none; }
+  button.quiet, a.quiet { background: #223040; color: #eef5fb; }
+  label { display: block; margin: 8px 0; }
+  input[type=checkbox] { width: 20px; height: 20px; vertical-align: -4px; margin-right: 8px; }
+  pre { background: #05080c; border: 1px solid #223040; border-radius: 10px; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  #where { font-weight: 700; }
+  canvas { display: none; }
+</style>
+</head>
+<body>
+<h1>Headset door test: <span id="where"></span></h1>
+<p>This page is for finding out what a headset's browser does when one site sends you to another while you are in VR. Press Enter VR, then pull the trigger to go through the door. Everything that happens is written below and on the wall in VR, and is carried with you from site to site.</p>
+<label><input type="checkbox" id="keep"> Stay in VR while the door is taken (off: leave VR first, as the worlds do today)</label>
+<label><input type="checkbox" id="mid"> Go through a middle page on the way, as through an Airlock</label>
+<p>
+  <button id="enter">Enter VR</button>
+  <button id="door" class="quiet">Go through the door without VR</button>
+  <a id="framed" class="btn quiet" href="#">Open this test inside BitPortal's page</a>
+  <a id="fresh" class="btn quiet" href="./">Start again with an empty log</a>
+</p>
+<pre id="log"></pre>
+<canvas id="gl"></canvas>
+<script src="./test.js"></script>
+</body>
+</html>

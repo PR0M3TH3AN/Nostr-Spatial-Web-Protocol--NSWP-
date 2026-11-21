@@ -120,6 +120,9 @@ for (const s of sites) {
         }
       }
     };
+    // A test page for finding out what a headset's browser does at a door (sites/shared/xr-test): on every world,
+    // since the question is what happens between two sites. It is linked from nowhere.
+    cpSync(join(root, "sites", "shared", "xr-test"), join(out, "xr-test"), { recursive: true });
     copySounds(join(root, "packages", "sdk", "sounds"), join(out, "sounds", "kit"));
     if (existsSync(join(dir, "sounds"))) copySounds(join(dir, "sounds"), join(out, "sounds"));
     // Previews this world mirrors by hash: its own, and those of the worlds its portals lead to.
