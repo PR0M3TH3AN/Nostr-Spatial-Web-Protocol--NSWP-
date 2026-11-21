@@ -8,14 +8,17 @@ is how they stay one system, written down on 2026-11-21 when the owner said:
 
 | Session | Its project | It decides |
 |---|---|---|
-| **NSWP** (the orchestrator) | This repository (the protocol, the kit, the reference worlds), BitPortal the website, the world template | The kit and the protocol; what the others are asked to build to; what is recorded as decided |
+| **The orchestrator** (the NSWP session) | No code of its own to build. It holds the plans, the board and the list of what waits on the owner; reviews and merges what the builders hand it for this repository and BitPortal; vendors the kit; releases the sites on the owner's word | What the others are asked to build to; what is recorded as decided; what is merged here |
+| **NSWP builder** | This repository: the protocol, the kit, the reference worlds | How its brief is built; nothing that changes a decision of the owner's |
+| **BitPortal** (was "Bitportal VR") | BitPortal the website, and what was learnt on a headset | How a feature it is briefed on is built |
 | **Bitlogin** | The sign-in address: accounts, the signer, the wallet, the buy and tip screens | Everything in its own code and its own releases |
 | **Bitunlock** | The selling service: listings, payments, receipts | Everything in its own code and its own releases |
-| **Bitportal VR** | Headsets: staying in VR, world to world | What a headset test shows; proposes changes to the kit by pull request |
 | **BitBrowser** | A headset browser of our own (a fork) | Everything in its own code; nothing of payments or identity (`browser/spec.md`, section 2a) |
 
-The owner speaks to any of them. The orchestrator answers the others'
-questions of design, keeps the plans current, and says what is live.
+The owner works through the orchestrator (2026-11-21: "id like to work
+through you directly"): they say what they want, it is written as a brief
+for the session whose project it is, and their questions and answers pass
+the same way. The orchestrator says what is live.
 
 ## The rules
 
