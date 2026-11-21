@@ -138,9 +138,16 @@ export function createItems(opts: ItemsOptions = {}): Items {
     const key = `${named.model.sha256}:${named.size.join(",")}`;
     let got = made.get(key);
     if (!got) {
-      got = (async () => {
+      const asking: Promise<THREE.Object3D | null> = (async () => {
         const checked = await store.modelBytes(named);
-        if (!checked) return null;
+        if (!checked) {
+          // Nothing to read. It may only not have come yet, and the store asks for it again in a while: so this
+          // isn't kept as the answer either, or the thing would stay a marker for the rest of the visit.
+          queueMicrotask(() => {
+            if (made.get(key) === asking) made.delete(key);
+          });
+          return null;
+        }
         const { bytes } = checked;
         try {
           const read = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, "");
@@ -157,6 +164,7 @@ export function createItems(opts: ItemsOptions = {}): Items {
           return null;
         }
       })();
+      got = asking;
       made.set(key, got);
     }
     return got;

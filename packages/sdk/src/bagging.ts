@@ -89,6 +89,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   let looked = false;
   /** An item whose own logic they were just asked about: the next press of Hold lets it run. */
   let asking = "";
+  /** The thing being taken in hand just now: fetched and checked, which can take a moment. */
+  let taking = "";
   const say = (text: string) => controls.say(text);
   const model = items.model;
   const previews = opts.previews === undefined ? (model ? createItemPreviews({ model: (item, tints) => model(item, tints) }) : null) : opts.previews;
@@ -129,7 +131,10 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     change(item, true);
   };
 
+  /** What was in their hand when the tab was last drawn. */
+  let drawnHolding = "";
   const refresh = () => {
+    drawnHolding = opts.holding();
     for (const id of shown) controls.remove(id);
     shown = [];
     const me = opts.me();
@@ -214,18 +219,33 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     // What is in their hand is what the tab opens on: the thing they are most likely here about.
     if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
     const holding = opts.holding();
-    const away = (): UiAction => ({ id: "bag-away", icon: "close", tone: chosen === holding ? "primary" : "normal", label: `Put ${titleOf(holding)} away`, short: "Away", act: async () => say((await opts.hold("")).said) });
+    const away = (): UiAction => ({
+      id: "bag-away",
+      icon: "close",
+      tone: chosen === holding ? "primary" : "normal",
+      label: `Put ${titleOf(holding)} away`,
+      short: "Away",
+      act: async () => {
+        say((await opts.hold("")).said);
+        // What the tab offers follows what is in their hand: with nothing in it, this is Hold again.
+        refresh();
+      },
+    });
     // ---- The thing they chose: what to do with it comes first, straight under its picture.
     if (chosen && has.includes(chosen)) {
       const item = chosen;
-      if (holding === item) add(away());
+      if (taking === item)
+        // Taking a thing in hand fetches it and checks it, which can take a moment. Said, so that a second press
+        // isn't made on a button that seems to have done nothing.
+        add({ id: "bag-taking", icon: "check", label: `Taking ${titleOf(item)} in hand…`, act: () => say("It is on its way: its files are being fetched and checked.") });
+      else if (holding === item) add(away());
       else if (rule === "none") {
         // Said where the button would be, and why: a button that isn't there can't be asked about.
         add({
           id: "bag-nohold",
           icon: "close",
           label: `Can't be held here: ${opts.place?.() || "this place"} doesn't have items`,
-          act: () => say("Each place says whether things can be carried in it. Where they can, a door's sign says \"Items work\", and Hold is here."),
+          act: () => say("Each place says whether things can be carried in it. Most let them; this one has turned them off."),
         });
       } else if (!showsItems()) {
         add({
@@ -246,7 +266,15 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           // An item that does things of its own runs its maker's code, shut away: the second press is their yes.
           label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
           act: async () => {
-            const done = await opts.hold(item, bag.tints(item));
+            taking = item;
+            refresh();
+            let done: { ok: boolean; said: string };
+            try {
+              done = await opts.hold(item, bag.tints(item));
+            } catch {
+              done = { ok: false, said: "That couldn't be taken in hand just now." };
+            }
+            taking = "";
             asking = !done.ok && /Press Hold again/.test(done.said) ? item : "";
             say(done.said);
             refresh();
@@ -352,5 +380,11 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   // A thing's picture is ready: the tiles are drawn again with it.
   previews?.onChange(soon);
   refresh();
+  // What is in their hand can change from elsewhere: the bar, a key, a rule of the place, another press still on
+  // its way. The tab follows it, so it never offers to put away what isn't held, or to hold what is.
+  const watch = setInterval(() => {
+    if (!taking && opts.holding() !== drawnHolding) refresh();
+  }, 400);
+  (watch as { unref?: () => void }).unref?.();
   return { refresh };
 }

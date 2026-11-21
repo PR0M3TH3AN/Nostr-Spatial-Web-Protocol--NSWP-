@@ -56,7 +56,7 @@ cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: 
 // The example is also a public world, The Foundry (engines/godot/world.json; sites/sites.json, "elsewhere"). What
 // makes an export a world is beside the page, and has nothing to do with Godot: the file that says which key may
 // announce it, and what its host is to send with each file.
-const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, ITEM_BOX_CSP, stampPage } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 const world = JSON.parse(readFileSync(join(project, "world.json"), "utf8"));
 mkdirSync(join(dist, ".well-known"), { recursive: true });
@@ -156,4 +156,7 @@ writeFileSync(
     2,
   )}\n`,
 );
+// The page is marked with this kit and with everything it is served with, so that it changes whenever either does:
+// a browser keeps a page's old content rules for as long as the page itself is unchanged (core stamp.ts).
+writeFileSync(join(dist, "index.html"), stampPage(readFileSync(join(dist, "index.html"), "utf8"), KIT_VERSION, readFileSync(join(dist, "vercel.json"), "utf8")));
 console.log(`exported engines/godot/dist: ${readdirSync(dist).join(", ")}`);

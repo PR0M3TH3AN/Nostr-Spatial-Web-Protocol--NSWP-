@@ -450,6 +450,8 @@ export function createPresence(d: PresenceOptions): Presence {
   const itemsRule = () => (d.items ? cleanItemsRule(d.itemsRule?.()) : "none");
   const canBeHeld = (item: Item) => item.behaviors.includes("holdable") || item.fits.includes("hand-right") || item.fits.includes("hand-left");
   let mine = "";
+  /** The last hold asked for, so the next waits its turn. */
+  let holdTurn: Promise<unknown> = Promise.resolve();
   let mineModel: THREE.Object3D | null = null;
   let mineTints: Record<string, string> = {};
   /** Someone said the colours of what they hold: it is recoloured, and what they send out next is too. */
@@ -1080,7 +1082,10 @@ export function createPresence(d: PresenceOptions): Presence {
       sayTints();
       changed();
     },
-    async setHolding(itemIn, tints) {
+    setHolding(itemIn, tints) {
+      // One at a time, in the order they were asked: taking a thing in hand waits on its files, and a second press
+      // made meanwhile (another thing, or putting it away) must come after it, not in the middle of it.
+      const turn = async (): Promise<{ ok: boolean; said: string }> => {
       const item = itemCoordinate(itemIn);
       const put = () => {
         mine = "";
@@ -1111,6 +1116,10 @@ export function createPresence(d: PresenceOptions): Presence {
       sayTints();
       await play?.held(described, model);
       return { ok: true, said: `You are holding ${described.title}. People here can see it.` };
+      };
+      const result = holdTurn.then(turn, turn);
+      holdTurn = result.then(() => changed(), () => changed());
+      return result;
     },
     get play() {
       return play;

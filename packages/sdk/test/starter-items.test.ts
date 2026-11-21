@@ -5,7 +5,7 @@ import { parseItem, parseWorldEvent, verifyEvent, type NostrEvent } from "@nswp/
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createItems, ITEM_BUDGET } from "../src/items.js";
 
 const sites = join(__dirname, "..", "..", "..", "sites");
@@ -92,6 +92,42 @@ describe("the starter items", () => {
     expect(colours(await items.sent(blaster, "dart", { dart: "#46d95a" }), "dart")).toEqual(["46d95a"]);
     expect(blaster.tints.map((t) => t.slot)).toEqual(["accent", "dart"]);
     expect(blaster.sends[0]!.trail).toBeGreaterThan(0);
+  });
+
+  it("are asked for again when a file didn't come: a bad moment on the network isn't for the rest of the visit", async () => {
+    const blaster = signed.map((e) => parseItem(e)!).find((i) => i.d === "dart-blaster");
+    if (!blaster) return;
+    const real = new Uint8Array(readFileSync(join(sites, "items", "models", `${blaster.model.sha256}.glb`)));
+    const onlyAFrame = (root: THREE.Object3D) => {
+      let solid = 0;
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh && !(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).every((m) => (m as THREE.MeshBasicMaterial).wireframe === true)) solid++;
+      });
+      return solid === 0;
+    };
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // Nothing came the first time. The plain marker is drawn, and the file isn't fetched over and over meanwhile.
+      let asked = 0;
+      const items = createItems({ relays: [], fetchBytes: async () => (++asked === 1 ? null : real) });
+      expect(onlyAFrame(await items.model(blaster))).toBe(true);
+      expect(onlyAFrame(await items.model(blaster))).toBe(true);
+      expect(asked).toBe(1);
+      // A little later it is asked for again, and the thing itself is drawn.
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(onlyAFrame(await items.model(blaster))).toBe(false);
+      expect(asked).toBe(2);
+      // A file that came and isn't what its description promised is refused for good: asking again gets the same file.
+      let wrong = 0;
+      const lied = createItems({ relays: [], fetchBytes: async () => (wrong++, new Uint8Array([1, 2, 3])) });
+      expect(onlyAFrame(await lied.model(blaster))).toBe(true);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(onlyAFrame(await lied.model(blaster))).toBe(true);
+      expect(wrong).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("are each drawn as themselves by the kit, not as a marker", async () => {

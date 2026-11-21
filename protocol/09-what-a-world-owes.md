@@ -47,6 +47,14 @@ in one room are in two different worlds. So:
   a copy is good for. A file whose name changes whenever its contents do
   (one with a hash in it) may be kept for good, since it is never the stale
   one.
+- **A page changes whenever what it is served with does.** A browser that
+  asks, and is told the page hasn't changed, goes on using the copy it
+  kept: with the headers that copy came with, its content rules among
+  them. So a release that changes a site's rules and leaves its HTML alone
+  leaves returning visitors under the old rules, and reloading doesn't
+  help. A page is therefore marked with what it was built from and with
+  everything it is served with (`stampPage` in the reference core), so
+  that either changing gives a browser the page, and its rules, afresh.
 - **A page that is already open finds out.** It asks its own site, now and
   then and whenever the visitor comes back to it, whether what it was made
   from has changed. A visitor who comes back with nothing in hand is given

@@ -649,6 +649,14 @@ rating; the people they follow are counted once they have let your world
 see who that is. Your world only shows ratings: giving one is done at the
 visitor's own client.
 
+### Keys in the menu
+
+Left and right go along the menu's tabs, from anywhere in the menu that has
+no use of its own for them (a box being typed in, a slider); Home and End
+go to the first and last. The Tab key stops once on the strip, at the tab
+that is up. A wheel turned over the strip slides it. While the menu has an
+arrow key the world doesn't hear it.
+
 ### What they carry, and hold
 
 A world has items unless its announcement says `none`

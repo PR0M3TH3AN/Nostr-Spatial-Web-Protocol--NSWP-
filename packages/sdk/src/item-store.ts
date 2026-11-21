@@ -107,9 +107,15 @@ export interface ItemStore {
   script(item: Item): Promise<string | null>;
 }
 
+/** How long a file is waited for. */
+const FETCH_MS = 30_000;
+/** How long after a file failed to come it may be asked for again: a bad moment on the network isn't for the rest of the visit. */
+const AGAIN_MS = 4000;
+
 async function fetchWithin(url: string, most: number): Promise<Uint8Array | null> {
   try {
-    const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+    // Not left hanging: a file that hasn't come in half a minute is asked for again another time.
+    const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
     if (!res.ok) return null;
     const stated = Number(res.headers.get("content-length") ?? 0);
     if (stated > most) return null;
@@ -129,13 +135,25 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
   const settled = new Map<string, Item | null>();
   const files = new Map<string, Promise<Uint8Array | null>>();
   const models = new Map<string, Promise<{ bytes: Uint8Array; count: GlbCount } | null>>();
+  /** Let something that didn't come be asked for again, a little later: unless it has been already. */
+  const forgetSoon = <T>(kept: Map<string, Promise<T>>, key: string, asked: Promise<T>): void => {
+    setTimeout(() => {
+      if (kept.get(key) === asked) kept.delete(key);
+    }, AGAIN_MS);
+  };
   /** A file of an item's, once: fetched, and taken only if it is what its description promised. */
   const file = (named: { url: string; sha256: string }, most: number): Promise<Uint8Array | null> => {
     let got = files.get(named.sha256);
     if (!got) {
-      got = fetchBytes(named.url)
-        .then((bytes) => (bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named.sha256 ? bytes : null))
-        .catch(() => null);
+      const asking: Promise<Uint8Array | null> = fetchBytes(named.url)
+        .then((bytes) => {
+          // Nothing came: it is asked for again another time. Something came that is too big, or isn't what the
+          // description promised: that is kept as refused, since asking again would get the same file.
+          if (!bytes) forgetSoon(files, named.sha256, asking);
+          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named.sha256 ? bytes : null;
+        })
+        .catch(() => (forgetSoon(files, named.sha256, asking), null));
+      got = asking;
       files.set(named.sha256, got);
     }
     return got;
@@ -169,11 +187,14 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
       if (!showsItems()) return Promise.resolve(null);
       let got = models.get(named.model.sha256);
       if (!got) {
-        got = file(named.model, ITEM_BUDGET.bytes).then((bytes) => {
+        const asking: Promise<{ bytes: Uint8Array; count: GlbCount } | null> = file(named.model, ITEM_BUDGET.bytes).then((bytes) => {
           // Counted before anything that draws sees it, and refused if it names anything outside itself.
           const read = bytes ? readGlb(bytes) : null;
+          // No file at all is forgotten with the file, so both are asked for again together.
+          if (!bytes) forgetSoon(models, named.model.sha256, asking);
           return bytes && read?.ok ? { bytes, count: read.count } : null;
         });
+        got = asking;
         models.set(named.model.sha256, got);
       }
       return got;

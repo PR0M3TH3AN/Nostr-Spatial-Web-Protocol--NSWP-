@@ -125,17 +125,32 @@ export function createItemPreviews(o: ItemPreviewsOptions): ItemPreviews {
           if (materials.every((m) => (m as THREE.MeshBasicMaterial).wireframe === true)) frames++;
           else solids++;
         });
-        if (frames > 0 && solids === 0) return;
+        // It may only not have come yet (a bad moment on the network): asked for again in a while, and whoever is
+        // showing it is told, so that a picture which can now be drawn is.
+        if (frames > 0 && solids === 0) return void again(key);
         const box = new THREE.Box3().setFromObject(object);
         const ball = box.getBoundingSphere(new THREE.Sphere());
         if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready.delete(key);
         ready.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
         for (const fn of watchers) fn();
       },
-      () => void ready.delete(key),
+      () => void again(key),
     );
     return null;
   };
+  /** How long before a picture that couldn't be drawn is tried again, and how many times in all. */
+  const AGAIN_MS = 6000;
+  const tries = new Map<string, number>();
+  function again(key: string): void {
+    const n = (tries.get(key) ?? 0) + 1;
+    tries.set(key, n);
+    if (n > 5) return;
+    setTimeout(() => {
+      if (ready.get(key) !== null) return;
+      ready.delete(key);
+      for (const fn of watchers) fn();
+    }, AGAIN_MS * n);
+  }
 
   return {
     still(item, tints) {

@@ -414,8 +414,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   // The window was made narrower or wider, or the text larger: what fits has changed.
   const tabsWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendTabs());
   tabsWatch?.observe(tabs);
-  // A mouse's wheel turns up and down: over the strip, that is along it.
-  tabs.addEventListener(
+  // A mouse's wheel turns up and down: over the strip, that is along it. Over any of it: the arrows at its ends too.
+  tabbar.addEventListener(
     "wheel",
     (e) => {
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tabs.scrollWidth <= tabs.clientWidth) return;
@@ -837,7 +837,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
 
     tabs.replaceChildren(
       ...view.sections.map((s) => {
-        const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section) }, icon(s.icon), s.label);
+        // One stop for the Tab key, on the tab that is up: left and right go along the rest (below).
+        const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
         b.addEventListener("click", () => {
           section = s.id;
           chose = true;
@@ -991,6 +992,31 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   };
   addEventListener("keydown", onKey);
 
+  // Left and right go along the menu's tabs while it is up, wherever the keys are: unless they are somewhere with
+  // a use of its own for them (a box being typed in, a slider). Home and End go to the first and the last, from
+  // the strip itself. Heard before the world hears anything, and kept from it: or it would turn the visitor
+  // round behind their menu.
+  const onTabKey = (e: KeyboardEvent) => {
+    if (!open || host.hidden || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    const at = e.composedPath()[0] as HTMLElement | undefined;
+    const onStrip = !!at && typeof at.tagName === "string" && tabs.contains(at);
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!step && !(onStrip && (e.key === "Home" || e.key === "End"))) return;
+    if (at && !onStrip && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.tagName === "SELECT" || at.isContentEditable)) return;
+    const ids = controls.view().sections.map((x) => x.id);
+    if (ids.length < 2) return;
+    const now = Math.max(0, ids.indexOf(section));
+    const to = step ? (now + step + ids.length) % ids.length : e.key === "Home" ? 0 : ids.length - 1;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (to === now) return;
+    section = ids[to]!;
+    chose = true;
+    draw();
+    (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
+  };
+  addEventListener("keydown", onTabKey, true);
+
   // The summons (summon.ts): the visitor's own way to their controls, in every world. It answers whatever the
   // world has done with its screen and its keys, and it is heard before the world hears anything, so a world
   // can neither take the gesture nor be disturbed by it.
@@ -1087,6 +1113,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       stopSay();
       removeEventListener("keydown", onKey);
       removeEventListener("keydown", onSummonKey, listening);
+      removeEventListener("keydown", onTabKey, true);
       removeEventListener("keyup", swallow, listening);
       for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"] as const) removeEventListener(type, onTouch, watching);
       hold.cancel();
