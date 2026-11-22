@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A look of your own, first step: the model tier written, and its reader** (core `LOOK_BUDGET`, `LOOK_HEIGHT`, `LOOK_MODELS_AT_ONCE`, `LOOK_NOTE_LIMIT`, `LOOK_FORMATS`, `readLookModel(note)`, `lookHeight(asked, world?)`, `ModelBudget`, `GlbCount.joints` and `.morphs`; manifest `avatar.height` and `avatar.dress`; NSWP-05, "A model of your own"; names from the orchestrator). Nothing draws a model yet: that is the kit's next step.
+  - The owner decided, 2026-11-22: heights 0.85 m to 2.55 m, which a world may narrow; VRM and plain GLB; never scripts in a look; a plain warning the first time someone publishes a look; no spring bones in this first round (`docs/plans/own-models.md`, section 6).
+  - A look note's `model` tag names the file by its hash (`vrm` or `glb`, https only), with `height` and an optional `thumb` with its hash. `readLookModel` reads them; a note without a model is a simple look.
+  - `readGlb` now counts joints (each once) and the most morph targets on any one mesh, and takes a `ModelBudget`. Items are unchanged: their budget sets no limit on either, and still allows no required extension. A look's budget is lower than an item's (1 MB, 12,000 triangles, 24 meshes, 8 materials, 1024 px, 128 joints, 64 morphs) and lets through VRM's own required extensions, never spring bones.
+  - `lookHeight` holds a height within the kit's limits and a world's `avatar.height`. A world's limits only narrow the kit's.
+  - The manifest reads `avatar.height` (`[least, most]`) and `avatar.dress` (`"own"`), with a warning for anything else. The schema has both.
+  - Vectors: `vectors/looks.json` gains `budget`, `heightLimits`, `models` and `heights`.
+
 ## 0.83.0
 
 - **Someone else's files are fetched only from file hosts the viewer already uses** (core `FILE_HOSTS`, `FILE_HOST_LIST_KIND`, `cleanFileHost`, `fileAt`, `onFileHost`, `parseFileHostList`; kit `fileHosts()`, `learnFileHosts`, `fetchByHash(sha256, hint)`, `keptElsewhere`, `filesAnywhere()` / `setFilesAnywhere()`; the console row `files-anywhere`; the setting `filesAnywhere`; NSWP-17, "Where a file is fetched from"; names from the orchestrator). Before this, an item's files were fetched from whatever address its maker wrote, so anyone could hold an item in a room and learn the address of everyone there.

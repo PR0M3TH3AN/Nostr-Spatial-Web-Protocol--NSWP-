@@ -33,7 +33,12 @@ export interface ManifestWorld {
   entry: { url: string; modes: string[] };
   entryPoints: string[];
   capabilities: string[];
-  avatar?: { formats: string[]; maxFileSizeMb?: number; maxTriangles?: number };
+  /**
+   * What it draws of people's looks (protocol/05-looks.md, "A model of your own"): the model formats it draws
+   * (`vrm`, `glb`; none, and everyone is drawn as their simple look), how heavy and how tall it lets one be, and
+   * `dress: "own"` where it dresses everyone itself and draws nobody's look.
+   */
+  avatar?: { formats: string[]; maxFileSizeMb?: number; maxTriangles?: number; height?: [number, number]; dress?: "own" };
   multiplayer?: { endpoint: string; auth?: string };
   budgets?: { initialDownloadMb?: number };
   airlock?: string;
@@ -142,6 +147,10 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
         w.avatar = { formats: stringArray(a.formats) ? a.formats : [] };
         if (typeof a.max_file_size_mb === "number") w.avatar.maxFileSizeMb = a.max_file_size_mb;
         if (typeof a.max_triangles === "number") w.avatar.maxTriangles = a.max_triangles;
+        if (Array.isArray(a.height) && a.height.length === 2 && a.height.every((n) => typeof n === "number" && Number.isFinite(n) && n > 0) && (a.height[0] as number) <= (a.height[1] as number)) w.avatar.height = [a.height[0] as number, a.height[1] as number];
+        else if (a.height !== undefined) c.warn("invalid_field", `${p}.avatar.height`, "avatar.height must be [least, most] in metres; ignored.");
+        if (a.dress === "own") w.avatar.dress = "own";
+        else if (a.dress !== undefined) c.warn("invalid_field", `${p}.avatar.dress`, 'avatar.dress may only be "own"; ignored.');
       }
       if (raw.multiplayer !== undefined) {
         if (isPlainObject(raw.multiplayer) && isWssUrl(raw.multiplayer.endpoint)) {

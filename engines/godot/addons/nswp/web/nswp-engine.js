@@ -4920,6 +4920,14 @@ var NSWP = (() => {
             w.avatar.maxFileSizeMb = a.max_file_size_mb;
           if (typeof a.max_triangles === "number")
             w.avatar.maxTriangles = a.max_triangles;
+          if (Array.isArray(a.height) && a.height.length === 2 && a.height.every((n) => typeof n === "number" && Number.isFinite(n) && n > 0) && a.height[0] <= a.height[1])
+            w.avatar.height = [a.height[0], a.height[1]];
+          else if (a.height !== void 0)
+            c.warn("invalid_field", `${p}.avatar.height`, "avatar.height must be [least, most] in metres; ignored.");
+          if (a.dress === "own")
+            w.avatar.dress = "own";
+          else if (a.dress !== void 0)
+            c.warn("invalid_field", `${p}.avatar.dress`, 'avatar.dress may only be "own"; ignored.');
         }
         if (raw.multiplayer !== void 0) {
           if (isPlainObject(raw.multiplayer) && isWssUrl(raw.multiplayer.endpoint)) {
@@ -7509,16 +7517,19 @@ postMessage({ t: "started" });
     const list = (name) => Array.isArray(json[name]) ? json[name].filter((x) => !!x && typeof x === "object") : [];
     if (list("buffers").some((b) => b.uri !== void 0) || list("images").some((i) => i.uri !== void 0))
       return { ok: false, why: "outside" };
-    if (Array.isArray(json.extensionsRequired) && json.extensionsRequired.length > 0)
+    if (Array.isArray(json.extensionsRequired) && json.extensionsRequired.some((x) => !budget.extensions?.includes(x)))
       return { ok: false, why: "needs-more" };
     const accessors = list("accessors");
     const views = list("bufferViews");
     const meshes = list("meshes");
     let triangles = 0;
     let parts3 = 0;
+    let morphs = 0;
     for (const mesh of meshes) {
       for (const p of Array.isArray(mesh.primitives) ? mesh.primitives : []) {
         parts3++;
+        if (Array.isArray(p.targets))
+          morphs = Math.max(morphs, p.targets.length);
         const mode = typeof p.mode === "number" ? p.mode : 4;
         const from = typeof p.indices === "number" ? p.indices : p.attributes?.POSITION;
         const count3 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
@@ -7536,6 +7547,11 @@ postMessage({ t: "started" });
       texture = Math.max(texture, size[0], size[1]);
     }
     const materials = list("materials");
+    const joints = /* @__PURE__ */ new Set();
+    for (const skin of list("skins"))
+      for (const j of Array.isArray(skin.joints) ? skin.joints : [])
+        if (typeof j === "number")
+          joints.add(j);
     const count2 = {
       triangles,
       // What a renderer makes a mesh of is each part of each mesh.
@@ -7543,9 +7559,11 @@ postMessage({ t: "started" });
       materials: materials.length,
       texture,
       animations: list("animations").map((a) => typeof a.name === "string" ? a.name : "").filter(Boolean).slice(0, 8),
-      materialNames: materials.map((m) => typeof m.name === "string" ? m.name : "")
+      materialNames: materials.map((m) => typeof m.name === "string" ? m.name : ""),
+      joints: joints.size,
+      morphs
     };
-    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count2.materials <= budget.materials && texture <= budget.texture;
+    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count2.materials <= budget.materials && texture <= budget.texture && count2.joints <= (budget.joints ?? Infinity) && morphs <= (budget.morphs ?? Infinity);
     return within2 ? { ok: true, count: count2 } : { ok: false, why: "over-budget" };
   }
 

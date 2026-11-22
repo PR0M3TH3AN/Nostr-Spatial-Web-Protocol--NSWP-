@@ -1,5 +1,5 @@
 {
-  "description": "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys.",
+  "description": "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys. `budget` and `heightLimits`: what a look's own model is held to. `models`: what a look note's `model` names (`expect` null: no model may be worn). `heights`: how tall a model is drawn, from what was asked and a world's `avatar.height` (null: none given).",
   "generated": [
     {
       "seed": "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
@@ -453,6 +453,272 @@
           "mark": "6187"
         }
       }
+    }
+  ],
+  "budget": {
+    "bytes": 1000000,
+    "triangles": 12000,
+    "meshes": 24,
+    "materials": 8,
+    "texture": 1024,
+    "joints": 128,
+    "morphs": 64,
+    "extensions": [
+      "VRMC_vrm",
+      "VRMC_materials_mtoon",
+      "KHR_materials_unlit"
+    ]
+  },
+  "heightLimits": {
+    "least": 0.85,
+    "standard": 1.7,
+    "most": 2.55
+  },
+  "models": [
+    {
+      "name": "vrm_with_height_and_picture",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.vrm",
+            "vrm",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "height",
+            "1.92"
+          ],
+          [
+            "thumb",
+            "https://files.example/look.webp",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ]
+      },
+      "expect": {
+        "url": "https://files.example/look.vrm",
+        "format": "vrm",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "height": 1.92,
+        "thumb": {
+          "url": "https://files.example/look.webp",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    {
+      "name": "glb_too_tall_held_to_the_most",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.glb",
+            "glb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "height",
+            "3.4"
+          ]
+        ]
+      },
+      "expect": {
+        "url": "https://files.example/look.glb",
+        "format": "glb",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "height": 2.55
+      }
+    },
+    {
+      "name": "no_height_is_standard",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.vrm",
+            "vrm",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ]
+      },
+      "expect": {
+        "url": "https://files.example/look.vrm",
+        "format": "vrm",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "height": 1.7
+      }
+    },
+    {
+      "name": "a_thumb_without_a_hash_is_dropped",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.vrm",
+            "vrm",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ],
+          [
+            "thumb",
+            "https://files.example/look.webp"
+          ]
+        ]
+      },
+      "expect": {
+        "url": "https://files.example/look.vrm",
+        "format": "vrm",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "height": 1.7
+      }
+    },
+    {
+      "name": "simple_look_has_no_model",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "simple",
+            "head",
+            "tall"
+          ]
+        ]
+      },
+      "expect": null
+    },
+    {
+      "name": "plain_http_is_refused",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "http://files.example/look.vrm",
+            "vrm",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ]
+      },
+      "expect": null
+    },
+    {
+      "name": "unknown_format_is_refused",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.fbx",
+            "fbx",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        ]
+      },
+      "expect": null
+    },
+    {
+      "name": "no_hash_is_refused",
+      "note": {
+        "kind": 37301,
+        "tags": [
+          [
+            "d",
+            "default"
+          ],
+          [
+            "model",
+            "https://files.example/look.vrm",
+            "vrm"
+          ]
+        ]
+      },
+      "expect": null
+    }
+  ],
+  "heights": [
+    {
+      "asked": "1.72",
+      "world": null,
+      "expect": 1.72
+    },
+    {
+      "asked": "0.3",
+      "world": null,
+      "expect": 0.85
+    },
+    {
+      "asked": "9",
+      "world": null,
+      "expect": 2.55
+    },
+    {
+      "asked": "tall",
+      "world": null,
+      "expect": 1.7
+    },
+    {
+      "asked": "2.4",
+      "world": [
+        1.5,
+        2
+      ],
+      "expect": 2
+    },
+    {
+      "asked": "1.1",
+      "world": [
+        1.5,
+        2
+      ],
+      "expect": 1.5
+    },
+    {
+      "asked": "2.4",
+      "world": [
+        0.1,
+        9
+      ],
+      "expect": 2.4
+    },
+    {
+      "asked": "2.4",
+      "world": [
+        3,
+        4
+      ],
+      "expect": 2.4
     }
   ]
 }

@@ -31,6 +31,21 @@ export const MODEL_BUDGET = {
   texture: 1024,
 } as const;
 
+/** A budget a model is read against: an item's (`MODEL_BUDGET`) or a look's (`LOOK_BUDGET`, look-model.ts). */
+export interface ModelBudget {
+  bytes: number;
+  triangles: number;
+  meshes: number;
+  materials: number;
+  texture: number;
+  /** The most joints its skins may have, all told. Left out, no limit. */
+  joints?: number;
+  /** The most morph targets any one of its meshes may have. Left out, no limit. */
+  morphs?: number;
+  /** Extensions it may say it requires, beyond none: each read for what the kit uses of it and otherwise ignored. */
+  extensions?: readonly string[];
+}
+
 export interface GlbCount {
   triangles: number;
   meshes: number;
@@ -40,6 +55,10 @@ export interface GlbCount {
   animations: string[];
   /** The names of its materials, in order: a renderer colours the ones named `tint:<slot>`. */
   materialNames: string[];
+  /** How many joints its skins have, all told (each joint once): 0 for a model with no skeleton. */
+  joints: number;
+  /** The most morph targets any one of its meshes has. */
+  morphs: number;
 }
 
 export type GlbRead = { ok: true; count: GlbCount } | { ok: false; why: "not-glb" | "too-big" | "outside" | "needs-more" | "over-budget" | "unreadable" };
@@ -151,7 +170,7 @@ export function measureGlb(bytes: Uint8Array): { size: [number, number, number];
  * a plain reader doesn't have (`needs-more`), or names anything outside itself (`outside`): a buffer or a picture
  * at an address. Nothing is fetched and nothing is drawn.
  */
-export function readGlb(bytes: Uint8Array, budget: typeof MODEL_BUDGET = MODEL_BUDGET): GlbRead {
+export function readGlb(bytes: Uint8Array, budget: ModelBudget = MODEL_BUDGET): GlbRead {
   if (!(bytes instanceof Uint8Array) || bytes.length < 20 || u32(bytes, 0) !== 0x46546c67 || u32(bytes, 4) !== 2) return { ok: false, why: "not-glb" };
   if (bytes.length > budget.bytes) return { ok: false, why: "too-big" };
   const total = u32(bytes, 8);
@@ -171,15 +190,18 @@ export function readGlb(bytes: Uint8Array, budget: typeof MODEL_BUDGET = MODEL_B
   // Anything it would have a reader go and get is refused: a model is whole, or it isn't used.
   if (list("buffers").some((b) => b.uri !== undefined) || list("images").some((i) => i.uri !== undefined)) return { ok: false, why: "outside" };
   // Anything it needs a special reader for is refused too: what every engine reads is plain glTF.
-  if (Array.isArray(json.extensionsRequired) && json.extensionsRequired.length > 0) return { ok: false, why: "needs-more" };
+  // A look's budget lets a few through by name (VRM's own): the kit reads what it uses of them and ignores the rest.
+  if (Array.isArray(json.extensionsRequired) && json.extensionsRequired.some((x) => !budget.extensions?.includes(x as string))) return { ok: false, why: "needs-more" };
   const accessors = list("accessors");
   const views = list("bufferViews");
   const meshes = list("meshes");
   let triangles = 0;
   let parts = 0;
+  let morphs = 0;
   for (const mesh of meshes) {
     for (const p of Array.isArray(mesh.primitives) ? (mesh.primitives as Record<string, unknown>[]) : []) {
       parts++;
+      if (Array.isArray(p.targets)) morphs = Math.max(morphs, p.targets.length);
       const mode = typeof p.mode === "number" ? p.mode : 4;
       const from = typeof p.indices === "number" ? p.indices : ((p.attributes as Record<string, unknown> | undefined)?.POSITION as number | undefined);
       const count = typeof from === "number" && typeof accessors[from]?.count === "number" ? (accessors[from]!.count as number) : 0;
@@ -198,6 +220,8 @@ export function readGlb(bytes: Uint8Array, budget: typeof MODEL_BUDGET = MODEL_B
     texture = Math.max(texture, size[0], size[1]);
   }
   const materials = list("materials");
+  const joints = new Set<number>();
+  for (const skin of list("skins")) for (const j of Array.isArray(skin.joints) ? skin.joints : []) if (typeof j === "number") joints.add(j);
   const count: GlbCount = {
     triangles,
     // What a renderer makes a mesh of is each part of each mesh.
@@ -209,7 +233,9 @@ export function readGlb(bytes: Uint8Array, budget: typeof MODEL_BUDGET = MODEL_B
       .filter(Boolean)
       .slice(0, 8),
     materialNames: materials.map((m) => (typeof m.name === "string" ? m.name : "")),
+    joints: joints.size,
+    morphs,
   };
-  const within = parts > 0 && parts <= budget.meshes && triangles <= budget.triangles && count.materials <= budget.materials && texture <= budget.texture;
+  const within = parts > 0 && parts <= budget.meshes && triangles <= budget.triangles && count.materials <= budget.materials && texture <= budget.texture && count.joints <= (budget.joints ?? Infinity) && morphs <= (budget.morphs ?? Infinity);
   return within ? { ok: true, count } : { ok: false, why: "over-budget" };
 }
