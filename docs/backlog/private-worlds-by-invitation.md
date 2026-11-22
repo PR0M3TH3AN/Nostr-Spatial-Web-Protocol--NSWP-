@@ -11,55 +11,7 @@
   room's, `packages/sdk/src/front-room.ts`). The list's shape, BitGate
   (one shape for an allow and a block list everywhere, see
   [bitgate](bitgate.md)). The client's half, BitPortal.
-- **State:** building. Stage 1 (the block list, and `named_only`) is pull
-  request #272. Stage 2 (the allow list, `by_invitation`, the
-  `["by-invitation"]` tag, and the eighth door tile on the owner's word) is
-  built on the NSWP builder's branch `by-invitation`, tried with scripted
-  visitors on the stand-in relay (`trials/owner-lists.mjs`). Not built: the
-  owner's screen in the console (it needs a request to the sign-in address,
-  which is BitLogin's), BitPortal's half (not showing the door to someone
-  not invited), and stage 3 (sealed).
-
-## What is asked, in short
-
-A world's owner keeps a list of who may come in, a list of who may not,
-or both. They keep it themselves. Nobody else has to agree, run a
-service, or be trusted: the owner's own signature on the list is the
-whole of it, and every copy of the kit can check that signature against
-the key that announced the world.
-
-Two uses the owner names: a personal home world, and a world for a
-private group.
-
-## What "private" can honestly mean (the orchestrator's reading, not yet decided by the owner)
-
-A world is a static site. Its files are handed to anyone who asks for
-them by address; nothing on a static host can refuse. So there are three
-different strengths, and each must be called by its right name:
-
-1. **By invitation (a guest list at the gate).** The gate the kit already
-   has for a paid world opens, here, for a signed-in visitor whose key is
-   on the owner's allow list, and for nobody on the block list. This keeps
-   people from walking in. It does not keep the files secret from someone
-   who goes looking for them outside the kit. It is the `soft` gate of the
-   front room with a different thing that opens it: a name on a list in
-   place of a receipt.
-2. **Not shown.** A door, a list or a search shows the world only to
-   someone on its list (or not at all). Being unlisted is not being
-   private either, but it is most of what a home world wants.
-3. **Private (sealed).** What is behind the gate is encrypted, and each
-   invited person is handed the key, wrapped to their own key. What is
-   said and heard in the room is encrypted to the group too. Only this is
-   private. It is the `sealed` gate the front room left out on purpose
-   (see [paid-front-room](paid-front-room.md)): the same piece, with the
-   key coming by invitation where there it comes with a purchase.
-
-A block list alone (no allow list) is a public world its owner can put
-people out of. That is worth having for every world, not only private
-ones, and it is the smallest first piece.
-
-## The kit's half
-
+- **State:** building. Stage 1 (the owner's block list) and stage 2 (a world by invitation, and "By invitation" as the eighth door tile) are merged as kits 0.75.0 and 0.77.0. Not live; no world uses them. Not built: the owner's screen to invite people from the menus (needs a request at the sign-in address, BitLogin's), BitPortal hiding a door from someone not invited, and the sealed kind.
 - **The list.** One signed event from the world's owner, per world,
   naming keys allowed and keys blocked, in the shape BitGate uses for its
   lists (ask BitGate; don't invent a second). Read and checked in
