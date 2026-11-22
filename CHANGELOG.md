@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.78.1
 
 - **A list of worlds dated in the future is left out** (NSWP-08, "Following one"; `resolveList`, `LIST_LIMITS.ahead`; found by the BitGate session, 2026-11-21). Of the copies relays give for a list's coordinate, one dated more than 600 seconds ahead of the reader's clock is dropped before choosing and named in `futureDated`, so a copy signed with a clock a year fast can't stand over every honest newer one. Exactly 600 seconds ahead is still read. The newest of the rest is the list, a tie to the smallest id. The same rule BitGate's lists keep. `vectors/lists.json` has a new `choosing` section: 600 seconds ahead read, 601 left out, a future copy beside a current one leaving the current standing, another key, a bad signature and a tie.
 - **The headset console never draws one thing over another** (`console.ts`). A section with a card, buttons and many lines (a door's details: its card, Travel here, Back to every door, and thirteen lines of what it offers) had its buttons drawn over its lines, their words far too big, because the buttons' height went below nothing once the lines took the room. Now buttons have a height of their own, the lines stay the console's usual size, and what doesn't fit goes on another page, shown by a "Page 1 of 4" button beside the others (`pageLines`): a page more, never a smaller sentence. A section's note gets a fourth line before any of it is cut, and a single word longer than its button is cut rather than run past the edge.
