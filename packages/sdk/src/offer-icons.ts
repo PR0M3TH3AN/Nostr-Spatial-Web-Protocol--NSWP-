@@ -13,6 +13,7 @@ export const OFFER_ICONS: Record<(typeof DOOR_OFFERS)[number], IconName> = {
   items: "bag",
   saves: "save",
   records: "trophy",
+  "by-invitation": "invite",
   paid: "coin",
 };
 

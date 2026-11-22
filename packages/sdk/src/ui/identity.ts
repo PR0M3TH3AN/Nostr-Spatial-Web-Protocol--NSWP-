@@ -255,11 +255,12 @@ let pageGate: PaidGate | null = null;
 const rulesWatchers = new Set<() => void>();
 /**
  * The world's own rules for its rooms, as this page's gate last read them from the world's own manifest and its
- * owner's list (protocol/10-identity.md, "A world's own lists"): who the owner keeps out, and whether only named
- * people are shown. Nothing and false where the page has no gate. A room joined here takes them (presence.ts).
+ * owner's lists (protocol/10-identity.md, "A world's own lists"): who the owner keeps out, whether only named
+ * people are shown, and, where the world is by invitation, who may be in them. Nothing, false and null where the
+ * page has no gate. A room joined here takes them (presence.ts).
  */
-export function pageRules(): { blocked: readonly string[]; namedOnly: boolean } {
-  return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly } : { blocked: [], namedOnly: false };
+export function pageRules(): { blocked: readonly string[]; namedOnly: boolean; invited: readonly string[] | null } {
+  return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited } : { blocked: [], namedOnly: false, invited: null };
 }
 /** Be told when those rules may have changed. Returns how to stop. */
 export function onPageRules(fn: () => void): () => void {

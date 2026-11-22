@@ -15,9 +15,12 @@
 import { cleanAccess } from "./listing.js";
 import type { World } from "./world.js";
 
-/** The seven a door shows, in the order it shows them. */
-export const DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"] as const;
-/** The rest, which a door's details show after those seven. */
+/**
+ * The eight a door shows, in the order it shows them. Eight is the most a door carries. The last two, at the foot,
+ * say what it takes to get in: "By invitation" was added beside "Paid" on the owner's word (2026-11-21, "Yes, add it").
+ */
+export const DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "by-invitation", "paid"] as const;
+/** The rest, which a door's details show after those eight. */
 export const MORE_OFFERS = ["tips", "doors", "looks", "by-name", "home"] as const;
 export const OFFERS = [...DOOR_OFFERS, ...MORE_OFFERS] as const;
 export type OfferId = (typeof OFFERS)[number];
@@ -35,7 +38,7 @@ export interface Offer {
 }
 
 /** What `worldOffers` reads. A whole `World` does. */
-export type OffersOf = Pick<World, "modes" | "capabilities"> & Partial<Pick<World, "items" | "access">>;
+export type OffersOf = Pick<World, "modes" | "capabilities"> & Partial<Pick<World, "items" | "access" | "byInvitation">>;
 
 const NAMES: Record<OfferId, string> = {
   headset: "Headset",
@@ -44,6 +47,7 @@ const NAMES: Record<OfferId, string> = {
   items: "Items",
   saves: "Saves",
   records: "Scores",
+  "by-invitation": "By invitation",
   paid: "Paid",
   tips: "Tips",
   doors: "Doors",
@@ -58,6 +62,7 @@ const WORDS: Record<Exclude<OfferId, "items" | "records">, readonly [on: string,
   people: ["You can meet other people here.", "It doesn't say you can meet other people here."],
   voice: ["You can talk with people here.", "It doesn't say you can talk with people here."],
   saves: ["Your progress is kept for you here.", "It doesn't say it keeps your progress."],
+  "by-invitation": ["Only people its owner invited may go in.", "It doesn't say it is by invitation."],
   paid: ["It costs money to go in.", "It doesn't say it costs anything to go in."],
   tips: ["You can tip this place.", "It doesn't say it takes tips."],
   doors: ["It has doors on to other places.", "It doesn't say it has doors on to other places."],
@@ -68,7 +73,7 @@ const WORDS: Record<Exclude<OfferId, "items" | "records">, readonly [on: string,
 
 /**
  * Everything a world may say it offers, each with whether this one says it
- * and the words for that: the seven a door shows first, then the rest. From
+ * and the words for that: the eight a door shows first, then the rest. From
  * the announcement alone.
  */
 export function worldOffers(world: OffersOf): Offer[] {
@@ -95,6 +100,8 @@ export function worldOffers(world: OffersOf): Offer[] {
     ],
     // What costs money to go into names what is sold (the `access` tag). Saying it takes payments is not that.
     // Only a listing counts: a list with nothing in it, or nothing in it that is a listing, is a free world.
+    // Its announcement says so outright: the tag, and nothing else. A world's manifest saying it is not a door's word.
+    "by-invitation": line("by-invitation", world.byInvitation === true),
     paid: line("paid", cleanAccess(world.access).length > 0),
     tips: line("tips", says("tips")),
     doors: line("doors", says("spatial-portals")),

@@ -11,12 +11,14 @@
   room's, `packages/sdk/src/front-room.ts`). The list's shape, BitGate
   (one shape for an allow and a block list everywhere, see
   [bitgate](bitgate.md)). The client's half, BitPortal.
-- **State:** building. Stage 1 (the block list, and `named_only`) is
-  built on the NSWP builder's branch `owner-lists`, tried with three
-  visitors on the stand-in relay (`trials/owner-lists.mjs`); merged when
-  its pull request is. Stage 2 (the allow list, `by_invitation`, the
-  `["by-invitation"]` tag) and the owner's screen are next. The eighth
-  door tile waits on the owner. Stage 3 (sealed) is not started.
+- **State:** building. Stage 1 (the block list, and `named_only`) is pull
+  request #272. Stage 2 (the allow list, `by_invitation`, the
+  `["by-invitation"]` tag, and the eighth door tile on the owner's word) is
+  built on the NSWP builder's branch `by-invitation`, tried with scripted
+  visitors on the stand-in relay (`trials/owner-lists.mjs`). Not built: the
+  owner's screen in the console (it needs a request to the sign-in address,
+  which is BitLogin's), BitPortal's half (not showing the door to someone
+  not invited), and stage 3 (sealed).
 
 ## What is asked, in short
 

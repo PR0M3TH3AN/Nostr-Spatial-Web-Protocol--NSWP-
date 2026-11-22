@@ -70,6 +70,10 @@ const rulesOf = (world) => {
     if (typeof world.named_only !== "boolean") throw new Error(`${world.d}: "named_only" in its world.json must be true or false.`);
     if (world.named_only) out.named_only = true;
   }
+  if (world.by_invitation !== undefined) {
+    if (typeof world.by_invitation !== "boolean") throw new Error(`${world.d}: "by_invitation" in its world.json must be true or false.`);
+    if (world.by_invitation) out.by_invitation = true;
+  }
   return out;
 };
 /** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */

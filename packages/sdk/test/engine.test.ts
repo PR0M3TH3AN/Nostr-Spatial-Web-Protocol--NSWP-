@@ -75,7 +75,7 @@ describe("what another engine takes from the kit", () => {
     expect(main).toMatch(/^const NEEDS_GATE := false$/m);
     expect(main).toContain("Nswp.gate(NEEDS_GATE)");
     const world = JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")) as Record<string, unknown>;
-    for (const word of ["access", "keepers", "named_only"]) expect(world[word], word).toBeUndefined();
+    for (const word of ["access", "keepers", "named_only", "by_invitation"]) expect(world[word], word).toBeUndefined();
   });
 
   it("reads a door's address the way a sign should show it", () => {
