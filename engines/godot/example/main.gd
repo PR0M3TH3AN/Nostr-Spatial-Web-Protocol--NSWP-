@@ -20,10 +20,11 @@ const TITLE := "The Foundry"
 const ACCENT := Color("3df5a0")
 const GROUND := Color("141b24")
 
-## Whether this world is paid: whether its own `world.json` names what it is entered by. It
-## names nothing, so there is no gate here: nothing is read and nobody is asked. The build
-## stops if this and `world.json` disagree.
-const PAID := false
+## Whether this world needs a gate: whether its own `world.json` names what it is entered by
+## (`access`), whose lists count (`keepers`), or that its rooms show only named people
+## (`named_only`). It names none of them, so there is no gate here: nothing is read and nobody
+## is asked. The build stops if this and `world.json` disagree.
+const NEEDS_GATE := false
 ## Where a gate would stand if it were: across the way, between where a visitor arrives and
 ## the doors. Everything before it is free.
 const GATE_Z := 0.0
@@ -66,10 +67,11 @@ func _ready() -> void:
 
 	# A paid world's gate (NSWP-10, "The front room"). The kit's script asks what the visitor
 	# holds and puts the one control that asks to buy in the menu; this world draws the gate
-	# and stops them at it. This world is free, so `gate(false)` makes nothing and says "free".
+	# and stops them at it. This world is free and keeps no lists, so `gate(false)` makes nothing
+	# and says "free".
 	_build_veil()
 	Nswp.gate_changed.connect(func(_stands: Dictionary) -> void: _tend_gate())
-	Nswp.gate(PAID)
+	Nswp.gate(NEEDS_GATE)
 	_tend_gate()
 
 	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))

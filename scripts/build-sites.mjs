@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, paidWorldReaches } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, paidWorldReaches, cleanRoot } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -52,6 +52,25 @@ const accessOf = (world) => {
   const listings = cleanAccess(said, [config.publisher]);
   if (listings.length !== said.length) throw new Error(`${world.d}: "access" in its world.json must be listings' coordinates (30078:<pubkey>:<name>), each once, sold by the publisher in sites.json, and at most eight.`);
   return listings;
+};
+/**
+ * A world's own rules for who comes in (protocol/10-identity.md, "A world's own lists"): whose lists count
+ * (`keepers`, one to four keys) and whether its rooms show only named people (`named_only`). None of the worlds
+ * here says either, and a test keeps them so until the owner says otherwise. A word that doesn't read stops the
+ * build: a world must never be built with a rule it didn't mean.
+ */
+const rulesOf = (world) => {
+  const out = {};
+  if (world.keepers !== undefined) {
+    const keepers = cleanRoot(world.keepers);
+    if (!keepers || !Array.isArray(world.keepers) || keepers.length !== world.keepers.length) throw new Error(`${world.d}: "keepers" in its world.json must be a list of one to four keys, each 64 lowercase hex, each once.`);
+    out.keepers = keepers;
+  }
+  if (world.named_only !== undefined) {
+    if (typeof world.named_only !== "boolean") throw new Error(`${world.d}: "named_only" in its world.json must be true or false.`);
+    if (world.named_only) out.named_only = true;
+  }
+  return out;
 };
 /** Whether a world draws what its visitors carry: then it fetches models from wherever their makers keep them. */
 const carries = (s) => {
@@ -112,6 +131,8 @@ const manifest = (world) => ({
       // What it is entered by, where it is paid. The world reads this, its visitor's sign-in address reads this,
       // and a client can before anyone crosses. Left out, the world is free.
       ...(accessOf(world).length ? { access: accessOf(world) } : {}),
+      // Whose lists count, and whether its rooms show only named people. Left out, as in every world here.
+      ...rulesOf(world),
     },
   },
   relays: config.relays,

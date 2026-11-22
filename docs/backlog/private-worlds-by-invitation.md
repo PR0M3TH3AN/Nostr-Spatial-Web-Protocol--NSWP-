@@ -11,9 +11,12 @@
   room's, `packages/sdk/src/front-room.ts`). The list's shape, BitGate
   (one shape for an allow and a block list everywhere, see
   [bitgate](bitgate.md)). The client's half, BitPortal.
-- **State:** building (2026-11-21: the kit's builder's plan is written,
-  `docs/plans/a-world-by-invitation.md`, and its decisions answered
-  below; BitGate is writing the list's shape as vectors; no code yet)
+- **State:** building. Stage 1 (the block list, and `named_only`) is
+  built on the NSWP builder's branch `owner-lists`, tried with three
+  visitors on the stand-in relay (`trials/owner-lists.mjs`); merged when
+  its pull request is. Stage 2 (the allow list, `by_invitation`, the
+  `["by-invitation"]` tag) and the owner's screen are next. The eighth
+  door tile waits on the owner. Stage 3 (sealed) is not started.
 
 ## What is asked, in short
 

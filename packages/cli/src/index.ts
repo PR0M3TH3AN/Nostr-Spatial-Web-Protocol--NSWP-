@@ -7,6 +7,7 @@
  *   nswp keygen <key-file>
  *   nswp sign-world <world-input.json> --key-file <path> [--out <file>]
  *   nswp sign-list <list-input.json> --key-file <path> [--out <file>]
+ *   nswp sign-world-list <block|allow> <world> [people...] --key-file <path> [--out <file>]
  *   nswp make-item <model.glb> --title <name> --host <https://…/> [--d <name>] [--summary <words>] [--out <file>] [--files <dir>]
  *   nswp sign-item <item-input.json> --key-file <path> [--out <file> | --out-dir <dir>]
  *   nswp worlds [--relays ...] [--verify] [--not-on <list-event.json>] [--json]
@@ -19,6 +20,11 @@ import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import {
   buildItem,
+  decodeNpub,
+  isListSubject,
+  ownerListTemplate,
+  OWNER_LIST_LIMITS,
+  readOwnerList,
   measureGlb,
   MODEL_BUDGET,
   readGlb,
@@ -397,6 +403,67 @@ function worldCoordinate(s: string): string {
   return s;
 }
 
+/**
+ * A world owner's list (protocol/10-identity.md, "A world's own lists"): who is kept out of a world, or let into
+ * it, in BitGate's shape. The whole list as it should be: everyone named, and nobody else. It is signed here with a
+ * key file, and is published apart (`nswp publish`), which for a real world is its owner's word.
+ */
+function signWorldList(which: string | undefined, world: string | undefined, people: string[]): number {
+  const keyFile = flag("key-file");
+  const scope = which === "block" ? "user-deny" : which === "allow" ? "user-allow" : null;
+  if (!scope || !world || !keyFile) {
+    console.log(`${BAD} usage: nswp sign-world-list <block|allow> <world: naddr or 37300:<key>:<d>> [people: npub or hex ...] --key-file <path> [--out <file>]`);
+    return 1;
+  }
+  let subject: string;
+  try {
+    subject = worldCoordinate(world);
+  } catch (e) {
+    console.log(`${BAD} ${e instanceof Error ? e.message : String(e)}`);
+    return 1;
+  }
+  if (!subject.startsWith(`${WORLD_KIND}:`) || !isListSubject(subject)) {
+    console.log(`${BAD} ${world} is not a world: give its naddr, or 37300:<the key that announced it>:<its d>.`);
+    return 1;
+  }
+  const keys: string[] = [];
+  for (const p of people.flatMap((x) => x.split(",")).map((x) => x.trim()).filter(Boolean)) {
+    let key = p;
+    try {
+      if (p.startsWith("npub1")) key = decodeNpub(p);
+    } catch {
+      key = "";
+    }
+    if (!/^[0-9a-f]{64}$/.test(key)) {
+      console.log(`${BAD} ${p.slice(0, 24)} is not a person's key (npub, or 64 lowercase hex).`);
+      return 1;
+    }
+    keys.push(key);
+  }
+  const template = ownerListTemplate({ scope, subject, people: keys, createdAt: Math.floor(Date.now() / 1000) });
+  if (!template) {
+    console.log(`${BAD} A list may name at most ${OWNER_LIST_LIMITS.write} people.`);
+    return 1;
+  }
+  const secret = readKey(keyFile);
+  const event = finalizeEvent(template, secret);
+  // Read back as any reader will, with the signer as the root: what is written must be what is read.
+  const read = readOwnerList(event, { root: [getPublicKey(secret)] });
+  if (!read.ok) {
+    console.log(`${BAD} The list didn't read back (${read.reason}).`);
+    return 1;
+  }
+  const text = `${JSON.stringify(event, null, 2)}\n`;
+  const outPath = flag("out");
+  if (outPath) writeFileSync(outPath, text);
+  else process.stdout.write(text);
+  const who = read.entries.length === 1 ? "1 person" : `${read.entries.length} people`;
+  console.error(`${OK} ${scope === "user-deny" ? "Block" : "Guest"} list for ${subject}: ${who}${outPath ? ` → ${outPath}` : ""}`);
+  console.error(`${WARN} Anyone can read this list.${scope === "user-deny" ? " A block list shows whom you blocked." : " A guest list shows who is invited."}`);
+  console.error(`${WARN} It counts only where the world's own manifest names ${getPublicKey(secret).slice(0, 12)}… in "keepers". It replaces the list before it: whoever isn't named on it is no longer on it.`);
+  return 0;
+}
+
 function signList(inputPath: string): number {
   const keyFile = flag("key-file");
   if (!keyFile) {
@@ -504,6 +571,8 @@ async function main(): Promise<number> {
     case "sign-list":
       if (arg) return signList(arg);
       break;
+    case "sign-world-list":
+      return signWorldList(arg, positional[2], positional.slice(3));
     case "make-item":
       if (arg) return makeItem(arg);
       break;
@@ -529,6 +598,8 @@ async function main(): Promise<number> {
   nswp keygen <key-file>                                  create a publisher key (hex, mode 600)
   nswp sign-world <input.json> --key-file <f> [--out f]   sign a world announcement from a WorldInput file
   nswp sign-list <input.json> --key-file <f> [--out f]    sign a list of worlds: { "d", "title", "description", "worlds": [addresses] }
+  nswp sign-world-list <block|allow> <world> [people...] --key-file <f> [--out f]
+                                                          sign a world owner's whole list of who is kept out or let in (anyone can read it)
   nswp make-item <model.glb> --title <name> --host <https://…/> [--d name] [--summary words] [--out f] [--files dir]
                                                           describe an item from a model made in any tool (NSWP-17)
   nswp sign-item <input.json> --key-file <f> [--out f | --out-dir d]

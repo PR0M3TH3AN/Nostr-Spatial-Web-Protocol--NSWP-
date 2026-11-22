@@ -825,6 +825,84 @@ the engine's.
 Not built: the taken-back answer for a held item, and a client's own mark
 on a door for what the visitor already holds.
 
+## A world's own lists
+
+**Status:** the block list is implemented (kit after 0.74.0: core
+`readOwnerList`, `resolveOwnerList`; the gate and rooms), tried with three
+scripted visitors on a relay on one machine. The allow list, and a world
+that is by invitation, are designed and not built · **Vectors:**
+[`governance-lists`](../vectors/governance-lists.json) (BitGate's own) ·
+**Code:** [`owner-lists.ts`](../packages/core/src/owner-lists.ts)
+
+A world's owner may keep someone out of their world, and no service, curator
+or validator has any say in it: their own signature on a list is the whole
+of it, and every visitor's copy of the kit checks it.
+
+**The list's shape is BitGate's**, so that one allow list and one block list
+read the same everywhere (PR0M3TH3AN/bitgate, `docs/governance-lists.md`,
+commit `8b98ed9`). Its examples are copied here unchanged, and the kit is
+held to every one of them.
+
+- A list is kind `30078`, with `d` =
+  `nswp:governance:<scope>:v1:37300:<the world's key>:<its d>`, `scope`
+  `user-deny` for a block list and `user-allow` for an allow list: two
+  notes. Tags `v` `1`, `scope` and `subject`, each equal to its part of the
+  `d`, then one `["p", <64 lowercase hex>]` for each person. The content is
+  empty.
+- **Everything after the world's key is its name**, colons and spaces
+  included, compared character for character.
+- **It counts only when signed by the root the reader was given.** For a
+  world, that is its manifest's `keepers` ([NSWP-01](01-worlds.md)), and
+  nothing else: a world that names no keepers keeps no lists, and none is
+  read for it. A given root replaces the default; the world's own key counts
+  only if it is among the keepers.
+- **The newest copy is the list.** One dated more than ten minutes ahead of
+  the reader's clock is left out before choosing, and said. If the newest
+  is refused, the list is unreadable, and an older copy is never used in its
+  place. A reader also remembers the newest copy it has seen, so that an
+  older one handed over later can't undo a change.
+- At most 2,000 people are read; a list with more is refused. The kit's own
+  writers stop at 500.
+
+**What a world does with a block list:**
+
+- A visitor signed in as a key on it is stopped at the world's gate
+  ("The front room") and told plainly: "The owner of this world has asked
+  you not to come in." Nothing is offered to press. Blocked beats
+  everything: a receipt, or buying, does not open the gate for them.
+- **A keeper is never kept out of their own world.**
+- **A block stops a name, not a person.** Signed out, the same person is a
+  guest, and walks in. A new key costs nothing. A world that wants a block
+  to hold in its rooms says `named_only` ([NSWP-06](06-rooms.md), "A
+  world's own rules"); one that wants it to hold at the gate will be by
+  invitation, when that is built.
+- **In the room** someone on it is let go the moment their pass shows who
+  they are, by every visitor's kit that keeps the rule ([NSWP-06](06-rooms.md)).
+- **A block list that can't be read stops nobody.** Where no relay answers,
+  the copy this device remembers stands, and with none, nobody is blocked;
+  it is asked for again within twenty seconds, then less often. A list
+  whose newest copy is refused stops nobody either, and the gate says it is
+  unreadable. This is so that a relay that is down can't shut a world.
+- It is read as the world loads and every five minutes after.
+
+**Anyone can read the list.** That is the owner's decision (2026-11-21):
+every screen that changes one says "Anyone can read this list", and a block
+list shows the world whom its owner blocked. It is not the visitor's own
+blocks, which stay on their device, published nowhere and told to nobody
+("In a room"), and the two are never merged.
+
+**Writing one.** `nswp sign-world-list block <world> [people…] --key-file
+<file>` signs the whole list as it should be, and `nswp publish` sends it,
+which for a real world is its owner's word. A screen in the visitor's
+console for the owner is not built: it needs a request to the sign-in
+address that asks the owner each time, built as following one person is, and
+never by loosening what a world's signer may sign.
+
+**Not built:** the allow list and `by_invitation` (stage 2), the owner's
+screen, a newer list passed round a room the moment it changes (a new word
+on the channel, to be asked for), and the owner's block list for every world
+of theirs (BitGate's application-wide list, which has no examples yet).
+
 ## Shares
 
 **Status: written down, and not in force.** Nothing pays a share: a

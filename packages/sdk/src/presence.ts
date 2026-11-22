@@ -19,10 +19,17 @@ import { setAimScale } from "./desk.js";
 import { applyTints, showsItems, type Items } from "./items.js";
 import { createPlay, mayHold, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
-import { byName } from "./ui/identity.js";
+import { byName, onPageRules, pageRules } from "./ui/identity.js";
 
 
 export interface PresenceOptions {
+  /**
+   * The world's own rules for its rooms (protocol/10-identity.md, "A world's own lists"), as its gate last read
+   * them: the identity keys its owner keeps out, and whether its rooms show only named people. Asked each time a
+   * room is joined, and again when `rulesChanged()` is called. Left out, the page's own gate's (`pageRules` in
+   * ui/identity.ts), taken again whenever that gate reads a change; with no gate, a room is as it always was.
+   */
+  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean };
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   /** The object that moves the visitor around; the camera is inside it. */
@@ -124,7 +131,13 @@ export interface Presence {
   /** The private room's name, or null in a world's open room. */
   readonly roomName: string | null;
   readonly micOn: boolean;
+  /**
+   * Join the room. Refused, with plain words in the error, where the world's rules would keep this visitor out of
+   * it: a guest in a world whose rooms show only named people, or someone the world's owner keeps out.
+   */
   join(name: string | null): Promise<void>;
+  /** The world's rules for its rooms have changed (its gate read a newer list): the room here takes them at once. */
+  rulesChanged(): void;
   leave(): void;
   setMicrophone(track: MediaStreamTrack | null): Promise<void>;
   /** A quiet test tone to use in place of a microphone. */
@@ -405,6 +418,10 @@ export function speechSprite(text: string, width = 0.8): THREE.Sprite {
 }
 
 export function createPresence(d: PresenceOptions): Presence {
+  /** The world's rules for its rooms: as given, or as this page's gate last read them. */
+  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean } => d.worldRules?.() ?? pageRules();
+  // The page's gate read a newer list: a room here takes it at once.
+  if (!d.worldRules) onPageRules(() => session?.setOwnerBlocked(rulesNow().blocked));
   const labelColor = d.labelColor ?? "#ffffff";
   const changed = () => d.onChange?.();
   const listener = new THREE.AudioListener();
@@ -946,7 +963,12 @@ export function createPresence(d: PresenceOptions): Presence {
     // By name only while they are signed in here: where their client named a signer, a pass they arrived with counts
     // once that signer is unlocked for this world, as the same person (ui/identity.ts).
     const identity = await byName(typeof d.identity === "function" ? d.identity() : d.identity);
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys() });
+    // The world's own rules: who its owner keeps out, and whether only named people are shown. A visitor they'd
+    // keep out is told so here, before anyone else learns their address by being joined.
+    const rules = rulesNow();
+    if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
+    if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly });
     session = s;
     if (!offsetApplied) {
       // Step aside from the spawn point so two people don't arrive inside each other.
@@ -1293,6 +1315,9 @@ export function createPresence(d: PresenceOptions): Presence {
       keptBlocks = withoutBlocked(keptBlocks, key);
       storeBlocked(keptBlocks);
       changed();
+    },
+    rulesChanged() {
+      session?.setOwnerBlocked(rulesNow().blocked);
     },
     blocked() {
       return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];

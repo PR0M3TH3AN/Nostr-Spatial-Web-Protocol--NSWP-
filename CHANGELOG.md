@@ -2,6 +2,16 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
+## Next
+
+- **A world owner can keep someone out** (NSWP-10, "A world's own lists"; NSWP-06, "A world's own rules"). The owner's block list is a signed note in BitGate's shape (kind 30078, `d` `nswp:governance:user-deny:v1:37300:<key>:<d>`), read in core (`readOwnerList`, `resolveOwnerList`) and held to BitGate's own 55 examples, copied unchanged into `vectors/governance-lists.json`. It counts only when signed by the world's own manifest's `keepers`. Someone on it is stopped at the gate ("The owner of this world has asked you not to come in"), blocked beating a receipt, and let go from every room that keeps the rule the moment their pass checks out. A keeper is never kept out. A list that can't be read stops nobody, and is asked for again soon. Anyone can read the list, by the owner's decision.
+- **Two words in a world's manifest** (NSWP-01): `keepers` (one to four keys) and `named_only` (only exactly `true`: the world's rooms show only people whose pass checks out, and a guest is told to sign in before joining). Core `accessFor` gives both; `KEEPERS_MOST`.
+- **Rooms take a world's rules from the page's gate** (`pageRules`; `RoomSession.setOwnerBlocked`, `namedOnly`; `presence.rulesChanged`), so a Three.js world and a world made in another engine get them with nothing to wire.
+- `nswp sign-world-list <block|allow> <world> [people…] --key-file <f>` signs an owner's whole list. Publishing it is `nswp publish`, and for a real world its owner's word.
+- A world's gate setting in the reference worlds is `gate` (was `paid`), on where `world.json` names `access`, `keepers` or `named_only`. The Foundry's switch is `NEEDS_GATE` (was `PAID`). No reference world says any of them.
+- `trials/owner-lists.mjs`: three visitors on the stand-in relay.
+- The manifest's schema no longer refuses an `access` that isn't a list, which the core takes with a warning (schemas never refuse what the core accepts).
+
 ## 0.74.1
 
 - **One place to start** (`docs/start.md`; `docs/backlog/landing-02-get-started.md`): for someone, or some agent, who has never seen any of this: what a world is, the three ways in, the template step by step with every command run, how a world is announced (and that `--yes` is public and permanent) and checked, and where each next thing is written. A test keeps its links real and its publishing step out of the commands to copy. BitPortal shows it on a page of its own.

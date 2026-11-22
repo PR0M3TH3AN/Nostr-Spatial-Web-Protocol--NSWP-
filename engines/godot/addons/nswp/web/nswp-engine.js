@@ -537,15 +537,15 @@ var NSWP = (() => {
       this.H = IV[7] | 0;
     }
     get() {
-      const { A, B, C, D, E, F, G, H: H2 } = this;
-      return [A, B, C, D, E, F, G, H2];
+      const { A, B, C, D: D2, E, F, G, H: H2 } = this;
+      return [A, B, C, D2, E, F, G, H2];
     }
     // prettier-ignore
-    set(A, B, C, D, E, F, G, H2) {
+    set(A, B, C, D2, E, F, G, H2) {
       this.A = A | 0;
       this.B = B | 0;
       this.C = C | 0;
-      this.D = D | 0;
+      this.D = D2 | 0;
       this.E = E | 0;
       this.F = F | 0;
       this.G = G | 0;
@@ -565,7 +565,7 @@ var NSWP = (() => {
         const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ W2 >>> 10;
         SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
       }
-      let { A, B, C, D, E, F, G, H: H2 } = this;
+      let { A, B, C, D: D2, E, F, G, H: H2 } = this;
       for (let i = 0; i < 64; i++) {
         const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
         const T1 = H2 + sigma1 + Chi(E, F, G) + SHA256_K[i] + SHA256_W[i] | 0;
@@ -574,8 +574,8 @@ var NSWP = (() => {
         H2 = G;
         G = F;
         F = E;
-        E = D + T1 | 0;
-        D = C;
+        E = D2 + T1 | 0;
+        D2 = C;
         C = B;
         B = A;
         A = T1 + T2 | 0;
@@ -583,12 +583,12 @@ var NSWP = (() => {
       A = A + this.A | 0;
       B = B + this.B | 0;
       C = C + this.C | 0;
-      D = D + this.D | 0;
+      D2 = D2 + this.D | 0;
       E = E + this.E | 0;
       F = F + this.F | 0;
       G = G + this.G | 0;
       H2 = H2 + this.H | 0;
-      this.set(A, B, C, D, E, F, G, H2);
+      this.set(A, B, C, D2, E, F, G, H2);
     }
     roundClean() {
       clean(SHA256_W);
@@ -1084,8 +1084,8 @@ var NSWP = (() => {
     const powered = F.pow(n, p1mod2);
     const yes = F.eql(powered, F.ONE);
     const zero = F.eql(powered, F.ZERO);
-    const no3 = F.eql(powered, F.neg(F.ONE));
-    if (!yes && !zero && !no3)
+    const no4 = F.eql(powered, F.neg(F.ONE));
+    if (!yes && !zero && !no4)
       throw new Error("invalid Legendre symbol result");
     return yes ? 1 : zero ? 0 : -1;
   }
@@ -4574,7 +4574,133 @@ var NSWP = (() => {
     return [on3, WORDS[id][on3 ? 0 : 1]];
   }
 
+  // packages/core/dist/owner-lists.js
+  var LIST_KIND = 30078;
+  var LIST_NAMESPACE = "nswp";
+  var OWNER_LIST_LIMITS = { read: 2e3, write: 500, ahead: 600, root: 4 };
+  var NAMESPACE = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+  var D = /^([^:]*):governance:([^:]*):v([^:]*):([\s\S]*)$/;
+  var HEX = (n) => new RegExp(`^[0-9a-f]{${n}}$`);
+  var HEX1282 = HEX(128);
+  var no3 = (reason) => ({ ok: false, reason });
+  function isListSubject(subject) {
+    if (typeof subject !== "string")
+      return false;
+    const m = /^(0|[1-9][0-9]{0,4}):([0-9a-f]{64}):([\s\S]*)$/.exec(subject);
+    if (!m || Number(m[1]) > 65535)
+      return false;
+    const name = m[3];
+    if (!name || new TextEncoder().encode(name).length > 512)
+      return false;
+    return !/[\u0000-\u001f\u007f]/.test(name);
+  }
+  function worldSubject(publisher, d) {
+    return `37300:${publisher}:${d}`;
+  }
+  function listD(scope, subject, namespace = LIST_NAMESPACE) {
+    return `${namespace}:governance:${scope}:v1:${subject}`;
+  }
+  function cleanRoot(root) {
+    const keys = Array.isArray(root) ? root : [root];
+    if (keys.length < 1 || keys.length > OWNER_LIST_LIMITS.root || !keys.every(isHex64))
+      return null;
+    return [...new Set(keys)];
+  }
+  var shaped = (e) => {
+    const v2 = e;
+    return !!v2 && typeof v2 === "object" && isHex64(v2.id) && isHex64(v2.pubkey) && typeof v2.sig === "string" && HEX1282.test(v2.sig) && Number.isInteger(v2.kind) && Number.isInteger(v2.created_at) && typeof v2.content === "string" && Array.isArray(v2.tags) && v2.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string"));
+  };
+  function readOwnerList(event, o = {}) {
+    const now = o.now ?? Math.floor(Date.now() / 1e3);
+    if (!shaped(event))
+      return no3("not_an_event");
+    const e = event;
+    if (e.kind !== LIST_KIND)
+      return no3("wrong_kind");
+    const ds = e.tags.filter((t) => t[0] === "d");
+    const m = ds.length === 1 ? D.exec(ds[0][1] ?? "") : null;
+    if (!m || !NAMESPACE.test(m[1]) || !/^[0-9]+$/.test(m[3]))
+      return no3("bad_d");
+    const [, , scope, version, subject] = m;
+    if (version !== "1")
+      return no3("unsupported_version");
+    if (scope !== "user-allow" && scope !== "user-deny")
+      return no3("unsupported_scope");
+    if (!isListSubject(subject))
+      return no3("bad_subject");
+    const one = (name, value) => {
+      const found2 = e.tags.filter((t) => t[0] === name);
+      return found2.length === 1 && found2[0][1] === value;
+    };
+    if (!one("v", version) || !one("scope", scope) || !one("subject", subject))
+      return no3("tag_mismatch");
+    const root = o.root === void 0 ? [subject.slice(subject.indexOf(":") + 1, subject.indexOf(":") + 65)] : cleanRoot(o.root);
+    if (!root || !root.includes(e.pubkey))
+      return no3("wrong_signer");
+    if (e.content !== "")
+      return no3("content_not_empty");
+    const people2 = e.tags.filter((t) => t[0] === "p");
+    if (people2.length > OWNER_LIST_LIMITS.read)
+      return no3("too_many_entries");
+    if (e.created_at > now + OWNER_LIST_LIMITS.ahead)
+      return no3("from_the_future");
+    let signed = false;
+    try {
+      signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
+    } catch {
+      signed = false;
+    }
+    if (!signed)
+      return no3("bad_signature");
+    const entries = [];
+    let skipped = 0;
+    for (const t of people2) {
+      const key = t[1];
+      if (!isHex64(key))
+        skipped++;
+      else if (!entries.includes(key))
+        entries.push(key);
+    }
+    entries.sort();
+    return { ok: true, scope, subject, signer: e.pubkey, entries, skipped };
+  }
+  function resolveOwnerList(events2, q2) {
+    const now = q2.now ?? Math.floor(Date.now() / 1e3);
+    const d = listD(q2.scope, q2.subject, q2.namespace ?? LIST_NAMESPACE);
+    const root = q2.root === void 0 ? isListSubject(q2.subject) ? [q2.subject.split(":")[1]] : null : cleanRoot(q2.root);
+    if (!root)
+      return { ok: false, reason: "wrong_signer", futureDated: [] };
+    const candidates = [];
+    const futureDated = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const e of events2) {
+      if (!shaped(e) || e.kind !== LIST_KIND || !root.includes(e.pubkey) || seen.has(e.id))
+        continue;
+      const ds = e.tags.filter((t) => t[0] === "d");
+      if (ds.length !== 1 || ds[0][1] !== d)
+        continue;
+      let signed = false;
+      try {
+        signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
+      } catch {
+        signed = false;
+      }
+      if (!signed)
+        continue;
+      seen.add(e.id);
+      if (e.created_at > now + OWNER_LIST_LIMITS.ahead)
+        futureDated.push(e.id);
+      else
+        candidates.push(e);
+    }
+    if (!candidates.length)
+      return { ok: false, reason: "not_found", futureDated };
+    candidates.sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1));
+    return { ...readOwnerList(candidates[0], { root, now }), futureDated };
+  }
+
   // packages/core/dist/manifest.js
+  var KEEPERS_MOST = OWNER_LIST_LIMITS.root;
   var stringArray = (v2) => Array.isArray(v2) && v2.every((x) => typeof x === "string");
   var ENTRY_POINT = /^[A-Za-z0-9._-]{1,128}$/;
   function parseManifest(input, opts = {}) {
@@ -4693,6 +4819,22 @@ var NSWP = (() => {
               w.access = access;
           }
         }
+        if (raw.keepers !== void 0) {
+          const said2 = Array.isArray(raw.keepers) ? raw.keepers : [];
+          const keepers = [...new Set(said2.filter(isHex64))];
+          if (!Array.isArray(raw.keepers) || keepers.length !== said2.length)
+            c.warn("invalid_keeper", `${p}.keepers`, "keepers must be a list of 64 lowercase hex keys; anything else is left out.");
+          if (keepers.length > KEEPERS_MOST)
+            c.warn("too_many_keepers", `${p}.keepers`, `Only the first ${KEEPERS_MOST} keepers are used.`);
+          if (keepers.length)
+            w.keepers = keepers.slice(0, KEEPERS_MOST);
+        }
+        if (raw.named_only !== void 0) {
+          if (raw.named_only === true)
+            w.namedOnly = true;
+          else if (raw.named_only !== false)
+            c.warn("invalid_field", `${p}.named_only`, "named_only must be true or false; ignored.");
+        }
         worlds[id] = w;
       }
     }
@@ -4727,7 +4869,8 @@ var NSWP = (() => {
     if (d === void 0)
       return null;
     const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
-    return { d, listings: [...manifest.worlds[d].access ?? []], sellers };
+    const w = manifest.worlds[d];
+    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true };
   }
 
   // packages/core/dist/layout.js
@@ -6698,7 +6841,7 @@ ${roomName}`)));
     /** The longest a trail behind a thing sent out may be, in seconds of its flight. */
     trail: 0.6
   };
-  var HEX = /^#[0-9a-f]{6}$/;
+  var HEX2 = /^#[0-9a-f]{6}$/;
   var PLAIN = /^[a-z][a-z0-9-]{0,23}$/;
   var ITEM_BEHAVIORS = ["holdable", "sittable", "touchable", "readable", "wearable"];
   var ITEM_FITS = ["place", "head", "back", "hand-left", "hand-right", "side"];
@@ -6808,7 +6951,7 @@ ${roomName}`)));
       }).filter((e) => e !== null),
       does: Object.fromEntries(getTags(event, "does").filter((t) => t[1] === "use" || t[1] === "second").map((t) => [t[1], cleanLine(t[2], ITEM_LIMITS.label)]).filter((d2) => d2[1])),
       aim: readAim(tag2("aim")),
-      tints: getTags(event, "tint").slice(0, ITEM_LIMITS.tints).map((t) => ({ slot: t[1] ?? "", label: cleanLine(t[2], ITEM_LIMITS.label), color: t[3] ?? "" })).filter((t, i, all) => PLAIN.test(t.slot) && t.label !== "" && HEX.test(t.color) && all.findIndex((x) => x.slot === t.slot) === i),
+      tints: getTags(event, "tint").slice(0, ITEM_LIMITS.tints).map((t) => ({ slot: t[1] ?? "", label: cleanLine(t[2], ITEM_LIMITS.label), color: t[3] ?? "" })).filter((t, i, all) => PLAIN.test(t.slot) && t.label !== "" && HEX2.test(t.color) && all.findIndex((x) => x.slot === t.slot) === i),
       license: cleanLine(tag2("license")?.[1], 40),
       at: Number.isInteger(event.created_at) ? event.created_at : 0
     };
@@ -7411,12 +7554,12 @@ postMessage({ t: "started" });
     { id: "paper", label: "Paper", accent: "#f2f3f6" }
   ];
   var KEY = "nswp:ui";
-  var HEX2 = /^#[0-9a-f]{6}$/i;
+  var HEX3 = /^#[0-9a-f]{6}$/i;
   function cleanTheme(input) {
     const out = {};
     if (!input || typeof input !== "object") return out;
     const t = input;
-    for (const k of ["accent", "ink", "glass", "warn"]) if (typeof t[k] === "string" && HEX2.test(t[k])) out[k] = t[k].toLowerCase();
+    for (const k of ["accent", "ink", "glass", "warn"]) if (typeof t[k] === "string" && HEX3.test(t[k])) out[k] = t[k].toLowerCase();
     if (typeof t.motion === "boolean") out.motion = t.motion;
     if (typeof t.scale === "number" && Number.isFinite(t.scale)) out.scale = Math.min(1.5, Math.max(0.85, t.scale));
     if (t.wrist === "left" || t.wrist === "right" || t.wrist === "off") out.wrist = t.wrist;
@@ -7765,6 +7908,23 @@ postMessage({ t: "started" });
 
   // packages/sdk/src/front-room.ts
   var GATE_TIMES = { grace: 120, look: 300, goodFor: 86400 };
+  var LISTS_KEY = "nswp:owner-lists";
+  function rememberedLists() {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(LISTS_KEY) ?? "{}");
+      return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
+    } catch {
+      return {};
+    }
+  }
+  function rememberList(d, event) {
+    try {
+      const all = { ...rememberedLists(), [d]: event };
+      const kept2 = Object.entries(all).sort((a, b) => (b[1]?.created_at ?? 0) - (a[1]?.created_at ?? 0)).slice(0, 24);
+      globalThis.localStorage?.setItem(LISTS_KEY, JSON.stringify(Object.fromEntries(kept2)));
+    } catch {
+    }
+  }
   var GOOD_KEY = "nswp:receipts:good";
   function goodAt() {
     try {
@@ -7852,6 +8012,13 @@ postMessage({ t: "started" });
     let unwatch = null;
     let seeking2 = 0;
     let seekTimer;
+    let paid = false;
+    let lists = null;
+    let listState = "none";
+    let ownerBlocked = [];
+    let namedOnly = false;
+    let listRetries = 0;
+    let listTimer;
     const changed = () => {
       for (const fn of [...watchers7]) {
         try {
@@ -7936,6 +8103,11 @@ postMessage({ t: "started" });
         clearTimeout(seekTimer);
         seekTimer = setTimeout(() => void look(), 3e3);
       }
+      if (isBlocked(buyer)) return shut("blocked");
+      if (!paid) {
+        if (lists && buyer && listState === "reading") return;
+        return set("open", "");
+      }
       if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
       if (held2 && held2.buyer !== buyer) held2 = null;
       const got = await Promise.all(listings.map((l) => signer.have(l).then((r) => r ? believe(r.event, l, buyer) : null).catch(() => null)));
@@ -7972,6 +8144,40 @@ postMessage({ t: "started" });
       clearTimeout(retryTimer);
       if ([...unread.values()].some((w) => w === "no-relay" || w === "not-found")) retryTimer = setTimeout(() => void readOffers(), Math.min(2e4 * 2 ** retries++, GATE_TIMES.look * 1e3));
     };
+    const isBlocked = (key) => !!lists && !!key && ownerBlocked.includes(key) && !lists.root.includes(key);
+    const applyLists = (events2, answered = true) => {
+      if (!lists) return;
+      const kept2 = rememberedLists();
+      const blocked = /* @__PURE__ */ new Set();
+      let state2 = "not-found";
+      for (const subject of lists.subjects) {
+        const d = listD("user-deny", subject);
+        const all = [...events2, ...kept2[d] ? [kept2[d]] : []];
+        const r = resolveOwnerList(all, { scope: "user-deny", subject, root: lists.root, now: sec() });
+        const newest = all.filter((e) => e && e.kind === LIST_KIND && lists.root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+        if (newest && (!kept2[d] || newest.created_at > kept2[d].created_at || newest.created_at === kept2[d].created_at && newest.id < kept2[d].id)) rememberList(d, newest);
+        if (r.ok) {
+          for (const key of r.entries) blocked.add(key);
+          state2 = "read";
+        } else if (r.reason !== "not_found" && state2 !== "read") state2 = "unreadable";
+      }
+      listState = answered ? state2 : "unanswered";
+      const next = [...blocked].sort();
+      const differs = next.join() !== ownerBlocked.join();
+      ownerBlocked = next;
+      if (differs) changed();
+    };
+    const readLists = async () => {
+      if (!lists || disposed) return;
+      const filter = { kinds: [LIST_KIND], authors: [...lists.root], "#d": lists.subjects.map((s) => listD("user-deny", s)) };
+      const got = await askWell(filter, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, now }).catch(() => null);
+      if (disposed) return;
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      applyLists(got?.events ?? [], answered);
+      clearTimeout(listTimer);
+      if (answered) listRetries = 0;
+      else listTimer = setTimeout(() => void readLists().then(() => look()), Math.min(2e4 * 2 ** listRetries++, GATE_TIMES.look * 1e3));
+    };
     const begin = async () => {
       let access = null;
       let file = null;
@@ -7995,17 +8201,31 @@ postMessage({ t: "started" });
       }
       retries = 0;
       worldName = access.d;
+      namedOnly = access.namedOnly;
       listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
       const named2 = file?.worlds?.[access.d]?.access;
       const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named2) ? named2.length > 0 : named2 !== void 0;
-      if (!meant) return set("free", "");
-      if (listings.length === 0) return set("shut", "not-own");
-      void readOffers();
+      paid = meant;
+      if (access.keepers && access.sellers.length) {
+        lists = { root: access.keepers, subjects: access.sellers.map((key) => worldSubject(key, access.d)) };
+        listState = "reading";
+      }
+      if (!meant && !lists) return set("free", "");
+      if (meant && listings.length === 0) return set("shut", "not-own");
+      if (lists) {
+        const remembered = lists.subjects.some((s) => rememberedLists()[listD("user-deny", s)]);
+        if (remembered) {
+          applyLists([]);
+          void readLists().then(() => look());
+        } else await readLists();
+        if (disposed) return;
+      }
+      if (meant) void readOffers();
       const signer = opts.signer();
       if (signer) await signer.whenAnswered(4e3).catch(() => void 0);
       if (disposed) return;
       if (signer && !unwatch) unwatch = signer.onChange(() => void look());
-      lookTimer = setInterval(() => void look(), GATE_TIMES.look * 1e3);
+      lookTimer = setInterval(() => void (lists ? readLists().then(() => look()) : look()), GATE_TIMES.look * 1e3);
       await look();
     };
     if (state !== "free") void begin();
@@ -8017,6 +8237,7 @@ postMessage({ t: "started" });
       if (state === "ending") return "Your time here has run out. This part closes in two minutes. Buy again to stay.";
       if (reason === "no-manifest") return "This world couldn't read its own list of what it is sold by, so the way stays shut. It is being read again.";
       if (reason === "not-own") return "What this world says it is sold by isn't its own to sell, so nothing here can be bought. That is the world's to put right.";
+      if (reason === "blocked") return "The owner of this world has asked you not to come in.";
       const list = offerList();
       const firstUnread = [...unread.values()][0];
       const sale = list.length ? `Past here is for people who have bought it: ${list.map((o) => `${o.name}, ${o.words}`).join("; or ")}.` : `Past here is for people who have bought it. ${firstUnread ? unreadWords(firstUnread) : "What it costs is being read."}`;
@@ -8052,6 +8273,15 @@ postMessage({ t: "started" });
       get signedIn() {
         return signedIn();
       },
+      get ownerBlocked() {
+        return ownerBlocked;
+      },
+      get namedOnly() {
+        return namedOnly;
+      },
+      get lists() {
+        return listState;
+      },
       get host() {
         return host();
       },
@@ -8062,7 +8292,7 @@ postMessage({ t: "started" });
         const wanted = cleanListing(listing ?? offerList()[0]?.listing ?? "");
         const signer = opts.signer();
         if (disposed || buying || !wanted || !offers2.has(wanted) || !signer || signer.state !== "unlocked") return false;
-        if (state === "free" || state === "open") return false;
+        if (state === "free" || state === "open" || reason === "blocked" || isBlocked(signer.pubkey)) return false;
         buying = true;
         changed();
         const got = await signer.buy(wanted).catch(() => null);
@@ -8070,6 +8300,10 @@ postMessage({ t: "started" });
         const receipt = got ? believe(got.event, wanted, opts.signer()?.state === "unlocked" ? opts.signer().pubkey : null) : null;
         if (!receipt || disposed) {
           changed();
+          return false;
+        }
+        if (isBlocked(receipt.buyer)) {
+          shut("blocked");
           return false;
         }
         keepGood(receipt.fulfillment, now());
@@ -8082,14 +8316,15 @@ postMessage({ t: "started" });
         if (state === "free" || disposed) return;
         if (reason === "no-manifest") return begin();
         retries = 0;
-        await Promise.all([readOffers(), look()]);
+        await Promise.all([readOffers(), readLists()]);
+        await look();
       },
       onChange(fn) {
         watchers7.add(fn);
         return () => void watchers7.delete(fn);
       },
       info() {
-        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings] };
+        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly };
       },
       dispose() {
         disposed = true;
@@ -8097,6 +8332,7 @@ postMessage({ t: "started" });
         clearTimeout(graceTimer);
         clearTimeout(retryTimer);
         clearTimeout(seekTimer);
+        clearTimeout(listTimer);
         clearInterval(lookTimer);
         unwatch?.();
         watchers7.clear();
@@ -8125,7 +8361,7 @@ postMessage({ t: "started" });
         else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
       });
     };
-    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer";
+    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked";
     for (let i = 0; i < ACCESS_MOST; i++) {
       const offer = () => gate2.offers[i];
       controls2.add({
@@ -8628,6 +8864,7 @@ postMessage({ t: "started" });
   var RECORDING_HOLD_MS = 6e3;
   var CONNECT_TIMEOUT_MS = 25e3;
   var SILENT_TIMEOUT_MS = 8e3;
+  var NAMED_WAIT_MS = 7e3;
   var GATHER_TIMEOUT_MS = 2500;
   var hexToBytes3 = (hex) => {
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
@@ -8650,6 +8887,15 @@ postMessage({ t: "started" });
       __publicField(this, "relays");
       /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
       __publicField(this, "blocked", /* @__PURE__ */ new Set());
+      /** Identity keys the world's owner keeps out. Never the visitor's own: never kept or carried on. */
+      __publicField(this, "ownerBlocked", /* @__PURE__ */ new Set());
+      /** Session keys let go this visit for the world's rules (the owner's list, or no pass where one is needed): not answered again. */
+      __publicField(this, "turnedAway", /* @__PURE__ */ new Set());
+      /** Whether this room shows only people whose pass checks out. */
+      __publicField(this, "namedOnly");
+      /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
+      __publicField(this, "announced", /* @__PURE__ */ new Set());
+      __publicField(this, "waiting", /* @__PURE__ */ new Map());
       __publicField(this, "maxMembers");
       __publicField(this, "iceServers");
       __publicField(this, "sockets", /* @__PURE__ */ new Map());
@@ -8732,6 +8978,25 @@ postMessage({ t: "started" });
       this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
       this.iceServers = opts.iceServers ?? DEFAULT_ICE;
       for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
+      for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
+      this.namedOnly = opts.namedOnly === true;
+    }
+    /**
+     * The keys the world's owner keeps out, as the world's gate last read them. Anyone here whose pass names one is
+     * let go at once: to them, this visitor has left. Nobody is told, and nothing is kept.
+     */
+    setOwnerBlocked(keys) {
+      this.ownerBlocked = new Set([...keys].filter((k) => /^[0-9a-f]{64}$/.test(k)));
+      for (const peer of [...this.peers.values()]) if (peer.member.identity && this.ownerBlocked.has(peer.member.identity)) this.turnAway(peer.member.pubkey);
+    }
+    /** Let someone go for the world's rules, and answer them no more this visit. */
+    turnAway(pubkey) {
+      this.turnedAway.add(pubkey);
+      try {
+        this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+      } catch {
+      }
+      this.drop(pubkey, true);
     }
     /**
      * Stop being in a room with someone. The connection to them is closed and
@@ -8766,6 +9031,14 @@ postMessage({ t: "started" });
       return () => this.listeners[event].delete(fn);
     }
     emit(event, ...args) {
+      const about = args[0];
+      if (this.namedOnly && about && typeof about === "object" && about !== this.self && !this.announced.has(about.pubkey)) {
+        if (event === "audio" || event === "music" || event === "video") {
+          const kept2 = this.waiting.get(about.pubkey) ?? [];
+          this.waiting.set(about.pubkey, [...kept2.filter((w) => w.kind !== event), { kind: event, stream: args[1] }]);
+        }
+        return;
+      }
       for (const fn of this.listeners[event]) {
         try {
           fn(...args);
@@ -8775,7 +9048,7 @@ postMessage({ t: "started" });
       }
     }
     get members() {
-      return [...this.peers.values()].filter((p) => p.open).map((p) => p.member);
+      return [...this.peers.values()].filter((p) => p.open && (!this.namedOnly || this.announced.has(p.member.pubkey))).map((p) => p.member);
     }
     /** How many relays are currently connected. */
     get relayCount() {
@@ -8842,7 +9115,7 @@ postMessage({ t: "started" });
       const opened = openSignal(raw, this.key, this.topic);
       if (!opened || this.closed) return;
       const { from, message } = opened;
-      if (this.blocked.has(from)) return;
+      if (this.blocked.has(from) || this.turnedAway.has(from)) return;
       const existing = this.peers.get(from);
       try {
         switch (message.t) {
@@ -8906,6 +9179,7 @@ postMessage({ t: "started" });
         if (peer.open || this.peers.get(peer.member.pubkey) !== peer) return;
         peer.open = true;
         peer.lastSeen = Date.now();
+        peer.openedAt = Date.now();
         this.emit("member", peer.member);
         this.introduce(ch);
       };
@@ -9005,8 +9279,15 @@ postMessage({ t: "started" });
         this.drop(peer.member.pubkey, true);
         return;
       }
+      if (this.ownerBlocked.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
       peer.passUntil = checked.value.expiresAt;
       Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+      if (this.namedOnly && !this.announced.has(peer.member.pubkey)) {
+        this.announced.add(peer.member.pubkey);
+        if (peer.open) this.emit("member", peer.member);
+        for (const w of this.waiting.get(peer.member.pubkey) ?? []) this.emit(w.kind, peer.member, w.stream);
+        this.waiting.delete(peer.member.pubkey);
+      }
       if (checked.value.picture) peer.member.picture = checked.value.picture;
       else delete peer.member.picture;
       if (checked.value.about) peer.member.about = checked.value.about;
@@ -9016,8 +9297,12 @@ postMessage({ t: "started" });
     }
     /** A pass that has run out leaves a guest behind. */
     expire(now) {
-      for (const peer of this.peers.values()) {
+      for (const peer of [...this.peers.values()]) {
         if (!peer.passUntil || now < peer.passUntil) continue;
+        if (this.namedOnly) {
+          this.turnAway(peer.member.pubkey);
+          continue;
+        }
         delete peer.passUntil;
         delete peer.shown;
         delete peer.member.identity;
@@ -9327,11 +9612,13 @@ postMessage({ t: "started" });
       const peer = this.peers.get(pubkey);
       if (!peer) return;
       this.peers.delete(pubkey);
+      this.waiting.delete(pubkey);
       try {
         peer.pc.close();
       } catch {
       }
       if (announce && peer.open) this.emit("leave", peer.member);
+      this.announced.delete(pubkey);
     }
     sweep() {
       const now = Date.now();
@@ -9342,6 +9629,7 @@ postMessage({ t: "started" });
         this.markTune(peer);
         void this.feedTune(peer);
         if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
+        else if (this.namedOnly && peer.open && !this.announced.has(pubkey) && now - (peer.openedAt ?? now) > NAMED_WAIT_MS) this.turnAway(pubkey);
         else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
       }
       this.expire(Math.floor(now / 1e3));
@@ -43015,7 +43303,7 @@ void main() {
     const last = /* @__PURE__ */ new Map();
     const lastVariant = /* @__PURE__ */ new Map();
     let foot = 0;
-    const shaped = (shape) => {
+    const shaped2 = (shape) => {
       const soft = ctx.createBiquadFilter();
       soft.type = "lowpass";
       soft.frequency.value = shape.cutoff;
@@ -43039,7 +43327,7 @@ void main() {
       if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
       last.set(cue, now);
       const shape = cue === "step" ? stepShape(foot++) : from ? heardFrom(from) : null;
-      const out = shape ? shaped(shape) : effects;
+      const out = shape ? shaped2(shape) : effects;
       const files2 = own.get(cue) ?? fromKit.get(cue);
       if (files2?.length) {
         const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
@@ -43410,7 +43698,7 @@ void main() {
         const level2 = ctx.createGain();
         level2.gain.value = sound.gain * reach;
         src.connect(level2);
-        level2.connect(from ? shaped(heardFrom(from)) : effects);
+        level2.connect(from ? shaped2(heardFrom(from)) : effects);
         src.start();
         foreignPlayed++;
       },
@@ -43447,8 +43735,8 @@ void main() {
       let added = 0;
       let refused = "";
       for (const file of [...picker.files ?? []]) {
-        const no3 = await sounds2.jukebox.add(file);
-        if (no3) refused = no3;
+        const no4 = await sounds2.jukebox.add(file);
+        if (no4) refused = no4;
         else added++;
       }
       picker.value = "";
@@ -44580,7 +44868,24 @@ void main() {
     return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
   }
   function worldGate(opts = {}) {
-    return createPaidGate({ ...opts, signer: () => signerNamed() ? worldSigner() : null });
+    const gate2 = createPaidGate({ ...opts, signer: () => signerNamed() ? worldSigner() : null });
+    if (!pageGate) {
+      pageGate = gate2;
+      gate2.onChange(() => {
+        for (const fn of [...rulesWatchers]) fn();
+      });
+      for (const fn of [...rulesWatchers]) fn();
+    }
+    return gate2;
+  }
+  var pageGate = null;
+  var rulesWatchers = /* @__PURE__ */ new Set();
+  function pageRules() {
+    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly } : { blocked: [], namedOnly: false };
+  }
+  function onPageRules(fn) {
+    rulesWatchers.add(fn);
+    return () => void rulesWatchers.delete(fn);
   }
   var followed = null;
   function worldPeople() {
@@ -47830,7 +48135,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const isPresenting = () => !!o.presenting?.();
     return {
       async held(next, drawnFor) {
-        const no3 = ++holdingNo;
+        const no4 = ++holdingNo;
         if (box) {
           box.tell("away");
           const old = box;
@@ -47859,13 +48164,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         for (const name of Object.keys(next.sounds)) void soundOf(next, name);
         if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
         const text2 = await o.items.script(next);
-        if (!text2 || no3 !== holdingNo) return;
+        if (!text2 || no4 !== holdingNo) return;
         const run2 = await runInBox(
           text2,
           {
-            ask: (ask) => void (no3 === holdingNo && asked(ask)),
+            ask: (ask) => void (no4 === holdingNo && asked(ask)),
             stopped: (why) => {
-              if (no3 !== holdingNo) return;
+              if (no4 !== holdingNo) return;
               scriptState = "stopped";
               stoppedBecause = why;
               box = null;
@@ -47874,7 +48179,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           },
           typeof o.scripts === "object" ? o.scripts : {}
         );
-        if (no3 !== holdingNo) return run2?.stop();
+        if (no4 !== holdingNo) return run2?.stop();
         box = run2;
         scriptState = run2 ? "running" : "stopped";
         if (!run2) stoppedBecause = "no box";
@@ -51909,7 +52214,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   // packages/sdk/src/blocks.ts
   var BLOCK_LIMIT = 500;
   var KEY3 = "nswp:blocked";
-  var HEX3 = /^[0-9a-f]{64}$/;
+  var HEX4 = /^[0-9a-f]{64}$/;
   function cleanBlocked(input) {
     if (!Array.isArray(input)) return [];
     const out = [];
@@ -51917,7 +52222,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     for (const b of input) {
       if (!b || typeof b !== "object") continue;
       const { key, name, at } = b;
-      if (typeof key !== "string" || !HEX3.test(key) || seen.has(key)) continue;
+      if (typeof key !== "string" || !HEX4.test(key) || seen.has(key)) continue;
       seen.add(key);
       const called = typeof name === "string" ? cleanName(name) : "";
       out.push({ key, name: called || shortNpub(key), at: typeof at === "number" && Number.isFinite(at) && at > 0 ? Math.floor(at) : 0 });
@@ -51926,7 +52231,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return out;
   }
   function withBlocked(list, who2, now = Math.floor(Date.now() / 1e3)) {
-    if (!HEX3.test(who2.key) || list.some((b) => b.key === who2.key)) return list;
+    if (!HEX4.test(who2.key) || list.some((b) => b.key === who2.key)) return list;
     return cleanBlocked([{ key: who2.key, name: who2.name ?? "", at: now }, ...list]);
   }
   function withoutBlocked(list, key) {
@@ -52016,6 +52321,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return sprite;
   }
   function createPresence(d) {
+    const rulesNow = () => d.worldRules?.() ?? pageRules();
+    if (!d.worldRules) onPageRules(() => session2?.setOwnerBlocked(rulesNow().blocked));
     const labelColor = d.labelColor ?? "#ffffff";
     const changed = () => d.onChange?.();
     const listener = new AudioListener();
@@ -52474,7 +52781,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       const look = typeof d.look === "function" ? d.look() : d.look;
       const identity = await byName(typeof d.identity === "function" ? d.identity() : d.identity);
-      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys() });
+      const rules = rulesNow();
+      if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
+      if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
+      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly });
       session2 = s;
       if (!offsetApplied) {
         const off = spawnOffset(s.self.pubkey);
@@ -52805,6 +53115,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         keptBlocks = withoutBlocked(keptBlocks, key);
         storeBlocked(keptBlocks);
         changed();
+      },
+      rulesChanged() {
+        session2?.setOwnerBlocked(rulesNow().blocked);
       },
       blocked() {
         return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];
