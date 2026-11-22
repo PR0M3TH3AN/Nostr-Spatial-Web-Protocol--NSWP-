@@ -10,6 +10,7 @@ only proposed.
 
 | You want to | Go to |
 |---|---|
+| Make your first world, from nothing (written for people and agents alike) | [`docs/start.md`](docs/start.md) |
 | Build a world | [`nswp-world-template`](https://github.com/PR0M3TH3AN/nswp-world-template) |
 | Add a site you already have | [`docs/add-your-site.md`](docs/add-your-site.md) |
 | Build a client, or join the same rooms | [`protocol/`](protocol/README.md) |
