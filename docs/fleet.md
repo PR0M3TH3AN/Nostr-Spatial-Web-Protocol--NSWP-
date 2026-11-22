@@ -165,6 +165,7 @@ when. Ask the orchestrator before using one that isn't here.
 | `controls.setLoading`, `view.loading`; engine events `loading` and `loaded`; Godot `Nswp.loading` (ends at 1.0, no `Nswp.loaded`); `worldDownload`; `DOWNLOAD_WARN_MB = 50` | the NSWP builder | "you're in, still loading" and how big a world says it is | 2026-11-22 |
 | `changeOwnerList`, `isOwnerListAsked`, `signer.guests`, `gate.changeList`, `gate.keeper`, `gate.guests`; console section `guests`, titled "Who comes in" | the NSWP builder | the owner's screen for a world by invitation | 2026-11-22 |
 | `packages/core/src/entry-places.ts`; `ENTRY_PLACES_LEAST = 4`, `ENTRY_PLACES_ROOMS = 8`, `ENTRY_CLEAR = 1`; `EntryPlace`, `entryPlaces`, `pickEntryPlace`, `checkEntryPlaces`; `PresenceOptions.arrival`; `NSWP.entryPlace`; Godot: an `nswp_entry`'s child `Node3D`s | the BitPortal session | places to arrive (spawn points) | 2026-11-22 |
+| `FILE_HOSTS`, `fileHosts()`, `fetchByHash(sha256, hint)`; the console row `files-anywhere` ("Load people's files from anywhere") | the BitPortal session | fetching someone's look or item files only by hash from hosts on the viewer's own list (`docs/plans/own-models.md` 2.3a; `docs/backlog/item-file-hosts.md`) | 2026-11-22 |
 | The hello's `"first":true` (NSWP-06), `buildHello(..., { first })`, `Member.joinedAfterYou`; a frame's `view.moving` | the BitPortal session | only the one arriving steps aside. The engine event `stepAside` given earlier is not used: a frame's existing `nudge` does it | 2026-11-22 |
 
 ## Trying things together
