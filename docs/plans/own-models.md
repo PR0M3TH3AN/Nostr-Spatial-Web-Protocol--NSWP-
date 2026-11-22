@@ -118,6 +118,62 @@ simple, as now. That also keeps a model from following a guest across worlds.
   the nearest first); beyond that, simple looks. So a crowded room can't
   overload a phone.
 
+### 2.3a What fetching someone's model reveals
+
+The orchestrator's question, 2026-11-22: a wearer chooses the url, so every
+viewer whose kit fetches it tells that host their address and when they were
+in that room. Unless this says otherwise, a look is a tracking pixel.
+
+**What items do today, and the same hole.** An item's files are fetched from
+whatever https address its maker wrote (`item.ts` cleans it to https, with no
+user name or password; `item-store.ts` fetches with no cookies, no referrer
+and no redirects, and keeps the bytes only if they hash right). Nothing limits
+the host. So anyone can make an item whose files live on a server of their
+own, hold it in a room, and learn the address of everyone there and when. Items
+share the hole; it is its own backlog entry (`item-file-hosts`), and whatever
+is decided here should be decided for both, in one place in the kit.
+
+**What a fetch can reveal, and what it can't.** The checks above already stop
+a file from carrying anything back, setting a cookie, or reaching another
+address. What is left is the request itself: the host sees the viewer's IP
+address, the time, and which file. Because a file is named by its hash, the
+file says nothing per viewer; but a host that is the wearer's own sees every
+fetch of a file only that wearer wears.
+
+**Proposed default:**
+
+1. **Fetch by hash, from hosts the viewer already uses.** A look's (and an
+   item's) file is fetched on its own only from a content-addressed file host
+   (a Blossom server: the file at `/<sha256>`, the same for everyone) on the
+   viewer's own list: the hosts their own sign-in address keeps their files on,
+   and the kit's short default list (`FILE_HOSTS`: the hosts BitBlocks runs).
+   The kit asks those hosts for the hash itself (`GET /<sha256>`); the url in
+   the note is a hint, used only when its host is on that list. So no wearer
+   can choose who is asked, and the only hosts that ever see a viewer are ones
+   that viewer already talks to.
+2. **Anywhere else, only with the viewer's word.** A file found only on a host
+   off that list is not fetched: its wearer is drawn as their simple look (an
+   item, as its marker), and the person's card says "Their look is kept
+   somewhere you don't load files from". A viewer may turn on "Load people's
+   files from anywhere" (`files-anywhere`, off by default, kept with their
+   other settings), with a plain line on what it lets other people learn.
+3. **When a model is published,** BitPortal keeps it on the sign-in
+   address's file host (already the case for "Your files"), so a published
+   model is always on a host that most viewers' lists hold. Publishing warns if
+   the file would be off the default list.
+4. **A world's own files** (its scenery, its own items) are not this: they come
+   from the world's own site, which the visitor chose to visit.
+
+**What stays visible even then:** the hosts on a viewer's own list learn
+their address and when they fetched a given hash, as any file host does. A
+wearer can't read those hosts' logs, so a look can no longer be used to follow
+people, which is the hole. Fetches are made only when the person is near
+enough to be drawn (2.3, "Many at once"), never for everyone in a world.
+
+**Names (add to section 4):** `FILE_HOSTS`, `fileHosts()` (the viewer's
+list: their sign-in address's file hosts, then `FILE_HOSTS`),
+`fetchByHash(sha256, hint)`, the console row `files-anywhere`.
+
 ### 2.4 Height, within limits that change nothing else
 
 - `LOOK_HEIGHT`: least 0.85 m, standard 1.7 m, most 2.55 m (half to one and a
@@ -221,6 +277,10 @@ SDK:
 - Console rows: `people-models` ("Show people's own models"), and the card's
   `person-simple` ("Show as simple look")
 
+Fetching (2.3a; the same rule for items, from `item-file-hosts`):
+- `FILE_HOSTS`, `fileHosts()`, `fetchByHash(sha256, hint)`
+- Console row `files-anywhere` ("Load people's files from anywhere")
+
 Engines:
 - frame `people[].model`, `.height`, `.moment`, `.pace`, `.bones`
 - `NSWP.kit()`: `lookHeight`, `lookBudget`
@@ -270,6 +330,11 @@ BitPortal:
 5. **Spring bones** (hair and cloth that swing): leave out in the first round
    as proposed, or wanted from the start?
 
+6. **Where files are fetched from** (2.3a): only content-addressed hosts on
+   the viewer's own list by default (their sign-in address's file host and
+   `FILE_HOSTS`), anywhere else only with the viewer's switch, for looks and
+   items alike? (The orchestrator decides this one from the proposal.)
+
 ## 7. Trials
 
 All on the stand-in relay, with throwaway keys and test files made for the
@@ -294,5 +359,9 @@ extension).
 7. **BitPortal:** pick, check, preview on the mirror, set height, publish
    (stand-in sign-in and file store), back to simple; the Airlock line for
    each kind of world.
-8. **A headset:** the model drawn and driven at a comfortable frame rate on
+8. **Where files come from:** a model whose url names a host off the list is
+   not fetched (the stand-in host sees no request) and its wearer is drawn
+   simple, with the card's line; the same file on a listed host is fetched by
+   its hash; with `files-anywhere` on, the off-list host is asked.
+9. **A headset:** the model drawn and driven at a comfortable frame rate on
    the Quest, at the model limit (by the owner, from the guided test page).
