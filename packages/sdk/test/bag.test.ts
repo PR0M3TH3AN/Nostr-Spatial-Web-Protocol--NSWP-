@@ -247,6 +247,13 @@ describe("the Bag tab", () => {
     // The lantern is already theirs: only the book is offered.
     expect(m.actions.has(`bag-offer-${maker.slice(0, 8)}-old-book`)).toBe(true);
     expect(m.actions.has(`bag-offer-${maker.slice(0, 8)}-brass-lantern`)).toBe(false);
+    // What is theirs carries the bag in its corner; what is offered is faint, says it isn't theirs, and is no less pressable.
+    const theirs = m.actions.get(`bag-${maker.slice(0, 8)}-brass-lantern`)!;
+    const offeredTile = m.actions.get(`bag-offer-${maker.slice(0, 8)}-old-book`)!;
+    expect([theirs.mark, theirs.faint?.() ?? false]).toEqual(["bag", false]);
+    expect([offeredTile.mark ?? null, offeredTile.faint?.()]).toEqual([null, true]);
+    expect(typeof offeredTile.label === "function" ? offeredTile.label() : offeredTile.label).toMatch(/, offered here, not in your bag$/);
+    expect(typeof offeredTile.act).toBe("function");
     m.press(`bag-offer-${maker.slice(0, 8)}-old-book`);
     expect(m.actions.has("bag-take")).toBe(true);
     m.press("bag-take");

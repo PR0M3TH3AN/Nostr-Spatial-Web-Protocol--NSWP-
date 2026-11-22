@@ -62,6 +62,7 @@ if (hit) xrConsole.press(hit);
 | Still loading, though they are in | `controls.setLoading({ fraction: 0.4, words: "Loading the arena" })`, and `controls.setLoading(null)` when it is done. Plain text, at most 80 characters; nothing is held up by it |
 | An icon | One line of SVG path data in `packages/sdk/src/ui/icons.ts`. Both renderers draw from it |
 | A new kind of control | A `kind` in `ui/model.ts`, and one drawing function for it in `ui/hud.ts` and in `console.ts`. `"swatch"`, a choice of colour, is the worked example. `"tile"` is a thing with a picture of itself (`picture`), laid out side by side with its neighbours: what is in a bag. Rows are drawn in the order they were added, and swatches or tiles that come together are one strip or one grid, where they were put `"line"` is something to read and not to press: an icon, a whole sentence (`label`) and whether it is so (`on`); `run` refuses it, it is never focused or on the hotbar, and the console wraps it whole. A door's details list what its world offers as lines (`door-controls.ts`). |
+| Something about a tile at a glance | `mark` (an icon from the console's own set, drawn small in the tile's corner) and `faint` (drawn greyed, and still pressable). The Bag gives its items the bag mark when they are in the visitor's bag or hand, and draws an item offered here faint: grey means not theirs yet, never unavailable |
 
 ## People and the camera
 

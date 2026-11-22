@@ -495,7 +495,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     const cellAt = (i: number): { x: number; y: number; w: number } =>
       shared ? { x: left + i * (itemW + 14), y: contentTop, w: i < items.length ? itemW : PAGER_W } : { x: left + (i % cols) * (evenW + 14), y: contentTop + Math.floor(i / cols) * (cellH + 12), w: evenW };
     const pager: UiItemView | null =
-      linePages > 1 ? { id: "", label: `Page ${linePage + 1} of ${linePages}`, icon: "turn", on: null, tone: "normal", key: "", short: "", kind: "button", color: "" } : null;
+      linePages > 1 ? { id: "", label: `Page ${linePage + 1} of ${linePages}`, icon: "turn", on: null, tone: "normal", key: "", short: "", kind: "button", color: "", mark: null, faint: false } : null;
     [...items, ...(pager ? [pager] : [])].forEach((item, i) => {
       const { x, y, w: cellW } = cellAt(i);
       const tone = item.tone === "warn" ? rgb(t.warn) : A;
@@ -521,11 +521,21 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
           g.fill();
           g.fillStyle = ink;
         } else if (item.kind === "tile") {
-          // A thing with a picture of itself: its picture where another button has an icon.
+          // A thing with a picture of itself: its picture where another button has an icon. Faint (not theirs yet):
+          // drawn at half strength. A mark: a small icon at the picture's corner, in the accent.
           const picture = item.picture?.();
           const side = Math.min(cellH - 12, iconSize * 1.5);
+          const was = g.globalAlpha;
+          if (item.faint) g.globalAlpha = was * 0.45;
           if (picture) g.drawImage(picture, x + 10, y + (cellH - side) / 2 - 2, side, side);
           else strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
+          g.globalAlpha = was;
+          if (item.mark) {
+            const ink = g.strokeStyle;
+            g.strokeStyle = t.accent;
+            strokeIcon(g, item.mark, x + 10 + side - 22, y + (cellH - side) / 2, 22);
+            g.strokeStyle = ink;
+          }
         } else strokeIcon(g, item.icon, x + 18, y + (cellH - iconSize) / 2 - 2, iconSize);
         const size = Math.round((cols === 3 || cellW < 240 ? 23 : 28) * k);
         g.font = `600 ${size}px ${SANS}`;

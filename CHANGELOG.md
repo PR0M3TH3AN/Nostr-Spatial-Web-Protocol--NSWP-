@@ -4,6 +4,13 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Items in your bag show a bag in their corner; offered ones are greyed** (the console's Bag section; a tile's `mark` and `faint`; the owner, 2026-11-22: "The items that are in your bag in the menu need a bag icon in there corner. If it's not in the bag the it should be grayed out"; `docs/backlog/bag-icon-on-items.md`).
+  - In the HUD and the headset console, an item in the visitor's bag, the one in their hand included, shows the console's own bag icon in its tile's corner.
+  - An item only offered here is drawn greyed, with a dashed edge. It is still pressable and takeable, since grey means not theirs yet, never unavailable. Its words say "offered here, not in your bag" for a screen reader.
+  - Taking one, or putting one out of the bag, changes its tile at once, with the menu still open.
+  - Any tile can use the two fields: `mark` (an icon in the corner) and `faint` (greyed, still pressable).
+  - Engine worlds have it through the engine script's console.
+  - Pictured before and after (`trials/bag-marks.mjs`, the kit's own Bag code with a stand-in bag), at a desk's width and a phone's, and in the near-white "Paper" accent. The console has no light theme.
 - **`npm run release:all`'s exit code, checked** (`packages/core/test/release-all.test.ts`; the orchestrator, 2026-11-22). A refusal with `--go` seemed to exit 0. In fact the script exits 1 whenever it refuses, whenever a step fails, and whenever a site doesn't come up on the kit. The 0 was the `| tail` it was piped through answering, not the script; checked by running the refusal both directly and through a pipe. The new test runs the script with `--go` where it can deploy nothing and reach nothing: a stand-in `vercel` that always fails, so it always refuses; a `git` whose `fetch` fails; and a `fetch` that fails. It asserts "Nothing was deployed" and exit 1, and it fails if the refusal exits 0 (tried). The script's header now says how to read its exit code through a pipe.
 - **A fade for the jumps the kit makes, in a headset** (`Comfort.fade`, the travelling setting `fade`, `xrInput.jump`, the Moving switch `move-fade`; `docs/plans/seated-mode.md`, 3.4; `docs/backlog/headset-casual-and-intense.md`, "A fade for jumps the kit makes"; names from the orchestrator).
   - For someone moving the casual way, every jump the kit makes for them is a short fade to black, the jump, and back, about 120 ms each way: a headset step, a step back with the stick, and stepping aside on arrival. Nothing is seen to move. Intense keeps the instant cut.
