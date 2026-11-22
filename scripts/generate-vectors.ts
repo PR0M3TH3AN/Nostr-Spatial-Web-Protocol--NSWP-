@@ -15,7 +15,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { readShares, splitPrice, type Share } from "../packages/core/src/shares.js";
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
-import { readOwnerList, resolveOwnerList } from "../packages/core/src/owner-lists.js";
+import { listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
 import { accessFor } from "../packages/core/src/manifest.js";
 import {
@@ -893,6 +893,67 @@ if (failures.length) {
   process.exit(1);
 }
 
+// ---------------------------------------------------------------------- writing a world owner's list
+// What a writer of an owner's list (protocol/10-identity.md, "A world's own lists") makes from one change: the kit's
+// own `nswp sign-world-list`, BitLogin's guest list, the owner's screen. Each case is checked by signing what is
+// expected with key 1 (the world's publisher, so the subject's own key) and reading it back with `readOwnerList`.
+const OWNER_NOW = T0 + 7 * 86400;
+const person = (n: number) => getPublicKey(sha256(utf8ToBytes(`nswp owner list writing person ${n}`)));
+const [ANA, BEN, CY, DEE] = [1, 2, 3, 4].map(person) as [string, string, string, string];
+const ARENA = worldSubject(PK1, "the-arena");
+type Change = { op: "add" | "remove"; person: string };
+type WritingVector = {
+  name: string;
+  description: string;
+  scope: ListScope;
+  subject: string;
+  before: { people: string[]; createdAt: number } | null;
+  change: Change;
+  now: number;
+  expect: { refused: "too_many_people" } | { d: string; event: { kind: number; created_at: number; content: string; tags: string[][] }; signed: NostrEvent; readBack: { scope: ListScope; subject: string; entries: string[] } };
+};
+/** What one change makes, by the rules this file states: newer than the list it changes, people each once, in key order. */
+const writeChange = (scope: ListScope, subject: string, before: WritingVector["before"], change: Change, now: number): WritingVector["expect"] => {
+  const was = before?.people ?? [];
+  const people = change.op === "add" ? [...new Set([...was, change.person])] : was.filter((p) => p !== change.person);
+  const createdAt = before ? Math.max(now, before.createdAt + 1) : now;
+  const event = ownerListTemplate({ scope, subject, people, createdAt });
+  if (!event) return { refused: "too_many_people" };
+  const signed = sign(event);
+  const back = readOwnerList(signed, { now });
+  return { d: listD(scope, subject), event, signed, readBack: back.ok ? { scope: back.scope, subject: back.subject, entries: [...back.entries] } : (back as never) };
+};
+const writing = (v: Omit<WritingVector, "expect">): WritingVector => ({ ...v, expect: writeChange(v.scope, v.subject, v.before, v.change, v.now) });
+const fiveHundred = Array.from({ length: OWNER_LIST_LIMITS.write }, (_, i) => person(100 + i));
+const writingVectors: WritingVector[] = [
+  writing({ name: "a_first_list_from_none", description: "No list yet: allowing one person makes the first allow list, dated now.", scope: "user-allow", subject: ARENA, before: null, change: { op: "add", person: ANA }, now: OWNER_NOW }),
+  writing({ name: "allow", description: "One more person on an allow list: every one already on it stays, and the new one takes their place in key order.", scope: "user-allow", subject: ARENA, before: { people: [ANA, CY], createdAt: OWNER_NOW - 3600 }, change: { op: "add", person: BEN }, now: OWNER_NOW }),
+  writing({ name: "unallow", description: "One person taken off an allow list: the rest stay.", scope: "user-allow", subject: ARENA, before: { people: [ANA, BEN, CY], createdAt: OWNER_NOW - 3600 }, change: { op: "remove", person: BEN }, now: OWNER_NOW }),
+  writing({ name: "block", description: "One more person on a block list.", scope: "user-deny", subject: ARENA, before: { people: [DEE], createdAt: OWNER_NOW - 3600 }, change: { op: "add", person: CY }, now: OWNER_NOW }),
+  writing({ name: "unblock_the_last", description: "The last person taken off a block list: a list with nobody on it is still written and published, so the old one stops being read.", scope: "user-deny", subject: ARENA, before: { people: [CY], createdAt: OWNER_NOW - 3600 }, change: { op: "remove", person: CY }, now: OWNER_NOW }),
+  writing({ name: "the_writers_clock_is_behind", description: "The list being changed is dated a little after the writer's clock (within the reader's ten minutes): the new one is dated a second after it, or relays would keep the old one.", scope: "user-allow", subject: ARENA, before: { people: [ANA], createdAt: OWNER_NOW + 120 }, change: { op: "add", person: DEE }, now: OWNER_NOW }),
+  writing({ name: "a_world_d_with_colons", description: "A world whose d has colons in it: the subject and the list's d keep them all, and the reader takes everything after the key as the world's name.", scope: "user-allow", subject: worldSubject(PK1, "arena:north:2"), before: null, change: { op: "add", person: ANA }, now: OWNER_NOW }),
+  writing({ name: "the_500_limit", description: "A list of 500 people, the most a writer puts in one, and one more: refused, and nothing is written. (A reader takes up to 2,000.)", scope: "user-deny", subject: ARENA, before: { people: fiveHundred, createdAt: OWNER_NOW - 3600 }, change: { op: "add", person: ANA }, now: OWNER_NOW }),
+];
+// What each case must come to, said here as well as computed above, so a change to the kit's writer is seen.
+const peopleOf = (v: WritingVector) => ("event" in v.expect ? v.expect.event.tags.filter((t) => t[0] === "p").map((t) => t[1]) : null);
+const sorted = (a: string[]) => [...a].sort();
+expectEqual("owner-list-writing/how many", writingVectors.length, 8);
+expectEqual("owner-list-writing/a_first_list_from_none people", peopleOf(writingVectors[0]!), [ANA]);
+expectEqual("owner-list-writing/allow people", peopleOf(writingVectors[1]!), sorted([ANA, BEN, CY]));
+expectEqual("owner-list-writing/unallow people", peopleOf(writingVectors[2]!), sorted([ANA, CY]));
+expectEqual("owner-list-writing/block people", peopleOf(writingVectors[3]!), sorted([CY, DEE]));
+expectEqual("owner-list-writing/unblock_the_last people", peopleOf(writingVectors[4]!), []);
+expectEqual("owner-list-writing/the_writers_clock_is_behind created_at", "event" in writingVectors[5]!.expect ? writingVectors[5]!.expect.event.created_at : null, OWNER_NOW + 121);
+expectEqual("owner-list-writing/a_world_d_with_colons d", "event" in writingVectors[6]!.expect ? writingVectors[6]!.expect.d : null, `nswp:governance:user-allow:v1:37300:${PK1}:arena:north:2`);
+expectEqual("owner-list-writing/the_500_limit", writingVectors[7]!.expect, { refused: "too_many_people" });
+for (const v of writingVectors) {
+  if (!("event" in v.expect)) continue;
+  const e = v.expect.event;
+  expectEqual(`owner-list-writing/${v.name} shape`, { kind: e.kind, content: e.content, head: e.tags.slice(0, 4) }, { kind: 30078, content: "", head: [["d", v.expect.d], ["v", "1"], ["scope", v.scope], ["subject", v.subject]] });
+  expectEqual(`owner-list-writing/${v.name} read back`, v.expect.readBack.entries, peopleOf(v));
+}
+
 const files: Record<string, unknown> = {
   "world-events.json": { description: "Spatial world announcements (spec §5). `errors` and `warnings` are sorted issue codes; `signatureValid` is null when the vector is unsigned.", testKeys, vectors: worldVectors },
   "manifests.json": { description: "Manifests (spec §7.2) and origin verification (spec §7.3). `failed` lists the verification checks that must fail.", testKeys, manifests: manifestVectors, verification: verificationVectors },
@@ -922,6 +983,12 @@ const files: Record<string, unknown> = {
       description: "World grants (kind 27303): for a world the owner is building. Verify each as the Bridge with key `bridge`, owned by `owner`, sent by `session`, started knowing the worlds in `worlds`. Unlike the grants above, one is good until it expires.",
       vectors: worldGrantVectors,
     },
+  },
+  "owner-list-writing.json": {
+    description:
+      "Writing a world owner's list (protocol/10-identity.md, \"A world's own lists\"; BitGate's shape, as `governance-lists.json` reads it): what a writer makes from one change on the list it has (`before`, or null for none) at the writer's clock `now`. The rules: `add` puts the person on and `remove` takes them off; every other person stays; the `p` tags are each person once, in order of their keys; the tags come in the order given (`d`, `v`, `scope`, `subject`, then the `p`s); `content` is empty; `created_at` is `now`, or one second after `before.createdAt` where that is not earlier, so the new list replaces the old; more than 500 people is refused, and nothing is written. `signed` is `event` signed with key 1, the world's publisher; `readBack` is what `readOwnerList` gives for it.",
+    testKeys,
+    vectors: writingVectors,
   },
   "lists.json": {
     description:
