@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.74.1
 
 - **One place to start** (`docs/start.md`; `docs/backlog/landing-02-get-started.md`): for someone, or some agent, who has never seen any of this: what a world is, the three ways in, the template step by step with every command run, how a world is announced (and that `--yes` is public and permanent) and checked, and where each next thing is written. A test keeps its links real and its publishing step out of the commands to copy. BitPortal shows it on a page of its own.
 
