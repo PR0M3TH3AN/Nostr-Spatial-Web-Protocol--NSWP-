@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.82.0
+
 - **The owner's screen: "Who comes in"** (the console section `guests`; core `changeOwnerList` and `isOwnerListAsked`; `signer.guests`; `gate.changeList`; NSWP-10, "The owner's screen"; names from the orchestrator). In the console of a keeper signed in here, and nobody else's, a world's lists can be changed from inside the world.
   - The section says "Anyone can read this list", with how many people are invited and kept out, as read.
   - It offers the people on either list, the people here now, the people the keeper follows, and someone whose key they copied, never the keeper themselves. For each: "Let in" or "Take off the list", in a world by invitation, and "Block" or "Unblock".
