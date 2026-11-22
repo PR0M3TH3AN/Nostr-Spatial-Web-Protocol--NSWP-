@@ -152,6 +152,62 @@ export function offers(world: string): string {
   return JSON.stringify(lines.map((o) => ({ ...o, ...(o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id as keyof typeof OFFER_ICONS]] } : {}) })));
 }
 
+// ------------------------------------------------------------------ the console from the first moment
+/**
+ * The visitor's console, from the moment the page loads (NSWP-09: the way home is never more than one action away,
+ * and a world still loading is a world they are in). The engine script mounts it beside the crossing's room, before
+ * the engine has downloaded anything: Home, the address, and a line saying the world is loading. `menu()` fills the
+ * same console in when the world asks for it; it never makes a second one. A world that opens its doors without
+ * asking for the menu draws its own, so this one goes then (`roomChanged`).
+ */
+let early: { opts: { title: string; address: string }; line: boolean } | null = null;
+/** The world asked for its menu: the console is the world's now, early or not. */
+let filled = false;
+const EARLY_LINE = { words: "This world is still loading" } as const;
+
+/** Mount the console before the world has asked for it. `home` goes home (or to their doors) from here, the engine not yet listening. */
+export function earlyMenu(o: { title: string; accent?: string; home: () => boolean }): void {
+  if (controls || typeof document === "undefined") return;
+  // How they arrived, read now so the way home is known from the first moment. It is read once and kept: the engine's
+  // own `arrival()` is given the same, later.
+  arrival.read();
+  // The controls read these on each view, so the world's own name replaces the page's when it asks for its menu.
+  const opts: { title: string; address: string; theme?: { accent: string } } = { title: words(o.title, 80) || "A world", address: location.host };
+  if (o.accent && /^#[0-9a-f]{6}$/i.test(o.accent)) opts.theme = { accent: o.accent };
+  const c = (controls = createControls(opts));
+  early = { opts, line: !loadingNow };
+  c.setLoading(loadingNow ?? EARLY_LINE);
+  hud = mountHud(c);
+  const atHome = arrival.atHome();
+  c.add({
+    id: "home",
+    section: "travel",
+    icon: "home",
+    hotbar: true,
+    label: atHome ? "Your doors" : "Go home",
+    short: atHome ? "Doors" : "Home",
+    hidden: () => portal.airlockFor() === null,
+    act: () => void o.home(),
+  });
+}
+
+/**
+ * The crossing's room changed. Out of "arriving", the line the early console put up goes (the world says its own, if
+ * any); and a console the world never asked for goes too, once its doors have opened, or as the visitor leaves.
+ */
+export function roomChanged(state: string): void {
+  if (!early || state === "arriving") return;
+  if (early.line && controls) {
+    early.line = false;
+    controls.setLoading(loadingNow);
+  }
+  if (filled || state === "failed") return;
+  hud?.remove();
+  hud = null;
+  controls = null;
+  early = null;
+}
+
 /**
  * Put the kit's menu over the engine's canvas, and start its sounds. Call it
  * once, after `start()`. `options` is JSON:
@@ -168,15 +224,27 @@ export function offers(world: string): string {
  * whether there is a mouse to move the intense way with.
  */
 export function menu(options?: string): string {
-  if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
+  if (filled) return JSON.stringify({ moving, mouse: hasMouse() });
+  filled = true;
   const o = read(options);
   const title = words(o.title, 80) || "A world";
   named = title;
   const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : undefined;
-  const c = (controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) }));
-  if (loadingNow) c.setLoading(loadingNow);
+  let c: Controls;
+  let h: Hud;
+  if (early && controls && hud) {
+    // The console the visitor already has (earlyMenu): filled in, not made again. Its Home is the engine's from now on.
+    c = controls;
+    h = hud;
+    early.opts.title = title;
+    if (accent) c.setTheme({ accent });
+    c.remove("home");
+  } else {
+    c = controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) });
+    if (loadingNow) c.setLoading(loadingNow);
+    h = hud = mountHud(c);
+  }
   for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
-  const h = (hud = mountHud(c));
   const s = (sounds = createSounds({
     seed: title,
     ...(typeof o.kit === "string" && o.kit ? { kit: o.kit } : {}),

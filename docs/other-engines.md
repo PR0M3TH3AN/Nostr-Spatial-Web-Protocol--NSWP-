@@ -185,6 +185,16 @@ that needs a renderer, so the script carries the reference kit's own menu
 (`packages/sdk/src/ui/`) and its own sounds (`packages/sdk/src/sound.ts`),
 not copies of them. The menu is drawn by the page over the engine's canvas.
 
+**It is there from the first moment.** While the engine is still arriving,
+which can be minutes, the visitor already has their console over the
+crossing's room: Home (or their doors, at home), the world's address, and a
+line saying it is still loading. The key left of 1, or two fingers held
+still, brings it up, as in every world. `NSWP.menu()` fills that same
+console in with the world's name, colour and controls; it never makes a
+second one. A world that opens its doors without asking for the menu (it
+draws its own) sees the early console go as they open. A page with no room
+(`data-crossing="off"`) has none.
+
 | Call | Does |
 |---|---|
 | `NSWP.menu(options)` | Call once. Puts the menu over the canvas and starts the sounds. `options` is JSON: `title`, `accent`, `kit` (where the page serves the kit's sound files), `sounds` (the world's own), `help`. Returns how the visitor starts out moving. |

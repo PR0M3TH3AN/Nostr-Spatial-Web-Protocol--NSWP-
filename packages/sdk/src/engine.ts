@@ -29,7 +29,7 @@
  */
 import { checkDestination, KIT_VERSION, type PortalDestination } from "@nswp/core";
 import { createEngineCrossing, type EngineCrossing } from "./engine-crossing.js";
-import { loadingLine, onMenu, play as playCue, tellEngine } from "./engine-menu.js";
+import { earlyMenu, loadingLine, onMenu, play as playCue, roomChanged, tellEngine } from "./engine-menu.js";
 import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
@@ -88,7 +88,17 @@ if (typeof document !== "undefined" && tag?.dataset.crossing !== "off") {
     ...(accent ? { accent } : {}),
     still: prefersStill(),
   });
-  room.onChange((state) => tellEngine({ type: "crossing", state }));
+  room.onChange((state) => {
+    roomChanged(state);
+    tellEngine({ type: "crossing", state });
+  });
+  // The visitor's console, from now: Home and the address while the engine is still arriving, which can be minutes.
+  // The world's own menu fills it in (`menu()`); a world that draws its own sees it go when its doors open.
+  const roomTitle = (said("title") || tag?.dataset.title || document.title || location.host).slice(0, 80);
+  // A script in the page's head runs before there is a body to put the console in: it waits for one.
+  const mountEarly = () => earlyMenu({ title: roomTitle, ...(accent ? { accent } : {}), home: () => (arrivals.atHome() ? doors() : home()) });
+  if (document.body) queueMicrotask(mountEarly);
+  else document.addEventListener("DOMContentLoaded", mountEarly, { once: true });
   // The world named itself and its colour when it asked for its menu: the room wears them. And asking for a menu
   // is a world saying it is up, unless it said it will open the doors itself (`hold`).
   onMenu((look) => {
