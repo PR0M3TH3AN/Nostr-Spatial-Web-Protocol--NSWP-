@@ -46,6 +46,13 @@ whatever the world has done with the keys:
 It is put away the same way, or with Escape or its Close button. In a
 headset, a press of the same button or its Close button puts it away.
 
+In fullscreen at a desk, where the browser lets a page hold Escape, Escape
+is the console first: the first press brings it up, and a press with it up
+leaves fullscreen and leaves the console up. Where a browser doesn't let a
+page hold it, the first press leaves fullscreen, as the browser insists,
+and the console comes up then. Either way a visitor can always leave
+fullscreen with Escape: a client never holds the key so that they can't.
+
 A world:
 
 - **never uses the summons for anything of its own.** A pinch, a two-finger

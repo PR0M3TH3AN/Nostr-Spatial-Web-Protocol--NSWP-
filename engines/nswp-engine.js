@@ -8419,6 +8419,8 @@ postMessage({ t: "started" });
     pin: "M9 4h6l-1 6 3 3H7l3-3-1-6ZM12 13v7",
     step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
     size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
+    /** Filling the screen: four corners drawn out. */
+    full: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5",
     motion: "M3 12h4l3-7 4 14 3-7h4",
     check: "M5 12.500 10 17.500 19 7",
     camera: "M4 8h3l1.5-2h7L17 8h3v11H4ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
@@ -8824,6 +8826,8 @@ postMessage({ t: "started" });
   var canFill = () => clientHoldsScreen() || document.fullscreenEnabled;
   function fullscreenAction(controls2, presenting) {
     resumeFullscreen(presenting);
+    presentingNow = presenting;
+    watchEscape();
     setTimeout(() => {
       if (waiting && !held && !presenting() && canFill() && !isFilled()) controls2.say("Press any key, or click, to fill the screen again.");
     }, 600);
@@ -8831,7 +8835,7 @@ postMessage({ t: "started" });
     return {
       id: "fullscreen",
       section: "view",
-      icon: "size",
+      icon: "full",
       on: () => prefers,
       // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
       hidden: () => !canFill() || presenting(),
@@ -8849,7 +8853,7 @@ postMessage({ t: "started" });
           if (fill) {
             await document.documentElement.requestFullscreen();
             keepFull(true);
-          } else await document.exitFullscreen();
+          } else await leaveFullscreen();
         } catch {
           controls2.say("This browser wouldn't go fullscreen.");
         }
@@ -8857,6 +8861,76 @@ postMessage({ t: "started" });
       }
     };
   }
+  var keyboard = () => typeof navigator === "undefined" ? void 0 : navigator.keyboard;
+  var holding = false;
+  var leaving = false;
+  var watching2 = false;
+  var leftByBrowser = /* @__PURE__ */ new Set();
+  function onBrowserLeftFullscreen(fn) {
+    leftByBrowser.add(fn);
+    return () => void leftByBrowser.delete(fn);
+  }
+  function watchEscape() {
+    if (watching2 || typeof document === "undefined") return;
+    watching2 = true;
+    let wasFilled = !!document.fullscreenElement;
+    const onChange = () => {
+      const filled2 = !!document.fullscreenElement;
+      if (filled2) {
+        holding = false;
+        try {
+          const asked = keyboard()?.lock?.(["Escape"]);
+          if (asked) void asked.then(() => holding = !!document.fullscreenElement, () => holding = false);
+        } catch {
+        }
+      } else {
+        holding = false;
+        try {
+          keyboard()?.unlock?.();
+        } catch {
+        }
+        if (wasFilled && !leaving) for (const fn of [...leftByBrowser]) fn();
+        leaving = false;
+      }
+      wasFilled = filled2;
+    };
+    document.addEventListener("fullscreenchange", onChange);
+  }
+  var escapeHeld = () => holding && typeof document !== "undefined" && !!document.fullscreenElement;
+  function escapeDoes(state) {
+    if (state.menuOpen) return state.held ? "leave-fullscreen" : "close-menu";
+    return state.held ? "open-menu" : "nothing";
+  }
+  async function leaveFullscreen() {
+    if (typeof document === "undefined" || !document.fullscreenElement) return;
+    leaving = true;
+    try {
+      await document.exitFullscreen();
+    } catch {
+      leaving = false;
+    }
+  }
+  var presentingNow = () => false;
+  var fullscreenButton = {
+    shown() {
+      if (typeof document === "undefined" || presentingNow()) return false;
+      return canFill() && !isFilled() && currentForm() === "desk";
+    },
+    label: "Full screen",
+    async press(controls2) {
+      if (clientHoldsScreen()) {
+        keepFull(true);
+        askClientForScreen(true);
+        return;
+      }
+      try {
+        await document.documentElement.requestFullscreen();
+        keepFull(true);
+      } catch {
+        controls2?.say("This browser wouldn't go fullscreen.");
+      }
+    }
+  };
 
   // packages/sdk/src/room.ts
   var PLAY_WORD = /^(shot|hit|did|st|tint):/;
@@ -45292,6 +45366,12 @@ svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-wi
 .menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
   pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
 .menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+/* Fill the screen: small, top centre, on a desk while it isn't filled. */
+.full { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; pointer-events: auto;
+  display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border-radius: 10px; font-size: .9em; }
+.full svg { width: 16px; height: 16px; }
+.full:hover, .full:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.full[hidden] { display: none; }
 kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-align: center; border-radius: 5px;
   border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); }
 
@@ -45604,6 +45684,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const asLead = el("small");
     const asName = el("b");
     const asWho = el("div", { class: "as glass", role: "status" }, asFace, el("span", { class: "who" }, asLead, asName));
+    const full = el("button", { class: "full glass", type: "button", hidden: "" }, icon("full"), el("span", {}, fullscreenButton.label));
     const tabs = el("div", { class: "tabs", role: "tablist" });
     const tabsBack = el("button", { class: "more left", type: "button", "aria-label": "Earlier sections", hidden: "" }, "\u2039");
     const tabsOn = el("button", { class: "more right", type: "button", "aria-label": "More sections", hidden: "" }, "\u203A");
@@ -45652,7 +45733,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, target2, hotbar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
@@ -45964,6 +46045,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       title.textContent = view2.title;
       address.textContent = view2.address;
       sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
+      full.hidden = !fullscreenButton.shown() || view2.presence === "hidden" || asWho.classList.contains("shown");
       const shown4 = [view2.target, ...view2.detail].join("\n");
       if (target2.dataset.shown !== shown4) {
         target2.dataset.shown = shown4;
@@ -46159,7 +46241,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
       if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-      if (e.key === "Escape" && open2) return setOpen(false);
+      if (e.key === "Escape") {
+        const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
+        if (does !== "nothing") e.preventDefault();
+        if (does === "close-menu") return setOpen(false);
+        if (does === "open-menu") return setOpen(true);
+        if (does === "leave-fullscreen") return void leaveFullscreen();
+      }
       const view2 = controls2.view();
       if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
       if (view2.keys.chat && view2.chat.ready && view2.presence !== "hidden" && !open2 && !e.repeat && (e.key.toLowerCase() === view2.keys.chat || e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A")) {
@@ -46173,6 +46261,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (pin) openPin(pin.id);
     };
     addEventListener("keydown", onKey);
+    full.addEventListener("click", () => {
+      void fullscreenButton.press(controls2).then(draw);
+    });
+    const stopLeft = onBrowserLeftFullscreen(() => {
+      if (!open2 && !host.hidden) setOpen(true);
+      draw();
+    });
+    document.addEventListener("fullscreenchange", draw);
     const onTabKey = (e) => {
       if (!open2 || host.hidden || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       const at = e.composedPath()[0];
@@ -46211,10 +46307,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
     const onTouch = (e) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
     const listening = { capture: true };
-    const watching2 = { capture: true, passive: true };
+    const watching3 = { capture: true, passive: true };
     addEventListener("keydown", onSummonKey, listening);
     addEventListener("keyup", swallow, listening);
-    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching2);
+    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching3);
     const stopSay = controls2.onSay((text2) => {
       const line2 = el("div", { class: "say glass" }, text2);
       says.append(line2);
@@ -46275,10 +46371,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stopAsking();
         stopSay();
         removeEventListener("keydown", onKey);
+        stopLeft();
+        document.removeEventListener("fullscreenchange", draw);
         removeEventListener("keydown", onSummonKey, listening);
         removeEventListener("keydown", onTabKey, true);
         removeEventListener("keyup", swallow, listening);
-        for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching2);
+        for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching3);
         hold.cancel();
         host.remove();
       }
@@ -48282,11 +48380,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
           }
         }
-        const does = (holding) => {
-          if (!holding) return;
-          if (did?.kind === "sound") hear(holding, holding.sounds[did.name] ? did.name : void 0, person.head);
-          else if (did) animate(holding, person.held, did.name, from);
-          else if (shot) void launch(from, holding, shot);
+        const does = (holding2) => {
+          if (!holding2) return;
+          if (did?.kind === "sound") hear(holding2, holding2.sounds[did.name] ? did.name : void 0, person.head);
+          else if (did) animate(holding2, person.held, did.name, from);
+          else if (shot) void launch(from, holding2, shot);
         };
         const known = o.items.known(person.holding);
         if (known) does(known);
@@ -48556,8 +48654,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     const fromCopy = async () => {
       let text2 = "";
-      const keyboard = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard) text2 = await keyboard.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
+      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
+      if (keyboard2) text2 = await keyboard2.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
       else {
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
@@ -48685,12 +48783,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return;
       }
       if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
-      const holding = opts.holding();
+      const holding2 = opts.holding();
       const away = () => ({
         id: "bag-away",
         icon: "close",
-        tone: chosen === holding ? "primary" : "normal",
-        label: `Put ${titleOf(holding)} away`,
+        tone: chosen === holding2 ? "primary" : "normal",
+        label: `Put ${titleOf(holding2)} away`,
         short: "Away",
         act: async () => {
           putAway = true;
@@ -48703,7 +48801,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const item = chosen;
         if (taking === item)
           add({ id: "bag-taking", icon: "check", label: `Taking ${titleOf(item)} in hand\u2026`, act: () => say3("It is on its way: its files are being fetched and checked.") });
-        else if (holding === item) add(away());
+        else if (holding2 === item) add(away());
         else if (rule === "none") {
           add({
             id: "bag-nohold",
@@ -48772,7 +48870,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
       }
       cardActs = shown4.slice(firstOfTheirs);
-      if (holding && holding !== chosen) add(away());
+      if (holding2 && holding2 !== chosen) add(away());
       const listed = has.slice(0, pages * PAGE);
       for (const item of listed) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
       const choose = (item) => () => {
@@ -53679,8 +53777,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const me = f.pubkey();
       if (!me) return say3("Sign in to follow people: it is under You.");
       let text2 = "";
-      const keyboard = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard) text2 = await keyboard.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
+      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
+      if (keyboard2) text2 = await keyboard2.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
       else {
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
@@ -53689,7 +53787,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         }
       }
       const key = keyIn(text2);
-      if (!key) return say3(keyboard ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
+      if (!key) return say3(keyboard2 ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
       if (key === me) return say3("That is your own key.");
       chosen = key;
       await profiles.fetch([key]);
@@ -54448,7 +54546,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const refresh = () => {
       const s = presence3.session;
       opts.onState?.(
-        s ? { name: s.name, private: !!presence3.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence3.micOn, screen: presence3.screenOn, music: presence3.musicOn, musicListeners: presence3.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching2.keys()] } : null
+        s ? { name: s.name, private: !!presence3.roomName, status: s.status, self: s.self.pubkey, members: s.members.map((m) => m.pubkey), relays: s.relayCount, mic: presence3.micOn, screen: presence3.screenOn, music: presence3.musicOn, musicListeners: presence3.musicListeners, sharing: s.members.filter((m) => m.sharing).map((m) => m.pubkey), watching: [...watching3.keys()] } : null
       );
       controls2.addSection({ id: "room", label: "Room", icon: "room", note: status });
       tendChat();
@@ -54473,12 +54571,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return false;
       }
     };
-    const watching2 = /* @__PURE__ */ new Map();
+    const watching3 = /* @__PURE__ */ new Map();
     const sharers = /* @__PURE__ */ new Set();
     const stopWatching = (pubkey, panelGone = false) => {
-      const w = watching2.get(pubkey);
+      const w = watching3.get(pubkey);
       if (!w) return;
-      watching2.delete(pubkey);
+      watching3.delete(pubkey);
       presence3.watch(pubkey, false);
       w.video.srcObject = null;
       w.texture?.dispose();
@@ -54486,15 +54584,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
     const startWatching = (m) => {
       const stream = presence3.screenOf(m.pubkey);
-      if (!opts.panels || !stream || watching2.has(m.pubkey)) return false;
+      if (!opts.panels || !stream || watching3.has(m.pubkey)) return false;
       const video = document.createElement("video");
       video.muted = true;
       video.playsInline = true;
       video.srcObject = stream;
       const w = { video, texture: null, panel: null };
-      watching2.set(m.pubkey, w);
+      watching3.set(m.pubkey, w);
       const show = () => {
-        if (w.panel || watching2.get(m.pubkey) !== w || !video.videoWidth || !video.videoHeight) return;
+        if (w.panel || watching3.get(m.pubkey) !== w || !video.videoWidth || !video.videoHeight) return;
         w.texture = new VideoTexture(video);
         w.texture.colorSpace = SRGBColorSpace;
         w.panel = opts.panels.open(
@@ -54617,7 +54715,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         toldOfMusic = true;
         controls2.say(`${here.find((m) => m.music).name} is sharing music. To hear what people near you share, turn it on in Sound.`);
       }
-      for (const key of [...watching2.keys()]) if (!here.some((m) => m.pubkey === key && m.sharing)) stopWatching(key);
+      for (const key of [...watching3.keys()]) if (!here.some((m) => m.pubkey === key && m.sharing)) stopWatching(key);
       for (const m of here) {
         if (m.sharing && !sharers.has(m.pubkey)) controls2.say(opts.panels ? `${m.name} is sharing their screen. Select them in People to watch.` : `${m.name} is sharing their screen.`);
         if (m.sharing) sharers.add(m.pubkey);
@@ -54630,10 +54728,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           id: "person-watch",
           section: "people",
           icon: "panel",
-          on: () => watching2.has(who2.pubkey),
-          label: () => watching2.has(who2.pubkey) ? `Stop watching ${who2.name}'s screen` : `Watch ${who2.name}'s screen`,
+          on: () => watching3.has(who2.pubkey),
+          label: () => watching3.has(who2.pubkey) ? `Stop watching ${who2.name}'s screen` : `Watch ${who2.name}'s screen`,
           act: () => {
-            if (watching2.has(who2.pubkey)) stopWatching(who2.pubkey);
+            if (watching3.has(who2.pubkey)) stopWatching(who2.pubkey);
             else if (startWatching(who2)) controls2.say(`${who2.name}'s screen is opening on a panel of your own. Put the panel away to stop.`);
             else controls2.say(`${who2.name}'s screen can't be shown here.`);
             refresh();
@@ -55093,7 +55191,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       turning = busy = true;
       const mic = presence3.micOn;
       const name = presence3.roomName;
-      for (const key of [...watching2.keys()]) stopWatching(key);
+      for (const key of [...watching3.keys()]) stopWatching(key);
       presence3.leave();
       try {
         await presence3.join(name);
@@ -55182,7 +55280,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         hidden: () => busy,
         act: async () => {
           if (presence3.session) {
-            for (const key of [...watching2.keys()]) stopWatching(key);
+            for (const key of [...watching3.keys()]) stopWatching(key);
             presence3.leave();
             controls2.signal("leave");
             tell2("You left the room.");
