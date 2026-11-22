@@ -29,7 +29,7 @@ export interface BaggingOptions {
    * What looks items up. Their descriptions are all that is needed; where it can also give a model (items.ts),
    * each thing is shown as itself, drawn from that model. Without, each is shown by its first letter.
    */
-  items: Pick<ItemStore, "known" | "describe"> & Partial<Pick<Items, "model">>;
+  items: Pick<ItemStore, "known" | "describe"> & Partial<Pick<Items, "model" | "elsewhere">>;
   /** What draws each thing's picture. Left out, one is made from `items.model`, where there is one. `null` for none. */
   previews?: ItemPreviews | null;
   /** Whether things may move for this visitor: off, the chosen thing is shown still. Left out, as the menu's own setting says. */
@@ -234,7 +234,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           proven: false,
           sub: `Made by ${item.maker.slice(0, 8)}…`,
           copy: item.id,
-          text: item.summary,
+          // Drawn as a plain box because its files are kept somewhere they don't load files from: said, with what to do.
+          text: items.elsewhere?.(item) ? `${item.summary ? `${item.summary} ` : ""}Kept somewhere you don't load files from, so it is shown as a plain box. "Load people's files from anywhere", under People, would fetch it.` : item.summary,
           picture: "",
           color: "",
           now: [],

@@ -10,12 +10,15 @@
  * - a model is read and counted first (`readGlb` in the core): one with too much in it, or one that names
  *   anything outside itself, is not handed on at all.
  *
- * Fetching a file tells the place that keeps it the visitor's address, as fetching a picture does. A visitor
- * who would rather not has one switch for all items (`showsItems`).
+ * Fetching a file tells the place that keeps it the visitor's address. So a file is asked for by its hash, only
+ * from file hosts on the visitor's own list (`fetchByHash`, file-hosts.ts): the address an item gives is a hint.
+ * One kept only somewhere else is not fetched unless the visitor turned on loading files from anywhere, and the
+ * item is drawn as its marker. A visitor who would rather nothing were fetched has one switch for all items
+ * (`showsItems`).
  */
 import { DEFAULT_RELAYS, ITEM_KIND, itemCoordinate, MODEL_BUDGET, parseItem, queryRelays, readGlb, SCRIPT_LIMITS, verifyEvent, type GlbCount, type Item } from "@nswp/core";
-import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { fetchByHashSaying, keptElsewhere, onFileHostsChange } from "./file-hosts.js";
+import { arrival } from "./index.js";
 import { askWell } from "./relay-book.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
 
@@ -80,8 +83,13 @@ export function onItemsChange(fn: () => void): () => void {
 export interface ItemStoreOptions {
   relays?: string[];
   query?: typeof queryRelays;
-  /** Fetch a file's bytes. For tests; left out, the browser's own. */
+  /** Fetch a file's bytes, at one address. For tests; left out, the browser's own. */
   fetchBytes?: (url: string) => Promise<Uint8Array | null>;
+  /**
+   * Whose own file hosts are used: the signed-in viewer's key, or null for a guest. Left out, whoever the visitor
+   * arrived as.
+   */
+  viewer?: () => string | null;
   now?: () => number;
 }
 
@@ -105,32 +113,24 @@ export interface ItemStore {
   sound(item: Item, name: string): Promise<Uint8Array | null>;
   /** An item's script, as its text: fetched and checked against its hash. Null if it has none, or it failed. */
   script(item: Item): Promise<string | null>;
+  /**
+   * Whether a file of this item didn't come because it is kept somewhere the visitor doesn't load files from:
+   * what its card says, beside its marker.
+   */
+  elsewhere(item: Pick<Item, "model" | "script">): boolean;
 }
 
-/** How long a file is waited for. */
-const FETCH_MS = 30_000;
 /** How long after a file failed to come it may be asked for again: a bad moment on the network isn't for the rest of the visit. */
 const AGAIN_MS = 4000;
-
-async function fetchWithin(url: string, most: number): Promise<Uint8Array | null> {
-  try {
-    // Not left hanging: a file that hasn't come in half a minute is asked for again another time.
-    const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
-    if (!res.ok) return null;
-    const stated = Number(res.headers.get("content-length") ?? 0);
-    if (stated > most) return null;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    return bytes.length <= most ? bytes : null;
-  } catch {
-    return null;
-  }
-}
 
 /** Count what a loaded model holds, and say whether it is within what may be drawn. */
 export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
   const query = opts.query ?? queryRelays;
   const now = opts.now ?? (() => Date.now());
-  const fetchBytes = opts.fetchBytes ?? ((url: string) => fetchWithin(url, ITEM_BUDGET.bytes));
+  const viewer = opts.viewer ?? (() => arrival.identity()?.pubkey ?? null);
+  const hosts = { ...(opts.relays ? { relays: opts.relays } : {}), query, now };
+  /** Files that didn't come, and whose own address is somewhere the visitor doesn't load files from. */
+  const refused = new Set<string>();
   const described = new Map<string, Promise<Item | null>>();
   const settled = new Map<string, Item | null>();
   const files = new Map<string, Promise<Uint8Array | null>>();
@@ -145,12 +145,15 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
   const file = (named: { url: string; sha256: string }, most: number): Promise<Uint8Array | null> => {
     let got = files.get(named.sha256);
     if (!got) {
-      const asking: Promise<Uint8Array | null> = fetchBytes(named.url)
-        .then((bytes) => {
+      const asking: Promise<Uint8Array | null> = fetchByHashSaying(named.sha256, named.url, { most, viewer: viewer(), hosts, ...(opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {}) })
+        .then(({ bytes, wrong }) => {
           // Nothing came: it is asked for again another time. Something came that is too big, or isn't what the
-          // description promised: that is kept as refused, since asking again would get the same file.
-          if (!bytes) forgetSoon(files, named.sha256, asking);
-          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named.sha256 ? bytes : null;
+          // description promised: that is kept as refused, since asking again would get the same file. One kept
+          // only somewhere the visitor doesn't load files from is kept as refused until their list or switch changes.
+          if (bytes) refused.delete(named.sha256);
+          else if (keptElsewhere(named.url)) refused.add(named.sha256);
+          else if (!wrong) forgetSoon(files, named.sha256, asking);
+          return bytes;
         })
         .catch(() => (forgetSoon(files, named.sha256, asking), null));
       got = asking;
@@ -158,6 +161,14 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
     }
     return got;
   };
+  // The visitor's list arrived, or they changed what they load: what was refused for where it is kept is asked for afresh.
+  onFileHostsChange(() => {
+    for (const sha of refused) {
+      files.delete(sha);
+      models.delete(sha);
+    }
+    refused.clear();
+  });
   return {
     describe(coordinateIn) {
       const coordinate = itemCoordinate(coordinateIn);
@@ -191,7 +202,7 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
           // Counted before anything that draws sees it, and refused if it names anything outside itself.
           const read = bytes ? readGlb(bytes) : null;
           // No file at all is forgotten with the file, so both are asked for again together.
-          if (!bytes) forgetSoon(models, named.model.sha256, asking);
+          if (!bytes && !refused.has(named.model.sha256)) forgetSoon(models, named.model.sha256, asking);
           return bytes && read?.ok ? { bytes, count: read.count } : null;
         });
         got = asking;
@@ -203,6 +214,7 @@ export function createItemStore(opts: ItemStoreOptions = {}): ItemStore {
       const named = item.sounds[name];
       return named && showsItems() ? file(named, ITEM_BUDGET.sound) : null;
     },
+    elsewhere: (item) => [item.model, item.script].some((f) => !!f && refused.has(f.sha256)),
     async script(item) {
       if (!item.script || !showsItems()) return null;
       const bytes = await file(item.script, SCRIPT_LIMITS.bytes);

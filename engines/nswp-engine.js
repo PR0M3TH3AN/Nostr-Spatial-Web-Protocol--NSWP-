@@ -5187,6 +5187,8 @@ var NSWP = (() => {
       out.chat = s.chat;
     if (typeof s.items === "boolean")
       out.items = s.items;
+    if (typeof s.filesAnywhere === "boolean")
+      out.filesAnywhere = s.filesAnywhere;
     if (Array.isArray(s.pins))
       out.pins = [...new Set(s.pins.filter((name) => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
     if (s.holding === "")
@@ -5623,17 +5625,17 @@ var NSWP = (() => {
   function pickRelays(o) {
     const score = (url) => relayScore(o.notes[url], o.now);
     const best = (urls) => urls.map((url, i) => ({ url, i, s: score(url) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.url);
-    const own = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
-    const working = own.filter((url) => score(url) >= RELAY_PICK.working).length;
+    const own2 = best([...new Set(o.own.map(cleanRelayUrl).filter(Boolean))]).slice(0, RELAY_PICK.most);
+    const working = own2.filter((url) => score(url) >= RELAY_PICK.working).length;
     const added = [];
-    for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own.includes(u)))) {
+    for (const url of best([...new Set(o.usual.map(cleanRelayUrl).filter(Boolean))].filter((u) => !own2.includes(u)))) {
       if (working + added.length >= RELAY_PICK.least)
         break;
       if (score(url) < RELAY_PICK.working && added.length > 0)
         continue;
       added.push(url);
     }
-    return { relays: [...own, ...added], own: own.length, added };
+    return { relays: [...own2, ...added], own: own2.length, added };
   }
   async function queryRelays(relays, filter, timeoutMs = 4e3) {
     const byId = /* @__PURE__ */ new Map();
@@ -6366,13 +6368,13 @@ ${roomName}`)));
   var finite = (n) => typeof n === "number" && Number.isFinite(n);
   var placeOk = (p) => !!p && typeof p === "object" && Array.isArray(p.position) && p.position.length === 3 && p.position.every(finite) && finite(p.yaw);
   function entryPlaces(point, least = ENTRY_PLACES_LEAST) {
-    const own = { position: [...point.position], yaw: point.yaw };
+    const own2 = { position: [...point.position], yaw: point.yaw };
     const given = (point.places ?? []).filter(placeOk).map((p) => ({ position: [...p.position], yaw: p.yaw }));
-    const places = [own, ...given];
+    const places = [own2, ...given];
     const missing = Math.max(0, least - places.length);
     for (let i = 0; i < missing; i++) {
       const a = point.yaw * Math.PI / 180 + Math.PI / 2 + i * 2 * Math.PI / missing;
-      places.push({ position: [own.position[0] + Math.cos(a) * ENTRY_RING, own.position[1], own.position[2] - Math.sin(a) * ENTRY_RING], yaw: point.yaw });
+      places.push({ position: [own2.position[0] + Math.cos(a) * ENTRY_RING, own2.position[1], own2.position[2] - Math.sin(a) * ENTRY_RING], yaw: point.yaw });
     }
     return places;
   }
@@ -7053,6 +7055,66 @@ ${roomName}`)));
       license: cleanLine(tag2("license")?.[1], 40),
       at: Number.isInteger(event.created_at) ? event.created_at : 0
     };
+  }
+
+  // packages/core/dist/file-hosts.js
+  var FILE_HOST_LIST_KIND = 10063;
+  var FILE_HOSTS = ["https://grove.bitblocks.network/items/"];
+  var FILE_HOST_LIMITS = { list: 6, url: 200 };
+  function cleanFileHost(input) {
+    if (typeof input !== "string" || input.length > FILE_HOST_LIMITS.url)
+      return null;
+    try {
+      const u = new URL(input.trim());
+      if (u.protocol !== "https:" || u.username || u.password)
+        return null;
+      u.search = "";
+      u.hash = "";
+      const href = u.href;
+      return href.endsWith("/") ? href : `${href}/`;
+    } catch {
+      return null;
+    }
+  }
+  function fileExtension(hint2) {
+    try {
+      const last = new URL(hint2).pathname.split("/").pop() ?? "";
+      const ext = /\.[a-z0-9]{1,8}$/i.exec(last)?.[0];
+      return ext ? ext.toLowerCase() : "";
+    } catch {
+      return "";
+    }
+  }
+  function fileAt(host, sha2562, hint2 = "") {
+    return `${host}${sha2562}${fileExtension(hint2)}`;
+  }
+  function onFileHost(url, hosts) {
+    let href;
+    try {
+      const u = new URL(url);
+      if (u.protocol !== "https:" || u.username || u.password)
+        return false;
+      href = u.href;
+    } catch {
+      return false;
+    }
+    return hosts.some((host) => href.startsWith(host));
+  }
+  function parseFileHostList(events2, pubkey) {
+    const newest = events2.filter((e) => e.kind === FILE_HOST_LIST_KIND && e.pubkey === pubkey && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+    if (!newest)
+      return [];
+    const hosts = [];
+    for (const tag2 of newest.tags) {
+      if (tag2[0] !== "server")
+        continue;
+      const host = cleanFileHost(tag2[1]);
+      if (host && !hosts.includes(host))
+        hosts.push(host);
+      if (hosts.length >= FILE_HOST_LIMITS.list)
+        break;
+    }
+    return hosts;
   }
 
   // packages/core/dist/play.js
@@ -7790,14 +7852,14 @@ postMessage({ t: "started" });
       wall("right"),
       el2("div", "way", el2("div", "sign", name, address, status), el2("div", "line", got), el2("div", "leaves", el2("div", "leaf l"), el2("div", "leaf r")))
     );
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     let state = "arriving";
     let title = o.title;
     const set = (next) => {
       if (next === state) return;
       state = next;
       host.dataset.state = next;
-      for (const fn of watchers7) fn(next);
+      for (const fn of watchers8) fn(next);
     };
     const colour = (hex) => {
       const rgb2 = hex ? rgbOf(hex) : null;
@@ -7885,7 +7947,7 @@ postMessage({ t: "started" });
         }
       },
       onChange(fn) {
-        watchers7.add(fn);
+        watchers8.add(fn);
       }
     };
   }
@@ -8158,7 +8220,7 @@ postMessage({ t: "started" });
         return null;
       }
     })();
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     let kept2 = null;
     const all = () => {
       if (kept2) return kept2;
@@ -8199,11 +8261,11 @@ postMessage({ t: "started" });
         }
         if (answered) for (const k of wanted) book[k] = { ...book[k] ?? { name: "", picture: "", about: "", at: 0 }, asked: now() };
         save2();
-        for (const fn of watchers7) fn();
+        for (const fn of watchers8) fn();
       },
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       }
     };
   }
@@ -8472,7 +8534,7 @@ postMessage({ t: "started" });
   function createPaidGate(opts) {
     const now = opts.now ?? (() => Date.now());
     const sec = () => Math.floor(now() / 1e3);
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     let state = opts.listings && opts.listings.length === 0 ? "free" : "checking";
     let reason = "";
     let listings = [];
@@ -8508,7 +8570,7 @@ postMessage({ t: "started" });
     let listRetries = 0;
     let listTimer;
     const changed = () => {
-      for (const fn of [...watchers7]) {
+      for (const fn of [...watchers8]) {
         try {
           fn();
         } catch {
@@ -8895,8 +8957,8 @@ postMessage({ t: "started" });
         await look();
       },
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       },
       info() {
         return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
@@ -8910,7 +8972,7 @@ postMessage({ t: "started" });
         clearTimeout(listTimer);
         clearInterval(lookTimer);
         unwatch?.();
-        watchers7.clear();
+        watchers8.clear();
       }
     };
   }
@@ -9589,6 +9651,97 @@ postMessage({ t: "started" });
       }
     }
   };
+
+  // packages/sdk/src/file-hosts.ts
+  var ANYWHERE_KEY = "nswp:files-anywhere";
+  var watchers4 = /* @__PURE__ */ new Set();
+  var anywhere = null;
+  var keep3 = (on3) => {
+    try {
+      if (on3) globalThis.localStorage?.setItem(ANYWHERE_KEY, "on");
+      else globalThis.localStorage?.removeItem(ANYWHERE_KEY);
+    } catch {
+    }
+  };
+  function filesAnywhere() {
+    if (anywhere !== null) return anywhere;
+    const came = arrivedSettings().filesAnywhere;
+    let kept2 = null;
+    try {
+      kept2 = globalThis.localStorage?.getItem(ANYWHERE_KEY) ?? null;
+    } catch {
+    }
+    anywhere = came ?? kept2 === "on";
+    if (came !== void 0) keep3(anywhere);
+    reportSettings("files-anywhere", () => filesAnywhere() ? { filesAnywhere: true } : {});
+    return anywhere;
+  }
+  function setFilesAnywhere(on3) {
+    filesAnywhere();
+    anywhere = on3;
+    keep3(on3);
+    for (const fn of watchers4) fn();
+  }
+  function onFileHostsChange(fn) {
+    watchers4.add(fn);
+    return () => void watchers4.delete(fn);
+  }
+  var own = null;
+  function learnFileHosts(pubkey, opts = {}) {
+    if (!pubkey || !/^[0-9a-f]{64}$/.test(pubkey)) {
+      own = null;
+      return Promise.resolve([]);
+    }
+    if (own?.pubkey === pubkey) return own.asked;
+    const mine = {
+      pubkey,
+      hosts: [],
+      asked: askWell({ kinds: [FILE_HOST_LIST_KIND], authors: [pubkey], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).then((got) => parseFileHostList(got.events, pubkey)).catch(() => []).then((hosts) => {
+        mine.hosts = hosts;
+        if (own === mine) for (const fn of watchers4) fn();
+        return hosts;
+      })
+    };
+    own = mine;
+    return mine.asked;
+  }
+  function fileHosts() {
+    return [.../* @__PURE__ */ new Set([...own?.hosts ?? [], ...FILE_HOSTS])];
+  }
+  function keptElsewhere(hint2) {
+    return !filesAnywhere() && !onFileHost(hint2, fileHosts());
+  }
+  var FETCH_MS = 3e4;
+  async function fetchWithin(url, most) {
+    try {
+      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
+      if (!res.ok) return null;
+      const stated = Number(res.headers.get("content-length") ?? 0);
+      if (stated > most) return null;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      return bytes.length <= most ? bytes : null;
+    } catch {
+      return null;
+    }
+  }
+  function addressesFor(sha2562, hint2, hosts = fileHosts(), anywhereOn = filesAnywhere()) {
+    const at = hosts.map((host) => fileAt(host, sha2562, hint2));
+    const useHint = !!hint2 && (anywhereOn || onFileHost(hint2, hosts));
+    return [...new Set(useHint ? [hint2, ...at] : at)];
+  }
+  async function fetchByHashSaying(sha2562, hint2, opts = {}) {
+    if (!/^[0-9a-f]{64}$/.test(sha2562)) return { bytes: null, wrong: false };
+    const most = opts.most ?? Infinity;
+    if (opts.viewer !== void 0) await learnFileHosts(opts.viewer, opts.hosts);
+    const get = opts.fetchBytes ?? ((url) => fetchWithin(url, most));
+    let wrong = false;
+    for (const url of addressesFor(sha2562, hint2)) {
+      const bytes = await get(url).catch(() => null);
+      if (bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === sha2562) return { bytes, wrong: false };
+      if (bytes) wrong = true;
+    }
+    return { bytes: null, wrong };
+  }
 
   // packages/sdk/src/room.ts
   var PLAY_WORD = /^(shot|hit|did|st|tint):/;
@@ -27202,7 +27355,7 @@ postMessage({ t: "started" });
       const times = this.times.slice(), values = this.values.slice(), stride = this.getValueSize(), smoothInterpolation = this.getInterpolation() === InterpolateSmooth, lastIndex = times.length - 1;
       let writeIndex = 1;
       for (let i = 1; i < lastIndex; ++i) {
-        let keep5 = false;
+        let keep6 = false;
         const time = times[i];
         const timeNext = times[i + 1];
         if (time !== timeNext && (i !== 1 || time !== times[0])) {
@@ -27211,15 +27364,15 @@ postMessage({ t: "started" });
             for (let j = 0; j !== stride; ++j) {
               const value = values[offset + j];
               if (value !== values[offsetP + j] || value !== values[offsetN + j]) {
-                keep5 = true;
+                keep6 = true;
                 break;
               }
             }
           } else {
-            keep5 = true;
+            keep6 = true;
           }
         }
-        if (keep5) {
+        if (keep6) {
           if (i !== writeIndex) {
             times[writeIndex] = times[i];
             const readOffset = i * stride, writeOffset = writeIndex * stride;
@@ -44018,7 +44171,7 @@ void main() {
         return null;
       }
     };
-    const own = /* @__PURE__ */ new Map();
+    const own2 = /* @__PURE__ */ new Map();
     const fromKit = /* @__PURE__ */ new Map();
     const loadInto = (into, files2) => {
       for (const [cue, addresses] of Object.entries(files2)) {
@@ -44044,7 +44197,7 @@ void main() {
     const loadCues = () => {
       if (cuesAsked || disposed) return;
       cuesAsked = true;
-      loadInto(own, theme.cues);
+      loadInto(own2, theme.cues);
       void kitReady.then(() => {
         const rest = Object.fromEntries(Object.entries(kit2.cues).filter(([cue]) => theme.cues[cue] === void 0));
         loadInto(fromKit, rest);
@@ -44083,7 +44236,7 @@ void main() {
       const stepped = cue === "step" ? stepShape(foot++) : null;
       const shape = stepped ? { ...stepped, gain: stepped.gain * louder } : from ? heardFrom(from) : null;
       const out = shape ? shaped2(shape) : effects;
-      const files2 = own.get(cue) ?? fromKit.get(cue);
+      const files2 = own2.get(cue) ?? fromKit.get(cue);
       if (files2?.length) {
         const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
         lastVariant.set(cue, which);
@@ -47620,9 +47773,9 @@ void main() {
     sound: 15e4
   };
   var ITEMS_KEY = "nswp:items";
-  var watchers4 = /* @__PURE__ */ new Set();
+  var watchers5 = /* @__PURE__ */ new Set();
   var shown2 = null;
-  var keep3 = (on3) => {
+  var keep4 = (on3) => {
     try {
       if (on3) globalThis.localStorage?.removeItem(ITEMS_KEY);
       else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
@@ -47638,38 +47791,27 @@ void main() {
     } catch {
     }
     shown2 = came ?? kept2 !== "off";
-    if (came !== void 0) keep3(shown2);
+    if (came !== void 0) keep4(shown2);
     reportSettings("items", () => ({ items: showsItems() }));
     return shown2;
   }
   function setShowsItems(on3) {
     showsItems();
     shown2 = on3;
-    keep3(on3);
-    for (const fn of watchers4) fn();
+    keep4(on3);
+    for (const fn of watchers5) fn();
   }
   function onItemsChange(fn) {
-    watchers4.add(fn);
-    return () => void watchers4.delete(fn);
+    watchers5.add(fn);
+    return () => void watchers5.delete(fn);
   }
-  var FETCH_MS = 3e4;
   var AGAIN_MS = 4e3;
-  async function fetchWithin(url, most) {
-    try {
-      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
-      if (!res.ok) return null;
-      const stated = Number(res.headers.get("content-length") ?? 0);
-      if (stated > most) return null;
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      return bytes.length <= most ? bytes : null;
-    } catch {
-      return null;
-    }
-  }
   function createItemStore(opts = {}) {
     const query = opts.query ?? queryRelays;
     const now = opts.now ?? (() => Date.now());
-    const fetchBytes = opts.fetchBytes ?? ((url) => fetchWithin(url, ITEM_BUDGET.bytes));
+    const viewer = opts.viewer ?? (() => arrival.identity()?.pubkey ?? null);
+    const hosts = { ...opts.relays ? { relays: opts.relays } : {}, query, now };
+    const refused = /* @__PURE__ */ new Set();
     const described = /* @__PURE__ */ new Map();
     const settled = /* @__PURE__ */ new Map();
     const files2 = /* @__PURE__ */ new Map();
@@ -47682,15 +47824,24 @@ void main() {
     const file = (named2, most) => {
       let got = files2.get(named2.sha256);
       if (!got) {
-        const asking = fetchBytes(named2.url).then((bytes) => {
-          if (!bytes) forgetSoon(files2, named2.sha256, asking);
-          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null;
+        const asking = fetchByHashSaying(named2.sha256, named2.url, { most, viewer: viewer(), hosts, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes, wrong }) => {
+          if (bytes) refused.delete(named2.sha256);
+          else if (keptElsewhere(named2.url)) refused.add(named2.sha256);
+          else if (!wrong) forgetSoon(files2, named2.sha256, asking);
+          return bytes;
         }).catch(() => (forgetSoon(files2, named2.sha256, asking), null));
         got = asking;
         files2.set(named2.sha256, got);
       }
       return got;
     };
+    onFileHostsChange(() => {
+      for (const sha of refused) {
+        files2.delete(sha);
+        models2.delete(sha);
+      }
+      refused.clear();
+    });
     return {
       describe(coordinateIn) {
         const coordinate2 = itemCoordinate(coordinateIn);
@@ -47718,7 +47869,7 @@ void main() {
         if (!got) {
           const asking = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
             const read6 = bytes ? readGlb(bytes) : null;
-            if (!bytes) forgetSoon(models2, named2.model.sha256, asking);
+            if (!bytes && !refused.has(named2.model.sha256)) forgetSoon(models2, named2.model.sha256, asking);
             return bytes && read6?.ok ? { bytes, count: read6.count } : null;
           });
           got = asking;
@@ -47730,6 +47881,7 @@ void main() {
         const named2 = item.sounds[name];
         return named2 && showsItems() ? file(named2, ITEM_BUDGET.sound) : null;
       },
+      elsewhere: (item) => [item.model, item.script].some((f) => !!f && refused.has(f.sha256)),
       async script(item) {
         if (!item.script || !showsItems()) return null;
         const bytes = await file(item.script, SCRIPT_LIMITS.bytes);
@@ -47763,14 +47915,14 @@ void main() {
     root.traverse((o) => {
       const mesh = o;
       if (!mesh.isMesh) return;
-      const own = (material) => {
+      const own2 = (material) => {
         const slot = tintSlot(material.name);
         if (!slot || !item.tints.some((t) => t.slot === slot)) return material;
         const copy = material.clone();
         copy.userData = { ...copy.userData, nswpTint: slot, nswpGlows: (material.emissive?.getHex() ?? 0) !== 0 };
         return copy;
       };
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material);
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own2) : own2(mesh.material);
     });
     applyTints(root, item, tints);
     return root;
@@ -48467,7 +48619,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   // packages/sdk/src/ui/chat.ts
   var CHAT_KEY = "nswp:chat";
   var shown3 = null;
-  var watchers5 = /* @__PURE__ */ new Set();
+  var watchers6 = /* @__PURE__ */ new Set();
   function showsChat() {
     if (shown3 !== null) return shown3;
     const came = arrivedSettings().chat;
@@ -48477,11 +48629,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     } catch {
     }
     shown3 = came ?? kept2 !== "0";
-    if (came !== void 0) keep4(shown3);
+    if (came !== void 0) keep5(shown3);
     reportSettings("chat", () => ({ chat: showsChat() }));
     return shown3;
   }
-  var keep4 = (on3) => {
+  var keep5 = (on3) => {
     try {
       if (on3) localStorage.removeItem(CHAT_KEY);
       else localStorage.setItem(CHAT_KEY, "0");
@@ -48491,12 +48643,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   function setShowsChat(on3) {
     showsChat();
     shown3 = on3;
-    keep4(on3);
-    for (const w of watchers5) w();
+    keep5(on3);
+    for (const w of watchers6) w();
   }
   function onChatChange(cb) {
-    watchers5.add(cb);
-    return () => void watchers5.delete(cb);
+    watchers6.add(cb);
+    return () => void watchers6.delete(cb);
   }
   function createUiChat(changed) {
     let send = null;
@@ -48818,8 +48970,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let markUntil = 0;
     const accent = () => o.theme?.().accent ?? "#7be495";
     const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
-    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
-    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+    const own2 = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
+    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own2.value, full: own2.full, accent: accent() }));
     ownBar.scale.set(0.3, 0.05, 1);
     ownBar.material.opacity = 0;
     ownBar.visible = false;
@@ -48848,16 +49000,16 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     glitch.visible = false;
     hud2.add(cross, mark, ownBar, edge, glitch);
     const paintOwn = () => {
-      const down = own.downUntil > 0;
-      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
-      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
-      own.painted = clock;
+      const down = own2.downUntil > 0;
+      const growing = own2.regenAt ? (clock - own2.regenAt) / HEALTH.regenSeconds : 0;
+      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own2.value, full: own2.full, accent: accent(), growing, down }));
+      own2.painted = clock;
     };
     const sayState = () => {
-      const said2 = buildState({ name: "health", value: own.value, full: own.full });
+      const said2 = buildState({ name: "health", value: own2.value, full: own2.full });
       if (said2 && o.me()) o.tell(said2);
       paintOwn();
-      own.shownUntil = clock + 2.5;
+      own2.shownUntil = clock + 2.5;
       o.onChange?.();
     };
     const soundOf = (item2, name) => {
@@ -49055,12 +49207,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
       if (said2) o.tell(said2);
       hear(thing.item, thing.send.strikes, null);
-      if (effect && clock >= own.downUntil) {
-        own.value = struck(own.value, effect.take);
-        own.struckAt = clock;
-        own.regenAt = 0;
-        own.flash = 1;
-        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
+      if (effect && clock >= own2.downUntil) {
+        own2.value = struck(own2.value, effect.take);
+        own2.struckAt = clock;
+        own2.regenAt = 0;
+        own2.flash = 1;
+        if (own2.value === 0) own2.downUntil = clock + HEALTH.downSeconds;
         sayState();
       }
       gone(thing);
@@ -49285,7 +49437,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return words2;
       },
       get health() {
-        return { value: own.value, full: own.full };
+        return { value: own2.value, full: own2.full };
       },
       heard(from, said2) {
         if (!active() || muted(from)) return;
@@ -49377,37 +49529,37 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         for (const mixer of mixers.values()) mixer.update(dt);
         if (mark.visible && clock > markUntil) mark.visible = false;
         refreshOwn();
-        if (own.downUntil) {
-          if (clock >= own.downUntil) {
-            own.value = own.full;
-            own.downUntil = 0;
-            own.regenAt = 0;
+        if (own2.downUntil) {
+          if (clock >= own2.downUntil) {
+            own2.value = own2.full;
+            own2.downUntil = 0;
+            own2.regenAt = 0;
             sayState();
           }
-        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
-          if (!own.regenAt) own.regenAt = clock;
-          if (clock - own.regenAt >= HEALTH.regenSeconds) {
-            own.value += 1;
-            own.regenAt = own.value < own.full ? clock : 0;
+        } else if (own2.value < own2.full && clock - own2.struckAt >= HEALTH.restSeconds) {
+          if (!own2.regenAt) own2.regenAt = clock;
+          if (clock - own2.regenAt >= HEALTH.regenSeconds) {
+            own2.value += 1;
+            own2.regenAt = own2.value < own2.full ? clock : 0;
             sayState();
           }
         }
         const on3 = active();
-        const down = own.downUntil > 0;
+        const down = own2.downUntil > 0;
         if (wordsSprite) wordsSprite.visible = !o.sighting?.();
         const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
         const wide = tall * o.camera.aspect;
         ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
         const scale = Math.min(0.3, wide * 0.62);
         ownBar.scale.set(scale, scale / 6, 1);
-        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
-        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
-        ownBar.visible = own.shown > 0.02;
-        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
-        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
-        own.flash = Math.max(0, own.flash - dt / 0.55);
-        const low = !down && own.value < own.full && own.value <= 1;
-        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+        const want2 = on3 && (own2.value < own2.full || clock < own2.shownUntil) ? 1 : 0;
+        own2.shown += (want2 - own2.shown) * Math.min(1, dt * 9);
+        ownBar.visible = own2.shown > 0.02;
+        ownBar.material.opacity = own2.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
+        if (ownBar.visible && (own2.regenAt || down) && clock - own2.painted > 0.08) paintOwn();
+        own2.flash = Math.max(0, own2.flash - dt / 0.55);
+        const low = !down && own2.value < own2.full && own2.value <= 1;
+        const red = on3 && !isPresenting() ? Math.max(own2.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
         edge.visible = red > 0.01;
         edge.material.opacity = red;
         edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
@@ -49512,7 +49664,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           own: {
             cross: cross.visible,
             mark: mark.visible,
-            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
+            health: { value: own2.value, full: own2.full, growing: own2.regenAt ? Math.min(1, (clock - own2.regenAt) / HEALTH.regenSeconds) : 0, down: own2.downUntil > 0, shown: own2.shown },
             red: edge.visible ? edge.material.opacity : 0,
             glitch: glitch.visible,
             words: words2
@@ -49543,7 +49695,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           sent,
           landed,
           taken,
-          health: { value: own.value, full: own.full },
+          health: { value: own2.value, full: own2.full },
           words: words2,
           script: scriptState,
           stoppedBecause,
@@ -49577,9 +49729,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return null;
       }
     })();
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers7) fn();
+      for (const fn of watchers8) fn();
     };
     const keyFor = (who2) => `nswp:follows:${who2}`;
     const readKept = (who2) => {
@@ -49590,7 +49742,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return null;
       }
     };
-    const keep5 = (list) => {
+    const keep6 = (list) => {
       try {
         const text2 = JSON.stringify(list);
         if (text2.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text2);
@@ -49610,13 +49762,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
-      const own = await ownRelays(who2);
-      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
+      const own2 = await ownRelays(who2);
+      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own: own2, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
       const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
       const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
-      if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
-      if (list && list !== kept2) keep5(list);
+      if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).catch(() => null);
+      if (list && list !== kept2) keep6(list);
       if (hand.pubkey() !== who2) return;
       known = { who: who2, list, answered, at: now() };
       changed();
@@ -49662,7 +49814,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const asked = adding ? { add: pubkey } : { remove: pubkey };
       const signed = await hand.change(list, asked).catch(() => null);
       if (!signed || !isFollowAsked(signed, { list, ...asked, pubkey: who2 })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
-      keep5(signed);
+      keep6(signed);
       known = { who: who2, list: signed, answered: true, at: now() };
       changed();
       const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
@@ -49678,8 +49830,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       follow: (pubkey, name = "") => change2(pubkey, true, name),
       unfollow: (pubkey, name = "") => change2(pubkey, false, name),
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       }
     };
   }
@@ -49837,7 +49989,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
     if (!real || typeof document === "undefined") return NONE2;
     const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     const pending = /* @__PURE__ */ new Map();
     const kept2 = /* @__PURE__ */ new Map();
     const askAbout = (request, read6) => new Promise((done) => {
@@ -49890,7 +50042,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const firstAnswer = /* @__PURE__ */ new Set();
     let n = 0;
     const changed = () => {
-      for (const fn of watchers7) fn();
+      for (const fn of watchers8) fn();
     };
     const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
     const showPage = () => {
@@ -50197,8 +50349,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return askAbout({ t: "achieve", id: `a${++n}`, world: world2, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world: world2, id: achievement, title, origin: location.origin }) ? reply.event : null);
       },
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       },
       whenAnswered(ms) {
         if (answered || disposed) return Promise.resolve();
@@ -51498,7 +51650,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var store = null;
   var presence = null;
   var arrivedBy = null;
-  var watchers6 = /* @__PURE__ */ new Set();
+  var watchers7 = /* @__PURE__ */ new Set();
   function engineItemStore() {
     return store ?? (store = createItems(said.relays?.length ? { relays: said.relays } : {}));
   }
@@ -51509,7 +51661,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return said.rule;
   }
   function onEnginePresence(fn) {
-    watchers6.add(fn);
+    watchers7.add(fn);
   }
   function enginePresence() {
     if (presence) return presence;
@@ -51559,7 +51711,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       look: () => arrival.look(),
       identity: () => arrival.identity(),
       onChange: () => {
-        for (const fn of watchers6) fn();
+        for (const fn of watchers7) fn();
       }
     });
     const made = presence;
@@ -53145,12 +53297,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }).finally(changed);
         return true;
       },
-      setTheme(patch, keep6 = false) {
-        if (keep6) {
+      setTheme(patch, keep7 = false) {
+        if (keep7) {
           visitor = { ...visitor, ...patch };
           saveVisitorTheme(visitor);
         }
-        theme = resolveTheme({ ...opts.theme, ...keep6 ? {} : patch }, visitor);
+        theme = resolveTheme({ ...opts.theme, ...keep7 ? {} : patch }, visitor);
         changed();
       },
       get pins() {
@@ -53224,20 +53376,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       feed,
       letters
     };
-    const keep5 = (patch) => controls2.setTheme(patch, true);
+    const keep6 = (patch) => controls2.setTheme(patch, true);
     controls2.add(
       ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep5({ accent: p.accent }) })
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep6({ accent: p.accent }) })
       ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep5({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep5({ motion: !theme.motion }) },
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep6({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep6({ motion: !theme.motion }) },
       {
         id: "look-wrist",
         section: "look",
         icon: "menu",
         label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
         on: () => theme.wrist !== "off",
-        act: () => keep5({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+        act: () => keep6({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
       },
       { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
         visitor = {};
@@ -53650,9 +53802,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
     })();
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers7) fn();
+      for (const fn of watchers8) fn();
     };
     const keyFor = (who2) => `nswp:bag:${who2}`;
     const readKept = (who2) => {
@@ -53663,7 +53815,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
     };
-    const keep5 = (bag) => {
+    const keep6 = (bag) => {
       try {
         store2?.setItem(keyFor(bag.pubkey), JSON.stringify(bag));
       } catch {
@@ -53681,13 +53833,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let offered = null;
     const look = async (who2) => {
       const kept2 = readKept(who2);
-      const own = await ownRelays(who2);
-      const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
+      const own2 = await ownRelays(who2);
+      const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own: own2, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
       const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
       const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
       const bag = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
-      if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
-      if (bag && bag !== kept2) keep5(bag);
+      if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own: own2, usual: usual(), publish, query, now }).catch(() => null);
+      if (bag && bag !== kept2) keep6(bag);
       if (opts.me() !== who2) return;
       known = { who: who2, bag, answered, at: now() };
       changed();
@@ -53735,7 +53887,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
       const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
       if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. Your bag is as it was." };
-      keep5(signed);
+      keep6(signed);
       known = { who: who2, bag: signed, answered: true, at: now() };
       changed();
       const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
@@ -53761,7 +53913,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
       const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
       if (!signed || !same) return;
-      keep5(signed);
+      keep6(signed);
       known = { who: who2, bag: signed, answered: true, at: now() };
       changed();
       await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
@@ -53792,8 +53944,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       add: (item, title = "") => change2(item, true, title),
       remove: (item, title = "") => change2(item, false, title),
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       }
     };
   }
@@ -53802,7 +53954,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var KEPT = 36;
   function createItemPreviews(o) {
     const size = o.size ?? 256;
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     const ready2 = /* @__PURE__ */ new Map();
     let stage;
     const keyOf = (item, tints) => `${item.id}|${item.model.sha256}|${JSON.stringify(tints ?? {})}`;
@@ -53878,7 +54030,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const ball = box.getBoundingSphere(new Sphere());
           if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
           ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
-          for (const fn of watchers7) fn();
+          for (const fn of watchers8) fn();
         },
         () => void again(key)
       );
@@ -53893,7 +54045,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setTimeout(() => {
         if (ready2.get(key) !== null) return;
         ready2.delete(key);
-        for (const fn of watchers7) fn();
+        for (const fn of watchers8) fn();
       }, AGAIN_MS2 * n);
     }
     return {
@@ -53909,7 +54061,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return made.live = draw(made, angle, made.live);
       },
       onChange(fn) {
-        watchers7.add(fn);
+        watchers8.add(fn);
       }
     };
   }
@@ -54056,7 +54208,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             proven: false,
             sub: `Made by ${item.maker.slice(0, 8)}\u2026`,
             copy: item.id,
-            text: item.summary,
+            // Drawn as a plain box because its files are kept somewhere they don't load files from: said, with what to do.
+            text: items2.elsewhere?.(item) ? `${item.summary ? `${item.summary} ` : ""}Kept somewhere you don't load files from, so it is shown as a plain box. "Load people's files from anywhere", under People, would fetch it.` : item.summary,
             picture: "",
             color: "",
             now: [],
@@ -54532,29 +54685,29 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     document.body.append(root);
     return { root, cross, mark, pill, edge, glitch, words: words2, painted: "" };
   }
-  function paint(o, own, accent, presenting) {
+  function paint(o, own2, accent, presenting) {
     o.root.style.display = presenting ? "none" : "block";
     if (presenting) return;
-    o.cross.style.display = own.cross ? "block" : "none";
-    o.mark.style.display = own.mark ? "block" : "none";
-    o.edge.style.opacity = String(Math.round(own.red * 100) / 100);
-    o.glitch.style.display = own.glitch ? "block" : "none";
-    if (own.glitch) {
+    o.cross.style.display = own2.cross ? "block" : "none";
+    o.mark.style.display = own2.mark ? "block" : "none";
+    o.edge.style.opacity = String(Math.round(own2.red * 100) / 100);
+    o.glitch.style.display = own2.glitch ? "block" : "none";
+    if (own2.glitch) {
       o.glitch.style.top = `${Math.round(Math.random() * 60)}%`;
       o.glitch.style.opacity = String(0.2 + Math.random() * 0.3);
     }
-    o.words.style.display = own.words ? "block" : "none";
-    if (o.words.textContent !== own.words) o.words.textContent = own.words;
+    o.words.style.display = own2.words ? "block" : "none";
+    if (o.words.textContent !== own2.words) o.words.textContent = own2.words;
     const narrow = innerWidth < innerHeight;
     o.pill.style.bottom = narrow ? "24%" : "104px";
-    o.pill.style.opacity = String(Math.round(own.health.shown * 100) / 100);
-    const what = `${own.health.value}/${own.health.full}/${Math.round(own.health.growing * 12)}/${own.health.down}/${accent}`;
-    if (what !== o.painted && own.health.shown > 0.02) {
+    o.pill.style.opacity = String(Math.round(own2.health.shown * 100) / 100);
+    const what = `${own2.health.value}/${own2.health.full}/${Math.round(own2.health.growing * 12)}/${own2.health.down}/${accent}`;
+    if (what !== o.painted && own2.health.shown > 0.02) {
       o.painted = what;
       const g = o.pill.getContext("2d");
       if (g) {
         g.clearRect(0, 0, o.pill.width, o.pill.height);
-        paintHealth(g, o.pill.width, o.pill.height, { value: own.health.value, full: own.health.full, accent, growing: own.health.growing, down: own.health.down });
+        paintHealth(g, o.pill.width, o.pill.height, { value: own2.health.value, full: own2.health.full, accent, growing: own2.health.growing, down: own2.health.down });
       }
     }
   }
@@ -54686,15 +54839,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return null;
       }
     })();
-    const watchers7 = /* @__PURE__ */ new Set();
+    const watchers8 = /* @__PURE__ */ new Set();
     const newcomers = /* @__PURE__ */ new Set();
     const changed = () => {
-      for (const fn of watchers7) fn();
+      for (const fn of watchers8) fn();
     };
     let who2 = null;
     let state = "off";
     let inbox = [];
-    let own = { read: [], write: [] };
+    let own2 = { read: [], write: [] };
     let monitors = { open: [], closed: [] };
     const read6 = /* @__PURE__ */ new Map();
     const tried = /* @__PURE__ */ new Set();
@@ -54719,7 +54872,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       who2 = me;
       state = me && hand.ready() ? "looking" : "off";
       inbox = [];
-      own = { read: [], write: [] };
+      own2 = { read: [], write: [] };
       read6.clear();
       tried.clear();
       marks = null;
@@ -54744,7 +54897,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (hand.pubkey() !== me) return;
       const answered = !!lists && Object.values(lists.relays).some((said2) => said2 === "eose");
       const relayList = readRelayList(lists?.events ?? [], me);
-      own = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
+      own2 = { read: relayList?.read ?? [], write: relayList?.write ?? [] };
       const found2 = readMessageRelays(lists?.events ?? [], me);
       if (found2.length) inbox = found2;
       if (!inbox.length) {
@@ -54785,10 +54938,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       await looking;
     };
     const offered = () => {
-      const first2 = (own.read.length ? own.read : usual()).filter((r) => !monitors.closed.includes(r));
+      const first2 = (own2.read.length ? own2.read : usual()).filter((r) => !monitors.closed.includes(r));
       const rest = monitors.open.filter((r) => !first2.includes(r));
       const out = [...first2, ...rest].slice(0, 3);
-      return out.length ? out : (own.read.length ? own.read : usual()).slice(0, 3);
+      return out.length ? out : (own2.read.length ? own2.read : usual()).slice(0, 3);
     };
     return {
       state: () => hand.ready() && hand.pubkey() === who2 && who2 ? state : "off",
@@ -54801,7 +54954,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const relays = offered();
         const signed = await hand.reach(relays).catch(() => null);
         if (!signed) return { ok: false, said: "It couldn't be signed. Nothing was changed." };
-        const sent = await sendWell(signed, { own: own.write, usual: usual(), publish, query, now }).catch(() => null);
+        const sent = await sendWell(signed, { own: own2.write, usual: usual(), publish, query, now }).catch(() => null);
         if (!sent || sent.took === 0) return { ok: false, said: "No relay took it. Try again in a moment." };
         inbox = relays;
         state = "ready";
@@ -54860,8 +55013,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return n;
       },
       onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
       },
       onNew(fn) {
         newcomers.add(fn);
@@ -55411,6 +55564,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
       }
     });
+    controls2.add({
+      id: "files-anywhere",
+      section: "people",
+      icon: "link",
+      on: () => filesAnywhere(),
+      label: () => filesAnywhere() ? "Load people's files from anywhere: on" : "Load people's files from anywhere: off",
+      short: "Files",
+      act: () => {
+        setFilesAnywhere(!filesAnywhere());
+        controls2.say(
+          filesAnywhere() ? "What people carry is fetched from wherever they keep it. The place that keeps a file learns your address, and when you were near it: anyone can choose that place." : "People's files are fetched only from the file hosts you already use. Anything kept elsewhere is shown as a plain box."
+        );
+      }
+    });
     const people2 = () => {
       const here = presence3.session ? presence3.people() : [];
       if (presence3.session && here.length !== headcount) controls2.signal(here.length > headcount ? "join" : "leave");
@@ -55775,8 +55942,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
       const kept3 = to?.took ?? 0;
       const n = to?.relays.length ?? 0;
-      const own = to?.own ?? 0;
-      const where = own === n ? `${kept3} of your ${n} relays` : own ? `${kept3} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept3} of the ${n} usual relays: you have published no relay list of your own`;
+      const own2 = to?.own ?? 0;
+      const where = own2 === n ? `${kept3} of your ${n} relays` : own2 ? `${kept3} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept3} of the ${n} usual relays: you have published no relay list of your own`;
       return kept3 ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.`, id: note.id } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
     };
     const removeNote = async (id) => {

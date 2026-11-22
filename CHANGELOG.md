@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Someone else's files are fetched only from file hosts the viewer already uses** (core `FILE_HOSTS`, `FILE_HOST_LIST_KIND`, `cleanFileHost`, `fileAt`, `onFileHost`, `parseFileHostList`; kit `fileHosts()`, `learnFileHosts`, `fetchByHash(sha256, hint)`, `keptElsewhere`, `filesAnywhere()` / `setFilesAnywhere()`; the console row `files-anywhere`; the setting `filesAnywhere`; NSWP-17, "Where a file is fetched from"; names from the orchestrator). Before this, an item's files were fetched from whatever address its maker wrote, so anyone could hold an item in a room and learn the address of everyone there.
+  - A file host is an https prefix where a file is at `<prefix><sha256><ext>`, the extension taken from the hint. A Blossom server is one, at its root.
+  - The viewer's list is the file hosts their own sign-in address keeps their files on (their kind 10063 list, read by the key they arrived as), then `FILE_HOSTS`, which is `https://grove.bitblocks.network/items/`, where the starter items already are. A guest has only `FILE_HOSTS`.
+  - Each host on the list is asked for the hash. The item's own address is used only where it is inside one of those hosts, or where the visitor turned on "Load people's files from anywhere" (off by default; it travels). The bytes are hash-checked as before.
+  - Every file of an item goes through it: models, sounds, scripts, things sent out, in every engine. An item kept elsewhere is drawn as its marker, and its Bag card says so and what would fetch it.
+  - `createItemStore` and `createItems` take `viewer`, whose own list is used. Left out, the visitor it arrived as.
 - **Items in your bag show a bag in their corner; offered ones are greyed** (the console's Bag section; a tile's `mark` and `faint`; the owner, 2026-11-22: "The items that are in your bag in the menu need a bag icon in there corner. If it's not in the bag the it should be grayed out"; `docs/backlog/bag-icon-on-items.md`).
   - In the HUD and the headset console, an item in the visitor's bag, the one in their hand included, shows the console's own bag icon in its tile's corner.
   - An item only offered here is drawn greyed, with a dashed edge. It is still pressable and takeable, since grey means not theirs yet, never unavailable. Its words say "offered here, not in your bag" for a screen reader.

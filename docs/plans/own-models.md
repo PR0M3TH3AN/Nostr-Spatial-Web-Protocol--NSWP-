@@ -145,10 +145,11 @@ written, for looks and items alike):
 
 1. **Fetch by hash, from hosts the viewer already uses.** A look's (and an
    item's) file is fetched on its own only from a content-addressed file host
-   (a Blossom server: the file at `/<sha256>`, the same for everyone) on the
+   (the file at `<prefix><sha256><ext>`, the same for everyone; a Blossom
+   server is one, at its root) on the
    viewer's own list: the hosts their own sign-in address keeps their files on,
    and the kit's short default list (`FILE_HOSTS`: the hosts BitBlocks runs).
-   The kit asks those hosts for the hash itself (`GET /<sha256>`); the url in
+   The kit asks those hosts for the hash itself; the url in
    the note is a hint, used only when its host is on that list. So no wearer
    can choose who is asked, and the only hosts that ever see a viewer are ones
    that viewer already talks to.
@@ -170,6 +171,12 @@ their address and when they fetched a given hash, as any file host does. A
 wearer can't read those hosts' logs, so a look can no longer be used to follow
 people, which is the hole. Fetches are made only when the person is near
 enough to be drawn (2.3, "Many at once"), never for everyone in a world.
+
+**In the protocol:** the rule is written for every client in
+[NSWP-17](../../protocol/17-items.md), "Where a file is fetched from": a file
+host as an address prefix, and the viewer's list as their kind 10063 file host
+list, then `FILE_HOSTS`. Looks fetch the same way, by the same `fetchByHash`;
+built first for items (`docs/backlog/item-file-hosts.md`).
 
 **Names (add to section 4):** `FILE_HOSTS`, `fileHosts()` (the viewer's
 list: their sign-in address's file hosts, then `FILE_HOSTS`),

@@ -37,6 +37,7 @@ import { arriveWith, currentSettings } from "./settings.js";
 import { resumeFullscreen } from "./ui/fullscreen.js";
 
 export { arrivedSettings, arriveWith, currentSettings, reportSettings, type TravelSettings } from "./settings.js";
+export { addressesFor, fetchByHash, fetchByHashSaying, fileHosts, filesAnywhere, forgetFileHosts, keptElsewhere, learnFileHosts, onFileHostsChange, setFilesAnywhere, type FetchByHashOptions, type Fetched, type FileHostsOptions } from "./file-hosts.js";
 
 export type { Arrival, PortalDestination } from "@nswp/core";
 export { currentForm, startingForm, type Form } from "./form.js";

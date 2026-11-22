@@ -84,6 +84,12 @@ export interface TravelSettings {
    */
   items?: boolean;
   /**
+   * Whether other people's files (what their items are made of) are fetched from wherever they say they are kept
+   * (protocol/17-items.md, "Where a file is fetched from"). Left out, they are not: a file is fetched only from
+   * the file hosts on the visitor's own list, and anything kept elsewhere is drawn as its marker.
+   */
+  filesAnywhere?: boolean;
+  /**
    * Which tabs of the menu they keep on their bar, by name, in the order they pinned them: `PINS_MOST` at most.
    * An empty list is a choice too: they took them all off. A name a world has no tab for is simply not shown
    * there. Only they pin: a world never does it for them.
@@ -146,6 +152,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
   if (typeof s.chat === "boolean") out.chat = s.chat;
   if (typeof s.items === "boolean") out.items = s.items;
+  if (typeof s.filesAnywhere === "boolean") out.filesAnywhere = s.filesAnywhere;
   if (Array.isArray(s.pins)) out.pins = [...new Set(s.pins.filter((name): name is string => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
   if (s.holding === "") out.holding = "";
   else if (s.holding && typeof s.holding === "object" && !Array.isArray(s.holding)) {
