@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildWayUrl,
   wayWithoutDestination,
+  SETTINGS_LINK_LIMIT,
   audienceOf,
   CATEGORIES,
   categoryWords,
@@ -438,6 +439,19 @@ describe("a way with no destination", () => {
 
   it("is nothing else: anything more in the address is a crossing or a mistake", () => {
     for (const hash of ["#to=https://museum.example/", "#doors=1&to=https://museum.example/", "#doors=yes", "#xr=2", "#home=1", "#doors=1&x"]) expect(wayWithoutDestination(hash), hash).toBeNull();
+  });
+
+  it("carries any settings a world may send, however long: holding an item whose logic runs is still the way home", () => {
+    const airlock = "https://portal.bitblocks.network/go/";
+    const item = `37303:${"5".repeat(64)}:dart-blaster`;
+    const settings = { sound: { effects: 0.8, music: 0.2, voices: 0.9 }, intense: false, items: true, text: 1.25, look: 1.5, pins: ["bag", "room"], holding: { item, tints: { body: "#ff7a1a", trim: "#33e0e0" }, script: "e".repeat(64) } };
+    const way = buildWayUrl(airlock, { settings });
+    // Longer than the 400 characters the reader once took: the case that stranded a visitor live.
+    expect(new URL(way).hash.length).toBeGreaterThan(404);
+    expect(wayWithoutDestination(new URL(way).hash)?.settings?.holding).toEqual(settings.holding);
+    // Up to the limit a world writes, and no further.
+    expect(wayWithoutDestination(`#set=${"A".repeat(SETTINGS_LINK_LIMIT)}`)).not.toBeNull();
+    expect(wayWithoutDestination(`#set=${"A".repeat(SETTINGS_LINK_LIMIT + 1)}`)).toBeNull();
   });
 
   it("is built the way it is read", () => {

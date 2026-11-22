@@ -4,7 +4,7 @@ import { checkDestination } from "./destination.js";
 import type { Capability } from "./constants.js";
 import { decodeNaddr, type AddressPointer } from "./nip19.js";
 import { Collector, isPlainObject, type Result } from "./result.js";
-import { decodeSettings, encodeSettings, hasSettings, type TravelSettings } from "./settings.js";
+import { decodeSettings, encodeSettings, hasSettings, SETTINGS_LINK_LIMIT, type TravelSettings } from "./settings.js";
 
 export interface PortalDestination {
   naddr?: string;
@@ -213,7 +213,10 @@ export function fragmentSaysImmersive(hash: string): boolean {
 export function wayWithoutDestination(hash: string): { immersive: boolean; doors: boolean; joined?: true; mic?: true; blocked?: string[]; moving?: "intense"; settings?: TravelSettings } | null {
   const parts = hash.replace(/^#/, "").split("&").filter(Boolean);
   const reported = parts.find((p) => /^blocked=[0-9a-f,]+$/.test(p));
-  const set = parts.find((p) => /^set=[A-Za-z0-9_-]{1,400}$/.test(p));
+  // As long as the settings a world may send (`SETTINGS_LINK_LIMIT`): read shorter than they are written, and a
+  // visitor holding an item whose logic runs (its script's hash travels) was taken for a mistake and stranded on the
+  // Airlock's own page instead of going home (found live, 2026-11-21).
+  const set = parts.find((p) => p.startsWith("set=") && p.length - 4 <= SETTINGS_LINK_LIMIT && /^set=[A-Za-z0-9_-]+$/.test(p));
   if (parts.some((p) => p !== "xr=1" && p !== "doors=1" && p !== "joined=1" && p !== "mic=1" && p !== "moving=intense" && p !== reported && p !== set)) return null;
   const settings = set ? decodeSettings(set.slice(4)) : {};
   const joined = parts.includes("joined=1");
