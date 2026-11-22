@@ -45,7 +45,7 @@ it at any time; nothing in it is a decision about what an item does.
    `achievements-granted`, `hidden-items-easter-eggs`,
    `scores-across-worlds`, `scores-checked`.
 8. `shared-physics` (a written design first).
-9. `bag-icon-on-items` (small; the NSWP builder takes it between steps
+9. `bag-icon-on-items`: merged 2026-11-22 (NSWP 331); not live. (Was: small; taken between steps
    of the seated mode).
 10. Then: `door-and-airlock-skins` (after `item-file-hosts`, whose rule it
     uses), `items-scarce`, `starter-world-as-a-3d-website`,
@@ -81,7 +81,7 @@ urgent (a live fault), it goes first.
 | [item-file-hosts](item-file-hosts.md) | An item's files are fetched from any host its maker chose, which can learn the address of everyone in the room | BitPortal session (the rule decided 2026-11-22) | briefed |
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
-| [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | asked |
+| [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | merged (NSWP 331); not live |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
 | [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | BitPortal (kit) | briefed (option B chosen) |
 | [bar-scrolls-when-too-wide](bar-scrolls-when-too-wide.md) | The bar along the bottom scrolls with arrows when it is too wide | NSWP builder | building |
