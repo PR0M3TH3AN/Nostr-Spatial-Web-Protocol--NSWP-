@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.79.1
 
 - **Fixed: the gate couldn't catch a stale engine script** (`scripts/gate.mjs`; found 2026-11-22, when the bar's arrows reached the kit without the rebuilt `engines/nswp-engine.js` and the gate still passed). The gate ran `build:engine` just before `engine:check`, so the check compared what the gate had just written with itself. Now `build:engine` is not a gate step. `engine:check` builds the script, the Godot add-on's copy, the doorway's frame and the sounds into a folder of its own, and compares them with what is committed, before anything writes `engines/`. A stale committed script, or a stale add-on copy, fails the gate (tried with each). The gate is six steps.
 - **The thumb buttons are styled on a site with strict rules** (`thumb-presses.ts`). Their styles were an inline `<style>`, which a strict content security policy refuses (BitPortal's `style-src 'self'`): there the sight and Fire and Reload were drawn as small unstyled text in a corner, and Fire couldn't be pressed. They now use a constructed stylesheet, as the controls do (`hud.ts`), with the `<style>` only as a fallback where a browser has no constructed stylesheets.
