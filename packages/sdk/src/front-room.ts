@@ -26,7 +26,7 @@
  * Nothing here draws anything: a world shows the gate its own way and reads `open`. The control is added to the
  * visitor's console, so it is the same on a flat screen and in a headset.
  */
-import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, LISTING_KIND, listingSeller, parseManifest, priceWords, readListing, readReceipt, WORLD_KIND, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
+import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, LIST_KIND, listD, LISTING_KIND, listingSeller, OWNER_LIST_LIMITS, parseManifest, priceWords, readListing, readReceipt, resolveOwnerList, worldSubject, WORLD_KIND, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
 import { askWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 import type { Controls } from "./ui/model.js";
@@ -42,7 +42,14 @@ export const GATE_TIMES = { grace: 120, look: 300, goodFor: 86_400 } as const;
 /** "free": this world names nothing for sale. "checking": not known yet, and shut. "ending": open, for the last couple of minutes of a pass that has run out. */
 export type GateState = "free" | "checking" | "shut" | "open" | "ending";
 /** Why a gate is shut, or "" where it isn't. Stable words for a test or a world's own drawing to go by. */
-export type GateReason = "" | "no-manifest" | "not-own" | "no-signer" | "signed-out" | "nothing-held" | "run-out" | "taken-back" | "unchecked";
+export type GateReason = "" | "no-manifest" | "not-own" | "no-signer" | "signed-out" | "nothing-held" | "run-out" | "taken-back" | "unchecked" | "blocked";
+/**
+ * How the world owner's block list stands, as the gate last read it (protocol/10-identity.md, "A world's own
+ * lists"). "none": this world keeps no lists. "reading": being read for the first time. "read": read, and it may name
+ * nobody. "not-found": there is none. "unreadable": its newest copy was refused. "unanswered": no relay answered,
+ * and the copy this device remembered (or none) is used.
+ */
+export type ListState = "none" | "reading" | "read" | "not-found" | "unreadable" | "unanswered";
 
 /** One thing a visitor can buy to get in, as its listing reads. */
 export interface GateOffer {
@@ -101,6 +108,16 @@ export interface PaidGate {
   readonly until: number | null;
   /** Whether the visitor is signed in here: buying needs it. */
   readonly signedIn: boolean;
+  /**
+   * The keys the world owner's block list names, where this world keeps lists (its manifest names `keepers`):
+   * for the room, which neither shows nor hears anyone behind them. Never the visitor's own blocks, never kept with
+   * them, never carried on to another world. Empty where the world keeps no lists or the list names nobody.
+   */
+  readonly ownerBlocked: readonly string[];
+  /** Whether this world's rooms show only people whose pass checks out (its manifest's `named_only`). */
+  readonly namedOnly: boolean;
+  /** How the owner's block list stands. */
+  readonly lists: ListState;
   /** The visitor's sign-in address, as a host to name in words. */
   readonly host: string;
   /** A purchase is with the visitor now, at their sign-in address. */
@@ -120,6 +137,31 @@ export interface PaidGate {
 }
 
 type Held = Receipt & { event: NostrEvent };
+
+const LISTS_KEY = "nswp:owner-lists";
+/**
+ * The newest copy of each owner's list this device has seen, by its `d`. A list is public, so keeping it says
+ * nothing about the visitor. It is what stops an older copy being taken: the newest is chosen from these and what
+ * relays give, together.
+ */
+function rememberedLists(): Record<string, NostrEvent> {
+  try {
+    const kept = JSON.parse(globalThis.localStorage?.getItem(LISTS_KEY) ?? "{}") as unknown;
+    return kept && typeof kept === "object" && !Array.isArray(kept) ? (kept as Record<string, NostrEvent>) : {};
+  } catch {
+    return {};
+  }
+}
+function rememberList(d: string, event: NostrEvent): void {
+  try {
+    const all = { ...rememberedLists(), [d]: event };
+    // A few worlds' worth: the newest kept.
+    const kept = Object.entries(all).sort((a, b) => (b[1]?.created_at ?? 0) - (a[1]?.created_at ?? 0)).slice(0, 24);
+    globalThis.localStorage?.setItem(LISTS_KEY, JSON.stringify(Object.fromEntries(kept)));
+  } catch {
+    /* a private window: remembered for this page only */
+  }
+}
 type Unread = ListingRefusal | "not-found" | "no-relay" | "not-for-here";
 
 const GOOD_KEY = "nswp:receipts:good";
@@ -225,6 +267,16 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
   /** How many times a signer has been looked for again where none was named, and the timer for the next. */
   let seeking = 0;
   let seekTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Whether this world is sold (it names listings). A world that keeps lists and sells nothing is open but for a block. */
+  let paid = false;
+  /** Where this world keeps lists: whose lists count, and what they are for (its coordinate, for each publisher). */
+  let lists: { root: string[]; subjects: string[] } | null = null;
+  let listState: ListState = "none";
+  let ownerBlocked: string[] = [];
+  let namedOnly = false;
+  /** The owner's list is asked for again soon after no relay answered: less and less often, up to the usual look. */
+  let listRetries = 0;
+  let listTimer: ReturnType<typeof setTimeout> | undefined;
 
   const changed = (): void => {
     for (const fn of [...watchers]) {
@@ -328,6 +380,14 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       clearTimeout(seekTimer);
       seekTimer = setTimeout(() => void look(), 3000);
     }
+    // Kept out by the world's owner: blocked beats everything, a pass included. Never a keeper, in their own world.
+    if (isBlocked(buyer)) return shut("blocked");
+    // A world that keeps lists and sells nothing is open to anyone not on the block list, guests included: a block
+    // stops a name, and a guest has none.
+    if (!paid) {
+      if (lists && buyer && listState === "reading") return;
+      return set("open", "");
+    }
     // Signed out, or nobody to ask: whatever was held is nobody's here now.
     if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
     if (held && held.buyer !== buyer) held = null;
@@ -372,6 +432,49 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     if ([...unread.values()].some((w) => w === "no-relay" || w === "not-found")) retryTimer = setTimeout(() => void readOffers(), Math.min(20_000 * 2 ** retries++, GATE_TIMES.look * 1000));
   };
 
+  /** Whether the world's owner keeps this key out. Never a keeper, in their own world. */
+  const isBlocked = (key: string | null): boolean => !!lists && !!key && ownerBlocked.includes(key) && !lists.root.includes(key);
+  /** Choose the owner's block list from what relays gave and what this device remembered, and say who it names. */
+  const applyLists = (events: readonly NostrEvent[], answered = true): void => {
+    if (!lists) return;
+    const kept = rememberedLists();
+    const blocked = new Set<string>();
+    let state: ListState = "not-found";
+    for (const subject of lists.subjects) {
+      const d = listD("user-deny", subject);
+      const all = [...events, ...(kept[d] ? [kept[d]] : [])];
+      const r = resolveOwnerList(all, { scope: "user-deny", subject, root: lists.root, now: sec() });
+      // The newest copy is remembered, refused or not: an older one is never taken in its place.
+      const newest = all
+        .filter((e) => e && e.kind === LIST_KIND && lists!.root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d))
+        .sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+      if (newest && (!kept[d] || newest.created_at > kept[d]!.created_at || (newest.created_at === kept[d]!.created_at && newest.id < kept[d]!.id))) rememberList(d, newest);
+      if (r.ok) {
+        for (const key of r.entries) blocked.add(key);
+        state = "read";
+      } else if (r.reason !== "not_found" && state !== "read") state = "unreadable";
+    }
+    // No relay answered: the remembered copy stands, and with none, nobody is blocked. Said, not hidden.
+    listState = answered ? state : "unanswered";
+    const next = [...blocked].sort();
+    const differs = next.join() !== ownerBlocked.join();
+    ownerBlocked = next;
+    if (differs) changed();
+  };
+  /** Read the owner's block list from relays: the exact `d`, signed by the keys whose lists count. */
+  const readLists = async (): Promise<void> => {
+    if (!lists || disposed) return;
+    const filter: Filter = { kinds: [LIST_KIND], authors: [...lists.root], "#d": lists.subjects.map((s) => listD("user-deny", s)) };
+    const got = await askWell(filter, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...(opts.query ? { query: opts.query } : {}), now }).catch(() => null);
+    if (disposed) return;
+    const answered = !!got && Object.values(got.relays).some((said) => said === "eose");
+    applyLists(got?.events ?? [], answered);
+    // Nobody answered: asked again soon, as what is for sale is, and looked at again with what comes.
+    clearTimeout(listTimer);
+    if (answered) listRetries = 0;
+    else listTimer = setTimeout(() => void readLists().then(() => look()), Math.min(20_000 * 2 ** listRetries++, GATE_TIMES.look * 1000));
+  };
+
   /** Read what this world is entered by, from its own site, and begin. */
   const begin = async (): Promise<void> => {
     let access: ReturnType<typeof accessFor> = null;
@@ -399,21 +502,37 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     }
     retries = 0;
     worldName = access.d;
+    namedOnly = access.namedOnly;
     listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
     // Whether it meant to be paid: it named something, here or in its own file, whether or not that held up.
     const named = (file as { worlds?: Record<string, { access?: unknown }> } | null)?.worlds?.[access.d]?.access;
     const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named) ? named.length > 0 : named !== undefined;
-    // Its own site names nothing: a free world, as every world was. Nothing more is read or asked.
-    if (!meant) return set("free", "");
+    paid = meant;
+    // Whose lists count: the keepers its manifest names. A world that names none keeps no lists, and reads none.
+    if (access.keepers && access.sellers.length) {
+      lists = { root: access.keepers, subjects: access.sellers.map((key) => worldSubject(key, access.d)) };
+      listState = "reading";
+    }
+    // Its own site names nothing for sale and keeps no lists: a free world, as every world was. Nothing more is read or asked.
+    if (!meant && !lists) return set("free", "");
     // It names something, and none of it is its own to sell: shut, since it meant to be paid.
-    if (listings.length === 0) return set("shut", "not-own");
-    void readOffers();
+    if (meant && listings.length === 0) return set("shut", "not-own");
+    if (lists) {
+      // With a copy remembered, the gate decides at once and the newest is read behind it. With none, it waits for relays.
+      const remembered = lists.subjects.some((s) => rememberedLists()[listD("user-deny", s)]);
+      if (remembered) {
+        applyLists([]);
+        void readLists().then(() => look());
+      } else await readLists();
+      if (disposed) return;
+    }
+    if (meant) void readOffers();
     const signer = opts.signer();
     // A signer that remembers this world says so a moment after the page loads: nothing is decided before it has.
     if (signer) await signer.whenAnswered(4000).catch(() => undefined);
     if (disposed) return;
     if (signer && !unwatch) unwatch = signer.onChange(() => void look());
-    lookTimer = setInterval(() => void look(), GATE_TIMES.look * 1000);
+    lookTimer = setInterval(() => void (lists ? readLists().then(() => look()) : look()), GATE_TIMES.look * 1000);
     await look();
   };
   if (state !== "free") void begin();
@@ -426,6 +545,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     if (state === "ending") return "Your time here has run out. This part closes in two minutes. Buy again to stay.";
     if (reason === "no-manifest") return "This world couldn't read its own list of what it is sold by, so the way stays shut. It is being read again.";
     if (reason === "not-own") return "What this world says it is sold by isn't its own to sell, so nothing here can be bought. That is the world's to put right.";
+    if (reason === "blocked") return "The owner of this world has asked you not to come in.";
     const list = offerList();
     const firstUnread = [...unread.values()][0];
     const sale = list.length ? `Past here is for people who have bought it: ${list.map((o) => `${o.name}, ${o.words}`).join("; or ")}.` : `Past here is for people who have bought it. ${firstUnread ? unreadWords(firstUnread) : "What it costs is being read."}`;
@@ -462,6 +582,15 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     get signedIn() {
       return signedIn();
     },
+    get ownerBlocked() {
+      return ownerBlocked;
+    },
+    get namedOnly() {
+      return namedOnly;
+    },
+    get lists() {
+      return listState;
+    },
     get host() {
       return host();
     },
@@ -473,7 +602,8 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       const signer = opts.signer();
       // Only what was read and shown is bought from here, by someone signed in, one purchase at a time.
       if (disposed || buying || !wanted || !offers.has(wanted) || !signer || signer.state !== "unlocked") return false;
-      if (state === "free" || state === "open") return false;
+      // Nobody the owner blocked is sold their way in.
+      if (state === "free" || state === "open" || reason === "blocked" || isBlocked(signer.pubkey)) return false;
       buying = true;
       changed();
       const got = await signer.buy(wanted).catch(() => null);
@@ -482,6 +612,11 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       const receipt = got ? believe(got.event, wanted, opts.signer()?.state === "unlocked" ? opts.signer()!.pubkey : null) : null;
       if (!receipt || disposed) {
         changed();
+        return false;
+      }
+      // Blocked while the purchase was with them: still kept out.
+      if (isBlocked(receipt.buyer)) {
+        shut("blocked");
         return false;
       }
       // Signed this moment by the service itself: found good now.
@@ -495,14 +630,15 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       if (state === "free" || disposed) return;
       if (reason === "no-manifest") return begin();
       retries = 0;
-      await Promise.all([readOffers(), look()]);
+      await Promise.all([readOffers(), readLists()]);
+      await look();
     },
     onChange(fn) {
       watchers.add(fn);
       return () => void watchers.delete(fn);
     },
     info() {
-      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings] };
+      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly };
     },
     dispose() {
       disposed = true;
@@ -510,6 +646,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       clearTimeout(graceTimer);
       clearTimeout(retryTimer);
       clearTimeout(seekTimer);
+      clearTimeout(listTimer);
       clearInterval(lookTimer);
       unwatch?.();
       watchers.clear();
@@ -564,7 +701,7 @@ export function addGateControls(
   };
 
   // Whether there is anything to press: shut, or about to be, for a reason a press could help with.
-  const showing = (): boolean => (gate.state === "shut" || gate.state === "ending") && gate.reason !== "no-manifest" && gate.reason !== "not-own" && gate.reason !== "no-signer";
+  const showing = (): boolean => (gate.state === "shut" || gate.state === "ending") && gate.reason !== "no-manifest" && gate.reason !== "not-own" && gate.reason !== "no-signer" && gate.reason !== "blocked";
   // One row for each thing a world may sell, there only while it has that thing to offer. They are added once, so
   // they keep their place: ahead of whatever the world adds after them, behind the things every place has.
   for (let i = 0; i < ACCESS_MOST; i++) {

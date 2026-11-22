@@ -239,7 +239,32 @@ export function worldSaves(): Saves {
  * and the world's own manifest. A world puts it where it likes and reads `open`.
  */
 export function worldGate(opts: Omit<PaidGateOptions, "signer"> = {}): PaidGate {
-  return createPaidGate({ ...opts, signer: () => (signerNamed() ? worldSigner() : null) });
+  const gate = createPaidGate({ ...opts, signer: () => (signerNamed() ? worldSigner() : null) });
+  // The page's first gate is the one its rooms take the world's rules from (`pageRules`).
+  if (!pageGate) {
+    pageGate = gate;
+    gate.onChange(() => {
+      for (const fn of [...rulesWatchers]) fn();
+    });
+    for (const fn of [...rulesWatchers]) fn();
+  }
+  return gate;
+}
+
+let pageGate: PaidGate | null = null;
+const rulesWatchers = new Set<() => void>();
+/**
+ * The world's own rules for its rooms, as this page's gate last read them from the world's own manifest and its
+ * owner's list (protocol/10-identity.md, "A world's own lists"): who the owner keeps out, and whether only named
+ * people are shown. Nothing and false where the page has no gate. A room joined here takes them (presence.ts).
+ */
+export function pageRules(): { blocked: readonly string[]; namedOnly: boolean } {
+  return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly } : { blocked: [], namedOnly: false };
+}
+/** Be told when those rules may have changed. Returns how to stop. */
+export function onPageRules(fn: () => void): () => void {
+  rulesWatchers.add(fn);
+  return () => void rulesWatchers.delete(fn);
 }
 
 let followed: People | null = null;

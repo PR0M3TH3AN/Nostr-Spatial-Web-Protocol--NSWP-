@@ -138,14 +138,16 @@ export interface WorldConfig {
   /** How much room the controls take: a game asks for "quiet". */
   quiet?: boolean;
   /**
-   * A gate, for a world that is paid (protocol/10-identity.md, "The front room"). The world puts it where it
-   * likes: everything before it is free to anyone, and past it is for someone who holds a receipt.
+   * A gate (protocol/10-identity.md, "The front room" and "A world's own lists"). The world puts it where it
+   * likes: everything before it is free to anyone. Past it is for someone who holds a receipt, where the world is
+   * paid; and never for someone its owner keeps out, where it keeps lists.
    *
-   * `on` is whether this world is paid at all: whether its own world.json names what it is entered by. It is
-   * false in every world here, and then there is no gate, nothing is read and nothing is asked: the world is
-   * exactly as it was. Making a world paid is its announcement signed again, on the owner's word.
+   * `on` is whether this world needs one at all: whether its own world.json names what it is entered by
+   * (`access`), whose lists count (`keepers`), or that its rooms show only named people (`named_only`). It is false
+   * in every world here, and then there is no gate, nothing is read and nothing is asked: the world is exactly as
+   * it was. Making a world paid, or giving it lists, is its owner's word.
    */
-  paid?: {
+  gate?: {
     on: boolean;
     /** Whether a spot on the floor is past the gate. */
     past(x: number, z: number): boolean;
@@ -256,6 +258,14 @@ function wrap(text: string, width: number): string[] {
   return lines;
 }
 
+/**
+ * Whether a world's own world.json asks for a gate: it names what the world is entered by (`access`), whose lists
+ * count (`keepers`), or that its rooms show only named people (`named_only`). None of the worlds here does.
+ */
+export function needsGate(world: Record<string, unknown>): boolean {
+  return (Array.isArray(world.access) ? world.access.length > 0 : world.access !== undefined) || world.keepers !== undefined || world.named_only === true;
+}
+
 export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Read and scrub the arrival context before anything else (spec §4.4).
   const { context, warnings } = arrival.read();
@@ -317,8 +327,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.hud = hud;
   // The gate of a paid world, where this world is one. None here is: `on` is false in every world.json's reading,
   // so no gate is made and nothing of this runs. What it is entered by is read from the world's own manifest.
-  const gate: PaidGate | null = cfg.paid && (cfg.paid.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;
-  const pastGate = (x: number, z: number): boolean => !!gate && !gate.open && cfg.paid!.past(x, z);
+  const gate: PaidGate | null = cfg.gate && (cfg.gate.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;
+  const pastGate = (x: number, z: number): boolean => !!gate && !gate.open && cfg.gate!.past(x, z);
   hooks.gate = () => gate?.info() ?? null;
   // Its one control, in the console like every other, so it is the same on a flat screen and in a headset. Added
   // here, ahead of this world's doors: where the way is shut, it is the first thing a visitor came to do.
@@ -633,8 +643,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // The gate itself, while it is shut: a sheet of light across the way, with a bright line where it meets the floor.
   let veil: THREE.Mesh | null = null;
   const pressGate = (): void => gateRows?.press();
-  if (gate && cfg.paid) {
-    const at = cfg.paid.veil;
+  if (gate && cfg.gate) {
+    const at = cfg.gate.veil;
     veil = new THREE.Mesh(new THREE.PlaneGeometry(at.width, at.height ?? 4), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
     veil.name = "gate";
     veil.position.set(at.position[0], at.position[1] + (at.height ?? 4) / 2, at.position[2]);
@@ -650,7 +660,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       // Shut with them past it (their time ran out, or they came back to where they stood): they are stood in
       // the front room again, where they arrived. Nothing is loaded again under them.
       camera.getWorldPosition(headAt);
-      if (gate.state === "shut" && cfg.paid!.past(headAt.x, headAt.z)) {
+      if (gate.state === "shut" && cfg.gate!.past(headAt.x, headAt.z)) {
         const front = cfg.entryPoints["main-entrance"]!;
         stroll.stop();
         rig.position.x += front.position[0] - headAt.x;

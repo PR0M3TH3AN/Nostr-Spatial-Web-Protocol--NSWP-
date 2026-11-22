@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { finalizeEvent, getPublicKey, RECEIPT_ISSUERS, type Filter, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
+import { finalizeEvent, getPublicKey, ownerListTemplate, RECEIPT_ISSUERS, worldSubject, type Filter, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
 
 /**
  * The front room of a paid world (protocol/10-identity.md, "The front room"). The signer is a stand-in that
@@ -462,6 +462,136 @@ describe("the one control", () => {
     await pass(0);
     await pass(0);
     expect(c.labels()).toEqual(["Go home", "Buy An hour here: 500 sats, for 1 hour"]);
+  });
+});
+
+describe("a world owner's block list", () => {
+  const KEEPER = pk(5);
+  /** A world that keeps lists (its manifest names keepers), and sells nothing unless told. */
+  const keeps = (more: Record<string, unknown> = {}, keepers: string[] = [KEEPER]) => ({ ...manifest(null), worlds: { "a-world": { entry: { url: WORLD }, keepers, ...more } } });
+  const blockList = (people: string[], o: { by?: Uint8Array; at?: number; content?: string } = {}) => {
+    const t = ownerListTemplate({ scope: "user-deny", subject: worldSubject(SELLER, "a-world"), people, createdAt: o.at ?? sec() - 30 })!;
+    return finalizeEvent({ ...t, content: o.content ?? "" }, o.by ?? key(5));
+  };
+
+  it("stops a signed-in visitor the owner blocked, says so plainly, and offers nothing to press", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME])];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.open, gate.reason, gate.lists, gate.ownerBlocked]).toEqual(["shut", false, "blocked", "read", [ME]]);
+    expect(gate.why).toBe("The owner of this world has asked you not to come in.");
+    const c = consoleFor(gate);
+    expect(c.labels()).toEqual(["Go home"]);
+    expect(c.said).toEqual(["The owner of this world has asked you not to come in."]);
+  });
+
+  it("lets everyone else in, guests included, in a world that sells nothing", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([OTHER])];
+    expect([(await settled(standIn())).state, (await settled(standIn({ state: "locked", pubkey: null }))).state, (await settled(null)).state]).toEqual(["open", "open", "open"]);
+    // Said plainly in the protocol: a block stops a name. Signed out, the person blocked is a guest, and walks in.
+    relayHolds = [blockList([ME], { at: sec() - 10 })];
+    const signer = standIn({ state: "locked", pubkey: null });
+    const gate = await settled(signer);
+    expect(gate.open).toBe(true);
+    signer.change({ state: "unlocked", pubkey: ME });
+    await pass(0);
+    expect([gate.state, gate.reason]).toEqual(["shut", "blocked"]);
+  });
+
+  it("beats a receipt: someone blocked is kept out of a paid world whatever they hold", async () => {
+    file = async () => keeps({ access: [HOUR] });
+    relayHolds = [listing(), blockList([ME])];
+    const signer = standIn();
+    signer.holds[HOUR] = receipt();
+    signer.sells = receipt();
+    const gate = await settled(signer);
+    expect([gate.state, gate.reason]).toEqual(["shut", "blocked"]);
+    expect(await gate.buy(HOUR)).toBe(false);
+    expect(signer.buy).not.toHaveBeenCalled();
+  });
+
+  it("never keeps a keeper out of their own world", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([KEEPER, ME])];
+    const keeper = standIn({ pubkey: KEEPER });
+    expect((await settled(keeper)).open).toBe(true);
+  });
+
+  it("counts only a keeper's list: one signed by anyone else, the world's own key included, is not the owner's word", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME], { by: key(9) }), blockList([ME], { by: key(2) })];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.lists, gate.ownerBlocked]).toEqual(["open", "not-found", []]);
+    // Where the manifest names the world's own key among the keepers, its list counts.
+    file = async () => keeps({}, [KEEPER, SELLER]);
+    expect((await settled(standIn())).reason).toBe("blocked");
+  });
+
+  it("reads no list in a world that names no keepers: nothing asked, nobody blocked", async () => {
+    file = async () => manifest(null);
+    relayHolds = [blockList([ME])];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.lists]).toEqual(["free", "none"]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("stops nobody when no relay answers and nothing is remembered, says so, and asks again soon", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME])];
+    relaysUp = false;
+    const gate = await settled(standIn());
+    expect([gate.state, gate.lists, gate.ownerBlocked]).toEqual(["open", "unanswered", []]);
+    // The relay comes back: asked again within twenty seconds, not at the next five-minute look.
+    relaysUp = true;
+    await pass(20_000);
+    await pass(0);
+    expect([gate.state, gate.reason, gate.lists]).toEqual(["shut", "blocked", "read"]);
+  });
+
+  it("keeps the newest list it has seen: an older copy from a relay doesn't unblock anyone", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME], { at: sec() - 30 })];
+    expect((await settled(standIn())).reason).toBe("blocked");
+    // Later, a relay hands over the list from before the block. The remembered newer one stands.
+    relayHolds = [blockList([], { at: sec() - 3000 })];
+    expect((await settled(standIn())).reason).toBe("blocked");
+    // And with no relay answering at all, the remembered copy is what stands.
+    relaysUp = false;
+    const offline = await settled(standIn());
+    expect([offline.reason, offline.lists]).toEqual(["blocked", "unanswered"]);
+  });
+
+  it("takes a newer list as the owner's change: unblocking someone lets them in at the next look", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME], { at: sec() - 300 })];
+    const gate = await settled(standIn());
+    expect(gate.reason).toBe("blocked");
+    relayHolds = [blockList([], { at: sec() - 10 })];
+    await pass(GATE_TIMES.look * 1000);
+    await pass(0);
+    expect([gate.state, gate.ownerBlocked]).toEqual(["open", []]);
+  });
+
+  it("stops nobody on a list whose newest copy is refused, and says it is unreadable", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME], { at: sec() - 300 }), blockList([], { at: sec() - 10, content: "hidden" })];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.lists, gate.ownerBlocked]).toEqual(["open", "unreadable", []]);
+  });
+
+  it("leaves out a list dated far ahead: a fast clock can't pin a block in place", async () => {
+    file = async () => keeps();
+    relayHolds = [blockList([ME], { at: sec() + 3600 })];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.ownerBlocked]).toEqual(["open", []]);
+  });
+
+  it("says whether the world's rooms show only named people, from its manifest", async () => {
+    file = async () => keeps({ named_only: true });
+    expect((await settled(standIn())).namedOnly).toBe(true);
+    file = async () => keeps();
+    expect((await settled(standIn())).namedOnly).toBe(false);
   });
 });
 

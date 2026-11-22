@@ -206,6 +206,20 @@ the world's own address, and from nowhere else: the world never passes it
 along when it asks ([NSWP-10](10-identity.md), "Tips, buying, and
 receipts"). The file is readable from any site, as it already must be.
 
+`keepers` and `named_only`, inside a world's own entry, are the world's
+own rules for who comes in ([NSWP-10](10-identity.md), "A world's own
+lists"):
+
+- `keepers`: whose lists count for this world, a list of one to four keys
+  (64 lowercase hex). Anything else in it is left out with a warning, and
+  more than four are ignored. A world that names no keepers keeps no
+  lists, and none is read for it.
+- `named_only`: `true` says this world's rooms show only people whose pass
+  checks out ([NSWP-06](06-rooms.md), "A world's own rules"). Only exactly
+  `true` turns it on; any other value is ignored with a warning.
+
+Both are left out of the example above because most worlds say neither.
+
 `access`, inside a world's own entry, is the same list of listings the
 announcement gives, as the site itself says it: an array of coordinates.
 
