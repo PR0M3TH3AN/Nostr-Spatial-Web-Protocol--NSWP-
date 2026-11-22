@@ -476,7 +476,7 @@ export function addRoomControls(
       setFilesAnywhere(!filesAnywhere());
       controls.say(
         filesAnywhere()
-          ? "What people carry is fetched from wherever they keep it. The place that keeps a file learns your address, and when you were near it: anyone can choose that place."
+          ? "What people carry is fetched from wherever they keep it, in this place. The place that keeps a file learns your address, and when you were near it: anyone can choose that place. It stays off in other places until you turn it on there."
           : "People's files are fetched only from the file hosts you already use. Anything kept elsewhere is shown as a plain box.",
       );
     },

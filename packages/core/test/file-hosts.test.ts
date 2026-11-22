@@ -1,13 +1,18 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { describe, expect, it } from "vitest";
-import { cleanFileHost, fileAt, fileExtension, FILE_HOST_LIMITS, FILE_HOST_LIST_KIND, FILE_HOSTS, finalizeEvent, getPublicKey, onFileHost, parseFileHostList } from "../src/index.js";
+import { cleanSettings, cleanFileHost, fileAt, fileExtension, FILE_HOST_LIMITS, FILE_HOST_LIST_KIND, FILE_HOSTS, finalizeEvent, getPublicKey, onFileHost, parseFileHostList } from "../src/index.js";
 
 const KEY = sha256(utf8ToBytes("nswp core file hosts test key"));
 const me = getPublicKey(KEY);
 const H = "a".repeat(64);
 
 describe("file hosts", () => {
+  it("are left to the visitor's list by a link: only filesAnywhere off travels", () => {
+    expect(cleanSettings({ filesAnywhere: true })).toEqual({});
+    expect(cleanSettings({ filesAnywhere: false })).toEqual({ filesAnywhere: false });
+  });
+
   it("are https prefixes ending in a slash, with nothing else in them", () => {
     expect(cleanFileHost("https://files.example")).toBe("https://files.example/");
     expect(cleanFileHost("https://files.example/items?x=1#y")).toBe("https://files.example/items/");

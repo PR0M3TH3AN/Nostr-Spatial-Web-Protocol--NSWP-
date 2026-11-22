@@ -5187,8 +5187,8 @@ var NSWP = (() => {
       out.chat = s.chat;
     if (typeof s.items === "boolean")
       out.items = s.items;
-    if (typeof s.filesAnywhere === "boolean")
-      out.filesAnywhere = s.filesAnywhere;
+    if (s.filesAnywhere === false)
+      out.filesAnywhere = false;
     if (Array.isArray(s.pins))
       out.pins = [...new Set(s.pins.filter((name) => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
     if (s.holding === "")
@@ -9671,9 +9671,9 @@ postMessage({ t: "started" });
       kept2 = globalThis.localStorage?.getItem(ANYWHERE_KEY) ?? null;
     } catch {
     }
-    anywhere = came ?? kept2 === "on";
-    if (came !== void 0) keep3(anywhere);
-    reportSettings("files-anywhere", () => filesAnywhere() ? { filesAnywhere: true } : {});
+    anywhere = came === false ? false : kept2 === "on";
+    if (came === false) keep3(false);
+    reportSettings("files-anywhere", () => filesAnywhere() ? {} : { filesAnywhere: false });
     return anywhere;
   }
   function setFilesAnywhere(on3) {
@@ -55574,7 +55574,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       act: () => {
         setFilesAnywhere(!filesAnywhere());
         controls2.say(
-          filesAnywhere() ? "What people carry is fetched from wherever they keep it. The place that keeps a file learns your address, and when you were near it: anyone can choose that place." : "People's files are fetched only from the file hosts you already use. Anything kept elsewhere is shown as a plain box."
+          filesAnywhere() ? "What people carry is fetched from wherever they keep it, in this place. The place that keeps a file learns your address, and when you were near it: anyone can choose that place. It stays off in other places until you turn it on there." : "People's files are fetched only from the file hosts you already use. Anything kept elsewhere is shown as a plain box."
         );
       }
     });

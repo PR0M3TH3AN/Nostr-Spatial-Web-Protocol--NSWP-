@@ -31,7 +31,8 @@ const keep = (on: boolean): void => {
 
 /**
  * Whether this visitor loads other people's files from anywhere they say they are kept. Off unless they turned it
- * on, here or where they came from: it goes with them from world to world, as their other settings do.
+ * on here, with their own press. Turning it off goes with them, as their other settings do; turning it on never
+ * does, since any world can write the link a visitor arrives by, and so could turn it on for them unasked.
  */
 export function filesAnywhere(): boolean {
   if (anywhere !== null) return anywhere;
@@ -42,9 +43,10 @@ export function filesAnywhere(): boolean {
   } catch {
     /* nothing kept */
   }
-  anywhere = came ?? kept === "on";
-  if (came !== undefined) keep(anywhere);
-  reportSettings("files-anywhere", () => (filesAnywhere() ? { filesAnywhere: true } : {}));
+  // Only an arriving off is taken (the settings drop anything else as they are read): it is always safe.
+  anywhere = came === false ? false : kept === "on";
+  if (came === false) keep(false);
+  reportSettings("files-anywhere", () => (filesAnywhere() ? {} : { filesAnywhere: false }));
   return anywhere;
 }
 

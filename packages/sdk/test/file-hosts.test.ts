@@ -83,22 +83,44 @@ describe("where someone else's files are fetched from", () => {
     expect(fileHosts()).toEqual([GROVE]);
   });
 
-  it("is off for loading from anywhere until the visitor turns it on, and that goes with them", async () => {
+  it("is off for loading from anywhere until the visitor turns it on here; only off goes with them", async () => {
     expect(filesAnywhere()).toBe(false);
-    expect(currentSettings().filesAnywhere).toBeUndefined();
+    expect(currentSettings().filesAnywhere).toBe(false);
     let told = 0;
     onFileHostsChange(() => told++);
     setFilesAnywhere(true);
     expect(told).toBe(1);
-    expect(currentSettings().filesAnywhere).toBe(true);
+    // On is their own press in this place: it isn't sent on to the next one.
+    expect(currentSettings().filesAnywhere).toBeUndefined();
     expect(keptElsewhere("https://tracker.example/x.glb")).toBe(false);
     const net = network({ "https://tracker.example/x.glb": bytes });
     expect(await fetchByHash(hash, "https://tracker.example/x.glb", { fetchBytes: net.fetchBytes, viewer: null })).toEqual(bytes);
     expect(net.asked).toEqual(["https://tracker.example/x.glb"]);
+    // Arriving with it off turns it off, and that is kept.
     forgetFileHosts();
     resetSettings();
-    arriveWith({ filesAnywhere: true });
-    expect(filesAnywhere()).toBe(true);
+    arriveWith({ filesAnywhere: false });
+    expect(filesAnywhere()).toBe(false);
+    forgetFileHosts();
+    expect(filesAnywhere()).toBe(false);
+  });
+
+  it("is never turned on by a link: any world can write one", async () => {
+    const stored = new Map<string, string>();
+    const real = globalThis.localStorage;
+    const memory = { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => void stored.set(k, v), removeItem: (k: string) => void stored.delete(k), clear: () => stored.clear() };
+    Object.defineProperty(globalThis, "localStorage", { value: memory, configurable: true });
+    try {
+      arriveWith({ filesAnywhere: true });
+      expect(filesAnywhere()).toBe(false);
+      expect(stored.size).toBe(0);
+      expect(currentSettings().filesAnywhere).toBe(false);
+      const net = network({ "https://tracker.example/x.glb": bytes });
+      expect(await fetchByHash(hash, "https://tracker.example/x.glb", { fetchBytes: net.fetchBytes, viewer: null })).toBeNull();
+      expect(net.asked.some((u) => u.startsWith("https://tracker.example/"))).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, "localStorage", { value: real, configurable: true });
+    }
   });
 });
 

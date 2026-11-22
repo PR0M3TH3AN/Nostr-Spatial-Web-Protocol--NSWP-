@@ -168,8 +168,10 @@ viewer's own list**, and the address beside each hash is a hint:
   their list is not fetched: the item is drawn as its marker, and its
   card says it is kept somewhere they don't load files from. A viewer
   may turn on "Load people's files from anywhere" (`files-anywhere` in
-  the console, off by default; `filesAnywhere` among the settings that
-  travel, [NSWP-11](11-the-visitors-console.md)).
+  the console, off by default), in the place they are in, by their own
+  press. Off travels with them (`filesAnywhere: false`); on never does,
+  since any world can write the link they arrive by
+  ([NSWP-11](11-the-visitors-console.md), "Settings that travel").
 - **A world's own files** (its scenery, the items it offers from its own
   site) are not this: they come from the site the visitor chose to visit.
 

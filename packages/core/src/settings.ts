@@ -84,11 +84,12 @@ export interface TravelSettings {
    */
   items?: boolean;
   /**
-   * Whether other people's files (what their items are made of) are fetched from wherever they say they are kept
-   * (protocol/17-items.md, "Where a file is fetched from"). Left out, they are not: a file is fetched only from
-   * the file hosts on the visitor's own list, and anything kept elsewhere is drawn as its marker.
+   * That other people's files (what their items are made of) are fetched only from the file hosts on the
+   * visitor's own list (protocol/17-items.md, "Where a file is fetched from"). Only `false` travels: any world can
+   * write a link, so turning loading from anywhere on can't come by one. It is turned on only by the visitor's own
+   * press, in the place they are in. A `true` is dropped as it is read.
    */
-  filesAnywhere?: boolean;
+  filesAnywhere?: false;
   /**
    * Which tabs of the menu they keep on their bar, by name, in the order they pinned them: `PINS_MOST` at most.
    * An empty list is a choice too: they took them all off. A name a world has no tab for is simply not shown
@@ -152,7 +153,8 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
   if (typeof s.chat === "boolean") out.chat = s.chat;
   if (typeof s.items === "boolean") out.items = s.items;
-  if (typeof s.filesAnywhere === "boolean") out.filesAnywhere = s.filesAnywhere;
+  // Only off travels: on is the visitor's own press, in each place (protocol/11-the-visitors-console.md).
+  if (s.filesAnywhere === false) out.filesAnywhere = false;
   if (Array.isArray(s.pins)) out.pins = [...new Set(s.pins.filter((name): name is string => typeof name === "string" && PIN_NAME.test(name)))].slice(0, PINS_MOST);
   if (s.holding === "") out.holding = "";
   else if (s.holding && typeof s.holding === "object" && !Array.isArray(s.holding)) {
