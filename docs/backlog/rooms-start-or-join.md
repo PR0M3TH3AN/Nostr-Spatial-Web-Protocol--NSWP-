@@ -8,6 +8,12 @@
   way any party can use a world with the people they want. And this
   should be able to scale to very large multiplayer server systems if the
   world host wants to run them. I think that was in our original spec."
+- **Asked again, the same day, two more notes:** "Id like to make open
+  rooms more visable. So users can see a room and its number of users and
+  set some defaults like: Join the room with the most users and a
+  connection quality above this threshold and has an avalable open slot.
+  Something like this." And: "nostr could be used to create rooms/lobies
+  and they could be sheared or restricted."
 - **Who:** not briefed. The kit and the protocol (NSWP-06), then
   BitPortal for the list of rooms happening now.
 - **State:** asked
@@ -75,6 +81,40 @@ per [bitgate](bitgate.md)), not two.
   card.
 - **Protocol:** NSWP-06 grows from "built" to cover the above; the room
   server's own protocol is a document of its own.
+
+## Rooms you can see, and joining the best one by default
+
+The owner's second note, in the orchestrator's words:
+
+- **A list of open rooms in this world**, each with how many people are
+  in it, how many places are left (`nswp:max` in the room's note, §9.1),
+  and how good the connection to it is likely to be.
+- **A default the visitor sets once**, in their own settings, and the
+  kit follows when they press Join: "the busiest open room with a free
+  place and a good enough connection". Others they might pick: "where
+  people I follow are", "the quietest", "always ask me".
+
+How each number can honestly be had:
+
+- **How many people.** The host's heartbeat (§9.10, once a minute) can
+  carry a count. It is the host's word, not a proof, and a minute old.
+  Good enough to choose by; the list says "about".
+- **A free place.** The note's `nswp:max` against that count. A room that
+  is full when someone arrives says so and offers the next.
+- **Connection quality.** Nothing can be measured until a connection is
+  tried. What can be known before: a hosted room's server can be timed
+  with a ping from the visitor's device; a peer-to-peer room only after
+  the first connection, so the default tries the best-looking room first
+  and moves on if the connection is poor. The orchestrator's opinion: show
+  quality as good / slow / unknown, never a number a person has to read.
+- **Shared or restricted.** The note is the room, so sharing a room is
+  sharing its note (a link anyone can open, carried as `naddr`), and a
+  restricted room is one whose note is unpublished and travels only in
+  its invitations, or names a list (§9.1, §9.3). Lobbies are rooms that
+  a world marks as its way in.
+
+All of this is the kit's (every world gets the list and the default);
+BitPortal's half is the same list across all worlds.
 
 ## Open, before building
 
