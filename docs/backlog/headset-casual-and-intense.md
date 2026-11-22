@@ -5,8 +5,7 @@
   intense its smooth locomotion. (i like smooth loco in VR)"
 - **Who:** BitPortal (to check its room shows it and say what the owner
   will see); the kit has it.
-- **State:** asked (it is built; the owner may not have found it, or it
-  may not work on the Quest: to find out)
+- **State:** building (2026-11-21: the BitPortal session found why, below; fixes ordered)
 
 ## What is already built
 
@@ -34,6 +33,31 @@ preference is kept by choosing intense once.
   or above the wrist.
 - If it is hard to find, that is the thing to fix (the switch first in
   the Moving section, or offered once on entering a headset session).
+
+## What the BitPortal session found (2026-11-21, in the made-up headset on BitPortal main 40629f1)
+
+- **The switch works and survives a refresh,** but it is three presses
+  deep (Menu, Moving, "Headset controls"), and Moving is the 12th of 18
+  tabs in the headset's menu. Nothing in the room says it exists.
+- **Intense is lost at every door (a fault).** Leaving through a door in
+  VR, the room ends the headset session first and only then reads how the
+  visitor moves, so it reads the desk's switch and the Airlock carries no
+  `moving=intense`. Each world is its own site, so it opens casual. The
+  same may be true of the kit's own way out (`portal.go`), and the carried
+  settings (`set=`) show the desk's choice rather than the headset's.
+
+## What is being done (the orchestrator's order, as design; the owner may overturn it)
+
+1. BitPortal: read how the visitor moves before ending the session, both
+   places, with a test.
+2. The kit: the same order in its own way out, and `set=` carrying the
+   headset's choice, with tests.
+3. The kit, for every world: the first time a device enters a headset
+   session, offer the choice once, in the headset (casual or intense, and
+   that it can be changed later); remembered, never asked again, never
+   asked of someone who arrived carrying a choice; casual if dismissed.
+   The switch reads "How you move: casual / intense". The menu's order of
+   tabs stays as it is.
 
 ## Done looks like
 
