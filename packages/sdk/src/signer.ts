@@ -16,7 +16,7 @@
  * is the client's own page, which this page can't read.
  */
 import { askClientForSignIn, clientSignsInAt } from "./client-frame.js";
-import { isAchievementAsked, cleanFileBytes, cleanFileName, cleanFileType, cleanInvoice, cleanListing, cleanMessage, cleanTip, readReceipt, type Receipt, fileUrlNames, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
+import { isListSubject, isOwnerListAsked, type OwnerListChange, isAchievementAsked, cleanFileBytes, cleanFileName, cleanFileType, cleanInvoice, cleanListing, cleanMessage, cleanTip, readReceipt, type Receipt, fileUrlNames, cleanMore, cleanWalletUri, PROPOSE_KINDS, provesPayment, cleanOrigin, cleanSlot, fitsInSave, isFollowAsked, isHex64, isReachAsked, isScoreAsked, isSealAsked, looksLikeWrap, isWhatWasAsked, looksLikeSave, readSignerReply, signerAddresses, signerAt, signerMessage, toLocal, verifyEvent, verifyRoomPass, WORLD_TAG, type NostrEvent, type Message, type SealedMessage, type SignerMore, type SignerReply, type SignerRequest } from "@nswp/core";
 
 /** "none": the visitor has no client here that offers one. "locked": there is one, and it hasn't been unlocked for this world. */
 export type SignerState = "none" | "locked" | "unlocked";
@@ -193,6 +193,14 @@ export interface WorldSigner {
    */
   follow(list: NostrEvent | null, change: { add: string } | { remove: string }): Promise<NostrEvent | null>;
   /**
+   * Change one person on this world's own lists, for a visitor who is one of its keepers (protocol/10-identity.md,
+   * "The owner's screen"). Asked on the sign-in address's own page every time: no standing permission is needed or
+   * granted. `list` is the newest list of theirs for `world` and that change found, or null with `none` true where
+   * it was looked for and there is none. What comes back is the new list, signed, for this page to send to relays:
+   * null if it is locked, or refused, or what came back isn't exactly that list with that one change.
+   */
+  guests(o: { world: string; list: NostrEvent | null; change: OwnerListChange; key: string; none?: boolean }): Promise<NostrEvent | null>;
+  /**
    * Have a private message written and sealed, for a visitor who let this world send them
    * (protocol/14-people-and-messages.md). What comes back is the message and its two seals: one for its reader,
    * one for the visitor to read back. This page wraps each and sends it. Null if it is locked, or they haven't
@@ -277,6 +285,7 @@ const NONE: WorldSigner = {
   open: async () => null,
   want: () => false,
   follow: async () => null,
+  guests: async () => null,
   seal: async () => null,
   unwrap: async () => null,
   reach: async () => null,
@@ -693,6 +702,14 @@ export function createWorldSigner(opts: WorldSignerOptions): WorldSigner {
       // What comes back is checked as anything that arrives is: their own list, really signed, and exactly the one
       // handed over with that one change. A signer can't slip anyone else in, and nor can anything between.
       return askAbout({ t: "follow", id: `w${++n}`, list, ...(add ? { add } : { remove: remove! }) }, (reply) => (reply.t === "signed" && isFollowAsked(reply.event, { list, ...(add ? { add } : { remove: remove! }), pubkey }) ? reply.event : null));
+    },
+    guests(o) {
+      if (state !== "unlocked" || !frame || !pubkey || !isListSubject(o.world) || !isHex64(o.key)) return Promise.resolve(null);
+      if (o.list === null && o.none !== true) return Promise.resolve(null);
+      const asked = { list: o.list, subject: o.world, change: o.change, key: o.key, pubkey };
+      // Put to the person on the sign-in address's own page; what comes back is checked as anything that arrives
+      // is: their own key, really signed, exactly that list with that one change, before it goes anywhere.
+      return putToThem({ t: "guests", id: `g${++n}`, world: o.world, list: o.list, change: o.change, key: o.key, ...(o.none === true ? { none: true as const } : {}) }, (reply) => (reply.t === "signed" && isOwnerListAsked(reply.event, asked) ? reply.event : null));
     },
     seal(to, text) {
       const words = cleanMessage(text);

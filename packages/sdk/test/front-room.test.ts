@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { finalizeEvent, getPublicKey, ownerListTemplate, RECEIPT_ISSUERS, worldSubject, type Filter, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
+import { changeOwnerList, finalizeEvent, getPublicKey, ownerListTemplate, RECEIPT_ISSUERS, worldSubject, type Filter, type NostrEvent, type OwnerListChange, type QueryResult, type Receipt } from "@nswp/core";
 
 /**
  * The front room of a paid world (protocol/10-identity.md, "The front room"). The signer is a stand-in that
@@ -68,6 +68,15 @@ function standIn(o: { state?: "none" | "locked" | "unlocked"; pubkey?: string | 
     sells: null as NostrEvent | null,
     have: vi.fn(async (l: string) => (s.holds[l] ? ({ event: s.holds[l] } as unknown as Receipt & { event: NostrEvent }) : null)),
     buy: vi.fn(async (_l: string) => (s.sells ? ({ event: s.sells, delivery: null } as unknown as Receipt & { event: NostrEvent; delivery: string | null }) : null)),
+    /** How the sign-in address answers a change to a world's lists: by default, as BitLogin does, signing it with `signs`. */
+    signs: null as Uint8Array | null,
+    answer: null as null | ((o: { world: string; list: NostrEvent | null; change: OwnerListChange; key: string; none?: boolean }) => NostrEvent | null),
+    guests: vi.fn(async (o: { world: string; list: NostrEvent | null; change: OwnerListChange; key: string; none?: boolean }) => {
+      if (s.answer) return s.answer(o);
+      if (!s.signs || (o.list === null && !o.none)) return null;
+      const t = changeOwnerList(o.list, { subject: o.world, change: o.change, key: o.key, now: sec() });
+      return t ? finalizeEvent(t, s.signs) : null;
+    }),
     onChange: (fn: () => void) => (watchers.add(fn), () => void watchers.delete(fn)),
     whenAnswered: async () => {},
     change(next: { state?: "none" | "locked" | "unlocked"; pubkey?: string | null }) {
@@ -100,13 +109,13 @@ const settled = async (signer: StandIn | null, more: Partial<Parameters<typeof c
   return gate;
 };
 /** The visitor's console, with a sign-in row to press and everything said kept. */
-const consoleFor = (gate: ReturnType<typeof make>, o: { presenting?: boolean } = {}) => {
+const consoleFor = (gate: ReturnType<typeof make>, o: { presenting?: boolean; here?: string[]; follows?: string[]; copied?: string } = {}) => {
   const controls = createControls({ title: "A world" });
   const said: string[] = [];
   controls.onSay((text) => said.push(text));
   const signIn = vi.fn(() => true);
   controls.add({ id: "home", section: "travel", label: "Go home", hotbar: true, act: () => {} });
-  const rows = addGateControls(controls, gate, { presenting: () => !!o.presenting, signIn });
+  const rows = addGateControls(controls, gate, { presenting: () => !!o.presenting, signIn, ...(o.here ? { here: () => o.here! } : {}), ...(o.follows ? { follows: () => o.follows! } : {}), ...(o.copied !== undefined ? { copied: async () => o.copied! } : {}) });
   const travel = () => controls.view().sections.find((s) => s.id === "travel")?.items ?? [];
   return { controls, said, signIn, rows, travel, labels: () => travel().map((i) => i.label) };
 };
@@ -703,6 +712,130 @@ describe("a world by invitation", () => {
     file = async () => invites({ by_invitation: "yes" }, null);
     const gate = await settled(standIn());
     expect([gate.state, gate.byInvitation, gate.invited]).toEqual(["free", false, null]);
+  });
+});
+
+describe("the owner's screen: who comes in", () => {
+  const KEEPER = pk(5);
+  const subject = worldSubject(SELLER, "a-world");
+  const world = (more: Record<string, unknown> = {}) => ({ ...manifest(null), worlds: { "a-world": { entry: { url: WORLD }, keepers: [KEEPER], ...more } } });
+  const ownerList = (scope: "user-allow" | "user-deny", people: string[], at = sec() - 300) => finalizeEvent(ownerListTemplate({ scope, subject, people, createdAt: at })!, key(5));
+  const sent: NostrEvent[] = [];
+  const publish = vi.fn(async (relays: string[], event: NostrEvent) => {
+    sent.push(event);
+    relayHolds.push(event);
+    return { relays: Object.fromEntries(relays.map((r) => [r, "ok"])) };
+  });
+  const keeperAt = async (o: { invitation?: boolean } = {}) => {
+    file = async () => world(o.invitation === false ? {} : { by_invitation: true });
+    const signer = standIn({ pubkey: KEEPER });
+    signer.signs = key(5);
+    const gate = await settled(signer, { publish });
+    return { signer, gate };
+  };
+  const screen = (c: ReturnType<typeof consoleFor>) => c.controls.view().sections.find((x) => x.id === "guests");
+  beforeEach(() => {
+    sent.length = 0;
+    publish.mockClear();
+  });
+
+  it("is in a keeper's console only, says plainly that anyone can read the list, and offers the people on it", async () => {
+    relayHolds = [ownerList("user-allow", [ME]), ownerList("user-deny", [OTHER])];
+    const { gate } = await keeperAt();
+    expect(gate.keeper).toBe(KEEPER);
+    expect(gate.guests).toEqual([ME]);
+    const c = consoleFor(gate);
+    const s = screen(c)!;
+    expect([s.label, s.note]).toEqual(["Who comes in", "Anyone can read this list. 1 person invited, 1 person kept out."]);
+    const labels = s.items.map((i) => i.id);
+    expect(labels).toContain(`guests-allow-${ME}`);
+    expect(labels).toContain(`guests-block-${OTHER}`);
+    expect(labels).toContain("guests-copied");
+    // Nobody else has it: not a visitor who isn't a keeper.
+    const visitor = await settled(standIn({ pubkey: ME }), { publish });
+    expect(visitor.keeper).toBeNull();
+    expect(screen(consoleFor(visitor))).toBeUndefined();
+  });
+
+  it("lets someone here in, with one change asked of the sign-in address, sent to relays, and taken at once", async () => {
+    const list = ownerList("user-allow", [ME]);
+    relayHolds = [list];
+    const { signer, gate } = await keeperAt();
+    const c = consoleFor(gate, { here: [OTHER] });
+    expect(screen(c)!.items.find((i) => i.id === `guests-allow-${OTHER}`)?.label).toMatch(/^Let .* in$/);
+    c.controls.run(`guests-allow-${OTHER}`);
+    await pass(0);
+    await pass(0);
+    expect(signer.guests).toHaveBeenCalledWith({ world: subject, list, change: "allow", key: OTHER });
+    expect(gate.guests).toEqual([ME, OTHER].sort());
+    expect(sent).toHaveLength(1);
+    expect(c.said.at(-1)).toMatch(/: Invited\. Anyone can read this list\.$/);
+    // The visitor let in finds the way open, from what relays now hold.
+    const them = await settled(standIn({ pubkey: OTHER }));
+    expect(them.open).toBe(true);
+  });
+
+  it("starts a first list only at a second press, so a relay that was down can't wipe one", async () => {
+    relayHolds = [];
+    const { signer, gate } = await keeperAt();
+    const first = await gate.changeList("allow", OTHER);
+    expect(first).toEqual({ ok: false, again: true, said: "No guest list for this world was found. Press again to start one, naming only them." });
+    expect(signer.guests).not.toHaveBeenCalled();
+    const second = await gate.changeList("allow", OTHER);
+    expect(second.ok).toBe(true);
+    expect(signer.guests).toHaveBeenCalledWith({ world: subject, list: null, change: "allow", key: OTHER, none: true });
+  });
+
+  it("changes nothing while no relay has answered and nothing is remembered", async () => {
+    relaysUp = false;
+    const { signer, gate } = await keeperAt();
+    const r = await gate.changeList("allow", OTHER);
+    expect([r.ok, r.again]).toEqual([false, undefined]);
+    expect(r.said).toMatch(/couldn't be read just now/);
+    expect(signer.guests).not.toHaveBeenCalled();
+  });
+
+  it("takes nothing that isn't exactly the change asked: one person too many, and the list stands", async () => {
+    const list = ownerList("user-allow", [ME]);
+    relayHolds = [list];
+    const { signer, gate } = await keeperAt();
+    signer.answer = (o) => finalizeEvent({ ...changeOwnerList(o.list, { subject: o.world, change: o.change, key: o.key, now: sec() })!, tags: [...changeOwnerList(o.list, { subject: o.world, change: o.change, key: o.key, now: sec() })!.tags, ["p", pk(9)]] }, key(5));
+    const r = await gate.changeList("allow", OTHER);
+    expect(r).toEqual({ ok: false, said: "Nothing changed: your sign-in window said no, or can't change this world's list yet." });
+    expect(gate.guests).toEqual([ME]);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("in a headset, says to step out and asks nothing", async () => {
+    relayHolds = [ownerList("user-allow", [ME])];
+    const { signer, gate } = await keeperAt();
+    const c = consoleFor(gate, { presenting: true, here: [OTHER] });
+    expect(screen(c)!.note).toMatch(/Take the headset off to change who comes in/);
+    c.controls.run(`guests-block-${OTHER}`);
+    await pass(0);
+    expect(signer.guests).not.toHaveBeenCalled();
+    expect(c.said.at(-1)).toMatch(/^Take the headset off/);
+  });
+
+  it("offers only blocking in a world that isn't by invitation, and never the keeper themselves", async () => {
+    relayHolds = [ownerList("user-deny", [])];
+    const { gate } = await keeperAt({ invitation: false });
+    const c = consoleFor(gate, { here: [OTHER, KEEPER], follows: [ME] });
+    const items = screen(c)!.items.map((i) => i.id);
+    expect(items).toEqual(expect.arrayContaining([`guests-block-${OTHER}`, `guests-block-${ME}`]));
+    expect(items.some((id) => id.startsWith("guests-allow-"))).toBe(false);
+    expect(items.some((id) => id.endsWith(KEEPER))).toBe(false);
+    expect(await gate.changeList("allow", OTHER)).toMatchObject({ ok: false, said: "This world isn't by invitation, so there is no list of who is let in." });
+  });
+
+  it("takes someone by the key they copied", async () => {
+    relayHolds = [ownerList("user-deny", [])];
+    const { gate } = await keeperAt({ invitation: false });
+    const c = consoleFor(gate, { copied: `  ${pk(8)}\n` });
+    c.controls.run("guests-copied");
+    await pass(0);
+    await pass(0);
+    expect(screen(c)!.items.map((i) => i.id)).toContain(`guests-block-${pk(8)}`);
   });
 });
 

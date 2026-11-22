@@ -62,7 +62,7 @@ var NSWP = (() => {
     people: () => people,
     peopleInfo: () => peopleInfo,
     play: () => play,
-    presence: () => presence,
+    presence: () => presence2,
     previewFaces: () => previewFaces,
     previewViews: () => previewViews,
     ready: () => ready,
@@ -4581,6 +4581,97 @@ var NSWP = (() => {
     return [on3, WORDS[id][on3 ? 0 : 1]];
   }
 
+  // packages/core/dist/chat.js
+  var CHAT_LIMITS = {
+    /** The most characters in one thing said. Longer is cut, by the one saying it and again by the one reading. */
+    chars: 240,
+    /** A line is sent this many times, because the channel doesn't try again; a reader takes the first. */
+    repeats: 3,
+    repeatGapMs: 180,
+    /** No more than `burst` lines from one member in `perMs`. The rest are dropped, unseen. */
+    burst: 5,
+    perMs: 1e4,
+    /** How many lines a reader keeps for the visit. */
+    kept: 100,
+    /** How many ids are remembered for each member, to know a repeat from a new line. */
+    remembered: 32
+  };
+  var UNSEEN = [
+    [0, 31],
+    [127, 159],
+    [8203, 8204],
+    // 0x200d joins the parts of one emoji, and stays.
+    [8206, 8207],
+    [8232, 8239],
+    [8288, 8303],
+    [65279, 65279],
+    [65529, 65531]
+  ];
+  var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
+  function cleanLine(text2, chars) {
+    if (typeof text2 !== "string")
+      return "";
+    let out = "";
+    for (const ch of text2.slice(0, chars * 8).normalize("NFC"))
+      out += unseen(ch.codePointAt(0)) ? " " : ch;
+    out = out.replace(/\s+/g, " ").trim();
+    return [...out].slice(0, chars).join("").trim();
+  }
+  var cleanChat = (text2) => cleanLine(text2, CHAT_LIMITS.chars);
+  function chatId() {
+    const bytes = new Uint8Array(4);
+    globalThis.crypto.getRandomValues(bytes);
+    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function buildSay(text2, id = chatId()) {
+    const cleaned = cleanChat(text2);
+    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
+      return null;
+    return `say:${id}:${cleaned}`;
+  }
+  function parseSay(data) {
+    if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
+      return null;
+    const id = data.slice(4, 12);
+    if (!/^[0-9a-f]{8}$/.test(id))
+      return null;
+    const text2 = cleanChat(data.slice(13));
+    return text2 ? { id, text: text2 } : null;
+  }
+  function createChatGate(limits = CHAT_LIMITS) {
+    const ids = [];
+    let times = [];
+    const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
+    return {
+      take(id, now) {
+        if (ids.includes(id))
+          return false;
+        ids.push(id);
+        if (ids.length > limits.remembered)
+          ids.shift();
+        if (recent(now).length >= limits.burst)
+          return false;
+        times.push(now);
+        return true;
+      },
+      room(now) {
+        return recent(now).length < limits.burst;
+      }
+    };
+  }
+  function bubbleSeconds(text2) {
+    return Math.min(12, 4 + [...text2].length * 0.06);
+  }
+
+  // packages/core/dist/rating.js
+  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
+  function worldCoordinate(input) {
+    if (typeof input !== "string" || input.length > 200)
+      return "";
+    const c = parseCoordinate(input);
+    return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
+  }
+
   // packages/core/dist/owner-lists.js
   var LIST_KIND = 30078;
   var LIST_NAMESPACE = "nswp";
@@ -4704,6 +4795,49 @@ var NSWP = (() => {
       return { ok: false, reason: "not_found", futureDated };
     candidates.sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1));
     return { ...readOwnerList(candidates[0], { root, now }), futureDated };
+  }
+  function ownerListTemplate(o) {
+    const people2 = [...new Set(o.people)].sort();
+    if (!isListSubject(o.subject) || people2.length > OWNER_LIST_LIMITS.write || !people2.every(isHex64))
+      return null;
+    return {
+      kind: LIST_KIND,
+      created_at: o.createdAt,
+      content: "",
+      tags: [["d", listD(o.scope, o.subject, o.namespace)], ["v", "1"], ["scope", o.scope], ["subject", o.subject], ...people2.map((p) => ["p", p])]
+    };
+  }
+  var scopeOfChange = (change2) => change2 === "allow" || change2 === "unallow" ? "user-allow" : "user-deny";
+  function changeOwnerList(list, o) {
+    if (!isHex64(o.key) || !["allow", "unallow", "block", "unblock"].includes(o.change))
+      return null;
+    const scope = scopeOfChange(o.change);
+    const d = listD(scope, o.subject, o.namespace);
+    if (list && (list.kind !== LIST_KIND || list.tags.filter((t) => t[0] === "d").map((t) => t[1]).join("\n") !== d))
+      return null;
+    const was = list ? [...new Set(list.tags.filter((t) => t[0] === "p" && isHex64(t[1])).map((t) => t[1]))] : [];
+    const people2 = o.change === "allow" || o.change === "block" ? [...was, o.key] : was.filter((k) => k !== o.key);
+    const createdAt = list ? Math.max(o.now, list.created_at + 1) : o.now;
+    return ownerListTemplate({ scope, subject: o.subject, people: people2, createdAt, ...o.namespace ? { namespace: o.namespace } : {} });
+  }
+  var NOT_READ = ["client", ...SITE_MARKS];
+  function isOwnerListAsked(signed, o) {
+    if (!o.pubkey || !shaped(signed) || signed.kind !== LIST_KIND || signed.pubkey !== o.pubkey || signed.content !== "")
+      return false;
+    if (o.list && signed.created_at <= o.list.created_at)
+      return false;
+    let good = false;
+    try {
+      good = verifyEvent({ ...signed, tags: signed.tags.map((t) => [...t]) });
+    } catch {
+      good = false;
+    }
+    if (!good)
+      return false;
+    const want2 = changeOwnerList(o.list, { subject: o.subject, change: o.change, key: o.key, now: signed.created_at, ...o.namespace ? { namespace: o.namespace } : {} });
+    if (!want2 || want2.created_at !== signed.created_at)
+      return false;
+    return JSON.stringify(signed.tags.filter((t) => !NOT_READ.includes(t[0] ?? ""))) === JSON.stringify(want2.tags);
   }
 
   // packages/core/dist/manifest.js
@@ -4897,97 +5031,6 @@ var NSWP = (() => {
     /** A picture in a frame (spec §10.1). */
     pictureBytes: 1024 * 1024
   };
-
-  // packages/core/dist/chat.js
-  var CHAT_LIMITS = {
-    /** The most characters in one thing said. Longer is cut, by the one saying it and again by the one reading. */
-    chars: 240,
-    /** A line is sent this many times, because the channel doesn't try again; a reader takes the first. */
-    repeats: 3,
-    repeatGapMs: 180,
-    /** No more than `burst` lines from one member in `perMs`. The rest are dropped, unseen. */
-    burst: 5,
-    perMs: 1e4,
-    /** How many lines a reader keeps for the visit. */
-    kept: 100,
-    /** How many ids are remembered for each member, to know a repeat from a new line. */
-    remembered: 32
-  };
-  var UNSEEN = [
-    [0, 31],
-    [127, 159],
-    [8203, 8204],
-    // 0x200d joins the parts of one emoji, and stays.
-    [8206, 8207],
-    [8232, 8239],
-    [8288, 8303],
-    [65279, 65279],
-    [65529, 65531]
-  ];
-  var unseen = (code) => UNSEEN.some(([from, to]) => code >= from && code <= to);
-  function cleanLine(text2, chars) {
-    if (typeof text2 !== "string")
-      return "";
-    let out = "";
-    for (const ch of text2.slice(0, chars * 8).normalize("NFC"))
-      out += unseen(ch.codePointAt(0)) ? " " : ch;
-    out = out.replace(/\s+/g, " ").trim();
-    return [...out].slice(0, chars).join("").trim();
-  }
-  var cleanChat = (text2) => cleanLine(text2, CHAT_LIMITS.chars);
-  function chatId() {
-    const bytes = new Uint8Array(4);
-    globalThis.crypto.getRandomValues(bytes);
-    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-  function buildSay(text2, id = chatId()) {
-    const cleaned = cleanChat(text2);
-    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
-      return null;
-    return `say:${id}:${cleaned}`;
-  }
-  function parseSay(data) {
-    if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
-      return null;
-    const id = data.slice(4, 12);
-    if (!/^[0-9a-f]{8}$/.test(id))
-      return null;
-    const text2 = cleanChat(data.slice(13));
-    return text2 ? { id, text: text2 } : null;
-  }
-  function createChatGate(limits = CHAT_LIMITS) {
-    const ids = [];
-    let times = [];
-    const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
-    return {
-      take(id, now) {
-        if (ids.includes(id))
-          return false;
-        ids.push(id);
-        if (ids.length > limits.remembered)
-          ids.shift();
-        if (recent(now).length >= limits.burst)
-          return false;
-        times.push(now);
-        return true;
-      },
-      room(now) {
-        return recent(now).length < limits.burst;
-      }
-    };
-  }
-  function bubbleSeconds(text2) {
-    return Math.min(12, 4 + [...text2].length * 0.06);
-  }
-
-  // packages/core/dist/rating.js
-  var SITE_MARKS = ["nswp:world", "bitlogin:site"];
-  function worldCoordinate(input) {
-    if (typeof input !== "string" || input.length > 200)
-      return "";
-    const c = parseCoordinate(input);
-    return c && c.kind === WORLD_KIND && isHex64(c.pubkey) && c.identifier !== "" ? `${WORLD_KIND}:${c.pubkey}:${c.identifier}` : "";
-  }
 
   // packages/core/dist/bag.js
   var BAG_KIND = 37308;
@@ -7414,8 +7457,8 @@ postMessage({ t: "started" });
         parts3++;
         const mode = typeof p.mode === "number" ? p.mode : 4;
         const from = typeof p.indices === "number" ? p.indices : p.attributes?.POSITION;
-        const count2 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
-        triangles += mode === 4 ? Math.floor(count2 / 3) : mode === 5 || mode === 6 ? Math.max(0, count2 - 2) : Math.ceil(count2 / 3);
+        const count3 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
+        triangles += mode === 4 ? Math.floor(count3 / 3) : mode === 5 || mode === 6 ? Math.max(0, count3 - 2) : Math.ceil(count3 / 3);
       }
     }
     let texture = 0;
@@ -7429,7 +7472,7 @@ postMessage({ t: "started" });
       texture = Math.max(texture, size[0], size[1]);
     }
     const materials = list("materials");
-    const count = {
+    const count2 = {
       triangles,
       // What a renderer makes a mesh of is each part of each mesh.
       meshes: parts3,
@@ -7438,8 +7481,8 @@ postMessage({ t: "started" });
       animations: list("animations").map((a) => typeof a.name === "string" ? a.name : "").filter(Boolean).slice(0, 8),
       materialNames: materials.map((m) => typeof m.name === "string" ? m.name : "")
     };
-    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count.materials <= budget.materials && texture <= budget.texture;
-    return within2 ? { ok: true, count } : { ok: false, why: "over-budget" };
+    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count2.materials <= budget.materials && texture <= budget.texture;
+    return within2 ? { ok: true, count: count2 } : { ok: false, why: "over-budget" };
   }
 
   // packages/core/dist/people.js
@@ -7845,6 +7888,131 @@ postMessage({ t: "started" });
     };
   }
 
+  // packages/sdk/src/settings.ts
+  var arrived = {};
+  var parts = /* @__PURE__ */ new Map();
+  function arriveWith(settings) {
+    arrived = cleanSettings(settings);
+  }
+  function arrivedSettings() {
+    return arrived;
+  }
+  function reportSettings(part, now) {
+    parts.set(part, now);
+    return () => {
+      if (parts.get(part) === now) parts.delete(part);
+    };
+  }
+  function currentSettings() {
+    let out = { ...arrived };
+    for (const now of parts.values()) {
+      let said2 = {};
+      try {
+        said2 = cleanSettings(now());
+      } catch {
+      }
+      out = { ...out, ...said2, ...said2.sound || out.sound ? { sound: { ...out.sound, ...said2.sound } } : {} };
+    }
+    return cleanSettings(out);
+  }
+
+  // packages/sdk/src/picture.ts
+  var PICTURES_KEY = "nswp:pictures";
+  var PICTURE_LIMITS = { bytes: 3e6, size: 128, waitMs: 9e3 };
+  var shown = null;
+  var watchers = /* @__PURE__ */ new Set();
+  function showsPictures() {
+    if (shown !== null) return shown;
+    const came = arrivedSettings().pictures;
+    let kept2 = null;
+    try {
+      kept2 = localStorage.getItem(PICTURES_KEY);
+    } catch {
+    }
+    shown = came ?? kept2 !== "0";
+    if (came !== void 0) keep(shown);
+    reportSettings("pictures", () => ({ pictures: showsPictures() }));
+    return shown;
+  }
+  var keep = (on3) => {
+    try {
+      if (on3) localStorage.removeItem(PICTURES_KEY);
+      else localStorage.setItem(PICTURES_KEY, "0");
+    } catch {
+    }
+  };
+  function setShowsPictures(on3) {
+    showsPictures();
+    shown = on3;
+    keep(on3);
+    for (const w of watchers) w();
+  }
+  function onPicturesChange(cb) {
+    watchers.add(cb);
+    return () => void watchers.delete(cb);
+  }
+  function badge(image, width, height) {
+    const size = PICTURE_LIMITS.size;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext("2d");
+    g.beginPath();
+    g.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
+    g.closePath();
+    g.clip();
+    const side = Math.min(width, height);
+    g.drawImage(image, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
+    return canvas;
+  }
+  async function byFetch(url) {
+    const res = await fetch(url, { mode: "cors", credentials: "omit", referrerPolicy: "no-referrer", redirect: "follow", signal: AbortSignal.timeout(PICTURE_LIMITS.waitMs) });
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "";
+    if (!/^image\/(png|jpeg|webp|gif|avif)\b/i.test(type)) return null;
+    if (Number(res.headers.get("content-length") ?? 0) > PICTURE_LIMITS.bytes) return null;
+    const blob = await res.blob();
+    if (blob.size > PICTURE_LIMITS.bytes) return null;
+    const bitmap = await createImageBitmap(blob);
+    try {
+      return badge(bitmap, bitmap.width, bitmap.height);
+    } finally {
+      bitmap.close();
+    }
+  }
+  function byImage(url) {
+    return new Promise((done) => {
+      const img = new Image();
+      const timer = setTimeout(() => done(null), PICTURE_LIMITS.waitMs);
+      img.crossOrigin = "anonymous";
+      img.referrerPolicy = "no-referrer";
+      img.decoding = "async";
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          done(img.naturalWidth > 0 && img.naturalWidth <= 8192 && img.naturalHeight <= 8192 ? badge(img, img.naturalWidth, img.naturalHeight) : null);
+        } catch {
+          done(null);
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        done(null);
+      };
+      img.src = url;
+    });
+  }
+  var loaded = /* @__PURE__ */ new Map();
+  function loadPicture(address) {
+    const url = cleanPicture(address);
+    if (!url || !showsPictures() || typeof document === "undefined") return Promise.resolve(null);
+    let asked = loaded.get(url);
+    if (!asked) {
+      asked = byFetch(url).catch(() => null).then((got) => got ?? byImage(url)).catch(() => null);
+      loaded.set(url, asked);
+    }
+    return asked;
+  }
+
   // packages/sdk/src/relay-book.ts
   var KEY2 = "nswp:relays";
   var notes = null;
@@ -7959,6 +8127,266 @@ postMessage({ t: "started" });
     return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
   }
 
+  // packages/sdk/src/profiles.ts
+  var KEY3 = "nswp:profiles";
+  var MOST = 400;
+  var FRESH_MS = 24 * 3600 * 1e3;
+  var AT_ONCE = 60;
+  function readProfile(event) {
+    let meta = {};
+    try {
+      const parsed = JSON.parse(event.content);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) meta = parsed;
+    } catch {
+    }
+    let name = "";
+    for (const v2 of [meta.display_name, meta.displayName, meta.name]) {
+      if (!name && typeof v2 === "string") name = cleanName(v2);
+    }
+    return { name, picture: cleanPicture(meta.picture), about: cleanAbout(meta.about), at: event.created_at };
+  }
+  function createProfiles(opts = {}) {
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const store2 = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers7 = /* @__PURE__ */ new Set();
+    let kept2 = null;
+    const all = () => {
+      if (kept2) return kept2;
+      kept2 = {};
+      try {
+        const read6 = JSON.parse(store2?.getItem(KEY3) ?? "{}");
+        if (read6 && typeof read6 === "object" && !Array.isArray(read6)) {
+          for (const [k, v2] of Object.entries(read6)) {
+            if (!isHex64(k) || !v2 || typeof v2 !== "object") continue;
+            kept2[k] = { name: cleanName(typeof v2.name === "string" ? v2.name : ""), picture: cleanPicture(v2.picture), about: cleanAbout(v2.about), at: typeof v2.at === "number" ? v2.at : 0, asked: typeof v2.asked === "number" ? v2.asked : 0 };
+          }
+        }
+      } catch {
+      }
+      return kept2;
+    };
+    const save2 = () => {
+      const entries = Object.entries(all());
+      if (entries.length > MOST) kept2 = Object.fromEntries(entries.sort((a, b) => b[1].asked - a[1].asked).slice(0, MOST));
+      try {
+        store2?.setItem(KEY3, JSON.stringify(kept2));
+      } catch {
+      }
+    };
+    return {
+      get: (pubkey) => all()[pubkey] ?? null,
+      async fetch(pubkeys) {
+        const book = all();
+        const wanted = [...new Set(pubkeys)].filter((k) => isHex64(k) && now() - (book[k]?.asked ?? 0) > FRESH_MS).slice(0, AT_ONCE);
+        if (wanted.length === 0) return;
+        const got = await askWell({ kinds: [0], authors: wanted, limit: wanted.length * 2 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).catch(() => null);
+        const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+        for (const e of got?.events ?? []) {
+          if (e.kind !== 0 || !wanted.includes(e.pubkey) || !verifyEvent(e)) continue;
+          const had = book[e.pubkey];
+          if (had && had.at >= e.created_at) continue;
+          book[e.pubkey] = { ...readProfile(e), asked: now() };
+        }
+        if (answered) for (const k of wanted) book[k] = { ...book[k] ?? { name: "", picture: "", about: "", at: 0 }, asked: now() };
+        save2();
+        for (const fn of watchers7) fn();
+      },
+      onChange(fn) {
+        watchers7.add(fn);
+        return () => void watchers7.delete(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/following.ts
+  var PAGE = 24;
+  function keyIn(text2) {
+    if (typeof text2 !== "string") return null;
+    const found2 = /npub1[02-9ac-hj-np-z]{58}/.exec(text2)?.[0] ?? /\b[0-9a-f]{64}\b/i.exec(text2)?.[0];
+    if (!found2) return null;
+    try {
+      return decodeNpub(found2);
+    } catch {
+      return null;
+    }
+  }
+  function addFollowingControls(controls2, opts) {
+    const f = opts.follows;
+    const profiles = opts.profiles ?? createProfiles(opts.relays ? { relays: opts.relays } : {});
+    let shown4 = [];
+    let chosen = null;
+    let pages = 1;
+    let wasMe = null;
+    let looked = false;
+    const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
+    const say3 = (text2) => controls2.say(text2);
+    const press = (pubkey, name, adding) => {
+      const now = async () => {
+        const done = await (adding ? f.people.follow(pubkey, name) : f.people.unfollow(pubkey, name));
+        say3(done.said);
+        if (done.ok && adding) void profiles.fetch([pubkey]);
+        refresh();
+      };
+      if (!f.pubkey()) return say3("Sign in to follow people: it is under You.");
+      if (f.allowed()) return void now();
+      say3(f.ask(() => void now()));
+    };
+    const byKey = async () => {
+      const me = f.pubkey();
+      if (!me) return say3("Sign in to follow people: it is under You.");
+      let text2 = "";
+      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
+      if (keyboard2) text2 = await keyboard2.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
+      else {
+        try {
+          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+        } catch {
+          return say3("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
+        }
+      }
+      const key = keyIn(text2);
+      if (!key) return say3(keyboard2 ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
+      if (key === me) return say3("That is your own key.");
+      chosen = key;
+      await profiles.fetch([key]);
+      press(key, nameOf(key), true);
+    };
+    const refresh = () => {
+      for (const id of shown4) controls2.remove(id);
+      shown4 = [];
+      const me = f.pubkey();
+      if (me !== wasMe) {
+        wasMe = me;
+        chosen = null;
+        pages = 1;
+        looked = false;
+      }
+      const allowed = !!me && f.allowed();
+      const follows = allowed ? f.people.follows() : null;
+      const add = (...actions) => {
+        for (const a of actions) shown4.push(a.id);
+        controls2.add(...actions.map((a) => ({ section: "following", ...a })));
+      };
+      controls2.addSection({
+        id: "following",
+        label: "Following",
+        icon: "list",
+        note: () => !me ? "Sign in to see who you follow." : !allowed ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once." : follows === null ? looked ? "Who you follow couldn't be looked for just now." : "Looking for who you follow." : follows.length === 0 ? "You follow nobody yet. Follow someone from their card in People, or by their key. Who you follow is public." : `You follow ${follows.length === 1 ? "1 person" : `${follows.length} people`}. Select one to see who they are. It is your own Nostr follow list, and it is public.`,
+        card: () => {
+          if (!chosen || !follows) return null;
+          const p = profiles.get(chosen);
+          const following = follows.includes(chosen);
+          return {
+            title: nameOf(chosen),
+            tag: following ? "You follow them" : "Not followed",
+            proven: false,
+            sub: shortNpub(chosen),
+            copy: encodeNpub(chosen),
+            text: p?.about ?? "",
+            picture: showsPictures() ? p?.picture ?? "" : "",
+            color: "",
+            // What they have done, as they say: where they stand here, what they show.
+            now: opts.about?.lines(chosen) ?? []
+          };
+        }
+      });
+      if (!me) return;
+      if (!allowed) {
+        add({
+          id: "following-let",
+          icon: "check",
+          tone: "primary",
+          label: "Show who I follow, and let me change it here",
+          act: () => say3(f.ask(() => void f.people.load().then(refresh)))
+        });
+        return;
+      }
+      if (follows === null) {
+        if (!looked) {
+          looked = true;
+          void f.people.load().then(refresh);
+        } else {
+          add({
+            id: "following-again",
+            icon: "turn",
+            label: "Look again",
+            act: () => {
+              looked = false;
+              refresh();
+            }
+          });
+        }
+        return;
+      }
+      add({ id: "following-key", icon: "key", label: () => opts.presenting?.() && opts.keyboard?.() ? "Follow someone by their key" : "Follow the key I copied", short: "By key", act: () => void byKey() });
+      if (chosen) {
+        const them = chosen;
+        const following = follows.includes(them);
+        add({ id: "following-toggle", icon: "check", on: () => following, label: following ? `Unfollow ${nameOf(them)}` : `Follow ${nameOf(them)}`, act: () => press(them, nameOf(them), !following) });
+        add(...opts.more?.({ pubkey: them, name: nameOf(them) }) ?? []);
+      }
+      const named2 = follows.filter((k) => profiles.get(k)?.name).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+      const rest = follows.filter((k) => !profiles.get(k)?.name);
+      const listed = [...named2, ...rest].slice(0, pages * PAGE);
+      void profiles.fetch(follows.slice(0, pages * PAGE * 2));
+      add(
+        ...listed.map((k) => ({
+          id: `following-${k.slice(0, 16)}`,
+          kind: "swatch",
+          color: `#${k.slice(0, 6)}`,
+          on: () => chosen === k,
+          label: () => nameOf(k),
+          act: () => {
+            chosen = chosen === k ? null : k;
+            refresh();
+          }
+        }))
+      );
+      if (follows.length > listed.length) {
+        add({
+          id: "following-more",
+          icon: "list",
+          label: `Show more (${listed.length} of ${follows.length})`,
+          act: () => {
+            pages++;
+            refresh();
+          }
+        });
+      }
+    };
+    let drawing = false;
+    const soon2 = () => {
+      if (drawing) return;
+      drawing = true;
+      queueMicrotask(() => {
+        drawing = false;
+        refresh();
+      });
+    };
+    profiles.onChange(soon2);
+    f.people.onChange(soon2);
+    opts.about?.onChange(soon2);
+    refresh();
+    return {
+      refresh,
+      choose(pubkey) {
+        chosen = pubkey;
+        void profiles.fetch([pubkey]);
+        refresh();
+      },
+      press,
+      profiles
+    };
+  }
+
   // packages/sdk/src/front-room.ts
   var GATE_TIMES = { grace: 120, look: 300, goodFor: 86400 };
   var LISTS_KEY = "nswp:owner-lists";
@@ -8055,6 +8483,8 @@ postMessage({ t: "started" });
     const asked = /* @__PURE__ */ new Map();
     let endsAt = 0;
     let buying = false;
+    let changing = false;
+    let starting = null;
     let disposed = false;
     let round2 = 0;
     let endTimer;
@@ -8384,6 +8814,53 @@ postMessage({ t: "started" });
       get buying() {
         return buying;
       },
+      get keeper() {
+        const signer = opts.signer();
+        return signer && signer.state === "unlocked" && signer.pubkey && isKeeper(signer.pubkey) ? signer.pubkey : null;
+      },
+      get guests() {
+        return byInvitation ? [...invited] : null;
+      },
+      async changeList(change2, key) {
+        const signer = opts.signer();
+        const me = signer?.state === "unlocked" ? signer.pubkey : null;
+        if (disposed || !lists || !signer || !me || !isKeeper(me)) return { ok: false, said: "Only one of this world's keepers, signed in here, can change who comes in." };
+        if (!isHex64(key)) return { ok: false, said: "That isn't someone's key." };
+        if (isKeeper(key)) return { ok: false, said: "That's one of this world's keepers: always let in, and never kept out." };
+        const scope = scopeOfChange(change2);
+        if (scope === "user-allow" && !byInvitation) return { ok: false, said: "This world isn't by invitation, so there is no list of who is let in." };
+        if (changing) return { ok: false, said: "One change at a time: the last is still with your sign-in address." };
+        const subject = lists.subjects.find((s) => rootOf(s).includes(me));
+        const d = listD(scope, subject);
+        const found2 = rememberedLists()[d] ?? null;
+        let none = false;
+        if (!found2) {
+          const standing = scope === "user-deny" ? listState : inviteState;
+          if (standing === "reading" || standing === "unanswered") return { ok: false, said: "The list couldn't be read just now, so it isn't changed: one started now could wipe a list a relay is holding. Try again in a moment." };
+          const what = `${change2} ${key}`;
+          if (!starting || starting.what !== what || sec() - starting.at > 60) {
+            starting = { what, at: sec() };
+            return { ok: false, again: true, said: `No ${scope === "user-allow" ? "guest" : "block"} list for this world was found. Press again to start one, naming only them.` };
+          }
+          none = true;
+        }
+        starting = null;
+        changing = true;
+        changed();
+        const signed = await signer.guests({ world: subject, list: found2, change: change2, key, ...none ? { none: true } : {} }).catch(() => null);
+        changing = false;
+        if (!signed || disposed || !isOwnerListAsked(signed, { list: found2, subject, change: change2, key, pubkey: me })) {
+          changed();
+          return { ok: false, said: "Nothing changed: your sign-in window said no, or can't change this world's list yet." };
+        }
+        rememberList(d, signed);
+        applyLists([signed]);
+        void look();
+        const sent = await sendWell(signed, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...opts.publish ? { publish: opts.publish } : {}, ...opts.query ? { query: opts.query } : {}, now }).catch(() => null);
+        const done = change2 === "allow" ? "Invited." : change2 === "unallow" ? "Taken off the list." : change2 === "block" ? "Kept out." : "No longer kept out.";
+        if (!sent || sent.took === 0) return { ok: true, said: `${done} It holds here, but no relay took the list yet, so nobody else sees the change.` };
+        return { ok: true, said: `${done} Anyone can read this list.` };
+      },
       async buy(listing) {
         const wanted = cleanListing(listing ?? offerList()[0]?.listing ?? "");
         const signer = opts.signer();
@@ -8420,7 +8897,7 @@ postMessage({ t: "started" });
         return () => void watchers7.delete(fn);
       },
       info() {
-        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
+        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
       },
       dispose() {
         disposed = true;
@@ -8489,8 +8966,116 @@ postMessage({ t: "started" });
     };
     gate2.onChange(refresh);
     refresh();
+    addOwnersScreen(controls2, gate2, opts);
     return { refresh, press };
   }
+  var SCREEN_MOST = 40;
+  function addOwnersScreen(controls2, gate2, opts) {
+    let profiles = null;
+    const nameOf = (key) => profiles?.get(key)?.name || shortNpub(key);
+    const typed = [];
+    const rows = /* @__PURE__ */ new Set();
+    const inHeadset = () => !!opts.presenting?.();
+    const stepOut = "Take the headset off to change who comes in: your sign-in window can't be shown in here.";
+    controls2.addSection({
+      id: "guests",
+      label: "Who comes in",
+      icon: "people",
+      note: () => {
+        if (!gate2.keeper) return "";
+        const lists = [];
+        if (gate2.byInvitation) lists.push(gate2.invites === "read" ? `${count(gate2.guests?.length ?? 0, "person", "people")} invited` : gate2.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
+        lists.push(gate2.lists === "read" || gate2.lists === "not-found" ? `${count(gate2.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
+        return `Anyone can read this list. ${capital(lists.join(", "))}.${inHeadset() ? ` ${stepOut}` : ""}`;
+      }
+    });
+    const listed = () => [...gate2.guests ?? [], ...gate2.ownerBlocked];
+    const isGuest = (key) => (gate2.guests ?? []).includes(key);
+    const change2 = (key, what) => {
+      if (inHeadset()) return controls2.say(stepOut);
+      const name = nameOf(key);
+      const asking = what === "allow" ? `let ${name} in` : what === "unallow" ? `take ${name} off the list` : what === "block" ? `block ${name}` : `unblock ${name}`;
+      controls2.say(`${gate2.host || "Your sign-in address"} is asking you to ${asking}. Say yes there.`);
+      void gate2.changeList(what, key).then((r) => {
+        controls2.say(r.ok ? `${name}: ${r.said}` : r.said);
+        refresh();
+      });
+    };
+    const people2 = () => {
+      if (!gate2.keeper) return [];
+      const me = gate2.keeper;
+      const all = [...listed(), ...opts.here?.() ?? [], ...opts.follows?.() ?? [], ...typed];
+      return [...new Set(all)].filter((k) => isHex64(k) && k !== me).slice(0, SCREEN_MOST);
+    };
+    const addRows = (key) => {
+      controls2.add(
+        {
+          id: `guests-allow-${key}`,
+          section: "guests",
+          icon: "door",
+          hidden: () => !gate2.keeper || !gate2.byInvitation,
+          label: () => isGuest(key) ? `${nameOf(key)}: invited. Take them off the list` : `Let ${nameOf(key)} in`,
+          short: () => isGuest(key) ? "Take off" : "Let in",
+          act: () => change2(key, isGuest(key) ? "unallow" : "allow")
+        },
+        {
+          id: `guests-block-${key}`,
+          section: "guests",
+          icon: "exit",
+          tone: "warn",
+          hidden: () => !gate2.keeper,
+          label: () => gate2.ownerBlocked.includes(key) ? `${nameOf(key)}: kept out. Unblock them` : `Block ${nameOf(key)}`,
+          short: () => gate2.ownerBlocked.includes(key) ? "Unblock" : "Block",
+          act: () => change2(key, gate2.ownerBlocked.includes(key) ? "unblock" : "block")
+        }
+      );
+    };
+    controls2.add({
+      id: "guests-copied",
+      section: "guests",
+      icon: "you",
+      hidden: () => !gate2.keeper,
+      label: "Someone whose key I copied",
+      short: "By key",
+      act: async () => {
+        let text2 = "";
+        try {
+          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+        } catch {
+          return controls2.say("What you copied couldn't be read here. Copy someone's key (npub1\u2026), allow this site to read what you copy, and press again.");
+        }
+        const key = keyIn(text2);
+        if (!key) return controls2.say("That isn't someone's key. Copy their npub1\u2026 and press again.");
+        if (key === gate2.keeper) return controls2.say("That's your own key: you are always let in.");
+        typed.unshift(key);
+        refresh();
+        controls2.say(`${nameOf(key)} is in the list below: let them in, or block them.`);
+      }
+    });
+    const refresh = () => {
+      const now = people2();
+      if (now.length && !profiles) {
+        profiles = createProfiles();
+        profiles.onChange(() => controls2.signal("gate"));
+      }
+      if (now.length) void profiles?.fetch(now);
+      for (const key of [...rows]) {
+        if (now.includes(key)) continue;
+        controls2.remove(`guests-allow-${key}`);
+        controls2.remove(`guests-block-${key}`);
+        rows.delete(key);
+      }
+      for (const key of now) {
+        if (rows.has(key)) continue;
+        addRows(key);
+        rows.add(key);
+      }
+    };
+    gate2.onChange(refresh);
+    refresh();
+  }
+  var count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  var capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   // packages/sdk/src/ui/icons.ts
   var ICONS = {
@@ -8578,15 +9163,15 @@ postMessage({ t: "started" });
     if (said2 === "desk" && device.mouse) return "desk";
     return device.main;
   }
-  var arrived;
+  var arrived2;
   var used;
   var watching = false;
   function arriveAs(form) {
-    arrived = form;
+    arrived2 = form;
     watch();
   }
   function startingForm() {
-    return formFor(arrived, deviceForms());
+    return formFor(arrived2, deviceForms());
   }
   function currentForm() {
     watch();
@@ -8605,34 +9190,6 @@ postMessage({ t: "started" });
     );
   }
 
-  // packages/sdk/src/settings.ts
-  var arrived2 = {};
-  var parts = /* @__PURE__ */ new Map();
-  function arriveWith(settings) {
-    arrived2 = cleanSettings(settings);
-  }
-  function arrivedSettings() {
-    return arrived2;
-  }
-  function reportSettings(part, now) {
-    parts.set(part, now);
-    return () => {
-      if (parts.get(part) === now) parts.delete(part);
-    };
-  }
-  function currentSettings() {
-    let out = { ...arrived2 };
-    for (const now of parts.values()) {
-      let said2 = {};
-      try {
-        said2 = cleanSettings(now());
-      } catch {
-      }
-      out = { ...out, ...said2, ...said2.sound || out.sound ? { sound: { ...out.sound, ...said2.sound } } : {} };
-    }
-    return cleanSettings(out);
-  }
-
   // packages/sdk/src/desk.ts
   var DESK_PREFS_KEY = "nswp:desk";
   var LOOK_STEPS = [
@@ -8647,8 +9204,8 @@ postMessage({ t: "started" });
   var clampLook = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v2)) * 100) / 100 : 1;
   var clampFov = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v2))) : null;
   var prefs = null;
-  var watchers = /* @__PURE__ */ new Set();
-  var keep = (p) => {
+  var watchers2 = /* @__PURE__ */ new Set();
+  var keep2 = (p) => {
     try {
       localStorage.setItem(DESK_PREFS_KEY, JSON.stringify(p));
     } catch {
@@ -8663,14 +9220,14 @@ postMessage({ t: "started" });
     }
     const came = arrivedSettings();
     prefs = { look: clampLook(came.look ?? kept2.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept2.fov) };
-    if (came.look !== void 0 || came.fov !== void 0) keep(prefs);
+    if (came.look !== void 0 || came.fov !== void 0) keep2(prefs);
     reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
     return prefs;
   }
   var change = (next) => {
     prefs = next;
-    keep(next);
-    for (const w of watchers) w();
+    keep2(next);
+    for (const w of watchers2) w();
   };
   var lookScale = () => load().look;
   var aimScaleNow = 1;
@@ -8679,8 +9236,8 @@ postMessage({ t: "started" });
   var visitorFov = () => currentForm() === "desk" ? load().fov : null;
   var setVisitorFov = (v2) => change({ ...load(), fov: v2 === null ? null : clampFov(v2) });
   function onDeskChange(cb) {
-    watchers.add(cb);
-    return () => void watchers.delete(cb);
+    watchers2.add(cb);
+    return () => void watchers2.delete(cb);
   }
   var after = (steps, at) => steps[(at + 1) % steps.length];
   function addDeskControls(controls2, o) {
@@ -8783,7 +9340,7 @@ postMessage({ t: "started" });
   var holds = false;
   var filled = false;
   var met = false;
-  var watchers2 = /* @__PURE__ */ new Set();
+  var watchers3 = /* @__PURE__ */ new Set();
   var signInAt = null;
   var panelOpen = false;
   var panelFailed = false;
@@ -8795,8 +9352,8 @@ postMessage({ t: "started" });
   var clientHoldsScreen = () => holds;
   var clientScreenFilled = () => holds && filled;
   function onClientScreen(fn) {
-    watchers2.add(fn);
-    return () => void watchers2.delete(fn);
+    watchers3.add(fn);
+    return () => void watchers3.delete(fn);
   }
   var say = (words2) => {
     try {
@@ -8847,7 +9404,7 @@ postMessage({ t: "started" });
         if (panelOpen === said2.open && !failed2) return;
         panelOpen = said2.open;
         for (const fn of panelWatchers) fn(panelOpen, failed2, !said2.open && said2.allowed === true);
-        if (failed2) for (const fn of watchers2) fn();
+        if (failed2) for (const fn of watchers3) fn();
         return;
       }
       if (said2.nswp !== "screen" || typeof said2.holds !== "boolean") return;
@@ -8855,7 +9412,7 @@ postMessage({ t: "started" });
       holds = said2.holds;
       filled = said2.filled === true;
       if (said2.signIn !== void 0 && !panelFailed) signInAt = secureOrigin(said2.signIn);
-      if (was !== `${holds}${filled}${signInAt}`) for (const fn of watchers2) fn();
+      if (was !== `${holds}${filled}${signInAt}`) for (const fn of watchers3) fn();
     });
     let at = "/";
     try {
@@ -13996,8 +14553,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count) {
-      this.updateRanges.push({ start: start2, count });
+    addUpdateRange(start2, count2) {
+      this.updateRanges.push({ start: start2, count: count2 });
     }
     /**
      * Clears the update ranges.
@@ -15020,8 +15577,8 @@ postMessage({ t: "started" });
       this.scissorTest = false;
       this.viewport = new Vector4(0, 0, width, height);
       this.textures = [];
-      const count = options.count;
-      for (let i = 0; i < count; i++) {
+      const count2 = options.count;
+      for (let i = 0; i < count2; i++) {
         this.textures[i] = new Texture({ width, height, depth: options.depth });
         this.textures[i].isRenderTargetTexture = true;
         this.textures[i].renderTarget = this;
@@ -19780,8 +20337,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count) {
-      this.updateRanges.push({ start: start2, count });
+    addUpdateRange(start2, count2) {
+      this.updateRanges.push({ start: start2, count: count2 });
     }
     /**
      * Clears the update ranges.
@@ -20583,10 +21140,10 @@ postMessage({ t: "started" });
      * @param {number} count - Specifies how many vertices (or indices) are part of this group.
      * @param {number} [materialIndex=0] - The material array index to use.
      */
-    addGroup(start2, count, materialIndex = 0) {
+    addGroup(start2, count2, materialIndex = 0) {
       this.groups.push({
         start: start2,
-        count,
+        count: count2,
         materialIndex
       });
     }
@@ -20603,9 +21160,9 @@ postMessage({ t: "started" });
      * @param {number} count - For non-indexed BufferGeometry, `count` is the number of vertices to render.
      * For indexed BufferGeometry, `count` is the number of indices to render.
      */
-    setDrawRange(start2, count) {
+    setDrawRange(start2, count2) {
       this.drawRange.start = start2;
-      this.drawRange.count = count;
+      this.drawRange.count = count2;
     }
     /**
      * Applies the given 4x4 transformation matrix to the geometry.
@@ -20942,8 +21499,8 @@ postMessage({ t: "started" });
       for (let i = 0, il = groups.length; i < il; ++i) {
         const group = groups[i];
         const start2 = group.start;
-        const count = group.count;
-        for (let j = start2, jl = start2 + count; j < jl; j += 3) {
+        const count2 = group.count;
+        for (let j = start2, jl = start2 + count2; j < jl; j += 3) {
           handleTriangle(
             index.getX(j + 0),
             index.getX(j + 1),
@@ -21283,8 +21840,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count) {
-      this.updateRanges.push({ start: start2, count });
+    addUpdateRange(start2, count2) {
+      this.updateRanges.push({ start: start2, count: count2 });
     }
     /**
      * Clears the update ranges.
@@ -24011,16 +24568,16 @@ postMessage({ t: "started" });
      * @param {Material|Array<Material>} [material] - The mesh material.
      * @param {number} count - The number of instances.
      */
-    constructor(geometry, material, count) {
+    constructor(geometry, material, count2) {
       super(geometry, material);
       this.isInstancedMesh = true;
-      this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count * 16), 16);
+      this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count2 * 16), 16);
       this.instanceColor = null;
       this.morphTexture = null;
-      this.count = count;
+      this.count = count2;
       this.boundingBox = null;
       this.boundingSphere = null;
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count2; i++) {
         this.setMatrixAt(i, _identity);
       }
     }
@@ -24031,7 +24588,7 @@ postMessage({ t: "started" });
      */
     computeBoundingBox() {
       const geometry = this.geometry;
-      const count = this.count;
+      const count2 = this.count;
       if (this.boundingBox === null) {
         this.boundingBox = new Box3();
       }
@@ -24039,7 +24596,7 @@ postMessage({ t: "started" });
         geometry.computeBoundingBox();
       }
       this.boundingBox.makeEmpty();
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count2; i++) {
         this.getMatrixAt(i, _instanceLocalMatrix);
         _box3.copy(geometry.boundingBox).applyMatrix4(_instanceLocalMatrix);
         this.boundingBox.union(_box3);
@@ -24052,7 +24609,7 @@ postMessage({ t: "started" });
      */
     computeBoundingSphere() {
       const geometry = this.geometry;
-      const count = this.count;
+      const count2 = this.count;
       if (this.boundingSphere === null) {
         this.boundingSphere = new Sphere();
       }
@@ -24060,7 +24617,7 @@ postMessage({ t: "started" });
         geometry.computeBoundingSphere();
       }
       this.boundingSphere.makeEmpty();
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count2; i++) {
         this.getMatrixAt(i, _instanceLocalMatrix);
         _sphere$4.copy(geometry.boundingSphere).applyMatrix4(_instanceLocalMatrix);
         this.boundingSphere.union(_sphere$4);
@@ -33040,14 +33597,14 @@ postMessage({ t: "started" });
     function setMode(value) {
       mode = value;
     }
-    function render(start2, count) {
-      gl.drawArrays(mode, start2, count);
-      info.update(count, mode, 1);
+    function render(start2, count2) {
+      gl.drawArrays(mode, start2, count2);
+      info.update(count2, mode, 1);
     }
-    function renderInstances(start2, count, primcount) {
+    function renderInstances(start2, count2, primcount) {
       if (primcount === 0) return;
-      gl.drawArraysInstanced(mode, start2, count, primcount);
-      info.update(count, mode, primcount);
+      gl.drawArraysInstanced(mode, start2, count2, primcount);
+      info.update(count2, mode, primcount);
     }
     function renderMultiDraw(starts2, counts, drawCount) {
       if (drawCount === 0) return;
@@ -33993,12 +34550,12 @@ postMessage({ t: "started" });
       return texture;
     }
     function isCubeTextureComplete(image) {
-      let count = 0;
+      let count2 = 0;
       const length = 6;
       for (let i = 0; i < length; i++) {
-        if (image[i] !== void 0) count++;
+        if (image[i] !== void 0) count2++;
       }
-      return count === length;
+      return count2 === length;
     }
     function onCubemapDispose(event) {
       const texture = event.target;
@@ -34111,14 +34668,14 @@ postMessage({ t: "started" });
       if (geometryPosition === void 0) {
         return;
       }
-      const count = geometryIndex !== null ? geometryIndex.array.length : geometryPosition.array.length / 3 - 1;
+      const count2 = geometryIndex !== null ? geometryIndex.array.length : geometryPosition.array.length / 3 - 1;
       const IndexBufferAttribute = geometryPosition.count >= 65535 ? Uint32BufferAttribute : Uint16BufferAttribute;
-      const attribute = new IndexBufferAttribute(Math.ceil(count / 3) * 6, 1);
+      const attribute = new IndexBufferAttribute(Math.ceil(count2 / 3) * 6, 1);
       const indices = attribute.array;
       if (geometryIndex !== null) {
         const array = geometryIndex.array;
         version = geometryIndex.version;
-        for (let i = 0, j = 0; i < count; i += 3) {
+        for (let i = 0, j = 0; i < count2; i += 3) {
           const a = array[i + 0];
           const b = array[i + 1];
           const c = array[i + 2];
@@ -34131,7 +34688,7 @@ postMessage({ t: "started" });
         }
       } else {
         version = geometryPosition.version;
-        for (let i = 0, j = 0; i < count; i += 3) {
+        for (let i = 0, j = 0; i < count2; i += 3) {
           const a = i + 0;
           const b = i + 1;
           const c = i + 2;
@@ -34185,14 +34742,14 @@ postMessage({ t: "started" });
       type = value.type;
       bytesPerElement = value.bytesPerElement;
     }
-    function render(start2, count) {
-      gl.drawElements(mode, count, type, start2 * bytesPerElement);
-      info.update(count, mode, 1);
+    function render(start2, count2) {
+      gl.drawElements(mode, count2, type, start2 * bytesPerElement);
+      info.update(count2, mode, 1);
     }
-    function renderInstances(start2, count, primcount) {
+    function renderInstances(start2, count2, primcount) {
       if (primcount === 0) return;
-      gl.drawElementsInstanced(mode, count, type, start2 * bytesPerElement, primcount);
-      info.update(count, mode, primcount);
+      gl.drawElementsInstanced(mode, count2, type, start2 * bytesPerElement, primcount);
+      info.update(count2, mode, primcount);
     }
     function renderMultiDraw(starts2, counts, drawCount) {
       if (drawCount === 0) return;
@@ -34222,23 +34779,23 @@ postMessage({ t: "started" });
       points: 0,
       lines: 0
     };
-    function update(count, mode, instanceCount) {
+    function update(count2, mode, instanceCount) {
       render.calls++;
       switch (mode) {
         case gl.TRIANGLES:
-          render.triangles += instanceCount * (count / 3);
+          render.triangles += instanceCount * (count2 / 3);
           break;
         case gl.LINES:
-          render.lines += instanceCount * (count / 2);
+          render.lines += instanceCount * (count2 / 2);
           break;
         case gl.LINE_STRIP:
-          render.lines += instanceCount * (count - 1);
+          render.lines += instanceCount * (count2 - 1);
           break;
         case gl.LINE_LOOP:
-          render.lines += instanceCount * count;
+          render.lines += instanceCount * count2;
           break;
         case gl.POINTS:
-          render.points += instanceCount * count;
+          render.points += instanceCount * count2;
           break;
         default:
           error("WebGLInfo: Unknown draw mode:", mode);
@@ -37672,13 +38229,13 @@ postMessage({ t: "started" });
     const viewportParam = gl.getParameter(gl.VIEWPORT);
     const currentScissor = new Vector4().fromArray(scissorParam);
     const currentViewport = new Vector4().fromArray(viewportParam);
-    function createTexture(type, target2, count, dimensions) {
+    function createTexture(type, target2, count2, dimensions) {
       const data = new Uint8Array(4);
       const texture = gl.createTexture();
       gl.bindTexture(type, texture);
       gl.texParameteri(type, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(type, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < count2; i++) {
         if (type === gl.TEXTURE_3D || type === gl.TEXTURE_2D_ARRAY) {
           gl.texImage3D(target2, 0, gl.RGBA, 1, 1, dimensions, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
         } else {
@@ -42233,9 +42790,9 @@ void main() {
         object.onAfterRender(_this, scene, camera, geometry, material, group);
       }
       function countLightProbeGrids(grids) {
-        let count = 0;
-        for (const grid of grids) if (grid.texture !== null) count++;
-        return count;
+        let count2 = 0;
+        for (const grid of grids) if (grid.texture !== null) count2++;
+        return count2;
       }
       function getProgram(material, scene, object) {
         if (scene.isScene !== true) scene = _emptyScene;
@@ -42539,16 +43096,16 @@ void main() {
           materials.refreshMaterialUniforms(m_uniforms, material, _pixelRatio, _height, currentRenderState.state.transmissionRenderTarget[camera.id]);
           if (materialProperties.needsLights && materialProperties.numLightProbeGrids > 0) {
             const grids = lightProbeGridUniforms;
-            let count = 0;
+            let count2 = 0;
             for (const grid of currentRenderState.state.lightProbeGridArray) {
               if (grid.texture === null) continue;
-              grids.textures[count] = grid.texture;
-              grids.min[count] = grid.boundingBox.min;
-              grids.max[count] = grid.boundingBox.max;
-              grids.resolution[count] = grid.resolution;
-              count++;
+              grids.textures[count2] = grid.texture;
+              grids.min[count2] = grid.boundingBox.min;
+              grids.max[count2] = grid.boundingBox.max;
+              grids.resolution[count2] = grid.resolution;
+              count2++;
             }
-            for (const key in grids) grids[key].length = count;
+            for (const key in grids) grids[key].length = count2;
             m_uniforms.probesSH.value = grids.textures;
             m_uniforms.probesMin.value = grids.min;
             m_uniforms.probesMax.value = grids.max;
@@ -43218,10 +43775,10 @@ void main() {
       pan: side * (0.08 + random() * 0.1)
     };
   }
-  function nextVariant(count, last, random = Math.random) {
-    if (count <= 1) return 0;
-    if (last < 0 || last >= count) return Math.min(count - 1, Math.floor(random() * count));
-    const i = Math.floor(random() * (count - 1));
+  function nextVariant(count2, last, random = Math.random) {
+    if (count2 <= 1) return 0;
+    if (last < 0 || last >= count2) return Math.min(count2 - 1, Math.floor(random() * count2));
+    const i = Math.floor(random() * (count2 - 1));
     return i >= last ? i + 1 : i;
   }
   var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
@@ -44291,3168 +44848,8 @@ void main() {
     };
   }
 
-  // packages/sdk/src/people.ts
-  var KEPT_MOST = 4e5;
-  var FRESH_MS = 6e4;
-  function createPeople(opts) {
-    const { hand } = opts;
-    const now = opts.now ?? (() => Date.now());
-    const query = opts.query ?? queryRelays;
-    const publish = opts.publish ?? publishEvent;
-    const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const store2 = (() => {
-      if (opts.storage !== void 0) return opts.storage;
-      try {
-        return globalThis.localStorage ?? null;
-      } catch {
-        return null;
-      }
-    })();
-    const watchers7 = /* @__PURE__ */ new Set();
-    const changed = () => {
-      for (const fn of watchers7) fn();
-    };
-    const keyFor = (who2) => `nswp:follows:${who2}`;
-    const readKept = (who2) => {
-      try {
-        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
-        return verifyEvent(kept2) && kept2.kind === FOLLOWS_KIND && kept2.pubkey === who2 ? kept2 : null;
-      } catch {
-        return null;
-      }
-    };
-    const keep5 = (list) => {
-      try {
-        const text2 = JSON.stringify(list);
-        if (text2.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text2);
-        else store2?.removeItem(keyFor(list.pubkey));
-      } catch {
-      }
-    };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
-    };
-    let known = null;
-    let looking = null;
-    let offered = null;
-    const look = async (who2) => {
-      const kept2 = readKept(who2);
-      const own = await ownRelays(who2);
-      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
-      const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
-      const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
-      if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
-      if (list && list !== kept2) keep5(list);
-      if (hand.pubkey() !== who2) return;
-      known = { who: who2, list, answered, at: now() };
-      changed();
-    };
-    const load3 = async (fresh = false) => {
-      const who2 = hand.pubkey();
-      if (!who2) {
-        if (known) {
-          known = null;
-          changed();
-        }
-        return null;
-      }
-      if (known && known.who !== who2) known = null;
-      if (!fresh && known && now() - known.at < FRESH_MS) return followsIn(known.list);
-      looking ?? (looking = look(who2).finally(() => {
-        looking = null;
-      }));
-      await looking;
-      return known && known.who === who2 ? followsIn(known.list) : null;
-    };
-    const change2 = async (pubkey, adding, name) => {
-      const who2 = hand.pubkey();
-      const them = name || "them";
-      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to follow people." };
-      if (!isHex64(pubkey) || pubkey === who2) return { ok: false, why: "refused", said: "That isn't someone who can be followed." };
-      if (!hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change who you follow." };
-      await load3(true);
-      const at = known && known.who === who2 ? known : null;
-      if (!at) return { ok: false, why: "unreachable", said: "Your follow list couldn't be looked for. Nothing was changed." };
-      const list = at.list;
-      if (!list) {
-        if (!at.answered) return { ok: false, why: "unreachable", said: "No relay could be reached to find who you follow, so nothing was changed. Try again in a moment." };
-        if (!adding) return { ok: false, why: "already", said: `You don't follow ${them}.` };
-        if (!offered || offered.who !== pubkey || now() - offered.at > 12e4) {
-          offered = { who: pubkey, at: now() };
-          return { ok: false, why: "no-list", said: `No follow list of yours was found. If you follow nobody yet, press again to start one with ${them}.` };
-        }
-      }
-      offered = null;
-      const follows = followsIn(list).includes(pubkey);
-      if (adding === follows) return { ok: true, why: "already", said: adding ? `You already follow ${them}.` : `You don't follow ${them}.` };
-      const asked = adding ? { add: pubkey } : { remove: pubkey };
-      const signed = await hand.change(list, asked).catch(() => null);
-      if (!signed || !isFollowAsked(signed, { list, ...asked, pubkey: who2 })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
-      keep5(signed);
-      known = { who: who2, list: signed, answered: true, at: now() };
-      changed();
-      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
-      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };
-      return { ok: true, said: adding ? `You follow ${them}. Anyone can see who you follow.` : `You no longer follow ${them}.` };
-    };
-    return {
-      follows: () => known && known.who === hand.pubkey() ? followsIn(known.list) : null,
-      isFollowing(pubkey) {
-        return known && known.who === hand.pubkey() && (known.list || known.answered) ? followsIn(known.list).includes(pubkey) : null;
-      },
-      load: load3,
-      follow: (pubkey, name = "") => change2(pubkey, true, name),
-      unfollow: (pubkey, name = "") => change2(pubkey, false, name),
-      onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
-      }
-    };
-  }
-
-  // packages/sdk/src/saves.ts
-  function createSaves(opts = {}) {
-    const now = opts.now ?? (() => Date.now());
-    const query = opts.query ?? queryRelays;
-    const publish = opts.publish ?? publishEvent;
-    const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const signer = () => (typeof opts.signer === "function" ? opts.signer() : opts.signer) ?? null;
-    const store2 = (() => {
-      if (opts.storage !== void 0) return opts.storage;
-      try {
-        return globalThis.localStorage ?? null;
-      } catch {
-        return null;
-      }
-    })();
-    const keyFor = (who2, slot) => `nswp:save:${who2 ?? "guest"}:${slot}`;
-    const readLocal = (who2, slot) => {
-      try {
-        const kept2 = JSON.parse(store2?.getItem(keyFor(who2, slot)) ?? "null");
-        return kept2 && typeof kept2.data === "string" && typeof kept2.at === "number" ? { data: kept2.data, at: kept2.at } : null;
-      } catch {
-        return null;
-      }
-    };
-    const writeLocal = (who2, slot, kept2) => {
-      try {
-        if (!store2) return false;
-        store2.setItem(keyFor(who2, slot), JSON.stringify(kept2));
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
-    };
-    const fromAccount = async (slot) => {
-      const s = signer();
-      const who2 = s?.state === "unlocked" ? s.pubkey : null;
-      if (!s || !who2) return null;
-      const d = await s.find(slot);
-      if (!d) return null;
-      const got = await askWell({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, { own: await ownRelays(who2), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
-      const newest = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
-      if (!newest) return null;
-      const opened = await s.open(newest);
-      return opened && opened.slot === slot ? { data: opened.data, at: opened.at } : null;
-    };
-    const load3 = async (slotIn) => {
-      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
-      if (!slot) return null;
-      const s = signer();
-      const who2 = s?.state === "unlocked" ? s.pubkey : null;
-      const here = [readLocal(who2, slot), who2 ? readLocal(null, slot) : null].filter((x) => !!x).sort((a, b) => b.at - a.at)[0] ?? null;
-      const there = who2 ? await fromAccount(slot).catch(() => null) : null;
-      const newest = there && (!here || there.at >= here.at) ? { ...there, from: "account" } : here ? { ...here, from: "device" } : null;
-      if (newest?.from === "account") writeLocal(who2, slot, { data: newest.data, at: newest.at });
-      if (who2 && newest?.from === "device" && !taking.has(slot)) {
-        taking.add(slot);
-        void toAccount(newest.data, slot, who2).catch(() => false).then(() => taking.delete(slot));
-      }
-      return newest && newest.data !== "" ? newest : null;
-    };
-    const taking = /* @__PURE__ */ new Set();
-    const toAccount = async (data, slot, who2) => {
-      const s = signer();
-      if (!s || s.state !== "unlocked" || s.pubkey !== who2) return false;
-      const signed = await s.save(slot, data).catch(() => null);
-      if (!signed) return false;
-      writeLocal(who2, slot, { data, at: signed.created_at });
-      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
-      return !!sent && sent.took > 0;
-    };
-    const save2 = async (data, slotIn) => {
-      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
-      if (!slot || !fitsInSave(data)) return { kept: "nowhere", said: "That is too much to save, or not a slot's name." };
-      const s = signer();
-      const who2 = s?.state === "unlocked" ? s.pubkey : null;
-      const at = Math.floor(now() / 1e3);
-      const here = writeLocal(who2, slot, { data, at });
-      if (!s || !who2) return here ? { kept: "device", said: "Saved on this device. Sign in to keep it with your account." } : { kept: "nowhere", said: "This browser wouldn't keep it." };
-      if (await toAccount(data, slot, who2).catch(() => false)) return { kept: "account", said: "Saved to your account." };
-      return here ? { kept: "device", said: "Saved on this device. It didn't reach your account this time." } : { kept: "nowhere", said: "That wasn't saved." };
-    };
-    return { load: load3, save: save2, clear: (slot) => save2("", slot) };
-  }
-
-  // packages/sdk/src/signer.ts
-  var NONE2 = {
-    state: "none",
-    pubkey: null,
-    name: null,
-    picture: null,
-    about: null,
-    remembered: null,
-    host: null,
-    more: [],
-    offers: null,
-    unanswered: false,
-    asking: false,
-    retry: () => false,
-    copy: null,
-    unlock: () => false,
-    propose: () => Promise.resolve(null),
-    wallet: () => Promise.resolve(null),
-    pay: () => Promise.resolve(null),
-    saveFile: () => Promise.resolve(null),
-    pickFile: () => Promise.resolve(null),
-    tip: () => Promise.resolve(false),
-    buy: () => Promise.resolve(null),
-    have: () => Promise.resolve(null),
-    panel: false,
-    lock() {
-    },
-    sign: async () => null,
-    pass: async () => null,
-    save: async () => null,
-    find: async () => null,
-    open: async () => null,
-    want: () => false,
-    follow: async () => null,
-    seal: async () => null,
-    unwrap: async () => null,
-    reach: async () => null,
-    score: async () => null,
-    achieve: async () => null,
-    onChange: () => () => {
-    },
-    whenAnswered: async () => {
-    },
-    dispose() {
-    }
-  };
-  function namedAddresses(at) {
-    try {
-      const signer = new URL(at.signer);
-      const win = new URL(at.window);
-      if (signer.protocol !== "https:" || win.origin !== signer.origin) return null;
-      return { origin: signer.origin, signer: signer.href, window: win.href };
-    } catch {
-      return null;
-    }
-  }
-  var ASK_PERSON_MS = 5 * 6e4;
-  function createWorldSigner(opts) {
-    const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
-    if (!real || typeof document === "undefined") return NONE2;
-    const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
-    const watchers7 = /* @__PURE__ */ new Set();
-    const pending = /* @__PURE__ */ new Map();
-    const kept2 = /* @__PURE__ */ new Map();
-    const askAbout = (request, read6) => new Promise((done) => {
-      const timer = setTimeout(() => {
-        kept2.delete(request.id);
-        done(null);
-      }, 8e3);
-      kept2.set(request.id, { answer: (reply) => done(reply ? read6(reply) : null), timer });
-      tell2(request);
-    });
-    const put = /* @__PURE__ */ new Map();
-    let state = "none";
-    let pubkey = null;
-    let name = null;
-    let picture2 = null;
-    let about = null;
-    let remembered = null;
-    let more = [];
-    let offers2 = null;
-    let origin = "";
-    let windowAt = "";
-    let frame2 = null;
-    let disposed = false;
-    const named2 = !!opts.at || !!signerAt(opts.under);
-    let waited = false;
-    let asking = false;
-    let again = 0;
-    let waiting3;
-    let signerUrl = "";
-    const reload = () => {
-      if (frame2 && signerUrl) frame2.src = signerUrl;
-    };
-    const wait = () => {
-      waited = false;
-      clearTimeout(waiting3);
-      waiting3 = setTimeout(() => {
-        if (state !== "none" || disposed) return;
-        if (again === 0) {
-          again = 1;
-          reload();
-          return wait();
-        }
-        waited = true;
-        asking = false;
-        changed();
-      }, 1e4);
-    };
-    wait();
-    let answered = false;
-    const firstAnswer = /* @__PURE__ */ new Set();
-    let n = 0;
-    const changed = () => {
-      for (const fn of watchers7) fn();
-    };
-    const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
-    const showPage = () => {
-      if (!windowAt) return false;
-      if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
-      try {
-        return !!window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
-      } catch {
-        return false;
-      }
-    };
-    const putToThem = (request, read6) => new Promise((done) => {
-      for (const [id, earlier] of put) {
-        put.delete(id);
-        clearTimeout(earlier.timer);
-        earlier.finish(null);
-      }
-      const timer = setTimeout(() => {
-        put.delete(request.id);
-        done(null);
-      }, 8e3);
-      put.set(request.id, { shown: false, finish: (reply) => done(reply ? read6(reply) : null), timer });
-      tell2(request);
-    });
-    const onMessage = (e) => {
-      if (!frame2 || e.source !== frame2.contentWindow || e.origin !== origin) return;
-      const reply = readSignerReply(e.data);
-      if (!reply) return;
-      if (reply.t === "ready") {
-        asking = false;
-        if (state === "none") state = "locked";
-        tell2({ t: "state", id: `s${++n}` });
-        return changed();
-      }
-      if (reply.t === "state") {
-        answered = true;
-        asking = false;
-        state = reply.unlocked ? "unlocked" : "locked";
-        pubkey = reply.unlocked ? reply.pubkey ?? null : null;
-        name = reply.unlocked ? reply.name ?? null : null;
-        picture2 = reply.unlocked ? reply.picture ?? null : null;
-        about = reply.unlocked ? reply.about ?? null : null;
-        remembered = reply.unlocked ? reply.remembered ?? null : null;
-        more = reply.unlocked ? cleanMore(reply.more) : [];
-        if (reply.offers) offers2 = reply.offers;
-        for (const go2 of [...firstAnswer]) go2();
-        return changed();
-      }
-      const personal = put.get(reply.id);
-      if (personal) {
-        const end = (answer) => {
-          put.delete(reply.id);
-          clearTimeout(personal.timer);
-          personal.finish(answer);
-        };
-        if (reply.t !== "asking") return end(reply.t === "refused" ? null : reply);
-        if (personal.shown) return;
-        personal.shown = true;
-        clearTimeout(personal.timer);
-        personal.timer = setTimeout(() => end(null), ASK_PERSON_MS);
-        if (!showPage()) end(null);
-        return;
-      }
-      const question = kept2.get(reply.id);
-      if (question) {
-        kept2.delete(reply.id);
-        clearTimeout(question.timer);
-        return question.answer(reply.t === "refused" ? null : reply);
-      }
-      const waiting4 = pending.get(reply.id);
-      if (!waiting4) return;
-      pending.delete(reply.id);
-      clearTimeout(waiting4.timer);
-      if (reply.t !== "signed") return waiting4.done(null);
-      const signed = reply.event;
-      if (waiting4.session) {
-        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting4.session });
-        return waiting4.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
-      }
-      if (!waiting4.asked) return waiting4.done(null);
-      const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
-      waiting4.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting4.asked, signed) ? signed : null);
-    };
-    void (async () => {
-      try {
-        const there = opts.at ? async (address) => address : toLocal;
-        signerUrl = await there(real.signer);
-        windowAt = await there(real.window);
-        origin = new URL(signerUrl).origin;
-        if (disposed) return;
-        frame2 = document.createElement("iframe");
-        frame2.title = "Signer";
-        frame2.setAttribute("aria-hidden", "true");
-        frame2.tabIndex = -1;
-        frame2.setAttribute("allow", "");
-        frame2.referrerPolicy = "no-referrer";
-        frame2.style.cssText = "position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;visibility:hidden;pointer-events:none";
-        addEventListener("message", onMessage);
-        frame2.addEventListener("load", () => {
-          for (const after2 of [0, 400, 1200, 3e3]) {
-            setTimeout(() => {
-              if (!answered && !disposed) tell2({ t: "state", id: `s${++n}` });
-            }, after2);
-          }
-        });
-        frame2.src = signerUrl;
-        document.body.append(frame2);
-      } catch {
-      }
-    })();
-    return {
-      get state() {
-        return state;
-      },
-      get pubkey() {
-        return pubkey;
-      },
-      get name() {
-        return name;
-      },
-      get picture() {
-        return picture2;
-      },
-      get about() {
-        return about;
-      },
-      get remembered() {
-        return remembered;
-      },
-      get more() {
-        return more;
-      },
-      get offers() {
-        return offers2;
-      },
-      get unanswered() {
-        return named2 && waited && state === "none" && !disposed;
-      },
-      get asking() {
-        return asking && state === "none" && !disposed;
-      },
-      retry() {
-        if (!named2 || state !== "none" || disposed || !frame2) return false;
-        again++;
-        asking = true;
-        reload();
-        wait();
-        changed();
-        return true;
-      },
-      get copy() {
-        return origin && origin !== real.origin ? origin : null;
-      },
-      // The signer's real address, never a development server's copy of it: it is what the visitor should recognise.
-      get host() {
-        try {
-          return new URL(real.origin).host;
-        } catch {
-          return null;
-        }
-      },
-      get panel() {
-        return !test && clientSignsInAt() === real.origin;
-      },
-      unlock() {
-        return state !== "none" && showPage();
-      },
-      propose(note) {
-        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
-        if (state !== "unlocked" || !frame2 || !PROPOSE_KINDS.includes(asked.kind)) return Promise.resolve(null);
-        return putToThem({ t: "propose", id: `r${++n}`, event: asked }, (reply) => {
-          if (reply.t !== "signed") return null;
-          const signed = reply.event;
-          const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
-          return verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(asked, signed) ? signed : null;
-        });
-      },
-      wallet() {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null);
-      },
-      saveFile(file) {
-        const name2 = cleanFileName(file.name);
-        const bytes = cleanFileBytes(file.bytes);
-        if (state !== "unlocked" || !frame2 || !name2 || !bytes) return Promise.resolve(null);
-        return putToThem(
-          { t: "file-save", id: `fs${++n}`, name: name2, type: cleanFileType(file.type), bytes, private: file.private !== false },
-          (reply) => (
-            // An address is passed on only for a public file, and only if it names exactly the bytes that were offered.
-            reply.t === "file-saved" ? { name: reply.name, size: reply.size, private: reply.private, url: !reply.private && reply.url && fileUrlNames(reply.url, bytes) ? reply.url : null } : null
-          )
-        );
-      },
-      pickFile() {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        return putToThem({ t: "file-pick", id: `fp${++n}` }, (reply) => reply.t === "file" ? { name: reply.name, type: reply.type, bytes: reply.bytes, url: reply.url && fileUrlNames(reply.url, reply.bytes) ? reply.url : null } : null);
-      },
-      tip(o) {
-        const sats = cleanTip(o.sats);
-        if (state !== "unlocked" || !frame2 || sats === null || o.to !== void 0 && !isHex64(o.to)) return Promise.resolve(false);
-        return putToThem({ t: "tip", id: `t${++n}`, sats, ...o.to ? { to: o.to } : {} }, (reply) => reply.t === "paid" ? true : null).then((paid) => paid === true);
-      },
-      buy(listing) {
-        const asked = cleanListing(listing);
-        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
-        return putToThem({ t: "buy", id: `b${++n}`, listing: asked }, (reply) => {
-          if (reply.t !== "bought") return null;
-          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
-          return checked.ok ? { ...checked.receipt, event: reply.receipt, delivery: reply.delivery ?? null } : null;
-        });
-      },
-      have(listing) {
-        const asked = cleanListing(listing);
-        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
-        return askAbout({ t: "have", id: `h${++n}`, listing: asked }, (reply) => {
-          if (reply.t !== "receipt") return null;
-          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
-          return checked.ok ? { ...checked.receipt, event: reply.receipt } : null;
-        });
-      },
-      pay(invoice) {
-        const asked = cleanInvoice(invoice);
-        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
-        return putToThem({ t: "pay", id: `y${++n}`, invoice: asked }, (reply) => reply.t === "paid" ? { preimage: reply.preimage ?? null, proven: !!reply.preimage && provesPayment(asked, reply.preimage) } : null);
-      },
-      lock() {
-        if (state === "unlocked") tell2({ t: "lock", id: `l${++n}` });
-      },
-      sign(note) {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
-        const id = `q${++n}`;
-        return new Promise((done) => {
-          const timer = setTimeout(() => {
-            pending.delete(id);
-            done(null);
-          }, 8e3);
-          pending.set(id, { asked, done, timer });
-          tell2({ t: "sign", id, event: asked });
-        });
-      },
-      pass(session2) {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        const id = `p${++n}`;
-        return new Promise((done) => {
-          const timer = setTimeout(() => {
-            pending.delete(id);
-            done(null);
-          }, 8e3);
-          pending.set(id, { session: session2, done, timer });
-          tell2({ t: "pass", id, session: session2 });
-        });
-      },
-      save(slot, data) {
-        if (state !== "unlocked" || !frame2 || !cleanSlot(slot) || !fitsInSave(data)) return Promise.resolve(null);
-        return askAbout({ t: "save", id: `s${++n}`, slot, data }, (reply) => reply.t === "signed" && verifyEvent(reply.event) && looksLikeSave(reply.event, pubkey) ? reply.event : null);
-      },
-      find(slot) {
-        if (state !== "unlocked" || !frame2 || !cleanSlot(slot)) return Promise.resolve(null);
-        return askAbout({ t: "find", id: `f${++n}`, slot }, (reply) => reply.t === "found" ? reply.d : null);
-      },
-      open(event) {
-        if (state !== "unlocked" || !frame2 || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
-        return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
-      },
-      want(asked) {
-        const wanted = cleanMore([...asked]).filter((name2) => !offers2 || offers2.includes(name2));
-        if (state === "none" || !frame2 || wanted.length === 0) return false;
-        tell2({ t: "want", id: `w${++n}`, more: wanted });
-        return true;
-      },
-      follow(list, change2) {
-        const add = "add" in change2 ? change2.add : void 0;
-        const remove = "remove" in change2 ? change2.remove : void 0;
-        if (state !== "unlocked" || !frame2 || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
-        return askAbout({ t: "follow", id: `w${++n}`, list, ...add ? { add } : { remove } }, (reply) => reply.t === "signed" && isFollowAsked(reply.event, { list, ...add ? { add } : { remove }, pubkey }) ? reply.event : null);
-      },
-      seal(to, text2) {
-        const words2 = cleanMessage(text2);
-        if (state !== "unlocked" || !frame2 || !more.includes("messages") || !isHex64(to) || !words2) return Promise.resolve(null);
-        return askAbout({ t: "seal", id: `m${++n}`, to, text: words2 }, (reply) => reply.t === "sealed" && isSealAsked(reply, { pubkey, to, text: words2 }) ? { message: reply.message, seals: reply.seals } : null);
-      },
-      unwrap(wrap) {
-        if (state !== "unlocked" || !frame2 || !more.includes("messages") || !looksLikeWrap(wrap, pubkey ?? "")) return Promise.resolve(null);
-        return askAbout({ t: "unwrap", id: `m${++n}`, event: wrap }, (reply) => reply.t === "message" && (reply.message.from === pubkey || reply.message.to.includes(pubkey ?? "")) ? reply.message : null);
-      },
-      reach(relays) {
-        if (state !== "unlocked" || !frame2 || !more.includes("messages")) return Promise.resolve(null);
-        return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
-      },
-      score(world2, board2, score, said2 = {}) {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        const more2 = { ...said2.title ? { title: said2.title } : {}, ...said2.format === "time" ? { format: "time" } : {} };
-        return askAbout({ t: "score", id: `c${++n}`, world: world2, board: board2, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world: world2, board: board2, score, ...more2, origin: location.origin }) ? reply.event : null);
-      },
-      achieve(world2, achievement, title) {
-        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        return askAbout({ t: "achieve", id: `a${++n}`, world: world2, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world: world2, id: achievement, title, origin: location.origin }) ? reply.event : null);
-      },
-      onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
-      },
-      whenAnswered(ms) {
-        if (answered || disposed) return Promise.resolve();
-        return new Promise((done) => {
-          const go2 = () => {
-            clearTimeout(timer);
-            firstAnswer.delete(go2);
-            done();
-          };
-          const timer = setTimeout(go2, ms);
-          firstAnswer.add(go2);
-        });
-      },
-      dispose() {
-        disposed = true;
-        for (const go2 of [...firstAnswer]) go2();
-        clearTimeout(waiting3);
-        removeEventListener("message", onMessage);
-        frame2?.remove();
-        frame2 = null;
-        for (const w of pending.values()) {
-          clearTimeout(w.timer);
-          w.done(null);
-        }
-        pending.clear();
-        for (const k of kept2.values()) {
-          clearTimeout(k.timer);
-          k.answer(null);
-        }
-        kept2.clear();
-        state = "none";
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/identity.ts
-  function signerNamed() {
-    if (!signerAt(arrival.signer())) return false;
-    try {
-      const airlock = portal.airlockFor();
-      if (airlock && new URL(airlock).origin === location.origin) return false;
-    } catch {
-    }
-    return true;
-  }
-  function hereAs() {
-    const who2 = arrival.identity();
-    if (!who2 || !signerNamed()) return who2;
-    const signer = worldSigner();
-    return signer.state === "unlocked" && signer.pubkey === who2.pubkey ? who2 : void 0;
-  }
-  var hereWatchers = /* @__PURE__ */ new Set();
-  function onHereAs(fn) {
-    hereWatchers.add(fn);
-    return () => void hereWatchers.delete(fn);
-  }
-  var seeking = null;
-  var seekAfter = 0;
-  function seekPass() {
-    if (seeking) return seeking;
-    if (!signerNamed()) return Promise.resolve();
-    const signer = worldSigner();
-    const key = signer.state === "unlocked" ? signer.pubkey : null;
-    if (!key || arrival.identity()?.pubkey === key || Date.now() < seekAfter) return Promise.resolve();
-    seekAfter = Date.now() + 6e4;
-    const secret = crypto.getRandomValues(new Uint8Array(32));
-    const sessionKey = [...secret].map((b) => b.toString(16).padStart(2, "0")).join("");
-    seeking = signer.pass(getPublicKey(secret)).then((pass) => {
-      if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
-        for (const fn of [...hereWatchers]) fn();
-      } else if (!pass) seekAfter = Infinity;
-    }).catch(() => {
-    }).finally(() => {
-      seeking = null;
-    });
-    return seeking;
-  }
-  var soon = (ms) => new Promise((done) => setTimeout(done, ms));
-  async function byName(identity) {
-    if (!signerNamed()) return identity;
-    const signer = worldSigner();
-    await signer.whenAnswered(2500);
-    if (signer.state !== "unlocked" || !signer.pubkey) return void 0;
-    if (identity && signer.pubkey === identity.pass.pubkey) return identity;
-    await Promise.race([seekPass(), soon(3e3)]);
-    const who2 = arrival.identity();
-    return who2 && who2.pubkey === signer.pubkey ? { pass: who2.pass, sessionKey: who2.sessionKey } : void 0;
-  }
-  function identityWords() {
-    const who2 = hereAs();
-    const name = who2 ? who2.name || shortNpub(who2.pubkey) : "";
-    return who2 ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
-  }
-  function youCard() {
-    const who2 = hereAs();
-    const signer = signerNamed() ? worldSigner() : null;
-    if (who2) {
-      const npub = encodeNpub(who2.pubkey);
-      return { title: who2.name || shortNpub(who2.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who2.pubkey), copy: npub, text: who2.about ?? "", picture: who2.picture ?? "", color: "", now: [] };
-    }
-    if (signer?.state === "unlocked" && signer.pubkey) {
-      return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: signer.about ?? "", picture: signer.picture ?? "", color: "", now: [] };
-    }
-    return null;
-  }
-  function identityHost() {
-    const airlock = portal.airlockFor();
-    try {
-      return airlock ? new URL(airlock).host : null;
-    } catch {
-      return null;
-    }
-  }
-  var identitySection = () => ({
-    id: "you",
-    label: "You",
-    icon: "you",
-    card: youCard,
-    note: () => {
-      const host = identityHost();
-      if (!host) return "";
-      if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
-      const at = worldSigner().host ?? "your sign-in address";
-      const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
-      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose when it asks.` : "";
-      if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
-      return `Signing in is done by ${at}, which asks you itself: this world never sees a password. Until you sign in here, everyone sees a guest. ${look}`;
-    }
-  });
-  function unansweredWords(signer) {
-    const host = signer.host ?? "your signer";
-    const copy = signer.copy ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.` : " Press this again to ask once more, or reload the page.";
-    return `This world asked ${host} for your sign-in and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
-  }
-  var shared = null;
-  function worldSigner() {
-    if (shared) return shared;
-    const signer = shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() });
-    signer.onChange(() => {
-      if (signer.state !== "unlocked") seekAfter = 0;
-      void seekPass();
-    });
-    if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 6e4);
-    return signer;
-  }
-  var kept = null;
-  function worldSaves() {
-    return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
-  }
-  function worldGate(opts = {}) {
-    const gate2 = createPaidGate({ ...opts, signer: () => signerNamed() ? worldSigner() : null });
-    if (!pageGate) {
-      pageGate = gate2;
-      gate2.onChange(() => {
-        for (const fn of [...rulesWatchers]) fn();
-      });
-      for (const fn of [...rulesWatchers]) fn();
-    }
-    return gate2;
-  }
-  var pageGate = null;
-  var rulesWatchers = /* @__PURE__ */ new Set();
-  function pageRules() {
-    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited } : { blocked: [], namedOnly: false, invited: null };
-  }
-  function onPageRules(fn) {
-    rulesWatchers.add(fn);
-    return () => void rulesWatchers.delete(fn);
-  }
-  var followed = null;
-  function worldPeople() {
-    const signer = () => signerNamed() ? worldSigner() : null;
-    return followed ?? (followed = createPeople({
-      hand: {
-        pubkey: () => signer()?.state === "unlocked" ? signer().pubkey : null,
-        ready: () => !!signer()?.more.includes("follows"),
-        change: (list, change2) => signer()?.follow(list, change2) ?? Promise.resolve(null)
-      }
-    }));
-  }
-  function signerAction(controls2, opts = {}) {
-    const signer = worldSigner();
-    let was = signer.state;
-    let wasAsking = false;
-    const short = () => shortNpub(signer.pubkey ?? "");
-    signer.onChange(() => {
-      if (signer.state === "unlocked" && was !== "unlocked") {
-        void Promise.race([seekPass(), soon(4e3)]).then(() => {
-          if (signer.state !== "unlocked") return;
-          const who2 = hereAs();
-          controls2.say(
-            who2 ? `You are signed in here as ${who2.name || short()}${signer.remembered === false ? ", for this visit" : ""}. People in a room see your name and picture, and you can send out posts. Signing out is under You.` : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: ${signer.host ?? "your sign-in address"} gave no pass with your name on it.`
-          );
-        });
-      }
-      if (signer.state === "locked" && was === "unlocked") controls2.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
-      if (wasAsking && !signer.asking && signer.unanswered) controls2.say(unansweredWords(signer));
-      if (wasAsking && !signer.asking && signer.state === "locked") controls2.say(`${signer.host ?? "Your sign-in address"} answered. You can sign in now.`);
-      wasAsking = signer.asking;
-      was = signer.state;
-      controls2.signal("signer");
-    });
-    onHereAs(() => controls2.signal("signer"));
-    return {
-      id: "signer",
-      section: "you",
-      icon: "key",
-      // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
-      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
-      short: () => signer.state === "unlocked" ? "Sign out" : "Sign in",
-      on: () => signer.state === "unlocked",
-      // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
-      // a row that isn't there can't be asked about.
-      hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
-      act: () => {
-        if (signer.state === "unlocked") return signer.lock();
-        const host = signer.host ?? "your own client";
-        if (signer.asking) return;
-        if (signer.unanswered) {
-          if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
-          return controls2.say(unansweredWords(signer));
-        }
-        if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
-        const here = signer.panel;
-        if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
-        else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
-      }
-    };
-  }
-  function accountAction(controls2, opts = {}) {
-    const signer = worldSigner();
-    onClientScreen(() => controls2.signal("signer"));
-    return {
-      id: "account",
-      section: "you",
-      icon: "key",
-      label: () => `Your account, at ${signer.host ?? "your sign-in address"}`,
-      short: "Account",
-      hidden: () => !signer.panel,
-      act: () => {
-        const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("account")) controls2.say(`${host} couldn't be shown here just now.`);
-      }
-    };
-  }
-  function filesAction(controls2, opts = {}) {
-    const signer = worldSigner();
-    onClientScreen(() => controls2.signal("signer"));
-    return {
-      id: "files",
-      section: "you",
-      icon: "list",
-      label: () => `Your files, at ${signer.host ?? "your sign-in address"}`,
-      short: "Files",
-      hidden: () => !signer.panel,
-      act: () => {
-        const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("files")) controls2.say(`${host} couldn't be shown here just now.`);
-      }
-    };
-  }
-  function libraryAction(controls2, opts = {}) {
-    const signer = worldSigner();
-    onClientScreen(() => controls2.signal("signer"));
-    return {
-      id: "library",
-      section: "you",
-      icon: "save",
-      label: () => `Your purchases, at ${signer.host ?? "your sign-in address"}`,
-      short: "Purchases",
-      hidden: () => !signer.panel,
-      act: () => {
-        const host = signer.host ?? "your sign-in address";
-        if (opts.presenting?.()) return controls2.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
-        if (!askClientForSignIn("library")) controls2.say(`${host} couldn't be shown here just now.`);
-      }
-    };
-  }
-
-  // packages/sdk/src/picture.ts
-  var PICTURES_KEY = "nswp:pictures";
-  var PICTURE_LIMITS = { bytes: 3e6, size: 128, waitMs: 9e3 };
-  var shown = null;
-  var watchers3 = /* @__PURE__ */ new Set();
-  function showsPictures() {
-    if (shown !== null) return shown;
-    const came = arrivedSettings().pictures;
-    let kept2 = null;
-    try {
-      kept2 = localStorage.getItem(PICTURES_KEY);
-    } catch {
-    }
-    shown = came ?? kept2 !== "0";
-    if (came !== void 0) keep2(shown);
-    reportSettings("pictures", () => ({ pictures: showsPictures() }));
-    return shown;
-  }
-  var keep2 = (on3) => {
-    try {
-      if (on3) localStorage.removeItem(PICTURES_KEY);
-      else localStorage.setItem(PICTURES_KEY, "0");
-    } catch {
-    }
-  };
-  function setShowsPictures(on3) {
-    showsPictures();
-    shown = on3;
-    keep2(on3);
-    for (const w of watchers3) w();
-  }
-  function onPicturesChange(cb) {
-    watchers3.add(cb);
-    return () => void watchers3.delete(cb);
-  }
-  function badge(image, width, height) {
-    const size = PICTURE_LIMITS.size;
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    const g = canvas.getContext("2d");
-    g.beginPath();
-    g.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
-    g.closePath();
-    g.clip();
-    const side = Math.min(width, height);
-    g.drawImage(image, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
-    return canvas;
-  }
-  async function byFetch(url) {
-    const res = await fetch(url, { mode: "cors", credentials: "omit", referrerPolicy: "no-referrer", redirect: "follow", signal: AbortSignal.timeout(PICTURE_LIMITS.waitMs) });
-    if (!res.ok) return null;
-    const type = res.headers.get("content-type") ?? "";
-    if (!/^image\/(png|jpeg|webp|gif|avif)\b/i.test(type)) return null;
-    if (Number(res.headers.get("content-length") ?? 0) > PICTURE_LIMITS.bytes) return null;
-    const blob = await res.blob();
-    if (blob.size > PICTURE_LIMITS.bytes) return null;
-    const bitmap = await createImageBitmap(blob);
-    try {
-      return badge(bitmap, bitmap.width, bitmap.height);
-    } finally {
-      bitmap.close();
-    }
-  }
-  function byImage(url) {
-    return new Promise((done) => {
-      const img = new Image();
-      const timer = setTimeout(() => done(null), PICTURE_LIMITS.waitMs);
-      img.crossOrigin = "anonymous";
-      img.referrerPolicy = "no-referrer";
-      img.decoding = "async";
-      img.onload = () => {
-        clearTimeout(timer);
-        try {
-          done(img.naturalWidth > 0 && img.naturalWidth <= 8192 && img.naturalHeight <= 8192 ? badge(img, img.naturalWidth, img.naturalHeight) : null);
-        } catch {
-          done(null);
-        }
-      };
-      img.onerror = () => {
-        clearTimeout(timer);
-        done(null);
-      };
-      img.src = url;
-    });
-  }
-  var loaded = /* @__PURE__ */ new Map();
-  function loadPicture(address) {
-    const url = cleanPicture(address);
-    if (!url || !showsPictures() || typeof document === "undefined") return Promise.resolve(null);
-    let asked = loaded.get(url);
-    if (!asked) {
-      asked = byFetch(url).catch(() => null).then((got) => got ?? byImage(url)).catch(() => null);
-      loaded.set(url, asked);
-    }
-    return asked;
-  }
-
-  // packages/sdk/src/ui/feed.ts
-  var FEED_LIMITS = { shown: 420, kept: 30 };
-  function createUiFeed(changed, now = () => Date.now()) {
-    let opts = null;
-    let posts = [];
-    let loading4 = false;
-    let said2 = "";
-    let version = 0;
-    let count = 0;
-    let asked = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    const sort = () => {
-      posts.sort((a, b) => b.at - a.at);
-      const kept2 = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
-      posts = kept2;
-    };
-    return {
-      attach(next) {
-        opts = next;
-        posts = [];
-        loading4 = false;
-        said2 = "";
-        asked = 0;
-        bump2();
-      },
-      detach() {
-        if (!opts) return;
-        opts = null;
-        posts = [];
-        loading4 = false;
-        said2 = "";
-        bump2();
-      },
-      opened() {
-        const mine = opts;
-        if (!mine?.load || loading4 || asked && now() - asked < 6e4) return;
-        asked = now();
-        loading4 = true;
-        bump2();
-        void mine.load().catch(() => null).then((got) => {
-          if (opts !== mine) return;
-          loading4 = false;
-          if (!got) said2 = "Your earlier posts couldn't be fetched just now.";
-          else {
-            const seen = new Set(posts.map((p) => p.key));
-            for (const p of got) {
-              const text2 = cleanLine(p.text, FEED_LIMITS.shown);
-              if (!text2 || seen.has(p.id) || !Number.isFinite(p.at)) continue;
-              seen.add(p.id);
-              posts.push({ key: p.id, text: text2, at: p.at, state: "out", id: p.id });
-            }
-            sort();
-          }
-          bump2();
-        });
-      },
-      send(text2) {
-        const mine = opts;
-        if (!mine) return "There is nothing to post with: sign in first.";
-        const words2 = cleanChat(text2);
-        if (!words2) return null;
-        const post = { key: `new-${++count}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        posts.unshift(post);
-        said2 = "";
-        bump2();
-        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
-          if (opts !== mine) return;
-          post.state = how.ok ? "out" : "failed";
-          if (how.ok && how.id) post.id = how.id;
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      remove(key) {
-        const mine = opts;
-        const post = posts.find((p) => p.key === key);
-        if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
-        const id = post.id;
-        post.state = "removing";
-        said2 = "";
-        bump2();
-        void mine.remove(id).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
-          if (opts !== mine) return;
-          if (how.ok) posts = posts.filter((p) => p !== post);
-          else post.state = "out";
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      view() {
-        const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
-        const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
-        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
-      }
-    };
-  }
-  function ago(at, nowSec) {
-    const s = Math.max(0, nowSec - at);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-    const days = Math.floor(s / 86400);
-    if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
-    return new Date(at * 1e3).toISOString().slice(0, 10);
-  }
-
-  // packages/sdk/src/ui/summon.ts
-  var SUMMON_KEY = "Backquote";
-  var SUMMON_HOLD = 600;
-  var SUMMON_SLOP = 18;
-  function createHoldWatch(o) {
-    const hold = o.hold ?? SUMMON_HOLD;
-    const slop = o.slop ?? SUMMON_SLOP;
-    let from = null;
-    let timer = null;
-    const cancel = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = null;
-      from = null;
-    };
-    return {
-      touches(points) {
-        if (points.length !== 2) return cancel();
-        if (!from) {
-          from = points.map((p) => ({ x: p.x, y: p.y }));
-          timer = setTimeout(() => {
-            cancel();
-            o.onHeld();
-          }, hold);
-          return;
-        }
-        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
-      },
-      cancel
-    };
-  }
-
-  // packages/sdk/src/ui/hud.ts
-  var CSS2 = `
-:host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
-  --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
-  font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
-:host([hidden]) { display: none; }
-* { box-sizing: border-box; }
-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-button:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 3px; }
-svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.glass { background: rgba(var(--glass), .7); border: 1px solid rgba(var(--accent), .34);
-  -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); }
-.mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-weight: 400; }
-
-/* ---- the corners of the view, marked lightly: this is a HUD, laid over a place */
-.corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(var(--accent), .5); }
-.corner.a { left: 6px; bottom: 6px; border-left-width: 1px; border-bottom-width: 1px; border-bottom-left-radius: 6px; }
-.corner.b { right: 6px; bottom: 6px; border-right-width: 1px; border-bottom-width: 1px; border-bottom-right-radius: 6px; }
-@media (max-width: 640px) { .corner { display: none; } }
-
-/* ---- who and where: top left */
-.id { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
-  display: flex; align-items: center; gap: 10px; max-width: min(60vw, 420px); padding: 8px 14px 8px 10px; border-radius: 6px 14px 14px 6px;
-  border-left: 2px solid rgb(var(--accent)); }
-/* The mark: a lit doorway. The arch is this kit's one shape, borrowed from the doors it leads to. */
-.mark { width: 18px; height: 24px; border-radius: 9px 9px 2px 2px; flex: none; position: relative;
-  background: linear-gradient(rgba(var(--accent), .95), rgba(var(--accent), .25)); box-shadow: 0 0 14px rgba(var(--accent), .55); }
-.mark::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: -3px; height: 2px; background: rgb(var(--ink)); border-radius: 1px; }
-.id b { display: block; font-weight: 650; font-size: 1.12em; letter-spacing: .005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.id .mono { display: block; font-size: .86em; color: rgba(var(--ink), .68); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ---- the menu button: top right */
-.menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
-  pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
-.menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
-/* Fill the screen: small, top centre, on a desk while it isn't filled. */
-.full { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; pointer-events: auto;
-  display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border-radius: 10px; font-size: .9em; }
-.full svg { width: 16px; height: 16px; }
-.full:hover, .full:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
-.full[hidden] { display: none; }
-kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-align: center; border-radius: 5px;
-  border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); }
-
-/* ---- the bottom: what you point at, then the hotbar */
-.low { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px; }
-.target { max-width: min(92vw, 640px); padding: 6px 14px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.target:empty { visibility: hidden; }
-/* Still loading, though they are in (controls.setLoading): the world's words, how far, and a line that fills. Above
-   what is pointed at, and pressing nothing. */
-.loading { position: relative; overflow: hidden; max-width: min(92vw, 520px); padding: 6px 16px 8px; border-radius: 999px;
-  display: flex; gap: 10px; align-items: baseline; white-space: nowrap; font-size: .92em; }
-.loading[hidden] { display: none; }
-.loading .what { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.loading .much { flex: none; color: rgb(var(--accent)); font-variant-numeric: tabular-nums; }
-.loading .fill { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; transform-origin: left; transform: scaleX(var(--f, 0));
-  background: rgb(var(--accent)); box-shadow: 0 0 8px rgb(var(--accent)); }
-/* How far isn't known: a short light runs along the line. */
-.loading.unknown .fill { width: 30%; transform: none; animation: loading-run 1.6s ease-in-out infinite; }
-:host(:not(.moving)) .loading.unknown .fill { animation: none; width: 100%; opacity: .5; }
-@keyframes loading-run { from { translate: -100% 0; } to { translate: 340% 0; } }
-/* What is pointed at, with a few lines about it: a small card, always this size, never in the way of the thing itself. */
-.target.card { max-width: min(92vw, 460px); padding: 10px 16px; border-radius: 14px; white-space: normal; text-align: left; display: grid; gap: 3px; }
-.target.card b { font-weight: 650; }
-.target.card span { opacity: 0.86; font-size: 0.93em; line-height: 1.35; }
-.target.card span:last-child { opacity: 1; color: rgb(var(--accent)); }
-/* The bar: as wide as its keys, and no wider than the screen. Wider than that (tabs pinned to it on a phone), the
-   keys slide along it, with an arrow at each end like the menu's tabs. The arrows stand beside the keys, never over
-   them, and while it is too wide both places are kept, so the keys don't jump as one comes and goes. */
-.bar { pointer-events: auto; position: relative; display: flex; align-items: stretch; max-width: 100%; border-radius: 20px 20px 10px 10px; }
-.bar[hidden] { display: none; }
-.hotbar { display: flex; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 12px 14px 8px; min-width: 0;
-  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-.hotbar::-webkit-scrollbar { display: none; }
-.bar .more { display: none; flex: none; width: 30px; place-items: center; font-size: 1.55em; line-height: 1;
-  color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
-.bar.over .more { display: grid; }
-.bar .more.left { border-radius: 20px 0 0 10px; }
-.bar .more.right { border-radius: 0 20px 10px 0; }
-/* Nothing more that way: its place is kept, empty, and it takes no press. */
-.bar .more.spent { visibility: hidden; pointer-events: none; }
-.bar .more:hover { color: rgb(var(--ink)); }
-.key { position: relative; flex: none; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
-/* Between the place's own keys and the tabs the visitor pinned: a line, so it is plain which are theirs. */
-.hotbar .theirs { flex: none; align-self: stretch; width: 1px; margin: 2px 2px 8px; background: rgba(var(--ink), .2); }
-.key.pin .arch { border-style: dashed; }
-/* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
-.key .arch { width: 52px; height: 54px; display: grid; place-items: center; border-radius: 26px 26px 7px 7px;
-  background: rgba(var(--accent), .08); border: 1px solid rgba(var(--accent), .42); transition: background .15s, border-color .15s, transform .15s; }
-.key .sill { width: 60px; height: 2px; margin-top: -4px; border-radius: 1px; background: rgba(var(--ink), .28); transition: background .2s, box-shadow .2s; }
-.key .name { font-size: .84em; line-height: 1.2; color: rgba(var(--ink), .82); max-width: 100%; overflow-wrap: anywhere; }
-.key .num { position: absolute; top: -6px; right: -2px; }
-.key:hover .arch, .key:focus-visible .arch { background: rgba(var(--accent), .2); border-color: rgb(var(--accent)); transform: translateY(-2px); }
-.key:hover .sill, .key[aria-pressed="true"] .sill { background: rgb(var(--accent)); box-shadow: 0 0 12px rgba(var(--accent), .8); }
-.key[aria-pressed="true"] .arch { background: rgba(var(--accent), .26); color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
-.key.primary .arch { background: rgb(var(--accent)); color: rgb(var(--glass)); border-color: rgb(var(--accent)); box-shadow: 0 0 18px rgba(var(--accent), .45); }
-.key.warn .arch { border-color: rgba(var(--warn), .7); color: rgb(var(--warn)); background: rgba(var(--warn), .08); }
-.key:disabled { opacity: .5; cursor: default; }
-
-/* ---- a few words for a moment: bottom left */
-.says { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); display: grid; gap: 6px; max-width: min(80vw, 360px); }
-.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
-.say.going { opacity: 0; transition: opacity .5s; }
-
-/* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
-.chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
-  display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
-.chat[data-state="closed"] { display: none; }
-.chat [hidden] { display: none !important; }
-.chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
-.chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
-.chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
-.chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
-.chat header b { flex: 1; font-weight: 650; }
-.chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
-.chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
-.chat header svg { width: 1.2em; height: 1.2em; }
-.chat ol { list-style: none; margin: 0; padding: 10px 14px; display: grid; gap: 7px; align-content: end; overflow-y: auto; min-height: 0;
-  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; overflow-wrap: anywhere; }
-.chat li b { font-weight: 650; margin-right: .45em; color: var(--who, rgb(var(--accent))); }
-.chat li.mine b { color: rgba(var(--ink), .62); }
-.chat li.aside { color: rgba(var(--ink), .6); font-size: .93em; }
-.chat .empty { margin: 0; padding: 14px; color: rgba(var(--ink), .7); }
-.chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(var(--accent), .22); }
-.chat input { flex: 1; min-width: 0; font: inherit; font-size: max(16px, 1em); color: rgb(var(--ink)); background: rgba(var(--ink), .07);
-  border: 1px solid rgba(var(--ink), .22); border-radius: 9px; padding: 8px 10px; outline: none; }
-.chat input::placeholder { color: rgba(var(--ink), .5); }
-.chat input:focus { border-color: rgb(var(--accent)); }
-.chat form button { padding: 0 13px; border-radius: 9px; background: rgba(var(--accent), .18); border: 1px solid rgba(var(--accent), .7); }
-.chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
-.chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
-.chat .hint:empty { display: none; }
-/* Three sides may be up at once: the strip slides under a finger sooner than run under the button that puts the panel away. */
-.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.chat header .tabs2::-webkit-scrollbar { display: none; }
-.chat header .tabs2 .tab { flex: 0 0 auto; white-space: nowrap; }
-.chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
-.chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
-.chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
-.chat .said { padding: 0 12px 8px; }
-.chat .said:empty { display: none; }
-/* The feed reads the other way up from the chat: where to write is at the top, and the newest post under it. */
-.chat[data-tab="feed"] form { order: 1; border-top: 0; flex-wrap: wrap; }
-.chat[data-tab="feed"] form input { flex: 1 1 100%; min-height: 38px; }
-.chat[data-tab="feed"] form button { margin-left: auto; min-height: 34px; font-weight: 650; }
-.chat[data-tab="feed"] :is(.hint, .said) { order: 2; }
-.chat[data-tab="feed"] :is(ol, .empty) { order: 3; border-top: 1px solid rgba(var(--accent), .22); }
-.chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
-.chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
-.chat li.post:last-child { border-bottom: 0; }
-.chat li.letter { white-space: pre-wrap; overflow-wrap: anywhere; }
-.chat li.letter.sending { opacity: .6; }
-.chat li.letter.failed small { color: rgb(var(--warn)); opacity: 1; }
-.chat li.letter small, .chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
-.chat li.post.failed small { color: rgb(var(--warn)); }
-.chat li.post.sending, .chat li.post.removing { opacity: .7; }
-.chat li.post .post-remove { font: inherit; color: rgba(var(--ink), .8); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; margin: -6px 0; pointer-events: auto; }
-.chat li.post .post-remove:hover { color: rgb(var(--warn)); }
-.chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
-.chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
-.chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
-  background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
-.chat[data-state="peek"].going { opacity: 0; transition: opacity .6s; }
-:host([data-presence="hidden"]) .chat { display: none; }
-:host(:not([data-presence="full"])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
-
-/* ---- the sheet: everything else, by section */
-.sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
-  width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
-  border-radius: 22px 22px 12px 12px; overflow: hidden; }
-.sheet[hidden] { display: none; }
-/* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
-@media (min-width: 900px) and (min-height: 560px) {
-  .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
-  .rows { grid-template-columns: 1fr 1fr; align-content: start; }
-  .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
-  .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
-  .rows > .tiles { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
-}
-.sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 16px rgb(var(--accent)); }
-.tabs { position: relative; display: flex; gap: 4px; padding: 12px 12px 0; overflow-x: auto; scrollbar-width: none; }
-.tabs::-webkit-scrollbar { display: none; }
-/* There are more sections than fit: an arrow at the side they are on, over a fade, and it takes them there. */
-.tabbar { position: relative; }
-.tabbar .more { position: absolute; top: 2px; bottom: 0; width: 40px; display: grid; align-items: center; z-index: 1; font-size: 1.55em; line-height: 1;
-  color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
-.tabbar .more.left { left: 0; justify-items: start; padding-left: 9px; border-radius: 22px 0 0 0; background: linear-gradient(90deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
-.tabbar .more.right { right: 0; justify-items: end; padding-right: 9px; border-radius: 0 22px 0 0; background: linear-gradient(270deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
-.tabbar .more[hidden] { display: none; }
-.tabbar .more:hover { color: rgb(var(--ink)); }
-.tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
-.tab:hover { color: rgb(var(--ink)); }
-.tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
-.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
-  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
-/* A choice of colour is a row of small doorways, each lit in its own. */
-.swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
-.swatch { width: 66px; display: grid; justify-items: center; gap: 6px; font-size: .86em; color: rgba(var(--ink), .8); }
-.swatch i { width: 38px; height: 44px; border-radius: 19px 19px 5px 5px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
-.swatch u { width: 46px; height: 2px; margin-top: -3px; border-radius: 1px; background: rgba(var(--ink), .25); }
-.swatch:hover i { transform: translateY(-2px); }
-.swatch[aria-pressed="true"] i { box-shadow: 0 0 16px var(--c); }
-.swatch[aria-pressed="true"] u { background: var(--c); box-shadow: 0 0 10px var(--c); }
-.swatch[aria-pressed="true"] { color: rgb(var(--ink)); }
-/* Things with pictures of themselves, side by side: what is in a bag. Each is a small plinth the thing stands on. */
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 2px 0 4px; }
-.tile { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 4px; padding: 8px 6px 9px; border-radius: 14px 14px 8px 8px; text-align: center;
-  border: 1px solid rgba(var(--ink), .12); background: radial-gradient(120% 90% at 50% 100%, rgba(var(--accent), .13), rgba(var(--ink), .03) 70%);
-  font-size: .9em; line-height: 1.2; color: rgba(var(--ink), .85); transition: background .12s, border-color .12s, transform .12s; }
-.tile .shown { width: 100%; aspect-ratio: 1; display: grid; place-items: center; font-weight: 700; font-size: 1.9em; color: rgba(var(--ink), .35); }
-.tile canvas { width: 100%; height: 100%; display: block; }
-.tile:hover { border-color: rgba(var(--accent), .7); transform: translateY(-2px); }
-.tile[aria-pressed="true"] { border-color: rgb(var(--accent)); color: rgb(var(--ink)); box-shadow: 0 0 0 1px rgb(var(--accent)), 0 0 18px rgba(var(--accent), .35); }
-.tile span { overflow-wrap: anywhere; }
-.row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
-  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
-.row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
-/* A line is read and not pressed: no edge, no hover, nothing that looks like a button. Lit is the accent; dark is dim. */
-.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 4px 12px; line-height: 1.35; color: rgba(var(--ink), .55); }
-.line svg { flex: none; margin-top: 1px; opacity: .55; }
-.line.on { color: rgb(var(--ink)); }
-.line.on svg { opacity: 1; color: rgb(var(--accent)); }
-.row .grow { flex: 1; min-width: 0; }
-.row .state { font-size: .86em; color: rgba(var(--ink), .6); }
-.row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
-.row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
-.row.warn { color: rgb(var(--warn)); }
-.row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
-/* Who a section is about: a face, a name, how they are known, and what they say of themselves, set apart as theirs. */
-/* A person: the card at the head of a section. Its own name, so it is never taken for the card about what is pointed at. */
-.person { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: center; padding: 12px; border-radius: 16px 16px 8px 8px;
-  border: 1px solid rgba(var(--accent), .45); background: rgba(var(--accent), .07); }
-.person .face { grid-row: span 2; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
-  background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
-.person .face canvas { width: 100%; height: 100%; display: block; }
-/* A card about a thing: the thing itself, large, on a lit plinth, where a person's card has a face. */
-.person.thing { grid-template-columns: minmax(112px, 30%) 1fr; grid-template-areas: "face about" "acts acts"; align-items: start; gap: 10px 14px; }
-.person.thing .about { grid-area: about; display: grid; gap: 5px; min-width: 0; align-content: start; }
-.person.thing .about blockquote { margin: 3px 0 0; }
-/* What to do with the thing: side by side where they fit, and one under another where they don't. */
-.person.thing .acts { grid-area: acts; display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; align-content: start; min-width: 0; }
-.person.thing .acts > .row { flex: 1 1 210px; min-width: 0; }
-.person.thing .acts > .swatches { flex: 1 1 100%; }
-.person.thing .face { grid-area: face; width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px;
-  background: radial-gradient(90% 70% at 50% 92%, rgba(var(--accent), .3), transparent 70%), rgba(var(--ink), .05); color: rgba(var(--ink), .4); }
-.person h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
-.person .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
-.person .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
-.person .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
-.person .keyline button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
-.person .keyline button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
-.person blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
-.person .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
-
-.note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
-.note:empty { display: none; }
-.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
-/* Keeping this tab on the bar: a quiet button, opposite Close. */
-.pin-it { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); color: rgba(var(--ink), .82); font-size: .93em; }
-.pin-it svg { width: 16px; height: 16px; }
-.pin-it:hover:not(:disabled), .pin-it:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
-.pin-it[aria-pressed="true"] { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); background: rgba(var(--accent), .12); }
-.pin-it:disabled { opacity: .5; cursor: default; }
-.close { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); }
-.close:hover { border-color: rgb(var(--ink)); }
-
-/* ---- quiet: one mark in a corner, and everything else behind it */
-.quiet { position: absolute; pointer-events: auto; display: none; width: 44px; height: 48px; place-items: center; border-radius: 22px 22px 8px 8px; }
-.quiet .mark { margin-bottom: 2px; }
-.quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
-:host([data-presence="quiet"]) .quiet { display: grid; }
-:host([data-presence="quiet"]) :is(.id, .menu, .bar, .target, .corner),
-:host([data-presence="hidden"]) :is(.id, .menu, .bar, .target, .corner, .says, .loading) { display: none; }
-:host([data-corner="top-left"]) .quiet { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
-:host([data-corner="top-right"]) .quiet { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
-:host([data-corner="bottom-left"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
-:host([data-corner="bottom-right"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
-/* With no hotbar under it, the sheet opens in the middle of the bottom edge, clear of the corners. */
-:host(:not([data-presence="full"])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
-:host(:not([data-presence="full"])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
-/* Keys the world has switched off aren't advertised. */
-:host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
-
-/* Who they are signed in as, said once when it becomes so: top centre, in one place, and gone again. It is never
-   pressed and never in the way: it can't be clicked, and what is under it can. */
-.as { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px;
-  padding: 6px 18px 6px 6px; border-radius: 999px; max-width: min(72vw, 380px); opacity: 0; visibility: hidden; pointer-events: none; }
-.as.plain { padding-left: 18px; }
-.as .face { flex: none; width: calc(36px * var(--s)); height: calc(36px * var(--s)); border-radius: 50%; display: grid; place-items: center; overflow: hidden;
-  background: rgba(var(--accent), .16); color: rgb(var(--accent)); font-weight: 650; box-shadow: 0 0 0 2px rgba(var(--accent), .75); }
-.as.plain .face { display: none; }
-.as .face canvas { width: 100%; height: 100%; display: block; }
-.as .who { min-width: 0; }
-.as small { display: block; font-size: .8em; line-height: 1.15; color: rgba(var(--ink), .72); white-space: nowrap; }
-.as b { display: block; font-weight: 650; font-size: 1.06em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.as.shown { opacity: 1; visibility: visible; }
-/* It comes into focus where it stands and goes out the same way: nothing slides across the view. */
-:host(.moving) .as { transform: scale(.9); filter: blur(8px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s linear .5s; }
-:host(.moving) .as.shown { transform: none; filter: none; transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s; }
-:host(.moving) .as.shown .face { animation: as-ring 1.2s ease-out .15s both; }
-:host(.moving) .as.shown b { animation: as-name .5s ease-out .12s both; }
-@keyframes as-ring { from { box-shadow: 0 0 0 2px rgba(var(--accent), .95), 0 0 0 0 rgba(var(--accent), .55); } to { box-shadow: 0 0 0 2px rgba(var(--accent), .75), 0 0 0 14px rgba(var(--accent), 0); } }
-@keyframes as-name { from { opacity: 0; letter-spacing: .08em; } }
-/* On a narrow screen the place's name and the menu take the top row: it stands just under them. */
-@media (max-width: 760px) { .as { top: calc(max(12px, env(safe-area-inset-top)) + 60px * var(--s)); } }
-
-/* ---- one moment of motion: things arrive. Nothing loops. */
-@keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
-@keyframes chat-in { from { opacity: 0; transform: translateX(8px); } }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
-@keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
-:host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
-:host(.moving.arriving) .id, :host(.moving.arriving) .menu { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
-:host(.moving) .sheet:not([hidden]) { animation: unfold .24s cubic-bezier(.2, .8, .2, 1) both; }
-:host(:not(.moving)) * { transition: none !important; animation: none !important; }
-
-/* ---- a phone: the same things, closer together */
-@media (max-width: 640px) {
-  .id { max-width: calc(100vw - 86px); padding: 6px 10px 6px 8px; }
-  .menu span, .menu kbd, .key .num { display: none; }
-  .menu { padding: 0 10px; }
-  .hotbar { gap: 4px; padding: 10px 8px 6px; }
-  .bar .more { width: 26px; }
-  .key { width: 54px; }
-  .key .arch { width: 46px; height: 46px; border-radius: 23px 23px 6px 6px; }
-  .key .sill { width: 50px; }
-  .key .name { font-size: .76em; }
-  .sheet { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
-  .says { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px * var(--s)); }
-  /* The chat is across the bottom, over the hotbar's shoulder, and no taller than half the screen. */
-  .chat { left: 8px; right: 8px; width: auto; top: auto; max-height: 46vh; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
-  .chat[data-state="peek"] { max-height: 30vh; }
-}
-/* A keyboard on the glass covers the bottom of the page: the place to write stands on top of it. */
-:host(.keys-up) .chat[data-state="open"] { top: auto; bottom: calc(var(--kb, 0px) + 8px); max-height: calc(100vh - var(--kb, 0px) - 24px); }
-@media (hover: none) { kbd { display: none; } }
-`;
-  function icon(name) {
-    if (!name) return null;
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("aria-hidden", "true");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", ICONS[name]);
-    svg.append(path);
-    return svg;
-  }
-  function el(tag2, attrs = {}, ...children) {
-    const e = document.createElement(tag2);
-    for (const [k, v2] of Object.entries(attrs)) e.setAttribute(k, v2);
-    for (const c of children) if (c) e.append(c);
-    return e;
-  }
-  function mountHud(controls2, opts = {}) {
-    const host = document.createElement("nswp-hud");
-    const root = host.attachShadow({ mode: "open" });
-    let style = "";
-    try {
-      const sheet2 = new CSSStyleSheet();
-      sheet2.replaceSync(CSS2);
-      root.adoptedStyleSheets = [sheet2];
-    } catch {
-      style = document.createElement("style");
-      style.textContent = CSS2;
-    }
-    const title = el("b");
-    const address = el("span", { class: "mono" });
-    const id = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
-    const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
-    const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
-    const target2 = el("div", { class: "target glass", "aria-live": "polite" });
-    const loadingWhat = el("span", { class: "what", "aria-live": "polite" });
-    const loadingMuch = el("span", { class: "much" });
-    const loadingFill = el("i", { class: "fill", "aria-hidden": "true" });
-    const loadingLine2 = el("div", { class: "loading glass", hidden: "" }, loadingWhat, loadingMuch, loadingFill);
-    const hotbar = el("nav", { class: "hotbar", "aria-label": "Controls" });
-    const barBack = el("button", { class: "more left spent", type: "button", "aria-label": "Earlier keys", tabindex: "-1" }, "\u2039");
-    const barOn = el("button", { class: "more right spent", type: "button", "aria-label": "More keys", tabindex: "-1" }, "\u203A");
-    const bar = el("div", { class: "bar glass" }, barBack, hotbar, barOn);
-    const says = el("div", { class: "says", role: "status" });
-    const asFace = el("span", { class: "face", "aria-hidden": "true" });
-    const asLead = el("small");
-    const asName = el("b");
-    const asWho = el("div", { class: "as glass", role: "status" }, asFace, el("span", { class: "who" }, asLead, asName));
-    const full = el("button", { class: "full glass", type: "button", hidden: "" }, icon("full"), el("span", {}, fullscreenButton.label));
-    const tabs = el("div", { class: "tabs", role: "tablist" });
-    const tabsBack = el("button", { class: "more left", type: "button", "aria-label": "Earlier sections", hidden: "" }, "\u2039");
-    const tabsOn = el("button", { class: "more right", type: "button", "aria-label": "More sections", hidden: "" }, "\u203A");
-    const tabbar = el("div", { class: "tabbar" }, tabsBack, tabs, tabsOn);
-    let tabsShowing = "";
-    let cardShown = "";
-    const tendTabs = () => {
-      const most = tabs.scrollWidth - tabs.clientWidth;
-      tabsBack.hidden = tabs.scrollLeft <= 6;
-      tabsOn.hidden = most <= 6 || tabs.scrollLeft >= most - 6;
-    };
-    const slideTabs = (by) => tabs.scrollBy({ left: by * Math.max(120, tabs.clientWidth * 0.6), behavior: controls2.theme.motion ? "smooth" : "auto" });
-    tabsBack.addEventListener("click", () => slideTabs(-1));
-    tabsOn.addEventListener("click", () => slideTabs(1));
-    tabs.addEventListener("scroll", tendTabs, { passive: true });
-    const tabsWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendTabs());
-    tabsWatch?.observe(tabs);
-    tabbar.addEventListener(
-      "wheel",
-      (e) => {
-        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tabs.scrollWidth <= tabs.clientWidth) return;
-        e.preventDefault();
-        tabs.scrollLeft += e.deltaY;
-      },
-      { passive: false }
-    );
-    const arrowsTake = () => bar.classList.contains("over") ? barBack.offsetWidth + barOn.offsetWidth : 0;
-    const tendBar = () => {
-      const over = hotbar.scrollWidth > hotbar.clientWidth + arrowsTake() + 1;
-      if (bar.classList.contains("over") !== over) bar.classList.toggle("over", over);
-      const most = hotbar.scrollWidth - hotbar.clientWidth;
-      barBack.classList.toggle("spent", !over || hotbar.scrollLeft <= 6);
-      barOn.classList.toggle("spent", !over || most <= 6 || hotbar.scrollLeft >= most - 6);
-    };
-    let sliding = 0;
-    const stopSliding = () => {
-      if (sliding) cancelAnimationFrame(sliding);
-      sliding = 0;
-    };
-    const slideBar = (by) => {
-      stopSliding();
-      const from = hotbar.scrollLeft;
-      const to = Math.max(0, Math.min(hotbar.scrollWidth - hotbar.clientWidth, from + by * Math.max(110, hotbar.clientWidth * 0.6)));
-      if (!controls2.theme.motion || typeof requestAnimationFrame !== "function") {
-        hotbar.scrollLeft = to;
-        return void tendBar();
-      }
-      const began = performance.now();
-      const step = (t) => {
-        const k = Math.min(1, (t - began) / 240);
-        hotbar.scrollLeft = from + (to - from) * (1 - (1 - k) ** 3);
-        sliding = k < 1 ? requestAnimationFrame(step) : 0;
-        if (!sliding) tendBar();
-      };
-      sliding = requestAnimationFrame(step);
-    };
-    for (const type of ["pointerdown", "wheel", "touchstart"]) hotbar.addEventListener(type, stopSliding, { passive: true });
-    barBack.addEventListener("click", () => slideBar(-1));
-    barOn.addEventListener("click", () => slideBar(1));
-    hotbar.addEventListener("scroll", tendBar, { passive: true });
-    const barWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendBar());
-    barWatch?.observe(hotbar);
-    bar.addEventListener(
-      "wheel",
-      (e) => {
-        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || hotbar.scrollWidth <= hotbar.clientWidth) return;
-        e.preventDefault();
-        hotbar.scrollLeft += e.deltaY;
-      },
-      { passive: false }
-    );
-    let barLed = "";
-    let barDrawn = "";
-    const rows = el("div", { class: "rows" });
-    const note = el("p", { class: "note" });
-    const close = el("button", { class: "close", type: "button" }, "Close");
-    const pinWords = el("span");
-    const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
-    const chatTitle = el("b");
-    const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
-    const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
-    const tabLetters = el("button", { type: "button", class: "tab", role: "tab" }, "Private messages");
-    const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabLetters, tabFeed);
-    const feedLead = el("p", { class: "lead" });
-    const feedSaid = el("p", { class: "said", role: "status" });
-    const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
-    const chatLines = el("ol", { "aria-live": "polite" });
-    const ROOM_EMPTY = "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.";
-    const chatEmpty = el("p", { class: "empty" }, ROOM_EMPTY);
-    const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
-    const chatHint = el("p", { class: "hint", role: "status" });
-    const chatSend = el("button", { type: "submit" }, "Send");
-    const chatForm = el("form", {}, chatField, chatSend);
-    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
-    (opts.parent ?? document.body).append(host);
-    let open2 = false;
-    let section = "";
-    let chose = false;
-    let drawn2 = "";
-    const press = (item) => controls2.run(item.id);
-    const openPin = (id2) => {
-      controls2.signal("press");
-      if (open2 && section === id2) setOpen(false);
-      else setOpen(true, id2);
-    };
-    const drawCard = (card, acts = []) => {
-      const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
-      if (card.color) face.style.setProperty("--c", card.color);
-      const paint2 = card.draw;
-      if (paint2) {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 256;
-        const g = canvas.getContext("2d");
-        let had = false;
-        const tick2 = () => {
-          if (had && (!canvas.isConnected || sheet.hidden)) return;
-          const now2 = paint2();
-          if (now2 && g) {
-            g.clearRect(0, 0, 256, 256);
-            g.drawImage(now2, 0, 0, 256, 256);
-            if (!had) face.replaceChildren(canvas);
-            had = true;
-          }
-          if (canvas.isConnected || !had) requestAnimationFrame(tick2);
-        };
-        let tries = 0;
-        const begin = () => {
-          if (!face.isConnected && ++tries < 3) return void requestAnimationFrame(begin);
-          tick2();
-        };
-        requestAnimationFrame(begin);
-      }
-      if (card.picture) {
-        void loadPicture(card.picture).then((drawn3) => {
-          if (!drawn3 || !face.isConnected) return;
-          const copy = document.createElement("canvas");
-          copy.width = drawn3.width;
-          copy.height = drawn3.height;
-          copy.getContext("2d")?.drawImage(drawn3, 0, 0);
-          face.replaceChildren(copy);
-        });
-      }
-      const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
-      copyKey?.addEventListener("click", () => {
-        void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
-          () => controls2.say("The key is copied, in full."),
-          () => controls2.say(`The key: ${card.copy}`)
-        );
-      });
-      const head = el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag));
-      const key = el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey);
-      const words2 = card.text && el("blockquote", {}, card.text);
-      const now = card.now.length > 0 && el("p", { class: "now" }, card.now.join(", "));
-      if (card.draw) {
-        return el(
-          "div",
-          { class: "person thing", role: "group", "aria-label": `About ${card.title}` },
-          face,
-          el("div", { class: "about" }, head, key, words2, now),
-          acts.length > 0 && el("div", { class: "acts" }, ...acts)
-        );
-      }
-      return el("div", { class: "person", role: "group", "aria-label": `About ${card.title}` }, face, head, key, words2, now);
-    };
-    let chatState = "closed";
-    let dockTab = "room";
-    let chatDrawn = "";
-    let chatNewest = "";
-    let peekTimer;
-    let goingTimer;
-    const PEEK_LINES = 4;
-    const PEEK_MS = 9e3;
-    const setChatState = (next) => {
-      clearTimeout(peekTimer);
-      clearTimeout(goingTimer);
-      chat.classList.remove("going");
-      chatState = next;
-      if (next === "peek") {
-        goingTimer = setTimeout(() => chat.classList.add("going"), PEEK_MS - 700);
-        peekTimer = setTimeout(() => {
-          if (chatState === "peek") setChatState("closed");
-          draw();
-        }, PEEK_MS);
-      }
-    };
-    const drawChat = (view2) => {
-      const c = view2.chat;
-      const f = view2.feed;
-      const l = view2.letters;
-      const readyOf = (tab) => tab === "feed" ? f.ready : tab === "letters" ? l.ready : c.ready;
-      if (chatState === "open" && !readyOf(dockTab)) {
-        const other = ["room", "letters", "feed"].find(readyOf);
-        if (other) dockTab = other;
-        else setChatState("closed");
-      }
-      if (chatState === "peek" && !c.ready) setChatState("closed");
-      const newest = c.lines[c.lines.length - 1]?.key ?? "";
-      if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
-      chatNewest = newest;
-      const showing = chatState === "open" ? dockTab : "room";
-      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
-      if (now === chatDrawn) return;
-      chatDrawn = now;
-      chat.dataset.state = chatState;
-      chat.dataset.tab = showing;
-      chat.setAttribute("aria-label", showing === "feed" ? f.title : showing === "letters" ? l.title : "Room chat");
-      const both = [c.ready, f.ready, l.ready].filter(Boolean).length > 1;
-      chatTabs.hidden = !both;
-      chatTitle.hidden = both;
-      chatTitle.textContent = showing === "feed" ? f.title : showing === "letters" ? l.title : c.title;
-      tabRoom.hidden = !c.ready;
-      tabFeed.hidden = !f.ready;
-      tabLetters.hidden = !l.ready;
-      tabLetters.textContent = l.title;
-      tabLetters.setAttribute("aria-selected", String(showing === "letters"));
-      tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
-      tabRoom.setAttribute("aria-selected", String(showing === "room"));
-      tabFeed.setAttribute("aria-selected", String(showing === "feed"));
-      feedLead.hidden = showing === "room";
-      feedSaid.hidden = showing === "room";
-      chatField.maxLength = showing === "feed" ? f.limit : showing === "letters" ? l.limit : c.limit;
-      const words2 = showing === "feed" ? "Write a post" : showing === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
-      chatField.placeholder = words2;
-      chatField.setAttribute("aria-label", words2);
-      chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
-      if (showing === "feed") {
-        feedLead.textContent = f.lead;
-        feedSaid.textContent = f.said;
-        const nowSec = Math.floor(Date.now() / 1e3);
-        chatLines.replaceChildren(
-          ...f.posts.map((p) => {
-            const when = el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : p.state === "removing" ? "Deleting\u2026" : ago(p.at, nowSec));
-            if (f.removable && p.id && p.state === "out") {
-              const remove = el("button", { type: "button", class: "post-remove" }, "Delete");
-              remove.addEventListener("click", () => {
-                const trouble = controls2.feed.remove(p.key);
-                if (trouble) controls2.say(trouble);
-              });
-              when.append(" \xB7 ", remove);
-            }
-            return el("li", { class: `post ${p.state}` }, p.text, when);
-          })
-        );
-        chatEmpty.textContent = f.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
-        chatEmpty.hidden = f.posts.length > 0;
-        chatLines.hidden = f.posts.length === 0;
-        return;
-      }
-      if (showing === "letters") {
-        feedLead.textContent = l.lead;
-        feedSaid.textContent = l.said;
-        const nowSec = Math.floor(Date.now() / 1e3);
-        const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
-        chatLines.replaceChildren(
-          ...l.lines.map(
-            (line2) => el("li", { class: `letter ${line2.mine ? "mine" : ""} ${line2.state}` }, el("b", {}, line2.mine ? "You" : line2.who), " ", line2.text, el("small", {}, line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)))
-          )
-        );
-        chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
-        chatEmpty.hidden = l.lines.length > 0;
-        chatLines.hidden = l.lines.length === 0;
-        if (wasAtEnd || l.lines[l.lines.length - 1]?.mine) chatLines.scrollTop = chatLines.scrollHeight;
-        controls2.letters.seen();
-        return;
-      }
-      const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
-      const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
-      chatLines.replaceChildren(
-        ...lines.map((line2) => {
-          const li = el("li", { class: line2.note ? "aside" : line2.mine ? "mine" : "" }, !line2.note && el("b", {}, line2.mine ? "You" : line2.who), line2.note ? "" : " ", line2.text);
-          if (line2.color && !line2.mine) li.style.setProperty("--who", line2.color);
-          return li;
-        })
-      );
-      chatEmpty.textContent = ROOM_EMPTY;
-      chatEmpty.hidden = lines.length > 0;
-      chatLines.hidden = lines.length === 0;
-      if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
-      if (chatState === "open") controls2.chat.seen();
-    };
-    const setChatOpen = (next, tab) => {
-      if (next) {
-        const c = controls2.chat.view();
-        const f = controls2.feed.view();
-        const l = controls2.letters.view();
-        const want2 = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : l.ready ? "letters" : "feed");
-        if (!(want2 === "feed" ? f.ready : want2 === "letters" ? l.ready : c.ready) || host.hidden || controls2.view().presence === "hidden") return;
-        const was = chatState === "open";
-        if (was && want2 === dockTab) return;
-        dockTab = want2;
-        if (want2 === "feed") controls2.feed.opened();
-        chatHint.textContent = "";
-        if (!was) {
-          if (open2) setOpen(false);
-          chatCameFrom = focused();
-          setChatState("open");
-        }
-        draw();
-        chatLines.scrollTop = want2 === "feed" ? 0 : chatLines.scrollHeight;
-        chatField.focus({ preventScroll: true });
-        controls2.signal(want2 === "feed" ? "feedOpen" : "chatOpen");
-        return;
-      }
-      if (chatState !== "open") return;
-      setChatState("closed");
-      draw();
-      controls2.signal("chatClose");
-      const back = chatCameFrom;
-      chatCameFrom = null;
-      if (back?.isConnected && back !== document.body && !chat.contains(back) && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
-      else focused()?.blur();
-    };
-    let chatCameFrom = null;
-    chatClose.addEventListener("click", () => setChatOpen(false));
-    tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
-    tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
-    tabLetters.addEventListener("click", () => setChatOpen(true, "letters"));
-    chatForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const text2 = chatField.value;
-      if (!text2.trim()) return setChatOpen(false);
-      const trouble = dockTab === "feed" ? controls2.feed.send(text2) : dockTab === "letters" ? controls2.letters.send(text2) : controls2.chat.send(text2);
-      chatHint.textContent = trouble ?? "";
-      if (!trouble) chatField.value = "";
-      if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
-      chatField.focus({ preventScroll: true });
-    });
-    chatField.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setChatOpen(false);
-      }
-    });
-    chatField.addEventListener("keypress", (e) => e.stopPropagation());
-    const vv = typeof visualViewport === "undefined" ? null : visualViewport;
-    const onViewport = () => {
-      if (!vv) return;
-      const covered = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
-      host.classList.toggle("keys-up", covered > 80 && chatState === "open");
-      host.style.setProperty("--kb", `${covered}px`);
-    };
-    vv?.addEventListener("resize", onViewport);
-    vv?.addEventListener("scroll", onViewport);
-    let asKey = null;
-    let asPicture = "";
-    let asTimer;
-    const AS_SHOWN_MS = 5200;
-    const sayWho = (card) => {
-      const key = card ? card.copy || card.title : "";
-      const first = asKey === null;
-      const changed = key !== asKey;
-      asKey = key;
-      if (card) {
-        asLead.textContent = "Signed in as";
-        asName.textContent = card.title;
-        if (changed || card.picture !== asPicture) {
-          asPicture = card.picture;
-          asFace.replaceChildren([...card.title][0]?.toUpperCase() ?? "");
-          const want2 = card.picture;
-          if (want2) {
-            void loadPicture(want2).then((drawn3) => {
-              if (!drawn3 || asPicture !== want2) return;
-              const copy = document.createElement("canvas");
-              copy.width = drawn3.width;
-              copy.height = drawn3.height;
-              copy.getContext("2d")?.drawImage(drawn3, 0, 0);
-              asFace.replaceChildren(copy);
-            });
-          }
-        }
-      }
-      if (!changed || first && !card) return;
-      if (!card) {
-        asPicture = "";
-        asLead.textContent = "Signed out";
-        asName.textContent = "You are a guest here";
-      }
-      if (host.hidden) {
-        const words2 = card ? `Signed in as ${card.title}.` : "Signed out. You are a guest here.";
-        return queueMicrotask(() => controls2.say(words2));
-      }
-      asWho.classList.toggle("plain", !card);
-      asWho.classList.add("shown");
-      clearTimeout(asTimer);
-      asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
-    };
-    const draw = () => {
-      const view2 = controls2.view();
-      const t = view2.theme;
-      host.style.setProperty("--accent", rgb(t.accent));
-      host.style.setProperty("--ink", rgb(t.ink));
-      host.style.setProperty("--glass", rgb(t.glass));
-      host.style.setProperty("--warn", rgb(t.warn));
-      host.style.setProperty("--s", String(t.scale));
-      host.classList.toggle("moving", t.motion);
-      host.dataset.presence = view2.presence;
-      host.dataset.corner = view2.corner;
-      host.classList.toggle("no-menu-key", view2.keys.menu === null);
-      host.classList.toggle("no-hotbar-keys", !view2.keys.hotbar);
-      const key = menu2.querySelector("kbd");
-      if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
-      title.textContent = view2.title;
-      address.textContent = view2.address;
-      sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
-      full.hidden = !fullscreenButton.shown() || view2.presence === "hidden" || asWho.classList.contains("shown");
-      const loads = view2.loading;
-      loadingLine2.hidden = !loads || open2;
-      if (loads) {
-        loadingWhat.textContent = loads.words || "Still loading";
-        loadingMuch.textContent = loads.fraction === null ? "" : `${Math.floor(loads.fraction * 100)}%`;
-        loadingLine2.classList.toggle("unknown", loads.fraction === null);
-        loadingFill.style.setProperty("--f", String(loads.fraction ?? 0));
-      }
-      const shown4 = [view2.target, ...view2.detail].join("\n");
-      if (target2.dataset.shown !== shown4) {
-        target2.dataset.shown = shown4;
-        target2.classList.toggle("card", view2.detail.length > 0);
-        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line2) => el("span", {}, line2)));
-        else target2.textContent = view2.target;
-      }
-      drawChat(view2);
-      if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
-      const now = JSON.stringify([view2.hotbar, view2.pins, view2.pinsFull, view2.sections, section, open2, view2.presence]);
-      if (now === drawn2) return;
-      drawn2 = now;
-      const here = view2.sections.find((s) => s.id === section);
-      pinIt.hidden = !here;
-      pinIt.setAttribute("aria-pressed", String(!!here?.pinned));
-      pinIt.disabled = !here?.pinned && view2.pinsFull;
-      pinWords.textContent = here?.pinned ? "On your bar. Take it off" : view2.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
-      pinIt.title = here?.pinned ? "" : view2.pinsFull ? "Take a tab off your bar to keep another on it." : "It stays on your bar in every world that has this tab.";
-      const barNow = JSON.stringify([view2.hotbar, view2.pins, open2 ? section : ""]);
-      if (barNow !== barDrawn) {
-        barDrawn = barNow;
-        hotbar.replaceChildren(
-          ...view2.hotbar.map((item, i) => {
-            const b = el(
-              "button",
-              { class: `key ${item.tone}`, type: "button", "aria-label": item.label, ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
-              el("span", { class: "arch" }, icon(item.icon ?? "door")),
-              el("span", { class: "sill" }),
-              el("span", { class: "name" }, item.short),
-              el("kbd", { class: "num mono" }, item.key)
-            );
-            b.style.setProperty("--i", String(i));
-            b.addEventListener("click", () => press(item));
-            return b;
-          }),
-          ...view2.pins.length && view2.hotbar.length ? [el("i", { class: "theirs", "aria-hidden": "true" })] : [],
-          ...view2.pins.map((pin, i) => {
-            const b = el(
-              "button",
-              { class: "key pin normal", type: "button", "aria-label": `${pin.label}: a tab you keep on your bar`, "aria-pressed": String(open2 && section === pin.id) },
-              el("span", { class: "arch" }, icon(pin.icon ?? "menu")),
-              el("span", { class: "sill" }),
-              el("span", { class: "name" }, pin.label),
-              el("kbd", { class: "num mono" }, pin.key)
-            );
-            b.style.setProperty("--i", String(view2.hotbar.length + i));
-            b.addEventListener("click", () => openPin(pin.id));
-            return b;
-          })
-        );
-        bar.hidden = view2.hotbar.length === 0 && view2.pins.length === 0;
-        const led = view2.hotbar[0]?.id ?? "";
-        if (led !== barLed && led) {
-          stopSliding();
-          hotbar.scrollLeft = 0;
-        }
-        barLed = led;
-        barWatch?.disconnect();
-        barWatch?.observe(hotbar);
-        for (const k of hotbar.children) barWatch?.observe(k);
-        requestAnimationFrame(tendBar);
-      }
-      tabs.replaceChildren(
-        ...view2.sections.map((s) => {
-          const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
-          b.addEventListener("click", () => {
-            section = s.id;
-            chose = true;
-            draw();
-            tabs.querySelector('[aria-selected="true"]')?.focus();
-          });
-          return b;
-        })
-      );
-      const showing = open2 ? section : "";
-      const bring = showing !== tabsShowing;
-      tabsShowing = showing;
-      requestAnimationFrame(() => {
-        const chosen = tabs.querySelector('[aria-selected="true"]');
-        if (bring && open2 && chosen) {
-          const clear = 46;
-          const left = chosen.offsetLeft - clear;
-          const right = chosen.offsetLeft + chosen.offsetWidth + clear - tabs.clientWidth;
-          if (tabs.scrollLeft > left) tabs.scrollLeft = Math.max(0, left);
-          else if (tabs.scrollLeft < right) tabs.scrollLeft = right;
-        }
-        tendTabs();
-      });
-      const current = view2.sections.find((s) => s.id === section);
-      const drawSwatch = (item) => {
-        const b = el("button", { class: "swatch", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, el("i"), el("u"), item.label);
-        b.style.setProperty("--c", item.color);
-        b.addEventListener("click", () => press(item));
-        return b;
-      };
-      const drawTile = (item) => {
-        const shown5 = el("span", { class: "shown", "aria-hidden": "true" }, [...item.short][0]?.toUpperCase() ?? "");
-        const picture2 = item.picture?.();
-        if (picture2) {
-          const canvas = document.createElement("canvas");
-          canvas.width = canvas.height = 192;
-          canvas.getContext("2d")?.drawImage(picture2, 0, 0, 192, 192);
-          shown5.replaceChildren(canvas);
-        }
-        const b = el("button", { class: "tile", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, shown5, el("span", {}, item.label));
-        b.addEventListener("click", () => press(item));
-        return b;
-      };
-      const drawRow = (item) => {
-        const b = el(
-          "button",
-          { class: `row ${item.tone}`, type: "button", ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
-          icon(item.icon),
-          el("span", { class: "grow" }, item.label),
-          item.on !== null && el("span", { class: "state" }, item.on ? "On" : "Off"),
-          item.key ? el("kbd", { class: "mono" }, item.key) : null
-        );
-        b.addEventListener("click", () => press(item));
-        return b;
-      };
-      const drawLine = (item) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
-      const lay = (items2) => {
-        const laid2 = [];
-        let run2 = null;
-        for (const item of items2) {
-          if (item.kind === "button" || item.kind === "line") {
-            run2 = null;
-            laid2.push(item.kind === "line" ? drawLine(item) : drawRow(item));
-            continue;
-          }
-          if (run2?.kind !== item.kind) {
-            run2 = { kind: item.kind, box: el("div", { class: item.kind === "tile" ? "tiles" : "swatches" }) };
-            laid2.push(run2.box);
-          }
-          run2.box.append(item.kind === "tile" ? drawTile(item) : drawSwatch(item));
-        }
-        return laid2;
-      };
-      const inCard = new Set(current?.card?.draw ? current.card.acts ?? [] : []);
-      const laid = lay((current?.items ?? []).filter((item) => !inCard.has(item.id)));
-      const beside = lay((current?.items ?? []).filter((item) => inCard.has(item.id)));
-      const about = current?.card ? `${section}:${current.card.title}` : "";
-      const fresh = about !== cardShown;
-      cardShown = about;
-      rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
-      if (fresh && about) rows.scrollTop = 0;
-      rows.hidden = !current?.items.length && !current?.card;
-      note.textContent = current?.note ?? "";
-      sheet.hidden = !open2;
-      menu2.setAttribute("aria-expanded", String(open2));
-      quiet.setAttribute("aria-expanded", String(open2));
-    };
-    const focused = () => {
-      let at = document.activeElement;
-      while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
-      return at;
-    };
-    let cameFrom = null;
-    const setOpen = (next, at) => {
-      if (next && at) {
-        section = at;
-        chose = true;
-        if (open2) return void draw();
-      }
-      if (open2 === next) return;
-      if (next) {
-        if (chatState === "open") setChatOpen(false);
-        cameFrom = focused();
-        if (!chose) section = "";
-      }
-      open2 = next;
-      controls2.signal(open2 ? "menuOpen" : "menuClose");
-      draw();
-      if (open2) return void tabs.querySelector('[aria-selected="true"]')?.focus();
-      const back = cameFrom;
-      cameFrom = null;
-      if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
-      else focused()?.blur();
-    };
-    setMenuPlace(() => {
-      if (!open2 || sheet.hidden) return null;
-      const r = sheet.getBoundingClientRect();
-      return r.width > 0 ? { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(innerHeight - r.bottom) } : null;
-    });
-    let asideFor = null;
-    onClientSignIn((up, failed2) => {
-      if (failed2) controls2.say("The sign-in panel didn't come up. Press that again, and a window opens instead.");
-      if (up) {
-        asideFor = open2 ? section : null;
-        if (open2) setOpen(false);
-      } else if (asideFor !== null) {
-        const back = asideFor;
-        asideFor = null;
-        setOpen(true, back);
-      }
-    });
-    menu2.addEventListener("click", () => setOpen(!open2));
-    quiet.addEventListener("click", () => setOpen(!open2));
-    close.addEventListener("click", () => setOpen(false));
-    pinIt.addEventListener("click", () => {
-      const here = controls2.view().sections.find((s) => s.id === section);
-      if (!here) return;
-      if (!controls2.setPinned(here.id, !here.pinned)) return controls2.say("Your bar is full. Take a tab off it to keep another on it.");
-      controls2.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
-    });
-    const onKey = (e) => {
-      if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
-      const at = e.composedPath()[0];
-      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-      if (e.key === "Escape") {
-        const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
-        if (does !== "nothing") e.preventDefault();
-        if (does === "close-menu") return setOpen(false);
-        if (does === "open-menu") return setOpen(true);
-        if (does === "leave-fullscreen") return void leaveFullscreen();
-      }
-      const view2 = controls2.view();
-      if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
-      if (view2.keys.chat && view2.chat.ready && view2.presence !== "hidden" && !open2 && !e.repeat && (e.key.toLowerCase() === view2.keys.chat || e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A")) {
-        e.preventDefault();
-        return setChatOpen(true);
-      }
-      if (!view2.keys.hotbar || view2.presence !== "full") return;
-      const item = view2.hotbar.find((i) => i.key === e.key);
-      if (item) return press(item);
-      const pin = view2.pins.find((p) => p.key && p.key === e.key);
-      if (pin) openPin(pin.id);
-    };
-    addEventListener("keydown", onKey);
-    full.addEventListener("click", () => {
-      void fullscreenButton.press(controls2).then(draw);
-    });
-    const stopLeft = onBrowserLeftFullscreen(() => {
-      if (!open2 && !host.hidden) setOpen(true);
-      draw();
-    });
-    document.addEventListener("fullscreenchange", draw);
-    const onTabKey = (e) => {
-      if (!open2 || host.hidden || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-      const at = e.composedPath()[0];
-      const onStrip = !!at && typeof at.tagName === "string" && tabs.contains(at);
-      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if (!step && e.key !== "Home" && e.key !== "End") return;
-      if (at && !onStrip && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.tagName === "SELECT" || at.isContentEditable)) return;
-      const ids = controls2.view().sections.map((x) => x.id);
-      if (ids.length < 2) return;
-      const now = Math.max(0, ids.indexOf(section));
-      const to = step ? (now + step + ids.length) % ids.length : e.key === "Home" ? 0 : ids.length - 1;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if (to === now) return;
-      section = ids[to];
-      chose = true;
-      draw();
-      tabs.querySelector('[aria-selected="true"]')?.focus();
-    };
-    addEventListener("keydown", onTabKey, true);
-    const onSummonKey = (e) => {
-      if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
-      const at = e.composedPath()[0];
-      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if (!e.repeat) setOpen(!open2);
-    };
-    const swallow = (e) => {
-      if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
-    };
-    const hold = createHoldWatch({
-      onHeld: () => {
-        if (!host.hidden) setOpen(!open2);
-      }
-    });
-    const onTouch = (e) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
-    const listening = { capture: true };
-    const watching3 = { capture: true, passive: true };
-    addEventListener("keydown", onSummonKey, listening);
-    addEventListener("keyup", swallow, listening);
-    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching3);
-    const stopSay = controls2.onSay((text2) => {
-      const line2 = el("div", { class: "say glass" }, text2);
-      says.append(line2);
-      while (says.childElementCount > 3) says.firstElementChild?.remove();
-      setTimeout(() => line2.classList.add("going"), 3600);
-      setTimeout(() => line2.remove(), 4200);
-    });
-    const stop = controls2.subscribe(draw);
-    const stopAsking = controls2.onSignal((name) => {
-      if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
-      if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
-      if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
-      if (name === "open:letters" && !host.hidden) setChatOpen(true, "letters");
-    });
-    const tick = setInterval(draw, 400);
-    host.classList.add("arriving");
-    setTimeout(() => host.classList.remove("arriving"), 1200);
-    draw();
-    return {
-      element: host,
-      get open() {
-        return open2;
-      },
-      setOpen,
-      get chatOpen() {
-        return chatState === "open";
-      },
-      get chatTab() {
-        return dockTab;
-      },
-      setChatOpen,
-      bounds() {
-        if (host.hidden) return [];
-        return [id, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
-      },
-      cover() {
-        if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
-        const low = bar.getBoundingClientRect();
-        const high = id.getBoundingClientRect();
-        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
-      },
-      setHidden(hidden2) {
-        host.hidden = hidden2;
-        if (hidden2) {
-          setOpen(false);
-          setChatOpen(false);
-        }
-      },
-      remove() {
-        clearInterval(tick);
-        clearTimeout(asTimer);
-        tabsWatch?.disconnect();
-        barWatch?.disconnect();
-        stopSliding();
-        clearTimeout(peekTimer);
-        clearTimeout(goingTimer);
-        vv?.removeEventListener("resize", onViewport);
-        vv?.removeEventListener("scroll", onViewport);
-        stop();
-        stopAsking();
-        stopSay();
-        removeEventListener("keydown", onKey);
-        stopLeft();
-        document.removeEventListener("fullscreenchange", draw);
-        removeEventListener("keydown", onSummonKey, listening);
-        removeEventListener("keydown", onTabKey, true);
-        removeEventListener("keyup", swallow, listening);
-        for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching3);
-        hold.cancel();
-        host.remove();
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/chat.ts
-  var CHAT_KEY = "nswp:chat";
-  var shown2 = null;
-  var watchers4 = /* @__PURE__ */ new Set();
-  function showsChat() {
-    if (shown2 !== null) return shown2;
-    const came = arrivedSettings().chat;
-    let kept2 = null;
-    try {
-      kept2 = localStorage.getItem(CHAT_KEY);
-    } catch {
-    }
-    shown2 = came ?? kept2 !== "0";
-    if (came !== void 0) keep3(shown2);
-    reportSettings("chat", () => ({ chat: showsChat() }));
-    return shown2;
-  }
-  var keep3 = (on3) => {
-    try {
-      if (on3) localStorage.removeItem(CHAT_KEY);
-      else localStorage.setItem(CHAT_KEY, "0");
-    } catch {
-    }
-  };
-  function setShowsChat(on3) {
-    showsChat();
-    shown2 = on3;
-    keep3(on3);
-    for (const w of watchers4) w();
-  }
-  function onChatChange(cb) {
-    watchers4.add(cb);
-    return () => void watchers4.delete(cb);
-  }
-  function createUiChat(changed) {
-    let send = null;
-    let title = "Room chat";
-    let lines = [];
-    let unread = 0;
-    let version = 0;
-    let count = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    onChatChange(() => {
-      if (!showsChat()) {
-        lines = [];
-        unread = 0;
-      }
-      bump2();
-    });
-    return {
-      attach(fn, opts = {}) {
-        send = fn;
-        title = opts.title ?? "Room chat";
-        lines = [];
-        unread = 0;
-        bump2();
-      },
-      detach() {
-        if (!send && !lines.length) return;
-        send = null;
-        lines = [];
-        unread = 0;
-        bump2();
-      },
-      add(line2) {
-        if (!send || !showsChat()) return;
-        const text2 = cleanChat(line2.text);
-        if (!text2) return;
-        lines.push({ key: `${line2.id ?? "n"}-${++count}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
-        if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
-        if (!line2.mine && !line2.note) unread++;
-        bump2();
-      },
-      send(text2) {
-        if (!send || !showsChat()) return "There is nobody to write to: join the room first.";
-        if (!cleanChat(text2)) return null;
-        return send(text2) ?? null;
-      },
-      seen() {
-        if (!unread) return;
-        unread = 0;
-        bump2();
-      },
-      view() {
-        return { ready: !!send && showsChat(), title, lines, unread, limit: CHAT_LIMITS.chars, version };
-      }
-    };
-  }
-  function wrapWords(text2, measure, width, rows) {
-    const out = [];
-    let row = "";
-    const push = (word) => {
-      let rest = [...word];
-      while (rest.length) {
-        let n = rest.length;
-        while (n > 1 && measure(rest.slice(0, n).join("")) > width) n--;
-        const piece = rest.slice(0, n).join("");
-        rest = rest.slice(n);
-        if (rest.length) out.push(piece);
-        else row = piece;
-      }
-    };
-    for (const word of text2.split(" ").filter(Boolean)) {
-      const tried = row ? `${row} ${word}` : word;
-      if (measure(tried) <= width) row = tried;
-      else {
-        if (row) out.push(row);
-        row = "";
-        if (measure(word) <= width) row = word;
-        else push(word);
-      }
-    }
-    if (row) out.push(row);
-    if (out.length <= rows) return out;
-    const kept2 = out.slice(0, rows);
-    let last = [...kept2[rows - 1]];
-    while (last.length > 1 && measure(`${last.join("")}\u2026`) > width) last.pop();
-    kept2[rows - 1] = `${last.join("").trimEnd()}\u2026`;
-    return kept2;
-  }
-
-  // packages/sdk/src/ui/letters.ts
-  function createUiLetters(changed, now = () => Date.now()) {
-    let opts = null;
-    let waiting3 = [];
-    let said2 = "";
-    let version = 0;
-    let count = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    return {
-      attach(next) {
-        opts = next;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      detach() {
-        if (!opts) return;
-        opts = null;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      touch: bump2,
-      seen() {
-        opts?.seen?.();
-      },
-      send(text2) {
-        const mine = opts;
-        if (!mine) return "There is nobody to write to: choose someone first.";
-        const words2 = cleanMessage(text2);
-        if (!words2) return null;
-        const line2 = { key: `new-${++count}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        waiting3.push(line2);
-        said2 = "";
-        bump2();
-        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
-          if (opts !== mine) return;
-          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
-          else line2.state = "failed";
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      view() {
-        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
-        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
-        return {
-          ready: !!opts,
-          title: name ? `${name}, privately` : "Private messages",
-          with: name,
-          lines,
-          said: said2,
-          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
-          limit: MESSAGE_LIMITS.chars,
-          version
-        };
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/model.ts
-  var PRESENCES = ["full", "quiet", "hidden"];
-  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
-  function cleanKeys2(now, k) {
-    const out = { ...now };
-    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
-    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
-    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
-    return out;
-  }
-  var read2 = (t) => typeof t === "function" ? t() : t ?? "";
-  var STANDARD = [
-    { id: "travel", label: "Travel", icon: "door" },
-    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
-    { id: "you", label: "You", icon: "you" },
-    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
-    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
-    { id: "figure", label: "Your look", icon: "look" },
-    { id: "room", label: "Room", icon: "room" },
-    { id: "people", label: "People", icon: "people" },
-    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
-    { id: "following", label: "Following", icon: "list" },
-    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
-    { id: "messages", label: "Messages", icon: "chat" },
-    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
-    { id: "scores", label: "Scores", icon: "list" },
-    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
-    { id: "achievements", label: "Achievements", icon: "check" },
-    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
-    { id: "bag", label: "Bag", icon: "save" },
-    { id: "camera", label: "Camera", icon: "camera" },
-    { id: "panels", label: "Panels", icon: "panel" },
-    { id: "view", label: "View", icon: "vr" },
-    { id: "moving", label: "Moving", icon: "step" },
-    { id: "sound", label: "Sound", icon: "sound" },
-    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
-    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
-    { id: "help", label: "Help", icon: "help" }
-  ];
-  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
-  var rank = (id) => {
-    const i = STANDARD_ORDER.indexOf(id);
-    return i === -1 ? STANDARD_ORDER.length : i;
-  };
-  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
-  var PINS_KEY = "nswp:ui:pins";
-  function loadPins() {
-    try {
-      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
-      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function savePins(pins) {
-    try {
-      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
-    } catch {
-    }
-  }
-  var LOADING_WORDS = 80;
-  function cleanLoading(state) {
-    if (!state || typeof state !== "object") return null;
-    const raw = typeof state.words === "string" ? state.words : "";
-    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
-    const f = state.fraction;
-    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
-    return { fraction, words: words2 };
-  }
-  function createControls(opts) {
-    const sections = STANDARD.map((s) => ({ ...s }));
-    for (const s of opts.sections ?? []) addSection(s);
-    const actions = [];
-    const listeners = /* @__PURE__ */ new Set();
-    const sayers = /* @__PURE__ */ new Set();
-    const signals = /* @__PURE__ */ new Set();
-    let visitor = loadVisitorTheme();
-    const came = arrivedSettings();
-    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
-    if (Object.keys(brought).length) {
-      visitor = { ...visitor, ...brought };
-      saveVisitorTheme(visitor);
-    }
-    reportSettings("look", () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }));
-    let pins = loadPins();
-    if (came.pins !== void 0) {
-      pins = [...came.pins];
-      savePins(pins);
-    }
-    reportSettings("pins", () => pins ? { pins } : {});
-    let theme = resolveTheme(opts.theme, visitor);
-    let target2 = "";
-    let detail = [];
-    let loading4 = null;
-    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
-    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
-    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
-    let claimed = false;
-    const changed = () => {
-      for (const fn of listeners) fn();
-    };
-    const chat = createUiChat(changed);
-    const feed = createUiFeed(changed);
-    const letters = createUiLetters(changed);
-    function addSection(s) {
-      const i = sections.findIndex((x) => x.id === s.id);
-      if (i === -1) sections.push({ ...s });
-      else sections[i] = { ...sections[i], ...s };
-    }
-    const controls2 = {
-      get theme() {
-        return theme;
-      },
-      add(...more) {
-        for (const a of more) {
-          const i = actions.findIndex((x) => x.id === a.id);
-          if (i === -1) actions.push(a);
-          else actions[i] = a;
-        }
-        changed();
-      },
-      has: (id) => actions.some((x) => x.id === id),
-      remove(id) {
-        const i = actions.findIndex((x) => x.id === id);
-        if (i !== -1) actions.splice(i, 1);
-        changed();
-      },
-      addSection(s) {
-        addSection(s);
-        changed();
-      },
-      get presence() {
-        return presence3;
-      },
-      setPresence(next) {
-        if (!PRESENCES.includes(next) || next === presence3) return;
-        presence3 = next;
-        changed();
-      },
-      setCorner(next) {
-        if (!CORNERS.includes(next) || next === corner) return;
-        corner = next;
-        changed();
-      },
-      setKeys(next) {
-        keys = cleanKeys2(keys, next);
-        changed();
-      },
-      claimInput(next) {
-        if (claimed === next) return;
-        claimed = next;
-        changed();
-      },
-      setLoading(state) {
-        const next = cleanLoading(state);
-        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
-        loading4 = next;
-        changed();
-      },
-      setTarget(text2, more = []) {
-        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
-        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
-        target2 = text2;
-        detail = next;
-        changed();
-      },
-      say(text2) {
-        for (const fn of sayers) fn(text2);
-      },
-      run(id) {
-        const a = actions.find((x) => x.id === id);
-        if (!a || a.hidden?.() || a.kind === "line") return false;
-        for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.act()).catch(() => {
-        }).finally(changed);
-        return true;
-      },
-      setTheme(patch, keep6 = false) {
-        if (keep6) {
-          visitor = { ...visitor, ...patch };
-          saveVisitorTheme(visitor);
-        }
-        theme = resolveTheme({ ...opts.theme, ...keep6 ? {} : patch }, visitor);
-        changed();
-      },
-      get pins() {
-        return pins ?? [];
-      },
-      setPinned(section, pinned) {
-        const now = pins ?? [];
-        if (pinned === now.includes(section)) return true;
-        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
-        pins = pinned ? [...now, section] : now.filter((id) => id !== section);
-        savePins(pins);
-        changed();
-        return true;
-      },
-      view() {
-        const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-        const pressable = showing.filter((a) => a.kind !== "line");
-        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
-        const item = (a) => {
-          const slot = bar.indexOf(a);
-          return { id: a.id, label: read2(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read2(a.short) || read2(a.label), kind: a.kind ?? "button", color: read2(a.color), ...a.picture ? { picture: a.picture } : {} };
-        };
-        const known = new Set(sections.map((s) => s.id));
-        const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
-        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read2(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
-        return {
-          title: opts.title,
-          address: opts.address ?? "",
-          target: target2,
-          detail,
-          loading: loading4,
-          sections: shown4,
-          hotbar: bar.map(item),
-          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
-          pins: (pins ?? []).flatMap((id, i) => {
-            const tab = shown4.find((x) => x.id === id);
-            const n = bar.length + i + 1;
-            return tab ? [{ id, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
-          }),
-          pinsFull: (pins ?? []).length >= PINS_MOST,
-          theme,
-          presence: presence3,
-          corner,
-          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
-          chat: chat.view(),
-          feed: feed.view(),
-          letters: letters.view()
-        };
-      },
-      subscribe(fn) {
-        listeners.add(fn);
-        return () => listeners.delete(fn);
-      },
-      signal(name) {
-        for (const fn of signals) {
-          try {
-            fn(name);
-          } catch {
-          }
-        }
-      },
-      onSignal(fn) {
-        signals.add(fn);
-        return () => signals.delete(fn);
-      },
-      onSay(fn) {
-        sayers.add(fn);
-        return () => sayers.delete(fn);
-      },
-      chat,
-      feed,
-      letters
-    };
-    const keep5 = (patch) => controls2.setTheme(patch, true);
-    controls2.add(
-      ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep5({ accent: p.accent }) })
-      ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep5({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep5({ motion: !theme.motion }) },
-      {
-        id: "look-wrist",
-        section: "look",
-        icon: "menu",
-        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
-        on: () => theme.wrist !== "off",
-        act: () => keep5({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
-      },
-      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
-        visitor = {};
-        saveVisitorTheme({});
-        theme = resolveTheme(opts.theme, visitor);
-      } }
-    );
-    return controls2;
-  }
-
-  // packages/sdk/src/engine-menu.ts
-  var read3 = (text2) => {
-    try {
-      const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
-      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
-    } catch {
-      return {};
-    }
-  };
-  var words = (v2, most) => typeof v2 === "string" ? v2.slice(0, most) : "";
-  var queue = [];
-  var tell = (event) => {
-    if (queue.length < 64) queue.push(event);
-  };
-  var tellEngine = tell;
-  var engineParts = () => controls && sounds ? { controls, sounds, presenting: vr.presenting } : null;
-  var menuWatchers = /* @__PURE__ */ new Set();
-  var onMenu = (fn) => void menuWatchers.add(fn);
-  var controls = null;
-  var hud = null;
-  var sounds = null;
-  var moving = "casual";
-  var vr = { supported: false, presenting: false };
-  var named = "";
-  var headsetOffer = null;
-  var headsetOffered = false;
-  var doors = /* @__PURE__ */ new Map();
-  function kit() {
-    return JSON.stringify({
-      walkSpeed: WALK_SPEED,
-      // The fastest anyone goes on foot: a run. However an engine moves its visitor, never faster than this.
-      topSpeed: TOP_SPEED,
-      tapReach: TAP_REACH,
-      sprint: SPRINT,
-      // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.
-      dragLook: DRAG_LOOK * lookScale(),
-      lookSpeed: LOOK_SPEED * lookScale(),
-      // How wide they asked to see at a desk, in degrees top to bottom, or 0 for the world's own.
-      fov: visitorFov() ?? 0,
-      pitchLimit: PITCH_LIMIT,
-      // Moving the casual way: how far a drag up or down tilts the view, and how fast it comes back level as they walk.
-      tiltLimit: TILT_LIMIT,
-      levelRate: LEVEL_RATE,
-      // Places to arrive (protocol/01-worlds.md): how many an entry point needs, and the least room between people.
-      entryPlacesLeast: ENTRY_PLACES_LEAST,
-      entryPlacesRooms: ENTRY_PLACES_ROOMS,
-      entryClear: ENTRY_CLEAR,
-      doubleTap: DOUBLE_TAP,
-      pathMost: PATH_MOST,
-      faceRate: FACE_RATE,
-      jumpHeight: JUMP_HEIGHT,
-      jumpGravity: JUMP_GRAVITY,
-      gateWidth: PORTAL_WIDTH,
-      gateHeight: PORTAL_HEIGHT,
-      gateSpring: PORTAL_SPRING,
-      gateSignHeight: PORTAL_SIGN_HEIGHT,
-      doorReach: DOOR_REACH,
-      // The least distance between two doors' middles: lay doors out no nearer than this.
-      doorSpacing: DOOR_SPACING,
-      cues: CUES
-    });
-  }
-  function check(url) {
-    const c = checkDestination(typeof url === "string" ? url : "");
-    if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
-    return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
-  }
-  function offers(world2) {
-    let said2 = {};
-    try {
-      const read6 = JSON.parse(typeof world2 === "string" ? world2 : "");
-      if (read6 && typeof read6 === "object") said2 = read6;
-    } catch {
-    }
-    const words2 = (list) => Array.isArray(list) ? list.filter((w) => typeof w === "string") : [];
-    const items2 = typeof said2.items === "string" && ITEM_RULES.includes(said2.items) ? said2.items : void 0;
-    const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {}, ...said2.byInvitation === true ? { byInvitation: true } : {} });
-    return JSON.stringify(lines.map((o) => ({ ...o, ...o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id]] } : {} })));
-  }
-  var early = null;
-  var filled2 = false;
-  var EARLY_LINE = { words: "This world is still loading" };
-  function earlyMenu(o) {
-    if (controls || typeof document === "undefined") return;
-    arrival.read();
-    const opts = { title: words(o.title, 80) || "A world", address: location.host };
-    if (o.accent && /^#[0-9a-f]{6}$/i.test(o.accent)) opts.theme = { accent: o.accent };
-    const c = controls = createControls(opts);
-    early = { opts, line: !loadingNow };
-    c.setLoading(loadingNow ?? EARLY_LINE);
-    hud = mountHud(c);
-    const atHome = arrival.atHome();
-    c.add({
-      id: "home",
-      section: "travel",
-      icon: "home",
-      hotbar: true,
-      label: atHome ? "Your doors" : "Go home",
-      short: atHome ? "Doors" : "Home",
-      hidden: () => portal.airlockFor() === null,
-      act: () => void o.home()
-    });
-  }
-  function roomChanged(state) {
-    if (!early || state === "arriving") return;
-    if (early.line && controls) {
-      early.line = false;
-      controls.setLoading(loadingNow);
-    }
-    if (filled2 || state === "failed") return;
-    hud?.remove();
-    hud = null;
-    controls = null;
-    early = null;
-  }
-  function menu(options) {
-    if (filled2) return JSON.stringify({ moving, mouse: hasMouse() });
-    filled2 = true;
-    const o = read3(options);
-    const title = words(o.title, 80) || "A world";
-    named = title;
-    const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
-    let c;
-    let h;
-    if (early && controls && hud) {
-      c = controls;
-      h = hud;
-      early.opts.title = title;
-      if (accent) c.setTheme({ accent });
-      c.remove("home");
-    } else {
-      c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
-      if (loadingNow) c.setLoading(loadingNow);
-      h = hud = mountHud(c);
-    }
-    for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
-    const s = sounds = createSounds({
-      seed: title,
-      ...typeof o.kit === "string" && o.kit ? { kit: o.kit } : {},
-      ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
-    });
-    addSoundControls(c, s);
-    c.add(freshAction(c, { busy: () => vr.presenting }));
-    rowsForGate();
-    const atHome = arrival.atHome();
-    c.add({
-      id: "home",
-      section: "travel",
-      icon: "home",
-      hotbar: true,
-      label: atHome ? "Your doors" : "Go home",
-      short: atHome ? "Doors" : "Home",
-      hidden: () => portal.airlockFor() === null,
-      act: () => tell({ type: atHome ? "doors" : "home" })
-    });
-    if (identityHost()) {
-      c.addSection(identitySection());
-      c.add(
-        { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
-        // Where their client named a signer there is one sign-in, and it is that one, below: this row would be a second.
-        { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, hidden: () => signerNamed(), act: () => tell({ type: "identity" }) },
-        // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
-        // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
-        signerAction(c, { presenting: () => vr.presenting }),
-        accountAction(c, { presenting: () => vr.presenting }),
-        filesAction(c, { presenting: () => vr.presenting }),
-        libraryAction(c, { presenting: () => vr.presenting })
-      );
-      onHereAs(() => tell({ type: "who", ...whoNow() }));
-    }
-    const context = arrival.read().context;
-    moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
-    if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
-    c.add({
-      id: "fps",
-      section: "moving",
-      icon: "step",
-      on: () => moving === "intense",
-      hidden: () => !hasMouse() || vr.presenting,
-      label: () => moving === "intense" ? DESK_WORDS.intense : DESK_WORDS.casual,
-      act: () => {
-        moving = moving === "intense" ? "casual" : "intense";
-        keepIntense(moving === "intense");
-        tell({ type: "moving", moving });
-        c.say(moving === "intense" ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
-      }
-    });
-    c.add({
-      id: "jump",
-      section: "moving",
-      icon: "step",
-      label: "Jump",
-      short: "Jump",
-      hotbar: !hasMouse(),
-      hidden: () => vr.presenting,
-      act: () => tell({ type: "jump" })
-    });
-    c.add(
-      {
-        id: "vr",
-        section: "view",
-        icon: "vr",
-        tone: "primary",
-        hotbar: true,
-        hidden: () => !vr.supported,
-        label: () => vr.presenting ? "Leave VR" : "Enter VR",
-        short: "VR",
-        // A browser starts a headset session only on a press. This is one, and the engine hears of it within a frame.
-        act: () => tell({ type: "vr", enter: !vr.presenting })
-      },
-      fullscreenAction(c, () => vr.presenting)
-    );
-    addDeskControls(c, { presenting: () => vr.presenting });
-    document.addEventListener("fullscreenchange", () => c.setTarget(""));
-    c.addSection({
-      id: "help",
-      label: "Help",
-      icon: "help",
-      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
-    });
-    let told = 0;
-    c.subscribe(() => {
-      const now = performance.now();
-      if (now - told < 120) return;
-      told = now;
-      tell({ type: "changed" });
-    });
-    let closedAt = -1;
-    c.onSignal((name) => {
-      if (name === "menuOpen") tell({ type: "menu", open: true });
-      if (name === "menuClose") {
-        closedAt = performance.now();
-        tell({ type: "menu", open: false });
-        document.querySelector("canvas")?.focus();
-      }
-    });
-    document.addEventListener("pointerlockchange", () => {
-      if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open) return;
-      if (performance.now() - closedAt > 80) h.setOpen(true);
-    });
-    addEventListener("keydown", (e) => {
-      if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement) return;
-      if (performance.now() - closedAt > 80) h.setOpen(true);
-    });
-    return JSON.stringify({ moving, mouse: hasMouse() });
-  }
-  var whoNow = () => {
-    const me = hereAs();
-    return { guest: !me, name: me?.name ?? "", pubkey: me?.pubkey ?? "", picture: me?.picture ?? "", about: me?.about ?? "" };
-  };
-  function who() {
-    return JSON.stringify(whoNow());
-  }
-  var gated = null;
-  var gateRows = false;
-  var gateNow = () => gated ? { state: gated.state, open: gated.open, reason: gated.reason, why: gated.why, offers: gated.offers, until: gated.until } : { state: "free", open: true, reason: "", why: "", offers: [], until: null };
-  function rowsForGate() {
-    if (!gated || !controls || gateRows) return;
-    gateRows = true;
-    addGateControls(controls, gated, { presenting: () => vr.presenting });
-  }
-  function gate(options) {
-    if (!gated) {
-      const trial = typeof window !== "undefined" && typeof location !== "undefined" && isLocalHost(location.hostname) && window.__nswpTrial?.gate === true;
-      if (read3(options).paid === false && !trial) return JSON.stringify(gateNow());
-      const g = gated = worldGate();
-      let told = "";
-      g.onChange(() => {
-        const now = JSON.stringify(gateNow());
-        if (now === told) return;
-        told = now;
-        tell({ type: "gate", ...gateNow() });
-      });
-      rowsForGate();
-    }
-    return JSON.stringify(gateNow());
-  }
-  function save(data, slot) {
-    const name = slot || "main";
-    void worldSaves().save(String(data ?? ""), name).catch(() => ({ kept: "nowhere", said: "That wasn't saved." })).then((r) => tell({ type: "saved", slot: name, kept: r.kept, said: r.said }));
-  }
-  function load2(slot) {
-    const name = slot || "main";
-    void worldSaves().load(name).catch(() => null).then((got) => tell(got ? { type: "loaded", slot: name, found: true, data: got.data, at: got.at, from: got.from } : { type: "loaded", slot: name, found: false, data: "", at: 0, from: "" }));
-  }
-  function events() {
-    if (!queue.length) return "[]";
-    const out = JSON.stringify(queue);
-    queue.length = 0;
-    return out;
-  }
-  function play(cue) {
-    if (CUES.includes(cue)) sounds?.play(cue);
-  }
-  function jumped() {
-    sounds?.jumped();
-  }
-  function moved(metres) {
-    if (typeof metres === "number" && Number.isFinite(metres) && metres > 0) sounds?.moved(metres);
-  }
-  function bump() {
-    sounds?.bump();
-  }
-  var loadingNow = null;
-  function loadingLine(state) {
-    loadingNow = state;
-    controls?.setLoading(state);
-  }
-  function say2(text2) {
-    const t = words(text2, 300);
-    if (t) controls?.say(t);
-  }
-  function target(name, detail) {
-    let lines = [];
-    try {
-      const d = detail ? JSON.parse(detail) : [];
-      if (Array.isArray(d)) lines = d.filter((l) => typeof l === "string").slice(0, 6).map((l) => l.slice(0, 200));
-    } catch {
-    }
-    controls?.setTarget(words(name, 120), lines);
-  }
-  function headset(state) {
-    const s = read3(state);
-    vr.supported = s.supported === true;
-    vr.presenting = s.presenting === true;
-    hud?.setHidden(vr.presenting);
-    controls?.setTarget("");
-    const put = () => {
-      headsetOffer?.remove();
-      headsetOffer = null;
-    };
-    if (vr.presenting) {
-      headsetOffered = true;
-      put();
-    } else if (headsetOffer && s.failed === true) headsetOffer.failed();
-    else if (vr.supported && controls && !headsetOffered && arrival.read().context?.immersive) {
-      headsetOffered = true;
-      headsetOffer = offerHeadset(named, () => tell({ type: "vr", enter: true }), put);
-    }
-  }
-  function view() {
-    if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
-    const v2 = controls.view();
-    const item = (i) => ({ id: i.id, label: i.label, short: i.short, on: i.on, tone: i.tone });
-    return JSON.stringify({
-      title: v2.title,
-      address: v2.address,
-      presence: v2.presence,
-      // Still loading, though the visitor is in (`loading`): the world's words and how far along, or null.
-      loading: v2.loading,
-      open: hud?.open ?? false,
-      sections: v2.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
-      hotbar: v2.hotbar.map(item)
-    });
-  }
-  function run(id) {
-    return typeof id === "string" && !!controls?.run(id);
-  }
-  function open(on3) {
-    hud?.setOpen(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
-  }
-  function presence(level2) {
-    if (level2 === "full" || level2 === "quiet" || level2 === "hidden") controls?.setPresence(level2);
-  }
-  function claim(on3) {
-    controls?.claimInput(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
-  }
-  function door(entry) {
-    const d = read3(entry);
-    const id = words(d.id, 60);
-    if (!id || !controls) return;
-    const menuId = `door-${id}`;
-    if (d.remove === true) {
-      doors.delete(id);
-      controls.remove(menuId);
-      return;
-    }
-    if (doors.has(id) || doors.size >= 24) return;
-    doors.set(id, words(d.label, 80) || "A door");
-    controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id) ?? "A door", short: "Door", act: () => tell({ type: "door", id }) });
-  }
-
   // packages/sdk/src/engine-world.ts
-  var read4 = (text2) => {
+  var read2 = (text2) => {
     try {
       const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
       return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
@@ -47488,7 +44885,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function frame(view2) {
     if (!world || !parts2.length) return "{}";
     const w = world;
-    const i = read4(view2);
+    const i = read2(view2);
     const nudge = w.set && (Math.abs(w.rig.position.x - w.set.x) > 1e-4 || Math.abs(w.rig.position.z - w.set.z) > 1e-4) ? [w.rig.position.x - w.set.x, w.rig.position.z - w.set.z] : null;
     const head = three(i.head);
     const turn = Array.isArray(i.turn) && i.turn.length === 4 && i.turn.every((x) => typeof x === "number" && Number.isFinite(x)) ? i.turn : null;
@@ -48400,17 +45797,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return buffer.then(function(res) {
           const byteOffset = extensionDef.byteOffset || 0;
           const byteLength = extensionDef.byteLength || 0;
-          const count = extensionDef.count;
+          const count2 = extensionDef.count;
           const stride = extensionDef.byteStride;
           const source = new Uint8Array(res, byteOffset, byteLength);
           if (decoder4.decodeGltfBufferAsync) {
-            return decoder4.decodeGltfBufferAsync(count, stride, source, extensionDef.mode, extensionDef.filter).then(function(res2) {
+            return decoder4.decodeGltfBufferAsync(count2, stride, source, extensionDef.mode, extensionDef.filter).then(function(res2) {
               return res2.buffer;
             });
           } else {
             return decoder4.ready.then(function() {
-              const result = new ArrayBuffer(count * stride);
-              decoder4.decodeGltfBuffer(new Uint8Array(result), count, stride, source, extensionDef.mode, extensionDef.filter);
+              const result = new ArrayBuffer(count2 * stride);
+              decoder4.decodeGltfBuffer(new Uint8Array(result), count2, stride, source, extensionDef.mode, extensionDef.filter);
               return result;
             });
           }
@@ -48454,15 +45851,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return Promise.all(pending).then((results) => {
         const nodeObject = results.pop();
         const meshes = nodeObject.isGroup ? nodeObject.children : [nodeObject];
-        const count = results[0].count;
+        const count2 = results[0].count;
         const instancedMeshes = [];
         for (const mesh of meshes) {
           const m = new Matrix4();
           const p = new Vector3();
           const q2 = new Quaternion();
           const s = new Vector3(1, 1, 1);
-          const instancedMesh = new InstancedMesh(mesh.geometry, mesh.material, count);
-          for (let i = 0; i < count; i++) {
+          const instancedMesh = new InstancedMesh(mesh.geometry, mesh.material, count2);
+          for (let i = 0; i < count2; i++) {
             if (attributes.TRANSLATION) {
               p.fromBufferAttribute(attributes.TRANSLATION, i);
             }
@@ -50221,9 +47618,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     sound: 15e4
   };
   var ITEMS_KEY = "nswp:items";
-  var watchers5 = /* @__PURE__ */ new Set();
-  var shown3 = null;
-  var keep4 = (on3) => {
+  var watchers4 = /* @__PURE__ */ new Set();
+  var shown2 = null;
+  var keep3 = (on3) => {
     try {
       if (on3) globalThis.localStorage?.removeItem(ITEMS_KEY);
       else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
@@ -50231,27 +47628,27 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
   };
   function showsItems() {
-    if (shown3 !== null) return shown3;
+    if (shown2 !== null) return shown2;
     const came = arrivedSettings().items;
     let kept2 = null;
     try {
       kept2 = globalThis.localStorage?.getItem(ITEMS_KEY) ?? null;
     } catch {
     }
-    shown3 = came ?? kept2 !== "off";
-    if (came !== void 0) keep4(shown3);
+    shown2 = came ?? kept2 !== "off";
+    if (came !== void 0) keep3(shown2);
     reportSettings("items", () => ({ items: showsItems() }));
-    return shown3;
+    return shown2;
   }
   function setShowsItems(on3) {
     showsItems();
-    shown3 = on3;
-    keep4(on3);
-    for (const fn of watchers5) fn();
+    shown2 = on3;
+    keep3(on3);
+    for (const fn of watchers4) fn();
   }
   function onItemsChange(fn) {
-    watchers5.add(fn);
-    return () => void watchers5.delete(fn);
+    watchers4.add(fn);
+    return () => void watchers4.delete(fn);
   }
   var FETCH_MS = 3e4;
   var AGAIN_MS = 4e3;
@@ -51019,7 +48416,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
 
   // packages/sdk/src/blocks.ts
   var BLOCK_LIMIT = 500;
-  var KEY3 = "nswp:blocked";
+  var KEY4 = "nswp:blocked";
   var HEX4 = /^[0-9a-f]{64}$/;
   function cleanBlocked(input) {
     if (!Array.isArray(input)) return [];
@@ -51052,17 +48449,141 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   };
   function loadBlocked(storage = local()) {
     try {
-      return cleanBlocked(JSON.parse(storage?.getItem(KEY3) ?? "[]"));
+      return cleanBlocked(JSON.parse(storage?.getItem(KEY4) ?? "[]"));
     } catch {
       return [];
     }
   }
   function storeBlocked(list, storage = local()) {
     try {
-      if (list.length) storage?.setItem(KEY3, JSON.stringify(cleanBlocked(list)));
-      else storage?.removeItem(KEY3);
+      if (list.length) storage?.setItem(KEY4, JSON.stringify(cleanBlocked(list)));
+      else storage?.removeItem(KEY4);
     } catch {
     }
+  }
+
+  // packages/sdk/src/ui/chat.ts
+  var CHAT_KEY = "nswp:chat";
+  var shown3 = null;
+  var watchers5 = /* @__PURE__ */ new Set();
+  function showsChat() {
+    if (shown3 !== null) return shown3;
+    const came = arrivedSettings().chat;
+    let kept2 = null;
+    try {
+      kept2 = localStorage.getItem(CHAT_KEY);
+    } catch {
+    }
+    shown3 = came ?? kept2 !== "0";
+    if (came !== void 0) keep4(shown3);
+    reportSettings("chat", () => ({ chat: showsChat() }));
+    return shown3;
+  }
+  var keep4 = (on3) => {
+    try {
+      if (on3) localStorage.removeItem(CHAT_KEY);
+      else localStorage.setItem(CHAT_KEY, "0");
+    } catch {
+    }
+  };
+  function setShowsChat(on3) {
+    showsChat();
+    shown3 = on3;
+    keep4(on3);
+    for (const w of watchers5) w();
+  }
+  function onChatChange(cb) {
+    watchers5.add(cb);
+    return () => void watchers5.delete(cb);
+  }
+  function createUiChat(changed) {
+    let send = null;
+    let title = "Room chat";
+    let lines = [];
+    let unread = 0;
+    let version = 0;
+    let count2 = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    onChatChange(() => {
+      if (!showsChat()) {
+        lines = [];
+        unread = 0;
+      }
+      bump2();
+    });
+    return {
+      attach(fn, opts = {}) {
+        send = fn;
+        title = opts.title ?? "Room chat";
+        lines = [];
+        unread = 0;
+        bump2();
+      },
+      detach() {
+        if (!send && !lines.length) return;
+        send = null;
+        lines = [];
+        unread = 0;
+        bump2();
+      },
+      add(line2) {
+        if (!send || !showsChat()) return;
+        const text2 = cleanChat(line2.text);
+        if (!text2) return;
+        lines.push({ key: `${line2.id ?? "n"}-${++count2}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
+        if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
+        if (!line2.mine && !line2.note) unread++;
+        bump2();
+      },
+      send(text2) {
+        if (!send || !showsChat()) return "There is nobody to write to: join the room first.";
+        if (!cleanChat(text2)) return null;
+        return send(text2) ?? null;
+      },
+      seen() {
+        if (!unread) return;
+        unread = 0;
+        bump2();
+      },
+      view() {
+        return { ready: !!send && showsChat(), title, lines, unread, limit: CHAT_LIMITS.chars, version };
+      }
+    };
+  }
+  function wrapWords(text2, measure, width, rows) {
+    const out = [];
+    let row = "";
+    const push = (word) => {
+      let rest = [...word];
+      while (rest.length) {
+        let n = rest.length;
+        while (n > 1 && measure(rest.slice(0, n).join("")) > width) n--;
+        const piece = rest.slice(0, n).join("");
+        rest = rest.slice(n);
+        if (rest.length) out.push(piece);
+        else row = piece;
+      }
+    };
+    for (const word of text2.split(" ").filter(Boolean)) {
+      const tried = row ? `${row} ${word}` : word;
+      if (measure(tried) <= width) row = tried;
+      else {
+        if (row) out.push(row);
+        row = "";
+        if (measure(word) <= width) row = word;
+        else push(word);
+      }
+    }
+    if (row) out.push(row);
+    if (out.length <= rows) return out;
+    const kept2 = out.slice(0, rows);
+    let last = [...kept2[rows - 1]];
+    while (last.length > 1 && measure(`${last.join("")}\u2026`) > width) last.pop();
+    kept2[rows - 1] = `${last.join("").trimEnd()}\u2026`;
+    return kept2;
   }
 
   // packages/sdk/src/item-box.ts
@@ -52011,11 +49532,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         thing.floor = y;
       },
       info() {
-        const count = (state) => things.filter((t) => t.state === state).length;
+        const count2 = (state) => things.filter((t) => t.state === state).length;
         return {
-          flying: count("flying"),
-          stuck: count("stuck"),
-          falling: count("falling") + count("lying"),
+          flying: count2("flying"),
+          stuck: count2("stuck"),
+          falling: count2("falling") + count2("lying"),
           things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
           sent,
           landed,
@@ -52033,6 +49554,926 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         for (const thing of [...things]) gone(thing);
         for (const b of bars.values()) b.sprite.removeFromParent();
         hud2.removeFromParent();
+      }
+    };
+  }
+
+  // packages/sdk/src/people.ts
+  var KEPT_MOST = 4e5;
+  var FRESH_MS2 = 6e4;
+  function createPeople(opts) {
+    const { hand } = opts;
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const store2 = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers7 = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of watchers7) fn();
+    };
+    const keyFor = (who2) => `nswp:follows:${who2}`;
+    const readKept = (who2) => {
+      try {
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
+        return verifyEvent(kept2) && kept2.kind === FOLLOWS_KIND && kept2.pubkey === who2 ? kept2 : null;
+      } catch {
+        return null;
+      }
+    };
+    const keep5 = (list) => {
+      try {
+        const text2 = JSON.stringify(list);
+        if (text2.length <= KEPT_MOST) store2?.setItem(keyFor(list.pubkey), text2);
+        else store2?.removeItem(keyFor(list.pubkey));
+      } catch {
+      }
+    };
+    let relaysKept = null;
+    const ownRelays = (key) => {
+      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: now(), found: found2 };
+      return found2;
+    };
+    let known = null;
+    let looking = null;
+    let offered = null;
+    const look = async (who2) => {
+      const kept2 = readKept(who2);
+      const own = await ownRelays(who2);
+      const got = await askWell({ kinds: [FOLLOWS_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      const found2 = newestFollows((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
+      const list = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
+      if (kept2 && list === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
+      if (list && list !== kept2) keep5(list);
+      if (hand.pubkey() !== who2) return;
+      known = { who: who2, list, answered, at: now() };
+      changed();
+    };
+    const load3 = async (fresh = false) => {
+      const who2 = hand.pubkey();
+      if (!who2) {
+        if (known) {
+          known = null;
+          changed();
+        }
+        return null;
+      }
+      if (known && known.who !== who2) known = null;
+      if (!fresh && known && now() - known.at < FRESH_MS2) return followsIn(known.list);
+      looking ?? (looking = look(who2).finally(() => {
+        looking = null;
+      }));
+      await looking;
+      return known && known.who === who2 ? followsIn(known.list) : null;
+    };
+    const change2 = async (pubkey, adding, name) => {
+      const who2 = hand.pubkey();
+      const them = name || "them";
+      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to follow people." };
+      if (!isHex64(pubkey) || pubkey === who2) return { ok: false, why: "refused", said: "That isn't someone who can be followed." };
+      if (!hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change who you follow." };
+      await load3(true);
+      const at = known && known.who === who2 ? known : null;
+      if (!at) return { ok: false, why: "unreachable", said: "Your follow list couldn't be looked for. Nothing was changed." };
+      const list = at.list;
+      if (!list) {
+        if (!at.answered) return { ok: false, why: "unreachable", said: "No relay could be reached to find who you follow, so nothing was changed. Try again in a moment." };
+        if (!adding) return { ok: false, why: "already", said: `You don't follow ${them}.` };
+        if (!offered || offered.who !== pubkey || now() - offered.at > 12e4) {
+          offered = { who: pubkey, at: now() };
+          return { ok: false, why: "no-list", said: `No follow list of yours was found. If you follow nobody yet, press again to start one with ${them}.` };
+        }
+      }
+      offered = null;
+      const follows = followsIn(list).includes(pubkey);
+      if (adding === follows) return { ok: true, why: "already", said: adding ? `You already follow ${them}.` : `You don't follow ${them}.` };
+      const asked = adding ? { add: pubkey } : { remove: pubkey };
+      const signed = await hand.change(list, asked).catch(() => null);
+      if (!signed || !isFollowAsked(signed, { list, ...asked, pubkey: who2 })) return { ok: false, why: "refused", said: "It couldn't be signed. Who you follow is as it was." };
+      keep5(signed);
+      known = { who: who2, list: signed, answered: true, at: now() };
+      changed();
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: `Signed, but no relay took it. It is kept on this device and will be sent again.` };
+      return { ok: true, said: adding ? `You follow ${them}. Anyone can see who you follow.` : `You no longer follow ${them}.` };
+    };
+    return {
+      follows: () => known && known.who === hand.pubkey() ? followsIn(known.list) : null,
+      isFollowing(pubkey) {
+        return known && known.who === hand.pubkey() && (known.list || known.answered) ? followsIn(known.list).includes(pubkey) : null;
+      },
+      load: load3,
+      follow: (pubkey, name = "") => change2(pubkey, true, name),
+      unfollow: (pubkey, name = "") => change2(pubkey, false, name),
+      onChange(fn) {
+        watchers7.add(fn);
+        return () => void watchers7.delete(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/saves.ts
+  function createSaves(opts = {}) {
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const signer = () => (typeof opts.signer === "function" ? opts.signer() : opts.signer) ?? null;
+    const store2 = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const keyFor = (who2, slot) => `nswp:save:${who2 ?? "guest"}:${slot}`;
+    const readLocal = (who2, slot) => {
+      try {
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2, slot)) ?? "null");
+        return kept2 && typeof kept2.data === "string" && typeof kept2.at === "number" ? { data: kept2.data, at: kept2.at } : null;
+      } catch {
+        return null;
+      }
+    };
+    const writeLocal = (who2, slot, kept2) => {
+      try {
+        if (!store2) return false;
+        store2.setItem(keyFor(who2, slot), JSON.stringify(kept2));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let relaysKept = null;
+    const ownRelays = (key) => {
+      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: now(), found: found2 };
+      return found2;
+    };
+    const fromAccount = async (slot) => {
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      if (!s || !who2) return null;
+      const d = await s.find(slot);
+      if (!d) return null;
+      const got = await askWell({ kinds: [SAVE_KIND], authors: [who2], "#d": [d], limit: 4 }, { own: await ownRelays(who2), usual: usual(), query, timeoutMs: 3500, now }).catch(() => null);
+      const newest = (got?.events ?? []).filter((e) => e.kind === SAVE_KIND && e.pubkey === who2 && e.tags.some((t) => t[0] === "d" && t[1] === d) && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+      if (!newest) return null;
+      const opened = await s.open(newest);
+      return opened && opened.slot === slot ? { data: opened.data, at: opened.at } : null;
+    };
+    const load3 = async (slotIn) => {
+      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
+      if (!slot) return null;
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      const here = [readLocal(who2, slot), who2 ? readLocal(null, slot) : null].filter((x) => !!x).sort((a, b) => b.at - a.at)[0] ?? null;
+      const there = who2 ? await fromAccount(slot).catch(() => null) : null;
+      const newest = there && (!here || there.at >= here.at) ? { ...there, from: "account" } : here ? { ...here, from: "device" } : null;
+      if (newest?.from === "account") writeLocal(who2, slot, { data: newest.data, at: newest.at });
+      if (who2 && newest?.from === "device" && !taking.has(slot)) {
+        taking.add(slot);
+        void toAccount(newest.data, slot, who2).catch(() => false).then(() => taking.delete(slot));
+      }
+      return newest && newest.data !== "" ? newest : null;
+    };
+    const taking = /* @__PURE__ */ new Set();
+    const toAccount = async (data, slot, who2) => {
+      const s = signer();
+      if (!s || s.state !== "unlocked" || s.pubkey !== who2) return false;
+      const signed = await s.save(slot, data).catch(() => null);
+      if (!signed) return false;
+      writeLocal(who2, slot, { data, at: signed.created_at });
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      return !!sent && sent.took > 0;
+    };
+    const save2 = async (data, slotIn) => {
+      const slot = cleanSlot(slotIn ?? SAVE_SLOT);
+      if (!slot || !fitsInSave(data)) return { kept: "nowhere", said: "That is too much to save, or not a slot's name." };
+      const s = signer();
+      const who2 = s?.state === "unlocked" ? s.pubkey : null;
+      const at = Math.floor(now() / 1e3);
+      const here = writeLocal(who2, slot, { data, at });
+      if (!s || !who2) return here ? { kept: "device", said: "Saved on this device. Sign in to keep it with your account." } : { kept: "nowhere", said: "This browser wouldn't keep it." };
+      if (await toAccount(data, slot, who2).catch(() => false)) return { kept: "account", said: "Saved to your account." };
+      return here ? { kept: "device", said: "Saved on this device. It didn't reach your account this time." } : { kept: "nowhere", said: "That wasn't saved." };
+    };
+    return { load: load3, save: save2, clear: (slot) => save2("", slot) };
+  }
+
+  // packages/sdk/src/signer.ts
+  var NONE2 = {
+    state: "none",
+    pubkey: null,
+    name: null,
+    picture: null,
+    about: null,
+    remembered: null,
+    host: null,
+    more: [],
+    offers: null,
+    unanswered: false,
+    asking: false,
+    retry: () => false,
+    copy: null,
+    unlock: () => false,
+    propose: () => Promise.resolve(null),
+    wallet: () => Promise.resolve(null),
+    pay: () => Promise.resolve(null),
+    saveFile: () => Promise.resolve(null),
+    pickFile: () => Promise.resolve(null),
+    tip: () => Promise.resolve(false),
+    buy: () => Promise.resolve(null),
+    have: () => Promise.resolve(null),
+    panel: false,
+    lock() {
+    },
+    sign: async () => null,
+    pass: async () => null,
+    save: async () => null,
+    find: async () => null,
+    open: async () => null,
+    want: () => false,
+    follow: async () => null,
+    guests: async () => null,
+    seal: async () => null,
+    unwrap: async () => null,
+    reach: async () => null,
+    score: async () => null,
+    achieve: async () => null,
+    onChange: () => () => {
+    },
+    whenAnswered: async () => {
+    },
+    dispose() {
+    }
+  };
+  function namedAddresses(at) {
+    try {
+      const signer = new URL(at.signer);
+      const win = new URL(at.window);
+      if (signer.protocol !== "https:" || win.origin !== signer.origin) return null;
+      return { origin: signer.origin, signer: signer.href, window: win.href };
+    } catch {
+      return null;
+    }
+  }
+  var ASK_PERSON_MS = 5 * 6e4;
+  function createWorldSigner(opts) {
+    const real = opts.at ? namedAddresses(opts.at) : signerAt(opts.under) ?? signerAddresses(opts.airlock);
+    if (!real || typeof document === "undefined") return NONE2;
+    const test = new URLSearchParams(opts.search ?? location.search).get("signer") === "test";
+    const watchers7 = /* @__PURE__ */ new Set();
+    const pending = /* @__PURE__ */ new Map();
+    const kept2 = /* @__PURE__ */ new Map();
+    const askAbout = (request, read6) => new Promise((done) => {
+      const timer = setTimeout(() => {
+        kept2.delete(request.id);
+        done(null);
+      }, 8e3);
+      kept2.set(request.id, { answer: (reply) => done(reply ? read6(reply) : null), timer });
+      tell2(request);
+    });
+    const put = /* @__PURE__ */ new Map();
+    let state = "none";
+    let pubkey = null;
+    let name = null;
+    let picture2 = null;
+    let about = null;
+    let remembered = null;
+    let more = [];
+    let offers2 = null;
+    let origin = "";
+    let windowAt = "";
+    let frame2 = null;
+    let disposed = false;
+    const named2 = !!opts.at || !!signerAt(opts.under);
+    let waited = false;
+    let asking = false;
+    let again = 0;
+    let waiting3;
+    let signerUrl = "";
+    const reload = () => {
+      if (frame2 && signerUrl) frame2.src = signerUrl;
+    };
+    const wait = () => {
+      waited = false;
+      clearTimeout(waiting3);
+      waiting3 = setTimeout(() => {
+        if (state !== "none" || disposed) return;
+        if (again === 0) {
+          again = 1;
+          reload();
+          return wait();
+        }
+        waited = true;
+        asking = false;
+        changed();
+      }, 1e4);
+    };
+    wait();
+    let answered = false;
+    const firstAnswer = /* @__PURE__ */ new Set();
+    let n = 0;
+    const changed = () => {
+      for (const fn of watchers7) fn();
+    };
+    const tell2 = (message) => frame2?.contentWindow?.postMessage(signerMessage(message), origin);
+    const showPage = () => {
+      if (!windowAt) return false;
+      if (!test && clientSignsInAt() === real.origin && askClientForSignIn("ask")) return true;
+      try {
+        return !!window.open(`${windowAt}${test ? "?signer=test" : ""}`, "nswp-connect", "popup,width=460,height=660");
+      } catch {
+        return false;
+      }
+    };
+    const putToThem = (request, read6) => new Promise((done) => {
+      for (const [id, earlier] of put) {
+        put.delete(id);
+        clearTimeout(earlier.timer);
+        earlier.finish(null);
+      }
+      const timer = setTimeout(() => {
+        put.delete(request.id);
+        done(null);
+      }, 8e3);
+      put.set(request.id, { shown: false, finish: (reply) => done(reply ? read6(reply) : null), timer });
+      tell2(request);
+    });
+    const onMessage = (e) => {
+      if (!frame2 || e.source !== frame2.contentWindow || e.origin !== origin) return;
+      const reply = readSignerReply(e.data);
+      if (!reply) return;
+      if (reply.t === "ready") {
+        asking = false;
+        if (state === "none") state = "locked";
+        tell2({ t: "state", id: `s${++n}` });
+        return changed();
+      }
+      if (reply.t === "state") {
+        answered = true;
+        asking = false;
+        state = reply.unlocked ? "unlocked" : "locked";
+        pubkey = reply.unlocked ? reply.pubkey ?? null : null;
+        name = reply.unlocked ? reply.name ?? null : null;
+        picture2 = reply.unlocked ? reply.picture ?? null : null;
+        about = reply.unlocked ? reply.about ?? null : null;
+        remembered = reply.unlocked ? reply.remembered ?? null : null;
+        more = reply.unlocked ? cleanMore(reply.more) : [];
+        if (reply.offers) offers2 = reply.offers;
+        for (const go2 of [...firstAnswer]) go2();
+        return changed();
+      }
+      const personal = put.get(reply.id);
+      if (personal) {
+        const end = (answer) => {
+          put.delete(reply.id);
+          clearTimeout(personal.timer);
+          personal.finish(answer);
+        };
+        if (reply.t !== "asking") return end(reply.t === "refused" ? null : reply);
+        if (personal.shown) return;
+        personal.shown = true;
+        clearTimeout(personal.timer);
+        personal.timer = setTimeout(() => end(null), ASK_PERSON_MS);
+        if (!showPage()) end(null);
+        return;
+      }
+      const question = kept2.get(reply.id);
+      if (question) {
+        kept2.delete(reply.id);
+        clearTimeout(question.timer);
+        return question.answer(reply.t === "refused" ? null : reply);
+      }
+      const waiting4 = pending.get(reply.id);
+      if (!waiting4) return;
+      pending.delete(reply.id);
+      clearTimeout(waiting4.timer);
+      if (reply.t !== "signed") return waiting4.done(null);
+      const signed = reply.event;
+      if (waiting4.session) {
+        const checked = verifyRoomPass(signed, { origin: location.origin, session: waiting4.session });
+        return waiting4.done(checked.ok && checked.value.pubkey === pubkey ? signed : null);
+      }
+      if (!waiting4.asked) return waiting4.done(null);
+      const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+      waiting4.done(verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(waiting4.asked, signed) ? signed : null);
+    };
+    void (async () => {
+      try {
+        const there = opts.at ? async (address) => address : toLocal;
+        signerUrl = await there(real.signer);
+        windowAt = await there(real.window);
+        origin = new URL(signerUrl).origin;
+        if (disposed) return;
+        frame2 = document.createElement("iframe");
+        frame2.title = "Signer";
+        frame2.setAttribute("aria-hidden", "true");
+        frame2.tabIndex = -1;
+        frame2.setAttribute("allow", "");
+        frame2.referrerPolicy = "no-referrer";
+        frame2.style.cssText = "position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;visibility:hidden;pointer-events:none";
+        addEventListener("message", onMessage);
+        frame2.addEventListener("load", () => {
+          for (const after2 of [0, 400, 1200, 3e3]) {
+            setTimeout(() => {
+              if (!answered && !disposed) tell2({ t: "state", id: `s${++n}` });
+            }, after2);
+          }
+        });
+        frame2.src = signerUrl;
+        document.body.append(frame2);
+      } catch {
+      }
+    })();
+    return {
+      get state() {
+        return state;
+      },
+      get pubkey() {
+        return pubkey;
+      },
+      get name() {
+        return name;
+      },
+      get picture() {
+        return picture2;
+      },
+      get about() {
+        return about;
+      },
+      get remembered() {
+        return remembered;
+      },
+      get more() {
+        return more;
+      },
+      get offers() {
+        return offers2;
+      },
+      get unanswered() {
+        return named2 && waited && state === "none" && !disposed;
+      },
+      get asking() {
+        return asking && state === "none" && !disposed;
+      },
+      retry() {
+        if (!named2 || state !== "none" || disposed || !frame2) return false;
+        again++;
+        asking = true;
+        reload();
+        wait();
+        changed();
+        return true;
+      },
+      get copy() {
+        return origin && origin !== real.origin ? origin : null;
+      },
+      // The signer's real address, never a development server's copy of it: it is what the visitor should recognise.
+      get host() {
+        try {
+          return new URL(real.origin).host;
+        } catch {
+          return null;
+        }
+      },
+      get panel() {
+        return !test && clientSignsInAt() === real.origin;
+      },
+      unlock() {
+        return state !== "none" && showPage();
+      },
+      propose(note) {
+        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+        if (state !== "unlocked" || !frame2 || !PROPOSE_KINDS.includes(asked.kind)) return Promise.resolve(null);
+        return putToThem({ t: "propose", id: `r${++n}`, event: asked }, (reply) => {
+          if (reply.t !== "signed") return null;
+          const signed = reply.event;
+          const marked = Array.isArray(signed?.tags) && signed.tags.some((t) => t[0] === WORLD_TAG && t[1] === cleanOrigin(location.origin));
+          return verifyEvent(signed) && signed.pubkey === pubkey && marked && isWhatWasAsked(asked, signed) ? signed : null;
+        });
+      },
+      wallet() {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        return putToThem({ t: "wallet", id: `v${++n}` }, (reply) => reply.t === "wallet" ? cleanWalletUri(reply.uri) || null : null);
+      },
+      saveFile(file) {
+        const name2 = cleanFileName(file.name);
+        const bytes = cleanFileBytes(file.bytes);
+        if (state !== "unlocked" || !frame2 || !name2 || !bytes) return Promise.resolve(null);
+        return putToThem(
+          { t: "file-save", id: `fs${++n}`, name: name2, type: cleanFileType(file.type), bytes, private: file.private !== false },
+          (reply) => (
+            // An address is passed on only for a public file, and only if it names exactly the bytes that were offered.
+            reply.t === "file-saved" ? { name: reply.name, size: reply.size, private: reply.private, url: !reply.private && reply.url && fileUrlNames(reply.url, bytes) ? reply.url : null } : null
+          )
+        );
+      },
+      pickFile() {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        return putToThem({ t: "file-pick", id: `fp${++n}` }, (reply) => reply.t === "file" ? { name: reply.name, type: reply.type, bytes: reply.bytes, url: reply.url && fileUrlNames(reply.url, reply.bytes) ? reply.url : null } : null);
+      },
+      tip(o) {
+        const sats = cleanTip(o.sats);
+        if (state !== "unlocked" || !frame2 || sats === null || o.to !== void 0 && !isHex64(o.to)) return Promise.resolve(false);
+        return putToThem({ t: "tip", id: `t${++n}`, sats, ...o.to ? { to: o.to } : {} }, (reply) => reply.t === "paid" ? true : null).then((paid) => paid === true);
+      },
+      buy(listing) {
+        const asked = cleanListing(listing);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return putToThem({ t: "buy", id: `b${++n}`, listing: asked }, (reply) => {
+          if (reply.t !== "bought") return null;
+          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
+          return checked.ok ? { ...checked.receipt, event: reply.receipt, delivery: reply.delivery ?? null } : null;
+        });
+      },
+      have(listing) {
+        const asked = cleanListing(listing);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return askAbout({ t: "have", id: `h${++n}`, listing: asked }, (reply) => {
+          if (reply.t !== "receipt") return null;
+          const checked = readReceipt(reply.receipt, { listing: asked, buyer: pubkey ?? "" });
+          return checked.ok ? { ...checked.receipt, event: reply.receipt } : null;
+        });
+      },
+      pay(invoice) {
+        const asked = cleanInvoice(invoice);
+        if (state !== "unlocked" || !frame2 || !asked) return Promise.resolve(null);
+        return putToThem({ t: "pay", id: `y${++n}`, invoice: asked }, (reply) => reply.t === "paid" ? { preimage: reply.preimage ?? null, proven: !!reply.preimage && provesPayment(asked, reply.preimage) } : null);
+      },
+      lock() {
+        if (state === "unlocked") tell2({ t: "lock", id: `l${++n}` });
+      },
+      sign(note) {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
+        const id = `q${++n}`;
+        return new Promise((done) => {
+          const timer = setTimeout(() => {
+            pending.delete(id);
+            done(null);
+          }, 8e3);
+          pending.set(id, { asked, done, timer });
+          tell2({ t: "sign", id, event: asked });
+        });
+      },
+      pass(session2) {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        const id = `p${++n}`;
+        return new Promise((done) => {
+          const timer = setTimeout(() => {
+            pending.delete(id);
+            done(null);
+          }, 8e3);
+          pending.set(id, { session: session2, done, timer });
+          tell2({ t: "pass", id, session: session2 });
+        });
+      },
+      save(slot, data) {
+        if (state !== "unlocked" || !frame2 || !cleanSlot(slot) || !fitsInSave(data)) return Promise.resolve(null);
+        return askAbout({ t: "save", id: `s${++n}`, slot, data }, (reply) => reply.t === "signed" && verifyEvent(reply.event) && looksLikeSave(reply.event, pubkey) ? reply.event : null);
+      },
+      find(slot) {
+        if (state !== "unlocked" || !frame2 || !cleanSlot(slot)) return Promise.resolve(null);
+        return askAbout({ t: "find", id: `f${++n}`, slot }, (reply) => reply.t === "found" ? reply.d : null);
+      },
+      open(event) {
+        if (state !== "unlocked" || !frame2 || !verifyEvent(event) || !looksLikeSave(event, pubkey)) return Promise.resolve(null);
+        return askAbout({ t: "open", id: `o${++n}`, event }, (reply) => reply.t === "opened" ? { slot: reply.slot, data: reply.data, at: reply.at } : null);
+      },
+      want(asked) {
+        const wanted = cleanMore([...asked]).filter((name2) => !offers2 || offers2.includes(name2));
+        if (state === "none" || !frame2 || wanted.length === 0) return false;
+        tell2({ t: "want", id: `w${++n}`, more: wanted });
+        return true;
+      },
+      follow(list, change2) {
+        const add = "add" in change2 ? change2.add : void 0;
+        const remove = "remove" in change2 ? change2.remove : void 0;
+        if (state !== "unlocked" || !frame2 || !more.includes("follows") || !isHex64(add ?? remove)) return Promise.resolve(null);
+        return askAbout({ t: "follow", id: `w${++n}`, list, ...add ? { add } : { remove } }, (reply) => reply.t === "signed" && isFollowAsked(reply.event, { list, ...add ? { add } : { remove }, pubkey }) ? reply.event : null);
+      },
+      guests(o) {
+        if (state !== "unlocked" || !frame2 || !pubkey || !isListSubject(o.world) || !isHex64(o.key)) return Promise.resolve(null);
+        if (o.list === null && o.none !== true) return Promise.resolve(null);
+        const asked = { list: o.list, subject: o.world, change: o.change, key: o.key, pubkey };
+        return putToThem({ t: "guests", id: `g${++n}`, world: o.world, list: o.list, change: o.change, key: o.key, ...o.none === true ? { none: true } : {} }, (reply) => reply.t === "signed" && isOwnerListAsked(reply.event, asked) ? reply.event : null);
+      },
+      seal(to, text2) {
+        const words2 = cleanMessage(text2);
+        if (state !== "unlocked" || !frame2 || !more.includes("messages") || !isHex64(to) || !words2) return Promise.resolve(null);
+        return askAbout({ t: "seal", id: `m${++n}`, to, text: words2 }, (reply) => reply.t === "sealed" && isSealAsked(reply, { pubkey, to, text: words2 }) ? { message: reply.message, seals: reply.seals } : null);
+      },
+      unwrap(wrap) {
+        if (state !== "unlocked" || !frame2 || !more.includes("messages") || !looksLikeWrap(wrap, pubkey ?? "")) return Promise.resolve(null);
+        return askAbout({ t: "unwrap", id: `m${++n}`, event: wrap }, (reply) => reply.t === "message" && (reply.message.from === pubkey || reply.message.to.includes(pubkey ?? "")) ? reply.message : null);
+      },
+      reach(relays) {
+        if (state !== "unlocked" || !frame2 || !more.includes("messages")) return Promise.resolve(null);
+        return askAbout({ t: "reach", id: `m${++n}`, relays: [...relays] }, (reply) => reply.t === "signed" && isReachAsked(reply.event, { pubkey, relays }) ? reply.event : null);
+      },
+      score(world2, board2, score, said2 = {}) {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        const more2 = { ...said2.title ? { title: said2.title } : {}, ...said2.format === "time" ? { format: "time" } : {} };
+        return askAbout({ t: "score", id: `c${++n}`, world: world2, board: board2, score, ...more2 }, (reply) => reply.t === "signed" && isScoreAsked(reply.event, { pubkey, world: world2, board: board2, score, ...more2, origin: location.origin }) ? reply.event : null);
+      },
+      achieve(world2, achievement, title) {
+        if (state !== "unlocked" || !frame2) return Promise.resolve(null);
+        return askAbout({ t: "achieve", id: `a${++n}`, world: world2, achievement, title }, (reply) => reply.t === "signed" && isAchievementAsked(reply.event, { pubkey, world: world2, id: achievement, title, origin: location.origin }) ? reply.event : null);
+      },
+      onChange(fn) {
+        watchers7.add(fn);
+        return () => void watchers7.delete(fn);
+      },
+      whenAnswered(ms) {
+        if (answered || disposed) return Promise.resolve();
+        return new Promise((done) => {
+          const go2 = () => {
+            clearTimeout(timer);
+            firstAnswer.delete(go2);
+            done();
+          };
+          const timer = setTimeout(go2, ms);
+          firstAnswer.add(go2);
+        });
+      },
+      dispose() {
+        disposed = true;
+        for (const go2 of [...firstAnswer]) go2();
+        clearTimeout(waiting3);
+        removeEventListener("message", onMessage);
+        frame2?.remove();
+        frame2 = null;
+        for (const w of pending.values()) {
+          clearTimeout(w.timer);
+          w.done(null);
+        }
+        pending.clear();
+        for (const k of kept2.values()) {
+          clearTimeout(k.timer);
+          k.answer(null);
+        }
+        kept2.clear();
+        state = "none";
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/identity.ts
+  function signerNamed() {
+    if (!signerAt(arrival.signer())) return false;
+    try {
+      const airlock = portal.airlockFor();
+      if (airlock && new URL(airlock).origin === location.origin) return false;
+    } catch {
+    }
+    return true;
+  }
+  function hereAs() {
+    const who2 = arrival.identity();
+    if (!who2 || !signerNamed()) return who2;
+    const signer = worldSigner();
+    return signer.state === "unlocked" && signer.pubkey === who2.pubkey ? who2 : void 0;
+  }
+  var hereWatchers = /* @__PURE__ */ new Set();
+  function onHereAs(fn) {
+    hereWatchers.add(fn);
+    return () => void hereWatchers.delete(fn);
+  }
+  var seeking = null;
+  var seekAfter = 0;
+  function seekPass() {
+    if (seeking) return seeking;
+    if (!signerNamed()) return Promise.resolve();
+    const signer = worldSigner();
+    const key = signer.state === "unlocked" ? signer.pubkey : null;
+    if (!key || arrival.identity()?.pubkey === key || Date.now() < seekAfter) return Promise.resolve();
+    seekAfter = Date.now() + 6e4;
+    const secret = crypto.getRandomValues(new Uint8Array(32));
+    const sessionKey = [...secret].map((b) => b.toString(16).padStart(2, "0")).join("");
+    seeking = signer.pass(getPublicKey(secret)).then((pass) => {
+      if (pass && signer.state === "unlocked" && signer.pubkey === key && arrival.keepIdentity(pass, sessionKey)) {
+        for (const fn of [...hereWatchers]) fn();
+      } else if (!pass) seekAfter = Infinity;
+    }).catch(() => {
+    }).finally(() => {
+      seeking = null;
+    });
+    return seeking;
+  }
+  var soon = (ms) => new Promise((done) => setTimeout(done, ms));
+  async function byName(identity) {
+    if (!signerNamed()) return identity;
+    const signer = worldSigner();
+    await signer.whenAnswered(2500);
+    if (signer.state !== "unlocked" || !signer.pubkey) return void 0;
+    if (identity && signer.pubkey === identity.pass.pubkey) return identity;
+    await Promise.race([seekPass(), soon(3e3)]);
+    const who2 = arrival.identity();
+    return who2 && who2.pubkey === signer.pubkey ? { pass: who2.pass, sessionKey: who2.sessionKey } : void 0;
+  }
+  function identityWords() {
+    const who2 = hereAs();
+    const name = who2 ? who2.name || shortNpub(who2.pubkey) : "";
+    return who2 ? { signedIn: true, name, label: `Here as ${name}. Switch profile, or go as a guest`, short: "You" } : { signedIn: false, name: "", label: "You are a guest here. Sign in", short: "Sign in" };
+  }
+  function youCard() {
+    const who2 = hereAs();
+    const signer = signerNamed() ? worldSigner() : null;
+    if (who2) {
+      const npub = encodeNpub(who2.pubkey);
+      return { title: who2.name || shortNpub(who2.pubkey), tag: "Signed in", proven: true, sub: shortNpub(who2.pubkey), copy: npub, text: who2.about ?? "", picture: who2.picture ?? "", color: "", now: [] };
+    }
+    if (signer?.state === "unlocked" && signer.pubkey) {
+      return { title: signer.name ?? shortNpub(signer.pubkey), tag: "Signed in to post", proven: false, sub: shortNpub(signer.pubkey), copy: encodeNpub(signer.pubkey), text: signer.about ?? "", picture: signer.picture ?? "", color: "", now: [] };
+    }
+    return null;
+  }
+  function identityHost() {
+    const airlock = portal.airlockFor();
+    try {
+      return airlock ? new URL(airlock).host : null;
+    } catch {
+      return null;
+    }
+  }
+  var identitySection = () => ({
+    id: "you",
+    label: "You",
+    icon: "you",
+    card: youCard,
+    note: () => {
+      const host = identityHost();
+      if (!host) return "";
+      if (!signerNamed()) return `Who you are and how you look are kept by ${host}, the place you set out from, and are the same in every world. Changing either takes you there and brings you back here.`;
+      const at = worldSigner().host ?? "your sign-in address";
+      const look = `How you look is kept by ${host}, the place you set out from: changing it takes you there and brings you back.`;
+      const visit = worldSigner().remembered === false ? ` It lasts for this visit: next time, ${at} asks again. Whether it remembers this world is yours to choose when it asks.` : "";
+      if (worldSigner().state === "unlocked") return `You are signed in here by ${at}.${visit} Signing out here makes you a guest in this world, and nowhere else. ${look}`;
+      return `Signing in is done by ${at}, which asks you itself: this world never sees a password. Until you sign in here, everyone sees a guest. ${look}`;
+    }
+  });
+  function unansweredWords(signer) {
+    const host = signer.host ?? "your signer";
+    const copy = signer.copy ? ` On this development server its copy is at ${signer.copy}: open that address once in a tab, so your browser accepts its certificate, then reload this page.` : " Press this again to ask once more, or reload the page.";
+    return `This world asked ${host} for your sign-in and got no answer. It may be unreachable from here, or your browser may have kept it out.${copy} Nothing is wrong with your sign-in.`;
+  }
+  var shared = null;
+  function worldSigner() {
+    if (shared) return shared;
+    const signer = shared = createWorldSigner({ under: arrival.signer(), airlock: portal.airlockFor() });
+    signer.onChange(() => {
+      if (signer.state !== "unlocked") seekAfter = 0;
+      void seekPass();
+    });
+    if (typeof document !== "undefined" && signerNamed()) setInterval(() => void seekPass(), 6e4);
+    return signer;
+  }
+  var kept = null;
+  function worldSaves() {
+    return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
+  }
+  function worldGate(opts = {}) {
+    const gate2 = createPaidGate({ ...opts, signer: () => signerNamed() ? worldSigner() : null });
+    if (!pageGate) {
+      pageGate = gate2;
+      gate2.onChange(() => {
+        for (const fn of [...rulesWatchers]) fn();
+      });
+      for (const fn of [...rulesWatchers]) fn();
+    }
+    return gate2;
+  }
+  var pageGate = null;
+  var rulesWatchers = /* @__PURE__ */ new Set();
+  function pageRules() {
+    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited } : { blocked: [], namedOnly: false, invited: null };
+  }
+  function onPageRules(fn) {
+    rulesWatchers.add(fn);
+    return () => void rulesWatchers.delete(fn);
+  }
+  var followed = null;
+  function worldPeople() {
+    const signer = () => signerNamed() ? worldSigner() : null;
+    return followed ?? (followed = createPeople({
+      hand: {
+        pubkey: () => signer()?.state === "unlocked" ? signer().pubkey : null,
+        ready: () => !!signer()?.more.includes("follows"),
+        change: (list, change2) => signer()?.follow(list, change2) ?? Promise.resolve(null)
+      }
+    }));
+  }
+  function signerAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    let was = signer.state;
+    let wasAsking = false;
+    const short = () => shortNpub(signer.pubkey ?? "");
+    signer.onChange(() => {
+      if (signer.state === "unlocked" && was !== "unlocked") {
+        void Promise.race([seekPass(), soon(4e3)]).then(() => {
+          if (signer.state !== "unlocked") return;
+          const who2 = hereAs();
+          controls2.say(
+            who2 ? `You are signed in here as ${who2.name || short()}${signer.remembered === false ? ", for this visit" : ""}. People in a room see your name and picture, and you can send out posts. Signing out is under You.` : `You are signed in here as ${signer.name ?? short()}, and can send out posts. In a room you are still a guest: ${signer.host ?? "your sign-in address"} gave no pass with your name on it.`
+          );
+        });
+      }
+      if (signer.state === "locked" && was === "unlocked") controls2.say("You are signed out here. Everyone sees a guest, and nothing more can be signed as you.");
+      if (wasAsking && !signer.asking && signer.unanswered) controls2.say(unansweredWords(signer));
+      if (wasAsking && !signer.asking && signer.state === "locked") controls2.say(`${signer.host ?? "Your sign-in address"} answered. You can sign in now.`);
+      wasAsking = signer.asking;
+      was = signer.state;
+      controls2.signal("signer");
+    });
+    onHereAs(() => controls2.signal("signer"));
+    return {
+      id: "signer",
+      section: "you",
+      icon: "key",
+      // Signed out, it says whose window will open, before anything is pressed: an address to recognise.
+      label: () => signer.state === "unlocked" ? `Signed in as ${hereAs()?.name || signer.name || short()}. Sign out here` : signer.asking ? `Asking ${signer.host ?? "your signer"} again\u2026` : signer.unanswered ? `${signer.host ?? "Your signer"} didn't answer. Press to ask again` : `Sign in${signer.host ? `, at ${signer.host}` : ""}`,
+      short: () => signer.state === "unlocked" ? "Sign out" : "Sign in",
+      on: () => signer.state === "unlocked",
+      // Nothing to offer where no signer was named. One that was named and doesn't answer is said so, not hidden:
+      // a row that isn't there can't be asked about.
+      hidden: () => signer.state === "none" && !signer.unanswered && !signer.asking,
+      act: () => {
+        if (signer.state === "unlocked") return signer.lock();
+        const host = signer.host ?? "your own client";
+        if (signer.asking) return;
+        if (signer.unanswered) {
+          if (signer.retry()) return controls2.say(`Asking ${host} again. It has ten seconds to answer.`);
+          return controls2.say(unansweredWords(signer));
+        }
+        if (opts.presenting?.()) return controls2.say(`${signer.panel ? `${host} has to ask you this itself, and that can't be seen from inside a headset` : `A window from ${host} is needed for this, and none can open in a headset`}. Leave the headset view for a moment, sign in, and come back in.`);
+        const here = signer.panel;
+        if (signer.unlock()) controls2.say(here ? `${host} is asking, here. Say yes there, and you are signed in.` : `A window from ${host} has opened. Say yes there, and you are signed in here.`);
+        else controls2.say(`Your browser didn't let a window open. Allow pop-ups for this site and press this again. Nothing is typed in this world: ${host} asks.`);
+      }
+    };
+  }
+  function accountAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "account",
+      section: "you",
+      icon: "key",
+      label: () => `Your account, at ${signer.host ?? "your sign-in address"}`,
+      short: "Account",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows your account itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("account")) controls2.say(`${host} couldn't be shown here just now.`);
+      }
+    };
+  }
+  function filesAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "files",
+      section: "you",
+      icon: "list",
+      label: () => `Your files, at ${signer.host ?? "your sign-in address"}`,
+      short: "Files",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows your files itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("files")) controls2.say(`${host} couldn't be shown here just now.`);
+      }
+    };
+  }
+  function libraryAction(controls2, opts = {}) {
+    const signer = worldSigner();
+    onClientScreen(() => controls2.signal("signer"));
+    return {
+      id: "library",
+      section: "you",
+      icon: "save",
+      label: () => `Your purchases, at ${signer.host ?? "your sign-in address"}`,
+      short: "Purchases",
+      hidden: () => !signer.panel,
+      act: () => {
+        const host = signer.host ?? "your sign-in address";
+        if (opts.presenting?.()) return controls2.say(`${host} shows what you have bought itself, and that can't be seen from inside a headset. Leave the headset view for a moment and press this again.`);
+        if (!askClientForSignIn("library")) controls2.say(`${host} couldn't be shown here just now.`);
       }
     };
   }
@@ -53046,7 +51487,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   // packages/sdk/src/engine-presence.ts
   var said = { rule: "none", scripts: false, relays: void 0 };
   var store = null;
-  var presence2 = null;
+  var presence = null;
   var arrivedBy = null;
   var watchers6 = /* @__PURE__ */ new Set();
   function engineItemStore() {
@@ -53062,7 +51503,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     watchers6.add(fn);
   }
   function enginePresence() {
-    if (presence2) return presence2;
+    if (presence) return presence;
     const parts3 = engineParts();
     if (!parts3) return null;
     const world2 = engineWorld();
@@ -53079,7 +51520,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       marker: () => new Group(),
       clips: () => []
     };
-    presence2 = createPresence({
+    presence = createPresence({
       scene: world2.scene,
       camera: world2.camera,
       rig: world2.rig,
@@ -53112,12 +51553,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         for (const fn of watchers6) fn();
       }
     });
-    const made = presence2;
+    const made = presence;
     addFramePart((_said, dt) => {
       made.update(dt);
       return {};
     });
-    return presence2;
+    return presence;
   }
   function entryPlace(json) {
     let said2 = {};
@@ -53133,13 +51574,2044 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const least = typeof said2.least === "number" && Number.isInteger(said2.least) && said2.least > 0 && said2.least <= 64 ? said2.least : ENTRY_PLACES_LEAST;
     const places = entryPlaces({ ...given[0], places: given.slice(1) }, least);
     arrivedBy = places;
-    const others = (presence2?.info() ?? []).flatMap((p) => Array.isArray(p.head) && p.head.length === 3 ? [[p.head[0], p.head[2]]] : []);
+    const others = (presence?.info() ?? []).flatMap((p) => Array.isArray(p.head) && p.head.length === 3 ? [[p.head[0], p.head[2]]] : []);
     const index = pickEntryPlace(places, others);
     return JSON.stringify({ index, place: places[index] ?? null });
   }
 
+  // packages/sdk/src/ui/feed.ts
+  var FEED_LIMITS = { shown: 420, kept: 30 };
+  function createUiFeed(changed, now = () => Date.now()) {
+    let opts = null;
+    let posts = [];
+    let loading4 = false;
+    let said2 = "";
+    let version = 0;
+    let count2 = 0;
+    let asked = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    const sort = () => {
+      posts.sort((a, b) => b.at - a.at);
+      const kept2 = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
+      posts = kept2;
+    };
+    return {
+      attach(next) {
+        opts = next;
+        posts = [];
+        loading4 = false;
+        said2 = "";
+        asked = 0;
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        posts = [];
+        loading4 = false;
+        said2 = "";
+        bump2();
+      },
+      opened() {
+        const mine = opts;
+        if (!mine?.load || loading4 || asked && now() - asked < 6e4) return;
+        asked = now();
+        loading4 = true;
+        bump2();
+        void mine.load().catch(() => null).then((got) => {
+          if (opts !== mine) return;
+          loading4 = false;
+          if (!got) said2 = "Your earlier posts couldn't be fetched just now.";
+          else {
+            const seen = new Set(posts.map((p) => p.key));
+            for (const p of got) {
+              const text2 = cleanLine(p.text, FEED_LIMITS.shown);
+              if (!text2 || seen.has(p.id) || !Number.isFinite(p.at)) continue;
+              seen.add(p.id);
+              posts.push({ key: p.id, text: text2, at: p.at, state: "out", id: p.id });
+            }
+            sort();
+          }
+          bump2();
+        });
+      },
+      send(text2) {
+        const mine = opts;
+        if (!mine) return "There is nothing to post with: sign in first.";
+        const words2 = cleanChat(text2);
+        if (!words2) return null;
+        const post = { key: `new-${++count2}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        posts.unshift(post);
+        said2 = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          post.state = how.ok ? "out" : "failed";
+          if (how.ok && how.id) post.id = how.id;
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      remove(key) {
+        const mine = opts;
+        const post = posts.find((p) => p.key === key);
+        if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
+        const id = post.id;
+        post.state = "removing";
+        said2 = "";
+        bump2();
+        void mine.remove(id).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) posts = posts.filter((p) => p !== post);
+          else post.state = "out";
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
+        const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
+        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
+      }
+    };
+  }
+  function ago(at, nowSec) {
+    const s = Math.max(0, nowSec - at);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+    const days = Math.floor(s / 86400);
+    if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
+    return new Date(at * 1e3).toISOString().slice(0, 10);
+  }
+
+  // packages/sdk/src/ui/summon.ts
+  var SUMMON_KEY = "Backquote";
+  var SUMMON_HOLD = 600;
+  var SUMMON_SLOP = 18;
+  function createHoldWatch(o) {
+    const hold = o.hold ?? SUMMON_HOLD;
+    const slop = o.slop ?? SUMMON_SLOP;
+    let from = null;
+    let timer = null;
+    const cancel = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      from = null;
+    };
+    return {
+      touches(points) {
+        if (points.length !== 2) return cancel();
+        if (!from) {
+          from = points.map((p) => ({ x: p.x, y: p.y }));
+          timer = setTimeout(() => {
+            cancel();
+            o.onHeld();
+          }, hold);
+          return;
+        }
+        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
+      },
+      cancel
+    };
+  }
+
+  // packages/sdk/src/ui/hud.ts
+  var CSS2 = `
+:host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
+  --s: 1; --accent: 255, 182, 92; --ink: 238, 245, 251; --glass: 10, 16, 24; --warn: 255, 117, 102;
+  font: 500 calc(13px * var(--s)) / 1.35 ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color: rgb(var(--ink)); -webkit-font-smoothing: antialiased; }
+:host([hidden]) { display: none; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 3px; }
+svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.glass { background: rgba(var(--glass), .7); border: 1px solid rgba(var(--accent), .34);
+  -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); }
+.mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; font-weight: 400; }
+
+/* ---- the corners of the view, marked lightly: this is a HUD, laid over a place */
+.corner { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(var(--accent), .5); }
+.corner.a { left: 6px; bottom: 6px; border-left-width: 1px; border-bottom-width: 1px; border-bottom-left-radius: 6px; }
+.corner.b { right: 6px; bottom: 6px; border-right-width: 1px; border-bottom-width: 1px; border-bottom-right-radius: 6px; }
+@media (max-width: 640px) { .corner { display: none; } }
+
+/* ---- who and where: top left */
+.id { position: absolute; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 10px; max-width: min(60vw, 420px); padding: 8px 14px 8px 10px; border-radius: 6px 14px 14px 6px;
+  border-left: 2px solid rgb(var(--accent)); }
+/* The mark: a lit doorway. The arch is this kit's one shape, borrowed from the doors it leads to. */
+.mark { width: 18px; height: 24px; border-radius: 9px 9px 2px 2px; flex: none; position: relative;
+  background: linear-gradient(rgba(var(--accent), .95), rgba(var(--accent), .25)); box-shadow: 0 0 14px rgba(var(--accent), .55); }
+.mark::after { content: ""; position: absolute; left: -3px; right: -3px; bottom: -3px; height: 2px; background: rgb(var(--ink)); border-radius: 1px; }
+.id b { display: block; font-weight: 650; font-size: 1.12em; letter-spacing: .005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.id .mono { display: block; font-size: .86em; color: rgba(var(--ink), .68); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- the menu button: top right */
+.menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
+.menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+/* Fill the screen: small, top centre, on a desk while it isn't filled. */
+.full { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; pointer-events: auto;
+  display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border-radius: 10px; font-size: .9em; }
+.full svg { width: 16px; height: 16px; }
+.full:hover, .full:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.full[hidden] { display: none; }
+kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-align: center; border-radius: 5px;
+  border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); }
+
+/* ---- the bottom: what you point at, then the hotbar */
+.low { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px; }
+.target { max-width: min(92vw, 640px); padding: 6px 14px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.target:empty { visibility: hidden; }
+/* Still loading, though they are in (controls.setLoading): the world's words, how far, and a line that fills. Above
+   what is pointed at, and pressing nothing. */
+.loading { position: relative; overflow: hidden; max-width: min(92vw, 520px); padding: 6px 16px 8px; border-radius: 999px;
+  display: flex; gap: 10px; align-items: baseline; white-space: nowrap; font-size: .92em; }
+.loading[hidden] { display: none; }
+.loading .what { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.loading .much { flex: none; color: rgb(var(--accent)); font-variant-numeric: tabular-nums; }
+.loading .fill { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; transform-origin: left; transform: scaleX(var(--f, 0));
+  background: rgb(var(--accent)); box-shadow: 0 0 8px rgb(var(--accent)); }
+/* How far isn't known: a short light runs along the line. */
+.loading.unknown .fill { width: 30%; transform: none; animation: loading-run 1.6s ease-in-out infinite; }
+:host(:not(.moving)) .loading.unknown .fill { animation: none; width: 100%; opacity: .5; }
+@keyframes loading-run { from { translate: -100% 0; } to { translate: 340% 0; } }
+/* What is pointed at, with a few lines about it: a small card, always this size, never in the way of the thing itself. */
+.target.card { max-width: min(92vw, 460px); padding: 10px 16px; border-radius: 14px; white-space: normal; text-align: left; display: grid; gap: 3px; }
+.target.card b { font-weight: 650; }
+.target.card span { opacity: 0.86; font-size: 0.93em; line-height: 1.35; }
+.target.card span:last-child { opacity: 1; color: rgb(var(--accent)); }
+/* The bar: as wide as its keys, and no wider than the screen. Wider than that (tabs pinned to it on a phone), the
+   keys slide along it, with an arrow at each end like the menu's tabs. The arrows stand beside the keys, never over
+   them, and while it is too wide both places are kept, so the keys don't jump as one comes and goes. */
+.bar { pointer-events: auto; position: relative; display: flex; align-items: stretch; max-width: 100%; border-radius: 20px 20px 10px 10px; }
+.bar[hidden] { display: none; }
+.hotbar { display: flex; align-items: flex-start; justify-content: flex-start; gap: 10px; padding: 12px 14px 8px; min-width: 0;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.hotbar::-webkit-scrollbar { display: none; }
+.bar .more { display: none; flex: none; width: 30px; place-items: center; font-size: 1.55em; line-height: 1;
+  color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
+.bar.over .more { display: grid; }
+.bar .more.left { border-radius: 20px 0 0 10px; }
+.bar .more.right { border-radius: 0 20px 10px 0; }
+/* Nothing more that way: its place is kept, empty, and it takes no press. */
+.bar .more.spent { visibility: hidden; pointer-events: none; }
+.bar .more:hover { color: rgb(var(--ink)); }
+.key { position: relative; flex: none; width: 62px; display: grid; justify-items: center; gap: 7px; text-align: center; }
+/* Between the place's own keys and the tabs the visitor pinned: a line, so it is plain which are theirs. */
+.hotbar .theirs { flex: none; align-self: stretch; width: 1px; margin: 2px 2px 8px; background: rgba(var(--ink), .2); }
+.key.pin .arch { border-style: dashed; }
+/* A key is a small doorway: an arch, standing on a sill that lights when it is on. */
+.key .arch { width: 52px; height: 54px; display: grid; place-items: center; border-radius: 26px 26px 7px 7px;
+  background: rgba(var(--accent), .08); border: 1px solid rgba(var(--accent), .42); transition: background .15s, border-color .15s, transform .15s; }
+.key .sill { width: 60px; height: 2px; margin-top: -4px; border-radius: 1px; background: rgba(var(--ink), .28); transition: background .2s, box-shadow .2s; }
+.key .name { font-size: .84em; line-height: 1.2; color: rgba(var(--ink), .82); max-width: 100%; overflow-wrap: anywhere; }
+.key .num { position: absolute; top: -6px; right: -2px; }
+.key:hover .arch, .key:focus-visible .arch { background: rgba(var(--accent), .2); border-color: rgb(var(--accent)); transform: translateY(-2px); }
+.key:hover .sill, .key[aria-pressed="true"] .sill { background: rgb(var(--accent)); box-shadow: 0 0 12px rgba(var(--accent), .8); }
+.key[aria-pressed="true"] .arch { background: rgba(var(--accent), .26); color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
+.key.primary .arch { background: rgb(var(--accent)); color: rgb(var(--glass)); border-color: rgb(var(--accent)); box-shadow: 0 0 18px rgba(var(--accent), .45); }
+.key.warn .arch { border-color: rgba(var(--warn), .7); color: rgb(var(--warn)); background: rgba(var(--warn), .08); }
+.key:disabled { opacity: .5; cursor: default; }
+
+/* ---- a few words for a moment: bottom left */
+.says { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); display: grid; gap: 6px; max-width: min(80vw, 360px); }
+.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
+.say.going { opacity: 0; transition: opacity .5s; }
+
+/* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
+.chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); width: min(340px, calc(100vw - 24px));
+  display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
+.chat[data-state="closed"] { display: none; }
+.chat [hidden] { display: none !important; }
+.chat .frame { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
+.chat[data-state="open"] .frame { pointer-events: auto; border-radius: 14px 6px 6px 14px; border-right: 2px solid rgb(var(--accent)); overflow: hidden; }
+.chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
+.chat header b { flex: 1; font-weight: 650; }
+.chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
+.chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
+.chat header svg { width: 1.2em; height: 1.2em; }
+.chat ol { list-style: none; margin: 0; padding: 10px 14px; display: grid; gap: 7px; align-content: end; overflow-y: auto; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; overflow-wrap: anywhere; }
+.chat li b { font-weight: 650; margin-right: .45em; color: var(--who, rgb(var(--accent))); }
+.chat li.mine b { color: rgba(var(--ink), .62); }
+.chat li.aside { color: rgba(var(--ink), .6); font-size: .93em; }
+.chat .empty { margin: 0; padding: 14px; color: rgba(var(--ink), .7); }
+.chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(var(--accent), .22); }
+.chat input { flex: 1; min-width: 0; font: inherit; font-size: max(16px, 1em); color: rgb(var(--ink)); background: rgba(var(--ink), .07);
+  border: 1px solid rgba(var(--ink), .22); border-radius: 9px; padding: 8px 10px; outline: none; }
+.chat input::placeholder { color: rgba(var(--ink), .5); }
+.chat input:focus { border-color: rgb(var(--accent)); }
+.chat form button { padding: 0 13px; border-radius: 9px; background: rgba(var(--accent), .18); border: 1px solid rgba(var(--accent), .7); }
+.chat form button:hover { background: rgb(var(--accent)); color: rgb(var(--glass)); }
+.chat .hint { margin: 0; padding: 0 12px 8px; font-size: .9em; color: rgb(var(--warn)); }
+.chat .hint:empty { display: none; }
+/* Three sides may be up at once: the strip slides under a finger sooner than run under the button that puts the panel away. */
+.chat header .tabs2 { flex: 1; display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.chat header .tabs2::-webkit-scrollbar { display: none; }
+.chat header .tabs2 .tab { flex: 0 0 auto; white-space: nowrap; }
+.chat header .tab { width: auto; height: 30px; padding: 0 10px; font-weight: 650; white-space: nowrap; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; }
+.chat header .tab[aria-selected="true"] { color: rgb(var(--ink)); border-bottom-color: rgb(var(--accent)); }
+.chat .lead, .chat .said { margin: 0; padding: 8px 14px 0; font-size: .9em; color: rgba(var(--ink), .7); }
+.chat .said { padding: 0 12px 8px; }
+.chat .said:empty { display: none; }
+/* The feed reads the other way up from the chat: where to write is at the top, and the newest post under it. */
+.chat[data-tab="feed"] form { order: 1; border-top: 0; flex-wrap: wrap; }
+.chat[data-tab="feed"] form input { flex: 1 1 100%; min-height: 38px; }
+.chat[data-tab="feed"] form button { margin-left: auto; min-height: 34px; font-weight: 650; }
+.chat[data-tab="feed"] :is(.hint, .said) { order: 2; }
+.chat[data-tab="feed"] :is(ol, .empty) { order: 3; border-top: 1px solid rgba(var(--accent), .22); }
+.chat[data-tab="feed"] ol { align-content: start; gap: 0; padding: 0 14px; }
+.chat li.post { padding: 10px 0; border-bottom: 1px solid rgba(var(--ink), .12); overflow-wrap: anywhere; }
+.chat li.post:last-child { border-bottom: 0; }
+.chat li.letter { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat li.letter.sending { opacity: .6; }
+.chat li.letter.failed small { color: rgb(var(--warn)); opacity: 1; }
+.chat li.letter small, .chat li.post small { display: block; margin-top: 3px; font-size: .86em; color: rgba(var(--ink), .55); }
+.chat li.post.failed small { color: rgb(var(--warn)); }
+.chat li.post.sending, .chat li.post.removing { opacity: .7; }
+.chat li.post .post-remove { font: inherit; color: rgba(var(--ink), .8); text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; margin: -6px 0; pointer-events: auto; }
+.chat li.post .post-remove:hover { color: rgb(var(--warn)); }
+.chat[data-state="peek"] :is(header, form, .hint, .empty, .lead, .said) { display: none; }
+.chat[data-state="peek"] ol { padding: 0; overflow: hidden; justify-items: end; }
+.chat[data-state="peek"] li { padding: 7px 12px; border-radius: 12px 4px 4px 12px; border-right: 2px solid rgb(var(--accent)); max-width: 100%;
+  background: rgba(var(--glass), .7); -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25); animation: chat-in .22s ease-out both; }
+.chat[data-state="peek"].going { opacity: 0; transition: opacity .6s; }
+:host([data-presence="hidden"]) .chat { display: none; }
+:host(:not([data-presence="full"])) .chat { bottom: max(72px, env(safe-area-inset-bottom)); }
+
+/* ---- the sheet: everything else, by section */
+.sheet { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px * var(--s)); transform: translateX(-50%);
+  width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
+  border-radius: 22px 22px 12px 12px; overflow: hidden; }
+.sheet[hidden] { display: none; }
+/* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
+@media (min-width: 900px) and (min-height: 560px) {
+  .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
+  .rows { grid-template-columns: 1fr 1fr; align-content: start; }
+  .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
+  .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
+  .rows > .tiles { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+}
+.sheet::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--accent)), transparent); box-shadow: 0 0 16px rgb(var(--accent)); }
+.tabs { position: relative; display: flex; gap: 4px; padding: 12px 12px 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+/* There are more sections than fit: an arrow at the side they are on, over a fade, and it takes them there. */
+.tabbar { position: relative; }
+.tabbar .more { position: absolute; top: 2px; bottom: 0; width: 40px; display: grid; align-items: center; z-index: 1; font-size: 1.55em; line-height: 1;
+  color: rgb(var(--accent)); text-shadow: 0 0 10px rgb(var(--accent)); }
+.tabbar .more.left { left: 0; justify-items: start; padding-left: 9px; border-radius: 22px 0 0 0; background: linear-gradient(90deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
+.tabbar .more.right { right: 0; justify-items: end; padding-right: 9px; border-radius: 0 22px 0 0; background: linear-gradient(270deg, rgb(var(--glass)) 45%, rgba(var(--glass), 0)); }
+.tabbar .more[hidden] { display: none; }
+.tabbar .more:hover { color: rgb(var(--ink)); }
+.tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab:hover { color: rgb(var(--ink)); }
+.tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
+.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+  scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
+/* A choice of colour is a row of small doorways, each lit in its own. */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
+.swatch { width: 66px; display: grid; justify-items: center; gap: 6px; font-size: .86em; color: rgba(var(--ink), .8); }
+.swatch i { width: 38px; height: 44px; border-radius: 19px 19px 5px 5px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 30%, transparent)); border: 1px solid var(--c); transition: transform .15s, box-shadow .15s; }
+.swatch u { width: 46px; height: 2px; margin-top: -3px; border-radius: 1px; background: rgba(var(--ink), .25); }
+.swatch:hover i { transform: translateY(-2px); }
+.swatch[aria-pressed="true"] i { box-shadow: 0 0 16px var(--c); }
+.swatch[aria-pressed="true"] u { background: var(--c); box-shadow: 0 0 10px var(--c); }
+.swatch[aria-pressed="true"] { color: rgb(var(--ink)); }
+/* Things with pictures of themselves, side by side: what is in a bag. Each is a small plinth the thing stands on. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 2px 0 4px; }
+.tile { display: grid; grid-template-rows: auto auto; justify-items: center; gap: 4px; padding: 8px 6px 9px; border-radius: 14px 14px 8px 8px; text-align: center;
+  border: 1px solid rgba(var(--ink), .12); background: radial-gradient(120% 90% at 50% 100%, rgba(var(--accent), .13), rgba(var(--ink), .03) 70%);
+  font-size: .9em; line-height: 1.2; color: rgba(var(--ink), .85); transition: background .12s, border-color .12s, transform .12s; }
+.tile .shown { width: 100%; aspect-ratio: 1; display: grid; place-items: center; font-weight: 700; font-size: 1.9em; color: rgba(var(--ink), .35); }
+.tile canvas { width: 100%; height: 100%; display: block; }
+.tile:hover { border-color: rgba(var(--accent), .7); transform: translateY(-2px); }
+.tile[aria-pressed="true"] { border-color: rgb(var(--accent)); color: rgb(var(--ink)); box-shadow: 0 0 0 1px rgb(var(--accent)), 0 0 18px rgba(var(--accent), .35); }
+.tile span { overflow-wrap: anywhere; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
+  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
+.row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
+/* A line is read and not pressed: no edge, no hover, nothing that looks like a button. Lit is the accent; dark is dim. */
+.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 4px 12px; line-height: 1.35; color: rgba(var(--ink), .55); }
+.line svg { flex: none; margin-top: 1px; opacity: .55; }
+.line.on { color: rgb(var(--ink)); }
+.line.on svg { opacity: 1; color: rgb(var(--accent)); }
+.row .grow { flex: 1; min-width: 0; }
+.row .state { font-size: .86em; color: rgba(var(--ink), .6); }
+.row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
+.row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
+.row.warn { color: rgb(var(--warn)); }
+.row.primary { background: rgba(var(--accent), .16); border-color: rgba(var(--accent), .75); }
+/* Who a section is about: a face, a name, how they are known, and what they say of themselves, set apart as theirs. */
+/* A person: the card at the head of a section. Its own name, so it is never taken for the card about what is pointed at. */
+.person { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; align-items: center; padding: 12px; border-radius: 16px 16px 8px 8px;
+  border: 1px solid rgba(var(--accent), .45); background: rgba(var(--accent), .07); }
+.person .face { grid-row: span 2; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  background: var(--c, rgba(var(--ink), .2)); color: rgb(var(--glass)); font-weight: 700; font-size: 1.5em; }
+.person .face canvas { width: 100%; height: 100%; display: block; }
+/* A card about a thing: the thing itself, large, on a lit plinth, where a person's card has a face. */
+.person.thing { grid-template-columns: minmax(112px, 30%) 1fr; grid-template-areas: "face about" "acts acts"; align-items: start; gap: 10px 14px; }
+.person.thing .about { grid-area: about; display: grid; gap: 5px; min-width: 0; align-content: start; }
+.person.thing .about blockquote { margin: 3px 0 0; }
+/* What to do with the thing: side by side where they fit, and one under another where they don't. */
+.person.thing .acts { grid-area: acts; display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; align-content: start; min-width: 0; }
+.person.thing .acts > .row { flex: 1 1 210px; min-width: 0; }
+.person.thing .acts > .swatches { flex: 1 1 100%; }
+.person.thing .face { grid-area: face; width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px;
+  background: radial-gradient(90% 70% at 50% 92%, rgba(var(--accent), .3), transparent 70%), rgba(var(--ink), .05); color: rgba(var(--ink), .4); }
+.person h3 { margin: 0; font-size: 1.15em; font-weight: 650; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.person .tag { font-size: .76em; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); white-space: nowrap; }
+.person .tag.proven { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); }
+.person .keyline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: rgba(var(--ink), .7); font-size: .9em; }
+.person .keyline button { padding: 2px 10px; border-radius: 7px; border: 1px solid rgba(var(--ink), .25); color: rgb(var(--ink)); }
+.person .keyline button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.person blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
+.person .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
+
+.note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
+.note:empty { display: none; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
+/* Keeping this tab on the bar: a quiet button, opposite Close. */
+.pin-it { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); color: rgba(var(--ink), .82); font-size: .93em; }
+.pin-it svg { width: 16px; height: 16px; }
+.pin-it:hover:not(:disabled), .pin-it:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.pin-it[aria-pressed="true"] { border-color: rgba(var(--accent), .8); color: rgb(var(--accent)); background: rgba(var(--accent), .12); }
+.pin-it:disabled { opacity: .5; cursor: default; }
+.close { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(var(--ink), .22); }
+.close:hover { border-color: rgb(var(--ink)); }
+
+/* ---- quiet: one mark in a corner, and everything else behind it */
+.quiet { position: absolute; pointer-events: auto; display: none; width: 44px; height: 48px; place-items: center; border-radius: 22px 22px 8px 8px; }
+.quiet .mark { margin-bottom: 2px; }
+.quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
+:host([data-presence="quiet"]) .quiet { display: grid; }
+:host([data-presence="quiet"]) :is(.id, .menu, .bar, .target, .corner),
+:host([data-presence="hidden"]) :is(.id, .menu, .bar, .target, .corner, .says, .loading) { display: none; }
+:host([data-corner="top-left"]) .quiet { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+:host([data-corner="top-right"]) .quiet { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
+:host([data-corner="bottom-left"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
+:host([data-corner="bottom-right"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
+/* With no hotbar under it, the sheet opens in the middle of the bottom edge, clear of the corners. */
+:host(:not([data-presence="full"])) .sheet { bottom: max(72px, env(safe-area-inset-bottom)); }
+:host(:not([data-presence="full"])) .says { bottom: max(72px, env(safe-area-inset-bottom)); }
+/* Keys the world has switched off aren't advertised. */
+:host(.no-menu-key) .menu kbd, :host(.no-hotbar-keys) :is(.key .num, .row kbd) { display: none; }
+
+/* Who they are signed in as, said once when it becomes so: top centre, in one place, and gone again. It is never
+   pressed and never in the way: it can't be clicked, and what is under it can. */
+.as { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px;
+  padding: 6px 18px 6px 6px; border-radius: 999px; max-width: min(72vw, 380px); opacity: 0; visibility: hidden; pointer-events: none; }
+.as.plain { padding-left: 18px; }
+.as .face { flex: none; width: calc(36px * var(--s)); height: calc(36px * var(--s)); border-radius: 50%; display: grid; place-items: center; overflow: hidden;
+  background: rgba(var(--accent), .16); color: rgb(var(--accent)); font-weight: 650; box-shadow: 0 0 0 2px rgba(var(--accent), .75); }
+.as.plain .face { display: none; }
+.as .face canvas { width: 100%; height: 100%; display: block; }
+.as .who { min-width: 0; }
+.as small { display: block; font-size: .8em; line-height: 1.15; color: rgba(var(--ink), .72); white-space: nowrap; }
+.as b { display: block; font-weight: 650; font-size: 1.06em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as.shown { opacity: 1; visibility: visible; }
+/* It comes into focus where it stands and goes out the same way: nothing slides across the view. */
+:host(.moving) .as { transform: scale(.9); filter: blur(8px); transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s linear .5s; }
+:host(.moving) .as.shown { transform: none; filter: none; transition: opacity .4s ease, transform .5s cubic-bezier(.2, .8, .2, 1), filter .4s ease, visibility 0s; }
+:host(.moving) .as.shown .face { animation: as-ring 1.2s ease-out .15s both; }
+:host(.moving) .as.shown b { animation: as-name .5s ease-out .12s both; }
+@keyframes as-ring { from { box-shadow: 0 0 0 2px rgba(var(--accent), .95), 0 0 0 0 rgba(var(--accent), .55); } to { box-shadow: 0 0 0 2px rgba(var(--accent), .75), 0 0 0 14px rgba(var(--accent), 0); } }
+@keyframes as-name { from { opacity: 0; letter-spacing: .08em; } }
+/* On a narrow screen the place's name and the menu take the top row: it stands just under them. */
+@media (max-width: 760px) { .as { top: calc(max(12px, env(safe-area-inset-top)) + 60px * var(--s)); } }
+
+/* ---- one moment of motion: things arrive. Nothing loops. */
+@keyframes say-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes chat-in { from { opacity: 0; transform: translateX(8px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes unfold { from { clip-path: inset(100% 0 0 0 round 22px); opacity: .4; } to { clip-path: inset(0 0 0 0 round 22px); opacity: 1; } }
+:host(.moving.arriving) .key { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms + 120ms); }
+:host(.moving.arriving) .id, :host(.moving.arriving) .menu { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+:host(.moving) .sheet:not([hidden]) { animation: unfold .24s cubic-bezier(.2, .8, .2, 1) both; }
+:host(:not(.moving)) * { transition: none !important; animation: none !important; }
+
+/* ---- a phone: the same things, closer together */
+@media (max-width: 640px) {
+  .id { max-width: calc(100vw - 86px); padding: 6px 10px 6px 8px; }
+  .menu span, .menu kbd, .key .num { display: none; }
+  .menu { padding: 0 10px; }
+  .hotbar { gap: 4px; padding: 10px 8px 6px; }
+  .bar .more { width: 26px; }
+  .key { width: 54px; }
+  .key .arch { width: 46px; height: 46px; border-radius: 23px 23px 6px 6px; }
+  .key .sill { width: 50px; }
+  .key .name { font-size: .76em; }
+  .sheet { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
+  .says { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px * var(--s)); }
+  /* The chat is across the bottom, over the hotbar's shoulder, and no taller than half the screen. */
+  .chat { left: 8px; right: 8px; width: auto; top: auto; max-height: 46vh; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px * var(--s)); }
+  .chat[data-state="peek"] { max-height: 30vh; }
+}
+/* A keyboard on the glass covers the bottom of the page: the place to write stands on top of it. */
+:host(.keys-up) .chat[data-state="open"] { top: auto; bottom: calc(var(--kb, 0px) + 8px); max-height: calc(100vh - var(--kb, 0px) - 24px); }
+@media (hover: none) { kbd { display: none; } }
+`;
+  function icon(name) {
+    if (!name) return null;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", ICONS[name]);
+    svg.append(path);
+    return svg;
+  }
+  function el(tag2, attrs = {}, ...children) {
+    const e = document.createElement(tag2);
+    for (const [k, v2] of Object.entries(attrs)) e.setAttribute(k, v2);
+    for (const c of children) if (c) e.append(c);
+    return e;
+  }
+  function mountHud(controls2, opts = {}) {
+    const host = document.createElement("nswp-hud");
+    const root = host.attachShadow({ mode: "open" });
+    let style = "";
+    try {
+      const sheet2 = new CSSStyleSheet();
+      sheet2.replaceSync(CSS2);
+      root.adoptedStyleSheets = [sheet2];
+    } catch {
+      style = document.createElement("style");
+      style.textContent = CSS2;
+    }
+    const title = el("b");
+    const address = el("span", { class: "mono" });
+    const id = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
+    const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
+    const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
+    const target2 = el("div", { class: "target glass", "aria-live": "polite" });
+    const loadingWhat = el("span", { class: "what", "aria-live": "polite" });
+    const loadingMuch = el("span", { class: "much" });
+    const loadingFill = el("i", { class: "fill", "aria-hidden": "true" });
+    const loadingLine2 = el("div", { class: "loading glass", hidden: "" }, loadingWhat, loadingMuch, loadingFill);
+    const hotbar = el("nav", { class: "hotbar", "aria-label": "Controls" });
+    const barBack = el("button", { class: "more left spent", type: "button", "aria-label": "Earlier keys", tabindex: "-1" }, "\u2039");
+    const barOn = el("button", { class: "more right spent", type: "button", "aria-label": "More keys", tabindex: "-1" }, "\u203A");
+    const bar = el("div", { class: "bar glass" }, barBack, hotbar, barOn);
+    const says = el("div", { class: "says", role: "status" });
+    const asFace = el("span", { class: "face", "aria-hidden": "true" });
+    const asLead = el("small");
+    const asName = el("b");
+    const asWho = el("div", { class: "as glass", role: "status" }, asFace, el("span", { class: "who" }, asLead, asName));
+    const full = el("button", { class: "full glass", type: "button", hidden: "" }, icon("full"), el("span", {}, fullscreenButton.label));
+    const tabs = el("div", { class: "tabs", role: "tablist" });
+    const tabsBack = el("button", { class: "more left", type: "button", "aria-label": "Earlier sections", hidden: "" }, "\u2039");
+    const tabsOn = el("button", { class: "more right", type: "button", "aria-label": "More sections", hidden: "" }, "\u203A");
+    const tabbar = el("div", { class: "tabbar" }, tabsBack, tabs, tabsOn);
+    let tabsShowing = "";
+    let cardShown = "";
+    const tendTabs = () => {
+      const most = tabs.scrollWidth - tabs.clientWidth;
+      tabsBack.hidden = tabs.scrollLeft <= 6;
+      tabsOn.hidden = most <= 6 || tabs.scrollLeft >= most - 6;
+    };
+    const slideTabs = (by) => tabs.scrollBy({ left: by * Math.max(120, tabs.clientWidth * 0.6), behavior: controls2.theme.motion ? "smooth" : "auto" });
+    tabsBack.addEventListener("click", () => slideTabs(-1));
+    tabsOn.addEventListener("click", () => slideTabs(1));
+    tabs.addEventListener("scroll", tendTabs, { passive: true });
+    const tabsWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendTabs());
+    tabsWatch?.observe(tabs);
+    tabbar.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tabs.scrollWidth <= tabs.clientWidth) return;
+        e.preventDefault();
+        tabs.scrollLeft += e.deltaY;
+      },
+      { passive: false }
+    );
+    const arrowsTake = () => bar.classList.contains("over") ? barBack.offsetWidth + barOn.offsetWidth : 0;
+    const tendBar = () => {
+      const over = hotbar.scrollWidth > hotbar.clientWidth + arrowsTake() + 1;
+      if (bar.classList.contains("over") !== over) bar.classList.toggle("over", over);
+      const most = hotbar.scrollWidth - hotbar.clientWidth;
+      barBack.classList.toggle("spent", !over || hotbar.scrollLeft <= 6);
+      barOn.classList.toggle("spent", !over || most <= 6 || hotbar.scrollLeft >= most - 6);
+    };
+    let sliding = 0;
+    const stopSliding = () => {
+      if (sliding) cancelAnimationFrame(sliding);
+      sliding = 0;
+    };
+    const slideBar = (by) => {
+      stopSliding();
+      const from = hotbar.scrollLeft;
+      const to = Math.max(0, Math.min(hotbar.scrollWidth - hotbar.clientWidth, from + by * Math.max(110, hotbar.clientWidth * 0.6)));
+      if (!controls2.theme.motion || typeof requestAnimationFrame !== "function") {
+        hotbar.scrollLeft = to;
+        return void tendBar();
+      }
+      const began = performance.now();
+      const step = (t) => {
+        const k = Math.min(1, (t - began) / 240);
+        hotbar.scrollLeft = from + (to - from) * (1 - (1 - k) ** 3);
+        sliding = k < 1 ? requestAnimationFrame(step) : 0;
+        if (!sliding) tendBar();
+      };
+      sliding = requestAnimationFrame(step);
+    };
+    for (const type of ["pointerdown", "wheel", "touchstart"]) hotbar.addEventListener(type, stopSliding, { passive: true });
+    barBack.addEventListener("click", () => slideBar(-1));
+    barOn.addEventListener("click", () => slideBar(1));
+    hotbar.addEventListener("scroll", tendBar, { passive: true });
+    const barWatch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tendBar());
+    barWatch?.observe(hotbar);
+    bar.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || hotbar.scrollWidth <= hotbar.clientWidth) return;
+        e.preventDefault();
+        hotbar.scrollLeft += e.deltaY;
+      },
+      { passive: false }
+    );
+    let barLed = "";
+    let barDrawn = "";
+    const rows = el("div", { class: "rows" });
+    const note = el("p", { class: "note" });
+    const close = el("button", { class: "close", type: "button" }, "Close");
+    const pinWords = el("span");
+    const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
+    const chatTitle = el("b");
+    const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
+    const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
+    const tabLetters = el("button", { type: "button", class: "tab", role: "tab" }, "Private messages");
+    const chatTabs = el("div", { class: "tabs2", role: "tablist" }, tabRoom, tabLetters, tabFeed);
+    const feedLead = el("p", { class: "lead" });
+    const feedSaid = el("p", { class: "said", role: "status" });
+    const chatClose = el("button", { type: "button", "aria-label": "Put this away" }, icon("close"));
+    const chatLines = el("ol", { "aria-live": "polite" });
+    const ROOM_EMPTY = "Nobody has written anything yet. What is written here goes to the people in this room, and is kept nowhere.";
+    const chatEmpty = el("p", { class: "empty" }, ROOM_EMPTY);
+    const chatField = el("input", { type: "text", autocomplete: "off", enterkeyhint: "send", "aria-label": "Write to the room", placeholder: "Write to the room" });
+    const chatHint = el("p", { class: "hint", role: "status" });
+    const chatSend = el("button", { type: "submit" }, "Send");
+    const chatForm = el("form", {}, chatField, chatSend);
+    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
+    (opts.parent ?? document.body).append(host);
+    let open2 = false;
+    let section = "";
+    let chose = false;
+    let drawn2 = "";
+    const press = (item) => controls2.run(item.id);
+    const openPin = (id2) => {
+      controls2.signal("press");
+      if (open2 && section === id2) setOpen(false);
+      else setOpen(true, id2);
+    };
+    const drawCard = (card, acts = []) => {
+      const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
+      if (card.color) face.style.setProperty("--c", card.color);
+      const paint2 = card.draw;
+      if (paint2) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 256;
+        const g = canvas.getContext("2d");
+        let had = false;
+        const tick2 = () => {
+          if (had && (!canvas.isConnected || sheet.hidden)) return;
+          const now2 = paint2();
+          if (now2 && g) {
+            g.clearRect(0, 0, 256, 256);
+            g.drawImage(now2, 0, 0, 256, 256);
+            if (!had) face.replaceChildren(canvas);
+            had = true;
+          }
+          if (canvas.isConnected || !had) requestAnimationFrame(tick2);
+        };
+        let tries = 0;
+        const begin = () => {
+          if (!face.isConnected && ++tries < 3) return void requestAnimationFrame(begin);
+          tick2();
+        };
+        requestAnimationFrame(begin);
+      }
+      if (card.picture) {
+        void loadPicture(card.picture).then((drawn3) => {
+          if (!drawn3 || !face.isConnected) return;
+          const copy = document.createElement("canvas");
+          copy.width = drawn3.width;
+          copy.height = drawn3.height;
+          copy.getContext("2d")?.drawImage(drawn3, 0, 0);
+          face.replaceChildren(copy);
+        });
+      }
+      const copyKey = card.copy ? el("button", { type: "button" }, "Copy key") : null;
+      copyKey?.addEventListener("click", () => {
+        void (navigator.clipboard?.writeText(card.copy) ?? Promise.reject(new Error("no clipboard"))).then(
+          () => controls2.say("The key is copied, in full."),
+          () => controls2.say(`The key: ${card.copy}`)
+        );
+      });
+      const head = el("h3", {}, card.title, card.tag && el("span", { class: card.proven ? "tag proven" : "tag" }, card.tag));
+      const key = el("div", { class: "keyline" }, el("span", { class: card.copy ? "mono" : "" }, card.sub), copyKey);
+      const words2 = card.text && el("blockquote", {}, card.text);
+      const now = card.now.length > 0 && el("p", { class: "now" }, card.now.join(", "));
+      if (card.draw) {
+        return el(
+          "div",
+          { class: "person thing", role: "group", "aria-label": `About ${card.title}` },
+          face,
+          el("div", { class: "about" }, head, key, words2, now),
+          acts.length > 0 && el("div", { class: "acts" }, ...acts)
+        );
+      }
+      return el("div", { class: "person", role: "group", "aria-label": `About ${card.title}` }, face, head, key, words2, now);
+    };
+    let chatState = "closed";
+    let dockTab = "room";
+    let chatDrawn = "";
+    let chatNewest = "";
+    let peekTimer;
+    let goingTimer;
+    const PEEK_LINES = 4;
+    const PEEK_MS = 9e3;
+    const setChatState = (next) => {
+      clearTimeout(peekTimer);
+      clearTimeout(goingTimer);
+      chat.classList.remove("going");
+      chatState = next;
+      if (next === "peek") {
+        goingTimer = setTimeout(() => chat.classList.add("going"), PEEK_MS - 700);
+        peekTimer = setTimeout(() => {
+          if (chatState === "peek") setChatState("closed");
+          draw();
+        }, PEEK_MS);
+      }
+    };
+    const drawChat = (view2) => {
+      const c = view2.chat;
+      const f = view2.feed;
+      const l = view2.letters;
+      const readyOf = (tab) => tab === "feed" ? f.ready : tab === "letters" ? l.ready : c.ready;
+      if (chatState === "open" && !readyOf(dockTab)) {
+        const other = ["room", "letters", "feed"].find(readyOf);
+        if (other) dockTab = other;
+        else setChatState("closed");
+      }
+      if (chatState === "peek" && !c.ready) setChatState("closed");
+      const newest = c.lines[c.lines.length - 1]?.key ?? "";
+      if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
+      chatNewest = newest;
+      const showing = chatState === "open" ? dockTab : "room";
+      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
+      if (now === chatDrawn) return;
+      chatDrawn = now;
+      chat.dataset.state = chatState;
+      chat.dataset.tab = showing;
+      chat.setAttribute("aria-label", showing === "feed" ? f.title : showing === "letters" ? l.title : "Room chat");
+      const both = [c.ready, f.ready, l.ready].filter(Boolean).length > 1;
+      chatTabs.hidden = !both;
+      chatTitle.hidden = both;
+      chatTitle.textContent = showing === "feed" ? f.title : showing === "letters" ? l.title : c.title;
+      tabRoom.hidden = !c.ready;
+      tabFeed.hidden = !f.ready;
+      tabLetters.hidden = !l.ready;
+      tabLetters.textContent = l.title;
+      tabLetters.setAttribute("aria-selected", String(showing === "letters"));
+      tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
+      tabRoom.setAttribute("aria-selected", String(showing === "room"));
+      tabFeed.setAttribute("aria-selected", String(showing === "feed"));
+      feedLead.hidden = showing === "room";
+      feedSaid.hidden = showing === "room";
+      chatField.maxLength = showing === "feed" ? f.limit : showing === "letters" ? l.limit : c.limit;
+      const words2 = showing === "feed" ? "Write a post" : showing === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
+      chatField.placeholder = words2;
+      chatField.setAttribute("aria-label", words2);
+      chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
+      if (showing === "feed") {
+        feedLead.textContent = f.lead;
+        feedSaid.textContent = f.said;
+        const nowSec = Math.floor(Date.now() / 1e3);
+        chatLines.replaceChildren(
+          ...f.posts.map((p) => {
+            const when = el("small", {}, p.state === "sending" ? "Sending\u2026" : p.state === "failed" ? "Not sent" : p.state === "removing" ? "Deleting\u2026" : ago(p.at, nowSec));
+            if (f.removable && p.id && p.state === "out") {
+              const remove = el("button", { type: "button", class: "post-remove" }, "Delete");
+              remove.addEventListener("click", () => {
+                const trouble = controls2.feed.remove(p.key);
+                if (trouble) controls2.say(trouble);
+              });
+              when.append(" \xB7 ", remove);
+            }
+            return el("li", { class: `post ${p.state}` }, p.text, when);
+          })
+        );
+        chatEmpty.textContent = f.loading ? "Fetching your posts\u2026" : "Nothing here yet. What you send out appears here, and on Nostr for anyone to read.";
+        chatEmpty.hidden = f.posts.length > 0;
+        chatLines.hidden = f.posts.length === 0;
+        return;
+      }
+      if (showing === "letters") {
+        feedLead.textContent = l.lead;
+        feedSaid.textContent = l.said;
+        const nowSec = Math.floor(Date.now() / 1e3);
+        const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+        chatLines.replaceChildren(
+          ...l.lines.map(
+            (line2) => el("li", { class: `letter ${line2.mine ? "mine" : ""} ${line2.state}` }, el("b", {}, line2.mine ? "You" : line2.who), " ", line2.text, el("small", {}, line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)))
+          )
+        );
+        chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
+        chatEmpty.hidden = l.lines.length > 0;
+        chatLines.hidden = l.lines.length === 0;
+        if (wasAtEnd || l.lines[l.lines.length - 1]?.mine) chatLines.scrollTop = chatLines.scrollHeight;
+        controls2.letters.seen();
+        return;
+      }
+      const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
+      const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
+      chatLines.replaceChildren(
+        ...lines.map((line2) => {
+          const li = el("li", { class: line2.note ? "aside" : line2.mine ? "mine" : "" }, !line2.note && el("b", {}, line2.mine ? "You" : line2.who), line2.note ? "" : " ", line2.text);
+          if (line2.color && !line2.mine) li.style.setProperty("--who", line2.color);
+          return li;
+        })
+      );
+      chatEmpty.textContent = ROOM_EMPTY;
+      chatEmpty.hidden = lines.length > 0;
+      chatLines.hidden = lines.length === 0;
+      if (chatState === "open" && (atEnd || lines[lines.length - 1]?.mine)) chatLines.scrollTop = chatLines.scrollHeight;
+      if (chatState === "open") controls2.chat.seen();
+    };
+    const setChatOpen = (next, tab) => {
+      if (next) {
+        const c = controls2.chat.view();
+        const f = controls2.feed.view();
+        const l = controls2.letters.view();
+        const want2 = tab ?? (chatState === "open" ? dockTab : c.ready ? "room" : l.ready ? "letters" : "feed");
+        if (!(want2 === "feed" ? f.ready : want2 === "letters" ? l.ready : c.ready) || host.hidden || controls2.view().presence === "hidden") return;
+        const was = chatState === "open";
+        if (was && want2 === dockTab) return;
+        dockTab = want2;
+        if (want2 === "feed") controls2.feed.opened();
+        chatHint.textContent = "";
+        if (!was) {
+          if (open2) setOpen(false);
+          chatCameFrom = focused();
+          setChatState("open");
+        }
+        draw();
+        chatLines.scrollTop = want2 === "feed" ? 0 : chatLines.scrollHeight;
+        chatField.focus({ preventScroll: true });
+        controls2.signal(want2 === "feed" ? "feedOpen" : "chatOpen");
+        return;
+      }
+      if (chatState !== "open") return;
+      setChatState("closed");
+      draw();
+      controls2.signal("chatClose");
+      const back = chatCameFrom;
+      chatCameFrom = null;
+      if (back?.isConnected && back !== document.body && !chat.contains(back) && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+      else focused()?.blur();
+    };
+    let chatCameFrom = null;
+    chatClose.addEventListener("click", () => setChatOpen(false));
+    tabRoom.addEventListener("click", () => setChatOpen(true, "room"));
+    tabFeed.addEventListener("click", () => setChatOpen(true, "feed"));
+    tabLetters.addEventListener("click", () => setChatOpen(true, "letters"));
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text2 = chatField.value;
+      if (!text2.trim()) return setChatOpen(false);
+      const trouble = dockTab === "feed" ? controls2.feed.send(text2) : dockTab === "letters" ? controls2.letters.send(text2) : controls2.chat.send(text2);
+      chatHint.textContent = trouble ?? "";
+      if (!trouble) chatField.value = "";
+      if (!trouble && dockTab === "feed") chatLines.scrollTop = 0;
+      chatField.focus({ preventScroll: true });
+    });
+    chatField.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setChatOpen(false);
+      }
+    });
+    chatField.addEventListener("keypress", (e) => e.stopPropagation());
+    const vv = typeof visualViewport === "undefined" ? null : visualViewport;
+    const onViewport = () => {
+      if (!vv) return;
+      const covered = Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop));
+      host.classList.toggle("keys-up", covered > 80 && chatState === "open");
+      host.style.setProperty("--kb", `${covered}px`);
+    };
+    vv?.addEventListener("resize", onViewport);
+    vv?.addEventListener("scroll", onViewport);
+    let asKey = null;
+    let asPicture = "";
+    let asTimer;
+    const AS_SHOWN_MS = 5200;
+    const sayWho = (card) => {
+      const key = card ? card.copy || card.title : "";
+      const first = asKey === null;
+      const changed = key !== asKey;
+      asKey = key;
+      if (card) {
+        asLead.textContent = "Signed in as";
+        asName.textContent = card.title;
+        if (changed || card.picture !== asPicture) {
+          asPicture = card.picture;
+          asFace.replaceChildren([...card.title][0]?.toUpperCase() ?? "");
+          const want2 = card.picture;
+          if (want2) {
+            void loadPicture(want2).then((drawn3) => {
+              if (!drawn3 || asPicture !== want2) return;
+              const copy = document.createElement("canvas");
+              copy.width = drawn3.width;
+              copy.height = drawn3.height;
+              copy.getContext("2d")?.drawImage(drawn3, 0, 0);
+              asFace.replaceChildren(copy);
+            });
+          }
+        }
+      }
+      if (!changed || first && !card) return;
+      if (!card) {
+        asPicture = "";
+        asLead.textContent = "Signed out";
+        asName.textContent = "You are a guest here";
+      }
+      if (host.hidden) {
+        const words2 = card ? `Signed in as ${card.title}.` : "Signed out. You are a guest here.";
+        return queueMicrotask(() => controls2.say(words2));
+      }
+      asWho.classList.toggle("plain", !card);
+      asWho.classList.add("shown");
+      clearTimeout(asTimer);
+      asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
+    };
+    const draw = () => {
+      const view2 = controls2.view();
+      const t = view2.theme;
+      host.style.setProperty("--accent", rgb(t.accent));
+      host.style.setProperty("--ink", rgb(t.ink));
+      host.style.setProperty("--glass", rgb(t.glass));
+      host.style.setProperty("--warn", rgb(t.warn));
+      host.style.setProperty("--s", String(t.scale));
+      host.classList.toggle("moving", t.motion);
+      host.dataset.presence = view2.presence;
+      host.dataset.corner = view2.corner;
+      host.classList.toggle("no-menu-key", view2.keys.menu === null);
+      host.classList.toggle("no-hotbar-keys", !view2.keys.hotbar);
+      const key = menu2.querySelector("kbd");
+      if (key && view2.keys.menu) key.textContent = view2.keys.menu.toUpperCase();
+      title.textContent = view2.title;
+      address.textContent = view2.address;
+      sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
+      full.hidden = !fullscreenButton.shown() || view2.presence === "hidden" || asWho.classList.contains("shown");
+      const loads = view2.loading;
+      loadingLine2.hidden = !loads || open2;
+      if (loads) {
+        loadingWhat.textContent = loads.words || "Still loading";
+        loadingMuch.textContent = loads.fraction === null ? "" : `${Math.floor(loads.fraction * 100)}%`;
+        loadingLine2.classList.toggle("unknown", loads.fraction === null);
+        loadingFill.style.setProperty("--f", String(loads.fraction ?? 0));
+      }
+      const shown4 = [view2.target, ...view2.detail].join("\n");
+      if (target2.dataset.shown !== shown4) {
+        target2.dataset.shown = shown4;
+        target2.classList.toggle("card", view2.detail.length > 0);
+        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line2) => el("span", {}, line2)));
+        else target2.textContent = view2.target;
+      }
+      drawChat(view2);
+      if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
+      const now = JSON.stringify([view2.hotbar, view2.pins, view2.pinsFull, view2.sections, section, open2, view2.presence]);
+      if (now === drawn2) return;
+      drawn2 = now;
+      const here = view2.sections.find((s) => s.id === section);
+      pinIt.hidden = !here;
+      pinIt.setAttribute("aria-pressed", String(!!here?.pinned));
+      pinIt.disabled = !here?.pinned && view2.pinsFull;
+      pinWords.textContent = here?.pinned ? "On your bar. Take it off" : view2.pinsFull ? "Your bar is full" : "Keep this tab on your bar";
+      pinIt.title = here?.pinned ? "" : view2.pinsFull ? "Take a tab off your bar to keep another on it." : "It stays on your bar in every world that has this tab.";
+      const barNow = JSON.stringify([view2.hotbar, view2.pins, open2 ? section : ""]);
+      if (barNow !== barDrawn) {
+        barDrawn = barNow;
+        hotbar.replaceChildren(
+          ...view2.hotbar.map((item, i) => {
+            const b = el(
+              "button",
+              { class: `key ${item.tone}`, type: "button", "aria-label": item.label, ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
+              el("span", { class: "arch" }, icon(item.icon ?? "door")),
+              el("span", { class: "sill" }),
+              el("span", { class: "name" }, item.short),
+              el("kbd", { class: "num mono" }, item.key)
+            );
+            b.style.setProperty("--i", String(i));
+            b.addEventListener("click", () => press(item));
+            return b;
+          }),
+          ...view2.pins.length && view2.hotbar.length ? [el("i", { class: "theirs", "aria-hidden": "true" })] : [],
+          ...view2.pins.map((pin, i) => {
+            const b = el(
+              "button",
+              { class: "key pin normal", type: "button", "aria-label": `${pin.label}: a tab you keep on your bar`, "aria-pressed": String(open2 && section === pin.id) },
+              el("span", { class: "arch" }, icon(pin.icon ?? "menu")),
+              el("span", { class: "sill" }),
+              el("span", { class: "name" }, pin.label),
+              el("kbd", { class: "num mono" }, pin.key)
+            );
+            b.style.setProperty("--i", String(view2.hotbar.length + i));
+            b.addEventListener("click", () => openPin(pin.id));
+            return b;
+          })
+        );
+        bar.hidden = view2.hotbar.length === 0 && view2.pins.length === 0;
+        const led = view2.hotbar[0]?.id ?? "";
+        if (led !== barLed && led) {
+          stopSliding();
+          hotbar.scrollLeft = 0;
+        }
+        barLed = led;
+        barWatch?.disconnect();
+        barWatch?.observe(hotbar);
+        for (const k of hotbar.children) barWatch?.observe(k);
+        requestAnimationFrame(tendBar);
+      }
+      tabs.replaceChildren(
+        ...view2.sections.map((s) => {
+          const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
+          b.addEventListener("click", () => {
+            section = s.id;
+            chose = true;
+            draw();
+            tabs.querySelector('[aria-selected="true"]')?.focus();
+          });
+          return b;
+        })
+      );
+      const showing = open2 ? section : "";
+      const bring = showing !== tabsShowing;
+      tabsShowing = showing;
+      requestAnimationFrame(() => {
+        const chosen = tabs.querySelector('[aria-selected="true"]');
+        if (bring && open2 && chosen) {
+          const clear = 46;
+          const left = chosen.offsetLeft - clear;
+          const right = chosen.offsetLeft + chosen.offsetWidth + clear - tabs.clientWidth;
+          if (tabs.scrollLeft > left) tabs.scrollLeft = Math.max(0, left);
+          else if (tabs.scrollLeft < right) tabs.scrollLeft = right;
+        }
+        tendTabs();
+      });
+      const current = view2.sections.find((s) => s.id === section);
+      const drawSwatch = (item) => {
+        const b = el("button", { class: "swatch", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, el("i"), el("u"), item.label);
+        b.style.setProperty("--c", item.color);
+        b.addEventListener("click", () => press(item));
+        return b;
+      };
+      const drawTile = (item) => {
+        const shown5 = el("span", { class: "shown", "aria-hidden": "true" }, [...item.short][0]?.toUpperCase() ?? "");
+        const picture2 = item.picture?.();
+        if (picture2) {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 192;
+          canvas.getContext("2d")?.drawImage(picture2, 0, 0, 192, 192);
+          shown5.replaceChildren(canvas);
+        }
+        const b = el("button", { class: "tile", type: "button", "aria-label": item.label, "aria-pressed": String(item.on === true) }, shown5, el("span", {}, item.label));
+        b.addEventListener("click", () => press(item));
+        return b;
+      };
+      const drawRow = (item) => {
+        const b = el(
+          "button",
+          { class: `row ${item.tone}`, type: "button", ...item.on === null ? {} : { "aria-pressed": String(item.on) } },
+          icon(item.icon),
+          el("span", { class: "grow" }, item.label),
+          item.on !== null && el("span", { class: "state" }, item.on ? "On" : "Off"),
+          item.key ? el("kbd", { class: "mono" }, item.key) : null
+        );
+        b.addEventListener("click", () => press(item));
+        return b;
+      };
+      const drawLine = (item) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
+      const lay = (items2) => {
+        const laid2 = [];
+        let run2 = null;
+        for (const item of items2) {
+          if (item.kind === "button" || item.kind === "line") {
+            run2 = null;
+            laid2.push(item.kind === "line" ? drawLine(item) : drawRow(item));
+            continue;
+          }
+          if (run2?.kind !== item.kind) {
+            run2 = { kind: item.kind, box: el("div", { class: item.kind === "tile" ? "tiles" : "swatches" }) };
+            laid2.push(run2.box);
+          }
+          run2.box.append(item.kind === "tile" ? drawTile(item) : drawSwatch(item));
+        }
+        return laid2;
+      };
+      const inCard = new Set(current?.card?.draw ? current.card.acts ?? [] : []);
+      const laid = lay((current?.items ?? []).filter((item) => !inCard.has(item.id)));
+      const beside = lay((current?.items ?? []).filter((item) => inCard.has(item.id)));
+      const about = current?.card ? `${section}:${current.card.title}` : "";
+      const fresh = about !== cardShown;
+      cardShown = about;
+      rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
+      if (fresh && about) rows.scrollTop = 0;
+      rows.hidden = !current?.items.length && !current?.card;
+      note.textContent = current?.note ?? "";
+      sheet.hidden = !open2;
+      menu2.setAttribute("aria-expanded", String(open2));
+      quiet.setAttribute("aria-expanded", String(open2));
+    };
+    const focused = () => {
+      let at = document.activeElement;
+      while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
+      return at;
+    };
+    let cameFrom = null;
+    const setOpen = (next, at) => {
+      if (next && at) {
+        section = at;
+        chose = true;
+        if (open2) return void draw();
+      }
+      if (open2 === next) return;
+      if (next) {
+        if (chatState === "open") setChatOpen(false);
+        cameFrom = focused();
+        if (!chose) section = "";
+      }
+      open2 = next;
+      controls2.signal(open2 ? "menuOpen" : "menuClose");
+      draw();
+      if (open2) return void tabs.querySelector('[aria-selected="true"]')?.focus();
+      const back = cameFrom;
+      cameFrom = null;
+      if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
+      else focused()?.blur();
+    };
+    setMenuPlace(() => {
+      if (!open2 || sheet.hidden) return null;
+      const r = sheet.getBoundingClientRect();
+      return r.width > 0 ? { left: Math.round(r.left), width: Math.round(r.width), bottom: Math.round(innerHeight - r.bottom) } : null;
+    });
+    let asideFor = null;
+    onClientSignIn((up, failed2) => {
+      if (failed2) controls2.say("The sign-in panel didn't come up. Press that again, and a window opens instead.");
+      if (up) {
+        asideFor = open2 ? section : null;
+        if (open2) setOpen(false);
+      } else if (asideFor !== null) {
+        const back = asideFor;
+        asideFor = null;
+        setOpen(true, back);
+      }
+    });
+    menu2.addEventListener("click", () => setOpen(!open2));
+    quiet.addEventListener("click", () => setOpen(!open2));
+    close.addEventListener("click", () => setOpen(false));
+    pinIt.addEventListener("click", () => {
+      const here = controls2.view().sections.find((s) => s.id === section);
+      if (!here) return;
+      if (!controls2.setPinned(here.id, !here.pinned)) return controls2.say("Your bar is full. Take a tab off it to keep another on it.");
+      controls2.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
+    });
+    const onKey = (e) => {
+      if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const at = e.composedPath()[0];
+      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
+      if (e.key === "Escape") {
+        const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
+        if (does !== "nothing") e.preventDefault();
+        if (does === "close-menu") return setOpen(false);
+        if (does === "open-menu") return setOpen(true);
+        if (does === "leave-fullscreen") return void leaveFullscreen();
+      }
+      const view2 = controls2.view();
+      if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
+      if (view2.keys.chat && view2.chat.ready && view2.presence !== "hidden" && !open2 && !e.repeat && (e.key.toLowerCase() === view2.keys.chat || e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A")) {
+        e.preventDefault();
+        return setChatOpen(true);
+      }
+      if (!view2.keys.hotbar || view2.presence !== "full") return;
+      const item = view2.hotbar.find((i) => i.key === e.key);
+      if (item) return press(item);
+      const pin = view2.pins.find((p) => p.key && p.key === e.key);
+      if (pin) openPin(pin.id);
+    };
+    addEventListener("keydown", onKey);
+    full.addEventListener("click", () => {
+      void fullscreenButton.press(controls2).then(draw);
+    });
+    const stopLeft = onBrowserLeftFullscreen(() => {
+      if (!open2 && !host.hidden) setOpen(true);
+      draw();
+    });
+    document.addEventListener("fullscreenchange", draw);
+    const onTabKey = (e) => {
+      if (!open2 || host.hidden || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const at = e.composedPath()[0];
+      const onStrip = !!at && typeof at.tagName === "string" && tabs.contains(at);
+      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!step && e.key !== "Home" && e.key !== "End") return;
+      if (at && !onStrip && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.tagName === "SELECT" || at.isContentEditable)) return;
+      const ids = controls2.view().sections.map((x) => x.id);
+      if (ids.length < 2) return;
+      const now = Math.max(0, ids.indexOf(section));
+      const to = step ? (now + step + ids.length) % ids.length : e.key === "Home" ? 0 : ids.length - 1;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (to === now) return;
+      section = ids[to];
+      chose = true;
+      draw();
+      tabs.querySelector('[aria-selected="true"]')?.focus();
+    };
+    addEventListener("keydown", onTabKey, true);
+    const onSummonKey = (e) => {
+      if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const at = e.composedPath()[0];
+      if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!e.repeat) setOpen(!open2);
+    };
+    const swallow = (e) => {
+      if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+    };
+    const hold = createHoldWatch({
+      onHeld: () => {
+        if (!host.hidden) setOpen(!open2);
+      }
+    });
+    const onTouch = (e) => hold.touches([...e.touches].map((t) => ({ x: t.clientX, y: t.clientY })));
+    const listening = { capture: true };
+    const watching3 = { capture: true, passive: true };
+    addEventListener("keydown", onSummonKey, listening);
+    addEventListener("keyup", swallow, listening);
+    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching3);
+    const stopSay = controls2.onSay((text2) => {
+      const line2 = el("div", { class: "say glass" }, text2);
+      says.append(line2);
+      while (says.childElementCount > 3) says.firstElementChild?.remove();
+      setTimeout(() => line2.classList.add("going"), 3600);
+      setTimeout(() => line2.remove(), 4200);
+    });
+    const stop = controls2.subscribe(draw);
+    const stopAsking = controls2.onSignal((name) => {
+      if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
+      if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
+      if (name === "toggle:feed" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "feed"), "feed");
+      if (name === "open:letters" && !host.hidden) setChatOpen(true, "letters");
+    });
+    const tick = setInterval(draw, 400);
+    host.classList.add("arriving");
+    setTimeout(() => host.classList.remove("arriving"), 1200);
+    draw();
+    return {
+      element: host,
+      get open() {
+        return open2;
+      },
+      setOpen,
+      get chatOpen() {
+        return chatState === "open";
+      },
+      get chatTab() {
+        return dockTab;
+      },
+      setChatOpen,
+      bounds() {
+        if (host.hidden) return [];
+        return [id, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
+      },
+      cover() {
+        if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
+        const low = bar.getBoundingClientRect();
+        const high = id.getBoundingClientRect();
+        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
+      },
+      setHidden(hidden2) {
+        host.hidden = hidden2;
+        if (hidden2) {
+          setOpen(false);
+          setChatOpen(false);
+        }
+      },
+      remove() {
+        clearInterval(tick);
+        clearTimeout(asTimer);
+        tabsWatch?.disconnect();
+        barWatch?.disconnect();
+        stopSliding();
+        clearTimeout(peekTimer);
+        clearTimeout(goingTimer);
+        vv?.removeEventListener("resize", onViewport);
+        vv?.removeEventListener("scroll", onViewport);
+        stop();
+        stopAsking();
+        stopSay();
+        removeEventListener("keydown", onKey);
+        stopLeft();
+        document.removeEventListener("fullscreenchange", draw);
+        removeEventListener("keydown", onSummonKey, listening);
+        removeEventListener("keydown", onTabKey, true);
+        removeEventListener("keyup", swallow, listening);
+        for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) removeEventListener(type, onTouch, watching3);
+        hold.cancel();
+        host.remove();
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/letters.ts
+  function createUiLetters(changed, now = () => Date.now()) {
+    let opts = null;
+    let waiting3 = [];
+    let said2 = "";
+    let version = 0;
+    let count2 = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    return {
+      attach(next) {
+        opts = next;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      touch: bump2,
+      seen() {
+        opts?.seen?.();
+      },
+      send(text2) {
+        const mine = opts;
+        if (!mine) return "There is nobody to write to: choose someone first.";
+        const words2 = cleanMessage(text2);
+        if (!words2) return null;
+        const line2 = { key: `new-${++count2}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        waiting3.push(line2);
+        said2 = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
+          else line2.state = "failed";
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
+        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
+        return {
+          ready: !!opts,
+          title: name ? `${name}, privately` : "Private messages",
+          with: name,
+          lines,
+          said: said2,
+          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
+          limit: MESSAGE_LIMITS.chars,
+          version
+        };
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/model.ts
+  var PRESENCES = ["full", "quiet", "hidden"];
+  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  function cleanKeys2(now, k) {
+    const out = { ...now };
+    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
+    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
+    return out;
+  }
+  var read3 = (t) => typeof t === "function" ? t() : t ?? "";
+  var STANDARD = [
+    { id: "travel", label: "Travel", icon: "door" },
+    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
+    { id: "you", label: "You", icon: "you" },
+    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+    { id: "figure", label: "Your look", icon: "look" },
+    { id: "room", label: "Room", icon: "room" },
+    { id: "people", label: "People", icon: "people" },
+    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
+    { id: "following", label: "Following", icon: "list" },
+    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
+    { id: "messages", label: "Messages", icon: "chat" },
+    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
+    { id: "scores", label: "Scores", icon: "list" },
+    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
+    { id: "achievements", label: "Achievements", icon: "check" },
+    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
+    { id: "bag", label: "Bag", icon: "save" },
+    { id: "camera", label: "Camera", icon: "camera" },
+    { id: "panels", label: "Panels", icon: "panel" },
+    { id: "view", label: "View", icon: "vr" },
+    { id: "moving", label: "Moving", icon: "step" },
+    { id: "sound", label: "Sound", icon: "sound" },
+    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
+    { id: "help", label: "Help", icon: "help" }
+  ];
+  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
+  var rank = (id) => {
+    const i = STANDARD_ORDER.indexOf(id);
+    return i === -1 ? STANDARD_ORDER.length : i;
+  };
+  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
+  var PINS_KEY = "nswp:ui:pins";
+  function loadPins() {
+    try {
+      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
+      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function savePins(pins) {
+    try {
+      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
+    } catch {
+    }
+  }
+  var LOADING_WORDS = 80;
+  function cleanLoading(state) {
+    if (!state || typeof state !== "object") return null;
+    const raw = typeof state.words === "string" ? state.words : "";
+    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
+    const f = state.fraction;
+    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
+    return { fraction, words: words2 };
+  }
+  function createControls(opts) {
+    const sections = STANDARD.map((s) => ({ ...s }));
+    for (const s of opts.sections ?? []) addSection(s);
+    const actions = [];
+    const listeners = /* @__PURE__ */ new Set();
+    const sayers = /* @__PURE__ */ new Set();
+    const signals = /* @__PURE__ */ new Set();
+    let visitor = loadVisitorTheme();
+    const came = arrivedSettings();
+    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
+    if (Object.keys(brought).length) {
+      visitor = { ...visitor, ...brought };
+      saveVisitorTheme(visitor);
+    }
+    reportSettings("look", () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }));
+    let pins = loadPins();
+    if (came.pins !== void 0) {
+      pins = [...came.pins];
+      savePins(pins);
+    }
+    reportSettings("pins", () => pins ? { pins } : {});
+    let theme = resolveTheme(opts.theme, visitor);
+    let target2 = "";
+    let detail = [];
+    let loading4 = null;
+    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
+    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
+    let claimed = false;
+    const changed = () => {
+      for (const fn of listeners) fn();
+    };
+    const chat = createUiChat(changed);
+    const feed = createUiFeed(changed);
+    const letters = createUiLetters(changed);
+    function addSection(s) {
+      const i = sections.findIndex((x) => x.id === s.id);
+      if (i === -1) sections.push({ ...s });
+      else sections[i] = { ...sections[i], ...s };
+    }
+    const controls2 = {
+      get theme() {
+        return theme;
+      },
+      add(...more) {
+        for (const a of more) {
+          const i = actions.findIndex((x) => x.id === a.id);
+          if (i === -1) actions.push(a);
+          else actions[i] = a;
+        }
+        changed();
+      },
+      has: (id) => actions.some((x) => x.id === id),
+      remove(id) {
+        const i = actions.findIndex((x) => x.id === id);
+        if (i !== -1) actions.splice(i, 1);
+        changed();
+      },
+      addSection(s) {
+        addSection(s);
+        changed();
+      },
+      get presence() {
+        return presence3;
+      },
+      setPresence(next) {
+        if (!PRESENCES.includes(next) || next === presence3) return;
+        presence3 = next;
+        changed();
+      },
+      setCorner(next) {
+        if (!CORNERS.includes(next) || next === corner) return;
+        corner = next;
+        changed();
+      },
+      setKeys(next) {
+        keys = cleanKeys2(keys, next);
+        changed();
+      },
+      claimInput(next) {
+        if (claimed === next) return;
+        claimed = next;
+        changed();
+      },
+      setLoading(state) {
+        const next = cleanLoading(state);
+        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
+        loading4 = next;
+        changed();
+      },
+      setTarget(text2, more = []) {
+        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
+        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
+        target2 = text2;
+        detail = next;
+        changed();
+      },
+      say(text2) {
+        for (const fn of sayers) fn(text2);
+      },
+      run(id) {
+        const a = actions.find((x) => x.id === id);
+        if (!a || a.hidden?.() || a.kind === "line") return false;
+        for (const fn of signals) fn("press");
+        void Promise.resolve().then(() => a.act()).catch(() => {
+        }).finally(changed);
+        return true;
+      },
+      setTheme(patch, keep6 = false) {
+        if (keep6) {
+          visitor = { ...visitor, ...patch };
+          saveVisitorTheme(visitor);
+        }
+        theme = resolveTheme({ ...opts.theme, ...keep6 ? {} : patch }, visitor);
+        changed();
+      },
+      get pins() {
+        return pins ?? [];
+      },
+      setPinned(section, pinned) {
+        const now = pins ?? [];
+        if (pinned === now.includes(section)) return true;
+        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
+        pins = pinned ? [...now, section] : now.filter((id) => id !== section);
+        savePins(pins);
+        changed();
+        return true;
+      },
+      view() {
+        const showing = inOrder(actions.filter((a) => !a.hidden?.()));
+        const pressable = showing.filter((a) => a.kind !== "line");
+        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
+        const item = (a) => {
+          const slot = bar.indexOf(a);
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", color: read3(a.color), ...a.picture ? { picture: a.picture } : {} };
+        };
+        const known = new Set(sections.map((s) => s.id));
+        const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
+        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
+        return {
+          title: opts.title,
+          address: opts.address ?? "",
+          target: target2,
+          detail,
+          loading: loading4,
+          sections: shown4,
+          hotbar: bar.map(item),
+          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
+          pins: (pins ?? []).flatMap((id, i) => {
+            const tab = shown4.find((x) => x.id === id);
+            const n = bar.length + i + 1;
+            return tab ? [{ id, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+          }),
+          pinsFull: (pins ?? []).length >= PINS_MOST,
+          theme,
+          presence: presence3,
+          corner,
+          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
+          chat: chat.view(),
+          feed: feed.view(),
+          letters: letters.view()
+        };
+      },
+      subscribe(fn) {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+      signal(name) {
+        for (const fn of signals) {
+          try {
+            fn(name);
+          } catch {
+          }
+        }
+      },
+      onSignal(fn) {
+        signals.add(fn);
+        return () => signals.delete(fn);
+      },
+      onSay(fn) {
+        sayers.add(fn);
+        return () => sayers.delete(fn);
+      },
+      chat,
+      feed,
+      letters
+    };
+    const keep5 = (patch) => controls2.setTheme(patch, true);
+    controls2.add(
+      ...UI_PRESETS.map(
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep5({ accent: p.accent }) })
+      ),
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep5({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep5({ motion: !theme.motion }) },
+      {
+        id: "look-wrist",
+        section: "look",
+        icon: "menu",
+        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
+        on: () => theme.wrist !== "off",
+        act: () => keep5({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+      },
+      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
+        visitor = {};
+        saveVisitorTheme({});
+        theme = resolveTheme(opts.theme, visitor);
+      } }
+    );
+    return controls2;
+  }
+
+  // packages/sdk/src/engine-menu.ts
+  var read4 = (text2) => {
+    try {
+      const v2 = typeof text2 === "string" && text2 ? JSON.parse(text2) : text2;
+      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : {};
+    } catch {
+      return {};
+    }
+  };
+  var words = (v2, most) => typeof v2 === "string" ? v2.slice(0, most) : "";
+  var queue = [];
+  var tell = (event) => {
+    if (queue.length < 64) queue.push(event);
+  };
+  var tellEngine = tell;
+  var engineParts = () => controls && sounds ? { controls, sounds, presenting: vr.presenting } : null;
+  var menuWatchers = /* @__PURE__ */ new Set();
+  var onMenu = (fn) => void menuWatchers.add(fn);
+  var controls = null;
+  var hud = null;
+  var sounds = null;
+  var moving = "casual";
+  var vr = { supported: false, presenting: false };
+  var named = "";
+  var headsetOffer = null;
+  var headsetOffered = false;
+  var doors = /* @__PURE__ */ new Map();
+  function kit() {
+    return JSON.stringify({
+      walkSpeed: WALK_SPEED,
+      // The fastest anyone goes on foot: a run. However an engine moves its visitor, never faster than this.
+      topSpeed: TOP_SPEED,
+      tapReach: TAP_REACH,
+      sprint: SPRINT,
+      // Both as the visitor has set them: the kit's own speed times theirs. Read again when a `changed` event comes.
+      dragLook: DRAG_LOOK * lookScale(),
+      lookSpeed: LOOK_SPEED * lookScale(),
+      // How wide they asked to see at a desk, in degrees top to bottom, or 0 for the world's own.
+      fov: visitorFov() ?? 0,
+      pitchLimit: PITCH_LIMIT,
+      // Moving the casual way: how far a drag up or down tilts the view, and how fast it comes back level as they walk.
+      tiltLimit: TILT_LIMIT,
+      levelRate: LEVEL_RATE,
+      // Places to arrive (protocol/01-worlds.md): how many an entry point needs, and the least room between people.
+      entryPlacesLeast: ENTRY_PLACES_LEAST,
+      entryPlacesRooms: ENTRY_PLACES_ROOMS,
+      entryClear: ENTRY_CLEAR,
+      doubleTap: DOUBLE_TAP,
+      pathMost: PATH_MOST,
+      faceRate: FACE_RATE,
+      jumpHeight: JUMP_HEIGHT,
+      jumpGravity: JUMP_GRAVITY,
+      gateWidth: PORTAL_WIDTH,
+      gateHeight: PORTAL_HEIGHT,
+      gateSpring: PORTAL_SPRING,
+      gateSignHeight: PORTAL_SIGN_HEIGHT,
+      doorReach: DOOR_REACH,
+      // The least distance between two doors' middles: lay doors out no nearer than this.
+      doorSpacing: DOOR_SPACING,
+      cues: CUES
+    });
+  }
+  function check(url) {
+    const c = checkDestination(typeof url === "string" ? url : "");
+    if (!c.ok) return JSON.stringify({ ok: false, code: c.error.code, domain: "", prefix: "", host: "" });
+    return JSON.stringify({ ok: true, code: "", domain: c.value.registrableDomain ?? c.value.hostname, prefix: c.value.hostPrefix, host: c.value.hostname });
+  }
+  function offers(world2) {
+    let said2 = {};
+    try {
+      const read6 = JSON.parse(typeof world2 === "string" ? world2 : "");
+      if (read6 && typeof read6 === "object") said2 = read6;
+    } catch {
+    }
+    const words2 = (list) => Array.isArray(list) ? list.filter((w) => typeof w === "string") : [];
+    const items2 = typeof said2.items === "string" && ITEM_RULES.includes(said2.items) ? said2.items : void 0;
+    const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {}, ...said2.byInvitation === true ? { byInvitation: true } : {} });
+    return JSON.stringify(lines.map((o) => ({ ...o, ...o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id]] } : {} })));
+  }
+  var early = null;
+  var filled2 = false;
+  var EARLY_LINE = { words: "This world is still loading" };
+  function earlyMenu(o) {
+    if (controls || typeof document === "undefined") return;
+    arrival.read();
+    const opts = { title: words(o.title, 80) || "A world", address: location.host };
+    if (o.accent && /^#[0-9a-f]{6}$/i.test(o.accent)) opts.theme = { accent: o.accent };
+    const c = controls = createControls(opts);
+    early = { opts, line: !loadingNow };
+    c.setLoading(loadingNow ?? EARLY_LINE);
+    hud = mountHud(c);
+    const atHome = arrival.atHome();
+    c.add({
+      id: "home",
+      section: "travel",
+      icon: "home",
+      hotbar: true,
+      label: atHome ? "Your doors" : "Go home",
+      short: atHome ? "Doors" : "Home",
+      hidden: () => portal.airlockFor() === null,
+      act: () => void o.home()
+    });
+  }
+  function roomChanged(state) {
+    if (!early || state === "arriving") return;
+    if (early.line && controls) {
+      early.line = false;
+      controls.setLoading(loadingNow);
+    }
+    if (filled2 || state === "failed") return;
+    hud?.remove();
+    hud = null;
+    controls = null;
+    early = null;
+  }
+  function menu(options) {
+    if (filled2) return JSON.stringify({ moving, mouse: hasMouse() });
+    filled2 = true;
+    const o = read4(options);
+    const title = words(o.title, 80) || "A world";
+    named = title;
+    const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
+    let c;
+    let h;
+    if (early && controls && hud) {
+      c = controls;
+      h = hud;
+      early.opts.title = title;
+      if (accent) c.setTheme({ accent });
+      c.remove("home");
+    } else {
+      c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
+      if (loadingNow) c.setLoading(loadingNow);
+      h = hud = mountHud(c);
+    }
+    for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
+    const s = sounds = createSounds({
+      seed: title,
+      ...typeof o.kit === "string" && o.kit ? { kit: o.kit } : {},
+      ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
+    });
+    addSoundControls(c, s);
+    c.add(freshAction(c, { busy: () => vr.presenting }));
+    rowsForGate();
+    const atHome = arrival.atHome();
+    c.add({
+      id: "home",
+      section: "travel",
+      icon: "home",
+      hotbar: true,
+      label: atHome ? "Your doors" : "Go home",
+      short: atHome ? "Doors" : "Home",
+      hidden: () => portal.airlockFor() === null,
+      act: () => tell({ type: atHome ? "doors" : "home" })
+    });
+    if (identityHost()) {
+      c.addSection(identitySection());
+      c.add(
+        { id: "figure", section: "you", icon: "look", label: "Change how you look", short: "Look", act: () => tell({ type: "figure" }) },
+        // Where their client named a signer there is one sign-in, and it is that one, below: this row would be a second.
+        { id: "identity", section: "you", icon: "you", label: () => identityWords().label, short: () => identityWords().short, hidden: () => signerNamed(), act: () => tell({ type: "identity" }) },
+        // The same sign-in as in a Three.js world: a window of their own sign-in address, where they say yes. The card
+        // at the head of You, and the words at the top of the view when they are signed in, come with it (ui/hud.ts).
+        signerAction(c, { presenting: () => vr.presenting }),
+        accountAction(c, { presenting: () => vr.presenting }),
+        filesAction(c, { presenting: () => vr.presenting }),
+        libraryAction(c, { presenting: () => vr.presenting })
+      );
+      onHereAs(() => tell({ type: "who", ...whoNow() }));
+    }
+    const context = arrival.read().context;
+    moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
+    if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
+    c.add({
+      id: "fps",
+      section: "moving",
+      icon: "step",
+      on: () => moving === "intense",
+      hidden: () => !hasMouse() || vr.presenting,
+      label: () => moving === "intense" ? DESK_WORDS.intense : DESK_WORDS.casual,
+      act: () => {
+        moving = moving === "intense" ? "casual" : "intense";
+        keepIntense(moving === "intense");
+        tell({ type: "moving", moving });
+        c.say(moving === "intense" ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+      }
+    });
+    c.add({
+      id: "jump",
+      section: "moving",
+      icon: "step",
+      label: "Jump",
+      short: "Jump",
+      hotbar: !hasMouse(),
+      hidden: () => vr.presenting,
+      act: () => tell({ type: "jump" })
+    });
+    c.add(
+      {
+        id: "vr",
+        section: "view",
+        icon: "vr",
+        tone: "primary",
+        hotbar: true,
+        hidden: () => !vr.supported,
+        label: () => vr.presenting ? "Leave VR" : "Enter VR",
+        short: "VR",
+        // A browser starts a headset session only on a press. This is one, and the engine hears of it within a frame.
+        act: () => tell({ type: "vr", enter: !vr.presenting })
+      },
+      fullscreenAction(c, () => vr.presenting)
+    );
+    addDeskControls(c, { presenting: () => vr.presenting });
+    document.addEventListener("fullscreenchange", () => c.setTarget(""));
+    c.addSection({
+      id: "help",
+      label: "Help",
+      icon: "help",
+      note: words(o.help, 600) || "Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Walk into a doorway to go through it: your own Airlock shows where it really leads, and asks, before you go. These controls are this world's own: your headset's or browser's own controls always get you out."
+    });
+    let told = 0;
+    c.subscribe(() => {
+      const now = performance.now();
+      if (now - told < 120) return;
+      told = now;
+      tell({ type: "changed" });
+    });
+    let closedAt = -1;
+    c.onSignal((name) => {
+      if (name === "menuOpen") tell({ type: "menu", open: true });
+      if (name === "menuClose") {
+        closedAt = performance.now();
+        tell({ type: "menu", open: false });
+        document.querySelector("canvas")?.focus();
+      }
+    });
+    document.addEventListener("pointerlockchange", () => {
+      if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open) return;
+      if (performance.now() - closedAt > 80) h.setOpen(true);
+    });
+    addEventListener("keydown", (e) => {
+      if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement) return;
+      if (performance.now() - closedAt > 80) h.setOpen(true);
+    });
+    return JSON.stringify({ moving, mouse: hasMouse() });
+  }
+  var whoNow = () => {
+    const me = hereAs();
+    return { guest: !me, name: me?.name ?? "", pubkey: me?.pubkey ?? "", picture: me?.picture ?? "", about: me?.about ?? "" };
+  };
+  function who() {
+    return JSON.stringify(whoNow());
+  }
+  var gated = null;
+  var gateRows = false;
+  var gateNow = () => gated ? { state: gated.state, open: gated.open, reason: gated.reason, why: gated.why, offers: gated.offers, until: gated.until } : { state: "free", open: true, reason: "", why: "", offers: [], until: null };
+  function rowsForGate() {
+    if (!gated || !controls || gateRows) return;
+    gateRows = true;
+    addGateControls(controls, gated, {
+      presenting: () => vr.presenting,
+      // The owner's screen offers a keeper the people here now (named: their pass checked out) and the people they follow.
+      here: () => enginePresence()?.session?.members.flatMap((m) => m.identity ? [m.identity] : []) ?? [],
+      follows: () => worldPeople().follows()
+    });
+  }
+  function gate(options) {
+    if (!gated) {
+      const trial = typeof window !== "undefined" && typeof location !== "undefined" && isLocalHost(location.hostname) && window.__nswpTrial?.gate === true;
+      if (read4(options).paid === false && !trial) return JSON.stringify(gateNow());
+      const g = gated = worldGate();
+      let told = "";
+      g.onChange(() => {
+        const now = JSON.stringify(gateNow());
+        if (now === told) return;
+        told = now;
+        tell({ type: "gate", ...gateNow() });
+      });
+      rowsForGate();
+    }
+    return JSON.stringify(gateNow());
+  }
+  function save(data, slot) {
+    const name = slot || "main";
+    void worldSaves().save(String(data ?? ""), name).catch(() => ({ kept: "nowhere", said: "That wasn't saved." })).then((r) => tell({ type: "saved", slot: name, kept: r.kept, said: r.said }));
+  }
+  function load2(slot) {
+    const name = slot || "main";
+    void worldSaves().load(name).catch(() => null).then((got) => tell(got ? { type: "loaded", slot: name, found: true, data: got.data, at: got.at, from: got.from } : { type: "loaded", slot: name, found: false, data: "", at: 0, from: "" }));
+  }
+  function events() {
+    if (!queue.length) return "[]";
+    const out = JSON.stringify(queue);
+    queue.length = 0;
+    return out;
+  }
+  function play(cue) {
+    if (CUES.includes(cue)) sounds?.play(cue);
+  }
+  function jumped() {
+    sounds?.jumped();
+  }
+  function moved(metres) {
+    if (typeof metres === "number" && Number.isFinite(metres) && metres > 0) sounds?.moved(metres);
+  }
+  function bump() {
+    sounds?.bump();
+  }
+  var loadingNow = null;
+  function loadingLine(state) {
+    loadingNow = state;
+    controls?.setLoading(state);
+  }
+  function say2(text2) {
+    const t = words(text2, 300);
+    if (t) controls?.say(t);
+  }
+  function target(name, detail) {
+    let lines = [];
+    try {
+      const d = detail ? JSON.parse(detail) : [];
+      if (Array.isArray(d)) lines = d.filter((l) => typeof l === "string").slice(0, 6).map((l) => l.slice(0, 200));
+    } catch {
+    }
+    controls?.setTarget(words(name, 120), lines);
+  }
+  function headset(state) {
+    const s = read4(state);
+    vr.supported = s.supported === true;
+    vr.presenting = s.presenting === true;
+    hud?.setHidden(vr.presenting);
+    controls?.setTarget("");
+    const put = () => {
+      headsetOffer?.remove();
+      headsetOffer = null;
+    };
+    if (vr.presenting) {
+      headsetOffered = true;
+      put();
+    } else if (headsetOffer && s.failed === true) headsetOffer.failed();
+    else if (vr.supported && controls && !headsetOffered && arrival.read().context?.immersive) {
+      headsetOffered = true;
+      headsetOffer = offerHeadset(named, () => tell({ type: "vr", enter: true }), put);
+    }
+  }
+  function view() {
+    if (!controls) return JSON.stringify({ sections: [], hotbar: [], open: false });
+    const v2 = controls.view();
+    const item = (i) => ({ id: i.id, label: i.label, short: i.short, on: i.on, tone: i.tone });
+    return JSON.stringify({
+      title: v2.title,
+      address: v2.address,
+      presence: v2.presence,
+      // Still loading, though the visitor is in (`loading`): the world's words and how far along, or null.
+      loading: v2.loading,
+      open: hud?.open ?? false,
+      sections: v2.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
+      hotbar: v2.hotbar.map(item)
+    });
+  }
+  function run(id) {
+    return typeof id === "string" && !!controls?.run(id);
+  }
+  function open(on3) {
+    hud?.setOpen(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
+  }
+  function presence2(level2) {
+    if (level2 === "full" || level2 === "quiet" || level2 === "hidden") controls?.setPresence(level2);
+  }
+  function claim(on3) {
+    controls?.claimInput(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
+  }
+  function door(entry) {
+    const d = read4(entry);
+    const id = words(d.id, 60);
+    if (!id || !controls) return;
+    const menuId = `door-${id}`;
+    if (d.remove === true) {
+      doors.delete(id);
+      controls.remove(menuId);
+      return;
+    }
+    if (doors.has(id) || doors.size >= 24) return;
+    doors.set(id, words(d.label, 80) || "A door");
+    controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id) ?? "A door", short: "Door", act: () => tell({ type: "door", id }) });
+  }
+
   // packages/sdk/src/bag.ts
-  var FRESH_MS2 = 6e4;
+  var FRESH_MS3 = 6e4;
   function createBag(opts) {
     const now = opts.now ?? (() => Date.now());
     const query = opts.query ?? queryRelays;
@@ -53205,7 +53677,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return null;
       }
       if (known && known.who !== who2) known = null;
-      if (!fresh && known && now() - known.at < FRESH_MS2) return bagIn(known.bag);
+      if (!fresh && known && now() - known.at < FRESH_MS3) return bagIn(known.bag);
       looking ?? (looking = look(who2).finally(() => {
         looking = null;
       }));
@@ -53433,7 +53905,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     } catch {
     }
   }
-  var PAGE = 24;
+  var PAGE2 = 24;
   function itemIn(text2) {
     if (typeof text2 !== "string") return "";
     const plain = itemCoordinate(/37303:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,63}/.exec(text2)?.[0]);
@@ -53693,7 +54165,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       cardActs = shown4.slice(firstOfTheirs);
       if (holding2 && holding2 !== chosen) add(away());
-      const listed = has.slice(0, pages * PAGE);
+      const listed = has.slice(0, pages * PAGE2);
       for (const item of listed) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
       const choose = (item) => () => {
         chosen = chosen === item ? null : item;
@@ -54060,7 +54532,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   function items(options) {
     const parts3 = engineParts();
     if (on) return JSON.stringify({ ok: true, rule: on.rule });
-    const o = read4(options);
+    const o = read2(options);
     if (!parts3) return JSON.stringify({ ok: false, rule: "none", why: "menu-first" });
     const relays = Array.isArray(o.relays) ? o.relays.filter((r) => typeof r === "string") : void 0;
     const rule = engineAllowsItems(o.rule, o.box === false ? false : typeof o.box === "string" && o.box ? { url: o.box } : true, relays);
@@ -54147,7 +54619,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return typeof sha === "string" ? models.get(sha) ?? "" : "";
   }
   function itemTap(press) {
-    const p = read4(press);
+    const p = read2(press);
     const from = three(p.from);
     const dir = three(p.dir);
     if (!on || !from || !dir) return false;
@@ -54155,7 +54627,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
   function itemUse(toward) {
     if (!on?.play.does?.use) return false;
-    const to = three(read4(toward).to);
+    const to = three(read2(toward).to);
     on.play.use(to ? new Vector3().fromArray(to) : void 0);
     return true;
   }
@@ -54166,266 +54638,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     if (!on?.play.does?.second) return false;
     on.play.second();
     return true;
-  }
-
-  // packages/sdk/src/profiles.ts
-  var KEY4 = "nswp:profiles";
-  var MOST = 400;
-  var FRESH_MS3 = 24 * 3600 * 1e3;
-  var AT_ONCE = 60;
-  function readProfile(event) {
-    let meta = {};
-    try {
-      const parsed = JSON.parse(event.content);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) meta = parsed;
-    } catch {
-    }
-    let name = "";
-    for (const v2 of [meta.display_name, meta.displayName, meta.name]) {
-      if (!name && typeof v2 === "string") name = cleanName(v2);
-    }
-    return { name, picture: cleanPicture(meta.picture), about: cleanAbout(meta.about), at: event.created_at };
-  }
-  function createProfiles(opts = {}) {
-    const now = opts.now ?? (() => Date.now());
-    const query = opts.query ?? queryRelays;
-    const store2 = (() => {
-      if (opts.storage !== void 0) return opts.storage;
-      try {
-        return globalThis.localStorage ?? null;
-      } catch {
-        return null;
-      }
-    })();
-    const watchers7 = /* @__PURE__ */ new Set();
-    let kept2 = null;
-    const all = () => {
-      if (kept2) return kept2;
-      kept2 = {};
-      try {
-        const read6 = JSON.parse(store2?.getItem(KEY4) ?? "{}");
-        if (read6 && typeof read6 === "object" && !Array.isArray(read6)) {
-          for (const [k, v2] of Object.entries(read6)) {
-            if (!isHex64(k) || !v2 || typeof v2 !== "object") continue;
-            kept2[k] = { name: cleanName(typeof v2.name === "string" ? v2.name : ""), picture: cleanPicture(v2.picture), about: cleanAbout(v2.about), at: typeof v2.at === "number" ? v2.at : 0, asked: typeof v2.asked === "number" ? v2.asked : 0 };
-          }
-        }
-      } catch {
-      }
-      return kept2;
-    };
-    const save2 = () => {
-      const entries = Object.entries(all());
-      if (entries.length > MOST) kept2 = Object.fromEntries(entries.sort((a, b) => b[1].asked - a[1].asked).slice(0, MOST));
-      try {
-        store2?.setItem(KEY4, JSON.stringify(kept2));
-      } catch {
-      }
-    };
-    return {
-      get: (pubkey) => all()[pubkey] ?? null,
-      async fetch(pubkeys) {
-        const book = all();
-        const wanted = [...new Set(pubkeys)].filter((k) => isHex64(k) && now() - (book[k]?.asked ?? 0) > FRESH_MS3).slice(0, AT_ONCE);
-        if (wanted.length === 0) return;
-        const got = await askWell({ kinds: [0], authors: wanted, limit: wanted.length * 2 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).catch(() => null);
-        const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
-        for (const e of got?.events ?? []) {
-          if (e.kind !== 0 || !wanted.includes(e.pubkey) || !verifyEvent(e)) continue;
-          const had = book[e.pubkey];
-          if (had && had.at >= e.created_at) continue;
-          book[e.pubkey] = { ...readProfile(e), asked: now() };
-        }
-        if (answered) for (const k of wanted) book[k] = { ...book[k] ?? { name: "", picture: "", about: "", at: 0 }, asked: now() };
-        save2();
-        for (const fn of watchers7) fn();
-      },
-      onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
-      }
-    };
-  }
-
-  // packages/sdk/src/following.ts
-  var PAGE2 = 24;
-  function keyIn(text2) {
-    if (typeof text2 !== "string") return null;
-    const found2 = /npub1[02-9ac-hj-np-z]{58}/.exec(text2)?.[0] ?? /\b[0-9a-f]{64}\b/i.exec(text2)?.[0];
-    if (!found2) return null;
-    try {
-      return decodeNpub(found2);
-    } catch {
-      return null;
-    }
-  }
-  function addFollowingControls(controls2, opts) {
-    const f = opts.follows;
-    const profiles = opts.profiles ?? createProfiles(opts.relays ? { relays: opts.relays } : {});
-    let shown4 = [];
-    let chosen = null;
-    let pages = 1;
-    let wasMe = null;
-    let looked = false;
-    const nameOf = (pubkey) => profiles.get(pubkey)?.name || shortNpub(pubkey);
-    const say3 = (text2) => controls2.say(text2);
-    const press = (pubkey, name, adding) => {
-      const now = async () => {
-        const done = await (adding ? f.people.follow(pubkey, name) : f.people.unfollow(pubkey, name));
-        say3(done.said);
-        if (done.ok && adding) void profiles.fetch([pubkey]);
-        refresh();
-      };
-      if (!f.pubkey()) return say3("Sign in to follow people: it is under You.");
-      if (f.allowed()) return void now();
-      say3(f.ask(() => void now()));
-    };
-    const byKey = async () => {
-      const me = f.pubkey();
-      if (!me) return say3("Sign in to follow people: it is under You.");
-      let text2 = "";
-      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard2) text2 = await keyboard2.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
-      else {
-        try {
-          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
-        } catch {
-          return say3("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
-        }
-      }
-      const key = keyIn(text2);
-      if (!key) return say3(keyboard2 ? "That isn't a key. A key starts npub1 and is 63 characters long." : "What you copied isn't a key. Copy their key (it starts npub1) and press again.");
-      if (key === me) return say3("That is your own key.");
-      chosen = key;
-      await profiles.fetch([key]);
-      press(key, nameOf(key), true);
-    };
-    const refresh = () => {
-      for (const id of shown4) controls2.remove(id);
-      shown4 = [];
-      const me = f.pubkey();
-      if (me !== wasMe) {
-        wasMe = me;
-        chosen = null;
-        pages = 1;
-        looked = false;
-      }
-      const allowed = !!me && f.allowed();
-      const follows = allowed ? f.people.follows() : null;
-      const add = (...actions) => {
-        for (const a of actions) shown4.push(a.id);
-        controls2.add(...actions.map((a) => ({ section: "following", ...a })));
-      };
-      controls2.addSection({
-        id: "following",
-        label: "Following",
-        icon: "list",
-        note: () => !me ? "Sign in to see who you follow." : !allowed ? "Who you follow is yours, and the same in every Nostr app. This place hasn't been let see to it: say so below, and your sign-in address asks you once." : follows === null ? looked ? "Who you follow couldn't be looked for just now." : "Looking for who you follow." : follows.length === 0 ? "You follow nobody yet. Follow someone from their card in People, or by their key. Who you follow is public." : `You follow ${follows.length === 1 ? "1 person" : `${follows.length} people`}. Select one to see who they are. It is your own Nostr follow list, and it is public.`,
-        card: () => {
-          if (!chosen || !follows) return null;
-          const p = profiles.get(chosen);
-          const following = follows.includes(chosen);
-          return {
-            title: nameOf(chosen),
-            tag: following ? "You follow them" : "Not followed",
-            proven: false,
-            sub: shortNpub(chosen),
-            copy: encodeNpub(chosen),
-            text: p?.about ?? "",
-            picture: showsPictures() ? p?.picture ?? "" : "",
-            color: "",
-            // What they have done, as they say: where they stand here, what they show.
-            now: opts.about?.lines(chosen) ?? []
-          };
-        }
-      });
-      if (!me) return;
-      if (!allowed) {
-        add({
-          id: "following-let",
-          icon: "check",
-          tone: "primary",
-          label: "Show who I follow, and let me change it here",
-          act: () => say3(f.ask(() => void f.people.load().then(refresh)))
-        });
-        return;
-      }
-      if (follows === null) {
-        if (!looked) {
-          looked = true;
-          void f.people.load().then(refresh);
-        } else {
-          add({
-            id: "following-again",
-            icon: "turn",
-            label: "Look again",
-            act: () => {
-              looked = false;
-              refresh();
-            }
-          });
-        }
-        return;
-      }
-      add({ id: "following-key", icon: "key", label: () => opts.presenting?.() && opts.keyboard?.() ? "Follow someone by their key" : "Follow the key I copied", short: "By key", act: () => void byKey() });
-      if (chosen) {
-        const them = chosen;
-        const following = follows.includes(them);
-        add({ id: "following-toggle", icon: "check", on: () => following, label: following ? `Unfollow ${nameOf(them)}` : `Follow ${nameOf(them)}`, act: () => press(them, nameOf(them), !following) });
-        add(...opts.more?.({ pubkey: them, name: nameOf(them) }) ?? []);
-      }
-      const named2 = follows.filter((k) => profiles.get(k)?.name).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-      const rest = follows.filter((k) => !profiles.get(k)?.name);
-      const listed = [...named2, ...rest].slice(0, pages * PAGE2);
-      void profiles.fetch(follows.slice(0, pages * PAGE2 * 2));
-      add(
-        ...listed.map((k) => ({
-          id: `following-${k.slice(0, 16)}`,
-          kind: "swatch",
-          color: `#${k.slice(0, 6)}`,
-          on: () => chosen === k,
-          label: () => nameOf(k),
-          act: () => {
-            chosen = chosen === k ? null : k;
-            refresh();
-          }
-        }))
-      );
-      if (follows.length > listed.length) {
-        add({
-          id: "following-more",
-          icon: "list",
-          label: `Show more (${listed.length} of ${follows.length})`,
-          act: () => {
-            pages++;
-            refresh();
-          }
-        });
-      }
-    };
-    let drawing = false;
-    const soon2 = () => {
-      if (drawing) return;
-      drawing = true;
-      queueMicrotask(() => {
-        drawing = false;
-        refresh();
-      });
-    };
-    profiles.onChange(soon2);
-    f.people.onChange(soon2);
-    opts.about?.onChange(soon2);
-    refresh();
-    return {
-      refresh,
-      choose(pubkey) {
-        chosen = pubkey;
-        void profiles.fetch([pubkey]);
-        refresh();
-      },
-      press,
-      profiles
-    };
   }
 
   // packages/sdk/src/messages.ts
@@ -56013,7 +56225,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const parts3 = engineParts();
     const presence3 = enginePresence();
     if (!parts3 || !presence3) return JSON.stringify({ ok: false, why: "menu-first" });
-    const o = read4(options);
+    const o = read2(options);
     const world2 = engineWorld();
     const { controls: controls2, sounds: sounds2 } = parts3;
     const room3 = addRoomControls(controls2, presence3, {
@@ -56182,7 +56394,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     if (!asked) return "false";
     waiting2 = null;
     clearTimeout(asked.timer);
-    const given = read4(faces).faces;
+    const given = read2(faces).faces;
     const pngs = Array.isArray(given) ? given.filter((f) => typeof f === "string" && /^[A-Za-z0-9+/=]+$/.test(f)) : [];
     if (pngs.length !== PANORAMA_VIEWS.length) {
       asked.reject(new Error("nswp-sdk: a picture needs six views"));

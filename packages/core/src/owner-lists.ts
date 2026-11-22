@@ -19,6 +19,7 @@
  * an allow list that can't be read lets nobody in) are the gate's (SDK `front-room.ts`), not this file's.
  */
 import { isHex64, verifyEvent, type NostrEvent } from "./event.js";
+import { SITE_MARKS } from "./rating.js";
 
 /** The kind a list is: application data, addressed by its own name. The same kind as a listing and a receipt. */
 export const LIST_KIND = 30078;
@@ -208,4 +209,51 @@ export function ownerListTemplate(o: { scope: ListScope; subject: string; people
     content: "",
     tags: [["d", listD(o.scope, o.subject, o.namespace)], ["v", "1"], ["scope", o.scope], ["subject", o.subject], ...people.map((p) => ["p", p])],
   };
+}
+
+/** One change to a world owner's lists: who is let in, taken off, kept out, or no longer kept out. */
+export type OwnerListChange = "allow" | "unallow" | "block" | "unblock";
+/** Which list a change is made to: letting in and taking off are the guest list's, blocking and unblocking the block list's. */
+export const scopeOfChange = (change: OwnerListChange): ListScope => (change === "allow" || change === "unallow" ? "user-allow" : "user-deny");
+
+/**
+ * The list one change makes (protocol/10-identity.md, "Writing one, from one change"; `vectors/owner-list-writing.json`
+ * is held to it): everyone on `list` stays, `key` is put on or taken off, and it is dated `now`, or a second after
+ * `list` where that is later, so it replaces it. `list` is the newest found for that world and that change's list, or
+ * null for none. Null where it can't be written: a list that is another world's or another list, a key that isn't one,
+ * a subject that isn't one, or more than `OWNER_LIST_LIMITS.write` people.
+ */
+export function changeOwnerList(list: NostrEvent | null, o: { subject: string; change: OwnerListChange; key: string; now: number; namespace?: string }): ReturnType<typeof ownerListTemplate> {
+  if (!isHex64(o.key) || !["allow", "unallow", "block", "unblock"].includes(o.change)) return null;
+  const scope = scopeOfChange(o.change);
+  const d = listD(scope, o.subject, o.namespace);
+  if (list && (list.kind !== LIST_KIND || list.tags.filter((t) => t[0] === "d").map((t) => t[1]).join("\n") !== d)) return null;
+  const was = list ? [...new Set(list.tags.filter((t) => t[0] === "p" && isHex64(t[1])).map((t) => t[1]!))] : [];
+  const people = o.change === "allow" || o.change === "block" ? [...was, o.key] : was.filter((k) => k !== o.key);
+  const createdAt = list ? Math.max(o.now, list.created_at + 1) : o.now;
+  return ownerListTemplate({ scope, subject: o.subject, people, createdAt, ...(o.namespace ? { namespace: o.namespace } : {}) });
+}
+
+/** Tags a writer may add that change nothing a reader reads: which client wrote it, and the marks of the site it was signed at. */
+const NOT_READ = ["client", ...SITE_MARKS];
+
+/**
+ * Whether `signed`, come back from a sign-in address, is exactly `list` with that one change: signed by `pubkey` (the
+ * keeper who asked), really signed, dated after `list`, and with the same tags and people as `changeOwnerList` gives,
+ * leaving out a `client` tag and a site's marks, which a writer may add. Nothing else gets in, and nothing between can
+ * slip anyone onto the list.
+ */
+export function isOwnerListAsked(signed: unknown, o: { list: NostrEvent | null; subject: string; change: OwnerListChange; key: string; pubkey: string | null; namespace?: string }): signed is NostrEvent {
+  if (!o.pubkey || !shaped(signed) || signed.kind !== LIST_KIND || signed.pubkey !== o.pubkey || signed.content !== "") return false;
+  if (o.list && signed.created_at <= o.list.created_at) return false;
+  let good = false;
+  try {
+    good = verifyEvent({ ...signed, tags: signed.tags.map((t) => [...t]) });
+  } catch {
+    good = false;
+  }
+  if (!good) return false;
+  const want = changeOwnerList(o.list, { subject: o.subject, change: o.change, key: o.key, now: signed.created_at, ...(o.namespace ? { namespace: o.namespace } : {}) });
+  if (!want || want.created_at !== signed.created_at) return false;
+  return JSON.stringify(signed.tags.filter((t) => !NOT_READ.includes(t[0] ?? ""))) === JSON.stringify(want.tags);
 }
