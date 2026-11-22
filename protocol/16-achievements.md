@@ -1,6 +1,6 @@
 # NSWP-16: Achievements
 
-**Status:** Implemented in the reference library and kit, as claims; the Arcade has four. A signer's side is one message, which BitLogin has not built yet: until it has, what a visitor earned stays on their device. Achievements granted by someone a reader trusts are proposed · **Kinds:** 37307 · **Vectors:** [`achievements`](../vectors/achievements.json) · **Code:** core [`achievement.ts`](../packages/core/src/achievement.ts); SDK [`achievements.ts`](../packages/sdk/src/achievements.ts), [`achieving.ts`](../packages/sdk/src/achieving.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
+**Status:** Implemented in the reference library and kit, as claims; the Arcade has four. A signer's side is one message (`achieve`), which BitLogin's signer has answered on bitlogin.network since 2026-11-20 (its commit cf4ccf2); a kit world doing it against BitLogin's real signer has not been tried yet. Achievements granted by someone a reader trusts are proposed · **Kinds:** 37307 · **Vectors:** [`achievements`](../vectors/achievements.json) · **Code:** core [`achievement.ts`](../packages/core/src/achievement.ts); SDK [`achievements.ts`](../packages/sdk/src/achievements.ts), [`achieving.ts`](../packages/sdk/src/achieving.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
 
 A world may mark things its visitors do: the first lantern caught, every
 one of them, a run under a minute. A visitor who earns one may show it as

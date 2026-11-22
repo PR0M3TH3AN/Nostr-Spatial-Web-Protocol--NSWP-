@@ -1,6 +1,6 @@
 # NSWP-12: Saves
 
-**Status:** Implemented in the reference library and SDK; a signer has to implement its side before a save reaches an account (BitLogin's is not built yet: until it is, a save stays on the device) · **Kinds:** 37304 · **Vectors:** [`saves`](../vectors/saves.json) · **Code:** core [`save.ts`](../packages/core/src/save.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`saves.ts`](../packages/sdk/src/saves.ts), [`signer.ts`](../packages/sdk/src/signer.ts) · **Guides:** [`controls-kit.md`](../docs/controls-kit.md), [`other-engines.md`](../docs/other-engines.md)
+**Status:** Implemented in the reference library and SDK; BitLogin's signer has its side (`save`, `find`, `open`) and has answered it on bitlogin.network since 2026-11-20 (its commit f157867), so a save reaches the visitor's account; a kit world doing it against BitLogin's real signer has not been tried yet · **Kinds:** 37304 · **Vectors:** [`saves`](../vectors/saves.json) · **Code:** core [`save.ts`](../packages/core/src/save.ts), [`signing.ts`](../packages/core/src/signing.ts); SDK [`saves.ts`](../packages/sdk/src/saves.ts), [`signer.ts`](../packages/sdk/src/signer.ts) · **Guides:** [`controls-kit.md`](../docs/controls-kit.md), [`other-engines.md`](../docs/other-engines.md)
 
 A world may have something to remember for its visitor: how far they got,
 what they chose, what they built. A **save** is that, kept with the

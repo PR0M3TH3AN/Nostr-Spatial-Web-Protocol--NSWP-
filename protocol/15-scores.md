@@ -1,6 +1,6 @@
 # NSWP-15: Scores
 
-**Status:** Implemented in the reference library and kit, as claims; the Arcade keeps a board. A signer's side is one message, which BitLogin has not built yet: until it has, a visitor's best stays on their device. Checked scores, and boards across worlds, are proposed · **Kinds:** 37306 · **Vectors:** [`scores`](../vectors/scores.json) · **Code:** core [`score.ts`](../packages/core/src/score.ts); SDK [`scores.ts`](../packages/sdk/src/scores.ts), [`scoring.ts`](../packages/sdk/src/scoring.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
+**Status:** Implemented in the reference library and kit, as claims; the Arcade keeps a board. A signer's side is one message (`score`), which BitLogin's signer has answered on bitlogin.network since 2026-11-20 (its commits 51b6b49 and cf4ccf2); a kit world doing it against BitLogin's real signer has not been tried yet. Checked scores, and boards across worlds, are proposed · **Kinds:** 37306 · **Vectors:** [`scores`](../vectors/scores.json) · **Code:** core [`score.ts`](../packages/core/src/score.ts); SDK [`scores.ts`](../packages/sdk/src/scores.ts), [`scoring.ts`](../packages/sdk/src/scoring.ts) · **Guide:** [`controls-kit.md`](../docs/controls-kit.md)
 
 A world that keeps score may let its visitor post one, and show who else
 has. All of it is optional. A world that names no boards owes nothing here,

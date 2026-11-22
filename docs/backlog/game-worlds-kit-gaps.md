@@ -42,6 +42,6 @@
 | A 3D panel for a cockpit's own displays, and a stated rule for a world's own menu | partly: visitors' panels exist; the rule is NSWP-09/11's | later |
 | Lever, slider and axis controls | not planned | later |
 | Arriving as a group | written in the spec (§9.7), not built; see `rooms-start-or-join` | later |
-| A per-world key for saves | saves exist (NSWP-12) but need BitLogin's side; a world never gets more than a session key from a pass, by design | waits on BitLogin |
+| A per-world key for saves | not needed: saves (NSWP-12) go through the visitor's sign-in, and BitLogin's side has been live since 2026-11-20 (the orchestrator said otherwise to COMBATRIG on 2026-11-21, wrongly); a world never gets more than a session key from a pass, by design | available now |
 | A TURN relay | see `rooms-stun-servers`; someone has to run and pay for one | the owner's |
 | A public template with a game example, and testing on a real headset | the template is public; no game example | later |
