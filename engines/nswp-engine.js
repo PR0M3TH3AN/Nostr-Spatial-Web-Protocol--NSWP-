@@ -39,6 +39,7 @@ var NSWP = (() => {
     failed: () => failed,
     figure: () => figure,
     frame: () => frame,
+    gate: () => gate,
     go: () => go,
     headset: () => headset,
     home: () => home,
@@ -1083,8 +1084,8 @@ var NSWP = (() => {
     const powered = F.pow(n, p1mod2);
     const yes = F.eql(powered, F.ONE);
     const zero = F.eql(powered, F.ZERO);
-    const no2 = F.eql(powered, F.neg(F.ONE));
-    if (!yes && !zero && !no2)
+    const no3 = F.eql(powered, F.neg(F.ONE));
+    if (!yes && !zero && !no3)
       throw new Error("invalid Legendre symbol result");
     return yes ? 1 : zero ? 0 : -1;
   }
@@ -4416,8 +4417,90 @@ var NSWP = (() => {
     return typeof input === "number" && Number.isSafeInteger(input) && input >= TIP_LIMITS.least && input <= TIP_LIMITS.most ? input : null;
   }
 
+  // packages/core/dist/shares.js
+  var SHARE_TAG = "nswp:share";
+
   // packages/core/dist/listing.js
+  var LISTING_KIND = 30078;
+  var LEAST_PRICE_SATS = 500;
   var ACCESS_MOST = 8;
+  var DELIVERY = "seller-unlock-service-v1";
+  var NAME_MOST = 80;
+  var no2 = (why) => ({ ok: false, why });
+  var only = (tags, name) => {
+    const found2 = tags.filter((t) => t[0] === name);
+    return found2.length === 1 ? found2[0] : null;
+  };
+  function cleanListingName(input) {
+    if (typeof input !== "string")
+      return "";
+    const seen = Array.from(input.normalize("NFC")).filter((ch) => {
+      const c = ch.codePointAt(0);
+      return c >= 32 && !(c >= 127 && c <= 159) && !(c >= 8203 && c <= 8207) && !(c >= 8232 && c <= 8239) && !(c >= 8288 && c <= 8303) && c !== 65279;
+    });
+    return Array.from(seen.join("").trim()).slice(0, NAME_MOST).join("").trim();
+  }
+  function readListing(event, coordinate2, o = {}) {
+    const wanted = cleanListing(coordinate2);
+    const e = event;
+    if (!wanted || !e || typeof e !== "object" || e.kind !== LISTING_KIND || typeof e.content !== "string" || e.content.length > 8e3)
+      return no2("not-a-listing");
+    if (!Array.isArray(e.tags) || !e.tags.every((t) => Array.isArray(t) && t.every((x) => typeof x === "string")))
+      return no2("not-a-listing");
+    if (e.pubkey !== listingSeller(wanted))
+      return no2("other-seller");
+    let signed = false;
+    try {
+      signed = verifyEvent({ ...e, tags: e.tags.map((t) => [...t]) });
+    } catch {
+      signed = false;
+    }
+    if (!signed)
+      return no2("not-signed");
+    const d = only(e.tags, "d");
+    if (!d || `${LISTING_KIND}:${e.pubkey}:${d[1] ?? ""}` !== wanted)
+      return no2("other-listing");
+    if (only(e.tags, "status")?.[1] !== "active" || only(e.tags, "br:delivery")?.[1] !== DELIVERY)
+      return no2("not-for-sale");
+    const price = only(e.tags, "price");
+    if (!price || price[2] !== "SAT" || !/^[1-9][0-9]{0,11}$/.test(price[1] ?? ""))
+      return no2("not-a-listing");
+    const sats = Number(price[1]);
+    const terms = e.tags.filter((t) => t[0] === "nswp:term");
+    if (terms.length > 1 || terms.length === 1 && (terms[0].length !== 2 || !/^[1-9][0-9]{0,9}$/.test(terms[0][1] ?? "")))
+      return no2("not-a-listing");
+    const term = terms.length ? Number(terms[0][1]) : null;
+    const issuer = (o.issuers ?? RECEIPT_ISSUERS).find((i) => i.service === only(e.tags, "br:unlock-service")?.[1] && i.pubkey === only(e.tags, "br:unlock-service-pubkey")?.[1]);
+    if (!issuer)
+      return no2("unknown-service");
+    if (sats < LEAST_PRICE_SATS)
+      return no2("too-cheap");
+    if (e.tags.some((t) => t[0] === SHARE_TAG))
+      return no2("shared");
+    let words2 = {};
+    try {
+      const parsed = JSON.parse(e.content || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+        words2 = parsed;
+    } catch {
+      words2 = {};
+    }
+    const name = cleanListingName(only(e.tags, "title")?.[1]) || cleanListingName(words2.title) || cleanListingName(words2.name) || cleanListingName(d[1]);
+    const said2 = only(e.tags, "nswp:for")?.[1] ?? "";
+    return { ok: true, listing: { coordinate: wanted, seller: e.pubkey, name, sats, term, for: /^3730[0-9]:[0-9a-f]{64}:[^\s]{1,200}$/.test(said2) ? said2 : "", issuer } };
+  }
+  function termWords(term) {
+    if (term === null || !Number.isSafeInteger(term) || term < 1)
+      return "once";
+    for (const [unit2, seconds] of [["day", 86400], ["hour", 3600], ["minute", 60]]) {
+      if (term % seconds === 0)
+        return `for ${term / seconds} ${unit2}${term === seconds ? "" : "s"}`;
+    }
+    return `for ${term} second${term === 1 ? "" : "s"}`;
+  }
+  function priceWords(listing) {
+    return `${listing.sats} sats, ${termWords(listing.term)}`;
+  }
   function cleanAccess(input, sellers) {
     const out = [];
     for (const said2 of Array.isArray(input) ? input : [input]) {
@@ -4637,6 +4720,14 @@ var NSWP = (() => {
     if (d === void 0 || publishers.length !== 1)
       return { url };
     return { naddr: encodeNaddr({ kind: WORLD_KIND, pubkey: publishers[0], identifier: d, relays: manifest.relays.slice(0, 2) }), url };
+  }
+  function accessFor(manifest, url) {
+    const here = normalizeUrl(url);
+    const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id].entry.url) === here);
+    if (d === void 0)
+      return null;
+    const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
+    return { d, listings: [...manifest.worlds[d].access ?? []], sellers };
   }
 
   // packages/core/dist/layout.js
@@ -7556,6 +7647,516 @@ postMessage({ t: "started" });
         watchers7.add(fn);
       }
     };
+  }
+
+  // packages/sdk/src/relay-book.ts
+  var KEY2 = "nswp:relays";
+  var notes = null;
+  var read = () => {
+    if (notes) return notes;
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(KEY2) ?? "{}");
+      notes = kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
+    } catch {
+      notes = {};
+    }
+    return notes;
+  };
+  function learnFrom(results, now = Date.now()) {
+    notes = learnRelays(read(), results, now);
+    try {
+      globalThis.localStorage?.setItem(KEY2, JSON.stringify(notes));
+    } catch {
+    }
+  }
+  function relaysWell(o, now = Date.now()) {
+    return pickRelays({ ...o, notes: read(), now });
+  }
+  async function sendWell(event, o) {
+    const publish = o.publish ?? publishEvent;
+    const now = o.now ?? (() => Date.now());
+    const first = relaysWell(o, now());
+    const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
+    learnFrom(sent.relays, now());
+    let took = Object.values(sent.relays).filter((said2) => said2 === "ok").length;
+    const tried = [...first.relays];
+    if (took === 0) {
+      const rest = o.usual.filter((r) => !tried.includes(r));
+      if (rest.length) {
+        const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
+        learnFrom(again.relays, now());
+        took = Object.values(again.relays).filter((said2) => said2 === "ok").length;
+        tried.push(...rest);
+      }
+    }
+    if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
+      const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open;
+      for (let round2 = 0; round2 < BACKUP_ROUNDS && took === 0; round2++) {
+        const batch = more.slice(round2 * BACKUP_AT_ONCE, (round2 + 1) * BACKUP_AT_ONCE);
+        if (!batch.length) break;
+        const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
+        learnFrom(last.relays, now());
+        took = Object.values(last.relays).filter((said2) => said2 === "ok").length;
+        tried.push(...batch);
+      }
+    }
+    return { took, relays: tried, own: first.own };
+  }
+  async function askWell(filter, o) {
+    const now = o.now ?? (() => Date.now());
+    const asked = relaysWell(o, now()).relays;
+    return queryBacked(asked, filter, o.timeoutMs ?? 4e3, { ...o.query ? { query: o.query } : {}, now });
+  }
+  var FOUND_KEY = "nswp:relays:found";
+  var FOUND_FOR_MS = 24 * 3600 * 1e3;
+  var backup = true;
+  var found = null;
+  var finding = null;
+  function relayBackup(on3) {
+    if (on3 !== void 0) backup = on3;
+    return backup;
+  }
+  function foundRelays(o = {}) {
+    const now = o.now ?? (() => Date.now());
+    const without = (all) => ({ open: all.open.filter((r) => !(o.not ?? []).includes(r)), closed: all.closed });
+    if (!found) {
+      try {
+        const kept2 = JSON.parse(globalThis.localStorage?.getItem(FOUND_KEY) ?? "null");
+        const list = (v2) => Array.isArray(v2) ? v2.filter((r) => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : [];
+        if (kept2 && typeof kept2.at === "number") found = { at: kept2.at, open: list(kept2.open), closed: list(kept2.closed) };
+      } catch {
+      }
+    }
+    if (found && now() - found.at < FOUND_FOR_MS) return Promise.resolve(without(found));
+    finding ?? (finding = (async () => {
+      const since = Math.floor(now() / 1e3) - DISCOVERY.freshSec;
+      const got = await (o.query ?? queryRelays)([...DISCOVERY_RELAYS], { kinds: [RELAY_DISCOVERY_KIND], since, limit: 500 }, 5e3).catch(() => null);
+      const picked = pickDiscovered(got?.events ?? [], { now: Math.floor(now() / 1e3), most: 24 });
+      if (picked.open.length || picked.closed.length) {
+        found = { at: now(), ...picked };
+        try {
+          globalThis.localStorage?.setItem(FOUND_KEY, JSON.stringify(found));
+        } catch {
+        }
+      }
+      return picked;
+    })().finally(() => {
+      finding = null;
+    }));
+    return finding.then(without);
+  }
+  var BACKUP_AT_ONCE = 4;
+  var BACKUP_ROUNDS = 3;
+  var mayBackUp = (relays, injected) => backup && relays.length > 0 && (injected || typeof document !== "undefined");
+  async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
+    const query = o.query ?? queryRelays;
+    const now = o.now ?? (() => Date.now());
+    const got = await query(relays, filter, timeoutMs);
+    learnFrom(got.relays, now());
+    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said2) => said2 === "eose")) return got;
+    const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
+    if (!more.length) return got;
+    const again = await query(more, filter, timeoutMs).catch(() => null);
+    if (!again) return got;
+    learnFrom(again.relays, now());
+    const byId = new Map([...got.events, ...again.events].map((e) => [e.id, e]));
+    return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
+  }
+
+  // packages/sdk/src/front-room.ts
+  var GATE_TIMES = { grace: 120, look: 300, goodFor: 86400 };
+  var GOOD_KEY = "nswp:receipts:good";
+  function goodAt() {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(GOOD_KEY) ?? "{}");
+      return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
+    } catch {
+      return {};
+    }
+  }
+  function keepGood(fulfillment, at) {
+    try {
+      const all = Object.entries({ ...goodAt(), [fulfillment]: at }).filter(([, t]) => typeof t === "number").sort((a, b) => b[1] - a[1]).slice(0, 40);
+      globalThis.localStorage?.setItem(GOOD_KEY, JSON.stringify(Object.fromEntries(all)));
+    } catch {
+    }
+  }
+  async function askService(receipt) {
+    if (typeof fetch !== "function") return "unknown";
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 6e3);
+      const res = await fetch(`${receipt.issuer.service}/entitlements/${encodeURIComponent(receipt.fulfillment)}/status`, { credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal: ctl.signal }).finally(() => clearTimeout(timer));
+      if (!res.ok) return "unknown";
+      const said2 = await res.json();
+      if (!said2 || typeof said2 !== "object") return "unknown";
+      return said2.revokedAt === void 0 || said2.revokedAt === null ? "stands" : "taken-back";
+    } catch {
+      return "unknown";
+    }
+  }
+  function unreadWords(why) {
+    switch (why) {
+      case "no-relay":
+        return "What it costs couldn't be read just now: no relay answered. It is being asked for again.";
+      case "not-found":
+        return "Its listing wasn't found on the relays asked, so it can't be bought here yet. It is being asked for again.";
+      case "too-cheap":
+        return "Its listing is priced under 500 sats, the least anything is sold for, so it isn't offered.";
+      case "other-seller":
+      case "not-signed":
+        return "Its listing isn't signed by this world's own key, so it isn't offered.";
+      case "not-for-sale":
+        return "It isn't for sale just now.";
+      case "unknown-service":
+        return "It is sold through a service this world can't take a receipt from, so it isn't offered.";
+      case "shared":
+        return "Its price is divided between several people, which isn't switched on yet, so it isn't offered.";
+      case "not-for-here":
+        return "Its listing is for somewhere else, so it isn't offered here.";
+      default:
+        return "Its listing doesn't read, so it isn't offered.";
+    }
+  }
+  function untilWords(until) {
+    if (until === null) return "for good";
+    try {
+      return `until ${new Date(until * 1e3).toLocaleString(void 0, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+    } catch {
+      return "for now";
+    }
+  }
+  function createPaidGate(opts) {
+    const now = opts.now ?? (() => Date.now());
+    const sec = () => Math.floor(now() / 1e3);
+    const watchers7 = /* @__PURE__ */ new Set();
+    let state = opts.listings && opts.listings.length === 0 ? "free" : "checking";
+    let reason = "";
+    let listings = [];
+    let ownRelays = [];
+    let worldName = "";
+    const offers2 = /* @__PURE__ */ new Map();
+    const unread = /* @__PURE__ */ new Map();
+    let held2 = null;
+    const takenBack = /* @__PURE__ */ new Set();
+    const asked = /* @__PURE__ */ new Map();
+    let endsAt = 0;
+    let buying = false;
+    let disposed = false;
+    let round2 = 0;
+    let endTimer;
+    let graceTimer;
+    let retryTimer;
+    let lookTimer;
+    let retries = 0;
+    let unwatch = null;
+    let seeking2 = 0;
+    let seekTimer;
+    const changed = () => {
+      for (const fn of [...watchers7]) {
+        try {
+          fn();
+        } catch {
+        }
+      }
+    };
+    const set = (next, why2) => {
+      if (state === next && reason === why2) return;
+      state = next;
+      reason = why2;
+      changed();
+    };
+    const shut = (why2) => {
+      clearTimeout(endTimer);
+      clearTimeout(graceTimer);
+      endsAt = 0;
+      held2 = null;
+      set("shut", why2);
+    };
+    const believe = (event, listing, buyer) => {
+      if (!buyer || !listings.includes(listing)) return null;
+      const read6 = readReceipt(event, { listing, buyer, now: sec() });
+      return read6.ok && !takenBack.has(read6.receipt.fulfillment) ? { ...read6.receipt, event } : null;
+    };
+    const lasts = (r) => r.expiresAt === null || r.expiresAt * 1e3 > now();
+    const best = (all) => all.filter((r) => !!r && lasts(r)).sort((a, b) => a.expiresAt === null ? -1 : b.expiresAt === null ? 1 : b.expiresAt - a.expiresAt)[0] ?? null;
+    const openUp = (r) => {
+      held2 = r;
+      clearTimeout(endTimer);
+      clearTimeout(graceTimer);
+      endsAt = 0;
+      if (r.expiresAt !== null) endTimer = setTimeout(() => void look(true), Math.max(0, Math.min(r.expiresAt * 1e3 - now(), 2 ** 31 - 1)));
+      const was = state;
+      set("open", "");
+      if (was === "open") changed();
+    };
+    const ending = () => {
+      held2 = null;
+      clearTimeout(endTimer);
+      clearTimeout(graceTimer);
+      endsAt = now() + GATE_TIMES.grace * 1e3;
+      graceTimer = setTimeout(() => {
+        if (state === "ending") shut("run-out");
+      }, GATE_TIMES.grace * 1e3);
+      set("ending", "run-out");
+    };
+    const askAbout = async (r) => {
+      asked.set(r.fulfillment, now());
+      const said2 = await (opts.status ?? askService)(r).catch(() => "unknown");
+      if (said2 === "stands") keepGood(r.fulfillment, now());
+      if (said2 === "taken-back") takenBack.add(r.fulfillment);
+      return said2;
+    };
+    const take = async (r, mine) => {
+      const last = Math.max(goodAt()[r.fulfillment] ?? 0, r.issuedAt * 1e3);
+      const fresh = now() - last < GATE_TIMES.goodFor * 1e3;
+      const due = now() - (asked.get(r.fulfillment) ?? 0) >= GATE_TIMES.look * 1e3;
+      if (fresh) {
+        openUp(r);
+        if (!due) return;
+        const said3 = await askAbout(r);
+        if (disposed || held2?.fulfillment !== r.fulfillment) return;
+        if (said3 === "taken-back") return shut("taken-back");
+        if (said3 === "unknown" && now() - Math.max(goodAt()[r.fulfillment] ?? 0, r.issuedAt * 1e3) >= GATE_TIMES.goodFor * 1e3) shut("unchecked");
+        return;
+      }
+      const said2 = due ? await askAbout(r) : "unknown";
+      if (disposed || mine !== round2) return;
+      if (said2 === "stands") return openUp(r);
+      if (state !== "ending") shut(said2 === "taken-back" ? "taken-back" : "unchecked");
+    };
+    const look = async (ended = false) => {
+      if (disposed || state === "free") return;
+      const mine = ++round2;
+      const signer = opts.signer();
+      if (signer && !unwatch) unwatch = signer.onChange(() => void look());
+      const buyer = signer?.state === "unlocked" ? signer.pubkey : null;
+      if (!signer && seeking2 < 10) {
+        seeking2++;
+        clearTimeout(seekTimer);
+        seekTimer = setTimeout(() => void look(), 3e3);
+      }
+      if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
+      if (held2 && held2.buyer !== buyer) held2 = null;
+      const got = await Promise.all(listings.map((l) => signer.have(l).then((r) => r ? believe(r.event, l, buyer) : null).catch(() => null)));
+      if (disposed || mine !== round2) return;
+      const found2 = best([...got, held2 && !takenBack.has(held2.fulfillment) ? held2 : null]);
+      if (found2) return take(found2, mine);
+      if (state === "ending") return;
+      if (ended && state === "open") return ending();
+      shut(reason === "taken-back" || reason === "unchecked" || reason === "run-out" ? reason : "nothing-held");
+    };
+    const readOffers = async () => {
+      const want2 = listings.filter((l) => !offers2.has(l));
+      if (!want2.length || disposed) return;
+      const name = (l) => l.slice(71);
+      const filter = { kinds: [LISTING_KIND], authors: [...new Set(want2.map(listingSeller))], "#d": want2.map(name) };
+      const got = await askWell(filter, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, now }).catch(() => null);
+      if (disposed) return;
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      for (const l of want2) {
+        const newest = (got?.events ?? []).filter((e) => e && e.kind === LISTING_KIND && e.pubkey === listingSeller(l) && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === name(l))).sort((a, b) => b.created_at - a.created_at)[0];
+        if (!newest) {
+          unread.set(l, answered ? "not-found" : "no-relay");
+          continue;
+        }
+        const read6 = readListing(newest, l);
+        if (!read6.ok) unread.set(l, read6.why);
+        else if (read6.listing.for && worldName && read6.listing.for !== `${WORLD_KIND}:${read6.listing.seller}:${worldName}`) unread.set(l, "not-for-here");
+        else {
+          offers2.set(l, read6.listing);
+          unread.delete(l);
+        }
+      }
+      changed();
+      clearTimeout(retryTimer);
+      if ([...unread.values()].some((w) => w === "no-relay" || w === "not-found")) retryTimer = setTimeout(() => void readOffers(), Math.min(2e4 * 2 ** retries++, GATE_TIMES.look * 1e3));
+    };
+    const begin = async () => {
+      let access = null;
+      let file = null;
+      try {
+        file = await (opts.manifest ?? (() => fetch("/.well-known/nswp.json", { cache: "no-cache", credentials: "omit" }).then((r) => r.ok ? r.json() : null)))();
+        const parsed = parseManifest(file);
+        if (parsed.ok) {
+          const worlds = Object.values(parsed.value.worlds);
+          access = accessFor(parsed.value, opts.url ?? `${location.origin}${location.pathname}`) ?? (worlds.length === 1 ? accessFor(parsed.value, worlds[0].entry.url) : null);
+          ownRelays = parsed.value.relays;
+        }
+      } catch {
+        access = null;
+      }
+      if (disposed) return;
+      if (!access) {
+        set("shut", "no-manifest");
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => void begin(), Math.min(15e3 * 2 ** retries++, GATE_TIMES.look * 1e3));
+        return;
+      }
+      retries = 0;
+      worldName = access.d;
+      listings = cleanAccess(opts.listings ? [...opts.listings] : access.listings, access.sellers);
+      const named2 = file?.worlds?.[access.d]?.access;
+      const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named2) ? named2.length > 0 : named2 !== void 0;
+      if (!meant) return set("free", "");
+      if (listings.length === 0) return set("shut", "not-own");
+      void readOffers();
+      const signer = opts.signer();
+      if (signer) await signer.whenAnswered(4e3).catch(() => void 0);
+      if (disposed) return;
+      if (signer && !unwatch) unwatch = signer.onChange(() => void look());
+      lookTimer = setInterval(() => void look(), GATE_TIMES.look * 1e3);
+      await look();
+    };
+    if (state !== "free") void begin();
+    const offerList = () => listings.flatMap((l) => offers2.has(l) ? [{ listing: l, name: offers2.get(l).name, sats: offers2.get(l).sats, term: offers2.get(l).term, words: priceWords(offers2.get(l)) }] : []);
+    const host = () => opts.signer()?.host ?? "your sign-in address";
+    const signedIn = () => opts.signer()?.state === "unlocked";
+    const why = () => {
+      if (state === "free" || state === "open" || state === "checking") return "";
+      if (state === "ending") return "Your time here has run out. This part closes in two minutes. Buy again to stay.";
+      if (reason === "no-manifest") return "This world couldn't read its own list of what it is sold by, so the way stays shut. It is being read again.";
+      if (reason === "not-own") return "What this world says it is sold by isn't its own to sell, so nothing here can be bought. That is the world's to put right.";
+      const list = offerList();
+      const firstUnread = [...unread.values()][0];
+      const sale = list.length ? `Past here is for people who have bought it: ${list.map((o) => `${o.name}, ${o.words}`).join("; or ")}.` : `Past here is for people who have bought it. ${firstUnread ? unreadWords(firstUnread) : "What it costs is being read."}`;
+      if (reason === "no-signer") return `${sale} Buying is done at a sign-in address, and this world was given none for you.`;
+      if (reason === "signed-out") return `${sale} Sign in to buy, or to show what you already hold.`;
+      if (reason === "taken-back") return `The pass you held was taken back by the service that sold it. ${sale}`;
+      if (reason === "unchecked") return "The service that sold your pass couldn't be asked whether it still stands, and it was last checked more than a day ago. The way opens when it answers.";
+      if (reason === "run-out") return `Your time here has run out. ${sale}`;
+      return sale;
+    };
+    return {
+      get state() {
+        return state;
+      },
+      get open() {
+        return state === "free" || state === "open" || state === "ending";
+      },
+      get reason() {
+        return reason;
+      },
+      get why() {
+        return why();
+      },
+      get offers() {
+        return offerList();
+      },
+      get read() {
+        return offers2.size > 0 || unread.size > 0;
+      },
+      get until() {
+        return state === "open" && held2 ? held2.expiresAt : null;
+      },
+      get signedIn() {
+        return signedIn();
+      },
+      get host() {
+        return host();
+      },
+      get buying() {
+        return buying;
+      },
+      async buy(listing) {
+        const wanted = cleanListing(listing ?? offerList()[0]?.listing ?? "");
+        const signer = opts.signer();
+        if (disposed || buying || !wanted || !offers2.has(wanted) || !signer || signer.state !== "unlocked") return false;
+        if (state === "free" || state === "open") return false;
+        buying = true;
+        changed();
+        const got = await signer.buy(wanted).catch(() => null);
+        buying = false;
+        const receipt = got ? believe(got.event, wanted, opts.signer()?.state === "unlocked" ? opts.signer().pubkey : null) : null;
+        if (!receipt || disposed) {
+          changed();
+          return false;
+        }
+        keepGood(receipt.fulfillment, now());
+        asked.set(receipt.fulfillment, now());
+        round2++;
+        openUp(receipt);
+        return true;
+      },
+      async check() {
+        if (state === "free" || disposed) return;
+        if (reason === "no-manifest") return begin();
+        retries = 0;
+        await Promise.all([readOffers(), look()]);
+      },
+      onChange(fn) {
+        watchers7.add(fn);
+        return () => void watchers7.delete(fn);
+      },
+      info() {
+        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings] };
+      },
+      dispose() {
+        disposed = true;
+        clearTimeout(endTimer);
+        clearTimeout(graceTimer);
+        clearTimeout(retryTimer);
+        clearTimeout(seekTimer);
+        clearInterval(lookTimer);
+        unwatch?.();
+        watchers7.clear();
+      }
+    };
+  }
+  function addGateControls(controls2, gate2, opts = {}) {
+    const section = opts.section ?? "travel";
+    const signIn2 = opts.signIn ?? (() => controls2.run("signer"));
+    let saidFor = "";
+    const press = (listing) => {
+      const offer = gate2.offers.find((o) => o.listing === listing) ?? gate2.offers[0];
+      if (!gate2.signedIn) {
+        if (!signIn2()) controls2.say("No sign-in address answered here, so nothing can be bought just now. Reload the page to try again.");
+        return;
+      }
+      if (!offer) {
+        controls2.say("Asking again what this costs.");
+        return void gate2.check();
+      }
+      if (opts.presenting?.()) return controls2.say(`${gate2.host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press this again.`);
+      if (gate2.buying) return controls2.say(`${gate2.host} is still asking. Answer there.`);
+      controls2.say(`${gate2.host} is asking: ${offer.name}, ${offer.words}. Say yes there, and the way opens.`);
+      void gate2.buy(offer.listing).then((bought) => {
+        if (bought) controls2.say(`Bought: ${offer.name}. The way is open ${untilWords(gate2.until)}.`);
+        else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
+      });
+    };
+    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer";
+    for (let i = 0; i < ACCESS_MOST; i++) {
+      const offer = () => gate2.offers[i];
+      controls2.add({
+        id: i === 0 ? "gate-buy" : `gate-buy-${i + 1}`,
+        section,
+        icon: "key",
+        tone: "primary",
+        hotbar: i === 0,
+        short: () => gate2.signedIn ? "Buy" : "Sign in",
+        // With nothing that could be read, the first row is still a way to sign in and show what is held, or to ask again.
+        label: () => {
+          const o = offer();
+          if (o) return `${gate2.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
+          return gate2.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
+        },
+        hidden: () => !showing() || !offer() && (i > 0 || gate2.offers.length > 0),
+        act: () => press(offer()?.listing)
+      });
+    }
+    const refresh = () => {
+      const closed = gate2.state === "shut" || gate2.state === "ending";
+      if (!closed) saidFor = "";
+      else if (saidFor !== gate2.state && (gate2.state === "ending" || gate2.read || !showing())) {
+        saidFor = gate2.state;
+        controls2.say(gate2.why);
+      }
+      controls2.signal("gate");
+    };
+    gate2.onChange(refresh);
+    refresh();
+    return { refresh, press };
   }
 
   // packages/sdk/src/ui/icons.ts
@@ -42846,8 +43447,8 @@ void main() {
       let added = 0;
       let refused = "";
       for (const file of [...picker.files ?? []]) {
-        const no2 = await sounds2.jukebox.add(file);
-        if (no2) refused = no2;
+        const no3 = await sounds2.jukebox.add(file);
+        if (no3) refused = no3;
         else added++;
       }
       picker.value = "";
@@ -43195,120 +43796,6 @@ void main() {
       },
       failed: failed2
     };
-  }
-
-  // packages/sdk/src/relay-book.ts
-  var KEY2 = "nswp:relays";
-  var notes = null;
-  var read = () => {
-    if (notes) return notes;
-    try {
-      const kept2 = JSON.parse(globalThis.localStorage?.getItem(KEY2) ?? "{}");
-      notes = kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
-    } catch {
-      notes = {};
-    }
-    return notes;
-  };
-  function learnFrom(results, now = Date.now()) {
-    notes = learnRelays(read(), results, now);
-    try {
-      globalThis.localStorage?.setItem(KEY2, JSON.stringify(notes));
-    } catch {
-    }
-  }
-  function relaysWell(o, now = Date.now()) {
-    return pickRelays({ ...o, notes: read(), now });
-  }
-  async function sendWell(event, o) {
-    const publish = o.publish ?? publishEvent;
-    const now = o.now ?? (() => Date.now());
-    const first = relaysWell(o, now());
-    const sent = await publish(first.relays, event).catch(() => ({ relays: Object.fromEntries(first.relays.map((r) => [r, "error: not sent"])) }));
-    learnFrom(sent.relays, now());
-    let took = Object.values(sent.relays).filter((said2) => said2 === "ok").length;
-    const tried = [...first.relays];
-    if (took === 0) {
-      const rest = o.usual.filter((r) => !tried.includes(r));
-      if (rest.length) {
-        const again = await publish(rest, event).catch(() => ({ relays: Object.fromEntries(rest.map((r) => [r, "error: not sent"])) }));
-        learnFrom(again.relays, now());
-        took = Object.values(again.relays).filter((said2) => said2 === "ok").length;
-        tried.push(...rest);
-      }
-    }
-    if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
-      const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open;
-      for (let round2 = 0; round2 < BACKUP_ROUNDS && took === 0; round2++) {
-        const batch = more.slice(round2 * BACKUP_AT_ONCE, (round2 + 1) * BACKUP_AT_ONCE);
-        if (!batch.length) break;
-        const last = await publish(batch, event).catch(() => ({ relays: Object.fromEntries(batch.map((r) => [r, "error: not sent"])) }));
-        learnFrom(last.relays, now());
-        took = Object.values(last.relays).filter((said2) => said2 === "ok").length;
-        tried.push(...batch);
-      }
-    }
-    return { took, relays: tried, own: first.own };
-  }
-  async function askWell(filter, o) {
-    const now = o.now ?? (() => Date.now());
-    const asked = relaysWell(o, now()).relays;
-    return queryBacked(asked, filter, o.timeoutMs ?? 4e3, { ...o.query ? { query: o.query } : {}, now });
-  }
-  var FOUND_KEY = "nswp:relays:found";
-  var FOUND_FOR_MS = 24 * 3600 * 1e3;
-  var backup = true;
-  var found = null;
-  var finding = null;
-  function relayBackup(on3) {
-    if (on3 !== void 0) backup = on3;
-    return backup;
-  }
-  function foundRelays(o = {}) {
-    const now = o.now ?? (() => Date.now());
-    const without = (all) => ({ open: all.open.filter((r) => !(o.not ?? []).includes(r)), closed: all.closed });
-    if (!found) {
-      try {
-        const kept2 = JSON.parse(globalThis.localStorage?.getItem(FOUND_KEY) ?? "null");
-        const list = (v2) => Array.isArray(v2) ? v2.filter((r) => typeof r === "string" && /^wss:\/\//.test(r)).slice(0, 400) : [];
-        if (kept2 && typeof kept2.at === "number") found = { at: kept2.at, open: list(kept2.open), closed: list(kept2.closed) };
-      } catch {
-      }
-    }
-    if (found && now() - found.at < FOUND_FOR_MS) return Promise.resolve(without(found));
-    finding ?? (finding = (async () => {
-      const since = Math.floor(now() / 1e3) - DISCOVERY.freshSec;
-      const got = await (o.query ?? queryRelays)([...DISCOVERY_RELAYS], { kinds: [RELAY_DISCOVERY_KIND], since, limit: 500 }, 5e3).catch(() => null);
-      const picked = pickDiscovered(got?.events ?? [], { now: Math.floor(now() / 1e3), most: 24 });
-      if (picked.open.length || picked.closed.length) {
-        found = { at: now(), ...picked };
-        try {
-          globalThis.localStorage?.setItem(FOUND_KEY, JSON.stringify(found));
-        } catch {
-        }
-      }
-      return picked;
-    })().finally(() => {
-      finding = null;
-    }));
-    return finding.then(without);
-  }
-  var BACKUP_AT_ONCE = 4;
-  var BACKUP_ROUNDS = 3;
-  var mayBackUp = (relays, injected) => backup && relays.length > 0 && (injected || typeof document !== "undefined");
-  async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
-    const query = o.query ?? queryRelays;
-    const now = o.now ?? (() => Date.now());
-    const got = await query(relays, filter, timeoutMs);
-    learnFrom(got.relays, now());
-    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said2) => said2 === "eose")) return got;
-    const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
-    if (!more.length) return got;
-    const again = await query(more, filter, timeoutMs).catch(() => null);
-    if (!again) return got;
-    learnFrom(again.relays, now());
-    const byId = new Map([...got.events, ...again.events].map((e) => [e.id, e]));
-    return { events: [...byId.values()], relays: { ...got.relays, ...again.relays } };
   }
 
   // packages/sdk/src/people.ts
@@ -44091,6 +44578,9 @@ void main() {
   var kept = null;
   function worldSaves() {
     return kept ?? (kept = createSaves({ signer: () => signerNamed() ? worldSigner() : null }));
+  }
+  function worldGate(opts = {}) {
+    return createPaidGate({ ...opts, signer: () => signerNamed() ? worldSigner() : null });
   }
   var followed = null;
   function worldPeople() {
@@ -46012,6 +46502,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
     addSoundControls(c, s);
     c.add(freshAction(c, { busy: () => vr.presenting }));
+    rowsForGate();
     const atHome = arrival.atHome();
     c.add({
       id: "home",
@@ -46120,6 +46611,30 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   };
   function who() {
     return JSON.stringify(whoNow());
+  }
+  var gated = null;
+  var gateRows = false;
+  var gateNow = () => gated ? { state: gated.state, open: gated.open, reason: gated.reason, why: gated.why, offers: gated.offers, until: gated.until } : { state: "free", open: true, reason: "", why: "", offers: [], until: null };
+  function rowsForGate() {
+    if (!gated || !controls || gateRows) return;
+    gateRows = true;
+    addGateControls(controls, gated, { presenting: () => vr.presenting });
+  }
+  function gate(options) {
+    if (!gated) {
+      const trial = typeof window !== "undefined" && typeof location !== "undefined" && isLocalHost(location.hostname) && window.__nswpTrial?.gate === true;
+      if (read3(options).paid === false && !trial) return JSON.stringify(gateNow());
+      const g = gated = worldGate();
+      let told = "";
+      g.onChange(() => {
+        const now = JSON.stringify(gateNow());
+        if (now === told) return;
+        told = now;
+        tell({ type: "gate", ...gateNow() });
+      });
+      rowsForGate();
+    }
+    return JSON.stringify(gateNow());
   }
   function save(data, slot) {
     const name = slot || "main";
@@ -47315,7 +47830,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const isPresenting = () => !!o.presenting?.();
     return {
       async held(next, drawnFor) {
-        const no2 = ++holdingNo;
+        const no3 = ++holdingNo;
         if (box) {
           box.tell("away");
           const old = box;
@@ -47344,13 +47859,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         for (const name of Object.keys(next.sounds)) void soundOf(next, name);
         if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
         const text2 = await o.items.script(next);
-        if (!text2 || no2 !== holdingNo) return;
+        if (!text2 || no3 !== holdingNo) return;
         const run2 = await runInBox(
           text2,
           {
-            ask: (ask) => void (no2 === holdingNo && asked(ask)),
+            ask: (ask) => void (no3 === holdingNo && asked(ask)),
             stopped: (why) => {
-              if (no2 !== holdingNo) return;
+              if (no3 !== holdingNo) return;
               scriptState = "stopped";
               stoppedBecause = why;
               box = null;
@@ -47359,7 +47874,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           },
           typeof o.scripts === "object" ? o.scripts : {}
         );
-        if (no2 !== holdingNo) return run2?.stop();
+        if (no3 !== holdingNo) return run2?.stop();
         box = run2;
         scriptState = run2 ? "running" : "stopped";
         if (!run2) stoppedBecause = "no box";
@@ -54766,7 +55281,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 14;
+  var VERSION = 15;
   var KIT = KIT_VERSION;
   var read5 = (text2) => {
     try {

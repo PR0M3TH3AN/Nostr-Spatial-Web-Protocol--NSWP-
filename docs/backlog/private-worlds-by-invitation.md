@@ -11,8 +11,9 @@
   room's, `packages/sdk/src/front-room.ts`). The list's shape, BitGate
   (one shape for an allow and a block list everywhere, see
   [bitgate](bitgate.md)). The client's half, BitPortal.
-- **State:** briefed (2026-11-21: the NSWP builder, BitGate and BitPortal
-  told; nothing built)
+- **State:** building (2026-11-21: the kit's builder's plan is written,
+  `docs/plans/a-world-by-invitation.md`, and its decisions answered
+  below; BitGate is writing the list's shape as vectors; no code yet)
 
 ## What is asked, in short
 
@@ -111,8 +112,10 @@ ones, and it is the smallest first piece.
   authority: no role set, no curator, no service. A reader needs the event
   and a signature check and nothing of BitGate's.
 - Blocked beats allowed already. The owner can't be blocked.
-- **No list scoped to one world exists yet.** BitGate is adding it in its
-  own repository, with vectors (the orchestrator's go-ahead, as design):
+- **A list scoped to one world is now specified** in BitGate's repository,
+  `docs/governance-lists.md`, with vectors (merged at 3594470; a follow-up
+  for a root the reader is given and for lists dated in the future is
+  owed). As agreed:
   `d` = `nswp:governance:<scope>:v1:37300:<owner>:<world-d>` with a
   required `subject` tag equal to that suffix, counted only for that world
   and only when signed by the subject's own key; `scope` and `d` must
@@ -123,6 +126,42 @@ ones, and it is the smallest first piece.
 - The orchestrator's opinion: the kit reads these two events with a small
   reader of its own in `@nswp/core`, held to BitGate's vectors, and does
   not vendor BitGate for this.
+
+## Decided (2026-11-21), and by whom
+
+The plan is `docs/plans/a-world-by-invitation.md` (the kit's builder's,
+stages 1 and 2). Answered by the orchestrator as design:
+
+- Whose list counts is named by the world's own manifest (a keeper, at
+  most four), defaulting to the world's publishers.
+- A room setting "named people only" comes with stage 1, off unless the
+  world says so. Without it a block in an open world is undone by signing
+  out. A block at a soft gate stops a name, not a person; the owner's
+  screen says so.
+- Paid and by invitation together means both, never either.
+- A block list that can't be read fails open with the remembered copy; an
+  allow list fails closed. Whether a world is by invitation is the
+  manifest's word, never the presence of an allow event.
+- Several keepers: blocked by any is blocked, invited by any is invited.
+- No refusal before a connection opens in stage 2 (it would show invited
+  people's names to a lurker); that comes with the sealed kind.
+- The kit never goes back to an older list, and refuses one dated more
+  than ten minutes ahead. Writers stop at 500 names a list.
+- How the owner signs a change: the `nswp` command with a key file first;
+  then one new request to the sign-in address, built like `follow`, shown
+  in words on its own page every time. Nothing a world's signer may sign
+  is loosened.
+- Given under the fleet's rule 11, provisional until BitGate's vectors
+  are merged: kind 30078, `d` as those vectors give it, namespace `nswp`.
+- A door carries at most eight tiles, so "By invitation" is the eighth.
+
+**The owner's, and not yet answered:** that an owner's list can be read
+by anyone (it sits beside the standing rule that a visitor's own blocks
+are never published, which stays). Nothing that publishes or shows an
+owner's list is merged before their word.
+
+Order: the paid gate in the engine script and Godot first; then stage 1
+(the block list); then stage 2 (the allow list).
 
 ## Done looks like
 

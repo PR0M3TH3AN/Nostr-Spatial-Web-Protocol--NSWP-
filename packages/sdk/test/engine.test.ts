@@ -45,6 +45,38 @@ describe("what another engine takes from the kit", () => {
     expect(godot("gate/glow.gdshader")).toContain(`uniform float radius = ${k.gateWidth / 2 + 0.09};`);
   });
 
+  it("gives a paid world's gate as text, and makes nothing for a world that says it isn't paid", async () => {
+    const { gate } = await import("../src/engine-menu.js");
+    // A world that isn't paid: free and open, with no gate made, nothing read and nobody asked.
+    expect(JSON.parse(gate('{"paid":false}'))).toEqual({ state: "free", open: true, reason: "", why: "", offers: [], until: null });
+    // The script hands it on, and says it changed what its functions give.
+    const engine = await import("../src/engine.js");
+    expect(typeof engine.gate).toBe("function");
+    expect(engine.VERSION).toBe(15);
+  });
+
+  it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
+    const addon = godot("nswp.gd");
+    expect(addon).toMatch(/^signal gate_changed\(gate: Dictionary\)$/m);
+    expect(addon).toMatch(/^func gate\(paid: bool = true\) -> Dictionary:$/m);
+    expect(addon).toContain(`_js.gate(JSON.stringify({"paid": paid}))`);
+    expect(addon).toMatch(/^func gate_open\(\) -> bool:\n\treturn gate_now.get\("open", false\) == true$/m);
+    expect(addon).toContain(`return run("gate-buy")`);
+    // The answer it acts on is the kit's: the addon checks no receipt and reads no listing itself.
+    expect(addon).not.toMatch(/readReceipt|readListing|30078|RECEIPT_ISSUERS/);
+    // Outside a browser: open only for the world's maker in the editor, never in an export.
+    expect(addon).toContain(`var making := OS.has_feature("editor")`);
+    // An answer that can't be read is not a yes.
+    expect(addon).toMatch(/elif paid:\n\t\t# An answer that can't be read is not a yes\.\n\t\tgate_now = \{"state": "shut", "open": false/);
+  });
+
+  it("keeps the Godot example free: its code says it isn't paid, as its world.json does", () => {
+    const main = readFileSync(join(root, "engines", "godot", "example", "main.gd"), "utf8");
+    expect(main).toMatch(/^const PAID := false$/m);
+    expect(main).toContain("Nswp.gate(PAID)");
+    expect(JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")).access).toBeUndefined();
+  });
+
   it("reads a door's address the way a sign should show it", () => {
     expect(JSON.parse(check("https://gallery.bitblocks.network/"))).toMatchObject({ ok: true, domain: "bitblocks.network", prefix: "gallery." });
     expect(JSON.parse(check("http://gallery.bitblocks.network/"))).toMatchObject({ ok: false, code: "url_not_https" });
@@ -102,7 +134,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(14);
+    expect(engine.VERSION).toBe(15);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");

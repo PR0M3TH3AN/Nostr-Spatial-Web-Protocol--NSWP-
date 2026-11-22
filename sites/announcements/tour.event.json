@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795157455,
+  "created_at": 1795304981,
   "tags": [
     [
       "d",
@@ -44,6 +44,14 @@
     [
       "capability",
       "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
     ],
     [
       "comfort",
@@ -114,6 +122,10 @@
       "experience"
     ],
     [
+      "items",
+      "allowed"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -124,6 +136,6 @@
   ],
   "content": "A short path with five stops for someone's first minute on the spatial web: looking round, moving, doors, the page between places, and getting home.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "0c30d724cc34ad155dcdeece70079adf319057aec5ee7ce30e9614d750ae8ce4",
-  "sig": "73a9d37a4e5146359aba74b1886d51895a5efb68a760f2b459dfc88cc7f4cf338a53c56dfdea4d3d1eff5c14e0ed59bca900f8e359f4da525d893813d9b1fd81"
+  "id": "d3a13473324e3d164d4747cbc06b1f715e2d6ab200191299430d0c0271c967b8",
+  "sig": "3595ece5c0669a9893d64f46f0402048f3d593b466e73d92bfd0a2185946e9e58aaaa9b1f486d6027febc246bbe094e9e97a59689bd421e7216c1ccb50c461f2"
 }

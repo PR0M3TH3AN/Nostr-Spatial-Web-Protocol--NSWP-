@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795157455,
+  "created_at": 1795304982,
   "tags": [
     [
       "d",
@@ -44,6 +44,14 @@
     [
       "capability",
       "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
     ],
     [
       "comfort",
@@ -114,6 +122,10 @@
       "experience"
     ],
     [
+      "items",
+      "allowed"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -124,6 +136,6 @@
   ],
   "content": "A round terrace with an orrery turning at its middle, under a sky with a ringed world and constellations drawn like a network.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "156c8b8513936eeef03874f22acc055d5e6aedc9e3ddfdc9b14d18acbbb4e1db",
-  "sig": "c72198e61914cf8ea8a60067dd6421b357a245a766c36ca8249809958de99e67bca9b8c12cdabc026382666d3b270e05788d03af0ebc2fc8c41206898c2855e4"
+  "id": "dbd76f424d90d0787b251500c4e9886d2dca2bb11f967c94c99977dfc2702fca",
+  "sig": "c82d448af497d1cad42a5880253d9875c410ca0c256172a46ad761f7c4c94313f464f3f3f74b32da79455ecbc2fb1bd11a25faad2066cad2a7914415900a9ff0"
 }

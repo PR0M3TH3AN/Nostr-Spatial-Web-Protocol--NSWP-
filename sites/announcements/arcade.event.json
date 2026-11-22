@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795157455,
+  "created_at": 1795304982,
   "tags": [
     [
       "d",
@@ -44,6 +44,26 @@
     [
       "capability",
       "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
+    ],
+    [
+      "capability",
+      "saves"
+    ],
+    [
+      "capability",
+      "scores"
+    ],
+    [
+      "capability",
+      "achievements"
     ],
     [
       "comfort",
@@ -114,6 +134,10 @@
       "game"
     ],
     [
+      "items",
+      "allowed"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -124,6 +148,6 @@
   ],
   "content": "A small game: walk into twelve lanterns drifting over a field while a clock runs. The best time stays on your own device.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "ba29fc8d71a133e3366877cc675d2f04815a547521c69ef27de2b6da8c9a3a33",
-  "sig": "ee50cc01f352629e573d1c395480d9e1e084dc31fad277b20b5709d903d8f79e2a365aed1abd9af9a525a091dba6ac04fa9d38eb4f9634ed0100ddda351f61a3"
+  "id": "4b52e43b653b46e2bc1f479dab81139a04c9e9ce6b43372c9498ec981a75c778",
+  "sig": "2e0f47d4d2d16cce284d41955c7e72b87d43e4c8450f76577f705ca5445aeafb31974ea2d475d779ca7d00081b838ffab07474159e699159fa35ee779748e6ef"
 }

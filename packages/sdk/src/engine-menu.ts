@@ -22,7 +22,8 @@
  * What the engine still does itself: move the visitor, draw the doors, and
  * start a headset session when asked to.
  */
-import { checkDestination, ITEM_RULES, worldOffers, type ItemsRule } from "@nswp/core";
+import { checkDestination, isLocalHost, ITEM_RULES, worldOffers, type ItemsRule } from "@nswp/core";
+import { addGateControls, type PaidGate } from "./front-room.js";
 import { ICONS } from "./ui/icons.js";
 import { OFFER_ICONS } from "./offer-icons.js";
 import { DESK_WORDS, hasMouse, keepIntense, LOOK_SPEED, PITCH_LIMIT, SPRINT, startsIntense } from "./fps.js";
@@ -36,7 +37,7 @@ import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
-import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldSaves } from "./ui/identity.js";
+import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldSaves } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -180,6 +181,8 @@ export function menu(options?: string): string {
   addSoundControls(c, s);
   // The latest, always, as in a Three.js world (ui/fresh.ts).
   c.add(freshAction(c, { busy: () => vr.presenting }));
+  // A paid world's gate that was begun before its menu: its control joins the menu now, ahead of the world's doors.
+  rowsForGate();
 
   // The way home, or to their doors from a world that is their home. The engine does the going: it may have a headset session to end first.
   const atHome = arrival.atHome();
@@ -316,6 +319,57 @@ const whoNow = (): { guest: boolean; name: string; pubkey: string; picture: stri
  */
 export function who(): string {
   return JSON.stringify(whoNow());
+}
+
+// ------------------------------------------------------------------ a paid world's gate
+let gated: PaidGate | null = null;
+let gateRows = false;
+/** How a gate stands, as an engine is told it. A world with no gate is "free", and open. */
+const gateNow = (): Record<string, unknown> =>
+  gated ? { state: gated.state, open: gated.open, reason: gated.reason, why: gated.why, offers: gated.offers, until: gated.until } : { state: "free", open: true, reason: "", why: "", offers: [], until: null };
+/** The gate's one control, in the kit's menu as in a Three.js world: added once there is both a gate and a menu. */
+function rowsForGate(): void {
+  if (!gated || !controls || gateRows) return;
+  gateRows = true;
+  addGateControls(controls, gated, { presenting: () => vr.presenting });
+}
+
+/**
+ * The gate of a paid world (protocol/10-identity.md, "The front room"), for a world made in another engine: the
+ * same gate as a Three.js world's, since none of it is drawing. Call it once as the world comes up, after `start()`,
+ * in a world that is paid. It asks what the visitor holds, reads what is for sale, and puts the one control that asks to buy
+ * (`gate-buy`) in the kit's menu.
+ *
+ * Returns how the gate stands, as JSON, and a `gate` event with the same fields comes whenever that changes:
+ * `state` ("checking", "shut", "open", "ending", or "free"), `open` (whether a visitor may go past it now: the one
+ * thing to act on), `reason` and `why` (why it is shut: a stable word, and plain words for the visitor), `offers`
+ * (what can be bought: `listing`, `name`, `sats`, `term`, `words`), and `until` (when a pass ends, in seconds, or null).
+ *
+ * The engine draws the gate and stops the visitor where it stands: everything before it is free, and where it
+ * stands is the world's to choose. While `open` is false, nobody goes past. It is false until the gate knows.
+ * `run("gate-buy")` presses the control, for a gate that is pressed in the world.
+ *
+ * What it is entered by is the world's own manifest's word (`access`). `options` is JSON: `paid` false says this
+ * world's own settings name nothing for sale, and then nothing is made, read or asked: the answer is "free". A
+ * world that isn't paid has no need to call this at all.
+ */
+export function gate(options?: string): string {
+  if (!gated) {
+    // For a trial on the maker's own network, a script may have a world that can have a gate use it: only on a local
+    // address, never by a link, and all it can do is shut a gate. What the gate is entered by is still the manifest's.
+    const trial = typeof window !== "undefined" && typeof location !== "undefined" && isLocalHost(location.hostname) && (window as { __nswpTrial?: { gate?: unknown } }).__nswpTrial?.gate === true;
+    if (read(options).paid === false && !trial) return JSON.stringify(gateNow());
+    const g = (gated = worldGate());
+    let told = "";
+    g.onChange(() => {
+      const now = JSON.stringify(gateNow());
+      if (now === told) return;
+      told = now;
+      tell({ type: "gate", ...gateNow() });
+    });
+    rowsForGate();
+  }
+  return JSON.stringify(gateNow());
 }
 
 /**

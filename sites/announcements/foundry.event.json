@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795208198,
+  "created_at": 1795304983,
   "tags": [
     [
       "d",
@@ -19,12 +19,31 @@
       "https://foundry.bitblocks.network/"
     ],
     [
+      "preview",
+      "https://foundry.bitblocks.network/previews/095384b8781a9413b733ec091bbb810b114d3ca9af9a707b973e4707044f292a.webp",
+      "pano",
+      "095384b8781a9413b733ec091bbb810b114d3ca9af9a707b973e4707044f292a",
+      "2048x1024"
+    ],
+    [
       "mode",
       "inline-3d"
     ],
     [
       "capability",
       "spatial-portals"
+    ],
+    [
+      "capability",
+      "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
     ],
     [
       "comfort",
@@ -97,6 +116,6 @@
   ],
   "content": "For people who build with another engine: a small place made in Godot 4 with the NSWP addon. You arrive in the same room you left the last world from, move the same way, and sign in in the same window. It is about forty megabytes, since the engine comes with it.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "0a504345ef4bfd8b8d286b6847ad6892e85a0a2c0a9e927fb7ef06c0a6ffc711",
-  "sig": "9eabe5022d4ca57828220aa650d068c185ad67b03b1553cd483b906da720a33fc51b6e3fcf8b3ca9157a422f387bc62f58abb91f8f6c5119b2eb693885976b35"
+  "id": "ead33c98e21734600b46c8e496d8a855de95885f3d9c731d557bebb6cfc125eb",
+  "sig": "e9174b24c9efc14ffdb91730d8fd034664d9638e727b4efc49ee5aa88dd774c977dc6f4944d910429c08dd58a5283fe130ba005760ae104ac01e7abe9b582071"
 }

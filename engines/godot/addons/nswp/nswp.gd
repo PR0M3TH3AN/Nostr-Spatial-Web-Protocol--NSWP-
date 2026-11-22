@@ -55,6 +55,9 @@ signal crossing_changed(state: String)
 ## for someone signed in `name`, `pubkey`, `picture` and `about`. A name is theirs only while
 ## they are signed in here.
 signal who_changed(who: Dictionary)
+## A paid world's gate changed: it opened, shut, or has something new to say. `gate` is what
+## `gate()` gives: act on `open`, and show `why` if you draw your own words.
+signal gate_changed(gate: Dictionary)
 ## What was asked for with `load()` has come: `found` is false when nothing was kept in that slot.
 ## `from` is "account" or "device".
 signal loaded(slot: String, found: bool, data: String, from: String)
@@ -123,6 +126,9 @@ var mic: bool = false
 var blocked_here: PackedStringArray = PackedStringArray()
 ## Whether the kit's menu is open over the canvas.
 var menu_open: bool = false
+## How a paid world's gate stands, as `gate()` last gave it and `gate_changed` last said. A
+## world with no gate is "free", and open.
+var gate_now: Dictionary = {"state": "free", "open": true, "reason": "", "why": "", "offers": [], "until": null}
 ## Whether there is a mouse to move the intense way with. False on a phone.
 var has_mouse: bool = true
 
@@ -222,6 +228,11 @@ func _process(_delta: float) -> void:
 				change_look()
 			"crossing":
 				crossing_changed.emit(str(event.get("state", "")))
+			"gate":
+				var stands: Dictionary = (event as Dictionary).duplicate()
+				stands.erase("type")
+				gate_now = stands
+				gate_changed.emit(gate_now)
 			"who":
 				for field: String in ["guest", "name", "pubkey"]:
 					arrival[field] = event.get(field, arrival.get(field))
@@ -377,6 +388,58 @@ func who() -> Dictionary:
 		return {"guest": true, "name": "", "pubkey": "", "picture": "", "about": ""}
 	var now: Variant = JSON.parse_string(str(_js.who()))
 	return now if typeof(now) == TYPE_DICTIONARY else {"guest": true}
+
+
+# ------------------------------------------------------------------------ a paid world's gate
+# The gate is the kit's own script's (NSWP-10, "The front room"): what a visitor holds, what is for
+# sale, and the one control that asks to buy, in the kit's menu. A world draws the gate and stops
+# the visitor where it stands. Everything before it is free, and where it stands is yours to choose.
+
+## Begin the gate of a paid world. Call it once in `_ready`, in a world that is paid: its own
+## site says what it is entered by (`access` in `/.well-known/nswp.json`). `paid` false says
+## your world's own settings name nothing for sale: then nothing is made, read or asked, and
+## the answer is "free". A world that isn't paid has no need to call this at all.
+##
+## Returns how the gate stands, and `gate_changed` says whenever that changes: `open` is whether
+## a visitor may go past it now, and it is false until the gate knows. `why` is why it is shut,
+## in plain words; `offers` what can be bought (`name`, `sats`, `term`, `words`); `until` when
+## a pass ends, in seconds, or null.
+##
+## It opens on a receipt and on nothing else, and your world never takes the money or draws
+## the question: the visitor's own sign-in address does, at the press of `gate-buy` in the menu.
+func gate(paid: bool = true) -> Dictionary:
+	if _js == null:
+		# Not on the web there is nobody to ask what a visitor holds. In the editor that is the
+		# world's maker, walking their own world: open. In anything exported it is shut.
+		var making := OS.has_feature("editor")
+		gate_now = {
+			"state": "free" if not paid else ("open" if making else "shut"),
+			"open": not paid or making,
+			"reason": "" if not paid or making else "no-signer",
+			"why": "" if not paid or making else "This gate opens only in a browser, where a visitor's sign-in address can be asked what they hold.",
+			"offers": [],
+			"until": null,
+		}
+		return gate_now
+	var stands: Variant = JSON.parse_string(str(_js.gate(JSON.stringify({"paid": paid}))))
+	if typeof(stands) == TYPE_DICTIONARY:
+		gate_now = stands
+	elif paid:
+		# An answer that can't be read is not a yes.
+		gate_now = {"state": "shut", "open": false, "reason": "", "why": "", "offers": [], "until": null}
+	return gate_now
+
+
+## Whether a visitor may go past the gate now. False while anything about it is unknown.
+func gate_open() -> bool:
+	return gate_now.get("open", false) == true
+
+
+## Press the gate's control, as pressing it in the menu would: for a gate that is pressed in
+## the world. It asks their sign-in address to sell them the first thing on offer, or signs
+## them in first. Returns false if there is nothing to press just now.
+func gate_press() -> bool:
+	return run("gate-buy")
 
 
 ## Keep this for the visitor: text, your world's own (JSON is the usual choice), 32 KB at most, in

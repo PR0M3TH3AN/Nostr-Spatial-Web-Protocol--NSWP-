@@ -1,6 +1,6 @@
 {
   "kind": 37300,
-  "created_at": 1795157455,
+  "created_at": 1795304982,
   "tags": [
     [
       "d",
@@ -44,6 +44,14 @@
     [
       "capability",
       "rooms"
+    ],
+    [
+      "capability",
+      "voice"
+    ],
+    [
+      "capability",
+      "avatars"
     ],
     [
       "comfort",
@@ -114,6 +122,10 @@
       "experience"
     ],
     [
+      "items",
+      "allowed"
+    ],
+    [
       "status",
       "beta"
     ],
@@ -124,6 +136,6 @@
   ],
   "content": "For people who want to build a world: the ready-made parts and the four ways of making a shape, each labelled with the name it has in code.",
   "pubkey": "546f9f791aba0984777051d93605b66e87ce0dc88fb0053fbe8475eec19aa00c",
-  "id": "bb441300ee128da7bbe85ea64787c59c4e49bfa76880bd9b903d97d785000185",
-  "sig": "aafc7a83818e5fd0710fb3641c2edae1a92985600b4d00294b30ef809a34142411fe63a8d8395bcb59d3cb51337e2dad5e864b59d37d4f0cda20fdaf0db52875"
+  "id": "42e559172de42653e24dfb57fb97de6997eb5bb7e871db8e988797f964bf29b6",
+  "sig": "4fbecca3cdf2291dbb9f1639e5311ca990d02edc00404ffb47759d22af60e9355140d1d67e9380d4d20a9dd1fb4e913057dfe2da3ebbc51c22f59b61fad69b41"
 }

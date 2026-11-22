@@ -815,9 +815,15 @@ const canStand = (x, z) => gate.open || !pastTheGate(x, z);   // where the gate 
 gate.onChange(() => (veil.visible = !gate.open));
 ```
 
-Not built: the taken-back answer for a held item, the same for worlds
-made in other engines, and a client's own mark on a door for what the
-visitor already holds.
+In a world made in another engine it is the same gate, from the kit's
+own script: `NSWP.gate()` and the `gate` event, and in Godot
+`Nswp.gate()`, `gate_changed` and `gate_open()`
+([other-engines.md](../docs/other-engines.md), "A paid world's gate"). The
+engine draws the gate and stops the visitor at it; nothing else of it is
+the engine's.
+
+Not built: the taken-back answer for a held item, and a client's own mark
+on a door for what the visitor already holds.
 
 ## Shares
 
