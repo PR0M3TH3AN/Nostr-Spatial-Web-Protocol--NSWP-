@@ -595,6 +595,117 @@ describe("a world owner's block list", () => {
   });
 });
 
+describe("a world by invitation", () => {
+  const KEEPER = pk(5);
+  const invites = (more: Record<string, unknown> = {}, keepers: string[] | null = [KEEPER]) => ({ ...manifest(null), worlds: { "a-world": { entry: { url: WORLD }, by_invitation: true, ...(keepers ? { keepers } : {}), ...more } } });
+  const ownerList = (scope: "user-allow" | "user-deny", people: string[], o: { by?: Uint8Array; at?: number; content?: string } = {}) => {
+    const t = ownerListTemplate({ scope, subject: worldSubject(SELLER, "a-world"), people, createdAt: o.at ?? sec() - 30 })!;
+    return finalizeEvent({ ...t, content: o.content ?? "" }, o.by ?? key(5));
+  };
+
+  it("lets in someone the owner invited, and keeps out someone they didn't, saying why", async () => {
+    file = async () => invites();
+    relayHolds = [ownerList("user-allow", [ME])];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.byInvitation, gate.invites]).toEqual(["open", true, "read"]);
+    expect(gate.invited).toEqual([KEEPER, ME].sort());
+    const other = await settled(standIn({ pubkey: OTHER }));
+    expect([other.state, other.reason, other.why]).toEqual(["shut", "not-invited", "This world is by invitation, and its owner hasn't invited you."]);
+    // Nothing to press for them: being invited isn't something they can do here.
+    expect(consoleFor(other).labels()).toEqual(["Go home"]);
+  });
+
+  it("asks a visitor who isn't signed in to sign in, so it can see whether they are invited", async () => {
+    file = async () => invites();
+    relayHolds = [ownerList("user-allow", [ME])];
+    const signer = standIn({ state: "locked", pubkey: null });
+    const gate = await settled(signer);
+    expect([gate.state, gate.reason, gate.why]).toEqual(["shut", "signed-out", "This world is by invitation. Sign in, so it can see whether you are invited."]);
+    const c = consoleFor(gate);
+    expect(c.labels()).toEqual(["Go home", "Sign in, to show you are invited"]);
+    expect(c.said).toEqual(["This world is by invitation. Sign in, so it can see whether you are invited."]);
+    c.controls.run("gate-buy");
+    await pass(0);
+    expect(c.signIn).toHaveBeenCalledOnce();
+    signer.change({ state: "unlocked", pubkey: ME });
+    await pass(0);
+    expect(gate.open).toBe(true);
+  });
+
+  it("always lets a keeper in, with no list at all", async () => {
+    file = async () => invites();
+    relayHolds = [];
+    expect((await settled(standIn({ pubkey: KEEPER }))).open).toBe(true);
+    expect((await settled(standIn())).reason).toBe("not-invited");
+  });
+
+  it("lets nobody in but a keeper where the list isn't found, doesn't read, or no relay answered", async () => {
+    file = async () => invites();
+    relayHolds = [];
+    expect((await settled(standIn())).why).toBe("This world is by invitation, and its owner's list of who is invited wasn't found. Only its owner may go in until it is.");
+    relayHolds = [ownerList("user-allow", [ME], { content: "hidden" })];
+    expect((await settled(standIn())).why).toBe("This world is by invitation, and its owner's list of who is invited doesn't read, so only its owner may go in.");
+    kept.clear();
+    relaysUp = false;
+    const offline = await settled(standIn());
+    expect([offline.state, offline.invites, offline.why]).toEqual(["shut", "unanswered", "This world is by invitation, and its owner's list of who is invited couldn't be read just now. It is being asked for again."]);
+    // An allow list naming nobody is a list: nobody but the owner, and not "no list".
+    relaysUp = true;
+    kept.clear();
+    relayHolds = [ownerList("user-allow", [])];
+    const empty = await settled(standIn());
+    expect([empty.state, empty.invites, empty.why]).toEqual(["shut", "read", "This world is by invitation, and its owner hasn't invited you."]);
+  });
+
+  it("lets in someone invited by the copy this device remembers when no relay answers", async () => {
+    file = async () => invites();
+    relayHolds = [ownerList("user-allow", [ME])];
+    expect((await settled(standIn())).open).toBe(true);
+    relaysUp = false;
+    const offline = await settled(standIn());
+    expect([offline.state, offline.invites]).toEqual(["open", "unanswered"]);
+  });
+
+  it("puts blocked before invited: someone on both is kept out", async () => {
+    file = async () => invites();
+    relayHolds = [ownerList("user-allow", [ME]), ownerList("user-deny", [ME])];
+    expect((await settled(standIn())).reason).toBe("blocked");
+  });
+
+  it("reads the lists of the key that announced it where no keepers are named", async () => {
+    file = async () => invites({}, null);
+    relayHolds = [ownerList("user-allow", [ME], { by: key(2) }), ownerList("user-allow", [OTHER], { by: key(5) })];
+    const gate = await settled(standIn());
+    expect([gate.state, gate.invited]).toEqual(["open", [ME, SELLER].sort()]);
+    expect((await settled(standIn({ pubkey: OTHER }))).reason).toBe("not-invited");
+    // The announcing key is its own keeper.
+    expect((await settled(standIn({ pubkey: SELLER }))).open).toBe(true);
+  });
+
+  it("wants both where a world is by invitation and paid: invited, and a receipt", async () => {
+    file = async () => invites({ access: [HOUR] });
+    relayHolds = [listing(), ownerList("user-allow", [ME])];
+    const holder = standIn();
+    holder.holds[HOUR] = receipt();
+    expect((await settled(holder)).open).toBe(true);
+    // Invited, holding nothing: offered the pass.
+    const invited = await settled(standIn());
+    expect([invited.state, invited.reason]).toEqual(["shut", "nothing-held"]);
+    // A receipt, and not invited: kept out, and offered nothing.
+    const stranger = standIn({ pubkey: OTHER });
+    stranger.holds[HOUR] = receipt({ buyerPubkey: OTHER });
+    const kept_out = await settled(stranger);
+    expect([kept_out.state, kept_out.reason]).toEqual(["shut", "not-invited"]);
+    expect(consoleFor(kept_out).labels()).toEqual(["Go home"]);
+  });
+
+  it("is not by invitation unless its manifest says exactly true", async () => {
+    file = async () => invites({ by_invitation: "yes" }, null);
+    const gate = await settled(standIn());
+    expect([gate.state, gate.byInvitation, gate.invited]).toEqual(["free", false, null]);
+  });
+});
+
 describe("a pass for a time", () => {
   it("closes the gate when it runs out with the visitor inside: a notice, a couple of minutes, then shut, with no page loaded again", async () => {
     const signer = standIn();

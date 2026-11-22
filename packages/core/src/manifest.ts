@@ -33,6 +33,8 @@ export interface ManifestWorld {
   keepers?: string[];
   /** In this world's rooms a visitor's kit shows and hears only people whose pass checks out: no guests. */
   namedOnly?: boolean;
+  /** Only people a keeper's allow list names (and the keepers) may go in; its rooms show only them. */
+  byInvitation?: boolean;
 }
 
 export interface Manifest {
@@ -160,6 +162,11 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
         if (keepers.length > KEEPERS_MOST) c.warn("too_many_keepers", `${p}.keepers`, `Only the first ${KEEPERS_MOST} keepers are used.`);
         if (keepers.length) w.keepers = keepers.slice(0, KEEPERS_MOST);
       }
+      if (raw.by_invitation !== undefined) {
+        // Only exactly `true`: this is the word that shuts a world, and one that can't be read never quietly does.
+        if (raw.by_invitation === true) w.byInvitation = true;
+        else if (raw.by_invitation !== false) c.warn("invalid_field", `${p}.by_invitation`, "by_invitation must be true or false; ignored.");
+      }
       if (raw.named_only !== undefined) {
         // Only exactly `true` turns it on: a word that can't be read is never quietly taken as a rule, either way.
         if (raw.named_only === true) w.namedOnly = true;
@@ -262,13 +269,13 @@ export function doorFor(manifest: Manifest, url: string): { naddr?: string; url:
  * keys that may sell it (its publishers). A world its manifest names no listing for is free: `listings` is empty.
  * Null where the manifest lists no world at that address at all, so nothing can be said of it.
  */
-export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean } | null {
+export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean; byInvitation: boolean } | null {
   const here = normalizeUrl(url);
   const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
   if (d === undefined) return null;
   const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
   const w = manifest.worlds[d]!;
-  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true };
+  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true };
 }
 
 export interface FetchManifestResult {

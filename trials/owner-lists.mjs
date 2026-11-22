@@ -1,6 +1,7 @@
 // A world owner keeps someone out, walked on this machine (protocol/10-identity.md, "A world's own lists"): a
 // copy of the Gallery whose manifest, in the scripted browsers only, names a keeper, and a block list that keeper
-// signed, on the stand-in relay. Three visitors by name: Ana and Cy, and Ben, whom the owner blocked.
+// signed, on the stand-in relay. Three visitors by name: Ana and Cy, and Ben, whom the owner blocked. Then the same
+// world by invitation, with the owner's guest list naming Ana and Cy.
 //
 // What is real here: this checkout's own build of the Gallery (sites/gallery/dist, so run `npm run build` first),
 // the kit's gate and rooms inside it, a list in BitGate's shape signed with a throwaway key, the stand-in relay
@@ -44,7 +45,7 @@ const file = JSON.parse(readFileSync(join(DIST, ".well-known", "nswp.json"), "ut
 const D = Object.keys(file.worlds)[0];
 const PUBLISHER = Object.keys(file.publishers)[0];
 want("1 as built, the Gallery keeps no list and closes its rooms to nobody", [file.worlds[D].keepers ?? null, file.worlds[D].named_only ?? null], [null, null]);
-const manifestFor = ({ knows = true, namedOnly = false } = {}) => JSON.stringify({ ...file, worlds: { ...file.worlds, [D]: { ...file.worlds[D], ...(knows ? { keepers: [KEEPER] } : {}), ...(knows && namedOnly ? { named_only: true } : {}) } } });
+const manifestFor = ({ knows = true, namedOnly = false, invitation = false } = {}) => JSON.stringify({ ...file, worlds: { ...file.worlds, [D]: { ...file.worlds[D], ...(knows ? { keepers: [KEEPER] } : {}), ...(knows && namedOnly ? { named_only: true } : {}), ...(knows && invitation ? { by_invitation: true } : {}) } } });
 
 // ---- The owner's block list: Ben. Signed by the keeper and put on the stand-in relay, as `nswp sign-world-list`
 // and `nswp publish` would. A list from before it, naming nobody, goes up first: the newer must stand.
@@ -80,7 +81,7 @@ const refused = new Set();
 const errors = [];
 
 /** A visitor: `who` signed in by name (or nobody), and what their copy of the kit is told of the world's rules. */
-async function visitor(who, { knows = true, namedOnly = false } = {}) {
+async function visitor(who, { knows = true, namedOnly = false, invitation = false } = {}) {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
   await ctx.grantPermissions(["local-network-access"]).catch(() => undefined);
   await ctx.exposeFunction("__trialWho", () => (who ? pub[who] : null));
@@ -102,7 +103,7 @@ async function visitor(who, { knows = true, namedOnly = false } = {}) {
     if (url.origin === WORLD) {
       const path = url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname;
       const headers = { ...headersFor(url.pathname), "access-control-allow-origin": "*" };
-      if (url.pathname === "/.well-known/nswp.json") return route.fulfill({ status: 200, contentType: TYPES[".json"], headers, body: manifestFor({ knows, namedOnly }) });
+      if (url.pathname === "/.well-known/nswp.json") return route.fulfill({ status: 200, contentType: TYPES[".json"], headers, body: manifestFor({ knows, namedOnly, invitation }) });
       const on = normalize(join(DIST, path));
       if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
       return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", headers, body: readFileSync(on) });
@@ -127,7 +128,7 @@ async function visitor(who, { knows = true, namedOnly = false } = {}) {
   await page.goto(`${WORLD}/`, { timeout: 180000 });
   // Ready means the gate has read the owner's list from the relay, where this kit is told of one. Where no relay
   // answered in time (a busy machine), the gate stops nobody and asks again within twenty seconds: waited for.
-  await until(() => page.evaluate((knows) => { const g = window.__nswpTest?.state?.ready === true ? window.__nswpTest.gate?.() : null; return !!g && g.state !== "checking" && (knows ? g.lists === "read" || g.lists === "not-found" : true); }, knows), 180000);
+  await until(() => page.evaluate((knows) => { const g = window.__nswpTest?.state?.ready === true ? window.__nswpTest.gate?.() : null; return !!g && g.state !== "checking" && (knows ? (g.lists === "read" || g.lists === "not-found") && (!g.byInvitation || g.invites === "read" || g.invites === "not-found") : true); }, knows), 180000);
   await page.evaluate(() => { window.__said = []; window.__nswpTest.controls.onSay((w) => window.__said.push(w)); });
   const gate = () => page.evaluate(() => window.__nswpTest.gate());
   const said = () => page.evaluate(() => window.__said);
@@ -215,9 +216,40 @@ try {
   want("12 Ana's room never shows the guest, at any look over thirty seconds", everShown, false);
   for (const v of [anaN, rogueGuest]) await v.close();
 
+  // ---- 5. A world by invitation. The owner's allow list names Ana and Cy; Ben is on neither, so he is not invited.
+  const invite = finalizeEvent(ownerListTemplate({ scope: "user-allow", subject, people: [pub.ana, pub.cy], createdAt: Math.floor(Date.now() / 1000) - 5 }), keeper);
+  want("14 the stand-in relay takes the owner's guest list", await toRelay(invite), true);
+  const anaI = await visitor("ana", { invitation: true });
+  const cyI = await visitor("cy", { invitation: true });
+  const guestI = await visitor(null, { invitation: true });
+  const [gaI, gcI, ggI] = [await anaI.gate(), await cyI.gate(), await guestI.gate()];
+  want("15 Ana and Cy, invited, are let in; a guest is asked to sign in first", [gaI.state, gaI.byInvitation, gaI.invites, gcI.state, ggI.state, ggI.reason], ["open", true, "read", "open", "shut", "signed-out"]);
+  want("15b and the guest is told why, with one thing to press: sign in", [ggI.why, await guestI.page.evaluate(() => window.__nswpTest.controls.view().sections.flatMap((s) => s.items).filter((i) => i.id.startsWith("gate-")).map((i) => i.label))], ["This world is by invitation. Sign in, so it can see whether you are invited.", ["Sign in, to show you are invited"]]);
+  // Ben was blocked earlier; take him off the block list, so what keeps him out here is not being invited.
+  want("16 the owner unblocks Ben", await toRelay(signList([], Math.floor(Date.now() / 1000) - 2)), true);
+  const benI = await visitor("ben", { invitation: true });
+  const gbI = await benI.gate();
+  want("17 Ben, signed in and not invited, is kept out and told so, with nothing to press", [gbI.state, gbI.reason, gbI.why], ["shut", "not-invited", "This world is by invitation, and its owner hasn't invited you."]);
+  want("17b and can't walk past the gate", (await benI.walkAtIt()) >= 0, true);
+  await benI.page.screenshot({ path: `${SHOTS}/owner-lists-3-ben-not-invited.png` });
+  want("18 Ben's own kit won't join him to the room, and says why", await benI.joinRoom(), { joined: false, said: "Couldn't join: this world is by invitation, and its owner hasn't invited you." });
+  await benI.close();
+  await guestI.close();
+  const inAI = await anaI.joinRoom();
+  const inCI = await cyI.joinRoom();
+  // Ben again, with a kit told nothing of it: he joins by name, and Ana's and Cy's rooms let him go.
+  const rogueI = await visitor("ben", { knows: false });
+  const inBI = await rogueI.joinRoom();
+  want("19 Ana and Cy join; Ben, with a kit told nothing of it, joins too", [inAI?.joined, inCI?.joined, inBI?.joined], [true, true, true]);
+  const seesEachOther = await anaI.until(async () => (await anaI.shown()).includes(inCI.self), 90000, 500);
+  await anaI.page.waitForTimeout(20000);
+  const [atAnaI, atCyI] = [await anaI.shown(), await cyI.shown()];
+  want("20 Ana's and Cy's rooms show each other, and not Ben", [!!seesEachOther, atAnaI.includes(inCI.self), atCyI.includes(inAI.self), atAnaI.includes(inBI.self), atCyI.includes(inBI.self)], [true, true, true, false, false]);
+  for (const v of [anaI, cyI, rogueI]) await v.close();
+
   r.refused = [...refused];
   r.errors = errors.slice(0, 6);
-  want("13 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
+  want("21 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
 } catch (e) {
   bad.push(`the walk stopped: ${String(e).slice(0, 400)}`);
 } finally {
