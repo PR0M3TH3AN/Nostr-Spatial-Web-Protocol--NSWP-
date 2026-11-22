@@ -720,6 +720,12 @@ const tiedA = copyAt(LIST_NOW - 50, KEY1, "Tied, one");
 const tiedB = copyAt(LIST_NOW - 50, KEY1, "Tied, two");
 const tiedFirst = tiedA.id < tiedB.id ? tiedA : tiedB;
 const forged = { ...copyAt(LIST_NOW - 10, KEY1, "Quiet places, altered"), tags: [["d", "quiet-places"], ["title", "Altered after signing"]] };
+// Signed with two d tags, the first of them the list's own: a reader that takes the first d would choose it.
+const twoNames = (() => {
+  const t = buildListEvent({ ...baseList, title: "Quiet places, under two names", createdAt: LIST_NOW - 5 });
+  const at = t.tags.findIndex((x) => x[0] === "d");
+  return sign({ ...t, tags: [...t.tags.slice(0, at + 1), ["d", "loud-places"], ...t.tags.slice(at + 1)] });
+})();
 type ListChoiceVector = { name: string; description: string; coordinate: string; now: number; events: unknown[]; expect: { chosen: string | null; title?: string; futureDated: string[] } };
 const listChoiceVectors: ListChoiceVector[] = [
   { name: "exactly_600_seconds_ahead_is_read", description: "A copy dated exactly 600 seconds ahead of the reader's clock is chosen.", coordinate: LIST_AT, now: LIST_NOW, events: [listToday, listAhead600], expect: { chosen: listAhead600.id, title: "Quiet places, ten minutes ahead", futureDated: [] } },
@@ -728,6 +734,7 @@ const listChoiceVectors: ListChoiceVector[] = [
   { name: "a_future_copy_beside_a_current_one", description: "A copy signed with a clock a year fast leaves the honest current copy standing.", coordinate: LIST_AT, now: LIST_NOW, events: [listNextYear, listYesterday, listToday], expect: { chosen: listToday.id, title: "Quiet places", futureDated: [listNextYear.id] } },
   { name: "another_key_is_not_the_list", description: "A newer copy under the same d from another key is passed over: the coordinate fixes the key.", coordinate: LIST_AT, now: LIST_NOW, events: [listToday, listOtherKey], expect: { chosen: listToday.id, title: "Quiet places", futureDated: [] } },
   { name: "a_bad_signature_is_passed_over", description: "A newer copy whose signature doesn't check is passed over.", coordinate: LIST_AT, now: LIST_NOW, events: [listYesterday, forged], expect: { chosen: listYesterday.id, title: "Quiet places, yesterday", futureDated: [] } },
+  { name: "two_d_tags_are_passed_over", description: "A newer, signed copy with two d tags (the first of them the list's) is passed over: a copy must have exactly one. The older copy stands.", coordinate: LIST_AT, now: LIST_NOW, events: [listYesterday, twoNames], expect: { chosen: listYesterday.id, title: "Quiet places, yesterday", futureDated: [] } },
   { name: "a_tie_goes_to_the_smallest_id", description: "Two copies with the same created_at: the one with the smaller id (NIP-01).", coordinate: LIST_AT, now: LIST_NOW, events: [tiedA, tiedB], expect: { chosen: tiedFirst.id, title: tiedFirst === tiedA ? "Tied, one" : "Tied, two", futureDated: [] } },
 ];
 for (const v of listChoiceVectors) {
@@ -923,7 +930,7 @@ const files: Record<string, unknown> = {
     vectors: listVectors,
     choosing: {
       description:
-        "Choosing a list from the copies relays gave for its coordinate: those of kind 30004 signed by its key, with exactly its d and a good signature. A copy dated more than 600 seconds after `now` is left out before choosing and named in `futureDated`; the newest of the rest is `chosen` (its id), a tie going to the smallest id; null for none.",
+        "Choosing a list from the copies relays gave for its coordinate: those of kind 30004 signed by its key, with exactly one d tag, its d, and a good signature. A copy dated more than 600 seconds after `now` is left out before choosing and named in `futureDated`; the newest of the rest is `chosen` (its id), a tie going to the smallest id; null for none.",
       vectors: listChoiceVectors,
     },
   },
