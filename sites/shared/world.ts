@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createStepPace, createStroll, currentForm, DOOR_REACH, DRAG_LOOK, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
+import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { addDoorControls, createControls, mountHud, type Controls, type MenuDoor } from "nswp-sdk/ui";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
@@ -180,6 +180,10 @@ type TestHooks = {
   gate?: () => Record<string, unknown> | null;
   /** Items in play: what is in the air and stuck, this visitor's health, what their item shows. For tests. */
   play?: () => unknown;
+  /** What is under the thumb on a touch screen (the sight and the item's buttons), or null. */
+  thumbs?: () => unknown;
+  /** How far the view is tilted by dragging, in degrees: up is positive. */
+  tilt?: () => number;
   itemUse?: () => void;
   itemSecond?: () => void;
   /** Take an item in hand by its coordinate, as Hold in the bag does (`presence.setHolding`); "" puts it away. */
@@ -737,6 +741,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const pointer = new THREE.Vector2(2, 2);
   let dragging = false;
   let lastX = 0;
+  let lastY = 0;
+  // A drag looks round: sideways it turns them, up and down it tilts the view, within about sixty degrees, and the
+  // view comes back level as they walk (stroll.ts, `createDragLook`). Moving the intense way or in a headset, the
+  // view is the mouse's or the head's, and this leaves it alone.
+  const dragLook = createDragLook({ rig, camera, scale: lookScale });
   let moved = 0;
   let downAt = 0;
   const setPointer = (e: PointerEvent) => pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -767,6 +776,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     panelDrag = !renderer.xr.isPresenting && !!panels?.pointer("down", raycaster);
     dragging = !panelDrag;
     lastX = e.clientX;
+    lastY = e.clientY;
     moved = 0;
     downAt = performance.now();
   });
@@ -785,7 +795,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (onPanel) return void panels!.press(onPanel);
     // With something in hand that does something, a tap is its first press, sent where they tapped. A press held
     // is still how they walk, choose someone or go through a door.
-    if (itemControls?.tap(raycaster.ray, performance.now() - downAt)) return;
+    if (itemControls?.tap(raycaster.ray, performance.now() - downAt, e.pointerType)) return;
     if (presence.pressAt(raycaster)) return;
     const any = anyDoorAt(raycaster.intersectObjects(targets, false)[0]?.object);
     // The shut gate, pressed from as near as a door is pressed: the same as its control in the console.
@@ -804,9 +814,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   renderer.domElement.addEventListener("pointerleave", () => pointer.set(2, 2));
   addEventListener("pointermove", (e) => {
     if (dragging && !renderer.xr.isPresenting) {
-      rig.rotation.y += (e.clientX - lastX) * DRAG_LOOK * lookScale();
-      moved += Math.abs(e.clientX - lastX);
+      dragLook.drag(e.clientX - lastX, e.clientY - lastY);
+      moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
       lastX = e.clientX;
+      lastY = e.clientY;
     }
     if (!gameControls()) setPointer(e);
     if (panelDrag) {
@@ -1018,7 +1029,9 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   });
   if (signerNamed()) worldSigner().onChange(() => bagging.refresh());
   // What is in their hand, pressed: on the bar, by the mouse and R at a desk, by the trigger in a headset.
-  itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement, sight: (on) => presence.setSighting(on) });
+  itemControls = addItemControls(controls, { play: () => presence.play, holdingHand: () => presence.holdingHand, dom: renderer.domElement, sight: (on) => presence.setSighting(on), presenting: () => renderer.xr.isPresenting });
+  hooks.thumbs = () => itemControls?.thumbs() ?? null;
+  hooks.tilt = () => Math.round(THREE.MathUtils.radToDeg(dragLook.pitch) * 10) / 10;
   hooks.sight = (on) => presence.setSighting(on);
   hooks.heldBob = () => presence.heldBob;
   hooks.view = () => ({ fov: Math.round(camera.fov * 10) / 10, sighting: presence.sighting });
@@ -1182,6 +1195,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     let going: readonly (readonly [number, number])[] | null = null;
     reticle.visible = false;
     if (renderer.xr.isPresenting) {
+      dragLook.update(dt, { walking: false, active: false });
       let button: string | null = null;
       for (const c of controllers) {
         if (!c.visible) continue;
@@ -1210,10 +1224,15 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       xrConsole.aim(button);
     } else {
       // Game controls have the visitor's movement when they are on, and aim from the middle of the view.
-      if (fps!.update(dt)) pointer.set(0, 0);
-      else {
+      if (fps!.update(dt)) {
+        pointer.set(0, 0);
+        dragLook.update(dt, { walking: false, active: false });
+      } else {
         walk(dt);
         stroll.update(dt);
+        // Walking, by a tap or by the keys, brings the view back level.
+        const keyed = ["KeyW", "KeyS", "KeyA", "KeyD", "ArrowUp", "ArrowDown"].some((k) => keys.has(k));
+        dragLook.update(dt, { walking: stroll.going || keyed, active: true });
         // They face the way they walk, so the next press ahead is a press where they are looking. Not while they
         // are turning the view themselves.
         if (stroll.going && !dragging) rig.rotation.y = stroll.face(rig.rotation.y, dt);

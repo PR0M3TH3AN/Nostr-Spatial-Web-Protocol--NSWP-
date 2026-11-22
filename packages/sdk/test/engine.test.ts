@@ -7,7 +7,7 @@ import { check, kit } from "../src/engine-menu.js";
 import { LOOK_SPEED, PITCH_LIMIT, SPRINT } from "../src/fps.js";
 import { PORTAL_HEIGHT, PORTAL_WIDTH } from "../src/gate-size.js";
 import { CUES } from "../src/sound-store.js";
-import { DRAG_LOOK, TAP_REACH, WALK_SPEED } from "../src/stroll.js";
+import { DRAG_LOOK, LEVEL_RATE, TAP_REACH, TILT_LIMIT, WALK_SPEED } from "../src/stroll.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const godot = (file: string) => readFileSync(join(root, "engines", "godot", "addons", "nswp", file), "utf8");
@@ -20,6 +20,11 @@ describe("what another engine takes from the kit", () => {
     // The fastest anyone goes on foot, for an engine to keep to: a run.
     expect(k.topSpeed).toBeCloseTo(WALK_SPEED * SPRINT, 9);
     expect(godot("nswp.gd")).toContain(`"topSpeed": ${k.topSpeed}`);
+    // How far a drag tilts the view moving the casual way, and how fast it comes back level: the addon's copy is the same.
+    expect(k.tiltLimit).toBe(TILT_LIMIT);
+    expect(k.levelRate).toBe(LEVEL_RATE);
+    expect(godot("nswp.gd")).toContain(`"tiltLimit": ${k.tiltLimit}`);
+    expect(godot("nswp.gd")).toContain(`"levelRate": ${k.levelRate}`);
     expect(k.cues).toEqual([...CUES]);
   });
 

@@ -418,7 +418,9 @@ on a flat screen, with a mouse and keyboard:
 - The standard doorway, lit when pointed at, with a card saying where it
   leads.
 - Moving the casual way: a click on the floor walks no further than the
-  kit's reach, and a drag turns the view.
+  kit's reach, and a drag looks round: sideways it turns the visitor, up and
+  down it tilts the view within `tiltLimit`, and walking brings it back
+  level at `levelRate`.
 - Moving the intense way: the mouse looks round, and taking the pointer back
   opens the menu.
 - The summons: with the controls hidden, the key left of 1 brought them up

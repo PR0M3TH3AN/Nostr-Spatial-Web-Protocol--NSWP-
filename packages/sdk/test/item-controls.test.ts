@@ -1,7 +1,9 @@
 // Pressing what is in hand (item-controls.ts): a tap is the item's first press, sent where it was pressed.
 import * as THREE from "three";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { addItemControls, TAP_MS } from "../src/item-controls.js";
+import { resetForm } from "../src/form.js";
+import { DEFAULT_THEME } from "../src/ui/theme.js";
 import type { Play } from "../src/play.js";
 import type { Controls, UiAction } from "../src/ui/model.js";
 
@@ -10,13 +12,24 @@ const set = (does: { use: string; second: string } | null) => {
   const said: string[] = [];
   const used: (THREE.Vector3 | undefined)[] = [];
   let seconds = 0;
-  const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), say: (t: string) => void said.push(t) } as unknown as Controls;
+  const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), say: (t: string) => void said.push(t), onSignal: () => () => {}, theme: DEFAULT_THEME } as unknown as Controls;
   const play = { does, use: (toward?: THREE.Vector3) => void used.push(toward), second: () => void seconds++ } as unknown as Play;
   const sights: boolean[] = [];
   const item = addItemControls(controls, { play: () => play, holdingHand: () => 1, sight: (on) => void sights.push(on) });
   return { item, actions, said, used, seconds: () => seconds, sights };
 };
 const ray = { origin: new THREE.Vector3(0, 1.6, 0), direction: new THREE.Vector3(0, 0, -1) };
+// The device: a desk with a mouse unless a test says it is a touch screen.
+const asDesk = () => vi.stubGlobal("matchMedia", (q: string) => ({ matches: /fine/.test(q) }));
+const asTouch = () => vi.stubGlobal("matchMedia", (q: string) => ({ matches: /coarse/.test(q) }));
+beforeEach(() => {
+  resetForm();
+  asDesk();
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetForm();
+});
 
 describe("a press on the view, with something in hand that does something", () => {
   it("is its first press when it is a tap, and goes where they tapped", () => {
@@ -26,6 +39,14 @@ describe("a press on the view, with something in hand that does something", () =
     // Out along the way they pressed, from where the press was.
     expect(s.used[0]!.z).toBeLessThan(-10);
     expect(s.used[0]!.y).toBeCloseTo(1.6, 3);
+  });
+
+  it("is never a touch: on a touch screen a tap walks, and the first press is under the thumb", () => {
+    const s = set({ use: "Fire", second: "Reload" });
+    expect(s.item.tap(ray, 80, "touch")).toBe(false);
+    expect(s.item.tap(ray, 80, "mouse")).toBe(true);
+    expect(s.used.length).toBe(1);
+    s.item.dispose();
   });
 
   it("is not, when it is held: that is still how they walk", () => {
@@ -44,9 +65,11 @@ describe("a press on the view, with something in hand that does something", () =
     const s = set({ use: "Fire", second: "Reload" });
     expect(s.actions.get("item-use")).toMatchObject({ label: "Fire", hotbar: true, lead: true });
     expect(s.actions.get("item-second")).toMatchObject({ label: "Reload", hotbar: true, lead: true });
-    expect(s.said).toEqual(["Tap or click where you want to fire. Hold a press to walk."]);
+    expect(s.said).toEqual(["Click where you want to fire. Hold a press to walk."]);
     const none = set(null);
-    expect(none.actions.size).toBe(0);
+    // Nothing to press: only the choice of thumb, which isn't shown with nothing in hand.
+    expect([...none.actions.keys()]).toEqual(["item-thumbs"]);
+    expect(none.actions.get("item-thumbs")!.hidden?.()).toBe(true);
     expect(none.said).toEqual([]);
   });
 
@@ -55,7 +78,7 @@ describe("a press on the view, with something in hand that does something", () =
     vi.stubGlobal("document", { pointerLockElement: {}, addEventListener: () => {}, removeEventListener: () => {} });
     try {
       const actions = new Map<string, UiAction>();
-      const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), say: () => {} } as unknown as Controls;
+      const controls = { add: (...xs: UiAction[]) => xs.forEach((x) => actions.set(x.id, x)), remove: (id: string) => void actions.delete(id), say: () => {}, onSignal: () => () => {}, theme: DEFAULT_THEME } as unknown as Controls;
       let does: { use: string; second: string } | null = { use: "Fire", second: "Reload" };
       const play = { get does() { return does; }, use: () => {}, second: () => {} } as unknown as Play;
       const sights: boolean[] = [];
@@ -75,6 +98,7 @@ describe("a press on the view, with something in hand that does something", () =
       item.dispose();
     } finally {
       vi.unstubAllGlobals();
+      asDesk();
     }
   });
 
@@ -83,5 +107,40 @@ describe("a press on the view, with something in hand that does something", () =
     expect(s.item.trigger(0)).toBe(false);
     expect(s.item.trigger(1)).toBe(true);
     expect(s.used).toEqual([undefined]);
+  });
+});
+
+describe("on a touch screen, with something in hand that does something", () => {
+  it("keeps the two presses off the bar (they are under the thumb), still one press away in the Bag tab, and says where they are", () => {
+    asTouch();
+    try {
+      const s = set({ use: "Fire", second: "Reload" });
+      expect(s.actions.get("item-use")).toMatchObject({ label: "Fire", section: "bag", hotbar: false, lead: false });
+      expect(s.actions.get("item-second")).toMatchObject({ label: "Reload", section: "bag", hotbar: false, lead: false });
+      expect(s.said).toEqual(["Fire is by your right thumb, and goes where the ring in the middle is. Tap to walk; drag to look round."]);
+      // A tap on the view is a walk, whatever the press says it was: the device they are on decides.
+      expect(s.item.tap(ray, 80)).toBe(false);
+      // Which thumb is theirs to choose, beside what they hold.
+      expect(s.actions.get("item-thumbs")).toBeTruthy();
+      expect(s.actions.get("item-thumbs")!.hidden?.()).toBe(false);
+      s.item.dispose();
+      expect(s.actions.has("item-thumbs")).toBe(false);
+    } finally {
+      resetForm();
+    }
+  });
+
+  it("offers no choice of thumb at a desk, or with nothing in hand", () => {
+    const desk = set({ use: "Fire", second: "Reload" });
+    expect(desk.actions.get("item-thumbs")!.hidden?.()).toBe(true);
+    desk.item.dispose();
+    asTouch();
+    try {
+      const none = set(null);
+      expect(none.actions.get("item-thumbs")!.hidden?.()).toBe(true);
+      none.item.dispose();
+    } finally {
+      resetForm();
+    }
   });
 });
