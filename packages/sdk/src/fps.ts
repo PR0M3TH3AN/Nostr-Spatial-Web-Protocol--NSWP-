@@ -26,6 +26,7 @@ import type * as THREE from "three";
 import { aimScale, lookScale } from "./desk.js";
 import { startingForm } from "./form.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
+import { mayAskHowTheyMove } from "./ask-once.js";
 import { RUN } from "./stroll.js";
 import type { Controls } from "./ui/model.js";
 
@@ -115,15 +116,27 @@ export function startsIntense(arrived: boolean, key = DESK_KEY): boolean {
     return arrived;
   }
 }
-/** Keep the choice, or forget it. */
+/** Keep the choice: casual is kept as plainly as intense, so a visitor who chose casual isn't asked again. */
 export function keepIntense(on: boolean, key = DESK_KEY): void {
   try {
-    if (on) localStorage.setItem(key, "1");
-    else localStorage.removeItem(key);
+    localStorage.setItem(key, on ? "1" : "0");
   } catch {
     /* it lasts for this visit */
   }
 }
+/** Whether this site keeps a choice of how they move at a desk. */
+export function keptIntense(key = DESK_KEY): boolean {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+/** The words of the question asked once, the first time a visitor is at a desk with a mouse and no choice said or kept. */
+export const DESK_QUESTION = {
+  casual: "Casual: click to walk, drag to look",
+  intense: "Intense: the mouse looks, keys walk",
+} as const;
 
 export interface FpsOptions {
   /** What is clicked to look round: the canvas. */
@@ -167,11 +180,14 @@ export function createFps(o: FpsOptions): Fps {
   const key = o.keep ?? DESK_KEY;
   const mouse = hasMouse();
   let enabled = startsIntense(o.arrived === true, key);
+  // Whether they have said how they move at a desk: in their settings as they arrived, moving the intense way where
+  // they came from, or kept on this site. Until they have, nothing is said about it to the next place.
+  let answered = typeof arrivedSettings().intense === "boolean" || o.arrived === true || keptIntense(key);
   if (mouse) {
     // What they arrived preferring is kept here too, and what they prefer now goes on with them. Where there is
     // no mouse nothing is said, so the preference passes through a phone untouched.
     if (typeof arrivedSettings().intense === "boolean" || o.arrived) keepIntense(enabled, key);
-    reportSettings("moving", () => ({ intense: enabled }));
+    reportSettings("moving", () => (answered ? { intense: enabled } : {}));
   }
   const held: Held = {};
   let pitch = 0;
@@ -290,9 +306,13 @@ export function createFps(o: FpsOptions): Fps {
 
   const setEnabled = (on: boolean) => {
     const next = on && mouse;
+    // Their own hand on it is a choice, even one that changes nothing: from now on it goes with them.
+    if (mouse) {
+      answered = true;
+      keepIntense(next, key);
+    }
     if (next === enabled) return;
     enabled = next;
-    keepIntense(enabled, key);
     if (!enabled) {
       letGo();
       pitch = 0;
@@ -317,6 +337,34 @@ export function createFps(o: FpsOptions): Fps {
       o.controls.say(enabled ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
     },
   });
+
+  // The first time they are at a desk with a mouse here, with no choice said or kept: asked once, on the screen,
+  // and remembered. Put away without an answer, it is casual. Choosing intense takes nothing: the pointer is taken
+  // when they press the view, as always. A phone is never asked, and never offered the intense way.
+  // (The owner, 2026-11-21: "the first time someone enters the game in 2D desktop mode. Casual or intense.")
+  let asking = false;
+  const answer = (intense: boolean) => {
+    asking = false;
+    setEnabled(intense);
+    o.controls.say(intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+  };
+  o.controls.addSection({ id: "how-you-move-desk", label: "How you move", icon: "step", note: () => (asking ? "You can change this whenever you like, in Moving." : "") });
+  o.controls.add(
+    { id: "desk-casual", section: "how-you-move-desk", icon: "step", hidden: () => !asking || o.presenting(), label: DESK_QUESTION.casual, act: () => answer(false) },
+    { id: "desk-intense", section: "how-you-move-desk", icon: "look", hidden: () => !asking || o.presenting(), label: DESK_QUESTION.intense, act: () => answer(true) },
+  );
+  const stopAskingDesk = o.controls.onSignal((name) => {
+    if (name === "menuClose" && asking) answer(false);
+  });
+  let askTimer = 0;
+  if (mouse && !answered && mayAskHowTheyMove()) {
+    // A moment after the place is up, so the question isn't the first thing drawn over a page still building.
+    askTimer = window.setTimeout(() => {
+      if (answered || o.presenting()) return;
+      asking = true;
+      o.controls.signal("show:how-you-move-desk");
+    }, 1200);
+  }
 
   const at = o.camera.position.clone();
   return {
@@ -359,6 +407,8 @@ export function createFps(o: FpsOptions): Fps {
       return true;
     },
     dispose() {
+      clearTimeout(askTimer);
+      stopAskingDesk();
       letGo();
       dot.remove();
       stopSignals();

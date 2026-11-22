@@ -228,6 +228,7 @@ settings now go with them instead, the same way the form they are in does:
 | Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving) | |
 | That they prefer a filled screen | `full` | Looked for first, before the place is built, and taken up at their very first press of any kind. A browser gives up a filled screen whenever the page changes and fills it only on a press: no page can do it sooner |
 | That they prefer the intense way of moving at a desk | `intense` | The mouse looks round and keys walk, from the start, with nothing to switch on |
+| How they prefer to move in a headset | `headset`: `casual` (point at the floor to step there, turn a notch at a time) or `intense` (one stick walks and the other turns, smoothly) | Said both ways once they have chosen, so a world can tell someone who chose casual from someone never asked. `turn` stays the size of a notch |
 | How fast the view turns under a mouse or a finger | `look`: 0.25 to 3, 1 being the world's own speed | |
 | How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
 | Whether they see other people's pictures | `pictures`. Left out, they do | A picture is fetched from its owner's own host, which learns the viewer's address ([NSWP-10](10-identity.md), "Pictures") |
@@ -284,8 +285,25 @@ visitor's settings one way only, by their client, as they arrive.
 How a visitor moves (`moving`) and the form they are in (`form`) are
 settings of the same kind. They have fields of their own because a world
 needs them before anything else is set up. At a desk, `intense` in the
-settings is the word that counts where both are said: it says "casual" as
-plainly as "intense", which a flag that is only ever present can't.
+settings is the word that counts where both are said, and in a headset
+`headset` is: each says "casual" as plainly as "intense", which a flag that
+is only ever present can't.
+
+### Asked once
+
+The first time a visitor is in a place at a desk with a mouse, or in a
+headset, with nothing said about how they move there (no `intense`, or no
+`headset`, in what they arrived with) and nothing kept by that site, the
+place asks them once: casual or intense, and that it can be changed later.
+Put away without an answer, it is casual. Their answer is then a setting like
+the rest: it goes through every door, so no place they reach that way asks
+again, and their client may keep it with their other settings for their next
+device. Until they have answered, a place says nothing about it. On a touch
+screen nothing is asked and the intense way isn't offered: there is no mouse
+to look with. The two questions are separate: an answer at a desk is never
+taken for one in a headset, or the other way round. A place reached with
+nothing carried (its address typed in, no client) asks once on that site.
+The kit does all of this (`createFps`, `createXrInput`).
 
 ## Who draws it
 

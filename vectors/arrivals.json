@@ -219,6 +219,37 @@
       }
     },
     {
+      "name": "how_they_move_in_a_headset_is_said_both_ways",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7ImhlYWRzZXQiOiJjYXN1YWwiLCJpbnRlbnNlIjpmYWxzZX19",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "settings": {
+            "intense": false,
+            "headset": "casual"
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "a_way_of_moving_in_a_headset_nobody_knows_is_left_out",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7ImhlYWRzZXQiOiJzbW9vdGgiLCJ0dXJuIjo0NX19",
+      "expect": {
+        "valid": true,
+        "decoded": {
+          "v": "nswp/arrival/0.3",
+          "entry": "main-entrance",
+          "settings": {
+            "turn": 45
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
       "name": "with_settings_that_travel",
       "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InNvdW5kIjp7Im9mZiI6ZmFsc2UsImVmZmVjdHMiOjAuNywibXVzaWMiOjAsInZvaWNlcyI6MSwiaHVtIjp0cnVlfSwidGV4dCI6MS4xNSwibW90aW9uIjpmYWxzZSwid3Jpc3QiOiJyaWdodCIsInR1cm4iOjQ1LCJoYW5kIjoicmlnaHQiLCJuYXJyb3ciOnRydWUsImZ1bGwiOnRydWV9fQ",
       "expect": {

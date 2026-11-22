@@ -381,7 +381,8 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
       }
     }
 
-    const cols = items.length > 8 ? 3 : 2;
+    // Two buttons of long words (a question's two answers) are one column, so neither is cut short.
+    const cols = items.length <= 2 && items.some((item) => item.label.length > 24) ? 1 : items.length > 8 ? 3 : 2;
     const rowsN = Math.max(1, Math.ceil(items.length / cols));
     const cellW = (areaW - (cols - 1) * 14) / cols;
     // Room kept for the lines: at least as much as two lines of words for each row of them.
@@ -493,6 +494,13 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
   const hand = new THREE.Vector3();
   const toHand = new THREE.Vector3();
 
+  // Something asks for the controls on one of their sections ("show:<section>": the kit's first-time question,
+  // someone's picture pressed): in a headset the console opens there, as the flat menu does on a screen.
+  controls.onSignal((name) => {
+    if (!name.startsWith("show:") || !opts.renderer.xr.isPresenting) return;
+    section = name.slice(5);
+    setOpen(true, "floating");
+  });
   const setOpen = (next: boolean, where: "wrist" | "floating" = "floating") => {
     if (open === next && mount === where) return;
     if (open !== next) controls.signal(next ? "menuOpen" : "menuClose");

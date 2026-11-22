@@ -5,7 +5,7 @@
   intense its smooth locomotion. (i like smooth loco in VR)"
 - **Who:** BitPortal (to check its room shows it and say what the owner
   will see); the kit has it.
-- **State:** building. Step 1 merged (BitPortal pull request 169, b1dbc81: intense now goes through a door from BitPortal's room). Steps 2 and 3 next, in the kit. Not live.
+- **State:** building. Step 1 merged (BitPortal pull request 169, b1dbc81: intense now goes through a door from BitPortal's room). Step 2, checked: the kit's own way out was already right (a world reads how the visitor moves before ending the session; the Gallery told the Airlock `moving=intense` in the made-up headset), and `keptSettings` was not a fault (`intense` is the desk's, `turn` the notch). Step 3 written in the kit: the `headset` setting, the two one-time questions, "How you move", touch never intense. Next: BitPortal keeps `headset` in its settings note, and its room asks. Not live.
 
 ## What is already built
 
