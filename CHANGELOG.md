@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.76.0
 
 - **How you move, asked once, and kept** (the owner, 2026-11-21: "the first time they enter VR ... ask if they prefer casual or intense mode. And then it should save that setting", and "something similer should happen the first time someone enters the game in 2D desktop mode ... Mobile is always casual"; `docs/backlog/headset-casual-and-intense.md`). A new travelling setting, `headset`: `casual` or `intense` (NSWP-11, core `cleanSettings`, the arrival schema, two vectors). The first time a visitor is in a headset with nothing said or kept, `createXrInput` asks on the console ("Casual: point to step, turn in notches" / "Intense: walk and turn smoothly with the sticks"); the first time at a desk with a mouse, `createFps` asks on the screen ("Casual: click to walk, drag to look" / "Intense: the mouse looks, keys walk"). Put away unanswered is casual. Each answer is then said through every door (the desk now keeps casual as `"0"`, not as nothing), and nothing is said until there is an answer. A touch screen is never asked and never offered intense. The headset switch reads "How you move: casual / intense". The console opens on a section when asked (`show:<section>`, as the flat menu already did), and two long buttons are one column there. A scripted browser isn't asked unless the page's address says `?ask=moving`.
 
