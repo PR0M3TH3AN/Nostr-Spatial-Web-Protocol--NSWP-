@@ -174,6 +174,7 @@ export function menu(options?: string): string {
   named = title;
   const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : undefined;
   const c = (controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) }));
+  if (loadingNow) c.setLoading(loadingNow);
   for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
   const h = (hud = mountHud(c));
   const s = (sounds = createSounds({
@@ -431,6 +432,14 @@ export function bump(): void {
 }
 
 /** A few words shown for a moment, where the menu shows them. */
+/** What the world last said it is still loading, kept for a menu asked for after it (engine.ts `loading`). */
+let loadingNow: { fraction?: number; words?: string } | null = null;
+/** The line in the menu that says the world is still loading, though the visitor is in: null ends it. */
+export function loadingLine(state: { fraction?: number; words?: string } | null): void {
+  loadingNow = state;
+  controls?.setLoading(state);
+}
+
 export function say(text: string): void {
   const t = words(text, 300);
   if (t) controls?.say(t);
@@ -504,6 +513,8 @@ export function view(): string {
     title: v.title,
     address: v.address,
     presence: v.presence,
+    // Still loading, though the visitor is in (`loading`): the world's words and how far along, or null.
+    loading: v.loading,
     open: hud?.open ?? false,
     sections: v.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
     hotbar: v.hotbar.map(item),

@@ -166,12 +166,23 @@ export interface UiKeys {
   chat: string | null;
 }
 
+/**
+ * The world is still loading, though the visitor is in it (`setLoading`): its own words for what, and how far along,
+ * from 0 to 1, or null where it can't say.
+ */
+export interface UiLoading {
+  fraction: number | null;
+  words: string;
+}
+
 export interface UiView {
   title: string;
   address: string;
   target: string;
   /** A few more lines about what is pointed at. */
   detail: string[];
+  /** Still loading, though the visitor is in: a line in the HUD and the headset console. Null when it isn't. */
+  loading: UiLoading | null;
   presence: Presence;
   corner: Corner;
   keys: UiKeys;
@@ -206,6 +217,12 @@ export interface Controls {
   setTarget(text: string, detail?: string[]): void;
   /** A few words shown for a moment. */
   say(text: string): void;
+  /**
+   * The world is still loading, though the visitor is in it: a slim line in the HUD and the headset console says so,
+   * in the world's own words (plain text, at most 80 characters) and with how far along it is (0 to 1) where it can
+   * say. Nothing is held up by it: the console, the way home and everything else work throughout. Null ends it.
+   */
+  setLoading(state: { fraction?: number; words?: string } | null): void;
   /** Do an action by its id, as pressing it would. Returns false if it isn't there or isn't showing. */
   run(id: string): boolean;
   /** Change the look. `keep` also remembers it as this visitor's choice, for this site. */
@@ -344,6 +361,19 @@ function savePins(pins: string[]): void {
   }
 }
 
+/** The most a world's words about what is loading may be: they share a line with how far along it is. */
+const LOADING_WORDS = 80;
+/** A world's word that it is still loading, as the console shows it: plain text, one line, a fraction or none. */
+export function cleanLoading(state: { fraction?: unknown; words?: unknown } | null | undefined): UiLoading | null {
+  if (!state || typeof state !== "object") return null;
+  const raw = typeof state.words === "string" ? state.words : "";
+  // One line of plain text: no control characters, runs of space made one, and cut at a whole character.
+  const words = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
+  const f = state.fraction;
+  const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
+  return { fraction, words };
+}
+
 export function createControls(opts: ControlsOptions): Controls {
   const sections: UiSection[] = STANDARD.map((s) => ({ ...s }));
   for (const s of opts.sections ?? []) addSection(s);
@@ -372,6 +402,7 @@ export function createControls(opts: ControlsOptions): Controls {
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
   let detail: string[] = [];
+  let loading: UiLoading | null = null;
   let presence: Presence = PRESENCES.includes(opts.presence as Presence) ? (opts.presence as Presence) : "full";
   let corner: Corner = CORNERS.includes(opts.corner as Corner) ? (opts.corner as Corner) : "top-left";
   let keys = cleanKeys({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
@@ -433,6 +464,12 @@ export function createControls(opts: ControlsOptions): Controls {
       claimed = next;
       changed();
     },
+    setLoading(state) {
+      const next = cleanLoading(state);
+      if (JSON.stringify(next) === JSON.stringify(loading)) return;
+      loading = next;
+      changed();
+    },
     setTarget(text, more = []) {
       const next = text ? more.filter((line) => typeof line === "string" && line.trim()).slice(0, 4) : [];
       if (text === target && next.join("\n") === detail.join("\n")) return;
@@ -492,6 +529,7 @@ export function createControls(opts: ControlsOptions): Controls {
         address: opts.address ?? "",
         target,
         detail,
+        loading,
         sections: shown,
         hotbar: bar.map(item),
         // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.

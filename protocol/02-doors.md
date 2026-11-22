@@ -113,7 +113,12 @@ Before the visitor commits, it shows:
 2. Whether the world is verified for that address, or only listed and by whom,
    and a warning if the verified key has changed since the last visit.
 3. The world's name, what kind of place it is, its intensity, any content
-   warning, any price, and whether this device can run it.
+   warning, any price, and whether this device can run it. That includes
+   how big the world says its first download is, from its manifest's
+   `budgets.initial_download_mb`, worded as the world's own claim
+   ("The world says about 45 MB to download"), and called a lot on a
+   phone's data above 50 MB (core `worldDownload`). Where the manifest says
+   nothing, nothing is said.
 4. How the visitor will go: anonymously, or as themselves, and wearing which
    look ([NSWP-05](05-looks.md)).
 

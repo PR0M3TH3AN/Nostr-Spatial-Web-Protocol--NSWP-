@@ -263,7 +263,9 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     const view: UiView = controls.view();
     const t = view.theme;
     if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
-    const signature = JSON.stringify([view.title, view.address, view.sections, section, aimed, t, linePage]);
+    // How far along is drawn to the whole percent: finer than that, and the panel would be drawn again for nothing.
+    const loads = view.loading ? { words: view.loading.words, much: view.loading.fraction === null ? null : Math.floor(view.loading.fraction * 100) } : null;
+    const signature = JSON.stringify([view.title, view.address, loads, view.sections, section, aimed, t, linePage]);
     if (signature === painted) return;
     painted = signature;
     const A = rgb(t.accent);
@@ -303,7 +305,16 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     g.fillText(fit(g, view.title, W - 300), 112, 62);
     g.font = `400 ${Math.round(24 * k)}px ${MONO}`;
     g.fillStyle = `rgba(${I}, 0.66)`;
-    g.fillText(fit(g, view.address, W - 300), 112, 96);
+    // Still loading: the address keeps the left half of its line, and the world's words take the right, up to Close.
+    g.fillText(fit(g, view.address, loads ? (W - 300) / 2 - 16 : W - 300), 112, 96);
+    if (loads) {
+      g.font = `500 ${Math.round(24 * k)}px ${SANS}`;
+      g.fillStyle = `rgb(${A})`;
+      g.textAlign = "right";
+      const said = `${loads.words || "Still loading"}${loads.much === null ? "" : `  ${loads.much}%`}`;
+      g.fillText(fit(g, said, (W - 300) / 2 - 16), W - 172, 96);
+      g.textAlign = "left";
+    }
 
     const button = (r: Region, draw: (hot: boolean) => void) => {
       regions.push(r);
@@ -325,6 +336,11 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
 
     g.fillStyle = `rgba(${A}, 0.22)`;
     g.fillRect(28, 122, W - 56, 2);
+    // How far along, as the line under the header filling: all of it lit faintly where that can't be said.
+    if (loads) {
+      g.fillStyle = `rgba(${A}, ${loads.much === null ? 0.45 : 1})`;
+      g.fillRect(28, 121, (W - 56) * (loads.much === null ? 1 : loads.much / 100), 4);
+    }
 
     // Sections, down the left: in two columns when there are too many for one to give each room.
     const tabs = tabLayout(view.sections.length);

@@ -39,7 +39,8 @@ engine can pass to a page:
 | `NSWP.save(data, slot)` | Keep this text for the visitor, in a slot (`"main"` unless named). On their device at once, and with their account if they are signed in here. A `saved` event says where: `kept` is `account`, `device` or `nowhere`, with `said` as words for them. |
 | `NSWP.load(slot)` | Ask for what was kept. A `loaded` event answers: `found`, and then `data`, `at` and `from`. |
 | `NSWP.crossing()` | Where the crossing's room is: `"arriving"`, `"opening"`, `"none"`, `"leaving"`, `"shut"` or `"failed"`. A `crossing` event says when it changes. |
-| `NSWP.loading(fraction)` | How much of the world has arrived, 0 to 1: the line of light over the room's doors fills. The page that starts the engine calls it. |
+| `NSWP.loading(fraction, words?)` | How much of the world has arrived, 0 to 1 (-1 where it can't be said). Before the doors open, the line of light over them fills: the page that starts the engine calls it. Once the visitor is in, it is a line in their menu, with `words` (plain text, at most 80 characters). |
+| `NSWP.loaded()` | The world has finished loading: the line in the menu goes. `loading(1)` does the same. |
 | `NSWP.ready()` | The world is ready: the room's doors open. Asking for the menu does this by itself, unless it was asked for with `hold` true. |
 | `NSWP.failed(words)` | The world couldn't start: the doors stay shut and the sign says why. |
 
@@ -82,6 +83,12 @@ inside it, facing its doors. It needs no engine and no renderer.
 - **The doors open when the world asks for its menu,** which is the world
   saying it is up. A world with more to load first asks for the menu with
   `hold` true and calls `NSWP.ready()` when it is.
+- **A world that takes a while to be playable** opens the doors as soon as
+  there is something to see, and then says what it is still loading:
+  `NSWP.loading(0.4, "Loading the arena")`, and `NSWP.loaded()` when it is
+  ready to play. A line in the visitor's menu says so, and their menu, the
+  way home and everything else work throughout, which they don't in a room
+  whose doors are kept shut.
 - **Leaving, it comes up again.** `go`, `home` and `doors` bring the room up
   round the visitor, with the door's name and address on the sign, shut its
   doors, and only then leave the page. Give `go` the door's name as `title`.

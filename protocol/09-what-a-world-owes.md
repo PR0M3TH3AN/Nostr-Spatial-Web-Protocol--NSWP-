@@ -86,6 +86,13 @@ visitor's doors.
   That is a window or a door, and it is all a world does about signing in.
 - **Treat a claim as a permission.** Capability and comfort tags, a look, and
   an unverified identity are things said, not things proven.
+- **Keep a visitor in its crossing's room while it loads.** A world that
+  takes a while to be playable lets them in as soon as there is something
+  to see, and says what it is still loading in their console
+  (`controls.setLoading`, the engine script's `loading` with words). That
+  line is the world's own words: plain text, one line, at most 80
+  characters, with nothing in it to press. Their console and the way home
+  work throughout.
 
 ## In a headset
 

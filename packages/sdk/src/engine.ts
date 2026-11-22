@@ -29,7 +29,7 @@
  */
 import { checkDestination, KIT_VERSION, type PortalDestination } from "@nswp/core";
 import { createEngineCrossing, type EngineCrossing } from "./engine-crossing.js";
-import { onMenu, play as playCue, tellEngine } from "./engine-menu.js";
+import { loadingLine, onMenu, play as playCue, tellEngine } from "./engine-menu.js";
 import { hereAs } from "./ui/identity.js";
 import { arrival as arrivals, configure, portal, startingForm, type GoOptions } from "./index.js";
 
@@ -41,7 +41,7 @@ export { capturePreview, previewFaces, previewViews } from "./engine-panorama.js
 import { travellingNow } from "./engine-people.js";
 
 /** Bumped when what the functions take or give changes, so an engine's side can tell. */
-export const VERSION = 16;
+export const VERSION = 17;
 /** The kit this script was built from, as a world's manifest should say it (`"kit": NSWP.KIT`). */
 export const KIT = KIT_VERSION;
 
@@ -104,11 +104,27 @@ export function crossing(): string {
 }
 
 /**
- * How much of the world has arrived, from 0 to 1: the line of light over the doors fills. Anything else (-1, say)
- * for "loading, and nobody knows how much". The page that starts the engine calls this as the engine downloads.
+ * How much of the world has arrived, from 0 to 1, or anything else (-1, say) for "loading, and nobody knows how much".
+ *
+ * - **Before the doors open,** the line of light over them fills. The page that starts the engine calls this as the
+ *   engine downloads. `words` aren't shown there: the room's sign is the world's name and address.
+ * - **Once the visitor is in** (after `ready()`, or asking for the menu, or on a page with no room), it is a line in the
+ *   visitor's menu: `words` (plain text, at most 80 characters, "Loading the arena") and how far along. The menu,
+ *   the way home and everything else work throughout. `loaded()`, or `loading(1)`, ends it.
+ *
+ * So a world that takes a while to be playable opens the doors as soon as there is something to see, and says what
+ * it is still loading meanwhile, rather than keeping the visitor in the room.
  */
-export function loading(fraction: number): void {
-  room?.loading(typeof fraction === "number" ? fraction : -1);
+export function loading(fraction: number, words?: string): void {
+  const f = typeof fraction === "number" && Number.isFinite(fraction) ? fraction : -1;
+  if (room && room.state === "arriving") return void room.loading(f);
+  if (f >= 1) return loaded();
+  loadingLine({ ...(f >= 0 ? { fraction: f } : {}), ...(typeof words === "string" ? { words } : {}) });
+}
+
+/** The world has finished loading: the line in the visitor's menu that said it was still loading goes. */
+export function loaded(): void {
+  loadingLine(null);
 }
 
 /**

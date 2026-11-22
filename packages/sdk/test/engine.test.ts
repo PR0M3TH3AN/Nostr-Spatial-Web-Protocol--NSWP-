@@ -57,7 +57,7 @@ describe("what another engine takes from the kit", () => {
     // The script hands it on, and says it changed what its functions give.
     const engine = await import("../src/engine.js");
     expect(typeof engine.gate).toBe("function");
-    expect(engine.VERSION).toBe(16);
+    expect(engine.VERSION).toBe(17);
   });
 
   it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
@@ -81,6 +81,20 @@ describe("what another engine takes from the kit", () => {
     expect(main).toContain("Nswp.gate(NEEDS_GATE)");
     const world = JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")) as Record<string, unknown>;
     for (const word of ["access", "keepers", "named_only", "by_invitation"]) expect(world[word], word).toBeUndefined();
+  });
+
+  it("says in Godot, too, that the world is still loading once the visitor is in: loading(1.0) ends it", () => {
+    expect(godot("nswp.gd")).toMatch(/^func loading\(fraction: float, words: String = ""\) -> void:\n\tif _js != null:\n\t\t_js\.loading\(fraction, words\)$/m);
+  });
+
+  it("never names a function in the Godot addon as one of its signals: Godot won't load the script at all, and the world doesn't start", () => {
+    // Found by a scripted browser, 2026-11-22: a new func loaded() beside the signal loaded stopped the Foundry starting.
+    for (const file of ["nswp.gd", "nswp_visitor.gd"]) {
+      const text = godot(file);
+      const signals = [...text.matchAll(/^signal (\w+)/gm)].map((m) => m[1]);
+      const funcs = [...text.matchAll(/^func (\w+)/gm)].map((m) => m[1]);
+      expect(signals.filter((name) => funcs.includes(name)), file).toEqual([]);
+    }
   });
 
   it("gives a jump the kit's own sound in Godot too: the visitor asks the script, and plays no cue of its own", () => {
@@ -147,7 +161,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(16);
+    expect(engine.VERSION).toBe(17);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");
