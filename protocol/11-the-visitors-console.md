@@ -168,6 +168,7 @@ The things a visitor has, by the names a world presses them by:
 | `room-chat-show` | Whether they see what people write at all |
 | `feed` | Their own public posts, and a place to send one out, where they have a signer ([NSWP-10](10-identity.md), "Posting from a world") |
 | `people-pictures` | Whether they see other people's pictures |
+| `people-models` | Whether they see people's own models, where the world draws them ([NSWP-05](05-looks.md), "A model of your own"). On a person's card, `person-simple` draws that one person as their simple look instead, for this visitor alone |
 | `files-anywhere` | Whether other people's files are loaded from anywhere they say they are kept, or only from the file hosts the visitor already uses ([NSWP-17](17-items.md), "Where a file is fetched from") |
 | `look-size`, `look-motion` | The size of their text, and whether things move |
 
@@ -240,6 +241,7 @@ settings now go with them instead, the same way the form they are in does:
 | How fast the view turns under a mouse or a finger | `look`: 0.25 to 3, 1 being the world's own speed | |
 | How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
 | Whether they see other people's pictures | `pictures`. Left out, they do | A picture is fetched from its owner's own host, which learns the viewer's address ([NSWP-10](10-identity.md), "Pictures") |
+| Whether they see people's own models | `models`. Left out, they do, where a world draws them | Off, everyone is drawn as their simple look. A model is fetched by its hash only from the file hosts on the viewer's own list ([NSWP-17](17-items.md), "Where a file is fetched from") |
 | Whether they see what people write in a room | `chat`. Left out, they do | Turned off, nothing anyone writes is shown to them and they write nothing ([NSWP-06](06-rooms.md), "Words") |
 | That other people's files are loaded only from the visitor's own file hosts | `filesAnywhere`: only `false` travels. A `true` arriving is ignored and never kept | Off, a file is fetched by its hash only from the file hosts on the visitor's own list ([NSWP-17](17-items.md), "Where a file is fetched from"). Any world can write the link a visitor arrives by, so a privacy switch that is off by default can't be turned on by one: on is only ever the visitor's own press in the console of the place they are in, kept by that place. No signed settings note is read for it |
 | Whether anything people carry is fetched, drawn or run for them | `items`. Left out, it is, in a world that has items | Turned off, it is how they mute every item, in every world ([NSWP-17](17-items.md), "Muting") |

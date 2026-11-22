@@ -1,6 +1,6 @@
 # NSWP-05: Looks
 
-**Status:** Implemented for the generated and simple tiers; the model tier is written, and its reader built (drawing it is being built) · **Kinds:** 37301 · **Schema:** [`look`](../schemas/look.schema.json) · **Vectors:** [`looks`](../vectors/looks.json) · **Code:** [`avatar.ts`](../packages/core/src/avatar.ts), SDK [`figure.ts`](../packages/sdk/src/figure.ts)
+**Status:** Implemented for the generated and simple tiers; the model tier is written, read, handed round a room and drawn by the reference kit standing still (walking it, and other engines, are being built) · **Kinds:** 37301 · **Schema:** [`look`](../schemas/look.schema.json) · **Vectors:** [`looks`](../vectors/looks.json) · **Code:** [`avatar.ts`](../packages/core/src/avatar.ts), SDK [`figure.ts`](../packages/sdk/src/figure.ts)
 
 A look is how a person appears to others in a room. It is a few choices from
 short closed lists and three colours. It is data, never a file: nothing is
@@ -189,7 +189,13 @@ has no real hash, or is of another format names no model. In code:
 - **At most `LOOK_MODELS_AT_ONCE` (8) are drawn,** the nearest first; the
   rest are drawn as their simple looks.
 - **Each viewer decides,** for everyone and for each person, as with
-  pictures.
+  pictures (`people-models` and `person-simple`,
+  [NSWP-11](11-the-visitors-console.md); the setting `models` travels).
+- **In a room** a member hands the others their signed note directly
+  (`avatar`, [NSWP-06](06-rooms.md)), believed only once their pass names
+  its author. A world reads a visitor's own note from the arrival's `avatar`
+  ([NSWP-03](03-arrival.md)): going plain sends none, and so leaves the
+  model behind.
 
 **The world's word,** in its manifest's `avatar`:
 
@@ -221,9 +227,11 @@ everywhere and that someone else can't copy.
 
 ## Proposed, not built
 
-Drawing the model tier (above): the reader, its budget and its limits are
-built (`look-model.ts`, `readGlb`), and drawing it in the kit, the engines and
-the reference client is being built (`docs/plans/own-models.md`). Publishing
+Moving the model tier (above): the reference kit reads a model, hands each
+member's note round a room (`avatar`, [NSWP-06](06-rooms.md)) and draws it at
+its wearer's height with their mark above it, standing as a whole; walking a
+VRM, a model's own clips, other engines and the reference client are being
+built (`docs/plans/own-models.md`). Publishing
 an avatar event from a client: the reference editor keeps looks on the device only. The
 lists themselves are a first proposal (Q25). Background and reasoning:
 [`spec.md`](../spec.md) §4.2.

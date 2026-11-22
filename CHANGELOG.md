@@ -4,6 +4,17 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A look of your own, step 2: the kit draws people's own models** (SDK `createLookModels`, `lookBudget`, `ownLookNote`, `showsModels()` / `setShowsModels()`, `arrival.avatar()`, `Member.model`, `JoinOptions.avatar`, `PresenceOptions.looks` / `.avatar` / `.lookModels`, `Presence.showSimple` / `isSimple` / `drawsModels` / `lookInfo()`; core `withoutRequired`, `glbJson`, `lookFacing`; the room message `avatar`; console rows `people-models` and `person-simple`; the setting `models`; NSWP-05, -06, -11). A model stands and turns as a whole for now: walking it is the next step. No world here turns models on yet.
+  - In a room, a member who came by name hands the others their signed look note (`avatar:`), at most `LOOK_NOTE_LIMIT`. A receiver believes it only once their pass names the key that signed it. The note is the one the arrival named (`avatar`, read from relays by `ownLookNote`); going plain sends none.
+  - A model is fetched by its hash from the viewer's own file hosts (`fetchByHash`), read by `readGlb` against `LOOK_BUDGET` or the world's lower `avatar` limits, and only then handed to Three.js, with VRM's required extensions taken off its list (`withoutRequired`). Off-list, refused or unreadable, the person is drawn as their simple look.
+  - It is fitted to its wearer's height (held within the world's `avatar.height`), feet on their floor (1.6 m below their eyes), facing -z (a VRM 0.x is turned the other way, `lookFacing`). Each wearer gets their own copy; the file is fetched once.
+  - The kit draws the wearer's mark on a small plate over the model, and their name and picture over its head.
+  - A model's materials are drawn without metal, in their own colour and picture: a world has nothing for a metal to mirror, so glTF's default (all metal) would be drawn black.
+  - `trials/own-models-two.mjs` is the two-visitor trial: Ada by name with a tiny VRM made in code, Ben a guest, in the Grove as built.
+  - At most `LOOK_MODELS_AT_ONCE` are drawn, the nearest first, chosen twice a second.
+  - A world draws them where its `looks` (its manifest's `avatar`) names the format and doesn't say `dress: "own"`. A reference world can say it in its config (`avatar`), or on a local address a trial can (`__nswpTrial.looks`).
+  - "Show people's own models" (`people-models`, under People, on by default, travels as `models`), and on a person's card "Show as simple look" (`person-simple`), for this visitor alone.
+
 - **A look of your own, first step: the model tier written, and its reader** (core `LOOK_BUDGET`, `LOOK_HEIGHT`, `LOOK_MODELS_AT_ONCE`, `LOOK_NOTE_LIMIT`, `LOOK_FORMATS`, `readLookModel(note)`, `lookHeight(asked, world?)`, `ModelBudget`, `GlbCount.joints` and `.morphs`; manifest `avatar.height` and `avatar.dress`; NSWP-05, "A model of your own"; names from the orchestrator). Nothing draws a model yet: that is the kit's next step.
   - The owner decided, 2026-11-22: heights 0.85 m to 2.55 m, which a world may narrow; VRM and plain GLB; never scripts in a look; a plain warning the first time someone publishes a look; no spring bones in this first round (`docs/plans/own-models.md`, section 6).
   - A look note's `model` tag names the file by its hash (`vrm` or `glb`, https only), with `height` and an optional `thumb` with its hash. `readLookModel` reads them; a note without a model is a simple look.

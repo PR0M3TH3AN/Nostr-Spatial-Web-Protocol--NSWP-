@@ -20,6 +20,8 @@ import { applyTints, showsItems, type Items } from "./items.js";
 import { createPlay, mayHold, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
 import { byName, onPageRules, pageRules } from "./ui/identity.js";
+import { createLookModels, lookBudget, onModelsChange, ownLookNote, showsModels, type LookModels, type LookRefusal } from "./look-models.js";
+import { LOOK_HEIGHT, LOOK_MODELS_AT_ONCE, lookHeight, markGrid, type NostrEvent } from "@nswp/core";
 
 
 /** How long after joining a visitor counts as arriving: within this, someone found inside them moves them aside. */
@@ -102,6 +104,21 @@ export interface PresenceOptions {
   identity?: JoinOptions["identity"] | (() => JoinOptions["identity"] | undefined);
   /** Draw other people in this world's own way (spec §4.2, "What a world may change"). */
   figureStyle?: FigureStyle;
+  /**
+   * What this world draws of people's own models (protocol/05-looks.md, "A model of your own"): its manifest's
+   * `avatar`, as `parseManifest` reads it. Asked each time it matters. Left out, or with no `vrm` or `glb` in its
+   * `formats`, everyone is drawn as their simple look, as before; with `dress: "own"`, too, since the world dresses
+   * everyone itself.
+   */
+  looks?: () => { formats: readonly string[]; dress?: "own"; height?: readonly [number, number]; maxFileSizeMb?: number; maxTriangles?: number } | null;
+  /**
+   * The visitor's own look note, signed by their own key, to hand to the room where it names a model of theirs.
+   * Asked each time a room is joined. Left out, the one their arrival named (`ownLookNote`), in a world that draws
+   * models; none in one that doesn't.
+   */
+  avatar?: NostrEvent | null | (() => NostrEvent | null | undefined | Promise<NostrEvent | null | undefined>);
+  /** What fetches and checks people's models (look-models.ts). For tests; left out, the kit's own. */
+  lookModels?: LookModels;
   /** Called whenever membership, status or the microphone changes. */
   onChange?: () => void;
   /** False where this world draws what people write in a way of its own: no line is drawn over anyone's head. */
@@ -134,6 +151,22 @@ export interface AvatarInfo {
   musicVolume: number;
   /** How loud their music is arriving, before any of that. */
   musicLevel: number;
+}
+
+/** How one person is being drawn: their own model, or their simple look and why. For tests and a person's card. */
+export interface LookInfo {
+  pubkey: string;
+  /** The hash of the model they wear, or null for none. */
+  model: string | null;
+  drawn: "model" | "simple";
+  /**
+   * Why they are drawn simple: `none` (they wear no model), `world` (this world draws none of that format, or
+   * dresses everyone), `off` (this visitor turned models off), `person` (this visitor chose their simple look),
+   * `crowd` (more than `LOOK_MODELS_AT_ONCE` nearer), `loading`, or why the file was refused. Null when drawn.
+   */
+  why: "none" | "world" | "off" | "person" | "crowd" | "loading" | LookRefusal | null;
+  /** How tall the model is drawn, in metres, or null. */
+  height: number | null;
 }
 
 export interface Presence {
@@ -256,6 +289,13 @@ export interface Presence {
    */
   mute(pubkey: string, on: boolean): void;
   isMuted(pubkey: string): boolean;
+  /** Draw one member as their simple look whatever model they wear, or as their own again. Nobody is told. It lasts while they are here. */
+  showSimple(pubkey: string, on: boolean): void;
+  isSimple(pubkey: string): boolean;
+  /** Whether this world draws people's own models at all (its `looks`). */
+  drawsModels(): boolean;
+  /** How each member is being drawn: for tests. */
+  lookInfo(): LookInfo[];
   /**
    * Stop being in a room with one member: the connection to them is closed and not made again. To them, this
    * visitor has left. Someone who came by name stays blocked on this site when they come back; a guest is a new
@@ -314,8 +354,37 @@ export interface PersonDrawn {
   held: THREE.Object3D | null;
 }
 
+/** Where a person's eyes are above the floor they stand on, as worlds set it: their model's feet go this far below their eyes. */
+const STANDING_EYES = 1.6;
+
+/** A person's mark on a small plate, drawn over their own model by the kit, so no file can hide or replace it. */
+function markSprite(mark: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 64;
+  const g = canvas.getContext("2d")!;
+  g.fillStyle = "rgba(10,15,21,0.85)";
+  g.beginPath();
+  g.roundRect(2, 2, 60, 60, 12);
+  g.fill();
+  g.fillStyle = "#ffffff";
+  markGrid(mark).forEach((row, y) => row.forEach((on, x) => on && g.fillRect(9 + x * 9.5, 9 + y * 9.5, 8, 8)));
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, depthWrite: false }));
+  sprite.scale.set(0.11, 0.11, 1);
+  return sprite;
+}
+
 interface Avatar {
   member: Member;
+  /** Their own model, drawn in place of their figure, with what it was made for (hash and height). */
+  model?: THREE.Object3D;
+  modelFor?: string;
+  /** What is wanted of their model now, and the mark drawn over it. */
+  wantModel?: string;
+  mark?: THREE.Sprite;
+  /** How far above where it is for a simple figure their name and picture are drawn: their model's height, less standard. */
+  lift?: number;
   /** Their shared music, while this visitor hears it. */
   tune?: THREE.PositionalAudio;
   tuneElement?: HTMLAudioElement;
@@ -721,10 +790,14 @@ export function createPresence(d: PresenceOptions): Presence {
     if (a.beam) figure.head.add(a.beam);
     if (a.bubble) figure.head.add(a.bubble);
     a.root.add(figure.group);
+    // Wearing their own model: the figure's own shape isn't drawn, only what hangs from it.
+    if (a.model) figure.metal.visible = false;
+    if (a.mark) figure.head.add(a.mark);
     a.figure = figure;
     a.head = figure.head;
     a.torso = figure.torso;
     a.hands = figure.hands;
+    placeOverHead(a);
     a.materials = [figure.metal, a.label.material, ...(a.picture ? [a.picture.material] : [])].map((material: THREE.Material) => {
       const opacity = material === a.label.material || material === a.picture?.material ? 1 : material.opacity;
       material.transparent = true;
@@ -793,6 +866,96 @@ export function createPresence(d: PresenceOptions): Presence {
     for (const a of avatars.values()) showPicture(a);
   });
   let onPerson: (pubkey: string) => void = () => {};
+
+  // People's own models (protocol/05-looks.md, "A model of your own"): which may be drawn, and drawing them.
+  const lookModels = d.lookModels ?? createLookModels();
+  const simpleKeys = new Set<string>();
+  let sinceModels = 1;
+  const worldLooks = () => d.looks?.() ?? null;
+  const drawsModels = (): boolean => {
+    const w = worldLooks();
+    return !!w && w.dress !== "own" && (w.formats.includes("vrm") || w.formats.includes("glb"));
+  };
+  /** Why a member who isn't drawn as their own model isn't. */
+  const whyNot = (a: Avatar): LookInfo["why"] => {
+    const m = a.member.model;
+    if (!m) return "none";
+    const w = worldLooks();
+    if (!drawsModels() || !w?.formats.includes(m.format)) return "world";
+    if (!showsModels()) return "off";
+    if (simpleKeys.has(a.member.pubkey)) return "person";
+    if (a.wantModel === undefined) return "crowd";
+    return lookModels.why(m) ?? "loading";
+  };
+  const dropModel = (a: Avatar) => {
+    a.model?.removeFromParent();
+    a.mark?.removeFromParent();
+    a.mark?.material.map?.dispose();
+    a.mark?.material.dispose();
+    delete a.model;
+    delete a.modelFor;
+    delete a.mark;
+    a.lift = 0;
+    a.figure.metal.visible = true;
+    placeOverHead(a);
+  };
+  /** Their name, picture and mark over their head: over their model's head, where they wear one. */
+  const placeOverHead = (a: Avatar) => {
+    const lift = a.lift ?? 0;
+    a.label.position.y = 0.42 + lift;
+    if (a.picture) a.picture.position.y = 0.63 + lift;
+    if (a.mark) a.mark.position.y = 0.3 + lift;
+  };
+  const wearModel = (a: Avatar, key: string, model: THREE.Object3D, mark: string) => {
+    dropModel(a);
+    a.model = model;
+    a.modelFor = key;
+    a.root.add(model);
+    a.figure.metal.visible = false;
+    a.mark = markSprite(mark);
+    a.figure.head.add(a.mark);
+    a.lift = (model.userData.lookHeight ?? LOOK_HEIGHT.standard) - LOOK_HEIGHT.standard;
+    placeOverHead(a);
+    changed();
+  };
+  onModelsChange(() => (sinceModels = 1));
+  /** Which members are drawn as their own models: chosen a couple of times a second, the nearest first. */
+  const tendModels = (dt: number) => {
+    sinceModels += dt;
+    if (sinceModels < 0.5) return;
+    sinceModels = 0;
+    const w = worldLooks();
+    d.camera.getWorldPosition(headAt);
+    const may = [...avatars.values()].filter((a) => {
+      const m = a.member.model;
+      return m && a.target && drawsModels() && w?.formats.includes(m.format) && showsModels() && !simpleKeys.has(a.member.pubkey);
+    });
+    may.sort((x, y) => x.head.position.distanceTo(headAt) - y.head.position.distanceTo(headAt));
+    const chosen = new Set(may.slice(0, LOOK_MODELS_AT_ONCE));
+    const budget = lookBudget(w);
+    for (const a of avatars.values()) {
+      const m = a.member.model;
+      if (!m || !chosen.has(a)) {
+        delete a.wantModel;
+        if (a.model) dropModel(a);
+        continue;
+      }
+      const height = lookHeight(m.height, w?.height);
+      const key = `${m.sha256}:${height}`;
+      if (a.modelFor === key || a.wantModel === key) continue;
+      a.wantModel = key;
+      void lookModels.object({ ...m, height }, budget).then((model) => {
+        // They may have gone, changed, or been left out, while it was fetched.
+        if (!avatars.has(a.member.pubkey) || a.wantModel !== key) return;
+        if (!model) {
+          if (a.model) dropModel(a);
+          changed();
+          return;
+        }
+        wearModel(a, key, model, a.member.look.mark);
+      });
+    }
+  };
 
   const makeAvatar = (member: Member): Avatar => {
     const root = new THREE.Group();
@@ -938,6 +1101,7 @@ export function createPresence(d: PresenceOptions): Presence {
     d.scene.remove(a.root);
     dropPicture(a);
     dropBubble(a);
+    dropModel(a);
     a.figure.dispose();
   };
 
@@ -1018,7 +1182,9 @@ export function createPresence(d: PresenceOptions): Presence {
     if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
     if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
     if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
+    // Their own look note, where they came as themselves with one and this world draws models: handed to each member.
+    const avatar = identity ? await (typeof d.avatar === "function" ? d.avatar() : d.avatar !== undefined ? d.avatar : drawsModels() ? ownLookNote() : null) : null;
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), ...(avatar ? { avatar } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
     session = s;
     if (!offsetApplied) {
       offsetApplied = true;
@@ -1052,6 +1218,7 @@ export function createPresence(d: PresenceOptions): Presence {
     s.on("look", (m, look) => {
       const a = avatars.get(m.pubkey);
       if (a) dress(a, look);
+      sinceModels = 1;
       changed();
     });
     // A pass checked out, or ran out: their name changes, and so does the frame round their mark.
@@ -1354,6 +1521,23 @@ export function createPresence(d: PresenceOptions): Presence {
     isMuted(pubkey) {
       return mutedKeys.has(pubkey);
     },
+    showSimple(pubkey, on) {
+      if (on) simpleKeys.add(pubkey);
+      else simpleKeys.delete(pubkey);
+      sinceModels = 1;
+      changed();
+    },
+    isSimple(pubkey) {
+      return simpleKeys.has(pubkey);
+    },
+    drawsModels: () => drawsModels(),
+    lookInfo() {
+      return [...avatars.values()].map((a) => {
+        const m = a.member.model;
+        const drawn = !!a.model;
+        return { pubkey: a.member.pubkey, model: m?.sha256 ?? null, drawn: drawn ? "model" : "simple", why: drawn ? null : whyNot(a), height: drawn ? (a.model?.userData.lookHeight ?? null) : null } as LookInfo;
+      });
+    },
     block(pubkey) {
       const gone = session?.block(pubkey);
       if (!gone) return null;
@@ -1422,7 +1606,7 @@ export function createPresence(d: PresenceOptions): Presence {
           else {
             // It arrives quickly and goes slowly, and is never in the face of someone standing close.
             a.bubble.material.opacity = near * Math.min(1, (t - (a.bubbleFrom ?? t)) / 160, ((a.bubbleUntil ?? t) - t) / 600);
-            a.bubble.position.y = a.picture ? 0.78 : 0.5;
+            a.bubble.position.y = (a.picture ? 0.78 : 0.5) + (a.lift ?? 0);
           }
         }
         const snap = a.placed ? k : 1;
@@ -1432,6 +1616,13 @@ export function createPresence(d: PresenceOptions): Presence {
         euler.setFromQuaternion(a.head.quaternion, "YXZ");
         a.torso.position.set(a.head.position.x, a.head.position.y - 0.45, a.head.position.z);
         a.torso.rotation.set(0, euler.y, 0);
+        if (a.model) {
+          // Their own model stands where they stand, its feet on their floor, turned the way they face.
+          a.model.position.set(a.head.position.x, a.head.position.y - STANDING_EYES, a.head.position.z);
+          a.model.rotation.set(0, euler.y, 0);
+          // Personal space, as for a figure: a model too close isn't drawn.
+          a.model.visible = near > 0.5;
+        }
         const hands = [a.target.left, a.target.right] as const;
         hands.forEach((t, i) => {
           const mesh = a.hands[i as 0 | 1];
@@ -1441,6 +1632,7 @@ export function createPresence(d: PresenceOptions): Presence {
           } else mesh.visible = false;
         });
       }
+      tendModels(dt);
       play?.update(dt);
     },
     drawn() {

@@ -74,6 +74,11 @@ export interface TravelSettings {
    */
   pictures?: boolean;
   /**
+   * Whether they see people's own models (protocol/05-looks.md, "A model of your own"). Left out, they do, where a
+   * world draws them. Turned off, everyone is drawn as their simple look.
+   */
+  models?: boolean;
+  /**
    * Whether they see what other people write in a room, and may write there themselves. Left out, they do.
    * Turned off, nothing anyone writes is shown to them, and nobody is told.
    */
@@ -151,6 +156,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.look === "number" && Number.isFinite(s.look)) out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
   if (typeof s.fov === "number" && Number.isFinite(s.fov)) out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;
+  if (typeof s.models === "boolean") out.models = s.models;
   if (typeof s.chat === "boolean") out.chat = s.chat;
   if (typeof s.items === "boolean") out.items = s.items;
   // Only off travels: on is the visitor's own press, in each place (protocol/11-the-visitors-console.md).

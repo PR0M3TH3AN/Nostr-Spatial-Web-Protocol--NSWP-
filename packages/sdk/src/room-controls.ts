@@ -10,6 +10,7 @@ import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
 import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
+import { setShowsModels, showsModels } from "./look-models.js";
 import { setShowsPictures, showsPictures } from "./picture.js";
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
@@ -463,6 +464,20 @@ export function addRoomControls(
       controls.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
     },
   });
+  // Whether this visitor sees people's own models, where this world draws them (protocol/05-looks.md). Theirs, and it travels.
+  if (presence.drawsModels())
+    controls.add({
+      id: "people-models",
+      section: "people",
+      icon: "people",
+      on: () => showsModels(),
+      label: () => (showsModels() ? "Show people's own models: on" : "Show people's own models: off"),
+      short: "Models",
+      act: () => {
+        setShowsModels(!showsModels());
+        controls.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
+      },
+    });
   // Where other people's files may be fetched from (protocol/17-items.md, "Where a file is fetched from"). Off, only
   // from the file hosts on the visitor's own list. Theirs, and it goes with them.
   controls.add({
@@ -601,6 +616,22 @@ export function addRoomControls(
     }
     if (who) {
       extras.push("person-mute", "person-music", "person-block");
+      // Someone wearing a model of their own may be drawn as their simple look instead, for this visitor alone.
+      if (who.model && presence.drawsModels()) {
+        extras.push("person-simple");
+        controls.add({
+          id: "person-simple",
+          section: "people",
+          icon: "look",
+          on: () => presence.isSimple(who.pubkey),
+          label: () => (presence.isSimple(who.pubkey) ? `Show ${who.name}'s own model` : `Show ${who.name} as their simple look`),
+          act: () => {
+            const now = !presence.isSimple(who.pubkey);
+            presence.showSimple(who.pubkey, now);
+            controls.say(now ? `${who.name} is drawn as their simple look for you. They aren't told.` : `${who.name} is drawn as their own model again.`);
+          },
+        });
+      }
       controls.add(
         {
           id: "person-mute",
