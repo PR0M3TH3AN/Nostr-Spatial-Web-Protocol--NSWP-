@@ -44,11 +44,11 @@ and says plainly what is built and what is only proposed.
 | [09 What a world owes a visitor](09-what-a-world-owes.md) | The few things that are the same everywhere | Implemented | |
 | [10 Who someone is](10-identity.md) | Going by name without a world ever holding a key: passes, names, the proven mark | Implemented, in part | 27300 |
 | [11 The visitor's console](11-the-visitors-console.md) | Their own controls over a world's own interface: hidden when the world wants, summoned whenever they want; arriving in the form they left in; and the settings that go with them | Implemented, in part | |
-| [12 Saves](12-saves.md) | What a world keeps for its visitor: on their own relays, readable only by them, reachable only by the world it belongs to | Implemented; a signer's side is not built in BitLogin yet | 37304 |
+| [12 Saves](12-saves.md) | What a world keeps for its visitor: on their own relays, readable only by them, reachable only by the world it belongs to | Implemented; BitLogin's signer has its side (live since 2026-11-20) | 37304 |
 | [13 Ratings](13-ratings.md) | What a visitor thought of a world, and whose ratings a client counts: never a crowd of strangers | Implemented, in part | 37305 |
-| [14 People and messages](14-people-and-messages.md) | Following someone and writing to them privately: Nostr's own, done only at the visitor's own client, and a follow list changed without losing it | Implemented in the kit; a signer's side for worlds is not built in BitLogin yet | |
-| [15 Scores](15-scores.md) | A score a visitor made in a world, posted when they say to, and the board it stands on: claims, with the people a reader knows listed first | Implemented as claims; a signer's side is not built in BitLogin yet | 37306 |
-| [16 Achievements](16-achievements.md) | Something a visitor did that a world marks, shown as theirs when they say to: claims, like scores | Implemented as claims; a signer's side is not built in BitLogin yet | 37307 |
+| [14 People and messages](14-people-and-messages.md) | Following someone and writing to them privately: Nostr's own, done only at the visitor's own client, and a follow list changed without losing it | Implemented in the kit; BitLogin's signer has its side | |
+| [15 Scores](15-scores.md) | A score a visitor made in a world, posted when they say to, and the board it stands on: claims, with the people a reader knows listed first | Implemented as claims; BitLogin's signer has its side (live since 2026-11-20) | 37306 |
+| [16 Achievements](16-achievements.md) | Something a visitor did that a world marks, shown as theirs when they say to: claims, like scores | Implemented as claims; BitLogin's signer has its side (live since 2026-11-20) | 37307 |
 | [17 Items](17-items.md) | Things a person carries from world to world, what they may do, and how a world lets them reach the people in it | Decided; built for Three.js worlds: descriptions, the bag, holding, an item's own logic, things sent out, hits, muting | 37303, 37308 |
 
 ## What "status" means

@@ -2,7 +2,7 @@
 
 - **Asked:** found by the orchestrator on 2026-11-21 while answering the owner's question of what is done.
 - **Who:** the NSWP builder, or whoever next touches those files.
-- **State:** asked
+- **State:** merged (2026-11-22: corrected by the orchestrator, each checked against BitLogin's main at 7b650db; BitLogin's session pointed out the lines were still wrong)
 
 The status lines at the top of NSWP-12 (saves), NSWP-14 (people and
 messages), NSWP-15 (scores) and NSWP-16 (achievements) each say a signer's
