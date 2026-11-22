@@ -8935,8 +8935,8 @@ postMessage({ t: "started" });
     watching2 = true;
     let wasFilled = !!document.fullscreenElement;
     const onChange = () => {
-      const filled2 = !!document.fullscreenElement;
-      if (filled2) {
+      const filled3 = !!document.fullscreenElement;
+      if (filled3) {
         holding = false;
         try {
           const asked = keyboard()?.lock?.(["Escape"]);
@@ -8952,7 +8952,7 @@ postMessage({ t: "started" });
         if (wasFilled && !leaving) for (const fn of [...leftByBrowser]) fn();
         leaving = false;
       }
-      wasFilled = filled2;
+      wasFilled = filled3;
     };
     document.addEventListener("fullscreenchange", onChange);
   }
@@ -46196,7 +46196,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
       full.hidden = !fullscreenButton.shown() || view2.presence === "hidden" || asWho.classList.contains("shown");
       const loads = view2.loading;
-      loadingLine2.hidden = !loads;
+      loadingLine2.hidden = !loads || open2;
       if (loads) {
         loadingWhat.textContent = loads.words || "Still loading";
         loadingMuch.textContent = loads.fraction === null ? "" : `${Math.floor(loads.fraction * 100)}%`;
@@ -47099,16 +47099,63 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {}, ...said2.byInvitation === true ? { byInvitation: true } : {} });
     return JSON.stringify(lines.map((o) => ({ ...o, ...o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id]] } : {} })));
   }
+  var early = null;
+  var filled2 = false;
+  var EARLY_LINE = { words: "This world is still loading" };
+  function earlyMenu(o) {
+    if (controls || typeof document === "undefined") return;
+    arrival.read();
+    const opts = { title: words(o.title, 80) || "A world", address: location.host };
+    if (o.accent && /^#[0-9a-f]{6}$/i.test(o.accent)) opts.theme = { accent: o.accent };
+    const c = controls = createControls(opts);
+    early = { opts, line: !loadingNow };
+    c.setLoading(loadingNow ?? EARLY_LINE);
+    hud = mountHud(c);
+    const atHome = arrival.atHome();
+    c.add({
+      id: "home",
+      section: "travel",
+      icon: "home",
+      hotbar: true,
+      label: atHome ? "Your doors" : "Go home",
+      short: atHome ? "Doors" : "Home",
+      hidden: () => portal.airlockFor() === null,
+      act: () => void o.home()
+    });
+  }
+  function roomChanged(state) {
+    if (!early || state === "arriving") return;
+    if (early.line && controls) {
+      early.line = false;
+      controls.setLoading(loadingNow);
+    }
+    if (filled2 || state === "failed") return;
+    hud?.remove();
+    hud = null;
+    controls = null;
+    early = null;
+  }
   function menu(options) {
-    if (controls) return JSON.stringify({ moving, mouse: hasMouse() });
+    if (filled2) return JSON.stringify({ moving, mouse: hasMouse() });
+    filled2 = true;
     const o = read3(options);
     const title = words(o.title, 80) || "A world";
     named = title;
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
-    const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
-    if (loadingNow) c.setLoading(loadingNow);
+    let c;
+    let h;
+    if (early && controls && hud) {
+      c = controls;
+      h = hud;
+      early.opts.title = title;
+      if (accent) c.setTheme({ accent });
+      c.remove("home");
+    } else {
+      c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
+      if (loadingNow) c.setLoading(loadingNow);
+      h = hud = mountHud(c);
+    }
     for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
-    const h = hud = mountHud(c);
     const s = sounds = createSounds({
       seed: title,
       ...typeof o.kit === "string" && o.kit ? { kit: o.kit } : {},
@@ -55783,8 +55830,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         try {
           await presence3.join(carried2.from === "refresh" ? invited : null);
           const heard = carried2.mic ? await microphone() : false;
-          const early = 2500 - performance.now();
-          if (early > 0) await new Promise((done) => setTimeout(done, early));
+          const early2 = 2500 - performance.now();
+          if (early2 > 0) await new Promise((done) => setTimeout(done, early2));
           tell2(
             `You are still in the room${carried2.from === "there" ? ", as you were where you came from" : ""}: others here can see you${heard ? " and hear you" : ""}.${carried2.mic && !heard ? " Your microphone is off here: the browser didn't allow it." : ""} Leave is where Join was.`
           );
@@ -56109,7 +56156,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       ...accent ? { accent } : {},
       still: prefersStill2()
     });
-    room2.onChange((state) => tellEngine({ type: "crossing", state }));
+    room2.onChange((state) => {
+      roomChanged(state);
+      tellEngine({ type: "crossing", state });
+    });
+    const roomTitle = (said2("title") || tag?.dataset.title || document.title || location.host).slice(0, 80);
+    const mountEarly = () => earlyMenu({ title: roomTitle, ...accent ? { accent } : {}, home: () => arrival.atHome() ? doors2() : home() });
+    if (document.body) queueMicrotask(mountEarly);
+    else document.addEventListener("DOMContentLoaded", mountEarly, { once: true });
     onMenu((look) => {
       room2?.dress(look);
       holdDoors = look.hold === true;

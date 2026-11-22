@@ -919,7 +919,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     full.hidden = !fullscreenButton.shown() || view.presence === "hidden" || asWho.classList.contains("shown");
     // Still loading: said in the world's own words, as text, with how far along where it can say.
     const loads = view.loading;
-    loadingLine.hidden = !loads;
+    // Out of the way while the menu is up, where it would sit over the sheet's foot; back when it is put away.
+    loadingLine.hidden = !loads || open;
     if (loads) {
       loadingWhat.textContent = loads.words || "Still loading";
       loadingMuch.textContent = loads.fraction === null ? "" : `${Math.floor(loads.fraction * 100)}%`;
