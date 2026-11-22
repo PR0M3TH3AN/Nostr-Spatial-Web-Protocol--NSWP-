@@ -831,7 +831,8 @@ on a door for what the visitor already holds.
 `readOwnerList`, `resolveOwnerList`; the gate and rooms), tried with
 scripted visitors on a relay on one machine. The owner's screen in the
 console is not built · **Vectors:**
-[`governance-lists`](../vectors/governance-lists.json) (BitGate's own) ·
+[`governance-lists`](../vectors/governance-lists.json) (BitGate's own),
+[`owner-list-writing`](../vectors/owner-list-writing.json) (writing one) ·
 **Code:** [`owner-lists.ts`](../packages/core/src/owner-lists.ts)
 
 A world's owner may keep someone out of their world, and no service, curator
@@ -863,6 +864,21 @@ held to every one of them.
   older one handed over later can't undo a change.
 - At most 2,000 people are read; a list with more is refused. The kit's own
   writers stop at 500.
+
+**Writing one, from one change** (allow, unallow, block, unblock), so that
+every writer makes the same note
+([`owner-list-writing`](../vectors/owner-list-writing.json)):
+
+- Everyone already on the list stays, and the one change is made. A list
+  with nobody left on it is still written and published, so the old one
+  stops being read.
+- The tags come in this order: `d`, `v`, `scope`, `subject`, then one `p`
+  for each person, each once and in order of their keys. `content` is
+  empty.
+- It is dated now, or a second after the list it changes where that is
+  later, so that it replaces it.
+- A change that would put more than 500 people on it is refused, and
+  nothing is written.
 
 **What a world does with a block list:**
 
