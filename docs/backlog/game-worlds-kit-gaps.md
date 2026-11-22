@@ -36,7 +36,7 @@
 | Gap | Where it stands | When |
 |---|---|---|
 | A presence source: a world with its own netcode and voice feeds the kit's room, microphone and recording signs and its leave and mute | not planned | first (bitp-2) |
-| A seated or vehicle mode: a seat anchor, recentring, a comfort vignette, smooth movement asked for at the Airlock through the world's comfort notes (`comfort.seated` exists in the announcement) | not planned; touches "never slide unasked" | second (bitp-3) |
+| A seated or vehicle mode: a seat anchor, recentring, a comfort vignette, smooth movement asked for at the Airlock through the world's comfort notes (`comfort.seated` exists in the announcement) | designed, waiting for the orchestrator's names: [`docs/plans/seated-mode.md`](../plans/seated-mode.md); touches "never slide unasked" | second (bitp-3) |
 | A "you're in, still loading" signal, and the Airlock reading `budgets.initial_download_mb` (the manifest already carries it) | merged 2026-11-22: kit 0.80.0 (`controls.setLoading`, engine `loading`/`loaded`, `worldDownload`), the engine script's console from the first moment (NSWP 311), the Airlock's line (BitPortal 192); not live | done |
 | Touch sticks and dragging to look up and down | being looked into (`touch-look-and-item-presses`) | with that |
 | A 3D panel for a cockpit's own displays, and a stated rule for a world's own menu | partly: visitors' panels exist; the rule is NSWP-09/11's | later |
