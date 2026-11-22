@@ -241,6 +241,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border-radius: 10px; text-align: left;
   border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); transition: background .12s, border-color .12s; }
 .row:hover { background: rgba(var(--accent), .13); border-color: rgba(var(--accent), .7); }
+/* A line is read and not pressed: no edge, no hover, nothing that looks like a button. Lit is the accent; dark is dim. */
+.line { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 4px 12px; line-height: 1.35; color: rgba(var(--ink), .55); }
+.line svg { flex: none; margin-top: 1px; opacity: .55; }
+.line.on { color: rgb(var(--ink)); }
+.line.on svg { opacity: 1; color: rgb(var(--accent)); }
 .row .grow { flex: 1; min-width: 0; }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
@@ -929,15 +934,18 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       b.addEventListener("click", () => press(item));
       return b;
     };
+    // Something to read: not a button, never focused, never pressed. Its words are the whole sentence, which says
+    // whether it is so, so a screen reader hears that and not "dimmed".
+    const drawLine = (item: UiItemView) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
     // In the order they were given. Choices of colour that come together are one strip, and things with pictures
     // that come together are laid out side by side: each where it was put, among the rows.
     const lay = (items: UiItemView[]): (HTMLElement | string)[] => {
       const laid: (HTMLElement | string)[] = [];
       let run = null as { kind: string; box: HTMLElement } | null;
       for (const item of items) {
-        if (item.kind === "button") {
+        if (item.kind === "button" || item.kind === "line") {
           run = null;
-          laid.push(drawRow(item));
+          laid.push(item.kind === "line" ? drawLine(item) : drawRow(item));
           continue;
         }
         if (run?.kind !== item.kind) {
