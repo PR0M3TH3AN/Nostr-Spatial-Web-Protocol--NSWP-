@@ -114,6 +114,24 @@ Nothing of it is used by BitUnlock, BitPortal or BitLogin yet. Next is
 BitGate's own proposal: shadow first, each project computing the answer
 beside its own list and logging disagreements.
 
+## The shadow comparison, written down (2026-11-22)
+
+[`docs/shadow-comparison.md`](https://github.com/PR0M3TH3AN/bitgate/blob/main/docs/shadow-comparison.md)
+in BitGate's repository (merged at 07e8190): each project computes
+BitGate's answer beside its own list and logs one line when they disagree
+(the answer, never the subject: no keys, coordinates, names, amounts or
+ids), enforces nothing, and never asks a service or relay during a request.
+Off by default (`BITGATE_SHADOW`). BitUnlock (may-sell, may-be-paid,
+may-sell-listing) and BitPortal (which worlds a shelf shows, from a script,
+never in visitors' pages) first; BitLogin not in the first round. A
+decision is ready to switch after 14 days on the real lists with no
+unexplained disagreement and, for BitUnlock, 20 decisions of each kind.
+Switching is the owner's word, one project and one decision at a time.
+
+Waiting on the owner: the root and curator keys, and publishing the lists.
+Meanwhile BitPortal's script may read public relays read-only (the
+orchestrator's answer), and everything else runs on the stand-in relay.
+
 ## Done looks like
 
 To be written when briefed. The first piece is a report from a session
