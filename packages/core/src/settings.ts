@@ -56,6 +56,12 @@ export interface TravelSettings {
   full?: boolean;
   /** They prefer the intense way of moving at a desk: the mouse looks round and keys walk. */
   intense?: boolean;
+  /**
+   * How they prefer to move in a headset: `casual` (point at the floor to step there, turn a notch at a time) or
+   * `intense` (one stick walks and the other turns, smoothly). Both are said, so a world can tell someone who chose
+   * casual from someone never asked.
+   */
+  headset?: "casual" | "intense";
   /** How fast the view turns under a mouse or a finger, 1 being normal: from 0.25 to 3. */
   look?: number;
   /** How wide they see at a desk, top to bottom, in degrees: from 50 to 110. Left out, each world's own. */
@@ -131,6 +137,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (typeof s.narrow === "boolean") out.narrow = s.narrow;
   if (typeof s.full === "boolean") out.full = s.full;
   if (typeof s.intense === "boolean") out.intense = s.intense;
+  if (s.headset === "casual" || s.headset === "intense") out.headset = s.headset;
   if (typeof s.look === "number" && Number.isFinite(s.look)) out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
   if (typeof s.fov === "number" && Number.isFinite(s.fov)) out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
   if (typeof s.pictures === "boolean") out.pictures = s.pictures;

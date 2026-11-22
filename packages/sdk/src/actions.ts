@@ -154,6 +154,15 @@ export function loadComfort(): Comfort {
   }
 }
 
+/** Whether this site keeps a choice of how they move in a headset: they chose, here or before arriving. */
+export function hasComfort(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(KEY) !== null && globalThis.localStorage?.getItem(KEY) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
 export function saveComfort(comfort: Comfort): void {
   try {
     globalThis.localStorage?.setItem(KEY, JSON.stringify(cleanComfort(comfort)));

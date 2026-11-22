@@ -44,6 +44,7 @@
         "narrow": { "type": "boolean" },
         "full": { "type": "boolean", "description": "They prefer the world filling their screen." },
         "intense": { "type": "boolean", "description": "They prefer the intense way of moving at a desk." },
+        "headset": { "enum": ["casual", "intense"], "description": "How they prefer to move in a headset: casual (point to step, turn in notches) or intense (walk and turn smoothly). Both are said." },
         "look": { "type": "number", "minimum": 0.25, "maximum": 3, "description": "How fast the view turns under a mouse or a finger, 1 being normal." },
         "fov": { "type": "integer", "minimum": 50, "maximum": 110, "description": "How wide they see at a desk, top to bottom, in degrees." },
         "pictures": { "type": "boolean", "description": "Whether they see other people's pictures. A picture is fetched from its owner's own host." },

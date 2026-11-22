@@ -24,11 +24,12 @@
  *   input.grabbable(mesh);
  */
 import * as THREE from "three";
-import { cleanComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, CASUAL_COMFORT, INTENSE_COMFORT, isIntense } from "./actions.js";
+import { cleanComfort, hasComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, CASUAL_COMFORT, INTENSE_COMFORT, isIntense } from "./actions.js";
 import { createAlloy, type Alloy } from "./alloy.js";
 import { MeshBuilder } from "./mesh.js";
 import { turnVisitor } from "./turn.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
+import { mayAskHowTheyMove } from "./ask-once.js";
 import type { Controls } from "./ui/model.js";
 
 export interface GrabOptions {
@@ -155,15 +156,27 @@ function controllerModel(accent: THREE.Color): { group: THREE.Group; metal: Allo
 const VIGNETTE_VERT = `varying float vFar; void main(){ vFar = length(position.xy); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const VIGNETTE_FRAG = `uniform float uAmount; varying float vFar; void main(){ gl_FragColor = vec4(0.0, 0.0, 0.0, smoothstep(0.24, 0.42, vFar) * uAmount); }`;
 
+/** The words of the question asked once, the first time a visitor is in a headset with no choice said or kept. */
+export const MOVE_QUESTION = {
+  casual: "Casual: point to step, turn in notches",
+  intense: "Intense: walk and turn smoothly with the sticks",
+} as const;
+
 export function createXrInput(opts: XrInputOptions): XrInput {
   const { renderer, rig, camera } = opts;
   const accent = new THREE.Color(opts.accent ?? 0xffb65c);
   // How they had their hands set where they came from, in place of what this site remembered (settings.ts).
   const came = arrivedSettings();
-  let comfort: Comfort = { ...loadComfort(), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}) };
-  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined) saveComfort(comfort);
-  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow }));
+  // Whether they have said how they move in a headset: in their settings as they arrived, kept on this site, or
+  // moving the intense way where they came from. Until then nothing is said about it to the next place, and the
+  // first time they are in a headset here they are asked (the owner, 2026-11-21).
+  let answered = came.headset !== undefined || hasComfort() || opts.arrivedIntense === true;
+  let comfort: Comfort = { ...loadComfort(), ...(came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}) };
+  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined || came.headset !== undefined) saveComfort(comfort);
+  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }));
   const loco = new Locomotion();
+  /** What to undo when this is put away. */
+  const stops: (() => void)[] = [];
   const listeners: [THREE.Object3D, string, (e: never) => void][] = [];
   const listen = (target: THREE.Object3D, type: string, fn: (e: never) => void) => {
     target.addEventListener(type as never, fn as never);
@@ -368,7 +381,11 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   // ----------------------------------------------------------------- choices
   const setComfort = (patch: Partial<Comfort>, keep = false) => {
     comfort = { ...comfort, ...cleanComfort(patch) };
-    if (keep) saveComfort(comfort);
+    if (keep) {
+      saveComfort(comfort);
+      // Their own hand on a control is a choice: from now on it goes with them.
+      answered = true;
+    }
   };
   // They were moving the intense way in a headset where they came from: the same here, kept as their choice.
   if (opts.arrivedIntense && !isIntense(comfort)) setComfort(INTENSE_COMFORT, true);
@@ -401,7 +418,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         icon: "motion",
         hidden,
         on: () => isIntense(comfort),
-        label: () => (isIntense(comfort) ? "Headset controls: intense" : "Headset controls: casual"),
+        label: () => `${renderer.xr.isPresenting ? "How you move" : "In a headset"}: ${isIntense(comfort) ? "intense" : "casual"}`,
         short: "Style",
         act: () => {
           const intense = !isIntense(comfort);
@@ -437,6 +454,37 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         act: () => change({ narrow: !comfort.narrow }),
       },
     );
+    // The first time they are in a headset here, with no choice said or kept: asked once, in the headset, and
+    // remembered. Put away without an answer, it is casual, and not asked again. (The owner, 2026-11-21: "the
+    // first time they enter VR ... ask if they prefer casual or intense mode".)
+    let asking = false;
+    const answer = (intense: boolean) => {
+      asking = false;
+      setComfort(intense ? INTENSE_COMFORT : CASUAL_COMFORT, true);
+      controls.say(intense ? "Intense: one stick walks, the other turns, smoothly. You can change it in Moving." : "Casual: point at the floor to step there, and turn a notch at a time. You can change it in Moving.");
+    };
+    controls.addSection({ id: "how-you-move", label: "How you move", icon: "step", note: () => (asking ? "You can change this whenever you like, in Moving." : "") });
+    controls.add(
+      { id: "how-casual", section: "how-you-move", icon: "step", hidden: () => !asking, label: MOVE_QUESTION.casual, act: () => answer(false) },
+      { id: "how-intense", section: "how-you-move", icon: "motion", hidden: () => !asking, label: MOVE_QUESTION.intense, act: () => answer(true) },
+    );
+    // Put away without an answer is casual: the console closed while they are in the headset, after it came up
+    // with the question. Not the flat menu closing as the session starts, which is no answer of theirs.
+    let askedAt = 0;
+    const stopAsking = controls.onSignal((name) => {
+      if (name === "menuClose" && asking && renderer.xr.isPresenting && performance.now() - askedAt > 1500) answer(false);
+    });
+    const ask = () => {
+      if (answered || asking || !mayAskHowTheyMove()) return;
+      asking = true;
+      askedAt = performance.now();
+      controls.signal("show:how-you-move");
+    };
+    renderer.xr.addEventListener("sessionstart", ask);
+    stops.push(() => {
+      renderer.xr.removeEventListener("sessionstart", ask);
+      stopAsking();
+    });
   }
 
   // -------------------------------------------------------------- each frame
@@ -535,6 +583,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       };
     },
     dispose() {
+      for (const stop of stops.splice(0)) stop();
       for (const slot of [...held.keys()]) release(slot);
       for (const [target, type, fn] of listeners) target.removeEventListener(type as never, fn as never);
       camera.remove(vignette);
