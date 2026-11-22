@@ -53,7 +53,7 @@ request that does the work. The page of what is in motion (the board,
 | [bar-scrolls-when-too-wide](bar-scrolls-when-too-wide.md) | The bar along the bottom scrolls with arrows when it is too wide | NSWP builder | building |
 | [game-worlds-kit-gaps](game-worlds-kit-gaps.md) | What a game world like COMBATRIG needs: a presence source, a seated mode, a loading signal and more | not briefed (COMBATRIG answered) | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
-| [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
+| [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | the orchestrator | merged |
 | [bridge-test-fails-when-busy](bridge-test-fails-when-busy.md) | A test that fails only when the machine is busy | the orchestrator | merged |
 | [tests-that-depend-on-the-clock](tests-that-depend-on-the-clock.md) | Tests that fail when the machine is busy | NSWP builder | asked |
 | [local-security-checks](local-security-checks.md) | A check for committed secrets and faulty dependencies, run locally | NSWP builder; BitPortal | asked |
