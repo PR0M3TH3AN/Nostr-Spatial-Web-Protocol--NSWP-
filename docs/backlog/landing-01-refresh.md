@@ -11,7 +11,7 @@
   be inviting and try to get the user into the game/vr experience first. ...
   keeping users on the landing is not necessary."
 - **Who:** BitPortal's session. The client's alone: no kit half.
-- **State:** building (2026-11-21: the reading below is chosen; no pull request yet)
+- **State:** building. Step 1, the lobby at its own page `/doors/` (address given under rule 11), is merged (BitPortal pull request 164, 146a623). Step 2, the new landing page, is built and its look settled by the orchestrator; its pull request is next. Until landing-02 exists, "Make a world of your own" points at the template's repository. Not live.
 
 ## What it is
 

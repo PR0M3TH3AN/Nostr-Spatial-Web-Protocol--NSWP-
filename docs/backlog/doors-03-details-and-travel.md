@@ -3,7 +3,7 @@
 - **Asked:** 2026-11-21. The owner: "Also in the menus doors need a details
   section like the items with this same info and a travel here button."
 - **Who:** BitPortal's session, both halves.
-- **State:** building. The kit's half is merged (`addDoorControls`, the menu's `line`; the reference worlds' Travel tab uses it). Not yet: BitPortal's lists and the template; other engines.
+- **State:** building. The kit's half is merged as kit 0.74.0 (NSWP pull requests 254 and 258; `addDoorControls`, the menu's `line`; the reference worlds' Travel tab uses it) and vendored into BitPortal and the template. Not yet: BitPortal's and the template's lists; other engines. Not live.
 - **Needs:** [doors-02](doors-02-what-a-world-offers.md), for "this same
   info".
 
