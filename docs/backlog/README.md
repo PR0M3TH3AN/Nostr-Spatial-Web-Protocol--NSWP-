@@ -24,6 +24,33 @@ The orchestrator keeps these. A builder changes a file's state in the pull
 request that does the work. The page of what is in motion (the board,
 `docs/fleet.md`) points here; this is the record.
 
+## The order unbriefed items are taken in
+
+Proposed by the orchestrator on 2026-11-22 after the owner asked whether
+backlog items get picked up once the right session is free (they had
+been jumping the queue behind newer asks). Each time a session frees up,
+it takes the next item here that fits its project. The owner can reorder
+it at any time; nothing in it is a decision about what an item does.
+
+1. `room-computers-sign-in-words` (BitPortal): merged 2026-11-22.
+2. `spawn-points` (kit, BitPortal session): building.
+3. `game-worlds-kit-gaps`: the presence source (after COMBATRIG's report),
+   then the seated or vehicle mode.
+4. `rooms-start-or-join`: rooms you can see and join, with counts and a
+   default.
+5. `avatars-own-models`: your own model as your look.
+6. `world-maps`.
+7. One piece for things a world gives: `items-given-and-won`,
+   `achievements-granted`, `hidden-items-easter-eggs`,
+   `scores-across-worlds`, `scores-checked`.
+8. `shared-physics` (a written design first).
+9. Then: `items-scarce`, `starter-world-as-a-3d-website`,
+   `rooms-stun-servers`, `tests-that-depend-on-the-clock`,
+   `local-security-checks`.
+
+New asks from the owner still go in the day they are asked; where one is
+urgent (a live fault), it goes first.
+
 ## Open
 
 | File | What | Who | State |
