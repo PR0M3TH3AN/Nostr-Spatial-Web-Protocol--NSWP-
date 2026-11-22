@@ -301,7 +301,8 @@ describe("fetching an item", () => {
     const items = createItems({ relays: ["wss://one.example"], query: net.query, now: clock, fetchBytes: async (url) => (fetched.push(url), bytes) });
     const item = (await items.describe(LANTERN))!;
     const drawn = await items.model(item);
-    expect(fetched).toEqual(["https://items.example/a.glb"]);
+    // Its own address is somewhere this visitor doesn't load files from: it is asked for by its hash from the kit's own file host instead.
+    expect(fetched).toEqual([`https://grove.bitblocks.network/items/${"f".repeat(64)}.glb`]);
     // Not the file's own shape: a box of the size its description gives, standing on its floor.
     const box = new THREE.Box3().setFromObject(drawn);
     expect(box.getSize(new THREE.Vector3()).toArray().map((n) => Math.round(n * 100) / 100)).toEqual([0.2, 0.4, 0.2]);

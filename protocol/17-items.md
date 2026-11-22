@@ -134,12 +134,57 @@ What a thing is, is said once by its maker, in an addressable note
 
 **One site can hold any number of items.** An item is a note and some
 files, and the files can be anywhere that serves them over `https`. A
-maker keeps as many as they like in one place.
+maker keeps as many as they like in one place. Where most viewers will
+fetch them from is a file host they already use: see "Where a file is
+fetched from".
 
 **A file is served so that any world can fetch it:** with
 `Access-Control-Allow-Origin: *`, since each viewer fetches it from the
 world they are in. It is named by its hash and never changes, so it can be
 kept for ever by whoever fetched it.
+
+### Where a file is fetched from
+
+Fetching a file tells the place that keeps it the viewer's address, and
+when they were near the thing. The place was chosen by whoever made or
+carries the item, not by the viewer, so an item could be used to follow
+people. So a file is fetched **by its hash, only from file hosts on the
+viewer's own list**, and the address beside each hash is a hint:
+
+- **A file host** is an `https` address prefix ending in `/` that serves a
+  file at `<prefix><sha256><ext>`, the extension (`.glb`, `.ogg`, `.js`)
+  taken from the hint. A Blossom server is one, at its root; so is any
+  folder of files named by their hashes.
+- **The viewer's list** is, in order: the file hosts their own sign-in
+  address keeps their files on, which is their file host list (kind
+  **10063**, Blossom's user server list: a `server` tag for each, six
+  at most, from the newest list really signed by their key), then the
+  kit's short default list (`FILE_HOSTS`: hosts BitBlocks runs). A guest
+  has only the default list.
+- **Each host on the list is asked for the hash itself.** The hint is
+  used too where it is inside one of those hosts, and is tried first.
+  Whatever comes is taken only if its bytes have the hash.
+- **Anywhere else, only with the viewer's word.** A file kept only off
+  their list is not fetched: the item is drawn as its marker, and its
+  card says it is kept somewhere they don't load files from. A viewer
+  may turn on "Load people's files from anywhere" (`files-anywhere` in
+  the console, off by default), in the place they are in, by their own
+  press. Off travels with them (`filesAnywhere: false`); on never does,
+  since any world can write the link they arrive by
+  ([NSWP-11](11-the-visitors-console.md), "Settings that travel").
+- **A world's own files** (its scenery, the items it offers from its own
+  site) are not this: they come from the site the visitor chose to visit.
+
+The hosts on the list still learn the viewer's address and which hash they
+asked for, as any file host does; but those are hosts the viewer already
+uses, and no maker can choose them. A maker who wants their items drawn
+for everyone keeps the files on such a host. The starter items are kept
+in the first of the kit's own, `https://grove.bitblocks.network/items/`.
+
+As built: `fetchByHash(sha256, hint)` in the kit, with the list as
+`fileHosts()`; every file of an item (its model, its sounds, its script,
+the things it sends out) is fetched this way, in every engine, since the
+page fetches for all of them.
 
 **Made once, for every world.** An item is a description, a binary glTF,
 small sounds and perhaps a script: nothing in it belongs to an engine, so

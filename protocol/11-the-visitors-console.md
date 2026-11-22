@@ -168,6 +168,7 @@ The things a visitor has, by the names a world presses them by:
 | `room-chat-show` | Whether they see what people write at all |
 | `feed` | Their own public posts, and a place to send one out, where they have a signer ([NSWP-10](10-identity.md), "Posting from a world") |
 | `people-pictures` | Whether they see other people's pictures |
+| `files-anywhere` | Whether other people's files are loaded from anywhere they say they are kept, or only from the file hosts the visitor already uses ([NSWP-17](17-items.md), "Where a file is fetched from") |
 | `look-size`, `look-motion` | The size of their text, and whether things move |
 
 In the reference kit a world reads the whole list with `controls.view()`,
@@ -240,6 +241,7 @@ settings now go with them instead, the same way the form they are in does:
 | How wide they see at a desk | `fov`: 50 to 110 degrees, top to bottom. Left out, each world's own | Not applied on a touch screen, where a world fits its view to the window, or in a headset |
 | Whether they see other people's pictures | `pictures`. Left out, they do | A picture is fetched from its owner's own host, which learns the viewer's address ([NSWP-10](10-identity.md), "Pictures") |
 | Whether they see what people write in a room | `chat`. Left out, they do | Turned off, nothing anyone writes is shown to them and they write nothing ([NSWP-06](06-rooms.md), "Words") |
+| That other people's files are loaded only from the visitor's own file hosts | `filesAnywhere`: only `false` travels. A `true` arriving is ignored and never kept | Off, a file is fetched by its hash only from the file hosts on the visitor's own list ([NSWP-17](17-items.md), "Where a file is fetched from"). Any world can write the link a visitor arrives by, so a privacy switch that is off by default can't be turned on by one: on is only ever the visitor's own press in the console of the place they are in, kept by that place. No signed settings note is read for it |
 | Whether anything people carry is fetched, drawn or run for them | `items`. Left out, it is, in a world that has items | Turned off, it is how they mute every item, in every world ([NSWP-17](17-items.md), "Muting") |
 | What is in their hand | `holding`: an item's address, the colours they chose for it by slot, and the hash of its script if it was running for them; or `""` when they put it away themselves | Taken in hand again only if it is in the visitor's own bag, and its script runs unasked only if it is the one named ([NSWP-17](17-items.md), "Holding one"). If the settings would be too long for a link, this is left off after the pins |
 | Which tabs of the console they keep on their bar | `pins`: the tabs' names, in the order they pinned them, four at most. Each is a short plain word: a lowercase letter, then up to eleven more letters, digits or hyphens. An empty list says they took them all off | A world shows the ones it has a tab for and keeps the rest to pass on. Only the visitor pins: a world never adds to the list. If the settings would be too long for a link, these are left off first |

@@ -5,7 +5,7 @@
   looks. Not asked by the owner: found.
 - **Who:** the BitPortal session (the kit: every world, the template, other
   engines). It comes before own models: it is a hole in what is live now.
-- **State:** briefed
+- **State:** building (this pull request)
 
 ## What happens today
 
@@ -30,8 +30,27 @@
   anywhere", off by default). Without it the item is drawn as its marker.
 - The starter items (on `grove.bitblocks.network/items/`) move to, or are
   mirrored on, a listed host, so nothing changes for anyone holding them.
+  As decided by the orchestrator (2026-11-22): that folder is the first
+  `FILE_HOSTS` entry, a host BitBlocks already runs, so nothing moves and no
+  new host is needed. A Blossom server of BitBlocks' own would be a new
+  resource and the owner's word: later, if at all.
 
 ## Must not
 
 - Let a holder or maker choose which host a viewer's kit asks.
 - Break an item someone already holds: a file on a listed host keeps working.
+
+## As built
+
+- The rule is in the protocol for every client: NSWP-17, "Where a file is
+  fetched from" (a file host is an address prefix; the viewer's list is their
+  kind 10063 list, then `FILE_HOSTS`).
+- Core: `FILE_HOSTS`, `FILE_HOST_LIST_KIND`, `cleanFileHost`, `fileAt`,
+  `onFileHost`, `parseFileHostList` (`packages/core/src/file-hosts.ts`).
+- Kit: `fileHosts()`, `learnFileHosts(pubkey)`, `fetchByHash(sha256, hint)`,
+  `keptElsewhere(hint)`, the switch `filesAnywhere()` / `setFilesAnywhere()`
+  (`packages/sdk/src/file-hosts.ts`). The item store fetches every file of an
+  item through it, as the visitor it arrived as, so every engine has it.
+- The console row `files-anywhere`, under People, beside the pictures row; the
+  setting `filesAnywhere` travels. An item kept elsewhere is drawn as its
+  marker, and its Bag card says why and what would fetch it.

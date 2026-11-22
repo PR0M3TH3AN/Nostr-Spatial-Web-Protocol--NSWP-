@@ -9,6 +9,7 @@ import { askWell, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
+import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
 import { setShowsPictures, showsPictures } from "./picture.js";
 import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
@@ -460,6 +461,24 @@ export function addRoomControls(
     act: () => {
       setShowsPictures(!showsPictures());
       controls.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
+    },
+  });
+  // Where other people's files may be fetched from (protocol/17-items.md, "Where a file is fetched from"). Off, only
+  // from the file hosts on the visitor's own list. Theirs, and it goes with them.
+  controls.add({
+    id: "files-anywhere",
+    section: "people",
+    icon: "link",
+    on: () => filesAnywhere(),
+    label: () => (filesAnywhere() ? "Load people's files from anywhere: on" : "Load people's files from anywhere: off"),
+    short: "Files",
+    act: () => {
+      setFilesAnywhere(!filesAnywhere());
+      controls.say(
+        filesAnywhere()
+          ? "What people carry is fetched from wherever they keep it, in this place. The place that keeps a file learns your address, and when you were near it: anyone can choose that place. It stays off in other places until you turn it on there."
+          : "People's files are fetched only from the file hosts you already use. Anything kept elsewhere is shown as a plain box.",
+      );
     },
   });
   const people = () => {
