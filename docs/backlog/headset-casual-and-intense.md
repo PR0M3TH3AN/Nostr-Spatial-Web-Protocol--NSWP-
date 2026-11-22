@@ -97,6 +97,15 @@ Mobile is always casual."
   choice arrived and nothing is kept on that site; BitPortal's sealed note
   keeps both. A world reached with nothing carried asks once on that site.
 
+## A fade for jumps the kit makes (the orchestrator, 2026-11-22)
+
+Spawn points (NSWP PR 316) step an arriving visitor aside with the same
+instant cut a headset step is, because the kit has no fade for a jump. In
+casual mode, every jump the kit makes for the visitor (a step, stepping
+aside on arrival, a door) should get a short fade to black and back.
+Intense mode keeps the instant cut. This is a kit addition, built with
+this item, not before.
+
 ## Done looks like
 
 The owner, on the Quest, switches to intense in BitPortal's room, walks
