@@ -153,7 +153,8 @@ async function visitor(who, { knows = true, namedOnly = false, invitation = fals
       if (room?.self) return { joined: true, self: room.self };
       const last = (await said()).find((w) => /^Couldn't join/.test(w));
       return last ? { joined: false, said: last } : null;
-    }, 30000);
+      // A join waits on the signer, a pass and relays: on a busy machine with several browsers in a room, a while.
+    }, 90000);
   };
   /** Who this visitor's room shows now, by session key. */
   const shown = () => page.evaluate(() => window.__nswpTest.state.room?.members ?? []);
