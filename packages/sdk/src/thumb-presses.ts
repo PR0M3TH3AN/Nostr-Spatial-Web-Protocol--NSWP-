@@ -21,6 +21,27 @@ export const THUMB_SECOND = 54;
 
 export type ThumbSide = "left" | "right";
 
+/** How the sight and the two buttons are drawn. */
+const THUMB_CSS = `
+    .sight { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+      border: 2px solid var(--ink); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
+    .sight::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--ink); }
+    .pad { position: absolute; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 118px); width: ${THUMB_FIRST + THUMB_SECOND}px; height: ${THUMB_FIRST + THUMB_SECOND - 10}px; }
+    .pad.right { right: max(14px, env(safe-area-inset-right)); }
+    .pad.left { left: max(14px, env(safe-area-inset-left)); }
+    button { position: absolute; pointer-events: auto; border-radius: 50%; border: 2px solid var(--accent); color: var(--ink);
+      background: rgba(var(--glass-rgb), 0.55); font: 650 15px system-ui, "Segoe UI", Roboto, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+      display: flex; align-items: center; justify-content: center; padding: 0; touch-action: none; -webkit-tap-highlight-color: transparent;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); user-select: none; -webkit-user-select: none; }
+    button:active, button.down { background: rgba(var(--accent-rgb), 0.45); }
+    button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .first { width: ${THUMB_FIRST}px; height: ${THUMB_FIRST}px; bottom: 0; background: rgba(var(--accent-rgb), 0.28); }
+    .second { width: ${THUMB_SECOND}px; height: ${THUMB_SECOND}px; top: 0; font-size: 12px; }
+    .right .first { right: 0; } .right .second { left: 0; }
+    .left .first { left: 0; } .left .second { right: 0; }
+    [hidden] { display: none !important; }
+  `;
+
 export function thumbSide(): ThumbSide {
   try {
     return globalThis.localStorage?.getItem(THUMBS_KEY) === "left" ? "left" : "right";
@@ -54,25 +75,20 @@ export function createThumbPresses(o: { use(): void; second(): void }): ThumbPre
   // open, and keeps clear of the menu button (top) and the bar (bottom middle).
   host.style.cssText = "position:fixed;inset:0;z-index:2147483001;pointer-events:none;display:none";
   const root = host.attachShadow({ mode: "open" });
-  root.innerHTML = `<style>
-    .sight { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
-      border: 2px solid var(--ink); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
-    .sight::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--ink); }
-    .pad { position: absolute; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 118px); width: ${THUMB_FIRST + THUMB_SECOND}px; height: ${THUMB_FIRST + THUMB_SECOND - 10}px; }
-    .pad.right { right: max(14px, env(safe-area-inset-right)); }
-    .pad.left { left: max(14px, env(safe-area-inset-left)); }
-    button { position: absolute; pointer-events: auto; border-radius: 50%; border: 2px solid var(--accent); color: var(--ink);
-      background: rgba(var(--glass-rgb), 0.55); font: 650 15px system-ui, "Segoe UI", Roboto, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-      display: flex; align-items: center; justify-content: center; padding: 0; touch-action: none; -webkit-tap-highlight-color: transparent;
-      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); user-select: none; -webkit-user-select: none; }
-    button:active, button.down { background: rgba(var(--accent-rgb), 0.45); }
-    button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-    .first { width: ${THUMB_FIRST}px; height: ${THUMB_FIRST}px; bottom: 0; background: rgba(var(--accent-rgb), 0.28); }
-    .second { width: ${THUMB_SECOND}px; height: ${THUMB_SECOND}px; top: 0; font-size: 12px; }
-    .right .first { right: 0; } .right .second { left: 0; }
-    .left .first { left: 0; } .left .second { right: 0; }
-    [hidden] { display: none !important; }
-  </style><div class="sight" part="sight"></div><div class="pad right"><button class="second" type="button"></button><button class="first" type="button"></button></div>`;
+  // A constructed stylesheet, not a <style> element: a site with a strict content security policy (BitPortal's
+  // `style-src 'self'`) refuses inline styles, and the buttons would be drawn unstyled. As the controls do (hud.ts).
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(THUMB_CSS);
+    root.adoptedStyleSheets = [sheet];
+  } catch {
+    const style = document.createElement("style");
+    style.textContent = THUMB_CSS;
+    root.appendChild(style);
+  }
+  const parts = document.createElement("div");
+  parts.innerHTML = `<div class="sight" part="sight"></div><div class="pad right"><button class="second" type="button"></button><button class="first" type="button"></button></div>`;
+  root.append(...parts.childNodes);
   const sightEl = root.querySelector(".sight") as HTMLElement;
   const pad = root.querySelector(".pad") as HTMLElement;
   const first = root.querySelector(".first") as HTMLButtonElement;
