@@ -56,7 +56,7 @@ cpSync(join(project, "addons", "nswp", "web"), dist, { recursive: true, filter: 
 // The example is also a public world, The Foundry (engines/godot/world.json; sites/sites.json, "elsewhere"). What
 // makes an export a world is beside the page, and has nothing to do with Godot: the file that says which key may
 // announce it, and what its host is to send with each file.
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanAccess } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanAccess, cleanRoot } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 const world = JSON.parse(readFileSync(join(project, "world.json"), "utf8"));
 // What it is entered by, where it is paid (protocol/01-worlds.md, "A paid world"): the listings its world.json
@@ -65,8 +65,14 @@ const world = JSON.parse(readFileSync(join(project, "world.json"), "utf8"));
 const said = world.access === undefined ? [] : [world.access].flat();
 const access = cleanAccess(said, [config.publisher]);
 if (access.length !== said.length) throw new Error(`${world.d}: "access" in its world.json must be listings' coordinates (30078:<pubkey>:<name>), each once, sold by the publisher in sites.json, and at most eight.`);
-const paidInCode = /^const PAID := (true|false)$/m.exec(readFileSync(join(project, "example", "main.gd"), "utf8"))?.[1];
-if (paidInCode !== String(access.length > 0)) throw new Error(`engines/godot/world.json ${access.length ? "names what the world is entered by" : "names nothing the world is entered by"}, and example/main.gd says PAID := ${paidInCode}. They must agree.`);
+// Whose lists count, and whether its rooms show only named people (protocol/10-identity.md, "A world's own lists").
+// The Foundry says neither. A word that doesn't read stops the build.
+const keepers = world.keepers === undefined ? null : cleanRoot(world.keepers);
+if (world.keepers !== undefined && (!keepers || !Array.isArray(world.keepers) || keepers.length !== world.keepers.length)) throw new Error(`${world.d}: "keepers" in its world.json must be a list of one to four keys, each 64 lowercase hex, each once.`);
+if (world.named_only !== undefined && typeof world.named_only !== "boolean") throw new Error(`${world.d}: "named_only" in its world.json must be true or false.`);
+const needs = access.length > 0 || !!keepers || world.named_only === true;
+const gateInCode = /^const NEEDS_GATE := (true|false)$/m.exec(readFileSync(join(project, "example", "main.gd"), "utf8"))?.[1];
+if (gateInCode !== String(needs)) throw new Error(`engines/godot/world.json ${needs ? "asks for a gate (access, keepers or named_only)" : "asks for no gate"}, and example/main.gd says NEEDS_GATE := ${gateInCode}. They must agree.`);
 mkdirSync(join(dist, ".well-known"), { recursive: true });
 writeFileSync(
   join(dist, ".well-known", "nswp.json"),
@@ -85,6 +91,8 @@ writeFileSync(
           budgets: { initial_download_mb: 40 },
           airlock: config.airlock,
           ...(access.length ? { access } : {}),
+          ...(keepers ? { keepers } : {}),
+          ...(world.named_only === true ? { named_only: true } : {}),
         },
       },
       relays: config.relays,

@@ -438,6 +438,191 @@
         "warnings": [],
         "access": []
       }
+    },
+    {
+      "name": "keepers_and_named_only",
+      "description": "A world names the keys whose lists count for it, and says its rooms show only people whose pass checks out.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "keepers": [
+              "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+              "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+            ],
+            "named_only": true
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [],
+        "rules": {
+          "keepers": [
+            "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          "namedOnly": true
+        }
+      }
+    },
+    {
+      "name": "keepers_that_are_not_keys",
+      "description": "Anything in keepers that isn't a 64-character lowercase hex key is left out, and only exactly true turns named_only on.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "keepers": [
+              "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6",
+              "01B5370E39784301C3E347B0130266EBB005C5C6141BE582E32CDA7C367285C6",
+              "npub1example"
+            ],
+            "named_only": "yes"
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "invalid_field",
+          "invalid_keeper"
+        ],
+        "access": [],
+        "rules": {
+          "keepers": [
+            "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
+          ],
+          "namedOnly": false
+        }
+      }
+    },
+    {
+      "name": "too_many_keepers",
+      "description": "Four keepers at most: the rest are ignored.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "keepers": [
+              "1111111111111111111111111111111111111111111111111111111111111111",
+              "2222222222222222222222222222222222222222222222222222222222222222",
+              "3333333333333333333333333333333333333333333333333333333333333333",
+              "4444444444444444444444444444444444444444444444444444444444444444",
+              "5555555555555555555555555555555555555555555555555555555555555555"
+            ]
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "too_many_keepers"
+        ],
+        "access": [],
+        "rules": {
+          "keepers": [
+            "1111111111111111111111111111111111111111111111111111111111111111",
+            "2222222222222222222222222222222222222222222222222222222222222222",
+            "3333333333333333333333333333333333333333333333333333333333333333",
+            "4444444444444444444444444444444444444444444444444444444444444444"
+          ],
+          "namedOnly": false
+        }
+      }
+    },
+    {
+      "name": "no_rules",
+      "description": "A world that says neither keeps no list, and its rooms are as they always were.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world",
+              "modes": [
+                "immersive-vr",
+                "inline-3d"
+              ]
+            },
+            "entry_points": [
+              "main-entrance",
+              "north-wing"
+            ],
+            "capabilities": [
+              "webxr",
+              "spatial-portals"
+            ],
+            "multiplayer": {
+              "endpoint": "wss://museum.example/session",
+              "auth": "entry-assertion"
+            }
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false
+        }
+      }
     }
   ],
   "verification": [

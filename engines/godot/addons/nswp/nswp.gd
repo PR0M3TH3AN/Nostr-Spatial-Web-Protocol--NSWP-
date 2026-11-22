@@ -395,10 +395,11 @@ func who() -> Dictionary:
 # sale, and the one control that asks to buy, in the kit's menu. A world draws the gate and stops
 # the visitor where it stands. Everything before it is free, and where it stands is yours to choose.
 
-## Begin the gate of a paid world. Call it once in `_ready`, in a world that is paid: its own
-## site says what it is entered by (`access` in `/.well-known/nswp.json`). `paid` false says
-## your world's own settings name nothing for sale: then nothing is made, read or asked, and
-## the answer is "free". A world that isn't paid has no need to call this at all.
+## Begin the gate. Call it once in `_ready`, in a world that is paid or keeps lists: its own
+## site says what it is entered by (`access` in `/.well-known/nswp.json`), whose lists count
+## (`keepers`), or that its rooms show only named people (`named_only`). `paid` false says your
+## world's own settings ask for none of that: then nothing is made, read or asked, and the
+## answer is "free". Such a world has no need to call this at all.
 ##
 ## Returns how the gate stands, and `gate_changed` says whenever that changes: `open` is whether
 ## a visitor may go past it now, and it is false until the gate knows. `why` is why it is shut,

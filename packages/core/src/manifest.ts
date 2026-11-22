@@ -4,6 +4,10 @@ import { isHttpsUrl, isWssUrl, normalizeUrl } from "./destination.js";
 import { isHex64 } from "./event.js";
 import { encodeNaddr } from "./nip19.js";
 import { ACCESS_MOST } from "./listing.js";
+import { OWNER_LIST_LIMITS } from "./owner-lists.js";
+
+/** The most keys whose lists count for one world. */
+export const KEEPERS_MOST = OWNER_LIST_LIMITS.root;
 import { cleanListing, listingSeller } from "./receipt.js";
 import { Collector, isPlainObject, NswpError, type Issue, type Result } from "./result.js";
 import type { World } from "./world.js";
@@ -21,6 +25,14 @@ export interface ManifestWorld {
    * listing's coordinate whose seller is a key this file names as a publisher of this world. Left out, it is free.
    */
   access?: string[];
+  /**
+   * Whose lists count for this world (protocol/10-identity.md, "A world's own lists"): at most four keys. Left out,
+   * the world's publishers in this file; but a world that writes neither this nor a word that needs a list reads no
+   * list at all.
+   */
+  keepers?: string[];
+  /** In this world's rooms a visitor's kit shows and hears only people whose pass checks out: no guests. */
+  namedOnly?: boolean;
 }
 
 export interface Manifest {
@@ -141,6 +153,18 @@ export function parseManifest(input: unknown, opts: { byteLength?: number } = {}
           if (access.length) w.access = access;
         }
       }
+      if (raw.keepers !== undefined) {
+        const said = Array.isArray(raw.keepers) ? raw.keepers : [];
+        const keepers = [...new Set(said.filter(isHex64))];
+        if (!Array.isArray(raw.keepers) || keepers.length !== said.length) c.warn("invalid_keeper", `${p}.keepers`, "keepers must be a list of 64 lowercase hex keys; anything else is left out.");
+        if (keepers.length > KEEPERS_MOST) c.warn("too_many_keepers", `${p}.keepers`, `Only the first ${KEEPERS_MOST} keepers are used.`);
+        if (keepers.length) w.keepers = keepers.slice(0, KEEPERS_MOST);
+      }
+      if (raw.named_only !== undefined) {
+        // Only exactly `true` turns it on: a word that can't be read is never quietly taken as a rule, either way.
+        if (raw.named_only === true) w.namedOnly = true;
+        else if (raw.named_only !== false) c.warn("invalid_field", `${p}.named_only`, "named_only must be true or false; ignored.");
+      }
       worlds[id] = w;
     }
   }
@@ -238,12 +262,13 @@ export function doorFor(manifest: Manifest, url: string): { naddr?: string; url:
  * keys that may sell it (its publishers). A world its manifest names no listing for is free: `listings` is empty.
  * Null where the manifest lists no world at that address at all, so nothing can be said of it.
  */
-export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[] } | null {
+export function accessFor(manifest: Manifest, url: string): { d: string; listings: string[]; sellers: string[]; keepers: string[] | null; namedOnly: boolean } | null {
   const here = normalizeUrl(url);
   const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id]!.entry.url) === here);
   if (d === undefined) return null;
   const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key]!.worlds.includes(d));
-  return { d, listings: [...(manifest.worlds[d]!.access ?? [])], sellers };
+  const w = manifest.worlds[d]!;
+  return { d, listings: [...(w.access ?? [])], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true };
 }
 
 export interface FetchManifestResult {

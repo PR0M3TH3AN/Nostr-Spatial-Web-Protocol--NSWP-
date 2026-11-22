@@ -166,10 +166,10 @@ describe("access: what a paid world says it is entered by", () => {
 
   it("a manifest names them too, each sold by a key it lets announce that world", () => {
     const r = parseManifest(manifest([A, B]));
-    expect(r.ok && accessFor(r.value, "https://world.example/")).toEqual({ d: "a-world", listings: [A, B], sellers: [SELLER] });
+    expect(r.ok && accessFor(r.value, "https://world.example/")).toEqual({ d: "a-world", listings: [A, B], sellers: [SELLER], keepers: null, namedOnly: false });
     expect(r.warnings).toEqual([]);
     const free = parseManifest(manifest(undefined));
-    expect(free.ok && accessFor(free.value, "https://world.example/")).toEqual({ d: "a-world", listings: [], sellers: [SELLER] });
+    expect(free.ok && accessFor(free.value, "https://world.example/")).toEqual({ d: "a-world", listings: [], sellers: [SELLER], keepers: null, namedOnly: false });
     expect(free.warnings).toEqual([]);
     // An address the file lists no world at: nothing can be said of it.
     expect(r.ok && accessFor(r.value, "https://world.example/other")).toBeNull();
@@ -224,7 +224,7 @@ describe("access: what a paid world says it is entered by", () => {
     expect(readFileSync(join(root, "packages/sdk/src/front-room.ts"), "utf8")).not.toMatch(/\^30078:/);
   });
 
-  it("no reference world is paid: none of this repository's worlds names a listing", () => {
+  it("no reference world is paid, keeps lists or closes its rooms to guests: none of this repository's worlds says so", () => {
     const files = [...readdirSync(join(root, "sites"), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(root, "sites", d.name, "world.json")), join(root, "engines/godot/world.json")];
     let looked = 0;
     for (const file of files) {
@@ -235,8 +235,10 @@ describe("access: what a paid world says it is entered by", () => {
         continue;
       }
       looked++;
-      const said = JSON.parse(text) as { access?: unknown; world?: { access?: unknown } };
+      const said = JSON.parse(text) as Record<string, unknown> & { world?: Record<string, unknown> };
       expect(said.access ?? said.world?.access, file).toBeUndefined();
+      // Nor does any keep lists or close its rooms to guests: that too is its owner's word (protocol/10-identity.md, "A world's own lists").
+      for (const word of ["keepers", "named_only", "by_invitation"]) expect(said[word] ?? said.world?.[word], `${file}: ${word}`).toBeUndefined();
     }
     expect(looked).toBeGreaterThanOrEqual(8);
   });

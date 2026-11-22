@@ -15,6 +15,8 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { readShares, splitPrice, type Share } from "../packages/core/src/shares.js";
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
+import { readOwnerList, resolveOwnerList } from "../packages/core/src/owner-lists.js";
+import { createHash } from "node:crypto";
 import { accessFor } from "../packages/core/src/manifest.js";
 import {
   buildAvatarEvent,
@@ -320,10 +322,34 @@ const manifestVectors = [
     expect: { valid: true, errors: [], warnings: ["access_not_own", "invalid_listing", "invalid_listing"], access: [] },
   },
   { name: "free_world", description: "A world that names no listing is free.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [] } },
-] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[] } }[];
+  // Whose lists count for a world, and whether its rooms show only named people (protocol/10-identity.md, "A world's own lists"). `rules` in `expect` is `keepers` and `namedOnly` as `accessFor` gives them.
+  {
+    name: "keepers_and_named_only",
+    description: "A world names the keys whose lists count for it, and says its rooms show only people whose pass checks out.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: [PK2, PK1], named_only: true } } }),
+    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: [PK2, PK1], namedOnly: true } },
+  },
+  {
+    name: "keepers_that_are_not_keys",
+    description: "Anything in keepers that isn't a 64-character lowercase hex key is left out, and only exactly true turns named_only on.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: [PK1, PK1.toUpperCase(), "npub1example"], named_only: "yes" } } }),
+    expect: { valid: true, errors: [], warnings: ["invalid_field", "invalid_keeper"], access: [], rules: { keepers: [PK1], namedOnly: false } },
+  },
+  {
+    name: "too_many_keepers",
+    description: "Four keepers at most: the rest are ignored.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: ["1", "2", "3", "4", "5"].map((n) => n.repeat(64)) } } }),
+    expect: { valid: true, errors: [], warnings: ["too_many_keepers"], access: [], rules: { keepers: ["1", "2", "3", "4"].map((n) => n.repeat(64)), namedOnly: false } },
+  },
+  { name: "no_rules", description: "A world that says neither keeps no list, and its rooms are as they always were.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false } } },
+] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean } } }[];
 for (const v of manifestVectors) {
   const r = parseManifest(v.manifest, v.byteLength === undefined ? {} : { byteLength: v.byteLength });
   if (v.expect.access !== undefined && r.ok) expectEqual(`manifest/${v.name} access`, accessFor(r.value, "https://museum.example/world")?.listings ?? null, v.expect.access);
+  if (v.expect.rules !== undefined && r.ok) {
+    const got = accessFor(r.value, "https://museum.example/world");
+    expectEqual(`manifest/${v.name} rules`, got ? { keepers: got.keepers, namedOnly: got.namedOnly } : null, v.expect.rules);
+  }
   expectEqual(`manifest/${v.name} valid`, r.ok, v.expect.valid);
   expectEqual(`manifest/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());
   expectEqual(`manifest/${v.name} warnings`, codes(r.warnings), [...v.expect.warnings].sort());
@@ -1336,6 +1362,25 @@ const files: Record<string, unknown> = {
     reading,
     words,
   };
+}
+
+// ---- A world owner's own lists (protocol/10-identity.md, "A world's own lists"). The shape is BitGate's, and so are
+// the examples: `vectors/governance-lists.json` is its file, copied byte for byte, never written here. It is checked
+// to be that file, and the core is run against every case in it, so a change on either side is seen.
+{
+  const BITGATE = { repository: "PR0M3TH3AN/bitgate", commit: "8b98ed9181f0042546d76c3198deedfd6b1eb0b6", path: "vectors/governance-lists/scoped-lists.json", sha256: "a29211c8ec46d51a5b88bf1dafd338d6c5caf776896c91b8aa93cd655600d372" };
+  const raw = readFileSync(join(outDir, "governance-lists.json"));
+  const hash = createHash("sha256").update(raw).digest("hex");
+  if (hash !== BITGATE.sha256) failures.push(`vectors/governance-lists.json is not BitGate's file at ${BITGATE.commit.slice(0, 7)} (sha256 ${hash}, wanted ${BITGATE.sha256}). Copy it again from ${BITGATE.repository}, ${BITGATE.path}, and change the commit and hash here only together.`);
+  const v = JSON.parse(raw.toString("utf8")) as { now: number; decode: { name: string; event: unknown; reader?: { root?: string | string[] }; expect: Record<string, unknown> }[]; resolve: { name: string; query: { namespace?: string; scope: "user-allow" | "user-deny"; subject: string; root?: string | string[] }; events: unknown[]; expect: unknown }[] };
+  for (const c of v.decode) {
+    const got = readOwnerList(c.event, { now: v.now, ...(c.reader?.root !== undefined ? { root: c.reader.root } : {}) });
+    // One case gives how many entries there are in place of all 2,000 of them.
+    if (typeof c.expect.entryCount === "number") expectEqual(`governance-lists/decode ${c.name}`, got.ok ? { signer: got.signer, entryCount: got.entries.length, skipped: got.skipped } : got, { signer: c.expect.signer, entryCount: c.expect.entryCount, skipped: c.expect.skipped });
+    else expectEqual(`governance-lists/decode ${c.name}`, got, c.expect);
+  }
+  for (const c of v.resolve) expectEqual(`governance-lists/resolve ${c.name}`, resolveOwnerList(c.events, { ...c.query, now: v.now }), c.expect);
+  expectEqual("governance-lists/how many", [v.decode.length, v.resolve.length], [43, 12]);
 }
 
 mkdirSync(outDir, { recursive: true });

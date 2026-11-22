@@ -181,6 +181,39 @@ world").
   name of their own, and their key is one action away
   ([NSWP-10](10-identity.md)).
 
+## A world's own rules
+
+A world's own site may say two things about its rooms
+([NSWP-10](10-identity.md), "A world's own lists"). Each visitor's own
+copy of the kit keeps them, for the others in the room; a room is a mesh
+with nobody in charge, so this is what an honest client does.
+
+- **People its owner keeps out.** Where the world keeps lists and its
+  owner's block list names someone, a member whose pass names that key is
+  let go the moment the pass checks out: their connection is closed with a
+  `bye`, and they are not answered again in that visit. To them, everyone
+  has left. Nobody is told, and the list is never added to the visitor's
+  own blocks, kept, or carried on.
+- **Only named people** (`named_only` in the world's manifest). A member is
+  shown and heard only once their pass has checked out: until then nothing
+  of them is passed on, not that they are there, nor how they look, where
+  they stand or what they say, and the lines their sound comes on are held.
+  A member who shows no pass within 7 seconds of their channel opening is
+  let go as above, and so is one whose pass runs out. A visitor who is a
+  guest there is told, when they press Join, that they must sign in first,
+  and is not joined.
+- **Refused after the connection opens, not before.** A pass travels on the
+  channel, which opens before it can be read. So someone kept out does
+  connect for a moment, and learns the addresses connections are made
+  between, before they are let go. A room that refused them before
+  connecting would need a pass shown inside the handshake, which tells
+  whoever is listening on the room's topic who is there; that is not done.
+  A room whose very finding is kept from outsiders comes with a group key,
+  and is not built.
+
+Someone kept out whose own kit honours the list is told so at Join and is
+not joined at all.
+
 ## Proposed, not built
 
 - **Room events** that describe a room, and passes that name one room

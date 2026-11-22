@@ -70,11 +70,12 @@ describe("what another engine takes from the kit", () => {
     expect(addon).toMatch(/elif paid:\n\t\t# An answer that can't be read is not a yes\.\n\t\tgate_now = \{"state": "shut", "open": false/);
   });
 
-  it("keeps the Godot example free: its code says it isn't paid, as its world.json does", () => {
+  it("keeps the Godot example free and without lists: its code says it needs no gate, as its world.json does", () => {
     const main = readFileSync(join(root, "engines", "godot", "example", "main.gd"), "utf8");
-    expect(main).toMatch(/^const PAID := false$/m);
-    expect(main).toContain("Nswp.gate(PAID)");
-    expect(JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")).access).toBeUndefined();
+    expect(main).toMatch(/^const NEEDS_GATE := false$/m);
+    expect(main).toContain("Nswp.gate(NEEDS_GATE)");
+    const world = JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")) as Record<string, unknown>;
+    for (const word of ["access", "keepers", "named_only"]) expect(world[word], word).toBeUndefined();
   });
 
   it("reads a door's address the way a sign should show it", () => {

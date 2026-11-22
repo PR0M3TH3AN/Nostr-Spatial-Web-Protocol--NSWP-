@@ -95,6 +95,17 @@ export interface JoinOptions {
    * name, or session keys from this visit. Nobody on it is connected to.
    */
   blocked?: Iterable<string>;
+  /**
+   * Identity keys the world's owner keeps out (protocol/10-identity.md, "A world's own lists"): someone whose pass
+   * names one is not shown, heard or answered here. Kept apart from `blocked`, which is the visitor's own: this is
+   * never kept, never reported and never carried on to another world.
+   */
+  ownerBlocked?: Iterable<string>;
+  /**
+   * This world's rooms show only people whose pass checks out (its manifest's `named_only`): a member is shown and
+   * heard only once their pass has checked out, and one who shows none within a few seconds is let go.
+   */
+  namedOnly?: boolean;
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -170,6 +181,8 @@ interface Peer {
   passUntil?: number;
   pose?: RTCDataChannel;
   open: boolean;
+  /** When their channel opened, in milliseconds. */
+  openedAt?: number;
   lastSeen: number;
   startedAt: number;
 }
@@ -184,6 +197,11 @@ const HELLO_EVERY_MS = 20_000;
 const RECORDING_HOLD_MS = 6000;
 const CONNECT_TIMEOUT_MS = 25_000;
 const SILENT_TIMEOUT_MS = 8_000;
+/**
+ * How long a member has to show a pass in a room that shows only named people. A pass is said as the channel
+ * opens and three more times, a second and a half apart, so a member who has one has shown it well before this.
+ */
+export const NAMED_WAIT_MS = 7_000;
 const GATHER_TIMEOUT_MS = 2_500;
 
 const hexToBytes = (hex: string): Uint8Array => {
@@ -217,6 +235,15 @@ export class RoomSession {
   private readonly relays: string[];
   /** Keys this visitor won't be in a room with: session keys, and the identity keys behind names. */
   private readonly blocked = new Set<string>();
+  /** Identity keys the world's owner keeps out. Never the visitor's own: never kept or carried on. */
+  private ownerBlocked = new Set<string>();
+  /** Session keys let go this visit for the world's rules (the owner's list, or no pass where one is needed): not answered again. */
+  private readonly turnedAway = new Set<string>();
+  /** Whether this room shows only people whose pass checks out. */
+  readonly namedOnly: boolean;
+  /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
+  private readonly announced = new Set<string>();
+  private readonly waiting = new Map<string, { kind: "audio" | "music" | "video"; stream: MediaStream }[]>();
   private readonly maxMembers: number;
   private readonly iceServers: RTCIceServer[];
   private readonly sockets = new Map<string, WebSocket>();
@@ -302,6 +329,28 @@ export class RoomSession {
     this.maxMembers = opts.maxMembers ?? ROOM_LIMITS.defaultMaxMembers;
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
     for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
+    for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
+    this.namedOnly = opts.namedOnly === true;
+  }
+
+  /**
+   * The keys the world's owner keeps out, as the world's gate last read them. Anyone here whose pass names one is
+   * let go at once: to them, this visitor has left. Nobody is told, and nothing is kept.
+   */
+  setOwnerBlocked(keys: Iterable<string>): void {
+    this.ownerBlocked = new Set([...keys].filter((k) => /^[0-9a-f]{64}$/.test(k)));
+    for (const peer of [...this.peers.values()]) if (peer.member.identity && this.ownerBlocked.has(peer.member.identity)) this.turnAway(peer.member.pubkey);
+  }
+
+  /** Let someone go for the world's rules, and answer them no more this visit. */
+  private turnAway(pubkey: string): void {
+    this.turnedAway.add(pubkey);
+    try {
+      this.publish(buildSignal(this.topic, this.key, pubkey, { t: "bye" }));
+    } catch {
+      /* the closed connection says it */
+    }
+    this.drop(pubkey, true);
   }
 
   /**
@@ -342,6 +391,17 @@ export class RoomSession {
   }
 
   private emit<K extends keyof Events>(event: K, ...args: Parameters<Events[K]>): void {
+    // In a room that shows only named people, nothing of a member is passed on until their pass has checked out:
+    // not that they are here, not how they look or where they stand, not a word. The lines their sound and pictures
+    // come on are kept until then; everything else is let go.
+    const about = args[0] as Member | undefined;
+    if (this.namedOnly && about && typeof about === "object" && about !== this.self && !this.announced.has(about.pubkey)) {
+      if (event === "audio" || event === "music" || event === "video") {
+        const kept = this.waiting.get(about.pubkey) ?? [];
+        this.waiting.set(about.pubkey, [...kept.filter((w) => w.kind !== event), { kind: event as "audio" | "music" | "video", stream: args[1] as MediaStream }]);
+      }
+      return;
+    }
     for (const fn of this.listeners[event]) {
       try {
         (fn as (...a: Parameters<Events[K]>) => void)(...args);
@@ -352,7 +412,7 @@ export class RoomSession {
   }
 
   get members(): Member[] {
-    return [...this.peers.values()].filter((p) => p.open).map((p) => p.member);
+    return [...this.peers.values()].filter((p) => p.open && (!this.namedOnly || this.announced.has(p.member.pubkey))).map((p) => p.member);
   }
 
   /** How many relays are currently connected. */
@@ -429,8 +489,8 @@ export class RoomSession {
     const opened = openSignal(raw, this.key, this.topic);
     if (!opened || this.closed) return;
     const { from, message } = opened;
-    // Someone this visitor blocked is not answered, whatever they send.
-    if (this.blocked.has(from)) return;
+    // Someone this visitor blocked is not answered, whatever they send; nor anyone let go for the world's rules.
+    if (this.blocked.has(from) || this.turnedAway.has(from)) return;
     const existing = this.peers.get(from);
     try {
       switch (message.t) {
@@ -498,6 +558,7 @@ export class RoomSession {
       if (peer.open || this.peers.get(peer.member.pubkey) !== peer) return;
       peer.open = true;
       peer.lastSeen = Date.now();
+      peer.openedAt = Date.now();
       this.emit("member", peer.member);
       this.introduce(ch);
     };
@@ -613,8 +674,17 @@ export class RoomSession {
       this.drop(peer.member.pubkey, true);
       return;
     }
+    // Someone the world's owner keeps out: let go the moment who they are is known.
+    if (this.ownerBlocked.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
     peer.passUntil = checked.value.expiresAt;
     Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
+    // In a room that shows only named people, they are shown from now: that they are here, then what was kept.
+    if (this.namedOnly && !this.announced.has(peer.member.pubkey)) {
+      this.announced.add(peer.member.pubkey);
+      if (peer.open) this.emit("member", peer.member);
+      for (const w of this.waiting.get(peer.member.pubkey) ?? []) this.emit(w.kind, peer.member, w.stream);
+      this.waiting.delete(peer.member.pubkey);
+    }
     if (checked.value.picture) peer.member.picture = checked.value.picture;
     else delete peer.member.picture;
     if (checked.value.about) peer.member.about = checked.value.about;
@@ -625,8 +695,13 @@ export class RoomSession {
 
   /** A pass that has run out leaves a guest behind. */
   private expire(now: number): void {
-    for (const peer of this.peers.values()) {
+    for (const peer of [...this.peers.values()]) {
       if (!peer.passUntil || now < peer.passUntil) continue;
+      // In a room that shows only named people, someone whose pass has run out is let go.
+      if (this.namedOnly) {
+        this.turnAway(peer.member.pubkey);
+        continue;
+      }
       delete peer.passUntil;
       delete peer.shown;
       delete peer.member.identity;
@@ -976,12 +1051,14 @@ export class RoomSession {
     const peer = this.peers.get(pubkey);
     if (!peer) return;
     this.peers.delete(pubkey);
+    this.waiting.delete(pubkey);
     try {
       peer.pc.close();
     } catch {
       /* already closed */
     }
     if (announce && peer.open) this.emit("leave", peer.member);
+    this.announced.delete(pubkey);
   }
 
   private sweep(): void {
@@ -993,6 +1070,8 @@ export class RoomSession {
       this.markTune(peer);
       void this.feedTune(peer);
       if (!peer.open && now - peer.startedAt > CONNECT_TIMEOUT_MS) this.drop(pubkey, false);
+      // A room that shows only named people lets go of a member who showed no pass in time.
+      else if (this.namedOnly && peer.open && !this.announced.has(pubkey) && now - (peer.openedAt ?? now) > NAMED_WAIT_MS) this.turnAway(pubkey);
       else if (peer.open && now - peer.lastSeen > SILENT_TIMEOUT_MS) this.drop(pubkey, true);
     }
     this.expire(Math.floor(now / 1000));

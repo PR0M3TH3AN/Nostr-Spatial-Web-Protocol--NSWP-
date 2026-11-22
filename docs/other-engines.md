@@ -153,6 +153,13 @@ When a timed pass runs out with the visitor inside, `open` stays true for
 two minutes (`state` "ending") and then turns false: stand them before the
 gate again, and load nothing.
 
+A world that keeps lists (its manifest names `keepers`), or whose rooms show
+only named people (`named_only`), calls `NSWP.gate()` too, paid or not: that
+is what reads its own rules ([NSWP-10](../protocol/10-identity.md), "A
+world's own lists"). The gate then also shuts for someone its owner keeps
+out, with `reason` "blocked", and the room the kit's script keeps for the
+engine takes the same rules with nothing more to do.
+
 ## The latest, always
 
 Serve your export's page and its scripts with `Cache-Control: no-cache`, as

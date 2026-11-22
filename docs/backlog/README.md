@@ -45,6 +45,7 @@ request that does the work. The page of what is in motion (the board,
 | [world-maps](world-maps.md) | Maps of the connected worlds, made by travelling, private unless shared, drawn as a graph | not briefed | asked |
 | [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | asked |
 | [headset-casual-and-intense](headset-casual-and-intense.md) | Casual or intense, asked once in a headset and at a desk, kept in synced settings; a phone always casual | BitPortal (kit and room) | building (intense lost at every door: being fixed; offered once on entering VR) |
+| [rooms-stun-servers](rooms-stun-servers.md) | Every room asks Cloudflare's and Google's STUN servers, who see each joiner's address | not briefed | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
 | [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
 | [bridge-test-fails-when-busy](bridge-test-fails-when-busy.md) | A test that fails only when the machine is busy | the orchestrator | merged |
