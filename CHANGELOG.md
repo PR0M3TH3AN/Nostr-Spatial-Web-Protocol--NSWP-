@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.83.0
+
 - **Someone else's files are fetched only from file hosts the viewer already uses** (core `FILE_HOSTS`, `FILE_HOST_LIST_KIND`, `cleanFileHost`, `fileAt`, `onFileHost`, `parseFileHostList`; kit `fileHosts()`, `learnFileHosts`, `fetchByHash(sha256, hint)`, `keptElsewhere`, `filesAnywhere()` / `setFilesAnywhere()`; the console row `files-anywhere`; the setting `filesAnywhere`; NSWP-17, "Where a file is fetched from"; names from the orchestrator). Before this, an item's files were fetched from whatever address its maker wrote, so anyone could hold an item in a room and learn the address of everyone there.
   - A file host is an https prefix where a file is at `<prefix><sha256><ext>`, the extension taken from the hint. A Blossom server is one, at its root.
   - The viewer's list is the file hosts their own sign-in address keeps their files on (their kind 10063 list, read by the key they arrived as), then `FILE_HOSTS`, which is `https://grove.bitblocks.network/items/`, where the starter items already are. A guest has only `FILE_HOSTS`.
