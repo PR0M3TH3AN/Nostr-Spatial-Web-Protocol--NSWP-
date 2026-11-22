@@ -222,6 +222,9 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
   let lookTimer: ReturnType<typeof setInterval> | undefined;
   let retries = 0;
   let unwatch: (() => void) | null = null;
+  /** How many times a signer has been looked for again where none was named, and the timer for the next. */
+  let seeking = 0;
+  let seekTimer: ReturnType<typeof setTimeout> | undefined;
 
   const changed = (): void => {
     for (const fn of [...watchers]) {
@@ -316,7 +319,15 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     if (disposed || state === "free") return;
     const mine = ++round;
     const signer = opts.signer();
+    // A signer that was named after the gate began (a world that started its gate first) is listened to from here on.
+    if (signer && !unwatch) unwatch = signer.onChange(() => void look());
     const buyer = signer?.state === "unlocked" ? signer.pubkey : null;
+    // Nobody to ask yet: looked for again shortly, a few times, in case the world names one a moment later.
+    if (!signer && seeking < 10) {
+      seeking++;
+      clearTimeout(seekTimer);
+      seekTimer = setTimeout(() => void look(), 3000);
+    }
     // Signed out, or nobody to ask: whatever was held is nobody's here now.
     if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
     if (held && held.buyer !== buyer) held = null;
@@ -401,7 +412,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     // A signer that remembers this world says so a moment after the page loads: nothing is decided before it has.
     if (signer) await signer.whenAnswered(4000).catch(() => undefined);
     if (disposed) return;
-    unwatch = signer?.onChange(() => void look()) ?? null;
+    if (signer && !unwatch) unwatch = signer.onChange(() => void look());
     lookTimer = setInterval(() => void look(), GATE_TIMES.look * 1000);
     await look();
   };
@@ -498,6 +509,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       clearTimeout(endTimer);
       clearTimeout(graceTimer);
       clearTimeout(retryTimer);
+      clearTimeout(seekTimer);
       clearInterval(lookTimer);
       unwatch?.();
       watchers.clear();

@@ -10,226 +10,52 @@
 // buy from the sandbox with a throwaway key. BitLogin's own screen is NOT tried here: `buy-screen-run.mjs` tries
 // that. Relays are stood in for too: the one listing is handed to the page by this script.
 //
-// Nothing leaves this machine: every request to anywhere but the sandbox is answered here or refused, and listed.
-// Throwaway keys, pretend sats, no account, nothing published. Nothing on disk is changed: the Gallery is not
-// made paid, here or anywhere. Needs: the sandbox at https://<this machine>:4312, and NODE_EXTRA_CA_CERTS set
+// Nothing leaves this machine (front-room-lib.mjs). Nothing on disk is changed: the Gallery is not made paid, here
+// or anywhere. Needs: the sandbox at https://<this machine>:4312, and NODE_EXTRA_CA_CERTS set
 // (`npm run trial -- trials/front-room.mjs`).
 import { ROOT as NSWP, HOST, SHOTS } from "./lib.mjs";
-const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
-const { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent } = await import(`${NSWP}/node_modules/nostr-tools/lib/esm/pure.js`);
-const nip44 = await import(`${NSWP}/node_modules/nostr-tools/lib/esm/nip44.js`);
-const { readReceipt, readListing, RECEIPT_ISSUERS } = await import(`${NSWP}/packages/core/dist/index.js`);
-const { createHash, randomUUID } = await import("node:crypto");
-const { existsSync, mkdirSync, readFileSync } = await import("node:fs");
-const { extname, join, normalize } = await import("node:path");
+import { begin, finish, SIGN_IN, TERM } from "./front-room-lib.mjs";
+const { readReceipt } = await import(`${NSWP}/packages/core/dist/index.js`);
+const { mkdirSync } = await import("node:fs");
+const { join } = await import("node:path");
 
-const AT = process.env.SANDBOX ?? `https://${HOST}:4312`;
 // Nothing listens here: the scripted browser is handed this checkout's own build at this address.
-const WORLD = `https://${HOST}:4399`;
-const SIGN_IN = "https://bitlogin.network";
-const DIST = join(NSWP, "sites", "gallery", "dist");
-if (!existsSync(join(DIST, "app.js"))) throw new Error("The Gallery isn't built in this checkout. Run `npm run build` first.");
-const LIVE = RECEIPT_ISSUERS[0];
-const TERM = 3600;
-const r = {};
-const bad = [];
-const want = (name, got, expected) => { r[name] = got; if (JSON.stringify(got) !== JSON.stringify(expected)) bad.push(`${name}: got ${JSON.stringify(got)}, wanted ${JSON.stringify(expected)}`); };
-const key = (n) => `${n}_${randomUUID().replaceAll("-", "")}`.slice(0, 60);
-const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
-const b64url = (s) => Buffer.from(s, "utf8").toString("base64url");
+const t = await begin({ dist: join(NSWP, "sites", "gallery", "dist"), world: `https://${HOST}:4399` });
+const { r, bad, want, A, B, LISTING, ISSUERS, held, asked, statusAsked } = t;
 
-// ---- The sandbox, as `sandbox-buy.mjs` uses it: every call signed as someone (NIP-98).
-async function signed(secret, method, path, body, headers = {}) {
-  const url = new URL(`${AT}${path}`).toString();
-  const raw = body === undefined ? undefined : JSON.stringify(body);
-  const tags = [["u", url], ["method", method], ["bitunlock:nonce", randomUUID()]];
-  if (raw !== undefined || method !== "GET") tags.push(["payload", createHash("sha256").update(raw ?? "").digest("hex")]);
-  const auth = finalizeEvent({ kind: 27235, created_at: Math.floor(Date.now() / 1000), content: "", tags }, secret);
-  const res = await fetch(url, { method, headers: { authorization: `Nostr ${b64(JSON.stringify(auth))}`, origin: WORLD, ...(raw === undefined ? {} : { "content-type": "application/json" }), ...headers }, body: raw });
-  let json = null;
-  try { json = await res.json(); } catch { /* no body */ }
-  return { status: res.status, json };
-}
-const plain = async (method, path, headers = {}, body) => { const res = await fetch(`${AT}${path}`, { method, headers: { origin: WORLD, ...(body ? { "content-type": "application/json" } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined }); let json = null; try { json = await res.json(); } catch { /* none */ } return { status: res.status, json }; };
-
-const health = (await plain("GET", "/health").catch(() => ({ json: null }))).json;
-if (health?.sandbox !== true || !/^[0-9a-f]{64}$/.test(health?.servicePubkey ?? "")) throw new Error(`No sandbox answered at ${AT}. Start BitUnlock's sandbox there, and run this with NODE_EXTRA_CA_CERTS set (see trials/README.md).`);
-const SERVICE = health.servicePubkey;
-const POLICY = `30078:${SERVICE}:bitunlock:service-policy:v1`;
-const ISSUERS = [{ name: "BitUnlock sandbox (this machine)", service: AT, pubkey: SERVICE }];
-want("0 it is the sandbox, and not the live service's key", [health.sandbox, SERVICE !== LIVE.pubkey], [true, true]);
-
-// ---- Who is who. All thrown away when this ends.
-const seller = generateSecretKey();
-const SELLER = getPublicKey(seller);
-const people = { A: generateSecretKey(), B: generateSecretKey() };
-const secretOf = new Map(Object.values(people).map((s) => [getPublicKey(s), s]));
-const A = getPublicKey(people.A);
-const B = getPublicKey(people.B);
-
-// ---- The world as its own site says it, with one thing changed in this browser only: it names a listing.
-const file = JSON.parse(readFileSync(join(DIST, ".well-known", "nswp.json"), "utf8"));
-const D = Object.keys(file.worlds)[0];
-const NAME = `nswp-trial:front room ${randomUUID().slice(0, 8)}`;
-const LISTING = `30078:${SELLER}:${NAME}`;
-const paidManifest = JSON.stringify({ ...file, publishers: { ...file.publishers, [SELLER]: { worlds: [D] } }, worlds: { ...file.worlds, [D]: { ...file.worlds[D], access: [LISTING] } } });
-want("1 as built, this world names nothing it is entered by", file.worlds[D].access ?? null, null);
-
-// ---- The seller signs up and registers a pass for an hour, at the least price.
-const tenant = await signed(seller, "POST", "/v1/tenants", { acceptedPolicyCoordinate: POLICY, feeCap: { maximumFeeBps: 100, maximumMinimumSats: 10, maximumFeeSats: 5000 }, idempotencyKey: key("tenant") });
-want("2 the seller is ready", [tenant.status < 300, tenant.json?.status ?? tenant.json?.state ?? tenant.json], [true, "ready"]);
-const listing = finalizeEvent({ kind: 30078, created_at: Math.floor(Date.now() / 1000), content: JSON.stringify({ title: "TEST: an hour past the gate", summary: "A test listing on one machine. Not for sale." }), tags: [["d", NAME], ["price", "500", "SAT"], ["status", "active"], ["br:delivery", "seller-unlock-service-v1"], ["br:delivery-mode", "static"], ["br:unlock-service", AT], ["br:unlock-service-pubkey", SERVICE], ["br:unlock-policy", POLICY], ["br:claim-epoch", "1"], ["nswp:for", `37300:${SELLER}:${D}`], ["nswp:term", String(TERM)]] }, seller);
-const product = await signed(seller, "POST", "/v1/products", { productCoordinate: LISTING, policyCoordinate: POLICY, claimEpoch: 1, payloadType: "claim-url", sellerCiphertext: nip44.encrypt("https://world.example/pass", nip44.getConversationKey(seller, SERVICE)), accessTermSeconds: TERM, idempotencyKey: key("product") }, { "x-bitunlock-sandbox-listing": b64url(JSON.stringify(listing)) });
-want("3 the listing is registered", product.status < 300, true);
-if (product.status >= 300) r.productSays = product.json;
-want("3b the kit reads it, told of the sandbox: its name, its price, how long it lasts", ((x) => (x.ok ? [x.listing.name, x.listing.sats, x.listing.term] : x.why))(readListing(listing, LISTING, { issuers: ISSUERS })), ["TEST: an hour past the gate", 500, TERM]);
-
-// ---- A buyer with pretend sats, and what the stand-in sign-in address keeps for each visitor.
-const session = (await plain("POST", "/sandbox/v1/sessions", {}, { ttlSeconds: 3600 })).json;
-const scoped = { "x-bitunlock-sandbox-session": session.sessionId };
-const settle = (hash) => plain("POST", `/sandbox/v1/payments/${hash}/settle`, { authorization: `Bearer ${session.token}`, ...scoped });
-const held = new Map();
-const asked = [];
-/** What BitLogin's page does at a purchase, done here with a throwaway key: quote, pay every part, unlock, keep the receipt. */
-async function buy(who, coordinate) {
-  asked.push({ who, coordinate });
-  const secret = secretOf.get(who);
-  if (!secret || coordinate !== LISTING) return null;
-  const quote = await signed(secret, "POST", "/v1/quotes", { productCoordinate: coordinate, buyerPubkey: who, idempotencyKey: key("quote") }, scoped);
-  const plan = quote.json?.paymentPlan ?? quote.json;
-  for (const leg of [...(plan?.legs ?? [])].sort((x, y) => x.amountSats - y.amountSats)) await settle(leg.paymentHash);
-  const unlocked = await signed(secret, "POST", `/v1/orders/${plan?.orderId}/unlock`, { idempotencyKey: key("unlock") }, scoped);
-  const receipt = unlocked.json?.fulfillmentEvent;
-  r.lastPurchase = { quote: quote.status, parts: (plan?.legs ?? []).map((l) => `${l.role}:${l.amountSats}`).sort(), unlock: unlocked.status };
-  if (unlocked.status !== 200 || !receipt || !verifyEvent(receipt)) return null;
-  held.set(`${who}|${coordinate}`, receipt);
-  return receipt;
-}
-
-// ---- The scripted browser. Each visit is a fresh one: who is signed in, and whether the kit is told of the sandbox.
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".webp": "image/webp", ".ogg": "audio/ogg", ".txt": "text/plain; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
-const rules = (JSON.parse(readFileSync(join(DIST, "vercel.json"), "utf8")).headers ?? []).map((rule) => ({ fits: new RegExp(`^${rule.source}$`), headers: Object.fromEntries(rule.headers.filter((h) => !/strict-transport|cache-control/i.test(h.key)).map((h) => [h.key, h.value])) }));
-const headersFor = (path) => Object.assign({}, ...rules.filter((rule) => rule.fits.test(path)).map((rule) => rule.headers));
-/** The stand-in for the sign-in address's hidden signer: it says who is signed in, and passes `have` and `buy` to this script. */
-const signerPage = `<!doctype html><meta charset="utf-8"><title>stand-in signer</title><script>
-const WORLD = ${JSON.stringify(WORLD)};
-let who = null;
-const say = (m) => parent.postMessage({ nswp: "nswp-signer", v: 1, ...m }, WORLD);
-const state = (id) => say({ t: "state", ...(id ? { id } : {}), unlocked: !!who, ...(who ? { pubkey: who, name: "Trial visitor", remembered: true } : {}) });
-window.__signIn = (pubkey) => { who = pubkey; state(); };
-addEventListener("message", async (e) => {
-  const d = e.data;
-  if (e.origin !== WORLD || !d || d.nswp !== "nswp-signer") return;
-  if (d.t === "state") return state(d.id);
-  if (d.t === "lock") { who = null; return state(); }
-  if (d.t === "have") { const got = who ? await window.__trialHave(who, d.listing) : null; return say(got ? { t: "receipt", id: d.id, receipt: JSON.parse(got) } : { t: "none", id: d.id }); }
-  if (d.t === "buy") { say({ t: "asking", id: d.id }); const got = who ? await window.__trialBuy(who, d.listing) : null; return say(got ? { t: "bought", id: d.id, receipt: JSON.parse(got) } : { t: "refused", id: d.id }); }
-});
-window.__trialWho().then((w) => { who = w; say({ t: "ready" }); });
-</script>`;
-
-const browser = await pw.chromium.launch({ channel: "chrome", headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
-const refused = new Set();
-const errors = [];
-const statusAsked = [];
-/**
- * A visit. `who`: who the sign-in address says is signed in as the page loads. `believe`: whether this browser's
- * copy of the kit is told to believe the sandbox's key (the kit as shipped believes BitUnlock's own and no other).
- * `hands`: what a dishonest signer would hand over when asked what is held. `clock`: this page's time can be moved.
- */
-async function visit({ who = null, believe = true, hands = null, clock = false } = {}) {
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } });
-  await ctx.grantPermissions(["local-network-access"]).catch(() => undefined);
-  const signedIn = { who };
-  await ctx.exposeFunction("__trialWho", () => signedIn.who);
-  await ctx.exposeFunction("__trialHave", (asker, coordinate) => { const got = hands ?? held.get(`${asker}|${coordinate}`); return got ? JSON.stringify(got) : null; });
-  await ctx.exposeFunction("__trialBuy", async (asker, coordinate) => { const got = await buy(asker, coordinate).catch(() => null); return got ? JSON.stringify(got) : null; });
-  // The one switch: on a local address, a script may have a world that can have a gate use it. What the gate is
-  // entered by still comes from the world's own manifest, as this browser is handed it below.
-  await ctx.addInitScript(() => { window.__nswpTrial = { gate: true }; });
-  await ctx.route("**/*", async (route) => {
-    const url = new URL(route.request().url());
-    if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
-    if (url.origin === new URL(AT).origin) {
-      if (/\/entitlements\/.+\/status$/.test(url.pathname)) {
-        const res = await route.fetch().catch(() => null);
-        statusAsked.push({ status: res?.status() ?? 0, body: res ? await res.text().catch(() => "") : "" });
-        return res ? route.fulfill({ response: res }) : route.abort();
-      }
-      return route.continue();
-    }
-    if (url.origin === SIGN_IN) {
-      if (url.pathname === "/signer/") return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: signerPage });
-      if (url.pathname === "/connect/") return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: "<!doctype html><title>stand-in sign-in window</title><p>A stand-in for the sign-in address's own page. Nothing is asked here." });
-    }
-    if (url.origin === WORLD) {
-      const path = url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname;
-      const headers = { ...headersFor(url.pathname), "access-control-allow-origin": "*" };
-      if (url.pathname === "/.well-known/nswp.json") return route.fulfill({ status: 200, contentType: TYPES[".json"], headers, body: paidManifest });
-      const on = normalize(join(DIST, path));
-      if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
-      let body = readFileSync(on);
-      // Told of the sandbox, in this browser only: the shipped kit names BitUnlock's own key and address.
-      if (believe && extname(on) === ".js" && body.includes(LIVE.pubkey)) body = Buffer.from(body.toString("utf8").replaceAll(LIVE.pubkey, SERVICE).replaceAll(LIVE.service, AT));
-      return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", headers, body });
-    }
-    refused.add(url.origin);
-    return route.abort();
-  });
-  // Every relay is this script: it holds the one listing, and answers as a relay would.
-  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
-    ws.onMessage((m) => {
-      let msg;
-      try { msg = JSON.parse(String(m)); } catch { return; }
-      if (msg?.[0] !== "REQ") return;
-      const fits = msg.slice(2).some((f) => f && (f.kinds ?? [30078]).includes(30078) && (f.authors ?? [SELLER]).includes(SELLER) && (f["#d"] ?? [NAME]).includes(NAME));
-      if (fits) ws.send(JSON.stringify(["EVENT", msg[1], listing]));
-      ws.send(JSON.stringify(["EOSE", msg[1]]));
-    });
-  });
-  const page = await ctx.newPage();
-  if (clock) await page.clock.install();
-  const popups = [];
-  page.on("popup", (p) => void p.waitForLoadState().catch(() => undefined).then(() => popups.push(p.url())));
-  page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
-  const until = async (fn, ms = 60000, every = 250) => { const end = Date.now() + ms; while (Date.now() < end) { try { const g = await fn(); if (g) return g; } catch { /* not yet */ } await new Promise((done) => setTimeout(done, every)); } return null; };
+/** A visit to the Gallery, with how this world is read and walked: its own test hook. */
+async function visit(opts = {}) {
+  const v = await t.visit(opts);
+  const { page, until } = v;
   /** Open the world; or, `again`, refresh it as a visitor would (a refresh puts them back where they stood). */
   const load = async (again = false) => {
     if (again) {
       // Long enough for the world to have noted where they stand, which it does every second.
       await page.waitForTimeout(1500);
       await page.reload();
-    } else await page.goto(`${WORLD}/`);
+    } else await page.goto(`${t.world}/`);
     // Ready means the gate has made up its mind and has read what is for sale. On a busy machine the first asking of
     // relays can run out of time; the gate asks again by itself twenty seconds on, so this waits for that.
     await until(() => page.evaluate(() => { const g = window.__nswpTest?.state?.ready === true ? window.__nswpTest.gate?.() : null; return !!g && g.state !== "checking" && (g.offers.length > 0 || Object.values(g.unread).some((why) => why !== "no-relay" && why !== "not-found")); }), 120000);
     // What the world says from here on is kept.
-    await page.evaluate(() => { window.__said = []; window.__nswpTest.controls.onSay((t) => window.__said.push(t)); });
+    await page.evaluate(() => { window.__said = []; window.__nswpTest.controls.onSay((words) => window.__said.push(words)); });
   };
   await load();
   const gate = () => page.evaluate(() => { const g = window.__nswpTest.gate(); return g && { state: g.state, open: g.open, reason: g.reason, why: g.why, offers: g.offers, unread: g.unread, until: g.until, signedIn: g.signedIn }; });
   const rows = () => page.evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "travel")?.items.filter((i) => i.id.startsWith("gate-")).map((i) => i.label) ?? []);
   const said = () => page.evaluate(() => window.__said ?? []);
-  /** Press the gate's control as a visitor does: the menu opened, and the row clicked. A real press, so a window may open. */
-  const press = async () => {
-    await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "travel"));
-    await page.waitForTimeout(400);
-    await page.locator("nswp-hud").getByRole("button", { name: /buy|hold/i }).first().click();
-    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
-  };
+  const press = () => v.pressRow(() => page.evaluate(() => window.__nswpTest.hud.setOpen(true, "travel")), () => page.evaluate(() => window.__nswpTest.hud.setOpen(false)));
   /** Stand just before the gate and walk at it, as a press on the floor past it would. Where they end up, along the hall. */
   const walkAtIt = async () => {
-    // The stand-in's windows are put away first: a page behind another window draws nothing, and so walks nowhere.
-    for (const other of ctx.pages()) if (other !== page) await other.close().catch(() => undefined);
-    await page.bringToFront();
-    const start = () => page.evaluate(() => { const t = window.__nswpTest; t.teleport(0, 1.5); t.face(0); t.step(0, -3.5); });
+    await v.toFront();
+    const start = () => page.evaluate(() => { const h = window.__nswpTest; h.teleport(0, 1.5); h.face(0); h.step(0, -3.5); });
     await start();
     // A walk is drawn frame by frame, at whatever pace this machine manages, so nothing here goes by the clock
     // alone: it is watched until they are past, or have moved and then stood still a good while. A page that had
     // been behind a window may take a moment to draw again, so a walk that never began is asked for once more.
     const samples = [];
     let still = 0;
-    let asked = 1;
+    let tries = 1;
     for (let i = 0; i < 160; i++) {
       await page.waitForTimeout(500);
       const z = await page.evaluate(() => window.__nswpTest.where()[1]);
@@ -238,17 +64,13 @@ async function visit({ who = null, believe = true, hands = null, clock = false }
       if (z < -1) break;
       const moved = Math.abs(z - 1.5) > 0.05;
       if (moved && still >= 12) break;
-      if (!moved && still >= 12 && asked < 4) { asked++; still = 0; await page.bringToFront(); await start(); }
-      if (!moved && still >= 12 && asked >= 4) break;
+      if (!moved && still >= 12 && tries < 4) { tries++; still = 0; await page.bringToFront(); await start(); }
+      if (!moved && still >= 12 && tries >= 4) break;
     }
-    (r.walks ??= []).push({ asked, to: samples.at(-1), samples: samples.length });
+    (r.walks ??= []).push({ tries, to: samples.at(-1), samples: samples.length });
     return samples.at(-1);
   };
-  const signIn = async (pubkey) => {
-    signedIn.who = pubkey;
-    await page.frames().find((f) => f.url().startsWith(SIGN_IN)).evaluate((k) => window.__signIn(k), pubkey);
-  };
-  return { ctx, page, popups, until, load, gate, rows, said, press, walkAtIt, signIn, close: () => ctx.close() };
+  return { ...v, load, gate, rows, said, press, walkAtIt };
 }
 
 try {
@@ -283,7 +105,7 @@ try {
   const open = await v.gate();
   want("8 bought: the sandbox signed a receipt, and the gate opened on it", [asked.length, r.lastPurchase, check?.ok ?? false, open.state, open.until === (check?.ok ? check.receipt.expiresAt : -1)], [1, { quote: 201, parts: ["bitunlock:10", "seller:490"], unlock: 200 }, true, "open", true]);
   want("8b the kit as shipped would not believe that receipt", bought ? readReceipt(bought, { listing: LISTING, buyer: A }) : null, { ok: false, why: "unknown-issuer" });
-  want("8c it says so, and the control is gone", [(await v.said()).some((t) => /^Bought: TEST: an hour past the gate\. The way is open until /.test(t)), await v.rows()], [true, []]);
+  want("8c it says so, and the control is gone", [(await v.said()).some((words) => /^Bought: TEST: an hour past the gate\. The way is open until /.test(words)), await v.rows()], [true, []]);
   want("9 and now they walk past it", (await v.walkAtIt()) < -1, true);
   await v.page.screenshot({ path: `${SHOTS}/front-room-2-open.png` });
   // ---- 4. The page refreshed: the sign-in address still holds the receipt, so it opens with nothing pressed.
@@ -323,15 +145,14 @@ try {
   want("16 then shut, and they are stood before the gate again, in the same visit", [closed.state, closed.reason, where[1] > 0, await late.page.evaluate(() => window.__sameVisit === true)], ["shut", "run-out", true, true]);
   await late.close();
 
-  r.refused = [...refused];
-  r.errors = errors.slice(0, 6);
+  r.refused = [...t.refused];
+  r.errors = t.errors.slice(0, 6);
   want("17 nothing but this machine was reached, and no page threw", [r.refused, r.errors], [[], []]);
+  t.workletCheck("18 any audio worklet the page uses loads");
 } catch (e) {
   // Whatever stopped the walk is said with what it had found, not instead of it.
   bad.push(`the walk stopped: ${String(e).slice(0, 300)}`);
 } finally {
-  await browser.close();
+  await t.browser.close();
 }
-console.log(JSON.stringify(r, null, 1));
-if (bad.length) { console.error("\nFAILED\n" + bad.join("\n")); process.exit(1); }
-console.log("\nall as wanted");
+finish(t);

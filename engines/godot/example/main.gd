@@ -20,7 +20,16 @@ const TITLE := "The Foundry"
 const ACCENT := Color("3df5a0")
 const GROUND := Color("141b24")
 
+## Whether this world is paid: whether its own `world.json` names what it is entered by. It
+## names nothing, so there is no gate here: nothing is read and nobody is asked. The build
+## stops if this and `world.json` disagree.
+const PAID := false
+## Where a gate would stand if it were: across the way, between where a visitor arrives and
+## the doors. Everything before it is free.
+const GATE_Z := 0.0
+
 var _visitor: NswpVisitor
+var _veil: StaticBody3D
 var _items: NswpItems
 var _people: NswpPeople
 var _gate: NswpGate
@@ -54,6 +63,14 @@ func _ready() -> void:
 	_people.visitor = _visitor
 	_people.items = _items
 	add_child(_people)
+
+	# A paid world's gate (NSWP-10, "The front room"). The kit's script asks what the visitor
+	# holds and puts the one control that asks to buy in the menu; this world draws the gate
+	# and stops them at it. This world is free, so `gate(false)` makes nothing and says "free".
+	_build_veil()
+	Nswp.gate_changed.connect(func(_stands: Dictionary) -> void: _tend_gate())
+	Nswp.gate(PAID)
+	_tend_gate()
 
 	_gate = _add_door("The Gallery", GALLERY, "experience", Vector3(-2.2, 0.0, -5.0))
 	_add_door("The Workshop", WORKSHOP, "experience", Vector3(2.2, 0.0, -5.0))
@@ -133,6 +150,55 @@ func _add_entry(entry_name: String, at: Vector3) -> void:
 	add_child(marker)
 
 
+## The gate itself, while it is shut: a sheet of light across the way with a bright line where
+## it meets the floor, and something solid behind it so nobody walks through.
+func _build_veil() -> void:
+	_veil = StaticBody3D.new()
+	_veil.name = "PaidGate"
+	_veil.position = Vector3(0.0, 0.0, GATE_Z)
+	var shape := CollisionShape3D.new()
+	shape.name = "Shape"
+	var box := BoxShape3D.new()
+	box.size = Vector3(60.0, 6.0, 0.3)
+	shape.shape = box
+	shape.position.y = 3.0
+	_veil.add_child(shape)
+	var sheet := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(60.0, 3.2)
+	sheet.mesh = quad
+	sheet.position.y = 1.6
+	var light := StandardMaterial3D.new()
+	light.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	light.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	light.cull_mode = BaseMaterial3D.CULL_DISABLED
+	light.albedo_color = Color(ACCENT, 0.16)
+	sheet.material_override = light
+	_veil.add_child(sheet)
+	var line := MeshInstance3D.new()
+	var strip := BoxMesh.new()
+	strip.size = Vector3(60.0, 0.02, 0.07)
+	line.mesh = strip
+	line.position.y = 0.012
+	var bright := StandardMaterial3D.new()
+	bright.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bright.albedo_color = ACCENT
+	line.material_override = bright
+	_veil.add_child(line)
+	add_child(_veil)
+
+
+## The gate follows what the kit says of it: there and solid while shut, gone while open.
+func _tend_gate() -> void:
+	var shut := not Nswp.gate_open()
+	_veil.visible = shut
+	(_veil.get_node("Shape") as CollisionShape3D).set_deferred("disabled", not shut)
+	# Shut with them past it (their time ran out): they are stood where they arrived again.
+	# Nothing is loaded again under them.
+	if _visitor != null and str(Nswp.gate_now.get("state", "")) == "shut" and _visitor.global_position.z < GATE_Z:
+		Nswp.place(_visitor)
+
+
 ## A door: the standard doorway, told where it leads and what colour this place is.
 func _add_door(label: String, url: String, category: String, at: Vector3) -> NswpGate:
 	var gate := NswpGate.new()
@@ -202,4 +268,6 @@ func _report() -> void:
 		"items": _items.report(),
 		"people": _people.report(),
 		"info": Nswp.people_info(),
+		"gate": Nswp.gate_now,
+		"veil": _veil.visible,
 	})

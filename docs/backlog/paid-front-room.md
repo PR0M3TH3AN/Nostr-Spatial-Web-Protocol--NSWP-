@@ -18,14 +18,11 @@ listing"); the gate, the `soft` kind, and its one control (NSWP-10, "The
 front room"); the Gallery able to have a gate and having none;
 `trials/front-room.mjs`.
 
-**Owed next: the gate in the engine script and in Godot.** The owner,
-2026-11-21: "The most important part is the kit we ship to all users and
-builders. And our framework. So that its consistent for everyone." Until
-it is there, a paid world made in another engine has no gate of the
-kit's, and would have to build its own: a second-class paid world, which
-is the thing not wanted. The logic (`front-room.ts`) draws nothing and
-needs no change; what is owed is its calls through `engine.ts` and the
-add-on, and the control in the engine's menu.
+**The gate in the engine script and in Godot: built** (branch
+`engine-gate`, after kit 0.73.0): `NSWP.gate()` and `Nswp.gate()`, the
+example with a gate that is off, and `trials/front-room-godot.mjs`, walked
+against the sandbox. A paid world made in another engine has the kit's own
+gate, as the owner asked ("consistent for everyone").
 
 **Left out on purpose, each a thing of its own:** the `sealed` gate (what
 is behind it encrypted, the key coming with the purchase); a paid item
