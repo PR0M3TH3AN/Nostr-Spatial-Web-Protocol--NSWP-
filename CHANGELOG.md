@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.77.0
 
 - **A world by invitation** (NSWP-01 "A world by invitation", NSWP-10 "A world's own lists", NSWP-06 "A world's own rules"). The manifest's `by_invitation` (only exactly `true`) and the owner's allow list in BitGate's shape: the gate opens only for a signed-in key the owner invited, or a keeper; someone signed out is asked to sign in; someone not invited is told so and offered nothing. Blocked beats invited. A list that isn't found, doesn't read or wasn't answered lets nobody in but a keeper. Its rooms show only invited people. Not private: only a sealed world is.
 - **The eighth thing a door shows: "By invitation"** (`DOOR_OFFERS`), beside "Paid" at the foot, lit only where the announcement says `["by-invitation"]`, on the owner's word ("Yes, add it"). The tag takes no value; one after it is ignored with a warning. An envelope drawing (`invite`). `NSWP.offers` gives it to other engines.
