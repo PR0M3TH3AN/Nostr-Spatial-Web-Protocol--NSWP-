@@ -7,7 +7,7 @@
   enable functions on mobile or casual desktop. please look into that
   carfuly and propose some options before i approve."
 - **Who:** the kit (every world); BitPortal is looking first.
-- **State:** asked (the report is in; options are with the owner)
+- **State:** briefed (2026-11-22: the owner chose option B, "B, as recommended": drag looks all ways, about 60 degrees up and down, easing back to level when walking; on touch a sight with a big Fire and smaller Reload by the right thumb, with a setting to swap sides, and taps walk; at a casual desk a click fires where clicked and R reloads. The BitPortal session builds it in the kit.)
 
 ## What the kit does today (the orchestrator's reading of the code; being checked by trying it)
 
