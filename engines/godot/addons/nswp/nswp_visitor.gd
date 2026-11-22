@@ -462,6 +462,8 @@ func _physics_process(delta: float) -> void:
 			float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)),
 		)
 	var speed := float(Nswp.kit.walkSpeed)
+	# Whether they are stepping, walking or turning now: the kit moves nobody under them then.
+	Nswp.frame_say("moving", keys != Vector2.ZERO or not _path.is_empty() or (_pressed and _dragged > 6.0))
 	# Moving the casual way, walking (by the keys, or a tapped path) brings a tilted view back level.
 	if not intense() and not _presenting and _pitch != 0.0 and (keys != Vector2.ZERO or not _path.is_empty()):
 		var step := delta * float(Nswp.kit.get("levelRate", 1.6))

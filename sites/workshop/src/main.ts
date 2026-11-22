@@ -38,7 +38,7 @@ void startWorld({
   title: "The Workshop",
   purpose: "Everything in these places is a shape written in code. Here are the parts, each with its name. A world of your own starts at the Starter Home.",
   palette: { ground: 0x0d0704, accent: 0xff8a3d, text: "#ffeede" },
-  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
+  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] } },
   doors: [
     { to: "starter", label: "The Starter Home", position: [-3.8, 0, -17], rotation: 0 },
     { to: "gallery", label: "The Gallery", position: [0, 0, -17], rotation: 0 },

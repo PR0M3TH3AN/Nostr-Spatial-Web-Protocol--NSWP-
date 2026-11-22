@@ -73,6 +73,10 @@ describe("room handshake", () => {
     expect(hello.kind).toBe(ROOM_SIGNAL_KIND);
     expect(openSignal(hello, TEST_KEY_2, topic, T0)?.message).toEqual({ t: "hello", v: 1 });
     expect(openSignal(hello, TEST_KEY_1, topic, T0)).toBeNull();
+    // The hello sent on joining says so; the one repeated every 20 seconds doesn't. Either reads as a hello.
+    const joining = buildHello(topic, TEST_KEY_1, T0, { first: true });
+    expect(openSignal(joining, TEST_KEY_2, topic, T0)?.message).toEqual({ t: "hello", v: 1, first: true });
+    expect(JSON.parse(hello.content)).toEqual({ t: "hello", v: 1 });
   });
 
   it("encrypts an offer so only the addressee can read it", () => {

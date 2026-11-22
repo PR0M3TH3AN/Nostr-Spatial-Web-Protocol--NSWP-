@@ -21,7 +21,7 @@ void startWorld({
   title: "The Library",
   purpose: "Eight short notes on why the open spatial web is built the way it is. Read them in any order.",
   palette: { ground: 0x05080e, accent: 0xa9c7ff, text: "#eaf1ff" },
-  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
+  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] } },
   doors: [
     { to: "tour", label: "The Tour", position: [-1.9, 0, -12.2], rotation: 0 },
     { to: "observatory", label: "The Observatory", position: [1.9, 0, -12.2], rotation: 0 },

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, paidWorldReaches, cleanRoot } = await import(join(root, "packages/core/dist/index.js"));
+const { KIT_VERSION, ITEM_BOX_HTML, itemBoxCsp, stampPage, cleanLightningAddress, cleanAccess, paidWorldReaches, cleanRoot, checkEntryPlaces } = await import(join(root, "packages/core/dist/index.js"));
 const config = JSON.parse(readFileSync(join(root, "sites", "sites.json"), "utf8"));
 // A door says what kind of place it leads to, from sites.json. That must be the place's own word, in its world.json.
 for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(root, "sites", n, "world.json")]), ["starter", join(root, "sites", "template-demo", "world.json")], ["foundry", join(root, "engines", "godot", "world.json")]]) {
@@ -39,6 +39,29 @@ for (const [name, file] of [...Object.keys(config.worlds).map((n) => [n, join(ro
   if (config.worlds[name]) {
     const inCode = /^\s*items: "([a-z]+)",?\s*$/m.exec(readFileSync(join(root, "sites", name, "src", "main.ts"), "utf8"))?.[1] ?? "allowed";
     if (inCode !== carried) throw new Error(`sites.json says ${name} does "${carried}" with items, and its src/main.ts says "${inCode}". They must agree.`);
+  }
+  // Places to arrive (protocol/01-worlds.md): every entry point a set, at least eight here (every world here has
+  // rooms), a metre or more apart. Read from the literal in src/main.ts, where the world writes them.
+  const main = join(root, "sites", name, "src", "main.ts");
+  const entryAt = config.worlds[name] && existsSync(main) ? readFileSync(main, "utf8").indexOf("entryPoints:") : -1;
+  if (entryAt >= 0) {
+    const text = readFileSync(main, "utf8");
+    const open = text.indexOf("{", entryAt);
+    let depth = 0;
+    let end = open;
+    for (; end < text.length; end++) {
+      if (text[end] === "{") depth++;
+      else if (text[end] === "}" && --depth === 0) break;
+    }
+    let entryPoints;
+    try {
+      entryPoints = Function(`"use strict"; return (${text.slice(open, end + 1)});`)();
+    } catch {
+      throw new Error(`${name}'s src/main.ts: its entryPoints must be written as plain numbers and names, for the build to check them.`);
+    }
+    const issues = checkEntryPlaces(entryPoints, { capabilities: ["rooms"] });
+    const bad = issues.filter((i) => i.level === "error" || i.code === "single_spot");
+    if (bad.length) throw new Error(`${name}'s places to arrive:\n  ${bad.map((i) => i.message).join("\n  ")}`);
   }
 }
 /**

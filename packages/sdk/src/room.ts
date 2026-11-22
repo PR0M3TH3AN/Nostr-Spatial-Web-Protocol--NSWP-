@@ -64,6 +64,12 @@ export interface Member {
   recording: boolean;
   /** The item they say they are holding, by its coordinate (protocol/17-items.md). Left out when they hold nothing. */
   holding?: string;
+  /**
+   * They joined after this visitor did: their joining hello was signed after this visitor joined. Such a person is
+   * the one arriving, and steps aside themselves if they find themselves inside this visitor (protocol/01-worlds.md,
+   * "Places to arrive"): this visitor is never moved for them.
+   */
+  joinedAfterYou?: boolean;
   /** They are offering their screen to the room. It is sent only to members who ask to watch. */
   sharing?: boolean;
   /** They are offering their music to people near them. It is sent only to members who ask to hear it. */
@@ -302,6 +308,9 @@ export class RoomSession {
   private readonly words = createChatGate();
   private timers: ReturnType<typeof setInterval>[] = [];
   private closed = false;
+  /** When this visitor joined, in unix seconds, and who has joined since (by a joining hello signed after it). */
+  private joinedAt = Math.floor(Date.now() / 1000);
+  private readonly newer = new Set<string>();
 
   constructor(opts: JoinOptions = {}) {
     const world = opts.world ?? `${location.origin}${location.pathname}`;
@@ -437,6 +446,7 @@ export class RoomSession {
   }
 
   start(): void {
+    this.joinedAt = Math.floor(Date.now() / 1000);
     for (const url of this.relays) this.connectRelay(url);
     this.timers.push(
       setInterval(() => this.announce(), HELLO_EVERY_MS),
@@ -467,7 +477,9 @@ export class RoomSession {
     this.sockets.set(url, ws);
     ws.onopen = () => {
       ws.send(JSON.stringify(["REQ", "room", { kinds: [ROOM_SIGNAL_KIND], "#x": [this.topic], since: Math.floor(Date.now() / 1000) - 5 }]));
-      ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key)]));
+      // The joining hello says it is one (`first`), while it is still the joining: a relay reached late, or again,
+      // is not someone joining anew.
+      ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key, undefined, { first: Math.floor(Date.now() / 1000) - this.joinedAt < 15 })]));
       this.setStatus("open");
     };
     ws.onmessage = (msg) => {
@@ -514,6 +526,11 @@ export class RoomSession {
         case "welcome": {
           if (existing) return;
           if (this.peers.size >= this.maxMembers - 1) return; // room is full for us
+          // Someone's joining hello (`first`), signed after this visitor joined: they arrived after them. Those already
+          // here answer this visitor's own hello instead, and their hello every 20 seconds isn't marked. Two who
+          // joined in the same second are told apart by their session keys, so exactly one is the later.
+          const at = (raw as { created_at?: unknown }).created_at;
+          if (message.t === "hello" && message.first === true && typeof at === "number" && (at > this.joinedAt || (at === this.joinedAt && from > this.self.pubkey))) this.newer.add(from);
           if (shouldInitiate(this.self.pubkey, from)) await this.offerTo(from);
           else if (message.t === "hello") this.publish(buildSignal(this.topic, this.key, from, { t: "welcome" }));
           return;
@@ -544,7 +561,7 @@ export class RoomSession {
   private createPeer(pubkey: string): Peer {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const peer: Peer = {
-      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
+      member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false, ...(this.newer.has(pubkey) ? { joinedAfterYou: true } : {}) },
       pc,
       refused: 0,
       words: createChatGate(),

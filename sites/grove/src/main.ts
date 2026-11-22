@@ -16,8 +16,8 @@ void startWorld({
   purpose: "Somewhere to sit and talk. Joined, you see and hear whoever else is here, and they see you. Not joined, nobody does.",
   palette: { ground: 0x0d0804, accent: 0xffb703, text: "#fff3d6" },
   entryPoints: {
-    "main-entrance": { position: [0, 0, 5], yaw: 0 },
-    clearing: { position: [-4, 0, -2], yaw: -90 },
+    "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] },
+    clearing: { position: [-4, 0, -2], yaw: -90, places: [{ position: [-4, 0, -3.2], yaw: -90 }, { position: [-4, 0, -0.8], yaw: -90 }, { position: [-4, 0, -4.4], yaw: -90 }, { position: [-4, 0, 0.4], yaw: -90 }, { position: [-5.2, 0, -2], yaw: -90 }, { position: [-5.2, 0, -3.2], yaw: -90 }, { position: [-5.2, 0, -0.8], yaw: -90 }] },
   },
   doors: [
     { to: "gallery", label: "The Gallery", position: [-3.2, 0, -9] },

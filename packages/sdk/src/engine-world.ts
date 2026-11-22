@@ -40,6 +40,8 @@ export interface EngineWorld {
   presenting: boolean;
   /** Their item is up at their eye, as the engine last said. */
   sighting: boolean;
+  /** They are stepping, walking or turning now, as the engine last said: nobody is moved under them then. */
+  moving: boolean;
 }
 
 let world: (EngineWorld & { set: { x: number; z: number } | null }) | null = null;
@@ -51,7 +53,7 @@ export function engineWorld(): EngineWorld {
   const rig = new THREE.Group();
   const camera = new THREE.PerspectiveCamera(70, 1.6, 0.1, 100);
   scene.add(rig, camera);
-  world = { scene, camera, rig, presenting: false, sighting: false, set: null };
+  world = { scene, camera, rig, presenting: false, sighting: false, moving: false, set: null };
   return world;
 }
 
@@ -96,6 +98,7 @@ export function frame(view?: string): string {
   w.camera.aspect = Math.min(8, Math.max(0.1, num(i.aspect, w.camera.aspect)));
   w.presenting = i.presenting === true;
   w.sighting = i.sighting === true;
+  w.moving = i.moving === true;
   w.scene.updateMatrixWorld(true);
   const dt = Math.min(0.5, Math.max(0, num(i.dt, 0.016)));
   const out: Record<string, unknown> = {};

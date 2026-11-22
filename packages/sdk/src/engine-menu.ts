@@ -22,7 +22,7 @@
  * What the engine still does itself: move the visitor, draw the doors, and
  * start a headset session when asked to.
  */
-import { checkDestination, isLocalHost, ITEM_RULES, worldOffers, type ItemsRule } from "@nswp/core";
+import { checkDestination, ENTRY_CLEAR, ENTRY_PLACES_LEAST, ENTRY_PLACES_ROOMS, isLocalHost, ITEM_RULES, worldOffers, type ItemsRule } from "@nswp/core";
 import { addGateControls, type PaidGate } from "./front-room.js";
 import { ICONS } from "./ui/icons.js";
 import { OFFER_ICONS } from "./offer-icons.js";
@@ -99,6 +99,10 @@ export function kit(): string {
     // Moving the casual way: how far a drag up or down tilts the view, and how fast it comes back level as they walk.
     tiltLimit: TILT_LIMIT,
     levelRate: LEVEL_RATE,
+    // Places to arrive (protocol/01-worlds.md): how many an entry point needs, and the least room between people.
+    entryPlacesLeast: ENTRY_PLACES_LEAST,
+    entryPlacesRooms: ENTRY_PLACES_ROOMS,
+    entryClear: ENTRY_CLEAR,
     doubleTap: DOUBLE_TAP,
     pathMost: PATH_MOST,
     faceRate: FACE_RATE,

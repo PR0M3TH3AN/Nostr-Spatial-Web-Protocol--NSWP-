@@ -20,7 +20,7 @@ void startWorld({
   title: "The Tour",
   purpose: "Five stops that teach looking, moving, doors and the way home. Follow the rings.",
   palette: { ground: 0x070b05, accent: 0xb6f24a, text: "#f1fbdc" },
-  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
+  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] } },
   doors: [
     { to: "gallery", label: "The Gallery", position: [-2, 0, -20.6], rotation: 0 },
     { to: "arcade", label: "The Arcade", position: [2, 0, -20.6], rotation: 0 },

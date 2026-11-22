@@ -269,6 +269,43 @@ works.
 `airlock` is where the world sends visitors who arrived without a return
 address ([NSWP-02](02-doors.md)). `relays` hints where the world's events live.
 
+### Places to arrive
+
+`entry_points` names where a visitor may arrive; a door or link may name
+one ([NSWP-03](03-arrival.md), `entry`), and arriving with none named, or
+one the world doesn't have, a visitor arrives at `main-entrance`. Where
+each is, is the world's own business, in its code, as it always was: the
+manifest only names them.
+
+Each entry point is a set of places, not one spot (the owner: "designated
+spawn locations in each world with a minimum number set so that the game
+can always find a clear area to spawn if someone else is there"):
+
+- At least four places, and eight for a world whose rooms are for meeting
+  people (`rooms` or `multiplayer` among its capabilities), counting the
+  entry point's own spot, which is always the first. Each faces a way,
+  each is where a visitor may stand, and no two are nearer than 1 m.
+- Arriving, a visitor takes the first place nobody is within 1 m of, and
+  never one the world says nobody may stand on. If every place is taken,
+  the one with the most room round it, never on top of someone.
+- What counts as taken is what the visitor's own client can see: the
+  people in the room it has joined. A visitor who hasn't joined sees
+  nobody, and may stand where someone joined stands; they can't see each
+  other, so nothing is wrong. If, once they join, they are within 1 m of
+  someone, their client moves them to the first clear place, once, soon
+  after they join, and never later in their visit. Only the one arriving is
+  moved, never anyone already there; and never while they are stepping or
+  turning. In a headset it is the same instant cut a step is, never a
+  slide.
+- An entry point written as one spot still works: its places are a ring
+  1.3 m round it, filled to the least number. A world's own check warns
+  of it; a set of places given but smaller than the least, or with two
+  places nearer than 1 m, fails it.
+
+The kit does all of this (`entryPlaces`, `pickEntryPlace`,
+`checkEntryPlaces`; presence's `arrival`; `NSWP.entryPlace` for other
+engines, and the children of an `nswp_entry` marker in Godot).
+
 ### Which kit a world was built with
 
 `kit` is the version of the kit the site was built with: three numbers, as
