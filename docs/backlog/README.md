@@ -49,6 +49,7 @@ request that does the work. The page of what is in motion (the board,
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
+| [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | being looked into (options to the owner first) | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
 | [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | NSWP builder | asked |
 | [bridge-test-fails-when-busy](bridge-test-fails-when-busy.md) | A test that fails only when the machine is busy | the orchestrator | merged |
