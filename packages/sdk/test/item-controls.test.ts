@@ -144,3 +144,12 @@ describe("on a touch screen, with something in hand that does something", () => 
     }
   });
 });
+
+describe("the thumb buttons on a site with strict rules", () => {
+  it("are styled by a constructed stylesheet, never an inline <style> a strict content security policy refuses", async () => {
+    const { readFileSync } = (await import(/* @vite-ignore */ ["node", "fs"].join(":"))) as { readFileSync(path: URL, encoding: string): string };
+    const src = readFileSync(new URL("../src/thumb-presses.ts", import.meta.url), "utf8");
+    expect(src).toContain("root.adoptedStyleSheets = [sheet];");
+    expect(src).not.toMatch(/innerHTML\s*=\s*`<style>/);
+  });
+});
