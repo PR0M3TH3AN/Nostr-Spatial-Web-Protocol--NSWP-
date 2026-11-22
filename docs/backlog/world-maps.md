@@ -92,12 +92,29 @@ A map of where you have been is a **location history**. So:
   share as a way to find worlds; perhaps "worlds on the most maps".
 - **Protocol:** the shared map's note, with vectors.
 
+## The owner's answers (2026-11-21)
+
+"synced with signin. Places you have been is knowlage you have. And it
+should be only shaired with people you want to access it. Maybe there is a
+toggle on or off, "add places i visit to my graph map". Im not sure. Im
+open to sugestions."
+
+So, as the orchestrator proposes it (to be confirmed when briefed):
+
+- **Kept with the sign-in, sealed:** the map is one note only the owner's
+  key can open (NIP-78, sealed with NIP-44, as BitPortal keeps settings),
+  so it follows them to every device and nobody else can read it.
+- **A switch, "Add places I visit to my map":** on by default, because
+  the map is private; turning it off stops noting new places and keeps
+  what is there. Never noted while off, in a private room, or in a world
+  by invitation unless they say so.
+- **Theirs to tidy:** "Forget this place" on any dot, and "Clear my map".
+- **Shared only with the people they pick:** a shared copy is sealed to
+  each person chosen. Sharing can be stopped, which stops updates; it
+  can't take back what someone already saw, and the screen says so.
+
 ## Open, for the owner
 
-- Private on the device only, or kept encrypted with your sign-in so it
-  follows you to another device? (The second needs BitLogin.)
-- Should a map be shareable as a link anyone can open, or only to people
-  you choose?
 - Does visiting count as an achievement from the start (kept on the
   device), or only once achievements follow the sign-in?
 
