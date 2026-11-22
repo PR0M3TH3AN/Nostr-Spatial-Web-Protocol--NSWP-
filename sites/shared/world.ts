@@ -182,6 +182,8 @@ type TestHooks = {
   play?: () => unknown;
   itemUse?: () => void;
   itemSecond?: () => void;
+  /** Take an item in hand by its coordinate, as Hold in the bag does (`presence.setHolding`); "" puts it away. */
+  hold?: (item: string) => Promise<{ ok: boolean; said: string }>;
   sight?: (on: boolean) => void;
   /** How what they hold is swaying just now, across and up (presence.heldBob). */
   heldBob?: () => [number, number];
@@ -1023,6 +1025,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.play = () => presence.play?.info() ?? null;
   hooks.itemUse = () => presence.play?.use();
   hooks.itemSecond = () => presence.play?.second();
+  hooks.hold = (item) => presence.setHolding(item);
   if (achievements) {
     const achieving = addAchievementControls(controls, { achievements, signedIn: signedInHere });
     if (signerNamed()) worldSigner().onChange(() => achieving.refresh());

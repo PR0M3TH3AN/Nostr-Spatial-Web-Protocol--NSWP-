@@ -26,6 +26,7 @@ import { loadPicture } from "../picture.js";
 import { ago } from "./feed.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./model.js";
 import { createHoldWatch, SUMMON_KEY } from "./summon.js";
+import { escapeDoes, escapeHeld, fullscreenButton, leaveFullscreen, onBrowserLeftFullscreen } from "./fullscreen.js";
 import { rgb } from "./theme.js";
 
 export interface Hud {
@@ -88,6 +89,12 @@ svg { width: 1.55em; height: 1.55em; fill: none; stroke: currentColor; stroke-wi
 .menu { position: absolute; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
   pointer-events: auto; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 10px; border-radius: 12px; }
 .menu:hover, .menu[aria-expanded="true"] { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+/* Fill the screen: small, top centre, on a desk while it isn't filled. */
+.full { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%; translate: -50% 0; pointer-events: auto;
+  display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px; border-radius: 10px; font-size: .9em; }
+.full svg { width: 16px; height: 16px; }
+.full:hover, .full:focus-visible { border-color: rgb(var(--accent)); color: rgb(var(--accent)); }
+.full[hidden] { display: none; }
 kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-align: center; border-radius: 5px;
   border: 1px solid rgba(var(--ink), .3); color: rgba(var(--ink), .75); }
 
@@ -408,6 +415,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const asLead = el("small");
   const asName = el("b");
   const asWho = el("div", { class: "as glass", role: "status" }, asFace, el("span", { class: "who" }, asLead, asName));
+  // A small way to fill the screen, top centre, on a desk while the screen isn't filled (the owner's ask, 2026-11-21).
+  const full = el("button", { class: "full glass", type: "button", hidden: "" }, icon("full"), el("span", {}, fullscreenButton.label));
   const tabs = el("div", { class: "tabs", role: "tablist" });
   // The sections may not all fit. Nothing said so: the strip scrolled sideways with no bar and no sign of it.
   const tabsBack = el("button", { class: "more left", type: "button", "aria-label": "Earlier sections", hidden: "" }, "‹");
@@ -464,7 +473,7 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
   const chatSend = el("button", { type: "submit" }, "Send");
   const chatForm = el("form", {}, chatField, chatSend);
   const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, says, chat, sheet, el("div", { class: "low" }, target, hotbar));
+  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, target, hotbar));
   (opts.parent ?? document.body).append(host);
 
   let open = false;
@@ -816,6 +825,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     title.textContent = view.title;
     address.textContent = view.address;
     sayWho(view.sections.find((section) => section.id === "you")?.card ?? null);
+    // The way to fill the screen, where there is one and it isn't filled: out of the way while who they are is said there.
+    full.hidden = !fullscreenButton.shown() || view.presence === "hidden" || asWho.classList.contains("shown");
     const shown = [view.target, ...view.detail].join("\n");
     if (target.dataset.shown !== shown) {
       target.dataset.shown = shown;
@@ -1040,8 +1051,16 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
     const at = e.composedPath()[0] as HTMLElement | undefined;
     if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-    // Escape closes an open menu whatever the world has done with the other keys: a way out of our own sheet is ours to keep.
-    if (e.key === "Escape" && open) return setOpen(false);
+    // Escape: in fullscreen, where the page holds the key, the first opens the menu and the next leaves fullscreen
+    // (ui/fullscreen.ts, `escapeDoes`). Otherwise it closes an open menu whatever the world has done with the other
+    // keys: a way out of our own sheet is ours to keep.
+    if (e.key === "Escape") {
+      const does = escapeDoes({ menuOpen: open, held: escapeHeld() });
+      if (does !== "nothing") e.preventDefault();
+      if (does === "close-menu") return setOpen(false);
+      if (does === "open-menu") return setOpen(true);
+      if (does === "leave-fullscreen") return void leaveFullscreen();
+    }
     const view = controls.view();
     if (view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
     // Enter, or the chat key, opens the chat to write in. Enter on a button is that button's, and is left alone.
@@ -1057,6 +1076,16 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
     if (pin) openPin(pin.id);
   };
   addEventListener("keydown", onKey);
+  full.addEventListener("click", () => {
+    void fullscreenButton.press(controls).then(draw);
+  });
+  // Where a browser won't hand the page Escape, its own Escape takes the screen back: the menu comes up then, as the
+  // first Escape does where it is the page's.
+  const stopLeft = onBrowserLeftFullscreen(() => {
+    if (!open && !host.hidden) setOpen(true);
+    draw();
+  });
+  document.addEventListener("fullscreenchange", draw);
 
   // Left and right go along the menu's tabs while it is up, wherever the keys are: unless they are somewhere with
   // a use of its own for them (a box being typed in, a slider). Home and End go to the first and the last. Heard
@@ -1177,6 +1206,8 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       stopAsking();
       stopSay();
       removeEventListener("keydown", onKey);
+      stopLeft();
+      document.removeEventListener("fullscreenchange", draw);
       removeEventListener("keydown", onSummonKey, listening);
       removeEventListener("keydown", onTabKey, true);
       removeEventListener("keyup", swallow, listening);

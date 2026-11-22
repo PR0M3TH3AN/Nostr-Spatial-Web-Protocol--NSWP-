@@ -412,6 +412,11 @@ export function play(cue: string): void {
   if ((CUES as readonly string[]).includes(cue)) sounds?.play(cue as Cue);
 }
 
+/** The visitor jumped: the kit's own sound for it, as in every world (two footsteps back to back, a little louder). */
+export function jumped(): void {
+  sounds?.jumped();
+}
+
 /** Say how far the visitor was moved this frame, in metres, by what moves them: their steps are heard. */
 export function moved(metres: number): void {
   if (typeof metres === "number" && Number.isFinite(metres) && metres > 0) sounds?.moved(metres);

@@ -251,6 +251,13 @@ export function createFps(o: FpsOptions): Fps {
   const onKey = (e: KeyboardEvent) => {
     if (!active() || typing(e)) return;
     if (e.code === "Escape") {
+      // The menu took this press already (it is mounted first, and says so with preventDefault): in fullscreen
+      // with the key held, the first press opened it and the next leaves fullscreen. Opening it again here would
+      // make one press both, so all that is left is to give the pointer back.
+      if (e.defaultPrevented) {
+        if (looking()) letGo();
+        return;
+      }
       // Where a browser gives the page Escape (in fullscreen, with the key held for it), it is the menu here too.
       if (looking()) {
         letGo();
@@ -277,20 +284,11 @@ export function createFps(o: FpsOptions): Fps {
   const onBlur = () => {
     for (const k of Object.keys(held) as (keyof Held)[]) held[k] = false;
   };
-  // In fullscreen a browser may hand the page Escape instead of leaving: then one press is the menu, and holding it leaves.
-  const onFullscreen = () => {
-    const keyboard = (navigator as Navigator & { keyboard?: { lock?(keys: string[]): Promise<void>; unlock?(): void } }).keyboard;
-    try {
-      if (document.fullscreenElement && active()) void keyboard?.lock?.(["Escape"])?.catch?.(() => {});
-      else keyboard?.unlock?.();
-    } catch {
-      /* not offered here */
-    }
-  };
+  // Holding Escape in fullscreen is the kit's for every visitor now, casual or intense (ui/fullscreen.ts,
+  // `watchEscape`): the first press is the menu, the next leaves. Nothing here locks or unlocks the key.
   o.dom.addEventListener("mousedown", onDown);
   document.addEventListener("mousemove", onMove);
   document.addEventListener("pointerlockchange", onLock);
-  document.addEventListener("fullscreenchange", onFullscreen);
   addEventListener("keydown", onKey);
   addEventListener("keyup", onKeyUp);
   addEventListener("blur", onBlur);
@@ -321,7 +319,6 @@ export function createFps(o: FpsOptions): Fps {
       dot.style.display = "none";
       o.dom.style.cursor = "";
     }
-    onFullscreen();
   };
 
   o.controls.add({
@@ -416,7 +413,6 @@ export function createFps(o: FpsOptions): Fps {
       o.dom.removeEventListener("mousedown", onDown);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("pointerlockchange", onLock);
-      document.removeEventListener("fullscreenchange", onFullscreen);
       removeEventListener("keydown", onKey);
       removeEventListener("keyup", onKeyUp);
       removeEventListener("blur", onBlur);

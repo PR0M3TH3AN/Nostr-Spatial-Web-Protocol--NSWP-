@@ -3,6 +3,7 @@
  * same in every world, whatever draws it.
  */
 import { askClientForScreen, clientHoldsScreen, clientScreenFilled, framed, meetClient, onClientScreen } from "../client-frame.js";
+import { currentForm } from "../form.js";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import type { Controls, UiAction } from "./model.js";
 
@@ -109,6 +110,8 @@ export const fullscreenWaiting = (): boolean => waiting && canFill() && !isFille
 
 export function fullscreenAction(controls: Controls, presenting: () => boolean): UiAction {
   resumeFullscreen(presenting);
+  presentingNow = presenting;
+  watchEscape();
   // Still waiting once there is somewhere to say so: tell them the one thing that will do it.
   setTimeout(() => {
     if (waiting && !held && !presenting() && canFill() && !isFilled()) controls.say("Press any key, or click, to fill the screen again.");
@@ -118,7 +121,7 @@ export function fullscreenAction(controls: Controls, presenting: () => boolean):
   return {
     id: "fullscreen",
     section: "view",
-    icon: "size",
+    icon: "full",
     on: () => prefers,
     // Not every browser lets a page fill the screen (a phone's often won't), and a headset already does.
     hidden: () => !canFill() || presenting(),
@@ -139,7 +142,7 @@ export function fullscreenAction(controls: Controls, presenting: () => boolean):
         if (fill) {
           await document.documentElement.requestFullscreen();
           keepFull(true);
-        } else await document.exitFullscreen();
+        } else await leaveFullscreen();
       } catch {
         controls.say("This browser wouldn't go fullscreen.");
       }
@@ -147,3 +150,116 @@ export function fullscreenAction(controls: Controls, presenting: () => boolean):
     },
   };
 }
+
+// ------------------------------------------------------------------ Escape, and the button at the top
+// The owner, 2026-11-21: "when the player is not in full screen mode, there should be a little fullscreen button
+// somewhere. Like at the top center or something. And then when i am in fullscreen mode. Escape once should not exit
+// full screen. It should pull up the menu. Escape again from the menu should exit full screen."
+//
+// A browser lets Escape leave fullscreen whatever a page wants, with one exception: where the Keyboard Lock API is
+// offered (Chromium: Chrome, Brave, Edge), a page in fullscreen may hold Escape, and then the browser leaves only
+// on a long hold of it. There, the first Escape opens the menu and the next, with the menu open, leaves. Elsewhere
+// (Firefox, Safari) the first Escape leaves fullscreen, as the browser insists, and the menu comes up as it does.
+
+type KeyboardLock = { lock?(keys: string[]): Promise<void>; unlock?(): void };
+const keyboard = (): KeyboardLock | undefined => (typeof navigator === "undefined" ? undefined : (navigator as Navigator & { keyboard?: KeyboardLock }).keyboard);
+/** Whether this page holds Escape now: it is in fullscreen and the browser let it lock the key. */
+let holding = false;
+/** The page itself is leaving fullscreen (the second Escape, or the control): that isn't the browser taking it. */
+let leaving = false;
+let watching = false;
+const leftByBrowser = new Set<() => void>();
+/** Be told when the browser itself took the visitor out of fullscreen (its own Escape): the menu comes up then. */
+export function onBrowserLeftFullscreen(fn: () => void): () => void {
+  leftByBrowser.add(fn);
+  return () => void leftByBrowser.delete(fn);
+}
+
+/**
+ * Hold Escape whenever this page fills the screen, where the browser lets it; and say when the browser took the
+ * screen back by itself. Called once, by the control; idempotent.
+ */
+export function watchEscape(): void {
+  if (watching || typeof document === "undefined") return;
+  watching = true;
+  let wasFilled = !!document.fullscreenElement;
+  const onChange = () => {
+    const filled = !!document.fullscreenElement;
+    if (filled) {
+      holding = false;
+      try {
+        const asked = keyboard()?.lock?.(["Escape"]);
+        if (asked) void asked.then(() => (holding = !!document.fullscreenElement), () => (holding = false));
+      } catch {
+        /* not offered here */
+      }
+    } else {
+      holding = false;
+      try {
+        keyboard()?.unlock?.();
+      } catch {
+        /* nothing held */
+      }
+      if (wasFilled && !leaving) for (const fn of [...leftByBrowser]) fn();
+      leaving = false;
+    }
+    wasFilled = filled;
+  };
+  document.addEventListener("fullscreenchange", onChange);
+}
+
+/** Whether Escape is this page's just now: in fullscreen, with the key held by it. */
+export const escapeHeld = (): boolean => holding && typeof document !== "undefined" && !!document.fullscreenElement;
+
+/**
+ * What Escape does, given how things stand. One rule, asked by the menu and by the intense way of moving, so the
+ * two never answer the same press differently.
+ *
+ * - The menu open, in fullscreen with Escape held: leave fullscreen (the menu stays open).
+ * - The menu open otherwise: close it.
+ * - The menu closed, in fullscreen with Escape held: open it.
+ * - The menu closed otherwise: nothing here (moving the intense way, the pointer coming back opens it).
+ */
+export function escapeDoes(state: { menuOpen: boolean; held: boolean }): "leave-fullscreen" | "close-menu" | "open-menu" | "nothing" {
+  if (state.menuOpen) return state.held ? "leave-fullscreen" : "close-menu";
+  return state.held ? "open-menu" : "nothing";
+}
+
+/** Leave fullscreen from the page's own doing: not taken for the browser's. */
+export async function leaveFullscreen(): Promise<void> {
+  if (typeof document === "undefined" || !document.fullscreenElement) return;
+  leaving = true;
+  try {
+    await document.exitFullscreen();
+  } catch {
+    leaving = false;
+  }
+}
+
+let presentingNow: () => boolean = () => false;
+/**
+ * The small "Full screen" button at the top centre: shown on a desk, where this page may fill the screen and
+ * doesn't yet, never in a headset session, and never on a touch screen (a phone that offers fullscreen at all keeps
+ * it in the menu). Pressing it fills the screen, as the menu's control does, and keeps that as what they prefer.
+ */
+export const fullscreenButton = {
+  shown(): boolean {
+    if (typeof document === "undefined" || presentingNow()) return false;
+    return canFill() && !isFilled() && currentForm() === "desk";
+  },
+  label: "Full screen",
+  async press(controls?: Controls): Promise<void> {
+    if (clientHoldsScreen()) {
+      keepFull(true);
+      askClientForScreen(true);
+      return;
+    }
+    try {
+      await document.documentElement.requestFullscreen();
+      keepFull(true);
+    } catch {
+      controls?.say("This browser wouldn't go fullscreen.");
+    }
+  },
+};
+

@@ -506,6 +506,13 @@ func play(cue: String) -> void:
 		_js.play(cue)
 
 
+## The visitor jumped: the kit's own sound for it, as in every world (two footsteps back to
+## back, a little louder than a step). `NswpVisitor` calls it; a visitor of your own should too.
+func jumped() -> void:
+	if _js != null:
+		_js.jumped()
+
+
 ## Say how far the visitor was moved this frame, in metres, by what moves them (keys, a tap, a
 ## stick: not how their head swayed). Their steps are heard. `NswpVisitor` does this.
 func moved(metres: float) -> void:

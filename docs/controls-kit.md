@@ -395,6 +395,17 @@ They are what the visitor chose, not how things stand: `prefersFullscreen()`
 stays true after Escape, and the next world fills the screen again. Never
 report `full` from `document.fullscreenElement`.
 
+On a desk, while the screen isn't filled, the HUD shows a small "Full
+screen" button at the top centre (`fullscreenButton`): never on a touch
+screen or in a headset, and gone once the screen is filled. Keep the top
+centre of your own interface clear for it. In fullscreen the kit holds
+Escape where the browser lets a page (Chromium's Keyboard Lock): the first
+Escape brings up the menu, and Escape again with the menu open leaves
+fullscreen (`escapeDoes` is the one rule; don't answer Escape yourself as
+well). Firefox and Safari don't let a page hold it, so there the first
+Escape leaves fullscreen and the menu comes up then. A long hold of Escape
+always leaves, whatever the page does.
+
 A visitor can keep a tab of the menu on their bar: each tab has "Keep this
 tab on your bar" beside Close, and a pinned tab stands after your own keys
 and brings the menu up on it. Four at most. It is theirs: `controls.pins`
