@@ -7,7 +7,7 @@
   in BitPortal's room, not just be held there?", they answered with the
   second message; the orchestrator read it as yes and said so.
 - **Who:** BitPortal.
-- **State:** building
+- **State:** merged (BitPortal pull requests 174 and 176, its main at 249a3b5). Not live. Two visitors were tried in the room: one fired, both darts stuck, the other saw them.
 
 The room drew what a visitor holds but ran none of an item's own logic: that
 runs only in the kit's locked box, a page the room was not allowed to frame.
