@@ -18,6 +18,7 @@ import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/l
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
 import { accessFor } from "../packages/core/src/manifest.js";
+import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
   buildAvatarEvent,
   buildEntryAssertion,
@@ -660,6 +661,31 @@ const avatarVectors = ["00000000000000000000000000000000000000000000000000000000
 });
 expectEqual("avatar/copied keeps the copier's mark", avatarVectors[0]!.expect.look.mark, markFor(avatarVectors[0]!.pubkey));
 expectEqual("avatar/chosen parts survive", [avatarVectors[0]!.expect.look.head, avatarVectors[0]!.expect.look.accessory], ["wedge", "halo"]);
+// The model tier: what a look note's `model` names, and how tall it is drawn, within the kit's limits and a world's.
+const LOOK_SHA = "c".repeat(64);
+const modelNote = (tags: string[][]) => ({ kind: 37301, tags: [["d", "default"], ...tags] });
+const lookModelVectors = [
+  { name: "vrm_with_height_and_picture", note: modelNote([["model", "https://files.example/look.vrm", "vrm", LOOK_SHA], ["height", "1.92"], ["thumb", "https://files.example/look.webp", LOOK_SHA]]) },
+  { name: "glb_too_tall_held_to_the_most", note: modelNote([["model", "https://files.example/look.glb", "glb", LOOK_SHA], ["height", "3.4"]]) },
+  { name: "no_height_is_standard", note: modelNote([["model", "https://files.example/look.vrm", "vrm", LOOK_SHA]]) },
+  { name: "a_thumb_without_a_hash_is_dropped", note: modelNote([["model", "https://files.example/look.vrm", "vrm", LOOK_SHA], ["thumb", "https://files.example/look.webp"]]) },
+  { name: "simple_look_has_no_model", note: modelNote([["simple", "head", "tall"]]) },
+  { name: "plain_http_is_refused", note: modelNote([["model", "http://files.example/look.vrm", "vrm", LOOK_SHA]]) },
+  { name: "unknown_format_is_refused", note: modelNote([["model", "https://files.example/look.fbx", "fbx", LOOK_SHA]]) },
+  { name: "no_hash_is_refused", note: modelNote([["model", "https://files.example/look.vrm", "vrm"]]) },
+].map((v) => ({ ...v, expect: readLookModel(v.note) }));
+expectEqual("look-model/too tall", lookModelVectors[1]!.expect?.height, LOOK_HEIGHT.most);
+expectEqual("look-model/simple", lookModelVectors[4]!.expect, null);
+const lookHeightVectors = [
+  { asked: "1.72", world: null, expect: 0 },
+  { asked: "0.3", world: null, expect: 0 },
+  { asked: "9", world: null, expect: 0 },
+  { asked: "tall", world: null, expect: 0 },
+  { asked: "2.4", world: [1.5, 2], expect: 0 },
+  { asked: "1.1", world: [1.5, 2], expect: 0 },
+  { asked: "2.4", world: [0.1, 9], expect: 0 },
+  { asked: "2.4", world: [3, 4], expect: 0 },
+].map((v) => ({ ...v, expect: lookHeight(v.asked, (v.world ?? undefined) as [number, number] | undefined) }));
 
 // ----------------------------------------------------------------------- lists
 const W1 = `37300:${PK1}:example-museum`;
@@ -963,10 +989,14 @@ const files: Record<string, unknown> = {
   "arrivals.json": { description: "Arrival context: the value of #nswp= (spec §4.4). Hostile fields are dropped with warnings, not fatal.", vectors: arrivalVectors },
   "looks.json": {
     description:
-      "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys.",
+      "Looks (protocol/05-looks.md). `generated`: the look and mark every implementation must work out from a seed; `grid` is the mark as five rows, # lit. `inline`: the short form that travels, with what a reader must make of it. `avatarEvents`: the same tags read under two keys. `budget` and `heightLimits`: what a look's own model is held to. `models`: what a look note's `model` names (`expect` null: no model may be worn). `heights`: how tall a model is drawn, from what was asked and a world's `avatar.height` (null: none given).",
     generated: generatedVectors,
     inline: inlineVectors,
     avatarEvents: avatarVectors,
+    budget: LOOK_BUDGET,
+    heightLimits: LOOK_HEIGHT,
+    models: lookModelVectors,
+    heights: lookHeightVectors,
   },
   "passes.json": {
     description:

@@ -83,7 +83,7 @@ describe("a model file, read before anything draws it", () => {
   });
 
   it("counts a plain box", () => {
-    expect(readGlb(glb(box))).toEqual({ ok: true, count: { triangles: 12, meshes: 1, materials: 1, texture: 0, animations: [], materialNames: ["tint:accent"] } });
+    expect(readGlb(glb(box))).toEqual({ ok: true, count: { triangles: 12, meshes: 1, materials: 1, texture: 0, animations: [], materialNames: ["tint:accent"], joints: 0, morphs: 0 } });
   });
 
   it("refuses a file that would have a reader fetch something from somewhere else", () => {

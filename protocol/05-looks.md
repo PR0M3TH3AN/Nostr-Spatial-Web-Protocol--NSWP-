@@ -1,6 +1,6 @@
 # NSWP-05: Looks
 
-**Status:** Implemented for the generated and simple tiers; the model tier is proposed · **Kinds:** 37301 · **Schema:** [`look`](../schemas/look.schema.json) · **Vectors:** [`looks`](../vectors/looks.json) · **Code:** [`avatar.ts`](../packages/core/src/avatar.ts), SDK [`figure.ts`](../packages/sdk/src/figure.ts)
+**Status:** Implemented for the generated and simple tiers; the model tier is written, and its reader built (drawing it is being built) · **Kinds:** 37301 · **Schema:** [`look`](../schemas/look.schema.json) · **Vectors:** [`looks`](../vectors/looks.json) · **Code:** [`avatar.ts`](../packages/core/src/avatar.ts), SDK [`figure.ts`](../packages/sdk/src/figure.ts)
 
 A look is how a person appears to others in a room. It is a few choices from
 short closed lists and three colours. It is data, never a file: nothing is
@@ -137,6 +137,75 @@ menu: the same controls on a phone, at a desk and on a headset's wrist, with
 their own figure standing in the room to show them. Each part steps through
 the protocol's list for it.
 
+## A model of your own
+
+A signed-in person may wear a 3D file of their own in place of their simple
+look: a VRM, or a plain GLB. It is said in their avatar event, with tags
+beside the simple ones:
+
+| Tag | Meaning |
+|---|---|
+| `["model", url, format, sha256]` | The file. `format` is `vrm` or `glb`. The url is a hint: the hash is the file |
+| `["height", metres]` | How tall they want to be drawn, held within the limits below |
+| `["thumb", url, sha256]` | A picture of it, for panels and cards. Optional; checked by its hash like the file |
+| `["simple", part, value]` | As always: the simple look, which is what is drawn whenever the model isn't |
+
+```json
+{ "kind": 37301, "tags": [["d", "default"], ["model", "https://files.example/<sha256>.vrm", "vrm", "<sha256>"], ["height", "1.92"], ["simple", "head", "tall"], ["alt", "Avatar preference"]], "content": "" }
+```
+
+An event without `model` is a simple look. One whose model is plain `http`,
+has no real hash, or is of another format names no model. In code:
+`readLookModel(note)`.
+
+- **Only a person a world can tie to a key wears one.** A guest has no event
+  to name it by, and is drawn generated or simple, as always.
+- **It is fetched as an item's files are:** by its hash, only from the file
+  hosts on each viewer's own list ([NSWP-17](17-items.md), "Where a file is
+  fetched from"). One kept anywhere else is not fetched unless the viewer
+  turned on loading files from anywhere: its wearer is drawn as their simple
+  look.
+- **It is read and counted before anything draws it,** by the same reader as
+  an item's model, against a lower budget, since a room holds several people
+  at once (`LOOK_BUDGET`): 1,000,000 bytes, 12,000 triangles, 24 meshes, 8
+  materials, pictures at most 1024 px, 128 joints, 64 morph targets on any
+  one mesh. A file that names anything outside itself is refused. It may say
+  it requires VRM's own extensions (`VRMC_vrm`, `VRMC_materials_mtoon`) or
+  `KHR_materials_unlit`, and nothing else. A world may lower the budget in
+  its manifest (`avatar.max_file_size_mb`, `avatar.max_triangles`), never
+  raise it. A model that fails any of this is not drawn: its wearer is
+  drawn as their simple look.
+- **Nothing in a look runs, ever.** Spring bones (hair and cloth that swing,
+  `VRMC_springBone`) are ignored in this first round.
+- **Height** is from 0.85 m to 2.55 m (`LOOK_HEIGHT`), 1.7 m standard. A
+  world may narrow it (`avatar.height: [least, most]` in its manifest); a
+  height outside is drawn at the nearest limit (`lookHeight`). Height
+  changes the drawing only: where the eyes are, reach, walking, personal
+  space and the places to arrive are the same for everyone.
+- **The mark stays.** The renderer draws the wearer's mark above every
+  model. No file can hide it or replace it.
+- **A VRM moves everywhere:** its standard skeleton is walked, turned and
+  pointed by the renderer. A GLB with no skeleton floats along as a whole.
+- **At most `LOOK_MODELS_AT_ONCE` (8) are drawn,** the nearest first; the
+  rest are drawn as their simple looks.
+- **Each viewer decides,** for everyone and for each person, as with
+  pictures.
+
+**The world's word,** in its manifest's `avatar`:
+
+| `avatar` | The world draws |
+|---|---|
+| `formats` includes `vrm` and/or `glb` | People's own models of those formats, within its budget |
+| `formats` left out, or neither | Everyone's simple look |
+| `dress: "own"` | None of anyone's look: the world dresses everyone itself ("Recast" or "Uniform" below), keeping the mark recognisable |
+
+The door says which, before anyone crosses.
+
+**The cost** is the same as a chosen look's, and greater: a model makes its
+wearer recognisable in every world that draws it. A client says so plainly
+the first time someone publishes a look. Going plain for a trip (see "How a
+look reaches a world") also leaves the model behind.
+
 ## What a world may change
 
 | Level | What the world does | What survives |
@@ -152,7 +221,9 @@ everywhere and that someone else can't copy.
 
 ## Proposed, not built
 
-The model tier (a 3D file, VRM or GLB, named by hash). Publishing an avatar
-event from a client: the reference editor keeps looks on the device only. The
+Drawing the model tier (above): the reader, its budget and its limits are
+built (`look-model.ts`, `readGlb`), and drawing it in the kit, the engines and
+the reference client is being built (`docs/plans/own-models.md`). Publishing
+an avatar event from a client: the reference editor keeps looks on the device only. The
 lists themselves are a first proposal (Q25). Background and reasoning:
 [`spec.md`](../spec.md) §4.2.

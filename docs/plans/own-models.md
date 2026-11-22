@@ -87,8 +87,8 @@ simple, as now. That also keeps a model from following a guest across worlds.
 
 ### 2.3 Size and safety: a model is untrusted content
 
-- **Nothing runs.** A look carries no script, ever (the backlog's proposal;
-  see 6, open for the owner). Nothing in a model can reach the network, the
+- **Nothing runs.** A look carries no script, ever (decided by the owner,
+  6.3). Nothing in a model can reach the network, the
   page, or another file.
 - **Checked before drawn, every time:** the bytes hash to the note's sha256;
   `readGlb` reads them as bytes only (no engine loader sees an unchecked
@@ -185,7 +185,7 @@ list: their sign-in address's file hosts, then `FILE_HOSTS`),
 ### 2.4 Height, within limits that change nothing else
 
 - `LOOK_HEIGHT`: least 0.85 m, standard 1.7 m, most 2.55 m (half to one and a
-  half times standard, the backlog's proposal, open for the owner in 6).
+  half times standard; decided by the owner, 6.1).
 - A world may narrow it in its manifest: `avatar.height: [least, most]`
   (new field). Outside it, the nearest limit is used.
 - Height scales only the drawing. Where the eyes are (and so how a door, a
@@ -323,20 +323,20 @@ BitPortal:
 - Let a guest wear a model, or let a model follow anyone into a world that
   says no.
 
-## 6. Open, for the owner
+## 6. Decided
 
-1. **Height limits:** half to one and a half times standard (0.85 m to
-   2.55 m), a world able to narrow them?
-2. **Formats:** VRM and GLB both, with VRM shown as "moves everywhere" and a
-   skeleton-less GLB as "floats"? (Proposal: both.)
-3. **Scripts in looks:** never? (Proposal: never; looks that do things would
-   be a separate decision.)
-4. **Publishing a look** for the first time (a model makes a person
-   recognisable everywhere it is drawn): is the screen's plain warning
-   enough, or should it also be per world, as "go as yourself, or go plain"
-   is per trip?
-5. **Spring bones** (hair and cloth that swing): leave out in the first round
-   as proposed, or wanted from the start?
+The owner, 2026-11-22, "Yes to all five", meaning the orchestrator's
+recommendations (relayed by the orchestrator):
+
+1. **Height limits:** 0.85 m to 2.55 m (half to one and a half times
+   standard), and a world may narrow them (`avatar.height`).
+2. **Formats:** VRM and plain GLB both. A VRM is shown as "moves
+   everywhere"; a GLB with no skeleton as "floats".
+3. **Scripts in looks:** never.
+4. **Publishing a look:** a plain warning the first time someone publishes
+   a look. The per-trip "go as yourself, or go plain" also hides the model
+   when going plain. No new per-world screen.
+5. **Spring bones:** not in the first round.
 
 6. **Where files are fetched from** (2.3a). **Decided** by the orchestrator,
    2026-11-22, as proposed, for looks and items alike: by hash only from

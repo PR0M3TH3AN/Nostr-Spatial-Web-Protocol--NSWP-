@@ -32,6 +32,7 @@ export * from "./play.js";
 export * from "./item-box.js";
 export * from "./stamp.js";
 export * from "./glb.js";
+export * from "./look-model.js";
 export * from "./people.js";
 export * from "./message.js";
 export * from "./layout.js";

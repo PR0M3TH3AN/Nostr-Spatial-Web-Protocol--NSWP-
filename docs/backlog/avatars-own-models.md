@@ -9,7 +9,7 @@
   Thats two different things there."
 - **Who:** not briefed. The kit and the protocol (NSWP-05); BitPortal for
   the screen where a look is made and chosen.
-- **State:** briefed (the BitPortal session; the written design is `docs/plans/own-models.md`, waiting on the orchestrator and the owner's answers; nothing built)
+- **State:** building (the core reader first: `look-model.ts`; then the kit drawing it, the engines, and BitPortal, each its own pull request)
 
 ## What exists today
 
