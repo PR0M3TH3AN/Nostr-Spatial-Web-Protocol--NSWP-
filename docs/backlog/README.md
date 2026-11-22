@@ -33,9 +33,10 @@ it takes the next item here that fits its project. The owner can reorder
 it at any time; nothing in it is a decision about what an item does.
 
 1. `room-computers-sign-in-words` (BitPortal): merged 2026-11-22.
-2. `spawn-points` (kit, BitPortal session): building.
+2. `spawn-points` (kit, BitPortal session): merged 2026-11-22 (kit 0.81.0, template 129, BitPortal 194); not live.
 3. `game-worlds-kit-gaps`: the presence source (after COMBATRIG's report),
-   then the seated or vehicle mode.
+   then the seated or vehicle mode (design merged 2026-11-22,
+   `docs/plans/seated-mode.md`; the NSWP builder is building the fade first).
 4. `rooms-start-or-join`: rooms you can see and join, with counts and a
    default.
 5. `avatars-own-models`: your own model as your look.
@@ -66,8 +67,8 @@ urgent (a live fault), it goes first.
 | [hidden-items-easter-eggs](hidden-items-easter-eggs.md) | Hidden items to find across worlds, with proof of who found one | not briefed (the owner asked to think about it) | asked |
 | [rooms-start-or-join](rooms-start-or-join.md) | Start a room or join one; open rooms listed with how full they are; join the best one by default; public, invite only or private; up to large servers | not briefed | asked |
 | [shared-physics](shared-physics.md) | Physics that everyone in a room sees the same, and what happens when the one in charge leaves | not briefed (the owner asked to talk it through) | asked |
-| [spawn-points](spawn-points.md) | Enough places to arrive at that nobody arrives inside someone | not briefed | asked |
-| [room-computers-sign-in-words](room-computers-sign-in-words.md) | The room's computers still say "Sign in on the front page" | BitPortal | asked |
+| [spawn-points](spawn-points.md) | Enough places to arrive at that nobody arrives inside someone | BitPortal | merged (kit 0.81.0, template 129, BitPortal 194); not live |
+| [room-computers-sign-in-words](room-computers-sign-in-words.md) | The room's computers still say "Sign in on the front page" | BitPortal | merged (BitPortal 193; its Sign in button tried in the room); not live |
 | [avatars-own-models](avatars-own-models.md) | Your own model, size and animations as your look, in every world that allows it | not briefed | asked |
 | [world-maps](world-maps.md) | Maps of the connected worlds, made by travelling, private unless shared, drawn as a graph | not briefed | asked |
 | [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | building |
@@ -90,4 +91,4 @@ urgent (a live fault), it goes first.
 | [landing-04-prototype-notice](landing-04-prototype-notice.md) | A notice, once, that this is an early prototype | BitPortal | live (kit 0.73.0 release) |
 | [starter-world-as-a-3d-website](starter-world-as-a-3d-website.md) | The starter world as a walk through every feature | not briefed | asked |
 | [bitgate](bitgate.md) | BitGate deciding who may sell, be paid, and be shown | BitGate | briefed |
-| [private-worlds-by-invitation](private-worlds-by-invitation.md) | A world by invitation: its owner's own list of who may come in, and who may not | NSWP builder (kit); BitGate (the list's shape); BitPortal (client) | building (block list and by-invitation merged, kit 0.77.0; the invite screen and sealed kind left) |
+| [private-worlds-by-invitation](private-worlds-by-invitation.md) | A world by invitation: its owner's own list of who may come in, and who may not | NSWP builder (kit); BitGate (the list's shape); BitPortal (client) | building (block list and by-invitation live since kit 0.78.1; the owner's screen merged, NSWP 319, tried against BitLogin's real signer; the sealed kind and BitPortal hiding doors left) |
