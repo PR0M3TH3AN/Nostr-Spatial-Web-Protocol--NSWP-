@@ -8,6 +8,11 @@
 //   npm run release:all            say what would be deployed, and why not if it can't be. Changes nothing.
 //   npm run release:all -- --go    do it. Deploying is the owner's to approve, each time: run this on their word.
 //
+// It exits 1 whenever nothing was deployed with --go (it refused), whenever a step fails, and whenever a site
+// didn't come up on the kit afterwards; 0 only when all of it went through (or, without --go, when it is ready).
+// Read that from the script itself: piped through `| tail`, a shell gives tail's exit, which is 0. Use
+// `set -o pipefail`, or `${PIPESTATUS[0]}`. (packages/core/test/release-all.test.ts holds it to the first.)
+//
 // Needs the Vercel CLI, logged in, and the three repositories side by side:
 //   ../bitportal   ../nswp-world-template
 import { execFileSync } from "node:child_process";
