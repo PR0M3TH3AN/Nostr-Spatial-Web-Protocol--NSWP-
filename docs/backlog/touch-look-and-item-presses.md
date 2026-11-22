@@ -7,8 +7,7 @@
   enable functions on mobile or casual desktop. please look into that
   carfuly and propose some options before i approve."
 - **Who:** the kit (every world); BitPortal is looking first.
-- **State:** asked (being looked into; options go to the owner before
-  anything is built)
+- **State:** asked (the report is in; options are with the owner)
 
 ## What the kit does today (the orchestrator's reading of the code; being checked by trying it)
 
@@ -19,6 +18,31 @@
   first two buttons; a short tap or click on the view is the first press,
   sent where it was pressed (shorter than `TAP_MS`, 320 ms; held longer is
   a walk); R for the second press at a desk; the mouse in intense.
+
+## What the BitPortal session found (2026-11-21; report with pictures: https://claude.ai/artifact/1TixZLiGcDnNwXTtGUm1t3)
+
+**Why the Grove and the room differed:** the live room was an older build
+that never connected a held item: no Fire/Reload on the bar, the item's
+logic not running, a quick tap walking instead of firing, the headset
+trigger doing nothing. All four were fixed by BitPortal pull requests 174
+and 176, which went live with kit 0.78.1 the same night. On main both use
+the same kit code, and the controls behave the same. One small fault
+remains, in the room only: on a phone, tapping a door's tile while holding
+an item both fires and shows the tile's card.
+
+**Today, in both:** no way to look up or down on a phone or at a casual
+desk (a drag turns only sideways); a quick tap fires along the line through
+the tapped spot, so aiming high or low works only within the screen and
+nothing shows where a shot will go; Fire and Reload are the bar's first two
+buttons (54 by 72 pixels), on the left thumb's side; every quick tap while
+holding fires, so a tap meant to walk shoots.
+
+**Options:** (A) drag tilts the view too, items unchanged; (B, its
+recommendation) drag looks all ways, and on a phone while something that
+fires is held a sight in the middle with a big Fire and a smaller Reload by
+the right thumb, taps walking as with nothing held; at a desk a quick click
+fires where clicked, R reloads; (C) an Aim button that switches into a mode
+where drag looks and any tap fires. The owner chooses.
 
 ## Done looks like
 
