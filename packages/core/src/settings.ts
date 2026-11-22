@@ -52,6 +52,8 @@ export interface TravelSettings {
   hand?: "left" | "right";
   /** Whether the view narrows while they move smoothly in a headset. */
   narrow?: boolean;
+  /** Whether the view fades to black and back when the kit jumps them in a headset: a step, being stepped aside. */
+  fade?: boolean;
   /** They prefer the world filling their screen: it is filled at their first press in each world. */
   full?: boolean;
   /** They prefer the intense way of moving at a desk: the mouse looks round and keys walk. */
@@ -135,6 +137,7 @@ export function cleanSettings(input: unknown): TravelSettings {
   if (s.turn === 30 || s.turn === 45 || s.turn === 90) out.turn = s.turn;
   if (s.hand === "left" || s.hand === "right") out.hand = s.hand;
   if (typeof s.narrow === "boolean") out.narrow = s.narrow;
+  if (typeof s.fade === "boolean") out.fade = s.fade;
   if (typeof s.full === "boolean") out.full = s.full;
   if (typeof s.intense === "boolean") out.intense = s.intense;
   if (s.headset === "casual" || s.headset === "intense") out.headset = s.headset;

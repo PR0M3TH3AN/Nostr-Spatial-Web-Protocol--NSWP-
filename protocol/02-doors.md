@@ -271,7 +271,7 @@ The menu calls them the same thing wherever the visitor is:
 | | Casual | Intense |
 |---|---|---|
 | At a desk | Click where you want to stand, drag to look round | The mouse looks, keys walk and run, a key uses what is in front of you |
-| In a headset | Point at the floor to step there, turn a notch at a time, the view narrowed while moving | One stick walks and the other turns, smoothly, with the whole view |
+| In a headset | Point at the floor to step there, turn a notch at a time, the view narrowed while moving, and fading to black and back when the client jumps them | One stick walks and the other turns, smoothly, with the whole view; a jump is an instant cut |
 
 Casual is what a visitor gets. Having chosen intense, nobody wants to choose
 it again at every door.

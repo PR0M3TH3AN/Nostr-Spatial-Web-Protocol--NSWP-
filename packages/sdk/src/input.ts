@@ -96,6 +96,10 @@ export interface XrInputInfo {
   holding: (string | null)[];
   /** How much of the view's edge is darkened, 0 to 1. */
   narrow: number;
+  /** How dark the whole view is just now, 0 to 1: above 0 only while the kit fades a jump. */
+  dark: number;
+  /** How dark the view was as each of the last few jumps was made: 1 for a faded one, 0 for a cut. For tests. */
+  jumped: number[];
   /** Buzzes sent so far, for tests: nothing else can see one. */
   pulses: number;
 }
@@ -108,6 +112,12 @@ export interface XrInput {
   setComfort(patch: Partial<Comfort>, keep?: boolean): void;
   /** Call once per frame with the seconds since the last one. */
   update(dt: number): void;
+  /**
+   * Make a jump: `fn` moves the visitor at once (a step, a respawn, a teleporter). In a headset, for someone whose
+   * `fade` setting is on (casual's default), the view fades to black, `fn` runs while it is dark, and the view comes
+   * back: nothing is seen to move. Otherwise `fn` runs now, an instant cut, as intense keeps.
+   */
+  jump(fn: () => void): void;
   /** Make something a visitor can pick up. Returns a function that takes that back. */
   grabbable(object: THREE.Object3D, opts?: GrabOptions): () => void;
   /** True while a pinch in this slot is holding something: its `select` picked that up, and is not a press. */
@@ -171,9 +181,9 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   // moving the intense way where they came from. Until then nothing is said about it to the next place, and the
   // first time they are in a headset here they are asked (the owner, 2026-11-21).
   let answered = came.headset !== undefined || hasComfort() || opts.arrivedIntense === true;
-  let comfort: Comfort = { ...loadComfort(), ...(came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}) };
-  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined || came.headset !== undefined) saveComfort(comfort);
-  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }));
+  let comfort: Comfort = { ...loadComfort(), ...(came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}), ...(came.fade !== undefined ? { fade: came.fade } : {}) };
+  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined || came.fade !== undefined || came.headset !== undefined) saveComfort(comfort);
+  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, fade: comfort.fade, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }));
   const loco = new Locomotion();
   /** What to undo when this is put away. */
   const stops: (() => void)[] = [];
@@ -241,6 +251,50 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   unpointable(vignette);
   camera.add(vignette);
   let narrow = 0;
+
+  // A jump the kit makes, for someone whose `fade` is on: the whole view goes dark, the jump is made while it is,
+  // and the view comes back. About a tenth of a second each way: long enough that nothing is seen to move, short
+  // enough not to feel like waiting (docs/plans/seated-mode.md, 3.4).
+  const FADE_S = 0.12;
+  const sheet = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 4),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
+  );
+  sheet.position.z = -0.3;
+  sheet.renderOrder = 1000;
+  sheet.frustumCulled = false;
+  sheet.visible = false;
+  unpointable(sheet);
+  camera.add(sheet);
+  let dark = 0;
+  let fading: "out" | "in" | null = null;
+  const jumps: (() => void)[] = [];
+  const jumped: number[] = [];
+  const made = (fn: () => void): void => {
+    jumped.push(Math.round(dark * 100) / 100);
+    if (jumped.length > 8) jumped.shift();
+    fn();
+  };
+  const jump = (fn: () => void): void => {
+    if (!renderer.xr.isPresenting || !comfort.fade) return made(fn);
+    jumps.push(fn);
+    // Coming back in from one already: it goes dark again from where it is, and both are made in the dark.
+    fading = "out";
+  };
+  const tendFade = (dt: number): void => {
+    if (fading === "out") {
+      dark = Math.min(1, dark + dt / FADE_S);
+      if (dark >= 1) {
+        for (const fn of jumps.splice(0)) made(fn);
+        fading = "in";
+      }
+    } else if (fading === "in") {
+      dark = Math.max(0, dark - dt / FADE_S);
+      if (dark <= 0) fading = null;
+    }
+    (sheet.material as THREE.MeshBasicMaterial).opacity = dark;
+    sheet.visible = dark > 0;
+  };
 
   // ------------------------------------------------------------------ buzzes
   let pulses = 0;
@@ -453,6 +507,17 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         short: "Narrow",
         act: () => change({ narrow: !comfort.narrow }),
       },
+      {
+        // A jump the kit makes (a step, being stepped aside) fades to black and back: casual's default, intense's not.
+        id: "move-fade",
+        section: "moving",
+        icon: "look",
+        hidden,
+        on: () => comfort.fade,
+        label: () => (comfort.fade ? "The view fades when you step. Turn that off" : "Fade the view when you step"),
+        short: "Fade",
+        act: () => change({ fade: !comfort.fade }),
+      },
     );
     // The first time they are in a headset here, with no choice said or kept: asked once, in the headset, and
     // remembered. Put away without an answer, it is casual, and not asked again. (The owner, 2026-11-21: "the
@@ -498,6 +563,11 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       aiming = [];
       narrow = 0;
       vignette.visible = false;
+      // Out of the headset: a jump waiting for the dark is made now, and nothing stays dark.
+      for (const fn of jumps.splice(0)) fn();
+      fading = null;
+      dark = 0;
+      sheet.visible = false;
       for (const slot of [...held.keys()]) release(slot);
     } else {
       const pads = read();
@@ -509,7 +579,12 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       // Stepping, what is walked is one step backwards, landing at once: paced like any other step. Walking smoothly
       // is already no faster than a run.
       const stepped = comfort.move === "steps";
-      if ((intent.walk[0] !== 0 || intent.walk[1] !== 0) && (!stepped || !opts.pace || opts.pace.take(Math.hypot(intent.walk[0], intent.walk[1])))) walk(intent.walk[0], intent.walk[1]);
+      if ((intent.walk[0] !== 0 || intent.walk[1] !== 0) && (!stepped || !opts.pace || opts.pace.take(Math.hypot(intent.walk[0], intent.walk[1])))) {
+        // A step back lands at once: a jump, faded for someone who fades. Walking smoothly is never faded.
+        const [x, z] = intent.walk;
+        if (stepped) jump(() => walk(x, z));
+        else walk(x, z);
+      }
       for (const slot of intent.stepFrom) {
         opts.stepFrom?.(slot);
         pulse(slot, 0.35, 20);
@@ -522,6 +597,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       narrow += (intent.narrow - narrow) * Math.min(1, dt * (intent.narrow > narrow ? 12 : 3));
       (vignette.material as THREE.ShaderMaterial).uniforms.uAmount!.value = narrow * 0.85;
       vignette.visible = narrow > 0.01;
+      tendFade(dt);
 
       slots.forEach((s, i) => {
         const kind = kindOf(s);
@@ -562,6 +638,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     },
     setComfort,
     update,
+    jump,
     grabbable(object, o = {}) {
       things.set(object, { object, reach: o.reach ?? 0.1, far: o.far ?? true, pull: o.pull ?? true, release: o.release ?? "stay", ...(o.onGrab ? { onGrab: o.onGrab } : {}), ...(o.onRelease ? { onRelease: o.onRelease } : {}) });
       return () => {
@@ -579,6 +656,8 @@ export function createXrInput(opts: XrInputOptions): XrInput {
         aiming,
         holding: [0, 1].map((i) => held.get(i)?.thing.object.name || (held.has(i) ? "(unnamed)" : null)),
         narrow: Math.round(narrow * 100) / 100,
+        dark: Math.round(dark * 100) / 100,
+        jumped: [...jumped],
         pulses,
       };
     },

@@ -251,7 +251,7 @@
     },
     {
       "name": "with_settings_that_travel",
-      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InNvdW5kIjp7Im9mZiI6ZmFsc2UsImVmZmVjdHMiOjAuNywibXVzaWMiOjAsInZvaWNlcyI6MSwiaHVtIjp0cnVlfSwidGV4dCI6MS4xNSwibW90aW9uIjpmYWxzZSwid3Jpc3QiOiJyaWdodCIsInR1cm4iOjQ1LCJoYW5kIjoicmlnaHQiLCJuYXJyb3ciOnRydWUsImZ1bGwiOnRydWV9fQ",
+      "value": "eyJ2IjoibnN3cC9hcnJpdmFsLzAuMyIsImVudHJ5IjoibWFpbi1lbnRyYW5jZSIsInNldHRpbmdzIjp7InNvdW5kIjp7Im9mZiI6ZmFsc2UsImVmZmVjdHMiOjAuNywibXVzaWMiOjAsInZvaWNlcyI6MSwiaHVtIjp0cnVlfSwidGV4dCI6MS4xNSwibW90aW9uIjpmYWxzZSwid3Jpc3QiOiJyaWdodCIsInR1cm4iOjQ1LCJoYW5kIjoicmlnaHQiLCJuYXJyb3ciOnRydWUsImZhZGUiOmZhbHNlLCJmdWxsIjp0cnVlfX0",
       "expect": {
         "valid": true,
         "decoded": {
@@ -271,6 +271,7 @@
             "turn": 45,
             "hand": "right",
             "narrow": true,
+            "fade": false,
             "full": true
           }
         },

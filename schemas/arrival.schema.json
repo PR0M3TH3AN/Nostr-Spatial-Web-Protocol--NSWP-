@@ -42,6 +42,7 @@
         "turn": { "enum": [30, 45, 90] },
         "hand": { "enum": ["left", "right"] },
         "narrow": { "type": "boolean" },
+        "fade": { "type": "boolean" },
         "full": { "type": "boolean", "description": "They prefer the world filling their screen." },
         "intense": { "type": "boolean", "description": "They prefer the intense way of moving at a desk." },
         "headset": { "enum": ["casual", "intense"], "description": "How they prefer to move in a headset: casual (point to step, turn in notches) or intense (walk and turn smoothly). Both are said." },
