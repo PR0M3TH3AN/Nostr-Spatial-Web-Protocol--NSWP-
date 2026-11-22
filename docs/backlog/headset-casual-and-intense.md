@@ -106,6 +106,14 @@ aside on arrival, a door) should get a short fade to black and back.
 Intense mode keeps the instant cut. This is a kit addition, built with
 this item, not before.
 
+Built on the NSWP builder's branch `fade-jumps`, not merged
+(`docs/plans/seated-mode.md`, 3.4): `Comfort.fade`, the travelling
+`fade`, `xrInput.jump`, and the Moving switch. A headset step, a step back
+with the stick, and stepping aside on arrival all fade for casual and
+cut for intense. A door needs none, since a new page starts the headset
+session again with nothing seen to move. Engine worlds come with the
+plan's section 4.
+
 ## Done looks like
 
 The owner, on the Quest, switches to intense in BitPortal's room, walks

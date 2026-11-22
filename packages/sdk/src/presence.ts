@@ -30,10 +30,11 @@ export interface PresenceOptions {
    * Where the visitor arrived, for stepping them aside if they join and find themselves inside someone (protocol/
    * 01-worlds.md, "Places to arrive"): the places of the entry point they came by (`entryPlaces`), where they may
    * stand, and whether they are stepping or turning now. Asked when they join. Only the one arriving is ever moved,
-   * once, soon after they join, and never while they are stepping or turning; in a headset it is the same instant cut
-   * a step is, never a slide. Left out, they are stepped a little way round their spot as before (`spawnOffset`).
+   * once, soon after they join, and never while they are stepping or turning; in a headset it is the same jump a
+   * step is, never a slide, made through `jump` where it is given (the headset input's, which fades it for someone
+   * whose `fade` is on). Left out, they are stepped a little way round their spot as before (`spawnOffset`).
    */
-  arrival?: () => { places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean } | null;
+  arrival?: () => { places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean; jump?: (fn: () => void) => void } | null;
   /**
    * The world's own rules for its rooms (protocol/10-identity.md, "A world's own lists"), as its gate last read
    * them: the identity keys its owner keeps out, and whether its rooms show only named people. Asked each time a
@@ -452,7 +453,7 @@ export function createPresence(d: PresenceOptions): Presence {
   let micTrack: MediaStreamTrack | null = null;
   let offsetApplied = false;
   /** Their arrival, while it can still be put right: until when, and where they stood when they joined. */
-  let arriving: { until: number; from: THREE.Vector3; places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean } | null = null;
+  let arriving: { until: number; from: THREE.Vector3; places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean; jump?: (fn: () => void) => void } | null = null;
   let clock = 0;
   /** Step an arriving visitor aside if someone is within a person's room of them: once, and only them. */
   const tendArrival = () => {
@@ -468,12 +469,17 @@ export function createPresence(d: PresenceOptions): Presence {
     if (arriving.moving?.()) return;
     const i = pickEntryPlace(arriving.places, others, arriving.canStand);
     const to = arriving.places[i];
+    const jump = arriving.jump ?? ((fn: () => void) => fn());
     arriving = null;
     if (!to) return;
     // Moved so that their head, not the rig's middle, is on the place: in a headset the head is off the middle. The
-    // way they face is theirs, and stays. An instant cut, as a step is: nothing slides.
-    d.rig.position.x += to.position[0] - head.x;
-    d.rig.position.z += to.position[2] - head.z;
+    // way they face is theirs, and stays. A jump, as a step is: nothing slides, and it fades for someone who fades.
+    const dx = to.position[0] - head.x;
+    const dz = to.position[2] - head.z;
+    jump(() => {
+      d.rig.position.x += dx;
+      d.rig.position.z += dz;
+    });
   };
   let plainSeed: string | undefined;
 
@@ -1019,12 +1025,14 @@ export function createPresence(d: PresenceOptions): Presence {
       const at = d.arrival?.() ?? null;
       if (at && at.places.length) {
         // Where they stand is checked against the people in the room as they come in (`tendArrival`).
-        arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new THREE.Vector3()), places: at.places, ...(at.canStand ? { canStand: at.canStand } : {}), ...(at.moving ? { moving: at.moving } : {}) };
+        arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new THREE.Vector3()), places: at.places, ...(at.jump ? { jump: at.jump } : {}), ...(at.canStand ? { canStand: at.canStand } : {}), ...(at.moving ? { moving: at.moving } : {}) };
       } else {
         // A world that says nothing of its places: stepped a little way round its spot, as before.
         const off = spawnOffset(s.self.pubkey);
-        d.rig.position.x += off.x;
-        d.rig.position.z += off.z;
+        (at?.jump ?? ((fn: () => void) => fn()))(() => {
+          d.rig.position.x += off.x;
+          d.rig.position.z += off.z;
+        });
       }
     }
     s.on("status", changed);

@@ -1,7 +1,9 @@
 # Seated and vehicle mode: a design
 
 **Status:** a design, answered by the orchestrator on 2026-11-22 (section 8 gives the
-names, and section 2 holds the answers); being built in section 7's order, the fade first.
+names, and section 2 holds the answers); being built in section 7's order. Step 1, the fade
+(3.4), is built for the kit's own jumps in a Three.js world; the engine half comes with
+section 4.
 NSWP builder, 2026-11-22. From `docs/backlog/game-worlds-kit-gaps.md` ("A seated or vehicle mode",
 COMBATRIG's bitp-3, a VR cockpit) and the fade in
 `docs/backlog/headset-casual-and-intense.md` ("A fade for jumps the kit makes"). Every

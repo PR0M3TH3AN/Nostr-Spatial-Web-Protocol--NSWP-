@@ -705,7 +705,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     // always a walk, on a phone as at a desk, with motion on or off: the same walk the keys make.
     if (renderer.xr.isPresenting) {
       if (!pace.take(Math.hypot(spot.x - headAt.x, spot.z - headAt.z))) return;
-      moveTowards(spot.x, spot.z);
+      // Faded, for someone whose `fade` is on (casual's default): the step is made while the view is dark.
+      const { x, z } = spot;
+      if (input) input.jump(() => moveTowards(x, z));
+      else moveTowards(x, z);
     } else stroll.tap(floorHit.x, floorHit.z); // where they pressed: standing, a walk there; walking, the path goes on from its end
     state.steps = ((state.steps as number | undefined) ?? 0) + 1;
   };
@@ -982,7 +985,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     }
     return dragging || stroll.going || ["KeyW", "KeyS", "KeyA", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].some((k) => keys.has(k));
   };
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, arrival: () => ({ places: arrivalPlaces, canStand, moving: stillMoving }), items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, arrival: () => ({ places: arrivalPlaces, canStand, moving: stillMoving, jump: (fn) => (input ? input.jump(fn) : fn()) }), items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());
