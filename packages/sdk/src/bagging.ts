@@ -395,6 +395,8 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           icon: "save",
           picture: still(item),
           on: () => chosen === item,
+          // In the bag (and in hand, which is in the bag): the bag in its corner.
+          mark: "bag",
           label: () => `${titleOf(item)}${opts.holding() === item ? ", in your hand" : ""}`,
           short: () => titleOf(item),
           act: choose(item),
@@ -412,7 +414,9 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
           icon: "save",
           picture: still(item),
           on: () => chosen === item,
-          label: () => `${titleOf(item)}, offered here`,
+          // Not theirs yet: greyed, and still theirs to choose and take.
+          faint: () => true,
+          label: () => `${titleOf(item)}, offered here, not in your bag`,
           short: () => titleOf(item),
           act: choose(item),
         }),
