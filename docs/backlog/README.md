@@ -47,7 +47,8 @@ it at any time; nothing in it is a decision about what an item does.
 8. `shared-physics` (a written design first).
 9. `bag-icon-on-items` (small; the NSWP builder takes it between steps
    of the seated mode).
-10. Then: `items-scarce`, `starter-world-as-a-3d-website`,
+10. Then: `door-and-airlock-skins` (after `item-file-hosts`, whose rule it
+    uses), `items-scarce`, `starter-world-as-a-3d-website`,
    `rooms-stun-servers`, `tests-that-depend-on-the-clock`,
    `local-security-checks`.
 
@@ -61,6 +62,7 @@ urgent (a live fault), it goes first.
 | [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | live (kit 0.73.0) |
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | live (kit 0.73.0; Godot and a headset look left) |
 | [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | building (kit, BitPortal's room and the template merged; the engine script's Travel tab left) |
+| [door-and-airlock-skins](door-and-airlock-skins.md) | Doors and Airlock chambers that wear a world's own look, published like an item, with the same information | not briefed (kit first) | asked |
 | [paid-front-room](paid-front-room.md) | The first thing in a world that asks to buy | NSWP builder | live (kit 0.73.0; no world paid) |
 | [scores-across-worlds](scores-across-worlds.md) | A leaderboard shared by several worlds | not briefed | asked |
 | [scores-checked](scores-checked.md) | Scores somebody has checked, not only claimed | not briefed | asked |
@@ -76,6 +78,7 @@ urgent (a live fault), it goes first.
 | [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | building |
 | [headset-casual-and-intense](headset-casual-and-intense.md) | Casual or intense, asked once in a headset and at a desk, kept in synced settings; a phone always casual | BitPortal (kit and room) | building (intense lost at every door: being fixed; offered once on entering VR) |
 | [rooms-stun-servers](rooms-stun-servers.md) | Every room asks Cloudflare's and Google's STUN servers, who see each joiner's address | not briefed | asked |
+| [item-file-hosts](item-file-hosts.md) | An item's files are fetched from any host its maker chose, which can learn the address of everyone in the room | BitPortal session (the rule decided 2026-11-22) | briefed |
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | asked |
