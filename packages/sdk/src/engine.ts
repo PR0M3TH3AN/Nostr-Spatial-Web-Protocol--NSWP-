@@ -35,6 +35,7 @@ import { arrival as arrivals, configure, portal, startingForm, type GoOptions } 
 
 export { bump, check, claim, door, events, gate, headset, jumped, kit, load, menu, moved, offers, open, play, presence, run, save, say, target, view, who } from "./engine-menu.js";
 export { frame } from "./engine-world.js";
+export { entryPlace } from "./engine-presence.js";
 export { items, itemSecond, itemsInfo, itemTap, itemUse, model } from "./engine-items.js";
 export { board, figure, people, peopleInfo } from "./engine-people.js";
 export { capturePreview, previewFaces, previewViews } from "./engine-panorama.js";

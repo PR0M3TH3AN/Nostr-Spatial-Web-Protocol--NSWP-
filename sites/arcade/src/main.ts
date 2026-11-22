@@ -51,7 +51,7 @@ void startWorld({
   ],
   purpose: "Twelve lanterns are loose on the field. Walk into each one to catch it. The clock starts with your first.",
   palette: { ground: 0x0c0510, accent: 0xff5fa2, text: "#ffe6f1" },
-  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
+  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] } },
   doors: [
     { to: "tour", label: "The Tour", position: [-4.2, 0, -2.2], rotation: 40 },
     { to: "grove", label: "The Grove", position: [4.2, 0, -2.2], rotation: -40 },

@@ -10,7 +10,7 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
-import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import { addDoorControls, createControls, mountHud, type Controls, type MenuDoor } from "nswp-sdk/ui";
@@ -126,8 +126,13 @@ export interface WorldConfig {
    * Achievements tab and nothing about achievements anywhere.
    */
   achievements?: Achievement[];
-  /** Positions in metres; yaw in degrees, 0 facing -Z. */
-  entryPoints: Record<string, { position: V3; yaw: number }>;
+  /**
+   * Where a visitor may arrive, by name (a door or link may name one; otherwise "main-entrance"). Positions in
+   * metres; yaw in degrees, 0 facing -Z. Each is a set of places (protocol/01-worlds.md, "Places to arrive"): its
+   * own spot first, then `places`, at least eight in all here (every world here has rooms), each a metre or more
+   * from the others and where a visitor may stand. The build checks it (`checkEntryPlaces`).
+   */
+  entryPoints: Record<string, EntryPointSpec>;
   doors: Door[];
   /** How far from `middle` a visitor may go, in metres. Default 14 from the origin. */
   reach?: number;
@@ -182,6 +187,8 @@ type TestHooks = {
   play?: () => unknown;
   /** What is under the thumb on a touch screen (the sight and the item's buttons), or null. */
   thumbs?: () => unknown;
+  /** The places of the entry point the visitor came by, and whether each may be stood on. */
+  entryPlaces?: () => { at: number[]; ok: boolean }[];
   /** How far the view is tilted by dragging, in degrees: up is positive. */
   tilt?: () => number;
   itemUse?: () => void;
@@ -963,7 +970,18 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const itemsRule = cleanItemsRule((onMyNetwork ? new URLSearchParams(location.search).get("items") : null) ?? cfg.items);
   const items = createItems();
   // An item's own logic runs here, in its locked box, where this world draws items at all.
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
+  // Where they arrived: if they join and find themselves inside someone, the kit steps them to the first clear
+  // place of the entry point they came by, once, while they are still (presence.ts, `arrival`).
+  const arrivalPlaces = entryPlaces(spawn, ENTRY_PLACES_ROOMS);
+  hooks.entryPlaces = () => arrivalPlaces.map((p) => ({ at: [p.position[0], p.position[2]], ok: canStand(p.position[0], p.position[2]) }));
+  const stillMoving = () => {
+    if (renderer.xr.isPresenting) {
+      const info = input?.info();
+      return !!info && (info.aiming.length > 0 || info.narrow > 0.01 || info.slots.some((sl) => Math.hypot(sl.pad.stick[0], sl.pad.stick[1]) > 0.2));
+    }
+    return dragging || stroll.going || ["KeyW", "KeyS", "KeyA", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].some((k) => keys.has(k));
+  };
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, arrival: () => ({ places: arrivalPlaces, canStand, moving: stillMoving }), items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());

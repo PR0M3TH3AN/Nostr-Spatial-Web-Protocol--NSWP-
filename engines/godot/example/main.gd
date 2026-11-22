@@ -47,8 +47,9 @@ func _ready() -> void:
 	_visitor.accent = ACCENT
 	_visitor.headset_failed.connect(func(why: String) -> void: _say("A headset session couldn't start: %s" % why))
 	add_child(_visitor)
-	# Where they asked to arrive, or the main entrance.
-	Nswp.place(_visitor)
+	# Where they asked to arrive, or the main entrance: the first clear place of it. This world has
+	# rooms, so each entry point has the rooms' least number of places.
+	Nswp.place(_visitor, int(Nswp.kit.get("entryPlacesRooms", 8)))
 	# What visitors carry (NSWP-17): the Bag tab in the menu, the thing in their hand, and what it
 	# sends out. A world has items unless its announcement says "none"; one that says so
 	# leaves this node out. Everything but the drawing is the kit's own script.
@@ -140,8 +141,14 @@ void fragment() {
 	add_child(ground)
 
 	# Places a visitor can arrive. Each is named for its entry point and is in the addon's group.
+	# Each is a set of places (protocol/01-worlds.md, "Places to arrive"): the marker's own spot and
+	# seven more round it, a metre or more apart, so people arriving together land apart.
 	_add_entry("main-entrance", Vector3(0.0, 0.0, 4.0))
 	_add_entry("balcony", Vector3(6.0, 0.0, 4.0))
+
+
+## Where the places round an entry point are, from its spot: either side, and a row behind.
+const ENTRY_AROUND := [Vector3(-1.2, 0, 0), Vector3(1.2, 0, 0), Vector3(-2.4, 0, 0), Vector3(2.4, 0, 0), Vector3(0, 0, 1.2), Vector3(-1.2, 0, 1.2), Vector3(1.2, 0, 1.2)]
 
 
 func _add_entry(entry_name: String, at: Vector3) -> void:
@@ -150,6 +157,11 @@ func _add_entry(entry_name: String, at: Vector3) -> void:
 	marker.position = at
 	marker.add_to_group(Nswp.ENTRY_GROUP)
 	add_child(marker)
+	for i in ENTRY_AROUND.size():
+		var place := Node3D.new()
+		place.name = "place-%d" % (i + 2)
+		place.position = ENTRY_AROUND[i]
+		marker.add_child(place)
 
 
 ## The gate itself, while it is shut: a sheet of light across the way with a bright line where

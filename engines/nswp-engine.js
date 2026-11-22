@@ -35,6 +35,7 @@ var NSWP = (() => {
     crossing: () => crossing,
     door: () => door,
     doors: () => doors2,
+    entryPlace: () => entryPlace,
     events: () => events,
     failed: () => failed,
     figure: () => figure,
@@ -6235,8 +6236,8 @@ ${roomName}`)));
         return false;
     }
   }
-  function buildHello(topic, sessionKey, createdAt = nowSeconds()) {
-    return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic]], content: JSON.stringify({ t: "hello", v: 1 }) }, sessionKey);
+  function buildHello(topic, sessionKey, createdAt = nowSeconds(), opts = {}) {
+    return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic]], content: JSON.stringify({ t: "hello", v: 1, ...opts.first ? { first: true } : {} }) }, sessionKey);
   }
   function buildSignal(topic, sessionKey, to, message, createdAt = nowSeconds()) {
     const content = nip44Encrypt(JSON.stringify(message), getConversationKey(sessionKey, to));
@@ -6310,6 +6311,44 @@ ${roomName}`)));
     if (flags === 2 || flags === 3)
       pose.right = get(14);
     return pose;
+  }
+
+  // packages/core/dist/entry-places.js
+  var ENTRY_PLACES_LEAST = 4;
+  var ENTRY_PLACES_ROOMS = 8;
+  var ENTRY_CLEAR = 1;
+  var ENTRY_RING = 1.3;
+  var finite = (n) => typeof n === "number" && Number.isFinite(n);
+  var placeOk = (p) => !!p && typeof p === "object" && Array.isArray(p.position) && p.position.length === 3 && p.position.every(finite) && finite(p.yaw);
+  function entryPlaces(point, least = ENTRY_PLACES_LEAST) {
+    const own = { position: [...point.position], yaw: point.yaw };
+    const given = (point.places ?? []).filter(placeOk).map((p) => ({ position: [...p.position], yaw: p.yaw }));
+    const places = [own, ...given];
+    const missing = Math.max(0, least - places.length);
+    for (let i = 0; i < missing; i++) {
+      const a = point.yaw * Math.PI / 180 + Math.PI / 2 + i * 2 * Math.PI / missing;
+      places.push({ position: [own.position[0] + Math.cos(a) * ENTRY_RING, own.position[1], own.position[2] - Math.sin(a) * ENTRY_RING], yaw: point.yaw });
+    }
+    return places;
+  }
+  function pickEntryPlace(places, others = [], canStand = () => true) {
+    if (!places.length)
+      return -1;
+    const near = (p) => others.reduce((best, [x, z]) => Math.min(best, Math.hypot(p.position[0] - x, p.position[2] - z)), Number.POSITIVE_INFINITY);
+    const standing = places.map((p, i) => ({ i, room: near(p), ok: safe(canStand, p) })).filter((p) => p.ok);
+    if (!standing.length)
+      return 0;
+    const clear = standing.find((p) => p.room >= ENTRY_CLEAR);
+    if (clear)
+      return clear.i;
+    return standing.reduce((best, p) => p.room > best.room ? p : best).i;
+  }
+  function safe(canStand, p) {
+    try {
+      return canStand(p.position[0], p.position[2]) === true;
+    } catch {
+      return false;
+    }
   }
 
   // packages/core/dist/pass.js
@@ -6996,7 +7035,7 @@ ${roomName}`)));
   };
   var NAME4 = /^[a-z][a-z0-9-]{0,23}$/;
   var num2 = (x) => String(Math.round(x * 1e3) / 1e3);
-  var finite = (xs, most) => xs.every((x) => Number.isFinite(x) && Math.abs(x) <= most);
+  var finite2 = (xs, most) => xs.every((x) => Number.isFinite(x) && Math.abs(x) <= most);
   function buildShot(o) {
     const shot = cleanShot(o);
     return shot ? `shot:${shot.id},${shot.name},${[...shot.from, ...shot.velocity, shot.stick].map(num2).join(",")}` : null;
@@ -7004,9 +7043,9 @@ ${roomName}`)));
   function cleanShot(o) {
     if (!o || !Number.isInteger(o.id) || o.id < 0 || o.id > 4294967295 || typeof o.name !== "string" || !NAME4.test(o.name))
       return null;
-    if (!Array.isArray(o.from) || o.from.length !== 3 || !finite(o.from, PLAY_LIMITS.far))
+    if (!Array.isArray(o.from) || o.from.length !== 3 || !finite2(o.from, PLAY_LIMITS.far))
       return null;
-    if (!Array.isArray(o.velocity) || o.velocity.length !== 3 || !finite(o.velocity, 1e6))
+    if (!Array.isArray(o.velocity) || o.velocity.length !== 3 || !finite2(o.velocity, 1e6))
       return null;
     const speed = Math.hypot(...o.velocity);
     if (speed < 0.01)
@@ -7028,7 +7067,7 @@ ${roomName}`)));
     return [shot.from[0] + shot.velocity[0] * t, shot.from[1] + shot.velocity[1] * t - 0.5 * GRAVITY * t * t, shot.from[2] + shot.velocity[2] * t];
   }
   function buildHit(o) {
-    if (!o || !isHex64(o.by) || !Number.isInteger(o.id) || o.id < 0 || !Array.isArray(o.at) || o.at.length !== 3 || !finite(o.at, 4))
+    if (!o || !isHex64(o.by) || !Number.isInteger(o.id) || o.id < 0 || !Array.isArray(o.at) || o.at.length !== 3 || !finite2(o.at, 4))
       return null;
     return `hit:${o.by},${o.id},${o.at.map(num2).join(",")}`;
   }
@@ -9084,6 +9123,9 @@ postMessage({ t: "started" });
       __publicField(this, "words", createChatGate());
       __publicField(this, "timers", []);
       __publicField(this, "closed", false);
+      /** When this visitor joined, in unix seconds, and who has joined since (by a joining hello signed after it). */
+      __publicField(this, "joinedAt", Math.floor(Date.now() / 1e3));
+      __publicField(this, "newer", /* @__PURE__ */ new Set());
       __publicField(this, "onPageHide", () => this.leave());
       const world2 = opts.world ?? `${location.origin}${location.pathname}`;
       this.origin = new URL(world2).origin;
@@ -9200,6 +9242,7 @@ postMessage({ t: "started" });
       return [...this.sockets.values()].filter((s) => s.readyState === WebSocket.OPEN).length;
     }
     start() {
+      this.joinedAt = Math.floor(Date.now() / 1e3);
       for (const url of this.relays) this.connectRelay(url);
       this.timers.push(
         setInterval(() => this.announce(), HELLO_EVERY_MS),
@@ -9226,7 +9269,7 @@ postMessage({ t: "started" });
       this.sockets.set(url, ws);
       ws.onopen = () => {
         ws.send(JSON.stringify(["REQ", "room", { kinds: [ROOM_SIGNAL_KIND], "#x": [this.topic], since: Math.floor(Date.now() / 1e3) - 5 }]));
-        ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key)]));
+        ws.send(JSON.stringify(["EVENT", buildHello(this.topic, this.key, void 0, { first: Math.floor(Date.now() / 1e3) - this.joinedAt < 15 })]));
         this.setStatus("open");
       };
       ws.onmessage = (msg) => {
@@ -9268,6 +9311,8 @@ postMessage({ t: "started" });
           case "welcome": {
             if (existing) return;
             if (this.peers.size >= this.maxMembers - 1) return;
+            const at = raw.created_at;
+            if (message.t === "hello" && message.first === true && typeof at === "number" && (at > this.joinedAt || at === this.joinedAt && from > this.self.pubkey)) this.newer.add(from);
             if (shouldInitiate(this.self.pubkey, from)) await this.offerTo(from);
             else if (message.t === "hello") this.publish(buildSignal(this.topic, this.key, from, { t: "welcome" }));
             return;
@@ -9297,7 +9342,7 @@ postMessage({ t: "started" });
     createPeer(pubkey) {
       const pc = new RTCPeerConnection({ iceServers: this.iceServers });
       const peer = {
-        member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false },
+        member: { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false, ...this.newer.has(pubkey) ? { joinedAfterYou: true } : {} },
         pc,
         refused: 0,
         words: createChatGate(),
@@ -47067,6 +47112,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       // Moving the casual way: how far a drag up or down tilts the view, and how fast it comes back level as they walk.
       tiltLimit: TILT_LIMIT,
       levelRate: LEVEL_RATE,
+      // Places to arrive (protocol/01-worlds.md): how many an entry point needs, and the least room between people.
+      entryPlacesLeast: ENTRY_PLACES_LEAST,
+      entryPlacesRooms: ENTRY_PLACES_ROOMS,
+      entryClear: ENTRY_CLEAR,
       doubleTap: DOUBLE_TAP,
       pathMost: PATH_MOST,
       faceRate: FACE_RATE,
@@ -47425,7 +47474,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const rig = new Group();
     const camera = new PerspectiveCamera(70, 1.6, 0.1, 100);
     scene.add(rig, camera);
-    world = { scene, camera, rig, presenting: false, sighting: false, set: null };
+    world = { scene, camera, rig, presenting: false, sighting: false, moving: false, set: null };
     return world;
   }
   var parts2 = [];
@@ -47453,6 +47502,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     w.camera.aspect = Math.min(8, Math.max(0.1, num3(i.aspect, w.camera.aspect)));
     w.presenting = i.presenting === true;
     w.sighting = i.sighting === true;
+    w.moving = i.moving === true;
     w.scene.updateMatrixWorld(true);
     const dt = Math.min(0.5, Math.max(0, num3(i.dt, 0.016)));
     const out = {};
@@ -47461,1745 +47511,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     w.scene.updateMatrixWorld(true);
     if (nudge) out.nudge = nudge;
     return JSON.stringify(out);
-  }
-
-  // packages/sdk/src/bag.ts
-  var FRESH_MS2 = 6e4;
-  function createBag(opts) {
-    const now = opts.now ?? (() => Date.now());
-    const query = opts.query ?? queryRelays;
-    const publish = opts.publish ?? publishEvent;
-    const usual = () => opts.relays ?? DEFAULT_RELAYS;
-    const store2 = (() => {
-      if (opts.storage !== void 0) return opts.storage;
-      try {
-        return globalThis.localStorage ?? null;
-      } catch {
-        return null;
-      }
-    })();
-    const watchers7 = /* @__PURE__ */ new Set();
-    const changed = () => {
-      for (const fn of watchers7) fn();
-    };
-    const keyFor = (who2) => `nswp:bag:${who2}`;
-    const readKept = (who2) => {
-      try {
-        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
-        return verifyEvent(kept2) && kept2.kind === BAG_KIND && kept2.pubkey === who2 ? kept2 : null;
-      } catch {
-        return null;
-      }
-    };
-    const keep5 = (bag) => {
-      try {
-        store2?.setItem(keyFor(bag.pubkey), JSON.stringify(bag));
-      } catch {
-      }
-    };
-    let relaysKept = null;
-    const ownRelays = (key) => {
-      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
-      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
-      relaysKept = { key, at: now(), found: found2 };
-      return found2;
-    };
-    let known = null;
-    let looking = null;
-    let offered = null;
-    const look = async (who2) => {
-      const kept2 = readKept(who2);
-      const own = await ownRelays(who2);
-      const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
-      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
-      const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
-      const bag = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
-      if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
-      if (bag && bag !== kept2) keep5(bag);
-      if (opts.me() !== who2) return;
-      known = { who: who2, bag, answered, at: now() };
-      changed();
-    };
-    const load3 = async (fresh = false) => {
-      const who2 = opts.me();
-      if (!who2) {
-        if (known) {
-          known = null;
-          changed();
-        }
-        return null;
-      }
-      if (known && known.who !== who2) known = null;
-      if (!fresh && known && now() - known.at < FRESH_MS2) return bagIn(known.bag);
-      looking ?? (looking = look(who2).finally(() => {
-        looking = null;
-      }));
-      await looking;
-      return known && known.who === who2 ? bagIn(known.bag) : null;
-    };
-    const change2 = async (itemIn2, adding, title) => {
-      const who2 = opts.me();
-      const it = title || "It";
-      const item = itemCoordinate(itemIn2);
-      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to keep a bag." };
-      if (!opts.hand) return { ok: false, why: "read-only", said: "Your bag is changed at your home, not from here." };
-      if (!item) return { ok: false, why: "refused", said: "That isn't an item." };
-      if (!opts.hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change your bag." };
-      await load3(true);
-      const at = known && known.who === who2 ? known : null;
-      if (!at) return { ok: false, why: "unreachable", said: "Your bag couldn't be looked for. Nothing was changed." };
-      if (!at.bag) {
-        if (!at.answered) return { ok: false, why: "unreachable", said: "No relay could be reached to find your bag, so nothing was changed. Try again in a moment." };
-        if (!adding) return { ok: false, why: "already", said: `${it} isn't in your bag.` };
-        if (!offered || offered.item !== item || now() - offered.at > 12e4) {
-          offered = { item, at: now() };
-          return { ok: false, why: "no-bag", said: "No bag of yours was found. If you have none yet, press again to start one." };
-        }
-      }
-      offered = null;
-      const has = bagIn(at.bag).includes(item);
-      if (adding === has) return { ok: true, why: "already", said: adding ? `${it} is already in your bag.` : `${it} isn't in your bag.` };
-      const made = changeBag(at.bag, { ...adding ? { add: item } : { remove: item }, now: now() / 1e3, fromNothing: at.bag === null });
-      const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
-      const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
-      if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. Your bag is as it was." };
-      keep5(signed);
-      known = { who: who2, bag: signed, answered: true, at: now() };
-      changed();
-      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
-      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: "Signed, but no relay took it. It is kept on this device and will be sent again." };
-      return { ok: true, said: adding ? `${it} is in your bag. Anyone can see what is in it.` : `${it} is out of your bag.` };
-    };
-    const TINTS_KEY = "nswp:tints";
-    const keptTints = () => {
-      try {
-        const kept2 = JSON.parse(store2?.getItem(TINTS_KEY) ?? "{}");
-        return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
-      } catch {
-        return {};
-      }
-    };
-    const tintTimers = /* @__PURE__ */ new Map();
-    const writeTints = async (item) => {
-      const who2 = opts.me();
-      if (!who2 || !opts.hand?.ready()) return;
-      await load3(true);
-      const at = known && known.who === who2 ? known : null;
-      const made = at?.bag ? tintBag(at.bag, { item, tints: keptTints()[item] ?? {}, now: now() / 1e3 }) : null;
-      const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
-      const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
-      if (!signed || !same) return;
-      keep5(signed);
-      known = { who: who2, bag: signed, answered: true, at: now() };
-      changed();
-      await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
-    };
-    return {
-      tints(itemIn2) {
-        const item = itemCoordinate(itemIn2);
-        const fromBag = known && known.who === opts.me() ? bagTints(known.bag)[item] ?? {} : {};
-        const here = keptTints()[item];
-        const clean3 = (o) => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter((e) => typeof e[1] === "string" && /^#[0-9a-f]{6}$/.test(e[1])));
-        return { ...fromBag, ...clean3(here) };
-      },
-      setTints(itemIn2, tints) {
-        const item = itemCoordinate(itemIn2);
-        if (!item) return;
-        try {
-          store2?.setItem(TINTS_KEY, JSON.stringify({ ...keptTints(), [item]: tints }));
-        } catch {
-        }
-        changed();
-        if (!opts.hand) return;
-        clearTimeout(tintTimers.get(item));
-        tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
-      },
-      items: () => known && known.who === opts.me() ? bagIn(known.bag) : null,
-      load: load3,
-      canChange: () => !!opts.hand,
-      add: (item, title = "") => change2(item, true, title),
-      remove: (item, title = "") => change2(item, false, title),
-      onChange(fn) {
-        watchers7.add(fn);
-        return () => void watchers7.delete(fn);
-      }
-    };
-  }
-
-  // packages/sdk/src/item-preview.ts
-  var KEPT = 36;
-  function createItemPreviews(o) {
-    const size = o.size ?? 256;
-    const watchers7 = /* @__PURE__ */ new Set();
-    const ready2 = /* @__PURE__ */ new Map();
-    let stage;
-    const keyOf = (item, tints) => `${item.id}|${item.model.sha256}|${JSON.stringify(tints ?? {})}`;
-    const stageNow = () => {
-      if (stage !== void 0) return stage;
-      if (typeof document === "undefined") return stage = null;
-      try {
-        const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
-        renderer.setPixelRatio(1);
-        renderer.setSize(size, size, false);
-        renderer.setClearColor(0, 0);
-        const scene = new Scene();
-        scene.add(new HemisphereLight(16777215, 2699837, 1.7));
-        const key = new DirectionalLight(16777215, 2.4);
-        key.position.set(1.6, 2.6, 2.2);
-        const rim = new DirectionalLight(12572927, 1.3);
-        rim.position.set(-2, 1.2, -2.4);
-        const pivot = new Group();
-        scene.add(key, rim, pivot);
-        const camera = new PerspectiveCamera(28, 1, 0.01, 50);
-        return stage = { renderer, scene, camera, pivot };
-      } catch {
-        return stage = null;
-      }
-    };
-    const draw = (made, angle, onto) => {
-      const s = stageNow();
-      if (!s) return null;
-      s.pivot.clear();
-      s.pivot.add(made.object);
-      made.object.position.copy(made.middle).multiplyScalar(-1);
-      s.pivot.rotation.set(0, angle, 0);
-      const away = made.radius / Math.sin(MathUtils.degToRad(s.camera.fov / 2)) * 1.08;
-      s.camera.position.set(0, away * 0.3, away * 0.95);
-      s.camera.lookAt(0, 0, 0);
-      s.camera.near = Math.max(5e-3, away - made.radius * 2);
-      s.camera.far = away + made.radius * 2;
-      s.camera.updateProjectionMatrix();
-      s.renderer.render(s.scene, s.camera);
-      s.pivot.clear();
-      const canvas = onto ?? document.createElement("canvas");
-      if (!onto) canvas.width = canvas.height = size;
-      const g = canvas.getContext("2d");
-      if (!g) return null;
-      g.clearRect(0, 0, size, size);
-      g.drawImage(s.renderer.domElement, 0, 0, size, size);
-      return canvas;
-    };
-    const want2 = (item, tints) => {
-      const key = keyOf(item, tints);
-      const had = ready2.get(key);
-      if (had !== void 0) return had;
-      if (!stageNow()) return null;
-      ready2.set(key, null);
-      for (const old of ready2.keys()) {
-        if (ready2.size <= KEPT) break;
-        if (old !== key) ready2.delete(old);
-      }
-      void o.model(item, tints).then(
-        (object) => {
-          if (!ready2.has(key)) return;
-          let frames = 0;
-          let solids = 0;
-          object.traverse((part) => {
-            const mesh = part;
-            if (!mesh.isMesh) return;
-            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            if (materials.every((m) => m.wireframe === true)) frames++;
-            else solids++;
-          });
-          if (frames > 0 && solids === 0) return void again(key);
-          const box = new Box3().setFromObject(object);
-          const ball = box.getBoundingSphere(new Sphere());
-          if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
-          ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
-          for (const fn of watchers7) fn();
-        },
-        () => void again(key)
-      );
-      return null;
-    };
-    const AGAIN_MS2 = 6e3;
-    const tries = /* @__PURE__ */ new Map();
-    function again(key) {
-      const n = (tries.get(key) ?? 0) + 1;
-      tries.set(key, n);
-      if (n > 5) return;
-      setTimeout(() => {
-        if (ready2.get(key) !== null) return;
-        ready2.delete(key);
-        for (const fn of watchers7) fn();
-      }, AGAIN_MS2 * n);
-    }
-    return {
-      still(item, tints) {
-        const made = want2(item, tints);
-        if (!made) return null;
-        return made.still ?? (made.still = draw(made, -0.62, null));
-      },
-      turning(item, tints, moving2 = true) {
-        const made = want2(item, tints);
-        if (!made) return null;
-        const angle = moving2 ? (typeof performance === "undefined" ? 0 : performance.now()) / 1e3 * 0.7 : -0.62;
-        return made.live = draw(made, angle, made.live);
-      },
-      onChange(fn) {
-        watchers7.add(fn);
-      }
-    };
-  }
-
-  // packages/sdk/src/item-store.ts
-  var ITEM_BUDGET = {
-    ...MODEL_BUDGET,
-    /** The most one of an item's sounds may weigh, in bytes. */
-    sound: 15e4
-  };
-  var ITEMS_KEY = "nswp:items";
-  var watchers5 = /* @__PURE__ */ new Set();
-  var shown3 = null;
-  var keep4 = (on3) => {
-    try {
-      if (on3) globalThis.localStorage?.removeItem(ITEMS_KEY);
-      else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
-    } catch {
-    }
-  };
-  function showsItems() {
-    if (shown3 !== null) return shown3;
-    const came = arrivedSettings().items;
-    let kept2 = null;
-    try {
-      kept2 = globalThis.localStorage?.getItem(ITEMS_KEY) ?? null;
-    } catch {
-    }
-    shown3 = came ?? kept2 !== "off";
-    if (came !== void 0) keep4(shown3);
-    reportSettings("items", () => ({ items: showsItems() }));
-    return shown3;
-  }
-  function setShowsItems(on3) {
-    showsItems();
-    shown3 = on3;
-    keep4(on3);
-    for (const fn of watchers5) fn();
-  }
-  function onItemsChange(fn) {
-    watchers5.add(fn);
-    return () => void watchers5.delete(fn);
-  }
-  var FETCH_MS = 3e4;
-  var AGAIN_MS = 4e3;
-  async function fetchWithin(url, most) {
-    try {
-      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
-      if (!res.ok) return null;
-      const stated = Number(res.headers.get("content-length") ?? 0);
-      if (stated > most) return null;
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      return bytes.length <= most ? bytes : null;
-    } catch {
-      return null;
-    }
-  }
-  function createItemStore(opts = {}) {
-    const query = opts.query ?? queryRelays;
-    const now = opts.now ?? (() => Date.now());
-    const fetchBytes = opts.fetchBytes ?? ((url) => fetchWithin(url, ITEM_BUDGET.bytes));
-    const described = /* @__PURE__ */ new Map();
-    const settled = /* @__PURE__ */ new Map();
-    const files2 = /* @__PURE__ */ new Map();
-    const models2 = /* @__PURE__ */ new Map();
-    const forgetSoon = (kept2, key, asked) => {
-      setTimeout(() => {
-        if (kept2.get(key) === asked) kept2.delete(key);
-      }, AGAIN_MS);
-    };
-    const file = (named2, most) => {
-      let got = files2.get(named2.sha256);
-      if (!got) {
-        const asking = fetchBytes(named2.url).then((bytes) => {
-          if (!bytes) forgetSoon(files2, named2.sha256, asking);
-          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null;
-        }).catch(() => (forgetSoon(files2, named2.sha256, asking), null));
-        got = asking;
-        files2.set(named2.sha256, got);
-      }
-      return got;
-    };
-    return {
-      describe(coordinateIn) {
-        const coordinate2 = itemCoordinate(coordinateIn);
-        if (!coordinate2) return Promise.resolve(null);
-        let found2 = described.get(coordinate2);
-        if (!found2) {
-          const [, maker, ...rest] = coordinate2.split(":");
-          found2 = askWell({ kinds: [ITEM_KIND], authors: [maker], "#d": [rest.join(":")], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).then((got) => {
-            const newest = got.events.filter((e) => e.kind === ITEM_KIND && e.pubkey === maker && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
-            const item = newest ? parseItem(newest) : null;
-            return item && item.id === coordinate2 ? item : null;
-          }).catch(() => null).then((item) => {
-            settled.set(coordinate2, item);
-            if (!item) described.delete(coordinate2);
-            return item;
-          });
-          described.set(coordinate2, found2);
-        }
-        return found2;
-      },
-      known: (coordinate2) => settled.get(itemCoordinate(coordinate2)) ?? null,
-      modelBytes(named2) {
-        if (!showsItems()) return Promise.resolve(null);
-        let got = models2.get(named2.model.sha256);
-        if (!got) {
-          const asking = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
-            const read6 = bytes ? readGlb(bytes) : null;
-            if (!bytes) forgetSoon(models2, named2.model.sha256, asking);
-            return bytes && read6?.ok ? { bytes, count: read6.count } : null;
-          });
-          got = asking;
-          models2.set(named2.model.sha256, got);
-        }
-        return got;
-      },
-      async sound(item, name) {
-        const named2 = item.sounds[name];
-        return named2 && showsItems() ? file(named2, ITEM_BUDGET.sound) : null;
-      },
-      async script(item) {
-        if (!item.script || !showsItems()) return null;
-        const bytes = await file(item.script, SCRIPT_LIMITS.bytes);
-        try {
-          return bytes ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : null;
-        } catch {
-          return null;
-        }
-      }
-    };
-  }
-
-  // packages/sdk/src/item-box.ts
-  function runInBox(script, on3, opts = {}) {
-    if (typeof document === "undefined") return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const frame2 = document.createElement("iframe");
-      frame2.setAttribute("sandbox", "allow-scripts");
-      frame2.setAttribute("aria-hidden", "true");
-      frame2.tabIndex = -1;
-      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
-      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
-      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
-      let running = false;
-      let over = false;
-      let began = 0;
-      let ticking;
-      const say3 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
-      const end = (why) => {
-        if (over) return;
-        over = true;
-        const was = running;
-        running = false;
-        clearInterval(ticking);
-        clearTimeout(giveUp);
-        removeEventListener("message", heard);
-        frame2.remove();
-        if (was) on3.stopped?.(why);
-        else resolve(null);
-      };
-      const run2 = {
-        tell(event, arg) {
-          if (running) say3({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
-        },
-        stop: () => end("asked"),
-        get running() {
-          return running;
-        }
-      };
-      const heard = (e) => {
-        if (e.source !== frame2.contentWindow) return;
-        const m = e.data;
-        if (!m || m.nswpItemBox !== 1) return;
-        if (m.t === "ready") say3({ t: "run", script });
-        else if (m.t === "started" && !running && !over) {
-          running = true;
-          began = performance.now();
-          clearTimeout(giveUp);
-          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
-          resolve(run2);
-        } else if (m.t === "ask" && running) {
-          const ask = cleanAsk(m.name, m.args);
-          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
-        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
-        else if (m.t === "error" && !running) end("failed");
-      };
-      addEventListener("message", heard);
-      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
-      frame2.addEventListener("error", () => end("no box"));
-      document.body.append(frame2);
-    });
-  }
-
-  // packages/sdk/src/play.ts
-  var SCRIPT_KEPT = "nswp:item-scripts";
-  function scriptAllowed(sha2562) {
-    try {
-      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
-    } catch {
-      return false;
-    }
-  }
-  function allowScript(sha2562) {
-    try {
-      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
-      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
-    } catch {
-    }
-  }
-  function mayHold(described, o) {
-    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
-    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
-    if (!described) return { ok: false, said: "That item's description couldn't be found." };
-    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
-    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
-    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
-      if (o.asked.sha !== described.script.sha256) {
-        o.asked.sha = described.script.sha256;
-        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
-      }
-      allowScript(described.script.sha256);
-    }
-    return { ok: true };
-  }
-  function drawn(width, height, paint2) {
-    if (typeof document === "undefined") {
-      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
-      blank.userData.nswpNoHit = true;
-      return blank;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext("2d");
-    if (g) paint2(g);
-    const map = new CanvasTexture(canvas);
-    map.colorSpace = SRGBColorSpace;
-    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
-    sprite.renderOrder = 999;
-    sprite.userData.nswpNoHit = true;
-    return sprite;
-  }
-  var repaint = (sprite, paint2) => {
-    const map = sprite.material.map;
-    if (!map) return;
-    const canvas = map.image;
-    const g = canvas.getContext("2d");
-    if (!g) return;
-    g.clearRect(0, 0, canvas.width, canvas.height);
-    paint2(g, canvas.width, canvas.height);
-    map.needsUpdate = true;
-  };
-  var WARN = "#ff5d52";
-  var paintHealth = (g, w, h, o) => {
-    const low = o.value <= Math.ceil(o.full / 3);
-    const ink = o.down || low ? WARN : o.accent;
-    g.fillStyle = "rgba(10,12,16,0.8)";
-    g.beginPath();
-    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
-    g.fill();
-    g.globalAlpha = 0.5;
-    g.strokeStyle = ink;
-    g.lineWidth = 2.5;
-    g.stroke();
-    g.globalAlpha = 1;
-    let x0 = h * 0.42;
-    if (o.heart !== false) {
-      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
-      g.fillStyle = ink;
-      g.beginPath();
-      g.arc(cx - r, cy, r, Math.PI, 0);
-      g.arc(cx + r, cy, r, Math.PI, 0);
-      g.lineTo(cx, cy + r * 2.5);
-      g.closePath();
-      g.fill();
-      x0 = h * 1.02;
-    }
-    const x1 = w - h * 0.42;
-    if (o.down) {
-      g.fillStyle = WARN;
-      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
-      return;
-    }
-    const gap = h * 0.11;
-    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
-    const [top, tall] = [h * 0.3, h * 0.4];
-    for (let i = 0; i < o.full; i++) {
-      const x = x0 + i * (each + gap);
-      g.fillStyle = "rgba(255,255,255,0.14)";
-      g.beginPath();
-      g.roundRect(x, top, each, tall, tall / 3);
-      g.fill();
-      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
-      if (part <= 0) continue;
-      g.globalAlpha = i < o.value ? 1 : 0.55;
-      g.fillStyle = ink;
-      g.beginPath();
-      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
-      g.fill();
-      g.globalAlpha = 1;
-    }
-  };
-  function viaOf(shot, t0, t1) {
-    const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
-    if (!(pieces > 1)) return {};
-    return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + (t1 - t0) * (i + 1) / pieces)) };
-  }
-  function createPlay(o) {
-    const things = [];
-    const pending = /* @__PURE__ */ new Set();
-    const heardShots = /* @__PURE__ */ new Map();
-    const rates = /* @__PURE__ */ new Map();
-    const bars = /* @__PURE__ */ new Map();
-    const blinking = /* @__PURE__ */ new Set();
-    const mixers = /* @__PURE__ */ new Map();
-    const soundsOf = /* @__PURE__ */ new Map();
-    const ray = new Raycaster();
-    const v2 = new Vector3();
-    const w = new Vector3();
-    let clock = 0;
-    let lastAt = null;
-    let sent = 0;
-    let landed = 0;
-    let taken = 0;
-    let nextId = Math.floor(Math.random() * 1e3);
-    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
-    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
-    const hud2 = new Group();
-    hud2.userData.nswpNoHit = true;
-    if (!o.deferred) o.camera.add(hud2);
-    const cross = drawn(64, 64, (g) => {
-      g.strokeStyle = "rgba(255,255,255,0.9)";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(32, 32, 9, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = "rgba(255,255,255,0.9)";
-      g.fillRect(31, 31, 2, 2);
-    });
-    cross.position.set(0, 0, -1);
-    cross.scale.setScalar(0.035);
-    cross.visible = false;
-    const mark = drawn(64, 64, (g) => {
-      g.strokeStyle = "#ffffff";
-      g.lineWidth = 6;
-      g.lineCap = "round";
-      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
-        g.beginPath();
-        g.moveTo(a, b);
-        g.lineTo(c, e);
-        g.stroke();
-      }
-    });
-    mark.position.set(0, 0, -1);
-    mark.scale.setScalar(0.07);
-    mark.visible = false;
-    let markUntil = 0;
-    const accent = () => o.theme?.().accent ?? "#7be495";
-    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
-    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
-    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
-    ownBar.scale.set(0.3, 0.05, 1);
-    ownBar.material.opacity = 0;
-    ownBar.visible = false;
-    const edge = drawn(256, 256, (g) => {
-      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
-      fade.addColorStop(0, "rgba(255,70,60,0)");
-      fade.addColorStop(1, "rgba(255,70,60,0.95)");
-      g.fillStyle = fade;
-      g.fillRect(0, 0, 256, 256);
-    });
-    edge.position.set(0, 0, -0.6);
-    edge.renderOrder = 997;
-    edge.visible = false;
-    const glitch = drawn(8, 128, (g) => {
-      for (let y = 0; y < 128; ) {
-        const tall = 1 + Math.floor(Math.random() * 7);
-        const kind = Math.random();
-        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
-        g.fillRect(0, y, 8, tall);
-        y += tall;
-      }
-    });
-    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
-    glitch.position.set(0, 0, -0.58);
-    glitch.renderOrder = 998;
-    glitch.visible = false;
-    hud2.add(cross, mark, ownBar, edge, glitch);
-    const paintOwn = () => {
-      const down = own.downUntil > 0;
-      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
-      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
-      own.painted = clock;
-    };
-    const sayState = () => {
-      const said2 = buildState({ name: "health", value: own.value, full: own.full });
-      if (said2 && o.me()) o.tell(said2);
-      paintOwn();
-      own.shownUntil = clock + 2.5;
-      o.onChange?.();
-    };
-    const soundOf = (item2, name) => {
-      const named2 = item2.sounds[name];
-      if (!named2 || !o.sounds) return Promise.resolve(null);
-      let got = soundsOf.get(named2.sha256);
-      if (!got) {
-        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
-        soundsOf.set(named2.sha256, got);
-      }
-      return got;
-    };
-    const lastTake = /* @__PURE__ */ new Map();
-    const take = (item2, name) => {
-      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
-      if (takes.length < 2) return name;
-      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
-      const chosen = others[Math.floor(Math.random() * others.length)];
-      lastTake.set(`${item2.id}:${name}`, chosen);
-      return chosen;
-    };
-    const hear = (item2, said2, at) => {
-      if (!said2 || !o.sounds || !active()) return;
-      const name = take(item2, said2);
-      void soundOf(item2, name).then((sound) => {
-        if (!sound || !o.sounds) return;
-        if (!at) return o.sounds.playForeign(sound);
-        o.camera.getWorldPosition(v2);
-        const to = w.copy(at).sub(v2);
-        const distance = to.length();
-        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
-        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
-        o.sounds.playForeign(sound, { distance, pan });
-      });
-    };
-    const poses = /* @__PURE__ */ new WeakMap();
-    let clipsSaid = [];
-    const animate = (item2, model3, name, who2 = "") => {
-      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
-      if (!model3) return;
-      const clip = o.items.clips(item2).find((c) => c.name === name);
-      if (!clip) return;
-      let mixer = mixers.get(model3);
-      if (!mixer) {
-        mixer = new AnimationMixer(model3);
-        mixers.set(model3, mixer);
-      }
-      const action = mixer.clipAction(clip);
-      const pose = isPose(name);
-      if (pose) {
-        const was = poses.get(model3);
-        if (was && was !== action) was.stop();
-        poses.set(model3, action);
-      }
-      action.reset();
-      action.setLoop(LoopOnce, 1);
-      action.clampWhenFinished = pose;
-      action.play();
-    };
-    let solids = [];
-    let solidsAt = -1e9;
-    const worldShapes = () => {
-      if (clock - solidsAt < 1.5) return solids;
-      solidsAt = clock;
-      const found2 = [];
-      const walk2 = (node) => {
-        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
-        const mesh = node;
-        if (mesh.isMesh && mesh.geometry) {
-          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
-          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
-        }
-        for (const child of node.children) walk2(child);
-      };
-      walk2(o.scene);
-      solids = found2;
-      return solids;
-    };
-    const floorUnder = (at) => {
-      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
-      ray.far = 60;
-      const hit = ray.intersectObjects(worldShapes(), false)[0];
-      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
-    };
-    const drop = (thing) => {
-      if (thing.state === "falling" || thing.state === "lying") return;
-      o.scene.attach(thing.object);
-      thing.state = "falling";
-      thing.fall = 0;
-      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
-    };
-    const TRAIL_STEPS = 14;
-    const TRAIL_WIDTH = 0.026;
-    const makeTrail = (color) => {
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
-      const index = [];
-      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
-      geometry.setIndex(index);
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
-      mesh.frustumCulled = false;
-      mesh.userData.nswpNoHit = true;
-      mesh.userData.base = new Color(color);
-      o.scene.add(mesh);
-      return mesh;
-    };
-    const dropTrail = (thing) => {
-      if (!thing.trail) return;
-      thing.trail.removeFromParent();
-      thing.trail.geometry.dispose();
-      thing.trail.material.dispose();
-      thing.trail = null;
-    };
-    const eye = new Vector3();
-    const drawTrail = (thing) => {
-      const mesh = thing.trail;
-      if (!mesh) return;
-      const head = thing.landedAt ?? thing.t;
-      const tail = Math.max(0, thing.t - thing.trailSeconds);
-      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
-      mesh.visible = true;
-      o.camera.getWorldPosition(eye);
-      const position = mesh.geometry.getAttribute("position");
-      const color = mesh.geometry.getAttribute("color");
-      const base = mesh.userData.base;
-      const left = Math.min(1, (head - tail) / thing.trailSeconds);
-      const p = new Vector3();
-      const q2 = new Vector3();
-      const side = new Vector3();
-      for (let i = 0; i <= TRAIL_STEPS; i++) {
-        const f = i / TRAIL_STEPS;
-        const t = head - (head - tail) * f;
-        p.fromArray(shotAt(thing.shot, t));
-        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
-        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
-        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
-        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
-        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
-        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
-        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
-      }
-      position.needsUpdate = true;
-      color.needsUpdate = true;
-    };
-    const gone = (thing) => {
-      dropTrail(thing);
-      thing.object.removeFromParent();
-      const at = things.indexOf(thing);
-      if (at >= 0) things.splice(at, 1);
-    };
-    const launch = async (by, item2, shot) => {
-      const send = item2.sends.find((s) => s.name === shot.name);
-      if (!send || !active()) return;
-      const born = clock;
-      pending.add(`${by}:${shot.id}`);
-      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
-      const inner = await o.items.sent(item2, shot.name, tints);
-      if (!active()) return void pending.delete(`${by}:${shot.id}`);
-      inner.position.y -= send.size[1] / 2;
-      const object = new Group();
-      object.userData.nswpNoHit = true;
-      object.add(inner);
-      object.position.fromArray(shot.from);
-      o.scene.add(object);
-      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
-      const trailSeconds = send.trail ?? 0;
-      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
-      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
-      things.push(thing);
-      pending.delete(`${by}:${shot.id}`);
-      const late = Math.min(PLAY_LIMITS.life, clock - born);
-      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
-    };
-    const stick = (thing, at, onto, on3) => {
-      thing.object.position.copy(at);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
-      if (onto) onto.attach(thing.object);
-      thing.state = "stuck";
-      thing.on = on3;
-      thing.until = thing.t + thing.shot.stick;
-    };
-    const self2 = () => {
-      const head = o.camera.getWorldPosition(new Vector3());
-      const floor = o.rig.getWorldPosition(new Vector3()).y;
-      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
-    };
-    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
-    const reached = (thing, at) => {
-      const me = self2();
-      taken++;
-      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
-      const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
-      if (said2) o.tell(said2);
-      hear(thing.item, thing.send.strikes, null);
-      if (effect && clock >= own.downUntil) {
-        own.value = struck(own.value, effect.take);
-        own.struckAt = clock;
-        own.regenAt = 0;
-        own.flash = 1;
-        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
-        sayState();
-      }
-      gone(thing);
-    };
-    const fly = (thing, dt) => {
-      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
-      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
-      const step = b.clone().sub(a);
-      const length = step.length();
-      let first = 1.0001;
-      let done = null;
-      if (o.deferred && thing.late) {
-        const late = thing.late;
-        thing.late = null;
-        thing.landedAt = late.t;
-        thing.ref = late.ref;
-        stick(thing, late.point, null, "world");
-        hear(thing.item, thing.send.lands, late.point);
-        return;
-      }
-      if (!o.deferred && length > 1e-6) {
-        ray.set(a, step.clone().divideScalar(length));
-        ray.far = length;
-        const hit = ray.intersectObjects(worldShapes(), false)[0];
-        if (hit) {
-          first = hit.distance / length;
-          done = () => {
-            stick(thing, hit.point, hit.object, "world");
-            hear(thing.item, thing.send.lands, hit.point);
-            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
-          };
-        }
-      }
-      const me = o.me();
-      if (me && thing.by !== me && !muted(thing.by)) {
-        const mine = self2();
-        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => reached(thing, a.clone().addScaledVector(step, t));
-        }
-      }
-      for (const p of o.people()) {
-        if (p.pubkey === thing.by) continue;
-        const shape = shapeOf2(p);
-        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
-        if (t !== null && t < first) {
-          first = t;
-          done = () => {
-            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
-            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
-          };
-        }
-      }
-      const before = thing.t;
-      thing.t += dt;
-      if (done) {
-        thing.landedAt = before + dt * Math.min(1, first);
-        return done();
-      }
-      thing.object.position.copy(b);
-      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
-      thing.object.lookAt(w.copy(b).add(going));
-      if (thing.t > PLAY_LIMITS.life) gone(thing);
-    };
-    let item = null;
-    let model2 = null;
-    let box = null;
-    let scriptState = "none";
-    let stoppedBecause = "";
-    let words2 = "";
-    let wordsSprite = null;
-    let holdingNo = 0;
-    const showWords = (text2) => {
-      words2 = text2;
-      if (wordsSprite) {
-        repaint(wordsSprite, (g, cw, ch) => {
-          if (!text2) return;
-          g.font = "600 44px system-ui, sans-serif";
-          g.textAlign = "center";
-          g.textBaseline = "middle";
-          const wide = Math.min(cw - 8, g.measureText(text2).width + 36);
-          g.fillStyle = "rgba(8,10,14,0.72)";
-          g.beginPath();
-          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
-          g.fill();
-          g.fillStyle = "#ffffff";
-          g.fillText(text2, cw / 2, ch / 2 + 2, cw - 24);
-        });
-      }
-      o.onChange?.();
-    };
-    let pointed = null;
-    const wall = () => typeof performance !== "undefined" ? performance.now() : Date.now();
-    const aim = (lift, spread = 0) => {
-      const said2 = o.aim?.();
-      let from;
-      let to;
-      const tapped = pointed && wall() < pointed.until ? pointed.to : null;
-      pointed = null;
-      if (said2) ({ from, to } = said2);
-      else if (tapped || o.sighting?.()) {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
-        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      } else {
-        const q2 = o.camera.getWorldQuaternion(new Quaternion());
-        const eye2 = o.camera.getWorldPosition(new Vector3());
-        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
-        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
-      }
-      const dir = to.clone().sub(from).normalize();
-      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
-      if (spread > 0) {
-        const across = new Vector3().crossVectors(dir, new Vector3(0, 1, 0));
-        if (across.lengthSq() < 1e-6) across.set(1, 0, 0);
-        across.normalize();
-        const over = new Vector3().crossVectors(across, dir).normalize();
-        const off = spread * Math.sqrt(Math.random());
-        const round2 = Math.random() * Math.PI * 2;
-        dir.applyAxisAngle(over, off * Math.cos(round2)).applyAxisAngle(across, off * Math.sin(round2)).normalize();
-      }
-      return { from, dir };
-    };
-    const asked = (ask) => {
-      if (!item || !active()) return;
-      if (ask.ask === "show") return showWords(ask.text);
-      if (ask.ask === "play") {
-        if (!item.sounds[ask.name]) return;
-        hear(item, ask.name, null);
-        const said3 = buildDid({ kind: "sound", name: ask.name });
-        if (said3 && o.me()) o.tell(said3);
-        return;
-      }
-      if (ask.ask === "clip") {
-        animate(item, model2, ask.name);
-        const said3 = buildDid({ kind: "clip", name: ask.name });
-        if (said3 && o.me()) o.tell(said3);
-        return;
-      }
-      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
-      const { from, dir } = aim(ask.lift, ask.spread);
-      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
-      const said2 = buildShot(shot);
-      const read6 = said2 ? parseShot(said2) : null;
-      if (!said2 || !read6) return;
-      sent++;
-      void launch(o.me() ?? "", item, read6);
-      if (o.me()) o.tell(said2);
-    };
-    const refreshOwn = () => {
-      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
-    };
-    const isPresenting = () => !!o.presenting?.();
-    return {
-      async held(next, drawnFor) {
-        const no4 = ++holdingNo;
-        if (box) {
-          box.tell("away");
-          const old = box;
-          box = null;
-          setTimeout(() => old.stop(), 250);
-        }
-        if (model2) mixers.delete(model2);
-        wordsSprite?.removeFromParent();
-        wordsSprite = null;
-        item = next;
-        model2 = drawnFor;
-        scriptState = "none";
-        stoppedBecause = "";
-        words2 = "";
-        refreshOwn();
-        o.onChange?.();
-        if (!next || !drawnFor || !active()) return;
-        if (next.does.use || next.script) {
-          wordsSprite = drawn(256, 72, () => {
-          });
-          wordsSprite.scale.set(0.1, 0.028, 1);
-          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
-          drawnFor.add(wordsSprite);
-        }
-        for (const s of next.sends) void o.items.sent(next, s.name);
-        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
-        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
-        const text2 = await o.items.script(next);
-        if (!text2 || no4 !== holdingNo) return;
-        const run2 = await runInBox(
-          text2,
-          {
-            ask: (ask) => void (no4 === holdingNo && asked(ask)),
-            stopped: (why) => {
-              if (no4 !== holdingNo) return;
-              scriptState = "stopped";
-              stoppedBecause = why;
-              box = null;
-              showWords("");
-            }
-          },
-          typeof o.scripts === "object" ? o.scripts : {}
-        );
-        if (no4 !== holdingNo) return run2?.stop();
-        box = run2;
-        scriptState = run2 ? "running" : "stopped";
-        if (!run2) stoppedBecause = "no box";
-        run2?.tell("held");
-        o.onChange?.();
-      },
-      use(toward) {
-        if (!active() || !box) return;
-        pointed = toward ? { to: toward.clone(), until: wall() + 1e4 } : null;
-        box.tell("use");
-      },
-      second() {
-        pointed = null;
-        if (active()) box?.tell("second");
-      },
-      get does() {
-        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
-      },
-      get words() {
-        return words2;
-      },
-      get health() {
-        return { value: own.value, full: own.full };
-      },
-      heard(from, said2) {
-        if (!active() || muted(from)) return;
-        const person = o.people().find((p) => p.pubkey === from);
-        if (!person) return;
-        const state = parseState(said2);
-        if (state) {
-          let shown4 = bars.get(from);
-          if (!shown4) {
-            const sprite = drawn(320, 56, () => {
-            });
-            sprite.scale.set(0.44, 0.077, 1);
-            sprite.position.set(0, 0.62, 0);
-            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
-            bars.set(from, shown4);
-          }
-          shown4.value = state.value;
-          shown4.full = Math.min(state.full, 12);
-          shown4.until = clock + (state.value < state.full ? 30 : 2);
-          person.over.add(shown4.sprite);
-          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
-          return;
-        }
-        const hit = parseHit(said2);
-        if (hit) {
-          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
-          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
-          thing.agreed = true;
-          const feet = shapeOf2(person).feet;
-          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
-          if (thing.on !== from) stick(thing, at, person.body, from);
-          thing.agreeBy = null;
-          hear(thing.item, thing.send.strikes, at);
-          if (hit.by === o.me()) {
-            hear(thing.item, thing.send.tells, null);
-            landed++;
-            mark.visible = true;
-            markUntil = clock + 0.22;
-            o.onChange?.();
-          }
-          return;
-        }
-        if (!person.holding) return;
-        const did = parseDid(said2);
-        const shot = did ? null : parseShot(said2);
-        if (!did && !shot) return;
-        if (shot) {
-          let rate = rates.get(from);
-          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
-          if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
-          if (!rate.take(clock * 1e3)) return;
-          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
-        }
-        if (shot) {
-          heardShots.set(`${from}:${shot.id}`, clock);
-          if (heardShots.size > 256) {
-            for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
-          }
-        }
-        const does = (holding2) => {
-          if (!holding2) return;
-          if (did?.kind === "sound") hear(holding2, holding2.sounds[did.name] ? did.name : void 0, person.head);
-          else if (did) animate(holding2, person.held, did.name, from);
-          else if (shot) void launch(from, holding2, shot);
-        };
-        const known = o.items.known(person.holding);
-        if (known) does(known);
-        else {
-          if (shot) pending.add(`${from}:${shot.id}`);
-          const born = clock;
-          void o.items.describe(person.holding).then((found2) => {
-            if (shot) pending.delete(`${from}:${shot.id}`);
-            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
-          });
-        }
-      },
-      left(pubkey) {
-        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
-        bars.get(pubkey)?.sprite.removeFromParent();
-        bars.delete(pubkey);
-        rates.delete(pubkey);
-        for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
-      },
-      update(frame2) {
-        const at = typeof performance === "undefined" ? null : performance.now();
-        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
-        lastAt = at;
-        clock += dt;
-        for (const mixer of mixers.values()) mixer.update(dt);
-        if (mark.visible && clock > markUntil) mark.visible = false;
-        refreshOwn();
-        if (own.downUntil) {
-          if (clock >= own.downUntil) {
-            own.value = own.full;
-            own.downUntil = 0;
-            own.regenAt = 0;
-            sayState();
-          }
-        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
-          if (!own.regenAt) own.regenAt = clock;
-          if (clock - own.regenAt >= HEALTH.regenSeconds) {
-            own.value += 1;
-            own.regenAt = own.value < own.full ? clock : 0;
-            sayState();
-          }
-        }
-        const on3 = active();
-        const down = own.downUntil > 0;
-        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
-        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
-        const wide = tall * o.camera.aspect;
-        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
-        const scale = Math.min(0.3, wide * 0.62);
-        ownBar.scale.set(scale, scale / 6, 1);
-        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
-        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
-        ownBar.visible = own.shown > 0.02;
-        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
-        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
-        own.flash = Math.max(0, own.flash - dt / 0.55);
-        const low = !down && own.value < own.full && own.value <= 1;
-        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
-        edge.visible = red > 0.01;
-        edge.material.opacity = red;
-        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
-        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
-        if (glitch.visible) {
-          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
-          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
-          glitch.material.opacity = 0.18 + Math.random() * 0.3;
-          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
-        }
-        const people2 = o.people();
-        for (const [who2, shown4] of bars) {
-          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
-          const person = people2.find((x) => x.pubkey === who2);
-          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
-          if (person?.root) {
-            if (out && lively()) {
-              person.root.visible = person.root.visible && Math.random() > 0.3;
-              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
-              blinking.add(who2);
-            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
-          }
-        }
-        for (const thing of [...things]) {
-          if (thing.state === "flying") {
-            let left = Math.min(dt, 0.5);
-            const from = thing.t;
-            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
-              const step = Math.min(0.03, left);
-              fly(thing, step);
-              left -= step;
-            }
-            if (o.deferred && thing.state === "flying" && thing.t > from) {
-              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
-              if (thing.steps.length > 6) thing.steps.shift();
-            }
-            drawTrail(thing);
-          } else if (thing.state === "stuck") {
-            thing.t += dt;
-            drawTrail(thing);
-            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
-            else if (thing.t > thing.until) drop(thing);
-            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
-          } else if (thing.state === "falling") {
-            thing.t += dt;
-            drawTrail(thing);
-            thing.fall += GRAVITY * dt;
-            thing.object.position.y -= thing.fall * dt;
-            thing.object.rotation.x += dt * 5;
-            if (thing.object.position.y <= thing.floor + 0.02) {
-              thing.object.position.y = thing.floor + 0.02;
-              thing.state = "lying";
-              thing.until = 0.6;
-              hear(thing.item, thing.send.drops, thing.object.position);
-            }
-          } else {
-            thing.until -= dt;
-            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
-            if (thing.until <= 0) gone(thing);
-          }
-        }
-      },
-      snapshot() {
-        const clips = clipsSaid;
-        clipsSaid = [];
-        const q2 = new Quaternion();
-        const at = new Vector3();
-        const three2 = (x) => [x.x, x.y, x.z];
-        return {
-          things: things.map((t) => {
-            t.object.getWorldPosition(at);
-            t.object.getWorldQuaternion(q2);
-            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
-            return {
-              key: `${t.by}:${t.shot.id}`,
-              model: t.send.model.sha256,
-              size: t.send.size,
-              tints: t.tints,
-              state: t.state,
-              on: t.on,
-              ref: t.ref,
-              at: three2(at),
-              turn: [q2.x, q2.y, q2.z, q2.w],
-              scale: t.object.scale.x,
-              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
-              down: t.state === "falling" && !t.flooredAt
-            };
-          }),
-          trails: things.flatMap((t) => {
-            const mesh = t.trail;
-            if (!mesh || !mesh.visible) return [];
-            const position = mesh.geometry.getAttribute("position");
-            const color = mesh.geometry.getAttribute("color");
-            const base = mesh.userData.base;
-            const most = Math.max(base.r, base.g, base.b, 1e-6);
-            const points = [];
-            for (let i = 0; i < position.count; i += 2) {
-              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
-            }
-            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
-          }),
-          own: {
-            cross: cross.visible,
-            mark: mark.visible,
-            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
-            red: edge.visible ? edge.material.opacity : 0,
-            glitch: glitch.visible,
-            words: words2
-          },
-          clips
-        };
-      },
-      met(key, step, fraction, point, ref = "") {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        const tested = thing?.steps.find((s) => s.n === step);
-        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
-        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
-        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
-      },
-      floored(key, y) {
-        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
-        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
-        thing.flooredAt = true;
-        thing.floor = y;
-      },
-      info() {
-        const count = (state) => things.filter((t) => t.state === state).length;
-        return {
-          flying: count("flying"),
-          stuck: count("stuck"),
-          falling: count("falling") + count("lying"),
-          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
-          sent,
-          landed,
-          taken,
-          health: { value: own.value, full: own.full },
-          words: words2,
-          script: scriptState,
-          stoppedBecause,
-          marked: mark.visible,
-          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
-        };
-      },
-      dispose() {
-        box?.stop();
-        for (const thing of [...things]) gone(thing);
-        for (const b of bars.values()) b.sprite.removeFromParent();
-        hud2.removeFromParent();
-      }
-    };
-  }
-
-  // packages/sdk/src/bagging.ts
-  var HELD_KEY = "nswp:holding";
-  function keptHolding() {
-    try {
-      const kept2 = globalThis.localStorage?.getItem(HELD_KEY);
-      return kept2 ? cleanSettings({ holding: JSON.parse(kept2) }).holding : void 0;
-    } catch {
-      return void 0;
-    }
-  }
-  function keepHolding(held2) {
-    try {
-      globalThis.localStorage?.setItem(HELD_KEY, JSON.stringify(held2));
-    } catch {
-    }
-  }
-  var PAGE = 24;
-  function itemIn(text2) {
-    if (typeof text2 !== "string") return "";
-    const plain = itemCoordinate(/37303:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,63}/.exec(text2)?.[0]);
-    if (plain) return plain;
-    const address = /naddr1[02-9ac-hj-np-z]{20,400}/.exec(text2)?.[0];
-    if (!address) return "";
-    try {
-      const to = decodeNaddr(address);
-      return to.kind === ITEM_KIND ? itemCoordinate(`${ITEM_KIND}:${to.pubkey}:${to.identifier}`) : "";
-    } catch {
-      return "";
-    }
-  }
-  function addBagControls(controls2, opts) {
-    const { bag, items: items2 } = opts;
-    let shown4 = [];
-    let chosen = null;
-    let pages = 1;
-    let wasMe = null;
-    let looked = false;
-    let asking = "";
-    let taking = "";
-    const say3 = (text2) => controls2.say(text2);
-    const model2 = items2.model;
-    const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
-    const still = (item) => () => {
-      const described = items2.known(item);
-      return described && previews && showsItems() ? previews.still(described, bag.tints(item)) : null;
-    };
-    const titleOf = (item) => items2.known(item)?.title ?? item.split(":")[2] ?? "an item";
-    const change2 = (item, adding) => {
-      const now = async () => {
-        const done = await (adding ? bag.add(item, titleOf(item)) : bag.remove(item, titleOf(item)));
-        say3(done.said);
-        refresh();
-      };
-      if (!bag.canChange()) return say3("Your bag is changed at your home, not from here.");
-      if (opts.allowed && !opts.allowed() && opts.ask) return say3(opts.ask(() => void now()));
-      void now();
-    };
-    const fromCopy = async () => {
-      let text2 = "";
-      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard2) text2 = await keyboard2.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
-      else {
-        try {
-          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
-        } catch {
-          return say3("What you copied couldn't be read here. Copy an item's address, allow this site to read what you copy, and press again.");
-        }
-      }
-      const item = itemIn(text2);
-      if (!item) return say3("That isn't an item's address. Copy one from the place that keeps the item, and press again.");
-      const described = await items2.describe(item);
-      if (!described) return say3("No description of that item could be found, so it wasn't put in your bag.");
-      chosen = item;
-      change2(item, true);
-    };
-    let cardActs = [];
-    let putAway = false;
-    let cameHolding = (() => {
-      const came = arrivedSettings().holding ?? keptHolding();
-      return came && typeof came === "object" ? came : null;
-    })();
-    const carryOn = async (has) => {
-      const came = cameHolding;
-      cameHolding = null;
-      if (!came || opts.holding() || opts.rule() === "none" || !showsItems() || !has.includes(came.item)) return;
-      const described = await items2.describe(came.item);
-      if (!described || opts.holding()) return;
-      if (described.script && came.script === described.script.sha256) allowScript(described.script.sha256);
-      taking = came.item;
-      refresh();
-      let done = { ok: false, said: "" };
-      try {
-        done = await opts.hold(came.item, came.tints ?? bag.tints(came.item));
-      } catch {
-      }
-      taking = "";
-      if (done.ok) say3(`${items2.known(came.item)?.title ?? "What you were holding"} is still in your hand.`);
-      refresh();
-    };
-    let drawnHolding = "";
-    const refresh = () => {
-      drawnHolding = opts.holding();
-      const held2 = heldNow();
-      if (held2 !== void 0) keepHolding(held2);
-      for (const id of shown4) controls2.remove(id);
-      shown4 = [];
-      const me = opts.me();
-      if (me !== wasMe) {
-        wasMe = me;
-        chosen = null;
-        pages = 1;
-        looked = false;
-      }
-      const has = me ? bag.items() : null;
-      const rule = opts.rule();
-      if (has && cameHolding) void carryOn(has);
-      const offers2 = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
-      const add = (...actions) => {
-        for (const a of actions) shown4.push(a.id);
-        controls2.add(...actions.map((a) => ({ section: "bag", ...a })));
-      };
-      controls2.addSection({
-        id: "bag",
-        label: "Bag",
-        icon: "save",
-        note: () => {
-          const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
-          if (!me) return "Sign in to keep a bag.";
-          if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
-          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers2().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
-          return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
-        },
-        card: () => {
-          const item = chosen ? items2.known(chosen) : null;
-          if (!item) return null;
-          const tints = bag.tints(item.id);
-          return {
-            title: item.title,
-            tag: opts.holding() === item.id ? "In your hand" : has?.includes(item.id) ? "In your bag" : "Offered here",
-            proven: false,
-            sub: `Made by ${item.maker.slice(0, 8)}\u2026`,
-            copy: item.id,
-            text: item.summary,
-            picture: "",
-            color: "",
-            now: [],
-            // What to do with it sits in the card with it: what it does while it is in their hand (the kit's own
-            // rows for that, item-controls.ts), then holding it or putting it away, its colours, and keeping it.
-            acts: [...opts.holding() === item.id ? ["item-use", "item-second"] : [], ...cardActs],
-            // The thing itself, large and turning, in the colours they chose for it.
-            ...previews && showsItems() ? { draw: () => previews.turning(item, tints, opts.motion?.() ?? controls2.theme?.motion ?? true) } : {}
-          };
-        }
-      });
-      if (!me) return;
-      const housekeeping = () => {
-        add({
-          id: "bag-items",
-          icon: "check",
-          on: () => showsItems(),
-          label: () => showsItems() ? "Items: on" : "Items: off. Nothing of anyone's is fetched, drawn or run",
-          short: "Items",
-          act: () => {
-            setShowsItems(!showsItems());
-            if (!showsItems() && opts.holding()) void opts.hold("");
-            say3(showsItems() ? "Items are drawn, here and in the next world that allows them." : "No item is fetched, drawn or run for you, here or in the next world.");
-            refresh();
-          }
-        });
-      };
-      if (has === null) {
-        housekeeping();
-        if (!looked) {
-          looked = true;
-          void bag.load().then(refresh);
-        } else
-          add({
-            id: "bag-again",
-            icon: "turn",
-            label: "Look again",
-            act: () => {
-              looked = false;
-              refresh();
-            }
-          });
-        return;
-      }
-      if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
-      const holding2 = opts.holding();
-      const away = () => ({
-        id: "bag-away",
-        icon: "close",
-        tone: chosen === holding2 ? "primary" : "normal",
-        label: `Put ${titleOf(holding2)} away`,
-        short: "Away",
-        act: async () => {
-          putAway = true;
-          say3((await opts.hold("")).said);
-          refresh();
-        }
-      });
-      const firstOfTheirs = shown4.length;
-      if (chosen && has.includes(chosen)) {
-        const item = chosen;
-        if (taking === item)
-          add({ id: "bag-taking", icon: "check", label: `Taking ${titleOf(item)} in hand\u2026`, act: () => say3("It is on its way: its files are being fetched and checked.") });
-        else if (holding2 === item) add(away());
-        else if (rule === "none") {
-          add({
-            id: "bag-nohold",
-            icon: "close",
-            label: `Can't be held here: ${opts.place?.() || "this place"} doesn't have items`,
-            act: () => say3("Each place says whether things can be carried in it. Most let them; this one has turned them off.")
-          });
-        } else if (!showsItems()) {
-          add({
-            id: "bag-turn-on",
-            icon: "check",
-            tone: "primary",
-            label: `Turn items on, to hold ${titleOf(item)}`,
-            act: () => {
-              setShowsItems(true);
-              refresh();
-            }
-          });
-        } else {
-          add({
-            id: "bag-hold",
-            icon: "check",
-            tone: "primary",
-            // An item that does things of its own runs its maker's code, shut away: the second press is their yes.
-            label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
-            act: async () => {
-              taking = item;
-              putAway = false;
-              refresh();
-              let done;
-              try {
-                done = await opts.hold(item, bag.tints(item));
-              } catch {
-                done = { ok: false, said: "That couldn't be taken in hand just now." };
-              }
-              taking = "";
-              asking = !done.ok && /Press Hold again/.test(done.said) ? item : "";
-              say3(done.said);
-              refresh();
-            }
-          });
-        }
-        for (const tint of items2.known(item)?.tints ?? []) {
-          const now = bag.tints(item)[tint.slot] ?? tint.color;
-          const at = TINT_PALETTE.findIndex((c) => c.color === now);
-          add({
-            id: `bag-tint-${tint.slot}`,
-            kind: "swatch",
-            color: now,
-            icon: "check",
-            label: `${tint.label}: ${TINT_PALETTE[at]?.name ?? "its maker's own"}`,
-            short: tint.label,
-            act: () => {
-              const next = TINT_PALETTE[(at + 1) % TINT_PALETTE.length];
-              const chosen2 = { ...bag.tints(item), [tint.slot]: next.color };
-              bag.setTints(item, chosen2);
-              opts.tinted?.(item, chosen2);
-              say3(`${tint.label}: ${next.name}. ${bag.canChange() ? "It goes with it to every world." : "For this place. Choose it at your home to keep it everywhere."}`);
-              refresh();
-            }
-          });
-        }
-        if (bag.canChange()) add({ id: "bag-remove", icon: "close", label: `Take ${titleOf(item)} out of my bag`, act: () => change2(item, false) });
-      } else if (chosen && offers2().includes(chosen)) {
-        const item = chosen;
-        add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
-      }
-      cardActs = shown4.slice(firstOfTheirs);
-      if (holding2 && holding2 !== chosen) add(away());
-      const listed = has.slice(0, pages * PAGE);
-      for (const item of listed) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
-      const choose = (item) => () => {
-        chosen = chosen === item ? null : item;
-        asking = "";
-        refresh();
-      };
-      add(
-        ...listed.map(
-          (item) => ({
-            id: `bag-${item.split(":")[1].slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
-            kind: "tile",
-            icon: "save",
-            picture: still(item),
-            on: () => chosen === item,
-            label: () => `${titleOf(item)}${opts.holding() === item ? ", in your hand" : ""}`,
-            short: () => titleOf(item),
-            act: choose(item)
-          })
-        )
-      );
-      const offered = offers2();
-      for (const item of offered) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
-      add(
-        ...offered.map(
-          (item) => ({
-            id: `bag-offer-${item.split(":")[1].slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
-            kind: "tile",
-            icon: "save",
-            picture: still(item),
-            on: () => chosen === item,
-            label: () => `${titleOf(item)}, offered here`,
-            short: () => titleOf(item),
-            act: choose(item)
-          })
-        )
-      );
-      if (has.length > listed.length) {
-        add({
-          id: "bag-more",
-          icon: "list",
-          label: `Show more (${listed.length} of ${has.length})`,
-          act: () => {
-            pages++;
-            refresh();
-          }
-        });
-      }
-      housekeeping();
-      add({ id: "bag-look", icon: "turn", label: "Look again", short: "Look", act: () => void bag.load(true).then(refresh) });
-      if (bag.canChange()) add({ id: "bag-add", icon: "save", label: () => opts.presenting?.() && opts.keyboard?.() ? "Put in an item by its address" : "Put in the item I copied", short: "Add", act: () => void fromCopy() });
-    };
-    let drawing = false;
-    const soon2 = () => {
-      if (drawing) return;
-      drawing = true;
-      queueMicrotask(() => {
-        drawing = false;
-        refresh();
-      });
-    };
-    bag.onChange(soon2);
-    onItemsChange(soon2);
-    previews?.onChange(soon2);
-    const heldNow = () => {
-      const item = opts.holding();
-      if (!item) return putAway ? "" : void 0;
-      const script = items2.known(item)?.script?.sha256;
-      const tints = bag.tints(item);
-      return { item, ...Object.keys(tints).length ? { tints } : {}, ...script && scriptAllowed(script) ? { script } : {} };
-    };
-    reportSettings("holding", () => {
-      const held2 = heldNow();
-      return held2 === void 0 ? {} : { holding: held2 };
-    });
-    refresh();
-    const watch2 = setInterval(() => {
-      if (!taking && opts.holding() !== drawnHolding) refresh();
-    }, 400);
-    watch2.unref?.();
-    return { refresh };
   }
 
   // node_modules/three/examples/jsm/utils/BufferGeometryUtils.js
@@ -51903,6 +50214,135 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     });
   }
 
+  // packages/sdk/src/item-store.ts
+  var ITEM_BUDGET = {
+    ...MODEL_BUDGET,
+    /** The most one of an item's sounds may weigh, in bytes. */
+    sound: 15e4
+  };
+  var ITEMS_KEY = "nswp:items";
+  var watchers5 = /* @__PURE__ */ new Set();
+  var shown3 = null;
+  var keep4 = (on3) => {
+    try {
+      if (on3) globalThis.localStorage?.removeItem(ITEMS_KEY);
+      else globalThis.localStorage?.setItem(ITEMS_KEY, "off");
+    } catch {
+    }
+  };
+  function showsItems() {
+    if (shown3 !== null) return shown3;
+    const came = arrivedSettings().items;
+    let kept2 = null;
+    try {
+      kept2 = globalThis.localStorage?.getItem(ITEMS_KEY) ?? null;
+    } catch {
+    }
+    shown3 = came ?? kept2 !== "off";
+    if (came !== void 0) keep4(shown3);
+    reportSettings("items", () => ({ items: showsItems() }));
+    return shown3;
+  }
+  function setShowsItems(on3) {
+    showsItems();
+    shown3 = on3;
+    keep4(on3);
+    for (const fn of watchers5) fn();
+  }
+  function onItemsChange(fn) {
+    watchers5.add(fn);
+    return () => void watchers5.delete(fn);
+  }
+  var FETCH_MS = 3e4;
+  var AGAIN_MS = 4e3;
+  async function fetchWithin(url, most) {
+    try {
+      const res = await fetch(url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(FETCH_MS) });
+      if (!res.ok) return null;
+      const stated = Number(res.headers.get("content-length") ?? 0);
+      if (stated > most) return null;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      return bytes.length <= most ? bytes : null;
+    } catch {
+      return null;
+    }
+  }
+  function createItemStore(opts = {}) {
+    const query = opts.query ?? queryRelays;
+    const now = opts.now ?? (() => Date.now());
+    const fetchBytes = opts.fetchBytes ?? ((url) => fetchWithin(url, ITEM_BUDGET.bytes));
+    const described = /* @__PURE__ */ new Map();
+    const settled = /* @__PURE__ */ new Map();
+    const files2 = /* @__PURE__ */ new Map();
+    const models2 = /* @__PURE__ */ new Map();
+    const forgetSoon = (kept2, key, asked) => {
+      setTimeout(() => {
+        if (kept2.get(key) === asked) kept2.delete(key);
+      }, AGAIN_MS);
+    };
+    const file = (named2, most) => {
+      let got = files2.get(named2.sha256);
+      if (!got) {
+        const asking = fetchBytes(named2.url).then((bytes) => {
+          if (!bytes) forgetSoon(files2, named2.sha256, asking);
+          return bytes && bytes.length <= most && bytesToHex(sha256(bytes)) === named2.sha256 ? bytes : null;
+        }).catch(() => (forgetSoon(files2, named2.sha256, asking), null));
+        got = asking;
+        files2.set(named2.sha256, got);
+      }
+      return got;
+    };
+    return {
+      describe(coordinateIn) {
+        const coordinate2 = itemCoordinate(coordinateIn);
+        if (!coordinate2) return Promise.resolve(null);
+        let found2 = described.get(coordinate2);
+        if (!found2) {
+          const [, maker, ...rest] = coordinate2.split(":");
+          found2 = askWell({ kinds: [ITEM_KIND], authors: [maker], "#d": [rest.join(":")], limit: 4 }, { own: [], usual: opts.relays ?? DEFAULT_RELAYS, query, timeoutMs: 4e3, now }).then((got) => {
+            const newest = got.events.filter((e) => e.kind === ITEM_KIND && e.pubkey === maker && verifyEvent(e)).sort((a, b) => b.created_at - a.created_at)[0];
+            const item = newest ? parseItem(newest) : null;
+            return item && item.id === coordinate2 ? item : null;
+          }).catch(() => null).then((item) => {
+            settled.set(coordinate2, item);
+            if (!item) described.delete(coordinate2);
+            return item;
+          });
+          described.set(coordinate2, found2);
+        }
+        return found2;
+      },
+      known: (coordinate2) => settled.get(itemCoordinate(coordinate2)) ?? null,
+      modelBytes(named2) {
+        if (!showsItems()) return Promise.resolve(null);
+        let got = models2.get(named2.model.sha256);
+        if (!got) {
+          const asking = file(named2.model, ITEM_BUDGET.bytes).then((bytes) => {
+            const read6 = bytes ? readGlb(bytes) : null;
+            if (!bytes) forgetSoon(models2, named2.model.sha256, asking);
+            return bytes && read6?.ok ? { bytes, count: read6.count } : null;
+          });
+          got = asking;
+          models2.set(named2.model.sha256, got);
+        }
+        return got;
+      },
+      async sound(item, name) {
+        const named2 = item.sounds[name];
+        return named2 && showsItems() ? file(named2, ITEM_BUDGET.sound) : null;
+      },
+      async script(item) {
+        if (!item.script || !showsItems()) return null;
+        const bytes = await file(item.script, SCRIPT_LIMITS.bytes);
+        try {
+          return bytes ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : null;
+        } catch {
+          return null;
+        }
+      }
+    };
+  }
+
   // packages/sdk/src/items.ts
   function applyTints(root, item, tints = {}) {
     root.traverse((o) => {
@@ -52625,7 +51065,980 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
   }
 
+  // packages/sdk/src/item-box.ts
+  function runInBox(script, on3, opts = {}) {
+    if (typeof document === "undefined") return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const frame2 = document.createElement("iframe");
+      frame2.setAttribute("sandbox", "allow-scripts");
+      frame2.setAttribute("aria-hidden", "true");
+      frame2.tabIndex = -1;
+      frame2.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+      frame2.src = opts.url ?? new URL("item-box.html", document.baseURI).href;
+      const gates = Object.fromEntries(Object.entries(ITEM_ASKS).map(([name, g]) => [name, createRate(g.burst, g.perSecond)]));
+      let running = false;
+      let over = false;
+      let began = 0;
+      let ticking;
+      const say3 = (m) => frame2.contentWindow?.postMessage({ nswpItemBox: 1, ...m }, "*");
+      const end = (why) => {
+        if (over) return;
+        over = true;
+        const was = running;
+        running = false;
+        clearInterval(ticking);
+        clearTimeout(giveUp);
+        removeEventListener("message", heard);
+        frame2.remove();
+        if (was) on3.stopped?.(why);
+        else resolve(null);
+      };
+      const run2 = {
+        tell(event, arg) {
+          if (running) say3({ t: "event", name: event, ...arg === void 0 ? {} : { arg } });
+        },
+        stop: () => end("asked"),
+        get running() {
+          return running;
+        }
+      };
+      const heard = (e) => {
+        if (e.source !== frame2.contentWindow) return;
+        const m = e.data;
+        if (!m || m.nswpItemBox !== 1) return;
+        if (m.t === "ready") say3({ t: "run", script });
+        else if (m.t === "started" && !running && !over) {
+          running = true;
+          began = performance.now();
+          clearTimeout(giveUp);
+          ticking = setInterval(() => run2.tell("tick", Math.round(performance.now() - began)), 100);
+          resolve(run2);
+        } else if (m.t === "ask" && running) {
+          const ask = cleanAsk(m.name, m.args);
+          if (ask && gates[ask.ask].take(performance.now())) on3.ask(ask);
+        } else if (m.t === "stopped") end(String(m.why ?? "stopped"));
+        else if (m.t === "error" && !running) end("failed");
+      };
+      addEventListener("message", heard);
+      const giveUp = setTimeout(() => end("no box"), opts.startMs ?? 5e3);
+      frame2.addEventListener("error", () => end("no box"));
+      document.body.append(frame2);
+    });
+  }
+
+  // packages/sdk/src/play.ts
+  var SCRIPT_KEPT = "nswp:item-scripts";
+  function scriptAllowed(sha2562) {
+    try {
+      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
+    } catch {
+      return false;
+    }
+  }
+  function allowScript(sha2562) {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
+      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
+    } catch {
+    }
+  }
+  function mayHold(described, o) {
+    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+    if (!described) return { ok: false, said: "That item's description couldn't be found." };
+    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
+      if (o.asked.sha !== described.script.sha256) {
+        o.asked.sha = described.script.sha256;
+        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+      }
+      allowScript(described.script.sha256);
+    }
+    return { ok: true };
+  }
+  function drawn(width, height, paint2) {
+    if (typeof document === "undefined") {
+      const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
+      blank.userData.nswpNoHit = true;
+      return blank;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const g = canvas.getContext("2d");
+    if (g) paint2(g);
+    const map = new CanvasTexture(canvas);
+    map.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false }));
+    sprite.renderOrder = 999;
+    sprite.userData.nswpNoHit = true;
+    return sprite;
+  }
+  var repaint = (sprite, paint2) => {
+    const map = sprite.material.map;
+    if (!map) return;
+    const canvas = map.image;
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    paint2(g, canvas.width, canvas.height);
+    map.needsUpdate = true;
+  };
+  var WARN = "#ff5d52";
+  var paintHealth = (g, w, h, o) => {
+    const low = o.value <= Math.ceil(o.full / 3);
+    const ink = o.down || low ? WARN : o.accent;
+    g.fillStyle = "rgba(10,12,16,0.8)";
+    g.beginPath();
+    g.roundRect(1.5, 1.5, w - 3, h - 3, (h - 3) / 2);
+    g.fill();
+    g.globalAlpha = 0.5;
+    g.strokeStyle = ink;
+    g.lineWidth = 2.5;
+    g.stroke();
+    g.globalAlpha = 1;
+    let x0 = h * 0.42;
+    if (o.heart !== false) {
+      const [cx, cy, r] = [h * 0.56, h * 0.47, h * 0.13];
+      g.fillStyle = ink;
+      g.beginPath();
+      g.arc(cx - r, cy, r, Math.PI, 0);
+      g.arc(cx + r, cy, r, Math.PI, 0);
+      g.lineTo(cx, cy + r * 2.5);
+      g.closePath();
+      g.fill();
+      x0 = h * 1.02;
+    }
+    const x1 = w - h * 0.42;
+    if (o.down) {
+      g.fillStyle = WARN;
+      g.font = `600 ${Math.round(h * 0.42)}px system-ui, sans-serif`;
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText("Tagged out", (x0 + x1) / 2, h / 2 + 1, x1 - x0);
+      return;
+    }
+    const gap = h * 0.11;
+    const each = (x1 - x0 - gap * (o.full - 1)) / o.full;
+    const [top, tall] = [h * 0.3, h * 0.4];
+    for (let i = 0; i < o.full; i++) {
+      const x = x0 + i * (each + gap);
+      g.fillStyle = "rgba(255,255,255,0.14)";
+      g.beginPath();
+      g.roundRect(x, top, each, tall, tall / 3);
+      g.fill();
+      const part = i < o.value ? 1 : i === o.value ? Math.max(0, Math.min(1, o.growing ?? 0)) : 0;
+      if (part <= 0) continue;
+      g.globalAlpha = i < o.value ? 1 : 0.55;
+      g.fillStyle = ink;
+      g.beginPath();
+      g.roundRect(x, top, Math.max(tall / 2, each * part), tall, tall / 3);
+      g.fill();
+      g.globalAlpha = 1;
+    }
+  };
+  function viaOf(shot, t0, t1) {
+    const pieces = Math.min(24, Math.ceil((t1 - t0) / 0.03 - 1e-9));
+    if (!(pieces > 1)) return {};
+    return { via: Array.from({ length: pieces - 1 }, (_, i) => shotAt(shot, t0 + (t1 - t0) * (i + 1) / pieces)) };
+  }
+  function createPlay(o) {
+    const things = [];
+    const pending = /* @__PURE__ */ new Set();
+    const heardShots = /* @__PURE__ */ new Map();
+    const rates = /* @__PURE__ */ new Map();
+    const bars = /* @__PURE__ */ new Map();
+    const blinking = /* @__PURE__ */ new Set();
+    const mixers = /* @__PURE__ */ new Map();
+    const soundsOf = /* @__PURE__ */ new Map();
+    const ray = new Raycaster();
+    const v2 = new Vector3();
+    const w = new Vector3();
+    let clock = 0;
+    let lastAt = null;
+    let sent = 0;
+    let landed = 0;
+    let taken = 0;
+    let nextId = Math.floor(Math.random() * 1e3);
+    const active = () => cleanItemsRule(o.rule()) !== "none" && showsItems();
+    const muted = (pubkey) => cleanItemsRule(o.rule()) === "allowed" && !!o.itemsMuted?.(pubkey);
+    const hud2 = new Group();
+    hud2.userData.nswpNoHit = true;
+    if (!o.deferred) o.camera.add(hud2);
+    const cross = drawn(64, 64, (g) => {
+      g.strokeStyle = "rgba(255,255,255,0.9)";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(32, 32, 9, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = "rgba(255,255,255,0.9)";
+      g.fillRect(31, 31, 2, 2);
+    });
+    cross.position.set(0, 0, -1);
+    cross.scale.setScalar(0.035);
+    cross.visible = false;
+    const mark = drawn(64, 64, (g) => {
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 6;
+      g.lineCap = "round";
+      for (const [a, b, c, e] of [[10, 10, 24, 24], [54, 10, 40, 24], [10, 54, 24, 40], [54, 54, 40, 40]]) {
+        g.beginPath();
+        g.moveTo(a, b);
+        g.lineTo(c, e);
+        g.stroke();
+      }
+    });
+    mark.position.set(0, 0, -1);
+    mark.scale.setScalar(0.07);
+    mark.visible = false;
+    let markUntil = 0;
+    const accent = () => o.theme?.().accent ?? "#7be495";
+    const lively = () => (o.theme?.().motion ?? true) && !isPresenting();
+    const own = { value: HEALTH.full, full: HEALTH.full, struckAt: -1e9, downUntil: 0, shownUntil: 0, regenAt: 0, flash: 0, painted: -1, shown: 0 };
+    const ownBar = drawn(384, 64, (g) => paintHealth(g, 384, 64, { value: own.value, full: own.full, accent: accent() }));
+    ownBar.scale.set(0.3, 0.05, 1);
+    ownBar.material.opacity = 0;
+    ownBar.visible = false;
+    const edge = drawn(256, 256, (g) => {
+      const fade = g.createRadialGradient(128, 128, 70, 128, 128, 180);
+      fade.addColorStop(0, "rgba(255,70,60,0)");
+      fade.addColorStop(1, "rgba(255,70,60,0.95)");
+      g.fillStyle = fade;
+      g.fillRect(0, 0, 256, 256);
+    });
+    edge.position.set(0, 0, -0.6);
+    edge.renderOrder = 997;
+    edge.visible = false;
+    const glitch = drawn(8, 128, (g) => {
+      for (let y = 0; y < 128; ) {
+        const tall = 1 + Math.floor(Math.random() * 7);
+        const kind = Math.random();
+        g.fillStyle = kind < 0.55 ? "rgba(0,0,0,0)" : kind < 0.75 ? "rgba(255,255,255,0.5)" : kind < 0.9 ? "rgba(80,240,255,0.45)" : "rgba(255,70,160,0.45)";
+        g.fillRect(0, y, 8, tall);
+        y += tall;
+      }
+    });
+    if (glitch.material.map) glitch.material.map.wrapT = RepeatWrapping;
+    glitch.position.set(0, 0, -0.58);
+    glitch.renderOrder = 998;
+    glitch.visible = false;
+    hud2.add(cross, mark, ownBar, edge, glitch);
+    const paintOwn = () => {
+      const down = own.downUntil > 0;
+      const growing = own.regenAt ? (clock - own.regenAt) / HEALTH.regenSeconds : 0;
+      repaint(ownBar, (g, cw, ch) => paintHealth(g, cw, ch, { value: own.value, full: own.full, accent: accent(), growing, down }));
+      own.painted = clock;
+    };
+    const sayState = () => {
+      const said2 = buildState({ name: "health", value: own.value, full: own.full });
+      if (said2 && o.me()) o.tell(said2);
+      paintOwn();
+      own.shownUntil = clock + 2.5;
+      o.onChange?.();
+    };
+    const soundOf = (item2, name) => {
+      const named2 = item2.sounds[name];
+      if (!named2 || !o.sounds) return Promise.resolve(null);
+      let got = soundsOf.get(named2.sha256);
+      if (!got) {
+        got = o.items.sound(item2, name).then((bytes) => bytes && o.sounds ? o.sounds.decode(bytes) : null);
+        soundsOf.set(named2.sha256, got);
+      }
+      return got;
+    };
+    const lastTake = /* @__PURE__ */ new Map();
+    const take = (item2, name) => {
+      const takes = [name, ...[2, 3, 4].map((n) => `${name}-${n}`)].filter((n) => item2.sounds[n]);
+      if (takes.length < 2) return name;
+      const others = takes.filter((n) => n !== lastTake.get(`${item2.id}:${name}`));
+      const chosen = others[Math.floor(Math.random() * others.length)];
+      lastTake.set(`${item2.id}:${name}`, chosen);
+      return chosen;
+    };
+    const hear = (item2, said2, at) => {
+      if (!said2 || !o.sounds || !active()) return;
+      const name = take(item2, said2);
+      void soundOf(item2, name).then((sound) => {
+        if (!sound || !o.sounds) return;
+        if (!at) return o.sounds.playForeign(sound);
+        o.camera.getWorldPosition(v2);
+        const to = w.copy(at).sub(v2);
+        const distance = to.length();
+        const right = new Vector3(1, 0, 0).applyQuaternion(o.camera.getWorldQuaternion(new Quaternion()));
+        const pan = distance < 0.01 ? 0 : MathUtils.clamp(to.normalize().dot(right), -1, 1) * Math.min(1, distance / 1.5);
+        o.sounds.playForeign(sound, { distance, pan });
+      });
+    };
+    const poses = /* @__PURE__ */ new WeakMap();
+    let clipsSaid = [];
+    const animate = (item2, model3, name, who2 = "") => {
+      if (o.deferred && clipsSaid.length < 16) clipsSaid.push({ who: who2, name });
+      if (!model3) return;
+      const clip = o.items.clips(item2).find((c) => c.name === name);
+      if (!clip) return;
+      let mixer = mixers.get(model3);
+      if (!mixer) {
+        mixer = new AnimationMixer(model3);
+        mixers.set(model3, mixer);
+      }
+      const action = mixer.clipAction(clip);
+      const pose = isPose(name);
+      if (pose) {
+        const was = poses.get(model3);
+        if (was && was !== action) was.stop();
+        poses.set(model3, action);
+      }
+      action.reset();
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = pose;
+      action.play();
+    };
+    let solids = [];
+    let solidsAt = -1e9;
+    const worldShapes = () => {
+      if (clock - solidsAt < 1.5) return solids;
+      solidsAt = clock;
+      const found2 = [];
+      const walk2 = (node) => {
+        if (node === o.rig || node === o.camera || node.userData.nswpNoHit || !node.visible) return;
+        const mesh = node;
+        if (mesh.isMesh && mesh.geometry) {
+          const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+          const shape = material && material.side !== BackSide && !(material.transparent && material.opacity < 0.35) && material.blending !== AdditiveBlending;
+          if (shape && (o.solid ? o.solid(mesh) : true)) found2.push(mesh);
+        }
+        for (const child of node.children) walk2(child);
+      };
+      walk2(o.scene);
+      solids = found2;
+      return solids;
+    };
+    const floorUnder = (at) => {
+      ray.set(w.set(at.x, at.y + 0.05, at.z), new Vector3(0, -1, 0));
+      ray.far = 60;
+      const hit = ray.intersectObjects(worldShapes(), false)[0];
+      return hit ? hit.point.y : o.rig.getWorldPosition(new Vector3()).y;
+    };
+    const drop = (thing) => {
+      if (thing.state === "falling" || thing.state === "lying") return;
+      o.scene.attach(thing.object);
+      thing.state = "falling";
+      thing.fall = 0;
+      thing.floor = o.deferred ? o.rig.getWorldPosition(new Vector3()).y : floorUnder(thing.object.getWorldPosition(new Vector3()));
+    };
+    const TRAIL_STEPS = 14;
+    const TRAIL_WIDTH = 0.026;
+    const makeTrail = (color) => {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      geometry.setAttribute("color", new BufferAttribute(new Float32Array((TRAIL_STEPS + 1) * 6), 3));
+      const index = [];
+      for (let i = 0; i < TRAIL_STEPS; i++) index.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geometry.setIndex(index);
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
+      mesh.frustumCulled = false;
+      mesh.userData.nswpNoHit = true;
+      mesh.userData.base = new Color(color);
+      o.scene.add(mesh);
+      return mesh;
+    };
+    const dropTrail = (thing) => {
+      if (!thing.trail) return;
+      thing.trail.removeFromParent();
+      thing.trail.geometry.dispose();
+      thing.trail.material.dispose();
+      thing.trail = null;
+    };
+    const eye = new Vector3();
+    const drawTrail = (thing) => {
+      const mesh = thing.trail;
+      if (!mesh) return;
+      const head = thing.landedAt ?? thing.t;
+      const tail = Math.max(0, thing.t - thing.trailSeconds);
+      if (tail >= head - 1e-4) return thing.landedAt === null ? void (mesh.visible = false) : dropTrail(thing);
+      mesh.visible = true;
+      o.camera.getWorldPosition(eye);
+      const position = mesh.geometry.getAttribute("position");
+      const color = mesh.geometry.getAttribute("color");
+      const base = mesh.userData.base;
+      const left = Math.min(1, (head - tail) / thing.trailSeconds);
+      const p = new Vector3();
+      const q2 = new Vector3();
+      const side = new Vector3();
+      for (let i = 0; i <= TRAIL_STEPS; i++) {
+        const f = i / TRAIL_STEPS;
+        const t = head - (head - tail) * f;
+        p.fromArray(shotAt(thing.shot, t));
+        q2.fromArray(shotAt(thing.shot, Math.max(0, t - 0.01)));
+        side.copy(p).sub(q2).cross(w.copy(eye).sub(p)).normalize().multiplyScalar(TRAIL_WIDTH / 2 * (1 - f * 0.85));
+        position.setXYZ(i * 2, p.x + side.x, p.y + side.y, p.z + side.z);
+        position.setXYZ(i * 2 + 1, p.x - side.x, p.y - side.y, p.z - side.z);
+        const bright = (1 - f) ** 1.6 * (0.35 + 0.65 * left);
+        color.setXYZ(i * 2, base.r * bright, base.g * bright, base.b * bright);
+        color.setXYZ(i * 2 + 1, base.r * bright, base.g * bright, base.b * bright);
+      }
+      position.needsUpdate = true;
+      color.needsUpdate = true;
+    };
+    const gone = (thing) => {
+      dropTrail(thing);
+      thing.object.removeFromParent();
+      const at = things.indexOf(thing);
+      if (at >= 0) things.splice(at, 1);
+    };
+    const launch = async (by, item2, shot) => {
+      const send = item2.sends.find((s) => s.name === shot.name);
+      if (!send || !active()) return;
+      const born = clock;
+      pending.add(`${by}:${shot.id}`);
+      const tints = o.tintsOf?.(by === (o.me() ?? "") ? null : by) ?? {};
+      const inner = await o.items.sent(item2, shot.name, tints);
+      if (!active()) return void pending.delete(`${by}:${shot.id}`);
+      inner.position.y -= send.size[1] / 2;
+      const object = new Group();
+      object.userData.nswpNoHit = true;
+      object.add(inner);
+      object.position.fromArray(shot.from);
+      o.scene.add(object);
+      while (things.length >= PLAY_LIMITS.flown) gone(things[0]);
+      const trailSeconds = send.trail ?? 0;
+      const trailColor = tints[send.name] ?? item2.tints.find((t) => t.slot === send.name)?.color ?? "#ffffff";
+      const thing = { by, shot, send, item: item2, object, t: 0, state: "flying", on: "", agreeBy: null, agreed: false, until: 0, fall: 0, floor: 0, trail: trailSeconds > 0 ? makeTrail(trailColor) : null, trailSeconds, landedAt: null, tints, steps: [], stepNo: 0, late: null, ref: "", flooredAt: false };
+      things.push(thing);
+      pending.delete(`${by}:${shot.id}`);
+      const late = Math.min(PLAY_LIMITS.life, clock - born);
+      while (thing.state === "flying" && things.includes(thing) && thing.t < late) fly(thing, Math.min(0.03, late - thing.t + 1e-6));
+    };
+    const stick = (thing, at, onto, on3) => {
+      thing.object.position.copy(at);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      if (going.lengthSq() > 1e-6) thing.object.lookAt(w.copy(at).add(going));
+      if (onto) onto.attach(thing.object);
+      thing.state = "stuck";
+      thing.on = on3;
+      thing.until = thing.t + thing.shot.stick;
+    };
+    const self2 = () => {
+      const head = o.camera.getWorldPosition(new Vector3());
+      const floor = o.rig.getWorldPosition(new Vector3()).y;
+      return { feet: new Vector3(head.x, floor, head.z), height: MathUtils.clamp(head.y - floor + 0.12, 0.6, 2.4) };
+    };
+    const shapeOf2 = (p) => ({ feet: new Vector3(p.head.x, p.head.y - 1.5, p.head.z), height: 1.62 });
+    const reached = (thing, at) => {
+      const me = self2();
+      taken++;
+      const effect = thing.item.effects.find((e) => e.of === thing.shot.name && e.state === "health");
+      const said2 = buildHit({ by: thing.by, id: thing.shot.id, at: [at.x - me.feet.x, at.y - me.feet.y, at.z - me.feet.z] });
+      if (said2) o.tell(said2);
+      hear(thing.item, thing.send.strikes, null);
+      if (effect && clock >= own.downUntil) {
+        own.value = struck(own.value, effect.take);
+        own.struckAt = clock;
+        own.regenAt = 0;
+        own.flash = 1;
+        if (own.value === 0) own.downUntil = clock + HEALTH.downSeconds;
+        sayState();
+      }
+      gone(thing);
+    };
+    const fly = (thing, dt) => {
+      const a = new Vector3().fromArray(shotAt(thing.shot, thing.t));
+      const b = new Vector3().fromArray(shotAt(thing.shot, thing.t + dt));
+      const step = b.clone().sub(a);
+      const length = step.length();
+      let first = 1.0001;
+      let done = null;
+      if (o.deferred && thing.late) {
+        const late = thing.late;
+        thing.late = null;
+        thing.landedAt = late.t;
+        thing.ref = late.ref;
+        stick(thing, late.point, null, "world");
+        hear(thing.item, thing.send.lands, late.point);
+        return;
+      }
+      if (!o.deferred && length > 1e-6) {
+        ray.set(a, step.clone().divideScalar(length));
+        ray.far = length;
+        const hit = ray.intersectObjects(worldShapes(), false)[0];
+        if (hit) {
+          first = hit.distance / length;
+          done = () => {
+            stick(thing, hit.point, hit.object, "world");
+            hear(thing.item, thing.send.lands, hit.point);
+            o.onStruck?.({ object: hit.object, point: hit.point.clone(), by: thing.by, name: thing.shot.name });
+          };
+        }
+      }
+      const me = o.me();
+      if (me && thing.by !== me && !muted(thing.by)) {
+        const mine = self2();
+        const t = meetsPerson(a.toArray(), b.toArray(), mine.feet.toArray(), mine.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => reached(thing, a.clone().addScaledVector(step, t));
+        }
+      }
+      for (const p of o.people()) {
+        if (p.pubkey === thing.by) continue;
+        const shape = shapeOf2(p);
+        const t = meetsPerson(a.toArray(), b.toArray(), shape.feet.toArray(), shape.height, PERSON_SHAPE.radius);
+        if (t !== null && t < first) {
+          first = t;
+          done = () => {
+            stick(thing, a.clone().addScaledVector(step, t), p.body, p.pubkey);
+            thing.agreeBy = thing.t + PLAY_LIMITS.agree;
+          };
+        }
+      }
+      const before = thing.t;
+      thing.t += dt;
+      if (done) {
+        thing.landedAt = before + dt * Math.min(1, first);
+        return done();
+      }
+      thing.object.position.copy(b);
+      const going = new Vector3(thing.shot.velocity[0], thing.shot.velocity[1] - GRAVITY * thing.t, thing.shot.velocity[2]);
+      thing.object.lookAt(w.copy(b).add(going));
+      if (thing.t > PLAY_LIMITS.life) gone(thing);
+    };
+    let item = null;
+    let model2 = null;
+    let box = null;
+    let scriptState = "none";
+    let stoppedBecause = "";
+    let words2 = "";
+    let wordsSprite = null;
+    let holdingNo = 0;
+    const showWords = (text2) => {
+      words2 = text2;
+      if (wordsSprite) {
+        repaint(wordsSprite, (g, cw, ch) => {
+          if (!text2) return;
+          g.font = "600 44px system-ui, sans-serif";
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          const wide = Math.min(cw - 8, g.measureText(text2).width + 36);
+          g.fillStyle = "rgba(8,10,14,0.72)";
+          g.beginPath();
+          g.roundRect((cw - wide) / 2, 6, wide, ch - 12, 18);
+          g.fill();
+          g.fillStyle = "#ffffff";
+          g.fillText(text2, cw / 2, ch / 2 + 2, cw - 24);
+        });
+      }
+      o.onChange?.();
+    };
+    let pointed = null;
+    const wall = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+    const aim = (lift, spread = 0) => {
+      const said2 = o.aim?.();
+      let from;
+      let to;
+      const tapped = pointed && wall() < pointed.until ? pointed.to : null;
+      pointed = null;
+      if (said2) ({ from, to } = said2);
+      else if (tapped || o.sighting?.()) {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(tapped ? 0.14 : 0, tapped ? -0.12 : -0.05, -0.35).applyQuaternion(q2));
+        to = tapped ?? eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      } else {
+        const q2 = o.camera.getWorldQuaternion(new Quaternion());
+        const eye2 = o.camera.getWorldPosition(new Vector3());
+        from = eye2.clone().add(new Vector3(0.14, -0.12, -0.35).applyQuaternion(q2));
+        to = eye2.clone().add(new Vector3(0, 0, -18).applyQuaternion(q2));
+      }
+      const dir = to.clone().sub(from).normalize();
+      if (lift) dir.applyAxisAngle(new Vector3().crossVectors(dir, new Vector3(0, 1, 0)).normalize(), lift);
+      if (spread > 0) {
+        const across = new Vector3().crossVectors(dir, new Vector3(0, 1, 0));
+        if (across.lengthSq() < 1e-6) across.set(1, 0, 0);
+        across.normalize();
+        const over = new Vector3().crossVectors(across, dir).normalize();
+        const off = spread * Math.sqrt(Math.random());
+        const round2 = Math.random() * Math.PI * 2;
+        dir.applyAxisAngle(over, off * Math.cos(round2)).applyAxisAngle(across, off * Math.sin(round2)).normalize();
+      }
+      return { from, dir };
+    };
+    const asked = (ask) => {
+      if (!item || !active()) return;
+      if (ask.ask === "show") return showWords(ask.text);
+      if (ask.ask === "play") {
+        if (!item.sounds[ask.name]) return;
+        hear(item, ask.name, null);
+        const said3 = buildDid({ kind: "sound", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask === "clip") {
+        animate(item, model2, ask.name);
+        const said3 = buildDid({ kind: "clip", name: ask.name });
+        if (said3 && o.me()) o.tell(said3);
+        return;
+      }
+      if (ask.ask !== "send" || !item.sends.some((s) => s.name === ask.name)) return;
+      const { from, dir } = aim(ask.lift, ask.spread);
+      const shot = { id: nextId++, name: ask.name, from: from.toArray(), velocity: dir.multiplyScalar(ask.speed).toArray(), stick: ask.stick };
+      const said2 = buildShot(shot);
+      const read6 = said2 ? parseShot(said2) : null;
+      if (!said2 || !read6) return;
+      sent++;
+      void launch(o.me() ?? "", item, read6);
+      if (o.me()) o.tell(said2);
+    };
+    const refreshOwn = () => {
+      cross.visible = !!item && !!box && !!item.does.use && active() && !isPresenting() && !o.sighting?.();
+    };
+    const isPresenting = () => !!o.presenting?.();
+    return {
+      async held(next, drawnFor) {
+        const no4 = ++holdingNo;
+        if (box) {
+          box.tell("away");
+          const old = box;
+          box = null;
+          setTimeout(() => old.stop(), 250);
+        }
+        if (model2) mixers.delete(model2);
+        wordsSprite?.removeFromParent();
+        wordsSprite = null;
+        item = next;
+        model2 = drawnFor;
+        scriptState = "none";
+        stoppedBecause = "";
+        words2 = "";
+        refreshOwn();
+        o.onChange?.();
+        if (!next || !drawnFor || !active()) return;
+        if (next.does.use || next.script) {
+          wordsSprite = drawn(256, 72, () => {
+          });
+          wordsSprite.scale.set(0.1, 0.028, 1);
+          wordsSprite.position.set(0, next.size[1] + 0.028, 0);
+          drawnFor.add(wordsSprite);
+        }
+        for (const s of next.sends) void o.items.sent(next, s.name);
+        for (const name of Object.keys(next.sounds)) void soundOf(next, name);
+        if (!next.script || !o.scripts || !scriptAllowed(next.script.sha256)) return;
+        const text2 = await o.items.script(next);
+        if (!text2 || no4 !== holdingNo) return;
+        const run2 = await runInBox(
+          text2,
+          {
+            ask: (ask) => void (no4 === holdingNo && asked(ask)),
+            stopped: (why) => {
+              if (no4 !== holdingNo) return;
+              scriptState = "stopped";
+              stoppedBecause = why;
+              box = null;
+              showWords("");
+            }
+          },
+          typeof o.scripts === "object" ? o.scripts : {}
+        );
+        if (no4 !== holdingNo) return run2?.stop();
+        box = run2;
+        scriptState = run2 ? "running" : "stopped";
+        if (!run2) stoppedBecause = "no box";
+        run2?.tell("held");
+        o.onChange?.();
+      },
+      use(toward) {
+        if (!active() || !box) return;
+        pointed = toward ? { to: toward.clone(), until: wall() + 1e4 } : null;
+        box.tell("use");
+      },
+      second() {
+        pointed = null;
+        if (active()) box?.tell("second");
+      },
+      get does() {
+        return item && box && (item.does.use || item.does.second) ? { use: item.does.use ?? "", second: item.does.second ?? "" } : null;
+      },
+      get words() {
+        return words2;
+      },
+      get health() {
+        return { value: own.value, full: own.full };
+      },
+      heard(from, said2) {
+        if (!active() || muted(from)) return;
+        const person = o.people().find((p) => p.pubkey === from);
+        if (!person) return;
+        const state = parseState(said2);
+        if (state) {
+          let shown4 = bars.get(from);
+          if (!shown4) {
+            const sprite = drawn(320, 56, () => {
+            });
+            sprite.scale.set(0.44, 0.077, 1);
+            sprite.position.set(0, 0.62, 0);
+            shown4 = { value: state.value, full: state.full, sprite, until: 0 };
+            bars.set(from, shown4);
+          }
+          shown4.value = state.value;
+          shown4.full = Math.min(state.full, 12);
+          shown4.until = clock + (state.value < state.full ? 30 : 2);
+          person.over.add(shown4.sprite);
+          repaint(shown4.sprite, (g, cw, ch) => paintHealth(g, cw, ch, { value: Math.min(shown4.value, shown4.full), full: shown4.full, accent: accent(), down: shown4.value === 0, heart: false }));
+          return;
+        }
+        const hit = parseHit(said2);
+        if (hit) {
+          const thing = things.find((t) => t.by === hit.by && t.shot.id === hit.id);
+          if (!thing || thing.agreed || thing.state === "falling" || thing.state === "lying") return;
+          thing.agreed = true;
+          const feet = shapeOf2(person).feet;
+          const at = new Vector3(feet.x + hit.at[0], feet.y + hit.at[1], feet.z + hit.at[2]);
+          if (thing.on !== from) stick(thing, at, person.body, from);
+          thing.agreeBy = null;
+          hear(thing.item, thing.send.strikes, at);
+          if (hit.by === o.me()) {
+            hear(thing.item, thing.send.tells, null);
+            landed++;
+            mark.visible = true;
+            markUntil = clock + 0.22;
+            o.onChange?.();
+          }
+          return;
+        }
+        if (!person.holding) return;
+        const did = parseDid(said2);
+        const shot = did ? null : parseShot(said2);
+        if (!did && !shot) return;
+        if (shot) {
+          let rate = rates.get(from);
+          if (!rate) rates.set(from, rate = createRate(PLAY_LIMITS.burst, PLAY_LIMITS.perSecond));
+          if (pending.has(`${from}:${shot.id}`) || heardShots.has(`${from}:${shot.id}`) || things.some((t) => t.by === from && t.shot.id === shot.id)) return;
+          if (!rate.take(clock * 1e3)) return;
+          if (person.head.distanceTo(v2.fromArray(shot.from)) > 3) return;
+        }
+        if (shot) {
+          heardShots.set(`${from}:${shot.id}`, clock);
+          if (heardShots.size > 256) {
+            for (const [key, at] of heardShots) if (clock - at > 10) heardShots.delete(key);
+          }
+        }
+        const does = (holding2) => {
+          if (!holding2) return;
+          if (did?.kind === "sound") hear(holding2, holding2.sounds[did.name] ? did.name : void 0, person.head);
+          else if (did) animate(holding2, person.held, did.name, from);
+          else if (shot) void launch(from, holding2, shot);
+        };
+        const known = o.items.known(person.holding);
+        if (known) does(known);
+        else {
+          if (shot) pending.add(`${from}:${shot.id}`);
+          const born = clock;
+          void o.items.describe(person.holding).then((found2) => {
+            if (shot) pending.delete(`${from}:${shot.id}`);
+            if (found2 && (shot ? clock - born < 2 : clock - born < 0.3)) does(found2);
+          });
+        }
+      },
+      left(pubkey) {
+        for (const thing of [...things]) if (thing.by === pubkey || thing.on === pubkey) gone(thing);
+        bars.get(pubkey)?.sprite.removeFromParent();
+        bars.delete(pubkey);
+        rates.delete(pubkey);
+        for (const key of heardShots.keys()) if (key.startsWith(`${pubkey}:`)) heardShots.delete(key);
+      },
+      update(frame2) {
+        const at = typeof performance === "undefined" ? null : performance.now();
+        const dt = at === null || lastAt === null ? frame2 : Math.min(1, Math.max(0, (at - lastAt) / 1e3));
+        lastAt = at;
+        clock += dt;
+        for (const mixer of mixers.values()) mixer.update(dt);
+        if (mark.visible && clock > markUntil) mark.visible = false;
+        refreshOwn();
+        if (own.downUntil) {
+          if (clock >= own.downUntil) {
+            own.value = own.full;
+            own.downUntil = 0;
+            own.regenAt = 0;
+            sayState();
+          }
+        } else if (own.value < own.full && clock - own.struckAt >= HEALTH.restSeconds) {
+          if (!own.regenAt) own.regenAt = clock;
+          if (clock - own.regenAt >= HEALTH.regenSeconds) {
+            own.value += 1;
+            own.regenAt = own.value < own.full ? clock : 0;
+            sayState();
+          }
+        }
+        const on3 = active();
+        const down = own.downUntil > 0;
+        if (wordsSprite) wordsSprite.visible = !o.sighting?.();
+        const tall = Math.tan(MathUtils.degToRad(o.camera.fov / 2));
+        const wide = tall * o.camera.aspect;
+        ownBar.position.set(0, isPresenting() ? -0.3 : -tall * (o.camera.aspect < 1 ? 0.5 : 0.66), -1);
+        const scale = Math.min(0.3, wide * 0.62);
+        ownBar.scale.set(scale, scale / 6, 1);
+        const want2 = on3 && (own.value < own.full || clock < own.shownUntil) ? 1 : 0;
+        own.shown += (want2 - own.shown) * Math.min(1, dt * 9);
+        ownBar.visible = own.shown > 0.02;
+        ownBar.material.opacity = own.shown * (down && lively() ? 0.55 + 0.45 * Math.abs(Math.sin(clock * 9)) : 1);
+        if (ownBar.visible && (own.regenAt || down) && clock - own.painted > 0.08) paintOwn();
+        own.flash = Math.max(0, own.flash - dt / 0.55);
+        const low = !down && own.value < own.full && own.value <= 1;
+        const red = on3 && !isPresenting() ? Math.max(own.flash * 0.8, down ? 0.5 : low ? 0.2 + (lively() ? 0.1 * Math.abs(Math.sin(clock * 3.2)) : 0) : 0) : 0;
+        edge.visible = red > 0.01;
+        edge.material.opacity = red;
+        edge.scale.set(wide * 1.2 * 1.02, tall * 1.2 * 1.02, 1);
+        glitch.visible = on3 && down && lively() && Math.random() < 0.8;
+        if (glitch.visible) {
+          glitch.scale.set(wide * 1.16 * 1.02, tall * 1.16 * 1.02 * (0.6 + Math.random() * 0.8), 1);
+          glitch.position.y = (Math.random() - 0.5) * tall * 0.5;
+          glitch.material.opacity = 0.18 + Math.random() * 0.3;
+          if (glitch.material.map) glitch.material.map.offset.y = Math.random();
+        }
+        const people2 = o.people();
+        for (const [who2, shown4] of bars) {
+          shown4.sprite.visible = on3 && clock < shown4.until && !muted(who2);
+          const person = people2.find((x) => x.pubkey === who2);
+          const out = on3 && shown4.value === 0 && clock < shown4.until && !muted(who2);
+          if (person?.root) {
+            if (out && lively()) {
+              person.root.visible = person.root.visible && Math.random() > 0.3;
+              person.root.scale.set(1 + (Math.random() - 0.5) * 0.14, 1, 1);
+              blinking.add(who2);
+            } else if (blinking.delete(who2)) person.root.scale.set(1, 1, 1);
+          }
+        }
+        for (const thing of [...things]) {
+          if (thing.state === "flying") {
+            let left = Math.min(dt, 0.5);
+            const from = thing.t;
+            while (left > 1e-6 && thing.state === "flying" && things.includes(thing)) {
+              const step = Math.min(0.03, left);
+              fly(thing, step);
+              left -= step;
+            }
+            if (o.deferred && thing.state === "flying" && thing.t > from) {
+              thing.steps.push({ n: ++thing.stepNo, t0: from, t1: thing.t });
+              if (thing.steps.length > 6) thing.steps.shift();
+            }
+            drawTrail(thing);
+          } else if (thing.state === "stuck") {
+            thing.t += dt;
+            drawTrail(thing);
+            if (thing.agreeBy !== null && thing.t > thing.agreeBy) drop(thing);
+            else if (thing.t > thing.until) drop(thing);
+            else if (thing.on !== "world" && !o.people().some((p) => p.pubkey === thing.on)) gone(thing);
+          } else if (thing.state === "falling") {
+            thing.t += dt;
+            drawTrail(thing);
+            thing.fall += GRAVITY * dt;
+            thing.object.position.y -= thing.fall * dt;
+            thing.object.rotation.x += dt * 5;
+            if (thing.object.position.y <= thing.floor + 0.02) {
+              thing.object.position.y = thing.floor + 0.02;
+              thing.state = "lying";
+              thing.until = 0.6;
+              hear(thing.item, thing.send.drops, thing.object.position);
+            }
+          } else {
+            thing.until -= dt;
+            thing.object.scale.setScalar(Math.max(0.01, thing.until / 0.6));
+            if (thing.until <= 0) gone(thing);
+          }
+        }
+      },
+      snapshot() {
+        const clips = clipsSaid;
+        clipsSaid = [];
+        const q2 = new Quaternion();
+        const at = new Vector3();
+        const three2 = (x) => [x.x, x.y, x.z];
+        return {
+          things: things.map((t) => {
+            t.object.getWorldPosition(at);
+            t.object.getWorldQuaternion(q2);
+            const last = t.state === "flying" ? t.steps[t.steps.length - 1] : void 0;
+            return {
+              key: `${t.by}:${t.shot.id}`,
+              model: t.send.model.sha256,
+              size: t.send.size,
+              tints: t.tints,
+              state: t.state,
+              on: t.on,
+              ref: t.ref,
+              at: three2(at),
+              turn: [q2.x, q2.y, q2.z, q2.w],
+              scale: t.object.scale.x,
+              test: last ? { step: last.n, a: shotAt(t.shot, last.t0), b: shotAt(t.shot, last.t1), ...viaOf(t.shot, last.t0, last.t1) } : null,
+              down: t.state === "falling" && !t.flooredAt
+            };
+          }),
+          trails: things.flatMap((t) => {
+            const mesh = t.trail;
+            if (!mesh || !mesh.visible) return [];
+            const position = mesh.geometry.getAttribute("position");
+            const color = mesh.geometry.getAttribute("color");
+            const base = mesh.userData.base;
+            const most = Math.max(base.r, base.g, base.b, 1e-6);
+            const points = [];
+            for (let i = 0; i < position.count; i += 2) {
+              points.push([(position.getX(i) + position.getX(i + 1)) / 2, (position.getY(i) + position.getY(i + 1)) / 2, (position.getZ(i) + position.getZ(i + 1)) / 2, Math.max(color.getX(i), color.getY(i), color.getZ(i)) / most]);
+            }
+            return [{ key: `${t.by}:${t.shot.id}`, color: `#${base.getHexString()}`, width: TRAIL_WIDTH, points }];
+          }),
+          own: {
+            cross: cross.visible,
+            mark: mark.visible,
+            health: { value: own.value, full: own.full, growing: own.regenAt ? Math.min(1, (clock - own.regenAt) / HEALTH.regenSeconds) : 0, down: own.downUntil > 0, shown: own.shown },
+            red: edge.visible ? edge.material.opacity : 0,
+            glitch: glitch.visible,
+            words: words2
+          },
+          clips
+        };
+      },
+      met(key, step, fraction, point, ref = "") {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        const tested = thing?.steps.find((s) => s.n === step);
+        if (!thing || !tested || thing.state !== "flying" || thing.late || !point.every((x) => Number.isFinite(x))) return;
+        const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0;
+        thing.late = { t: tested.t0 + (tested.t1 - tested.t0) * f, point: new Vector3().fromArray(point), ref: String(ref).slice(0, 120) };
+      },
+      floored(key, y) {
+        const thing = things.find((t) => `${t.by}:${t.shot.id}` === key);
+        if (!thing || !Number.isFinite(y) || thing.flooredAt) return;
+        thing.flooredAt = true;
+        thing.floor = y;
+      },
+      info() {
+        const count = (state) => things.filter((t) => t.state === state).length;
+        return {
+          flying: count("flying"),
+          stuck: count("stuck"),
+          falling: count("falling") + count("lying"),
+          things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
+          sent,
+          landed,
+          taken,
+          health: { value: own.value, full: own.full },
+          words: words2,
+          script: scriptState,
+          stoppedBecause,
+          marked: mark.visible,
+          bars: Object.fromEntries([...bars].map(([who2, b]) => [who2, { value: b.value, full: b.full }]))
+        };
+      },
+      dispose() {
+        box?.stop();
+        for (const thing of [...things]) gone(thing);
+        for (const b of bars.values()) b.sprite.removeFromParent();
+        hud2.removeFromParent();
+      }
+    };
+  }
+
   // packages/sdk/src/presence.ts
+  var ARRIVING_SECONDS = 6;
   var SEND_EVERY_MS = 66;
   var FADE_START = 0.9;
   var FADE_END = 0.45;
@@ -52705,6 +52118,25 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let sendTimer;
     let micTrack = null;
     let offsetApplied = false;
+    let arriving = null;
+    let clock = 0;
+    const tendArrival = () => {
+      if (!arriving) return;
+      const head = d.camera.getWorldPosition(new Vector3());
+      if (clock > arriving.until || Math.hypot(head.x - arriving.from.x, head.z - arriving.from.z) > ENTRY_CLEAR) return void (arriving = null);
+      const others = [...avatars.values()].filter((a) => a.target && !a.member.joinedAfterYou).map((a) => {
+        const h = a.head.getWorldPosition(new Vector3());
+        return [h.x, h.z];
+      });
+      if (!others.some(([x, z]) => Math.hypot(x - head.x, z - head.z) < ENTRY_CLEAR)) return;
+      if (arriving.moving?.()) return;
+      const i = pickEntryPlace(arriving.places, others, arriving.canStand);
+      const to = arriving.places[i];
+      arriving = null;
+      if (!to) return;
+      d.rig.position.x += to.position[0] - head.x;
+      d.rig.position.z += to.position[2] - head.z;
+    };
     let plainSeed;
     let dot = null;
     const glow = (color) => {
@@ -53161,10 +52593,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
       session2 = s;
       if (!offsetApplied) {
-        const off = spawnOffset(s.self.pubkey);
-        d.rig.position.x += off.x;
-        d.rig.position.z += off.z;
         offsetApplied = true;
+        const at = d.arrival?.() ?? null;
+        if (at && at.places.length) {
+          arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new Vector3()), places: at.places, ...at.canStand ? { canStand: at.canStand } : {}, ...at.moving ? { moving: at.moving } : {} };
+        } else {
+          const off = spawnOffset(s.self.pubkey);
+          d.rig.position.x += off.x;
+          d.rig.position.z += off.z;
+        }
       }
       s.on("status", changed);
       s.on("recording", (m, on3) => {
@@ -53219,7 +52656,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       s.on("pose", (m, pose) => {
         const a = avatars.get(m.pubkey);
         if (!a) return;
-        if (!a.target) stepApart(s.self.pubkey, m.pubkey, pose);
+        if (!a.target && !d.arrival) stepApart(s.self.pubkey, m.pubkey, pose);
         a.target = pose;
       });
       s.on("video", (m, stream) => {
@@ -53516,6 +52953,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return dest.stream.getAudioTracks()[0];
       },
       update(dt) {
+        clock += dt;
+        tendArrival();
         tendMusic(dt);
         placeMine(dt);
         const k = 1 - Math.exp(-dt * 14);
@@ -53608,6 +53047,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var said = { rule: "none", scripts: false, relays: void 0 };
   var store = null;
   var presence2 = null;
+  var arrivedBy = null;
   var watchers6 = /* @__PURE__ */ new Set();
   function engineItemStore() {
     return store ?? (store = createItems(said.relays?.length ? { relays: said.relays } : {}));
@@ -53663,6 +53103,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       deferredPlay: true,
       // The engine brings the thing in hand up to the eye, and says when it is there.
       sighting: () => world2.sighting,
+      // Where they arrived, for stepping them aside if they join and find themselves inside someone: the move reaches
+      // the engine as a frame's `nudge`, applied when the engine says they are neither stepping nor turning.
+      arrival: () => arrivedBy ? { places: arrivedBy, moving: () => world2.moving } : null,
       look: () => arrival.look(),
       identity: () => arrival.identity(),
       onChange: () => {
@@ -53675,6 +53118,662 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       return {};
     });
     return presence2;
+  }
+  function entryPlace(json) {
+    let said2 = {};
+    try {
+      said2 = typeof json === "string" ? JSON.parse(json) : {};
+    } catch {
+      said2 = {};
+    }
+    const given = (Array.isArray(said2.places) ? said2.places : []).filter(
+      (p) => !!p && typeof p === "object" && Array.isArray(p.position) && p.position.length === 3 && p.position.every((n) => typeof n === "number" && Number.isFinite(n)) && typeof p.yaw === "number"
+    );
+    if (!given.length) return JSON.stringify({ index: -1, place: null });
+    const least = typeof said2.least === "number" && Number.isInteger(said2.least) && said2.least > 0 && said2.least <= 64 ? said2.least : ENTRY_PLACES_LEAST;
+    const places = entryPlaces({ ...given[0], places: given.slice(1) }, least);
+    arrivedBy = places;
+    const others = (presence2?.info() ?? []).flatMap((p) => Array.isArray(p.head) && p.head.length === 3 ? [[p.head[0], p.head[2]]] : []);
+    const index = pickEntryPlace(places, others);
+    return JSON.stringify({ index, place: places[index] ?? null });
+  }
+
+  // packages/sdk/src/bag.ts
+  var FRESH_MS2 = 6e4;
+  function createBag(opts) {
+    const now = opts.now ?? (() => Date.now());
+    const query = opts.query ?? queryRelays;
+    const publish = opts.publish ?? publishEvent;
+    const usual = () => opts.relays ?? DEFAULT_RELAYS;
+    const store2 = (() => {
+      if (opts.storage !== void 0) return opts.storage;
+      try {
+        return globalThis.localStorage ?? null;
+      } catch {
+        return null;
+      }
+    })();
+    const watchers7 = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of watchers7) fn();
+    };
+    const keyFor = (who2) => `nswp:bag:${who2}`;
+    const readKept = (who2) => {
+      try {
+        const kept2 = JSON.parse(store2?.getItem(keyFor(who2)) ?? "null");
+        return verifyEvent(kept2) && kept2.kind === BAG_KIND && kept2.pubkey === who2 ? kept2 : null;
+      } catch {
+        return null;
+      }
+    };
+    const keep5 = (bag) => {
+      try {
+        store2?.setItem(keyFor(bag.pubkey), JSON.stringify(bag));
+      } catch {
+      }
+    };
+    let relaysKept = null;
+    const ownRelays = (key) => {
+      if (relaysKept && relaysKept.key === key && now() - relaysKept.at < 6e5) return relaysKept.found;
+      const found2 = askWell({ kinds: [RELAY_LIST_KIND], authors: [key], limit: 4 }, { own: [], usual: usual(), query, timeoutMs: 2500, now }).then((got) => readRelayList(got.events, key)?.write ?? []).catch(() => []);
+      relaysKept = { key, at: now(), found: found2 };
+      return found2;
+    };
+    let known = null;
+    let looking = null;
+    let offered = null;
+    const look = async (who2) => {
+      const kept2 = readKept(who2);
+      const own = await ownRelays(who2);
+      const got = await askWell({ kinds: [BAG_KIND], authors: [who2], limit: 4 }, { own, usual: usual(), query, timeoutMs: 4e3, now }).catch(() => null);
+      const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
+      const found2 = newestBag((got?.events ?? []).filter((e) => verifyEvent(e)), who2);
+      const bag = found2 && kept2 ? kept2.created_at > found2.created_at ? kept2 : found2 : found2 ?? kept2;
+      if (kept2 && bag === kept2 && answered && (!found2 || found2.id !== kept2.id)) void sendWell(kept2, { own, usual: usual(), publish, query, now }).catch(() => null);
+      if (bag && bag !== kept2) keep5(bag);
+      if (opts.me() !== who2) return;
+      known = { who: who2, bag, answered, at: now() };
+      changed();
+    };
+    const load3 = async (fresh = false) => {
+      const who2 = opts.me();
+      if (!who2) {
+        if (known) {
+          known = null;
+          changed();
+        }
+        return null;
+      }
+      if (known && known.who !== who2) known = null;
+      if (!fresh && known && now() - known.at < FRESH_MS2) return bagIn(known.bag);
+      looking ?? (looking = look(who2).finally(() => {
+        looking = null;
+      }));
+      await looking;
+      return known && known.who === who2 ? bagIn(known.bag) : null;
+    };
+    const change2 = async (itemIn2, adding, title) => {
+      const who2 = opts.me();
+      const it = title || "It";
+      const item = itemCoordinate(itemIn2);
+      if (!who2) return { ok: false, why: "signed-out", said: "Sign in to keep a bag." };
+      if (!opts.hand) return { ok: false, why: "read-only", said: "Your bag is changed at your home, not from here." };
+      if (!item) return { ok: false, why: "refused", said: "That isn't an item." };
+      if (!opts.hand.ready()) return { ok: false, why: "not-allowed", said: "This place hasn't been let change your bag." };
+      await load3(true);
+      const at = known && known.who === who2 ? known : null;
+      if (!at) return { ok: false, why: "unreachable", said: "Your bag couldn't be looked for. Nothing was changed." };
+      if (!at.bag) {
+        if (!at.answered) return { ok: false, why: "unreachable", said: "No relay could be reached to find your bag, so nothing was changed. Try again in a moment." };
+        if (!adding) return { ok: false, why: "already", said: `${it} isn't in your bag.` };
+        if (!offered || offered.item !== item || now() - offered.at > 12e4) {
+          offered = { item, at: now() };
+          return { ok: false, why: "no-bag", said: "No bag of yours was found. If you have none yet, press again to start one." };
+        }
+      }
+      offered = null;
+      const has = bagIn(at.bag).includes(item);
+      if (adding === has) return { ok: true, why: "already", said: adding ? `${it} is already in your bag.` : `${it} isn't in your bag.` };
+      const made = changeBag(at.bag, { ...adding ? { add: item } : { remove: item }, now: now() / 1e3, fromNothing: at.bag === null });
+      const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
+      const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
+      if (!signed || !same) return { ok: false, why: "refused", said: "It couldn't be signed. Your bag is as it was." };
+      keep5(signed);
+      known = { who: who2, bag: signed, answered: true, at: now() };
+      changed();
+      const sent = await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+      if (!sent || sent.took === 0) return { ok: false, why: "not-sent", said: "Signed, but no relay took it. It is kept on this device and will be sent again." };
+      return { ok: true, said: adding ? `${it} is in your bag. Anyone can see what is in it.` : `${it} is out of your bag.` };
+    };
+    const TINTS_KEY = "nswp:tints";
+    const keptTints = () => {
+      try {
+        const kept2 = JSON.parse(store2?.getItem(TINTS_KEY) ?? "{}");
+        return kept2 && typeof kept2 === "object" && !Array.isArray(kept2) ? kept2 : {};
+      } catch {
+        return {};
+      }
+    };
+    const tintTimers = /* @__PURE__ */ new Map();
+    const writeTints = async (item) => {
+      const who2 = opts.me();
+      if (!who2 || !opts.hand?.ready()) return;
+      await load3(true);
+      const at = known && known.who === who2 ? known : null;
+      const made = at?.bag ? tintBag(at.bag, { item, tints: keptTints()[item] ?? {}, now: now() / 1e3 }) : null;
+      const signed = made ? await opts.hand.sign(made).catch(() => null) : null;
+      const same = signed && verifyEvent(signed) && signed.pubkey === who2 && signed.kind === BAG_KIND && JSON.stringify(signed.tags.filter((t) => !SITE_MARKS.includes(t[0] ?? ""))) === JSON.stringify(made.tags);
+      if (!signed || !same) return;
+      keep5(signed);
+      known = { who: who2, bag: signed, answered: true, at: now() };
+      changed();
+      await sendWell(signed, { own: await ownRelays(who2), usual: usual(), publish, query, now }).catch(() => null);
+    };
+    return {
+      tints(itemIn2) {
+        const item = itemCoordinate(itemIn2);
+        const fromBag = known && known.who === opts.me() ? bagTints(known.bag)[item] ?? {} : {};
+        const here = keptTints()[item];
+        const clean3 = (o) => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter((e) => typeof e[1] === "string" && /^#[0-9a-f]{6}$/.test(e[1])));
+        return { ...fromBag, ...clean3(here) };
+      },
+      setTints(itemIn2, tints) {
+        const item = itemCoordinate(itemIn2);
+        if (!item) return;
+        try {
+          store2?.setItem(TINTS_KEY, JSON.stringify({ ...keptTints(), [item]: tints }));
+        } catch {
+        }
+        changed();
+        if (!opts.hand) return;
+        clearTimeout(tintTimers.get(item));
+        tintTimers.set(item, setTimeout(() => void writeTints(item).catch(() => null), 2500));
+      },
+      items: () => known && known.who === opts.me() ? bagIn(known.bag) : null,
+      load: load3,
+      canChange: () => !!opts.hand,
+      add: (item, title = "") => change2(item, true, title),
+      remove: (item, title = "") => change2(item, false, title),
+      onChange(fn) {
+        watchers7.add(fn);
+        return () => void watchers7.delete(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/item-preview.ts
+  var KEPT = 36;
+  function createItemPreviews(o) {
+    const size = o.size ?? 256;
+    const watchers7 = /* @__PURE__ */ new Set();
+    const ready2 = /* @__PURE__ */ new Map();
+    let stage;
+    const keyOf = (item, tints) => `${item.id}|${item.model.sha256}|${JSON.stringify(tints ?? {})}`;
+    const stageNow = () => {
+      if (stage !== void 0) return stage;
+      if (typeof document === "undefined") return stage = null;
+      try {
+        const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
+        renderer.setPixelRatio(1);
+        renderer.setSize(size, size, false);
+        renderer.setClearColor(0, 0);
+        const scene = new Scene();
+        scene.add(new HemisphereLight(16777215, 2699837, 1.7));
+        const key = new DirectionalLight(16777215, 2.4);
+        key.position.set(1.6, 2.6, 2.2);
+        const rim = new DirectionalLight(12572927, 1.3);
+        rim.position.set(-2, 1.2, -2.4);
+        const pivot = new Group();
+        scene.add(key, rim, pivot);
+        const camera = new PerspectiveCamera(28, 1, 0.01, 50);
+        return stage = { renderer, scene, camera, pivot };
+      } catch {
+        return stage = null;
+      }
+    };
+    const draw = (made, angle, onto) => {
+      const s = stageNow();
+      if (!s) return null;
+      s.pivot.clear();
+      s.pivot.add(made.object);
+      made.object.position.copy(made.middle).multiplyScalar(-1);
+      s.pivot.rotation.set(0, angle, 0);
+      const away = made.radius / Math.sin(MathUtils.degToRad(s.camera.fov / 2)) * 1.08;
+      s.camera.position.set(0, away * 0.3, away * 0.95);
+      s.camera.lookAt(0, 0, 0);
+      s.camera.near = Math.max(5e-3, away - made.radius * 2);
+      s.camera.far = away + made.radius * 2;
+      s.camera.updateProjectionMatrix();
+      s.renderer.render(s.scene, s.camera);
+      s.pivot.clear();
+      const canvas = onto ?? document.createElement("canvas");
+      if (!onto) canvas.width = canvas.height = size;
+      const g = canvas.getContext("2d");
+      if (!g) return null;
+      g.clearRect(0, 0, size, size);
+      g.drawImage(s.renderer.domElement, 0, 0, size, size);
+      return canvas;
+    };
+    const want2 = (item, tints) => {
+      const key = keyOf(item, tints);
+      const had = ready2.get(key);
+      if (had !== void 0) return had;
+      if (!stageNow()) return null;
+      ready2.set(key, null);
+      for (const old of ready2.keys()) {
+        if (ready2.size <= KEPT) break;
+        if (old !== key) ready2.delete(old);
+      }
+      void o.model(item, tints).then(
+        (object) => {
+          if (!ready2.has(key)) return;
+          let frames = 0;
+          let solids = 0;
+          object.traverse((part) => {
+            const mesh = part;
+            if (!mesh.isMesh) return;
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            if (materials.every((m) => m.wireframe === true)) frames++;
+            else solids++;
+          });
+          if (frames > 0 && solids === 0) return void again(key);
+          const box = new Box3().setFromObject(object);
+          const ball = box.getBoundingSphere(new Sphere());
+          if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
+          ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
+          for (const fn of watchers7) fn();
+        },
+        () => void again(key)
+      );
+      return null;
+    };
+    const AGAIN_MS2 = 6e3;
+    const tries = /* @__PURE__ */ new Map();
+    function again(key) {
+      const n = (tries.get(key) ?? 0) + 1;
+      tries.set(key, n);
+      if (n > 5) return;
+      setTimeout(() => {
+        if (ready2.get(key) !== null) return;
+        ready2.delete(key);
+        for (const fn of watchers7) fn();
+      }, AGAIN_MS2 * n);
+    }
+    return {
+      still(item, tints) {
+        const made = want2(item, tints);
+        if (!made) return null;
+        return made.still ?? (made.still = draw(made, -0.62, null));
+      },
+      turning(item, tints, moving2 = true) {
+        const made = want2(item, tints);
+        if (!made) return null;
+        const angle = moving2 ? (typeof performance === "undefined" ? 0 : performance.now()) / 1e3 * 0.7 : -0.62;
+        return made.live = draw(made, angle, made.live);
+      },
+      onChange(fn) {
+        watchers7.add(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/bagging.ts
+  var HELD_KEY = "nswp:holding";
+  function keptHolding() {
+    try {
+      const kept2 = globalThis.localStorage?.getItem(HELD_KEY);
+      return kept2 ? cleanSettings({ holding: JSON.parse(kept2) }).holding : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function keepHolding(held2) {
+    try {
+      globalThis.localStorage?.setItem(HELD_KEY, JSON.stringify(held2));
+    } catch {
+    }
+  }
+  var PAGE = 24;
+  function itemIn(text2) {
+    if (typeof text2 !== "string") return "";
+    const plain = itemCoordinate(/37303:[0-9a-f]{64}:[a-z0-9][a-z0-9-]{0,63}/.exec(text2)?.[0]);
+    if (plain) return plain;
+    const address = /naddr1[02-9ac-hj-np-z]{20,400}/.exec(text2)?.[0];
+    if (!address) return "";
+    try {
+      const to = decodeNaddr(address);
+      return to.kind === ITEM_KIND ? itemCoordinate(`${ITEM_KIND}:${to.pubkey}:${to.identifier}`) : "";
+    } catch {
+      return "";
+    }
+  }
+  function addBagControls(controls2, opts) {
+    const { bag, items: items2 } = opts;
+    let shown4 = [];
+    let chosen = null;
+    let pages = 1;
+    let wasMe = null;
+    let looked = false;
+    let asking = "";
+    let taking = "";
+    const say3 = (text2) => controls2.say(text2);
+    const model2 = items2.model;
+    const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
+    const still = (item) => () => {
+      const described = items2.known(item);
+      return described && previews && showsItems() ? previews.still(described, bag.tints(item)) : null;
+    };
+    const titleOf = (item) => items2.known(item)?.title ?? item.split(":")[2] ?? "an item";
+    const change2 = (item, adding) => {
+      const now = async () => {
+        const done = await (adding ? bag.add(item, titleOf(item)) : bag.remove(item, titleOf(item)));
+        say3(done.said);
+        refresh();
+      };
+      if (!bag.canChange()) return say3("Your bag is changed at your home, not from here.");
+      if (opts.allowed && !opts.allowed() && opts.ask) return say3(opts.ask(() => void now()));
+      void now();
+    };
+    const fromCopy = async () => {
+      let text2 = "";
+      const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
+      if (keyboard2) text2 = await keyboard2.ask({ title: "The item's address: naddr1\u2026 Paste it, or type it.", maxLength: 420 }).catch(() => null) ?? "";
+      else {
+        try {
+          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+        } catch {
+          return say3("What you copied couldn't be read here. Copy an item's address, allow this site to read what you copy, and press again.");
+        }
+      }
+      const item = itemIn(text2);
+      if (!item) return say3("That isn't an item's address. Copy one from the place that keeps the item, and press again.");
+      const described = await items2.describe(item);
+      if (!described) return say3("No description of that item could be found, so it wasn't put in your bag.");
+      chosen = item;
+      change2(item, true);
+    };
+    let cardActs = [];
+    let putAway = false;
+    let cameHolding = (() => {
+      const came = arrivedSettings().holding ?? keptHolding();
+      return came && typeof came === "object" ? came : null;
+    })();
+    const carryOn = async (has) => {
+      const came = cameHolding;
+      cameHolding = null;
+      if (!came || opts.holding() || opts.rule() === "none" || !showsItems() || !has.includes(came.item)) return;
+      const described = await items2.describe(came.item);
+      if (!described || opts.holding()) return;
+      if (described.script && came.script === described.script.sha256) allowScript(described.script.sha256);
+      taking = came.item;
+      refresh();
+      let done = { ok: false, said: "" };
+      try {
+        done = await opts.hold(came.item, came.tints ?? bag.tints(came.item));
+      } catch {
+      }
+      taking = "";
+      if (done.ok) say3(`${items2.known(came.item)?.title ?? "What you were holding"} is still in your hand.`);
+      refresh();
+    };
+    let drawnHolding = "";
+    const refresh = () => {
+      drawnHolding = opts.holding();
+      const held2 = heldNow();
+      if (held2 !== void 0) keepHolding(held2);
+      for (const id of shown4) controls2.remove(id);
+      shown4 = [];
+      const me = opts.me();
+      if (me !== wasMe) {
+        wasMe = me;
+        chosen = null;
+        pages = 1;
+        looked = false;
+      }
+      const has = me ? bag.items() : null;
+      const rule = opts.rule();
+      if (has && cameHolding) void carryOn(has);
+      const offers2 = () => has && bag.canChange() ? [...new Set((opts.offered?.() ?? []).map((i) => itemCoordinate(i)).filter((i) => i && !has.includes(i)))].slice(0, 12) : [];
+      const add = (...actions) => {
+        for (const a of actions) shown4.push(a.id);
+        controls2.add(...actions.map((a) => ({ section: "bag", ...a })));
+      };
+      controls2.addSection({
+        id: "bag",
+        label: "Bag",
+        icon: "save",
+        note: () => {
+          const here = rule === "play" ? "Items are part of play here: what people hold can reach you." : rule === "allowed" ? "Items work here." : "Nothing carried is drawn or works in this place.";
+          if (!me) return "Sign in to keep a bag.";
+          if (has === null) return looked ? "Your bag couldn't be looked for just now." : "Looking for your bag.";
+          if (has.length === 0) return `Your bag is empty. ${bag.canChange() ? offers2().length ? "Take one of the things offered here, or put an item in by its address." : "Put an item in by its address: copy it from the place that keeps the item." : "Things are put in it at your home."} ${here}`;
+          return `${has.length === 1 ? "1 thing" : `${has.length} things`} in your bag. Anyone can see what is in it. ${here}`;
+        },
+        card: () => {
+          const item = chosen ? items2.known(chosen) : null;
+          if (!item) return null;
+          const tints = bag.tints(item.id);
+          return {
+            title: item.title,
+            tag: opts.holding() === item.id ? "In your hand" : has?.includes(item.id) ? "In your bag" : "Offered here",
+            proven: false,
+            sub: `Made by ${item.maker.slice(0, 8)}\u2026`,
+            copy: item.id,
+            text: item.summary,
+            picture: "",
+            color: "",
+            now: [],
+            // What to do with it sits in the card with it: what it does while it is in their hand (the kit's own
+            // rows for that, item-controls.ts), then holding it or putting it away, its colours, and keeping it.
+            acts: [...opts.holding() === item.id ? ["item-use", "item-second"] : [], ...cardActs],
+            // The thing itself, large and turning, in the colours they chose for it.
+            ...previews && showsItems() ? { draw: () => previews.turning(item, tints, opts.motion?.() ?? controls2.theme?.motion ?? true) } : {}
+          };
+        }
+      });
+      if (!me) return;
+      const housekeeping = () => {
+        add({
+          id: "bag-items",
+          icon: "check",
+          on: () => showsItems(),
+          label: () => showsItems() ? "Items: on" : "Items: off. Nothing of anyone's is fetched, drawn or run",
+          short: "Items",
+          act: () => {
+            setShowsItems(!showsItems());
+            if (!showsItems() && opts.holding()) void opts.hold("");
+            say3(showsItems() ? "Items are drawn, here and in the next world that allows them." : "No item is fetched, drawn or run for you, here or in the next world.");
+            refresh();
+          }
+        });
+      };
+      if (has === null) {
+        housekeeping();
+        if (!looked) {
+          looked = true;
+          void bag.load().then(refresh);
+        } else
+          add({
+            id: "bag-again",
+            icon: "turn",
+            label: "Look again",
+            act: () => {
+              looked = false;
+              refresh();
+            }
+          });
+        return;
+      }
+      if (chosen === null && opts.holding() && has.includes(opts.holding())) chosen = opts.holding();
+      const holding2 = opts.holding();
+      const away = () => ({
+        id: "bag-away",
+        icon: "close",
+        tone: chosen === holding2 ? "primary" : "normal",
+        label: `Put ${titleOf(holding2)} away`,
+        short: "Away",
+        act: async () => {
+          putAway = true;
+          say3((await opts.hold("")).said);
+          refresh();
+        }
+      });
+      const firstOfTheirs = shown4.length;
+      if (chosen && has.includes(chosen)) {
+        const item = chosen;
+        if (taking === item)
+          add({ id: "bag-taking", icon: "check", label: `Taking ${titleOf(item)} in hand\u2026`, act: () => say3("It is on its way: its files are being fetched and checked.") });
+        else if (holding2 === item) add(away());
+        else if (rule === "none") {
+          add({
+            id: "bag-nohold",
+            icon: "close",
+            label: `Can't be held here: ${opts.place?.() || "this place"} doesn't have items`,
+            act: () => say3("Each place says whether things can be carried in it. Most let them; this one has turned them off.")
+          });
+        } else if (!showsItems()) {
+          add({
+            id: "bag-turn-on",
+            icon: "check",
+            tone: "primary",
+            label: `Turn items on, to hold ${titleOf(item)}`,
+            act: () => {
+              setShowsItems(true);
+              refresh();
+            }
+          });
+        } else {
+          add({
+            id: "bag-hold",
+            icon: "check",
+            tone: "primary",
+            // An item that does things of its own runs its maker's code, shut away: the second press is their yes.
+            label: asking === item ? `Let it run, and hold ${titleOf(item)}` : `Hold ${titleOf(item)}`,
+            act: async () => {
+              taking = item;
+              putAway = false;
+              refresh();
+              let done;
+              try {
+                done = await opts.hold(item, bag.tints(item));
+              } catch {
+                done = { ok: false, said: "That couldn't be taken in hand just now." };
+              }
+              taking = "";
+              asking = !done.ok && /Press Hold again/.test(done.said) ? item : "";
+              say3(done.said);
+              refresh();
+            }
+          });
+        }
+        for (const tint of items2.known(item)?.tints ?? []) {
+          const now = bag.tints(item)[tint.slot] ?? tint.color;
+          const at = TINT_PALETTE.findIndex((c) => c.color === now);
+          add({
+            id: `bag-tint-${tint.slot}`,
+            kind: "swatch",
+            color: now,
+            icon: "check",
+            label: `${tint.label}: ${TINT_PALETTE[at]?.name ?? "its maker's own"}`,
+            short: tint.label,
+            act: () => {
+              const next = TINT_PALETTE[(at + 1) % TINT_PALETTE.length];
+              const chosen2 = { ...bag.tints(item), [tint.slot]: next.color };
+              bag.setTints(item, chosen2);
+              opts.tinted?.(item, chosen2);
+              say3(`${tint.label}: ${next.name}. ${bag.canChange() ? "It goes with it to every world." : "For this place. Choose it at your home to keep it everywhere."}`);
+              refresh();
+            }
+          });
+        }
+        if (bag.canChange()) add({ id: "bag-remove", icon: "close", label: `Take ${titleOf(item)} out of my bag`, act: () => change2(item, false) });
+      } else if (chosen && offers2().includes(chosen)) {
+        const item = chosen;
+        add({ id: "bag-take", icon: "save", tone: "primary", label: `Put ${titleOf(item)} in my bag`, act: () => change2(item, true) });
+      }
+      cardActs = shown4.slice(firstOfTheirs);
+      if (holding2 && holding2 !== chosen) add(away());
+      const listed = has.slice(0, pages * PAGE);
+      for (const item of listed) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
+      const choose = (item) => () => {
+        chosen = chosen === item ? null : item;
+        asking = "";
+        refresh();
+      };
+      add(
+        ...listed.map(
+          (item) => ({
+            id: `bag-${item.split(":")[1].slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
+            kind: "tile",
+            icon: "save",
+            picture: still(item),
+            on: () => chosen === item,
+            label: () => `${titleOf(item)}${opts.holding() === item ? ", in your hand" : ""}`,
+            short: () => titleOf(item),
+            act: choose(item)
+          })
+        )
+      );
+      const offered = offers2();
+      for (const item of offered) if (!items2.known(item)) void items2.describe(item).then((found2) => found2 && soon2());
+      add(
+        ...offered.map(
+          (item) => ({
+            id: `bag-offer-${item.split(":")[1].slice(0, 8)}-${item.split(":")[2]}`.slice(0, 60),
+            kind: "tile",
+            icon: "save",
+            picture: still(item),
+            on: () => chosen === item,
+            label: () => `${titleOf(item)}, offered here`,
+            short: () => titleOf(item),
+            act: choose(item)
+          })
+        )
+      );
+      if (has.length > listed.length) {
+        add({
+          id: "bag-more",
+          icon: "list",
+          label: `Show more (${listed.length} of ${has.length})`,
+          act: () => {
+            pages++;
+            refresh();
+          }
+        });
+      }
+      housekeeping();
+      add({ id: "bag-look", icon: "turn", label: "Look again", short: "Look", act: () => void bag.load(true).then(refresh) });
+      if (bag.canChange()) add({ id: "bag-add", icon: "save", label: () => opts.presenting?.() && opts.keyboard?.() ? "Put in an item by its address" : "Put in the item I copied", short: "Add", act: () => void fromCopy() });
+    };
+    let drawing = false;
+    const soon2 = () => {
+      if (drawing) return;
+      drawing = true;
+      queueMicrotask(() => {
+        drawing = false;
+        refresh();
+      });
+    };
+    bag.onChange(soon2);
+    onItemsChange(soon2);
+    previews?.onChange(soon2);
+    const heldNow = () => {
+      const item = opts.holding();
+      if (!item) return putAway ? "" : void 0;
+      const script = items2.known(item)?.script?.sha256;
+      const tints = bag.tints(item);
+      return { item, ...Object.keys(tints).length ? { tints } : {}, ...script && scriptAllowed(script) ? { script } : {} };
+    };
+    reportSettings("holding", () => {
+      const held2 = heldNow();
+      return held2 === void 0 ? {} : { holding: held2 };
+    });
+    refresh();
+    const watch2 = setInterval(() => {
+      if (!taking && opts.holding() !== drawnHolding) refresh();
+    }, 400);
+    watch2.unref?.();
+    return { refresh };
   }
 
   // packages/sdk/src/thumb-presses.ts

@@ -7,7 +7,7 @@
  * do, which is why what a visitor holds is told to the room, and why what someone else's item sends out reaches
  * them: none of that is written again here.
  */
-import { cleanItemsRule } from "@nswp/core";
+import { cleanItemsRule, ENTRY_PLACES_LEAST, entryPlaces, pickEntryPlace, type EntryPlace } from "@nswp/core";
 import * as THREE from "three";
 import { engineParts } from "./engine-menu.js";
 import { addFramePart, engineWorld } from "./engine-world.js";
@@ -21,6 +21,8 @@ import { createPresence, type Presence } from "./presence.js";
 const said = { rule: "none", scripts: false as boolean | ItemBoxOptions, relays: undefined as string[] | undefined };
 let store: Items | null = null;
 let presence: Presence | null = null;
+/** The places of the entry point the visitor arrived by, as the engine gave them (`entryPlace`), for stepping them aside. */
+let arrivedBy: EntryPlace[] | null = null;
 const watchers = new Set<() => void>();
 
 /**
@@ -89,6 +91,9 @@ export function enginePresence(): Presence | null {
     deferredPlay: true,
     // The engine brings the thing in hand up to the eye, and says when it is there.
     sighting: () => world.sighting,
+    // Where they arrived, for stepping them aside if they join and find themselves inside someone: the move reaches
+    // the engine as a frame's `nudge`, applied when the engine says they are neither stepping nor turning.
+    arrival: () => (arrivedBy ? { places: arrivedBy, moving: () => world.moving } : null),
     look: () => arrival.look(),
     identity: () => arrival.identity(),
     onChange: () => {
@@ -102,4 +107,31 @@ export function enginePresence(): Presence | null {
     return {};
   });
   return presence;
+}
+
+/**
+ * Where the visitor should arrive (protocol/01-worlds.md, "Places to arrive"; `NSWP.entryPlace`): `json` is the
+ * places of the entry point they came by, as the engine's scene has them (`places`: each `position` [x, y, z] and
+ * `yaw`, its own spot first; only places a visitor may stand on), and `least` if the world is for meeting people (8).
+ * Fewer than the least are filled with a ring round the first. Returns JSON with `index` and the `place` to stand
+ * them on, picked with whoever is in the room the visitor has joined, if any; and keeps the places, so that if they
+ * join and find themselves inside someone the kit steps them aside (a frame's `nudge`).
+ */
+export function entryPlace(json?: string): string {
+  let said: { places?: unknown; least?: unknown } = {};
+  try {
+    said = typeof json === "string" ? (JSON.parse(json) as typeof said) : {};
+  } catch {
+    said = {};
+  }
+  const given = (Array.isArray(said.places) ? said.places : []).filter(
+    (p): p is EntryPlace => !!p && typeof p === "object" && Array.isArray((p as EntryPlace).position) && (p as EntryPlace).position.length === 3 && (p as EntryPlace).position.every((n) => typeof n === "number" && Number.isFinite(n)) && typeof (p as EntryPlace).yaw === "number",
+  );
+  if (!given.length) return JSON.stringify({ index: -1, place: null });
+  const least = typeof said.least === "number" && Number.isInteger(said.least) && said.least > 0 && said.least <= 64 ? said.least : ENTRY_PLACES_LEAST;
+  const places = entryPlaces({ ...given[0]!, places: given.slice(1) }, least);
+  arrivedBy = places;
+  const others = ((presence?.info() as { head?: number[] }[] | undefined) ?? []).flatMap((p) => (Array.isArray(p.head) && p.head.length === 3 ? [[p.head[0]!, p.head[2]!] as [number, number]] : []));
+  const index = pickEntryPlace(places, others);
+  return JSON.stringify({ index, place: places[index] ?? null });
 }

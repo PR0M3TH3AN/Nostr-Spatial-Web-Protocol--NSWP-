@@ -37,7 +37,7 @@ Members find each other with events of kind `27301` on public relays, tagged
 
 | Message | To | Content |
 |---|---|---|
-| `hello` | everyone | `{"t":"hello","v":1}`, in the clear. Sent on joining and every 20 seconds |
+| `hello` | everyone | `{"t":"hello","v":1}`, in the clear. Sent on joining and every 20 seconds. The one sent on joining adds `"first":true`: whoever hears it knows this member joined after them ([NSWP-01](01-worlds.md), "Places to arrive"). A client that doesn't know `first` ignores it |
 | `welcome` | one member | `{"t":"welcome"}` |
 | `offer` | one member | `{"t":"offer","sdp":"…"}` |
 | `answer` | one member | `{"t":"answer","sdp":"…"}` |

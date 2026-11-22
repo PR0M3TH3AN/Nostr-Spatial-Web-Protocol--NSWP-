@@ -343,6 +343,7 @@ too, so people look the same in every world.
 |---|---|
 | `NSWP.people(options)` | Call once, after `menu`. The room's part of the menu is added: Join, the microphone, chat, who is here. `options` is JSON: `sharedMusic` false for a place that wants none of its visitors' music shared. Nobody is joined to anything until they ask. |
 | `NSWP.frame(view)` | The same call as for items, once a frame: it now also returns `people`, `room` and sometimes `nudge`. |
+| `NSWP.entryPlace(json)` | Where to stand a visitor who has just arrived (protocol/01-worlds.md, "Places to arrive"). `json`: `places`, the entry point's places in your scene, its own spot first (each `position` [x, y, z] and `yaw` in degrees, 0 facing -Z; only places a visitor may stand on), and `least`, how many it must have (`kit.entryPlacesRooms`, 8, for a world with rooms; else `kit.entryPlacesLeast`, 4). Returns JSON `index` and `place`: the first place nobody in the room is within a metre of. Fewer places than `least` are filled with a ring round the first. If the visitor then joins and is inside someone, a frame's `nudge` steps them aside, once, while `view.moving` is false: say `moving: true` in the frame's view whenever they are stepping, walking or turning. In Godot, `Nswp.place(visitor, least)` does this with the `Node3D` children of an `nswp_entry` marker as its places. |
 | `NSWP.figure(name)` | What to draw a person's figure with, by the name a frame gave. |
 | `NSWP.board(key)` | A board's picture, as a PNG in base64, by the key a frame gave. |
 

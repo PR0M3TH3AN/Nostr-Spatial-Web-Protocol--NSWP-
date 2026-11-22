@@ -22,8 +22,8 @@ void startWorld({
   purpose: "Six sculptures, each a few lines of code turned into a shape. Walk round them: their colour moves as you do.",
   palette: { ground: 0x040912, accent: 0x4cc9f0, text: "#e0fbfc" },
   entryPoints: {
-    "main-entrance": { position: [0, 0, 5], yaw: 0 },
-    balcony: { position: [3, 0, -1], yaw: 90 },
+    "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 6.2], yaw: 0 }, { position: [-1.2, 0, 6.2], yaw: 0 }, { position: [1.2, 0, 6.2], yaw: 0 }] },
+    balcony: { position: [3, 0, -1], yaw: 90, places: [{ position: [3, 0, 0.2], yaw: 90 }, { position: [3, 0, -2.2], yaw: 90 }, { position: [3, 0, 1.4], yaw: 90 }, { position: [3, 0, -3.4], yaw: 90 }, { position: [4.2, 0, -1], yaw: 90 }, { position: [4.2, 0, 0.2], yaw: 90 }, { position: [4.2, 0, -2.2], yaw: 90 }] },
   },
   doors: [
     { to: "grove", label: "The Grove", position: [-1.7, 0, -8.4] },

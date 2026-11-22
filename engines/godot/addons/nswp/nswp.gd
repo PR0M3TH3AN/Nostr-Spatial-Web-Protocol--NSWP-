@@ -144,6 +144,9 @@ var kit: Dictionary = {
 	"lookSpeed": 0.0022,
 	"fov": 0,
 	"pitchLimit": 1.4835298641951802,
+	"entryPlacesLeast": 4,
+	"entryPlacesRooms": 8,
+	"entryClear": 1,
 	"tiltLimit": 1.0471975511965976,
 	"levelRate": 1.6,
 	"doubleTap": 400,
@@ -732,13 +735,44 @@ func _three(value: Variant) -> Vector3:
 	return Vector3.ZERO
 
 
-## Stand `visitor` where they arrived, facing the way that place faces. Returns false if the
-## scene has no entry for them, and leaves them where they are.
-func place(visitor: Node3D) -> bool:
+## The places of an entry point (protocol/01-worlds.md, "Places to arrive"): the marker itself,
+## then each `Node3D` child of it, in order. Put the children only where a visitor may stand, a
+## metre or more apart: at least `kit.entryPlacesLeast` in all, `kit.entryPlacesRooms` for a world
+## with rooms.
+func entry_places(marker: Node3D) -> Array[Node3D]:
+	var places: Array[Node3D] = [marker]
+	for child in marker.get_children():
+		if child is Node3D:
+			places.append(child)
+	return places
+
+
+## Stand `visitor` where they arrived, facing the way that place faces: the first place of the
+## entry point they came by that nobody in the room is standing within a metre of (the kit picks,
+## `NSWP.entryPlace`). `least` is how many places the entry point must have, counting its own
+## spot (fewer are filled with a ring round it): `kit.entryPlacesRooms` for a world with rooms,
+## else the kit's least. Returns false if the scene has no entry for them, and leaves them where
+## they are. If they join and find themselves inside someone, the kit steps them aside (`nudged`).
+func place(visitor: Node3D, least: int = 0) -> bool:
 	var marker := entry_marker()
 	if marker == null:
 		return false
-	visitor.global_transform = marker.global_transform
+	var places := entry_places(marker)
+	var target := marker.global_transform
+	if _js != null:
+		var list := []
+		for p in places:
+			list.append({"position": [p.global_position.x, p.global_position.y, p.global_position.z], "yaw": rad_to_deg(p.global_rotation.y)})
+		var want := least if least > 0 else int(kit.get("entryPlacesLeast", 4))
+		var got: Variant = JSON.parse_string(str(_js.entryPlace(JSON.stringify({"places": list, "least": want}))))
+		if typeof(got) == TYPE_DICTIONARY:
+			var i := int(got.get("index", -1))
+			if i >= 0 and i < places.size():
+				target = places[i].global_transform
+			elif i >= 0 and typeof(got.get("place")) == TYPE_DICTIONARY:
+				# One of the ring the kit filled in round a marker with too few places.
+				target.origin = _three(got["place"].get("position"))
+	visitor.global_transform = target
 	return true
 
 

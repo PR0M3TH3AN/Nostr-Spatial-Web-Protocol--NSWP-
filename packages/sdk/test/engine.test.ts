@@ -25,6 +25,9 @@ describe("what another engine takes from the kit", () => {
     expect(k.levelRate).toBe(LEVEL_RATE);
     expect(godot("nswp.gd")).toContain(`"tiltLimit": ${k.tiltLimit}`);
     expect(godot("nswp.gd")).toContain(`"levelRate": ${k.levelRate}`);
+    // How many places an entry point needs, and the least room between people: the addon's copy is the same.
+    expect([k.entryPlacesLeast, k.entryPlacesRooms, k.entryClear]).toEqual([4, 8, 1]);
+    for (const n of ["entryPlacesLeast", "entryPlacesRooms", "entryClear"]) expect(godot("nswp.gd")).toContain(`"${n}": ${k[n]}`);
     expect(k.cues).toEqual([...CUES]);
   });
 

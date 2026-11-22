@@ -4,7 +4,7 @@
   in each world with a minimum number set so that the game can always
   find a clear area to spawn if someone else is there."
 - **Who:** not briefed. The kit (and the template and other engines).
-- **State:** asked
+- **State:** being built (the kit's half: NSWP-01 "Places to arrive"; the template and BitPortal's room follow)
 
 ## What exists today
 
@@ -49,8 +49,13 @@ working.
 ## Open, for the owner
 
 - The least number: four for every world, eight for a world for rooms?
+  **Decided:** four, and eight for a world with `rooms` or `multiplayer`;
+  places at least 1 m apart; the ring for a single spot 1.3 m out. A
+  single spot is a warning in a world's check; a set given but too small
+  is an error.
 - Should a world be able to say "arrive anywhere in this area" (a region
-  the kit picks a clear spot in) instead of listing places?
+  the kit picks a clear spot in) instead of listing places? **Left out of
+  this round** (the orchestrator, 2026-11-22): places cover the ask.
 
 ## Must not
 

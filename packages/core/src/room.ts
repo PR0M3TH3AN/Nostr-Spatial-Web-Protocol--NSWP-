@@ -50,14 +50,17 @@ export function guestColor(pubkey: string): number {
   return (f(0) << 16) | (f(8) << 8) | f(4);
 }
 
-/** Spreads arrivals around a spawn point so people don't appear inside each other. */
+/**
+ * Spreads arrivals around a spawn point so people don't appear inside each other.
+ * @deprecated A guess that checks nothing: use `entryPlaces` and `pickEntryPlace` (entry-places.ts). Kept so nothing outside the kit breaks.
+ */
 export function spawnOffset(pubkey: string, radius = 1.3): { x: number; z: number } {
   const angle = (parseInt(pubkey.slice(8, 12), 16) / 0xffff) * Math.PI * 2;
   return { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius };
 }
 
 export type SignalMessage =
-  | { t: "hello"; v: 1 }
+  | { t: "hello"; v: 1; first?: true }
   | { t: "welcome" }
   | { t: "offer"; sdp: string }
   | { t: "answer"; sdp: string }
@@ -81,8 +84,12 @@ function validMessage(m: unknown): m is SignalMessage {
 }
 
 /** A public "I'm here" on the room's topic. Carries nothing but the session key. */
-export function buildHello(topic: string, sessionKey: Uint8Array, createdAt = nowSeconds()): NostrEvent {
-  return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic]], content: JSON.stringify({ t: "hello", v: 1 }) }, sessionKey);
+/**
+ * A hello to the room. `first` marks the one sent on joining, not the one repeated every 20 seconds: whoever hears
+ * it knows this member joined after them (protocol/06-rooms.md; for "Places to arrive", protocol/01-worlds.md).
+ */
+export function buildHello(topic: string, sessionKey: Uint8Array, createdAt = nowSeconds(), opts: { first?: boolean } = {}): NostrEvent {
+  return finalizeEvent({ kind: ROOM_SIGNAL_KIND, created_at: createdAt, tags: [["x", topic]], content: JSON.stringify({ t: "hello", v: 1, ...(opts.first ? { first: true } : {}) }) }, sessionKey);
 }
 
 /** A message for one member, encrypted to their session key (NIP-44). */

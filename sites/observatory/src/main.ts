@@ -13,7 +13,7 @@ void startWorld({
   title: "The Observatory",
   purpose: "A terrace for looking at the sky. The world overhead is ruled with the same grid as the ground you are standing on.",
   palette: { ground: 0x06050f, accent: 0x9b8cff, text: "#ebe8ff" },
-  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0 } },
+  entryPoints: { "main-entrance": { position: [0, 0, 5], yaw: 0, places: [{ position: [-1.2, 0, 5], yaw: 0 }, { position: [1.2, 0, 5], yaw: 0 }, { position: [-2.4, 0, 5], yaw: 0 }, { position: [2.4, 0, 5], yaw: 0 }, { position: [0, 0, 3.8], yaw: 0 }, { position: [-1.2, 0, 3.8], yaw: 0 }, { position: [1.2, 0, 3.8], yaw: 0 }] } },
   doors: [
     { to: "grove", label: "The Grove", position: [-6.2, 0, -8.6] },
     { to: "library", label: "The Library", position: [6.2, 0, -8.6] },

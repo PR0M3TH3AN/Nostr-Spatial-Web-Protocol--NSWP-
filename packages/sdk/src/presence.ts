@@ -7,7 +7,7 @@
  * world each person as plain shapes and pictures to draw for itself (engine-people.ts), from this one copy.
  */
 import * as THREE from "three";
-import { bubbleSeconds, buildTints, cleanItemsRule, cleanTints, itemCoordinate, parseTints, type Item, decodeLook, spawnOffset, type Pose, type Transform } from "@nswp/core";
+import { bubbleSeconds, buildTints, cleanItemsRule, cleanTints, ENTRY_CLEAR, itemCoordinate, parseTints, pickEntryPlace, type EntryPlace, type Item, decodeLook, spawnOffset, type Pose, type Transform } from "@nswp/core";
 import { createFigure, type Figure, type FigureStyle } from "./figure.js";
 import { room, type JoinOptions, type Member, type RoomSession } from "./room.js";
 import { loadBlocked, storeBlocked, withBlocked, withoutBlocked, type Blocked } from "./blocks.js";
@@ -22,7 +22,18 @@ import type { ItemBoxOptions } from "./item-box.js";
 import { byName, onPageRules, pageRules } from "./ui/identity.js";
 
 
+/** How long after joining a visitor counts as arriving: within this, someone found inside them moves them aside. */
+const ARRIVING_SECONDS = 6;
+
 export interface PresenceOptions {
+  /**
+   * Where the visitor arrived, for stepping them aside if they join and find themselves inside someone (protocol/
+   * 01-worlds.md, "Places to arrive"): the places of the entry point they came by (`entryPlaces`), where they may
+   * stand, and whether they are stepping or turning now. Asked when they join. Only the one arriving is ever moved,
+   * once, soon after they join, and never while they are stepping or turning; in a headset it is the same instant cut
+   * a step is, never a slide. Left out, they are stepped a little way round their spot as before (`spawnOffset`).
+   */
+  arrival?: () => { places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean } | null;
   /**
    * The world's own rules for its rooms (protocol/10-identity.md, "A world's own lists"), as its gate last read
    * them: the identity keys its owner keeps out, and whether its rooms show only named people. Asked each time a
@@ -440,6 +451,30 @@ export function createPresence(d: PresenceOptions): Presence {
   let sendTimer: ReturnType<typeof setInterval> | undefined;
   let micTrack: MediaStreamTrack | null = null;
   let offsetApplied = false;
+  /** Their arrival, while it can still be put right: until when, and where they stood when they joined. */
+  let arriving: { until: number; from: THREE.Vector3; places: readonly EntryPlace[]; canStand?: (x: number, z: number) => boolean; moving?: () => boolean } | null = null;
+  let clock = 0;
+  /** Step an arriving visitor aside if someone is within a person's room of them: once, and only them. */
+  const tendArrival = () => {
+    if (!arriving) return;
+    const head = d.camera.getWorldPosition(new THREE.Vector3());
+    // Gone, or walked off on their own: they are not arriving any more.
+    if (clock > arriving.until || Math.hypot(head.x - arriving.from.x, head.z - arriving.from.z) > ENTRY_CLEAR) return void (arriving = null);
+    // Those already here when they joined. Anyone who joined after them is the one arriving there, and steps aside
+    // themselves: this visitor is never moved for them.
+    const others = [...avatars.values()].filter((a) => a.target && !a.member.joinedAfterYou).map((a) => { const h = a.head.getWorldPosition(new THREE.Vector3()); return [h.x, h.z] as [number, number]; });
+    if (!others.some(([x, z]) => Math.hypot(x - head.x, z - head.z) < ENTRY_CLEAR)) return;
+    // Never mid-step or mid-turn: wait for them to be still.
+    if (arriving.moving?.()) return;
+    const i = pickEntryPlace(arriving.places, others, arriving.canStand);
+    const to = arriving.places[i];
+    arriving = null;
+    if (!to) return;
+    // Moved so that their head, not the rig's middle, is on the place: in a headset the head is off the middle. The
+    // way they face is theirs, and stays. An instant cut, as a step is: nothing slides.
+    d.rig.position.x += to.position[0] - head.x;
+    d.rig.position.z += to.position[2] - head.z;
+  };
   let plainSeed: string | undefined;
 
   // A soft dot of light: red over someone recording, in their own colour when they are pointed out.
@@ -980,11 +1015,17 @@ export function createPresence(d: PresenceOptions): Presence {
     const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
     session = s;
     if (!offsetApplied) {
-      // Step aside from the spawn point so two people don't arrive inside each other.
-      const off = spawnOffset(s.self.pubkey);
-      d.rig.position.x += off.x;
-      d.rig.position.z += off.z;
       offsetApplied = true;
+      const at = d.arrival?.() ?? null;
+      if (at && at.places.length) {
+        // Where they stand is checked against the people in the room as they come in (`tendArrival`).
+        arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new THREE.Vector3()), places: at.places, ...(at.canStand ? { canStand: at.canStand } : {}), ...(at.moving ? { moving: at.moving } : {}) };
+      } else {
+        // A world that says nothing of its places: stepped a little way round its spot, as before.
+        const off = spawnOffset(s.self.pubkey);
+        d.rig.position.x += off.x;
+        d.rig.position.z += off.z;
+      }
     }
     s.on("status", changed);
     s.on("recording", (m, on) => {
@@ -1042,7 +1083,9 @@ export function createPresence(d: PresenceOptions): Presence {
     s.on("pose", (m, pose) => {
       const a = avatars.get(m.pubkey);
       if (!a) return;
-      if (!a.target) stepApart(s.self.pubkey, m.pubkey, pose);
+      // A world that says where people arrive steps only the one arriving aside (`tendArrival`); without it, the pair
+      // step apart as before.
+      if (!a.target && !d.arrival) stepApart(s.self.pubkey, m.pubkey, pose);
       a.target = pose;
     });
     s.on("video", (m, stream) => {
@@ -1351,6 +1394,8 @@ export function createPresence(d: PresenceOptions): Presence {
       return dest.stream.getAudioTracks()[0]!;
     },
     update(dt) {
+      clock += dt;
+      tendArrival();
       tendMusic(dt);
       placeMine(dt);
       const k = 1 - Math.exp(-dt * 14);
