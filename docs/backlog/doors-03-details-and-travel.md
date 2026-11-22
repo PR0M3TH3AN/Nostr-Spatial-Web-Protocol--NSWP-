@@ -3,7 +3,7 @@
 - **Asked:** 2026-11-21. The owner: "Also in the menus doors need a details
   section like the items with this same info and a travel here button."
 - **Who:** BitPortal's session, both halves.
-- **State:** building. The kit's half is merged as kit 0.74.0 (NSWP pull requests 254 and 258). BitPortal's room uses it (BitPortal pull request 167, 42e5432): the Doors menu lists each door with its card, twelve lines and "Travel here"; in a headset the panel stays the list. Not yet: the template's Travel tab; other engines. Not live.
+- **State:** building. Merged: the kit's half (kit 0.74.0, NSWP pull requests 254 and 258), BitPortal's room (BitPortal pull request 167, 42e5432) and the template's Travel tab (template pull request 116, d4529c5). Left: the engine script's own Travel tab. Not live.
 - **Needs:** [doors-02](doors-02-what-a-world-offers.md), for "this same
   info".
 
