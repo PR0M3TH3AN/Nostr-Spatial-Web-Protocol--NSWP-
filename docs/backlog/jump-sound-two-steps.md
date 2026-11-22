@@ -5,7 +5,7 @@
   slightly louder?"
 - **Who:** the NSWP builder (the kit: `jump.ts`, `sound.ts`), for every
   world.
-- **State:** building. The owner heard the preview (three old jumps, then three new: two footsteps 0.09 s apart, each 1.35 times a step) and said: "Yes, use it" (2026-11-21). Built on the NSWP builder's branch with the full-screen work; not merged.
+- **State:** merged as kit 0.78.0 (NSWP pull requests 286 and 287), as the owner heard and approved it. Not live.
 
 Two of the kit's own footsteps, each its own random shape, back to back, a
 little louder than a step; no new sound file. The owner hears a recorded

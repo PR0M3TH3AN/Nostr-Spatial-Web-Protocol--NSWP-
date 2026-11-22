@@ -7,7 +7,7 @@
   again from the menu should exit full screen."
 - **Who:** the NSWP builder (the kit: `ui/fullscreen.ts`, `fps.ts`), for
   every world; BitPortal uses it.
-- **State:** briefed
+- **State:** merged as kit 0.78.0 (NSWP pull requests 286 and 287), vendored into BitPortal and the template. Not live. A scripted-Chrome trial passed, casual and intense; not tried in Firefox, Safari or on a real keyboard.
 
 ## What it can honestly be
 
