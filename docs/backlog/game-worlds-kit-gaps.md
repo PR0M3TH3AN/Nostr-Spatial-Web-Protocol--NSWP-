@@ -37,11 +37,11 @@
 |---|---|---|
 | A presence source: a world with its own netcode and voice feeds the kit's room, microphone and recording signs and its leave and mute | not planned | first (bitp-2) |
 | A seated or vehicle mode: a seat anchor, recentring, a comfort vignette, smooth movement asked for at the Airlock through the world's comfort notes (`comfort.seated` exists in the announcement) | not planned; touches "never slide unasked" | second (bitp-3) |
-| A "you're in, still loading" signal, and the Airlock reading `budgets.initial_download_mb` (the manifest already carries it) | not planned | soon |
+| A "you're in, still loading" signal, and the Airlock reading `budgets.initial_download_mb` (the manifest already carries it) | merged 2026-11-22: kit 0.80.0 (`controls.setLoading`, engine `loading`/`loaded`, `worldDownload`), the engine script's console from the first moment (NSWP 311), the Airlock's line (BitPortal 192); not live | done |
 | Touch sticks and dragging to look up and down | being looked into (`touch-look-and-item-presses`) | with that |
 | A 3D panel for a cockpit's own displays, and a stated rule for a world's own menu | partly: visitors' panels exist; the rule is NSWP-09/11's | later |
 | Lever, slider and axis controls | not planned | later |
 | Arriving as a group | written in the spec (§9.7), not built; see `rooms-start-or-join` | later |
-| A per-world key for saves | not needed: saves (NSWP-12) go through the visitor's sign-in, and BitLogin's side has been live since 2026-11-20 (the orchestrator said otherwise to COMBATRIG on 2026-11-21, wrongly); a world never gets more than a session key from a pass, by design | available now |
+| A per-world key for saves | tried end to end 2026-11-22 (BitLogin's trial against a kit world); not needed: saves (NSWP-12) go through the visitor's sign-in, and BitLogin's side has been live since 2026-11-20 (the orchestrator said otherwise to COMBATRIG on 2026-11-21, wrongly); a world never gets more than a session key from a pass, by design | available now |
 | A TURN relay | see `rooms-stun-servers`; someone has to run and pay for one | the owner's |
 | A public template with a game example, and testing on a real headset | the template is public; no game example | later |
