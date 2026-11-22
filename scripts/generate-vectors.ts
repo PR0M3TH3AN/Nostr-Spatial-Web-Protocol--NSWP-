@@ -517,10 +517,10 @@ const arrivalVectors = [
   },
   {
     name: "with_settings_that_travel",
-    value: encodeArrival({ entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true } }),
+    value: encodeArrival({ entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, fade: false, full: true } }),
     expect: {
       valid: true,
-      decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true } },
+      decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, fade: false, full: true } },
       warnings: [],
     },
   },

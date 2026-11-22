@@ -1,7 +1,10 @@
 # Seated and vehicle mode: a design
 
-**Status:** a design, for the orchestrator to answer; nothing is built. NSWP builder,
-2026-11-22. From `docs/backlog/game-worlds-kit-gaps.md` ("A seated or vehicle mode",
+**Status:** a design, answered by the orchestrator on 2026-11-22 (section 8 gives the
+names, and section 2 holds the answers); being built in section 7's order. Step 1, the fade
+(3.4), is built for the kit's own jumps in a Three.js world; the engine half comes with
+section 4.
+NSWP builder, 2026-11-22. From `docs/backlog/game-worlds-kit-gaps.md` ("A seated or vehicle mode",
 COMBATRIG's bitp-3, a VR cockpit) and the fade in
 `docs/backlog/headset-casual-and-intense.md` ("A fade for jumps the kit makes"). Every
 new name below is a proposal, listed at the end; none is used before it is given
@@ -62,7 +65,7 @@ not smooth, and is always allowed.
 | **Intense** (in a headset) | Allowed. They chose smooth movement. The vignette follows their own `narrow` setting. |
 | **Casual**, and agreed at the Airlock | Allowed for this world, this visit. The vignette is on, whatever `narrow` says: it is the comfortable way, and they didn't choose otherwise. |
 | **Casual**, and agreed once in this world | The same, and the world remembers it, for this world only. |
-| **Casual**, and not agreed | **Never moved smoothly.** The seat holds them still: the vehicle moves, and their view jumps with a fade to keep up, a few times a second at most, or stays put while the world shows the vehicle from outside. Which of those is the world's choice; the kit refuses to slide the view. |
+| **Casual**, and not agreed | **Never moved smoothly.** The seat holds them still: the vehicle moves, and their view jumps with a fade to keep up, or stays put while the world shows the vehicle from outside. Which of those is the world's choice. A world that says nothing gets the jumps. The kit never lets the jumps come faster than one a second (`CATCH_UP_MS`): at 120 ms each way, more would be mostly black, which is worse than either. In every case the kit refuses to slide the view. |
 
 - **At the Airlock** (BitPortal's code; the kit gives it the words):
   - For a world whose `locomotion` is `smooth` or `vehicle`, and a visitor whose headset
@@ -74,14 +77,24 @@ not smooth, and is always allowed.
   - An intense visitor sees only the chip, as today.
   - A `seated: required` world adds "You'll be seated for this world: have somewhere to
     sit" to the words, whoever they are.
-- **On the link and in the arrival** (NSWP-03): a new field saying the visitor agreed to
-  be moved smoothly in this world, for this visit. Like `moving`, it is a preference, not
-  a permission. But unlike `moving`, it is never inferred, never kept by the Airlock for
-  next time, and only ever set by the visitor's own press.
-- **In the world, by a plain link**, with no agreement and a casual choice: the first time
-  the world would move them smoothly, the kit asks once, in the headset, in the same
-  words. The world waits. The answer is kept for this world only, on this device, and can
-  be changed in Moving ("Let this world move me smoothly: on / off").
+- **On the link and in the arrival** (NSWP-03): the field `smooth`, for this visit only,
+  both ways. `smooth=1` means the visitor said yes at the Airlock; `smooth=0` means they
+  said "Go in without it". Absent means a plain link.
+  - The Airlock asks every time, so the visitor chooses fresh at each crossing.
+  - The Airlock's answer holds for that visit, both ways. "Go in without it" holds even
+    where the world kept an earlier yes from its own question; that is why the link
+    carries `0` too.
+  - Like `moving`, it is a preference, not a permission. Unlike `moving`, it is never
+    inferred, never kept by the Airlock or by the world, and only ever set by the
+    visitor's own press.
+- **In the world, by a plain link** (no `smooth` on it), with a casual choice: the world
+  uses the answer it kept from asking before. If it has none, the first time it would
+  move them smoothly the kit asks once, in the headset, in the same words, and the world
+  waits. Plain links are common (shared links, refreshes, other clients), and sending
+  someone back out to an Airlock is a dead end.
+  - The answer is kept for this world only, on this device, and can be changed in Moving
+    ("Let this world move me smoothly: on / off").
+  - It is the only answer a world keeps.
 - **Desk and phone:** none of this applies. A view that moves on a flat screen is a
   different thing, and NSWP-02 already lets a desk's casual way move the view as a world
   draws it. The seat still works there (the camera rides with it); the vignette and the
@@ -245,12 +258,14 @@ way.
 
 Each is one pull request, under `## Next`, with its trial.
 
-## 8. Names to give (none used before)
+## 8. Names, given by the orchestrator (2026-11-22)
 
-| What | Proposed name |
+All as proposed, with the link taking `0` as well as `1`, and the engine VERSION 18.
+
+| What | Name |
 |---|---|
-| Arrival field: the visitor agreed to be moved smoothly here, this visit (NSWP-03) | `smooth` (`true` only) |
-| Link parameter for it, as the Airlock writes it | `smooth=1` |
+| Arrival field: the visitor's answer at the Airlock, for this visit (NSWP-03) | `smooth` (`true` or `false`; absent for a plain link) |
+| Link parameter for it, as the Airlock writes it | `smooth=1`, `smooth=0` |
 | Core: may this visitor be moved smoothly here (section 2's table) | `maySlide(world, visitor)` |
 | Core: the Airlock's words for a world that moves you, and for a seated one | `rideWords(world, visitor)` |
 | Comfort setting: fade when the kit jumps you | `Comfort.fade` |
@@ -263,17 +278,18 @@ Each is one pull request, under `## Next`, with its trial.
 | Engine script: the engine says the visitor sat or stood | `seated(on)` |
 | Engine script: whether this visitor may be moved smoothly here, and the fade setting | in `kit()`, as `slide` and `fade` |
 | Engine script: the event to recentre | `{ type: "recentre" }` |
-| Engine VERSION | 18, or the next |
+| Engine VERSION | 18 |
+| The shortest time between a casual visitor's catch-up jumps in a vehicle | `CATCH_UP_MS` = 1000 |
+| The Moving switch for the fade | `move-fade` |
 | Godot: the seat node, and the signal to recentre | `NswpSeat`, `Nswp.recentre_asked` |
 
-**Questions for the orchestrator:**
-- **(a)** The names above.
-- **(b)** The casual-not-agreed vehicle: the world's choice between jumping with a fade
-  to keep up, and showing the vehicle from outside. Is that right, or should the kit
-  insist on one?
-- **(c)** The in-world question for a plain link. Or should a plain link mean casual and
-  no smooth movement at all, until they go out and come back through an Airlock?
-- **(d)** The in-world answer is kept for that world on this device (section 2). Should
-  an agreement made at the Airlock be kept the same way by the world it was for, or
-  count for that visit only, as written?
-- **(e)** Does the fade travel as a setting (`fade`, NSWP-11), or stay on the device?
+**The orchestrator's answers (2026-11-22):**
+- **(a)** All names given as proposed, with `smooth=0` too, and the engine VERSION 18.
+- **(b)** The world's choice, with a kit default (the jumps) and a kit limit (one a
+  second at most, `CATCH_UP_MS`). The kit refuses to slide the view in every case.
+- **(c)** Keep the in-world question, asked once in the headset with the world waiting.
+- **(d)** The Airlock decides for that visit only, both ways (`smooth=1` and `smooth=0`).
+  The world keeps only the in-world answer. Absent means a plain link: use the kept
+  answer, or ask.
+- **(e)** `fade` travels, beside `turn`, `hand` and `narrow`: it is the person's comfort
+  preference, not the device's.

@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A fade for the jumps the kit makes, in a headset** (`Comfort.fade`, the travelling setting `fade`, `xrInput.jump`, the Moving switch `move-fade`; `docs/plans/seated-mode.md`, 3.4; `docs/backlog/headset-casual-and-intense.md`, "A fade for jumps the kit makes"; names from the orchestrator).
+  - For someone moving the casual way, every jump the kit makes for them is a short fade to black, the jump, and back, about 120 ms each way: a headset step, a step back with the stick, and stepping aside on arrival. Nothing is seen to move. Intense keeps the instant cut.
+  - The fade is on in casual and off in intense. It can be changed in Moving ("The view fades when you step"), and it travels beside `turn`, `hand` and `narrow` (NSWP-11; the arrival schema and vectors).
+  - A world's own jumps (a respawn, a teleporter) get the same fade through `xrInput.jump(fn)`.
+  - It is one dark sheet on the camera, drawn last, with no extra pass. The jump is made only once the view is wholly dark, and a second jump during the fade is made in the dark too.
+  - Turning a notch stays an instant turn. A door needs none, since the next world's session starts fresh.
+  - Engine worlds come later, with the plan's section 4.
+  - Tried in the made-up headset by `trials/fade-steps.mjs`: casual made the step at full dark, and the view came back; intense and the fade switched off both cut, never dark.
 ## 0.82.0
 
 - **The owner's screen: "Who comes in"** (the console section `guests`; core `changeOwnerList` and `isOwnerListAsked`; `signer.guests`; `gate.changeList`; NSWP-10, "The owner's screen"; names from the orchestrator). In the console of a keeper signed in here, and nobody else's, a world's lists can be changed from inside the world.

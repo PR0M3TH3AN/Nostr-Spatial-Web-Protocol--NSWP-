@@ -5169,6 +5169,8 @@ var NSWP = (() => {
       out.hand = s.hand;
     if (typeof s.narrow === "boolean")
       out.narrow = s.narrow;
+    if (typeof s.fade === "boolean")
+      out.fade = s.fade;
     if (typeof s.full === "boolean")
       out.full = s.full;
     if (typeof s.intense === "boolean")
@@ -50573,10 +50575,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (arriving.moving?.()) return;
       const i = pickEntryPlace(arriving.places, others, arriving.canStand);
       const to = arriving.places[i];
+      const jump = arriving.jump ?? ((fn) => fn());
       arriving = null;
       if (!to) return;
-      d.rig.position.x += to.position[0] - head.x;
-      d.rig.position.z += to.position[2] - head.z;
+      const dx = to.position[0] - head.x;
+      const dz = to.position[2] - head.z;
+      jump(() => {
+        d.rig.position.x += dx;
+        d.rig.position.z += dz;
+      });
     };
     let plainSeed;
     let dot = null;
@@ -51037,11 +51044,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         offsetApplied = true;
         const at = d.arrival?.() ?? null;
         if (at && at.places.length) {
-          arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new Vector3()), places: at.places, ...at.canStand ? { canStand: at.canStand } : {}, ...at.moving ? { moving: at.moving } : {} };
+          arriving = { until: clock + ARRIVING_SECONDS, from: d.camera.getWorldPosition(new Vector3()), places: at.places, ...at.jump ? { jump: at.jump } : {}, ...at.canStand ? { canStand: at.canStand } : {}, ...at.moving ? { moving: at.moving } : {} };
         } else {
           const off = spawnOffset(s.self.pubkey);
-          d.rig.position.x += off.x;
-          d.rig.position.z += off.z;
+          (at?.jump ?? ((fn) => fn()))(() => {
+            d.rig.position.x += off.x;
+            d.rig.position.z += off.z;
+          });
         }
       }
       s.on("status", changed);

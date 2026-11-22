@@ -110,6 +110,8 @@ export interface Comfort {
   turnStep: 30 | 45 | 90;
   /** Darken the edge of the view while moving smoothly. It is what stops most people feeling ill. */
   narrow: boolean;
+  /** Fade the view to black and back when the kit jumps them: a step, being stepped aside. Nothing is seen to move. */
+  fade: boolean;
   /** Which hand's stick moves you. The other turns you. */
   moveHand: "left" | "right";
 }
@@ -118,7 +120,7 @@ export interface Comfort {
  * The defaults are the comfortable ones: nothing slides. Smooth movement is
  * there for people who know they want it.
  */
-export const DEFAULT_COMFORT: Comfort = { move: "steps", turn: "steps", turnStep: 30, narrow: true, moveHand: "left" };
+export const DEFAULT_COMFORT: Comfort = { move: "steps", turn: "steps", turnStep: 30, narrow: true, fade: true, moveHand: "left" };
 
 /**
  * Two ways of moving, by name, so that one switch can choose between them.
@@ -126,8 +128,9 @@ export const DEFAULT_COMFORT: Comfort = { move: "steps", turn: "steps", turnStep
  * what people who play games expect: walking and turning smoothly, with the
  * whole view. Each setting can still be changed by itself afterwards.
  */
-export const CASUAL_COMFORT: Partial<Comfort> = { move: "steps", turn: "steps", narrow: true };
-export const INTENSE_COMFORT: Partial<Comfort> = { move: "smooth", turn: "smooth", narrow: false };
+export const CASUAL_COMFORT: Partial<Comfort> = { move: "steps", turn: "steps", narrow: true, fade: true };
+// Intense keeps the instant cut (docs/backlog/headset-casual-and-intense.md, "A fade for jumps the kit makes").
+export const INTENSE_COMFORT: Partial<Comfort> = { move: "smooth", turn: "smooth", narrow: false, fade: false };
 /** Whether a visitor's settings amount to the intense way: they walk and turn smoothly. */
 export const isIntense = (comfort: Comfort): boolean => comfort.move === "smooth" && comfort.turn === "smooth";
 
@@ -140,6 +143,7 @@ export function cleanComfort(input: unknown): Partial<Comfort> {
   if (c.turn === "steps" || c.turn === "smooth") out.turn = c.turn;
   if (c.turnStep === 30 || c.turnStep === 45 || c.turnStep === 90) out.turnStep = c.turnStep;
   if (typeof c.narrow === "boolean") out.narrow = c.narrow;
+  if (typeof c.fade === "boolean") out.fade = c.fade;
   if (c.moveHand === "left" || c.moveHand === "right") out.moveHand = c.moveHand;
   return out;
 }

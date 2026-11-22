@@ -232,7 +232,7 @@ settings now go with them instead, the same way the form they are in does:
 | Their volumes | `sound`: `off`, `effects`, `music`, `voices` (each 0 to 1), `hum` | |
 | The size of text and controls | `text`: 0.85 to 1.5 | |
 | Whether things move as they open and close | `motion` | |
-| Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving) | |
+| Their hands in a headset | `wrist` (`left`, `right`, `off`), `hand` (which stick moves them), `turn` (30, 45 or 90 degrees a notch), `narrow` (the view narrowed while moving), `fade` (the view fades to black and back when the client jumps them: a step, being stepped aside) | |
 | That they prefer a filled screen | `full` | Looked for first, before the place is built, and taken up at their very first press of any kind. A browser gives up a filled screen whenever the page changes and fills it only on a press: no page can do it sooner |
 | That they prefer the intense way of moving at a desk | `intense` | The mouse looks round and keys walk, from the start, with nothing to switch on |
 | How they prefer to move in a headset | `headset`: `casual` (point at the floor to step there, turn a notch at a time) or `intense` (one stick walks and the other turns, smoothly) | Said both ways once they have chosen, so a world can tell someone who chose casual from someone never asked. `turn` stays the size of a notch |
