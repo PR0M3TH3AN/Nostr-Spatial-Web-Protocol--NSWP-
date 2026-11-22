@@ -147,14 +147,18 @@ async function visitor(who, { knows = true, namedOnly = false, invitation = fals
   };
   /** Press Join as a visitor would, and wait until they are in, or told why not. */
   const joinRoom = async () => {
-    await page.evaluate(() => window.__nswpTest.controls.run("room-join"));
-    return until(async () => {
+    await page.bringToFront();
+    const pressed = await page.evaluate(() => window.__nswpTest.controls.run("room-join"));
+    const got = await until(async () => {
       const room = await page.evaluate(() => window.__nswpTest.state.room);
       if (room?.self) return { joined: true, self: room.self };
       const last = (await said()).find((w) => /^Couldn't join/.test(w));
       return last ? { joined: false, said: last } : null;
       // A join waits on the signer, a pass and relays: on a busy machine with several browsers in a room, a while.
     }, 90000);
+    // Neither in nor told why: what the page says of itself, so a failure says what happened.
+    if (!got) (r.joinsThatDidNothing ??= []).push({ who: who ?? "guest", pressed, said: await said().catch(() => null), room: await page.evaluate(() => window.__nswpTest.state.room ?? null).catch(() => null), signer: await page.evaluate(() => { const s = window.__nswpTest.signer(); return s ? s.state : null; }).catch(() => null), visible: await page.evaluate(() => document.visibilityState).catch(() => null) });
+    return got;
   };
   /** Who this visitor's room shows now, by session key. */
   const shown = () => page.evaluate(() => window.__nswpTest.state.room?.members ?? []);
