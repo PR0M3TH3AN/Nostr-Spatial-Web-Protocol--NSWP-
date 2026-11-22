@@ -1,4 +1,4 @@
-# Casual and intense in a headset: pointing to step, or smooth walking
+# Casual and intense, asked once: in a headset and at a desk; a phone is always casual
 
 - **Asked:** 2026-11-21. The owner: "in bitportals VR mode, we need an
   "casual" and an "intense" mode. Where in casual its click to move and in
@@ -67,6 +67,21 @@ preference is kept by choosing intense once.
    again.
    The switch reads "How you move: casual / intense". The menu's order of
    tabs stays as it is.
+
+## At a desk too, and never on a phone (the owner, 2026-11-21)
+
+"And something similer should happen the first time someone enters the
+game in 2D desktop mode. Casual or intense. Then save and be the defaut.
+Mobile is always casual."
+
+- At a desk with a mouse: the same one-time choice on the flat screen
+  (casual: click to walk, drag to look; intense: the mouse looks, keys
+  walk). The answer is the desk's `intense` setting, which already travels
+  and is kept in BitPortal's synced note. Choosing intense never takes the
+  pointer until they press something.
+- On a phone or tablet: always casual, no question, no intense shown.
+- Desk and headset are two choices, each asked once; one never answers
+  the other.
 
 ## Done looks like
 
