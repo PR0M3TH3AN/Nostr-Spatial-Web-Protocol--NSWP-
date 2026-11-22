@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.74.0
 
 - **A paid world's gate in any engine** (`NSWP.gate()`, the `gate` event; in Godot `Nswp.gate()`, `gate_changed`, `gate_open()`, `gate_press()`; `docs/other-engines.md`, "A paid world's gate"). The same gate as a Three.js world's, from the kit's own script: it asks what the visitor holds, shows what is for sale, and puts `gate-buy` in the kit's menu. The engine draws the gate and stops the visitor at it. The engine script's `VERSION` is 15.
 - **The Foundry can have a gate, and has none.** Its example draws a gate across the way and calls `Nswp.gate(false)`; the build stops if `PAID` in its code and its `world.json` disagree. `trials/front-room-godot.mjs` walks it against the selling service's sandbox.
