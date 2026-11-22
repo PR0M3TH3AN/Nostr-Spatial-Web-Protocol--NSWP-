@@ -4,7 +4,7 @@
   lists (not the owner's words; written down so it isn't lost).
 - **Who:** the NSWP builder (the kit's `list.ts` and NSWP-08), after
   worlds by invitation's stage 1.
-- **State:** asked
+- **State:** building. Built on the NSWP builder's branch `lists-future`, not merged: NSWP-08 "Following one" says it, `resolveList` in `list.ts` does it, and `vectors/lists.json` `choosing` has the cases
 
 A NIP-51 list of worlds (kind 30004) is replaceable: the newest copy
 wins. NSWP-08 says nothing about a copy dated in the future, so one signed

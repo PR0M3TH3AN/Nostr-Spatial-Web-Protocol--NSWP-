@@ -37,6 +37,7 @@ import {
   markGrid,
   parseAvatarEvent,
   parseListEvent,
+  resolveList,
   parseManifest,
   parsePortal,
   parseWorldEvent,
@@ -704,6 +705,37 @@ for (const v of listVectors) {
     else expectEqual(`list/${v.name} worlds`, { count: r.value.worlds.length, last: r.value.worlds.at(-1) }, w);
   }
 }
+// Choosing a list from the copies relays gave (protocol/08-lists.md, "Following one"): the newest from the
+// curator's key, after leaving out any dated more than 600 seconds ahead of the reader's clock.
+const LIST_NOW = T0 + 86400;
+const LIST_AT = `30004:${PK1}:quiet-places`;
+const copyAt = (createdAt: number, key = KEY1, title = "Quiet places") => sign(buildListEvent({ ...baseList, title, createdAt }), key);
+const listToday = copyAt(LIST_NOW - 100);
+const listAhead600 = copyAt(LIST_NOW + 600, KEY1, "Quiet places, ten minutes ahead");
+const listAhead601 = copyAt(LIST_NOW + 601, KEY1, "Quiet places, a second too far ahead");
+const listNextYear = copyAt(LIST_NOW + 365 * 86400, KEY1, "Quiet places, from next year");
+const listYesterday = copyAt(LIST_NOW - 86400, KEY1, "Quiet places, yesterday");
+const listOtherKey = copyAt(LIST_NOW, KEY2, "Quiet places, by someone else");
+const tiedA = copyAt(LIST_NOW - 50, KEY1, "Tied, one");
+const tiedB = copyAt(LIST_NOW - 50, KEY1, "Tied, two");
+const tiedFirst = tiedA.id < tiedB.id ? tiedA : tiedB;
+const forged = { ...copyAt(LIST_NOW - 10, KEY1, "Quiet places, altered"), tags: [["d", "quiet-places"], ["title", "Altered after signing"]] };
+type ListChoiceVector = { name: string; description: string; coordinate: string; now: number; events: unknown[]; expect: { chosen: string | null; title?: string; futureDated: string[] } };
+const listChoiceVectors: ListChoiceVector[] = [
+  { name: "exactly_600_seconds_ahead_is_read", description: "A copy dated exactly 600 seconds ahead of the reader's clock is chosen.", coordinate: LIST_AT, now: LIST_NOW, events: [listToday, listAhead600], expect: { chosen: listAhead600.id, title: "Quiet places, ten minutes ahead", futureDated: [] } },
+  { name: "601_seconds_ahead_is_left_out", description: "A copy dated 601 seconds ahead is left out before choosing, and said; the copy before it stands.", coordinate: LIST_AT, now: LIST_NOW, events: [listToday, listAhead601], expect: { chosen: listToday.id, title: "Quiet places", futureDated: [listAhead601.id] } },
+  { name: "only_a_future_copy", description: "With nothing but a copy dated too far ahead, there is no list yet, and the reader says why.", coordinate: LIST_AT, now: LIST_NOW, events: [listAhead601], expect: { chosen: null, futureDated: [listAhead601.id] } },
+  { name: "a_future_copy_beside_a_current_one", description: "A copy signed with a clock a year fast leaves the honest current copy standing.", coordinate: LIST_AT, now: LIST_NOW, events: [listNextYear, listYesterday, listToday], expect: { chosen: listToday.id, title: "Quiet places", futureDated: [listNextYear.id] } },
+  { name: "another_key_is_not_the_list", description: "A newer copy under the same d from another key is passed over: the coordinate fixes the key.", coordinate: LIST_AT, now: LIST_NOW, events: [listToday, listOtherKey], expect: { chosen: listToday.id, title: "Quiet places", futureDated: [] } },
+  { name: "a_bad_signature_is_passed_over", description: "A newer copy whose signature doesn't check is passed over.", coordinate: LIST_AT, now: LIST_NOW, events: [listYesterday, forged], expect: { chosen: listYesterday.id, title: "Quiet places, yesterday", futureDated: [] } },
+  { name: "a_tie_goes_to_the_smallest_id", description: "Two copies with the same created_at: the one with the smaller id (NIP-01).", coordinate: LIST_AT, now: LIST_NOW, events: [tiedA, tiedB], expect: { chosen: tiedFirst.id, title: tiedFirst === tiedA ? "Tied, one" : "Tied, two", futureDated: [] } },
+];
+for (const v of listChoiceVectors) {
+  const r = resolveList(v.events, { coordinate: v.coordinate, now: v.now });
+  expectEqual(`list-choice/${v.name} chosen`, r.id, v.expect.chosen);
+  expectEqual(`list-choice/${v.name} futureDated`, r.futureDated, v.expect.futureDated);
+  if (v.expect.title !== undefined) expectEqual(`list-choice/${v.name} title`, r.list?.title, v.expect.title);
+}
 expectEqual("list/kind", buildListEvent(baseList).kind, CURATION_SET_KIND);
 expectEqual("list/coordinate", parseListEvent(sign(buildListEvent(baseList))).ok && (parseListEvent(sign(buildListEvent(baseList))) as { value: { coordinate?: string } }).value.coordinate, `30004:${PK1}:quiet-places`);
 
@@ -889,6 +921,11 @@ const files: Record<string, unknown> = {
       "Lists of worlds (protocol/08-lists.md): NIP-51 curation sets. `worlds` is what a reader must take from the list, in order; where it is an object, the count and the last world kept. `errors` and `warnings` are sorted issue codes; `signatureValid` is null when the vector is unsigned.",
     testKeys,
     vectors: listVectors,
+    choosing: {
+      description:
+        "Choosing a list from the copies relays gave for its coordinate: those of kind 30004 signed by its key, with exactly its d and a good signature. A copy dated more than 600 seconds after `now` is left out before choosing and named in `futureDated`; the newest of the rest is `chosen` (its id), a tie going to the smallest id; null for none.",
+      vectors: listChoiceVectors,
+    },
   },
   "portals.json": { description: "Portals (spec §6.1) and NIP-19 naddr round-trips.", portals: portalVectors, naddr: naddrVectors },
 };
