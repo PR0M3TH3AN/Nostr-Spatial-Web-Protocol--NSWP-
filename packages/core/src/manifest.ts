@@ -12,6 +12,23 @@ import { cleanListing, listingSeller } from "./receipt.js";
 import { Collector, isPlainObject, NswpError, type Issue, type Result } from "./result.js";
 import type { World } from "./world.js";
 
+/** Above this many megabytes, a world's first download is a lot to ask (spec §10.1, "Budgets": "initial world download warned above 50 MB"). */
+export const DOWNLOAD_WARN_MB = 50;
+
+/**
+ * How big a world says its first download is, for an Airlock to say before the visitor crosses
+ * (protocol/02-doors.md, "What an Airlock does"): `mb`, the words to show, and `heavy` above `DOWNLOAD_WARN_MB`.
+ * It is the world's own claim, from its manifest's `budgets.initial_download_mb`, and nothing here checks it: the
+ * words say so. Null where the world says nothing, or something that isn't a size.
+ */
+export function worldDownload(world: Pick<ManifestWorld, "budgets"> | null | undefined): { mb: number; words: string; heavy: boolean } | null {
+  const mb = world?.budgets?.initialDownloadMb;
+  if (typeof mb !== "number" || !Number.isFinite(mb) || mb < 0) return null;
+  const size = mb < 1 ? "less than 1 MB" : mb < 10 ? `about ${Math.round(mb * 10) / 10} MB` : mb < 1000 ? `about ${Math.round(mb)} MB` : `about ${Math.round(mb / 100) / 10} GB`;
+  const heavy = mb > DOWNLOAD_WARN_MB;
+  return { mb, words: `The world says ${size} to download${heavy ? ": a lot on a phone's data" : ""}`, heavy };
+}
+
 export interface ManifestWorld {
   entry: { url: string; modes: string[] };
   entryPoints: string[];

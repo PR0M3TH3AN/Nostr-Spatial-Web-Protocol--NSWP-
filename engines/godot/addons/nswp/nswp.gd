@@ -378,6 +378,18 @@ func ready() -> void:
 		_js.ready()
 
 
+## The world is still loading, though the visitor is in it (after `ready()`, or once the menu
+## has opened the doors): a line in the visitor's menu says so, in your words (plain text, at
+## most 80 characters, "Loading the arena") and with how far along it is, from 0 to 1, or -1
+## where you can't say. The menu, the way home and everything else work throughout. So open
+## the doors as soon as there is something to see, and say this while the rest arrives.
+## `loading(1.0)` ends it. (The engine script's own `loaded()` does too; here `loaded` is
+## already the signal that answers `load()`.) Before the doors open it fills the line over them.
+func loading(fraction: float, words: String = "") -> void:
+	if _js != null:
+		_js.loading(fraction, words)
+
+
 ## Where the crossing's room is: "arriving", "opening", "none", "leaving", "shut" or "failed".
 ## While it isn't "none", the visitor can't see the world: don't start anything they would miss.
 func crossing() -> String:

@@ -51,6 +51,7 @@ var NSWP = (() => {
     jumped: () => jumped,
     kit: () => kit,
     load: () => load2,
+    loaded: () => loaded2,
     loading: () => loading3,
     menu: () => menu,
     model: () => model,
@@ -27479,7 +27480,7 @@ postMessage({ t: "started" });
           const contentLength = response.headers.get("X-File-Size") || response.headers.get("Content-Length");
           const total = contentLength ? parseInt(contentLength) : 0;
           const lengthComputable = total !== 0;
-          let loaded2 = 0;
+          let loaded3 = 0;
           const stream = new ReadableStream({
             start(controller) {
               readData();
@@ -27488,8 +27489,8 @@ postMessage({ t: "started" });
                   if (done) {
                     controller.close();
                   } else {
-                    loaded2 += value.byteLength;
-                    const event = new ProgressEvent("progress", { lengthComputable, loaded: loaded2, total });
+                    loaded3 += value.byteLength;
+                    const event = new ProgressEvent("progress", { lengthComputable, loaded: loaded3, total });
                     for (let i = 0, il = callbacks.length; i < il; i++) {
                       const callback = callbacks[i];
                       if (callback.onProgress) callback.onProgress(event);
@@ -43418,8 +43419,8 @@ void main() {
     const loadInto = (into, files2) => {
       for (const [cue, addresses] of Object.entries(files2)) {
         for (const address of addresses ?? []) {
-          void loadCue(address).then((loaded2) => {
-            if (loaded2) into.set(cue, [...into.get(cue) ?? [], loaded2]);
+          void loadCue(address).then((loaded3) => {
+            if (loaded3) into.set(cue, [...into.get(cue) ?? [], loaded3]);
           });
         }
       }
@@ -45447,6 +45448,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .low { position: absolute; left: 0; right: 0; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 12px; }
 .target { max-width: min(92vw, 640px); padding: 6px 14px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .target:empty { visibility: hidden; }
+/* Still loading, though they are in (controls.setLoading): the world's words, how far, and a line that fills. Above
+   what is pointed at, and pressing nothing. */
+.loading { position: relative; overflow: hidden; max-width: min(92vw, 520px); padding: 6px 16px 8px; border-radius: 999px;
+  display: flex; gap: 10px; align-items: baseline; white-space: nowrap; font-size: .92em; }
+.loading[hidden] { display: none; }
+.loading .what { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.loading .much { flex: none; color: rgb(var(--accent)); font-variant-numeric: tabular-nums; }
+.loading .fill { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; transform-origin: left; transform: scaleX(var(--f, 0));
+  background: rgb(var(--accent)); box-shadow: 0 0 8px rgb(var(--accent)); }
+/* How far isn't known: a short light runs along the line. */
+.loading.unknown .fill { width: 30%; transform: none; animation: loading-run 1.6s ease-in-out infinite; }
+:host(:not(.moving)) .loading.unknown .fill { animation: none; width: 100%; opacity: .5; }
+@keyframes loading-run { from { translate: -100% 0; } to { translate: 340% 0; } }
 /* What is pointed at, with a few lines about it: a small card, always this size, never in the way of the thing itself. */
 .target.card { max-width: min(92vw, 460px); padding: 10px 16px; border-radius: 14px; white-space: normal; text-align: left; display: grid; gap: 3px; }
 .target.card b { font-weight: 650; }
@@ -45660,7 +45674,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .quiet:hover, .quiet[aria-expanded="true"] { border-color: rgb(var(--accent)); }
 :host([data-presence="quiet"]) .quiet { display: grid; }
 :host([data-presence="quiet"]) :is(.id, .menu, .bar, .target, .corner),
-:host([data-presence="hidden"]) :is(.id, .menu, .bar, .target, .corner, .says) { display: none; }
+:host([data-presence="hidden"]) :is(.id, .menu, .bar, .target, .corner, .says, .loading) { display: none; }
 :host([data-corner="top-left"]) .quiet { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
 :host([data-corner="top-right"]) .quiet { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); }
 :host([data-corner="bottom-left"]) .quiet { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
@@ -45759,6 +45773,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
     const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
     const target2 = el("div", { class: "target glass", "aria-live": "polite" });
+    const loadingWhat = el("span", { class: "what", "aria-live": "polite" });
+    const loadingMuch = el("span", { class: "much" });
+    const loadingFill = el("i", { class: "fill", "aria-hidden": "true" });
+    const loadingLine2 = el("div", { class: "loading glass", hidden: "" }, loadingWhat, loadingMuch, loadingFill);
     const hotbar = el("nav", { class: "hotbar", "aria-label": "Controls" });
     const barBack = el("button", { class: "more left spent", type: "button", "aria-label": "Earlier keys", tabindex: "-1" }, "\u2039");
     const barOn = el("button", { class: "more right spent", type: "button", "aria-label": "More keys", tabindex: "-1" }, "\u203A");
@@ -45864,7 +45882,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, target2, bar));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
@@ -46177,6 +46195,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       address.textContent = view2.address;
       sayWho(view2.sections.find((section2) => section2.id === "you")?.card ?? null);
       full.hidden = !fullscreenButton.shown() || view2.presence === "hidden" || asWho.classList.contains("shown");
+      const loads = view2.loading;
+      loadingLine2.hidden = !loads;
+      if (loads) {
+        loadingWhat.textContent = loads.words || "Still loading";
+        loadingMuch.textContent = loads.fraction === null ? "" : `${Math.floor(loads.fraction * 100)}%`;
+        loadingLine2.classList.toggle("unknown", loads.fraction === null);
+        loadingFill.style.setProperty("--f", String(loads.fraction ?? 0));
+      }
       const shown4 = [view2.target, ...view2.detail].join("\n");
       if (target2.dataset.shown !== shown4) {
         target2.dataset.shown = shown4;
@@ -46489,7 +46515,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setChatOpen,
       bounds() {
         if (host.hidden) return [];
-        return [id, menu2, quiet, bar, target2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
+        return [id, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
       },
       cover() {
         if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
@@ -46778,6 +46804,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     } catch {
     }
   }
+  var LOADING_WORDS = 80;
+  function cleanLoading(state) {
+    if (!state || typeof state !== "object") return null;
+    const raw = typeof state.words === "string" ? state.words : "";
+    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
+    const f = state.fraction;
+    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
+    return { fraction, words: words2 };
+  }
   function createControls(opts) {
     const sections = STANDARD.map((s) => ({ ...s }));
     for (const s of opts.sections ?? []) addSection(s);
@@ -46802,6 +46837,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
+    let loading4 = null;
     let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
     let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
     let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
@@ -46861,6 +46897,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         claimed = next;
         changed();
       },
+      setLoading(state) {
+        const next = cleanLoading(state);
+        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
+        loading4 = next;
+        changed();
+      },
       setTarget(text2, more = []) {
         const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
         if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
@@ -46915,6 +46957,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           address: opts.address ?? "",
           target: target2,
           detail,
+          loading: loading4,
           sections: shown4,
           hotbar: bar.map(item),
           // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
@@ -47063,6 +47106,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     named = title;
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
     const c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
+    if (loadingNow) c.setLoading(loadingNow);
     for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
     const h = hud = mountHud(c);
     const s = sounds = createSounds({
@@ -47232,6 +47276,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function bump() {
     sounds?.bump();
   }
+  var loadingNow = null;
+  function loadingLine(state) {
+    loadingNow = state;
+    controls?.setLoading(state);
+  }
   function say2(text2) {
     const t = words(text2, 300);
     if (t) controls?.say(t);
@@ -47272,6 +47321,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       title: v2.title,
       address: v2.address,
       presence: v2.presence,
+      // Still loading, though the visitor is in (`loading`): the world's words and how far along, or null.
+      loading: v2.loading,
       open: hud?.open ?? false,
       sections: v2.sections.map((s) => ({ id: s.id, label: s.label, note: s.note, items: s.items.map(item) })),
       hotbar: v2.hotbar.map(item)
@@ -56022,7 +56073,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 16;
+  var VERSION = 17;
   var KIT = KIT_VERSION;
   var read5 = (text2) => {
     try {
@@ -56068,8 +56119,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   function crossing() {
     return room2?.state ?? "none";
   }
-  function loading3(fraction) {
-    room2?.loading(typeof fraction === "number" ? fraction : -1);
+  function loading3(fraction, words2) {
+    const f = typeof fraction === "number" && Number.isFinite(fraction) ? fraction : -1;
+    if (room2 && room2.state === "arriving") return void room2.loading(f);
+    if (f >= 1) return loaded2();
+    loadingLine({ ...f >= 0 ? { fraction: f } : {}, ...typeof words2 === "string" ? { words: words2 } : {} });
+  }
+  function loaded2() {
+    loadingLine(null);
   }
   function ready() {
     if (!room2 || room2.state !== "arriving") return;
