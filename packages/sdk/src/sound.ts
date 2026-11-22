@@ -30,6 +30,7 @@ import { fileStore } from "./library.js";
 import {
   ambiencePlan,
   CUES,
+  JUMP_STEPS,
   cleanKit,
   cleanLevels,
   nextVariant,
@@ -113,6 +114,11 @@ export interface Sounds {
   moved(metres: number): void;
   /** They walked into something. */
   bump(): void;
+  /**
+   * They jumped: two footsteps back to back, a little louder than a step (`JUMP_STEPS`). The world's own `step`
+   * sound where it named one, silent where it silenced it, and at the visitor's own volume for effects.
+   */
+  jumped(): void;
   readonly levels: SoundLevels;
   setLevels(patch: Partial<SoundLevels>): void;
   /** The visitor's own music. */
@@ -373,9 +379,17 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     const now = ctx.currentTime;
     if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
     last.set(cue, now);
-    // A footstep is quieter than any other cue, and no two are alike (sound-store.ts, stepShape).
-    // And one made by somebody is heard from where they stand (heardFrom).
-    const shape = cue === "step" ? stepShape(foot++) : from ? heardFrom(from) : null;
+    sound(cue, now, from);
+  };
+  /**
+   * Make one cue heard, starting at `at` (the context's time). `louder` raises a footstep's level: for a jump.
+   * A footstep is quieter than any other cue, and no two are alike (sound-store.ts, stepShape). And one made by
+   * somebody is heard from where they stand (heardFrom).
+   */
+  const sound = (cue: Cue, at: number, from?: SoundPlace, louder = 1) => {
+    const now = at;
+    const stepped = cue === "step" ? stepShape(foot++) : null;
+    const shape = stepped ? { ...stepped, gain: stepped.gain * louder } : from ? heardFrom(from) : null;
     const out = shape ? shaped(shape) : effects;
     const files = own.get(cue) ?? fromKit.get(cue);
     if (files?.length) {
@@ -388,10 +402,20 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       level.gain.value = files[which]!.gain;
       src.connect(level);
       level.connect(out);
-      src.start();
+      src.start(now);
       return;
     }
     for (const part of cueRecipe(cue)) playPart(part, now + 0.005, out, shape?.rate ?? 1);
+  };
+  /** A jump: two footsteps back to back, each its own, a little louder than a step. */
+  const jumped = () => {
+    if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+    if (theme.cues.step === null) return; // the world silenced its steps: its jumps too
+    const now = ctx.currentTime;
+    sound("step", now, undefined, JUMP_STEPS.louder);
+    sound("step", now + JUMP_STEPS.gap, undefined, JUMP_STEPS.louder);
+    // A step taken just after is still spaced from these, as steps are.
+    last.set("step", now + JUMP_STEPS.gap);
   };
 
   let walked = 0;
@@ -723,6 +747,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     play,
     moved,
     bump: () => play("bump"),
+    jumped,
     get levels() {
       return levels;
     },

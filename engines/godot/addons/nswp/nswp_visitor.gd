@@ -143,7 +143,7 @@ func jump() -> void:
 	if not is_on_floor() or _presenting:
 		return
 	velocity.y = sqrt(2.0 * float(Nswp.kit.jumpGravity) * float(Nswp.kit.jumpHeight))
-	Nswp.play("step")
+	Nswp.jumped()
 
 
 ## Whether the mouse is looking round now.

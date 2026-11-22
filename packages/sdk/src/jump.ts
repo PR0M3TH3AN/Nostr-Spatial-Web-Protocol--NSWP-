@@ -85,8 +85,11 @@ export function createJump(o: { onJump?(): void; onLand?(): void } = {}): Jump {
 export interface AddJumpOptions {
   /** In a headset, the page's keys and its control stand down: the controller's button asks instead. */
   presenting(): boolean;
-  /** Something to make it heard: leaving the floor is a step, and coming down is a landing. */
-  sounds?: { play(cue: "step" | "land"): void } | null;
+  /**
+   * Something to make it heard: leaving the floor is two footsteps back to back (`jumped`), and coming down is a
+   * landing. Something with no `jumped` plays one step, as before.
+   */
+  sounds?: { play(cue: "step" | "land"): void; jumped?(): void } | null;
   /** The menu, so that Space works it while it is open and doesn't jump. */
   hud?: { readonly open: boolean } | null;
   /** Return true while the keys belong to something else: a keyboard on screen, a game of the world's own. */
@@ -100,7 +103,7 @@ export interface AddJumpOptions {
  * layer's (`createXrInput({ onJump: () => jump.jump() })`).
  */
 export function addJump(controls: Controls, o: AddJumpOptions): Jump {
-  const jump = createJump({ onJump: () => o.sounds?.play("step"), onLand: () => o.sounds?.play("land") });
+  const jump = createJump({ onJump: () => (o.sounds?.jumped ? o.sounds.jumped() : o.sounds?.play("step")), onLand: () => o.sounds?.play("land") });
   const typing = (e: KeyboardEvent) => {
     const t = (e.composedPath?.()[0] ?? e.target) as HTMLElement | null;
     return !!t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");

@@ -52,7 +52,7 @@ describe("what another engine takes from the kit", () => {
     // The script hands it on, and says it changed what its functions give.
     const engine = await import("../src/engine.js");
     expect(typeof engine.gate).toBe("function");
-    expect(engine.VERSION).toBe(15);
+    expect(engine.VERSION).toBe(16);
   });
 
   it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
@@ -76,6 +76,13 @@ describe("what another engine takes from the kit", () => {
     expect(main).toContain("Nswp.gate(NEEDS_GATE)");
     const world = JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")) as Record<string, unknown>;
     for (const word of ["access", "keepers", "named_only"]) expect(world[word], word).toBeUndefined();
+  });
+
+  it("gives a jump the kit's own sound in Godot too: the visitor asks the script, and plays no cue of its own", () => {
+    expect(godot("nswp.gd")).toMatch(/^func jumped\(\) -> void:\n\tif _js != null:\n\t\t_js.jumped\(\)$/m);
+    const visitor = godot("nswp_visitor.gd");
+    expect(visitor).toContain("Nswp.jumped()");
+    expect(visitor).not.toMatch(/func jump\(\)[\s\S]*?Nswp\.play\("step"\)[\s\S]*?\n\n/);
   });
 
   it("reads a door's address the way a sign should show it", () => {
@@ -135,7 +142,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(15);
+    expect(engine.VERSION).toBe(16);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");

@@ -68,3 +68,36 @@ describe("a jump", () => {
     expect(landed).toBe(0);
   });
 });
+
+describe("the sound of a jump", () => {
+  it("is two footsteps back to back, a little louder than a step, and still quieter than every other cue", async () => {
+    const { JUMP_STEPS, STEP_LEVEL } = await import("../src/sound-store.js");
+    // The owner's words: "two of our random footstep sounds back to back and slightly louder".
+    expect(JUMP_STEPS.louder).toBeGreaterThan(1);
+    expect(JUMP_STEPS.louder).toBeLessThanOrEqual(1.5);
+    // Every other cue plays at its full level, 1: the loudest jump step stays under it.
+    expect(STEP_LEVEL * JUMP_STEPS.louder).toBeLessThan(1);
+    // Back to back, and heard as two: closer than a walking step's spacing (0.14 s), further than a click.
+    expect(JUMP_STEPS.gap).toBeGreaterThanOrEqual(0.05);
+    expect(JUMP_STEPS.gap).toBeLessThan(0.14);
+  });
+
+  it("is what a jump asks for, and one step where whatever makes sounds has no jump of its own", async () => {
+    const { addJump } = await import("../src/jump.js");
+    const { createControls } = await import("../src/ui/model.js");
+    const heard: string[] = [];
+    const listeners: Record<string, (e: unknown) => void> = {};
+    (globalThis as { addEventListener?: unknown }).addEventListener = (type: string, fn: (e: unknown) => void) => void (listeners[type] = fn);
+    (globalThis as { removeEventListener?: unknown }).removeEventListener = () => {};
+    try {
+      const withJump = addJump(createControls({ title: "A world" }), { presenting: () => false, sounds: { play: (cue) => void heard.push(cue), jumped: () => void heard.push("jumped") } });
+      withJump.jump();
+      const plain = addJump(createControls({ title: "A world" }), { presenting: () => false, sounds: { play: (cue) => void heard.push(cue) } });
+      plain.jump();
+      expect(heard).toEqual(["jumped", "step"]);
+    } finally {
+      delete (globalThis as { addEventListener?: unknown }).addEventListener;
+      delete (globalThis as { removeEventListener?: unknown }).removeEventListener;
+    }
+  });
+});

@@ -48,6 +48,7 @@ var NSWP = (() => {
     itemUse: () => itemUse,
     items: () => items,
     itemsInfo: () => itemsInfo,
+    jumped: () => jumped,
     kit: () => kit,
     load: () => load2,
     loading: () => loading3,
@@ -43005,6 +43006,7 @@ void main() {
     return name.slice(0, 60) || "a piece with no name";
   }
   var STEP_LEVEL = 0.45;
+  var JUMP_STEPS = { louder: 1.35, gap: 0.09 };
   var STRIDE = 0.75;
   var HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 };
   function heardFrom(place) {
@@ -43327,7 +43329,12 @@ void main() {
       const now = ctx.currentTime;
       if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
       last.set(cue, now);
-      const shape = cue === "step" ? stepShape(foot++) : from ? heardFrom(from) : null;
+      sound(cue, now, from);
+    };
+    const sound = (cue, at, from, louder = 1) => {
+      const now = at;
+      const stepped = cue === "step" ? stepShape(foot++) : null;
+      const shape = stepped ? { ...stepped, gain: stepped.gain * louder } : from ? heardFrom(from) : null;
       const out = shape ? shaped2(shape) : effects;
       const files2 = own.get(cue) ?? fromKit.get(cue);
       if (files2?.length) {
@@ -43340,10 +43347,18 @@ void main() {
         level2.gain.value = files2[which].gain;
         src.connect(level2);
         level2.connect(out);
-        src.start();
+        src.start(now);
         return;
       }
       for (const part of cueRecipe(cue)) playPart(part, now + 5e-3, out, shape?.rate ?? 1);
+    };
+    const jumped2 = () => {
+      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+      if (theme.cues.step === null) return;
+      const now = ctx.currentTime;
+      sound("step", now, void 0, JUMP_STEPS.louder);
+      sound("step", now + JUMP_STEPS.gap, void 0, JUMP_STEPS.louder);
+      last.set("step", now + JUMP_STEPS.gap);
     };
     let walked = 0;
     const moved2 = (metres) => {
@@ -43651,6 +43666,7 @@ void main() {
       play: play2,
       moved: moved2,
       bump: () => play2("bump"),
+      jumped: jumped2,
       get levels() {
         return levels;
       },
@@ -43689,15 +43705,15 @@ void main() {
           return null;
         }
       },
-      playForeign(sound, from) {
+      playForeign(sound2, from) {
         if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
         const far = from && Number.isFinite(from.distance) ? Math.max(0, from.distance) : 0;
         const reach = far <= FOREIGN_SOUND.fades ? 1 : Math.max(0, 1 - (far - FOREIGN_SOUND.fades) / (FOREIGN_SOUND.gone - FOREIGN_SOUND.fades));
         if (reach <= 0) return;
         const src = ctx.createBufferSource();
-        src.buffer = sound.buffer;
+        src.buffer = sound2.buffer;
         const level2 = ctx.createGain();
-        level2.gain.value = sound.gain * reach;
+        level2.gain.value = sound2.gain * reach;
         src.connect(level2);
         level2.connect(from ? shaped2(heardFrom(from)) : effects);
         src.start();
@@ -46958,6 +46974,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function play(cue) {
     if (CUES.includes(cue)) sounds?.play(cue);
+  }
+  function jumped() {
+    sounds?.jumped();
   }
   function moved(metres) {
     if (typeof metres === "number" && Number.isFinite(metres) && metres > 0) sounds?.moved(metres);
@@ -55595,7 +55614,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 15;
+  var VERSION = 16;
   var KIT = KIT_VERSION;
   var read5 = (text2) => {
     try {
