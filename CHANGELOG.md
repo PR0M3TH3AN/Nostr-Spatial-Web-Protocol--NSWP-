@@ -12,6 +12,10 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 - `trials/owner-lists.mjs`: three visitors on the stand-in relay.
 - The manifest's schema no longer refuses an `access` that isn't a list, which the core takes with a warning (schemas never refuse what the core accepts).
 
+## 0.74.1
+
+- **One place to start** (`docs/start.md`; `docs/backlog/landing-02-get-started.md`): for someone, or some agent, who has never seen any of this: what a world is, the three ways in, the template step by step with every command run, how a world is announced (and that `--yes` is public and permanent) and checked, and where each next thing is written. A test keeps its links real and its publishing step out of the commands to copy. BitPortal shows it on a page of its own.
+
 ## 0.74.0
 
 - **A paid world's gate in any engine** (`NSWP.gate()`, the `gate` event; in Godot `Nswp.gate()`, `gate_changed`, `gate_open()`, `gate_press()`; `docs/other-engines.md`, "A paid world's gate"). The same gate as a Three.js world's, from the kit's own script: it asks what the visitor holds, shows what is for sale, and puts `gate-buy` in the kit's menu. The engine draws the gate and stops the visitor at it. The engine script's `VERSION` is 15.

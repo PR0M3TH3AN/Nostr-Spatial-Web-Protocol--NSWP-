@@ -155,7 +155,13 @@ when. Ask the orchestrator before using one that isn't here.
 | Kit version numbers (`KIT_VERSION`, the changelog's headings) | the orchestrator, at each merge | the kit | 2026-11-21 |
 | Kind 30078 with `d` = `<namespace>:governance:<scope>:v1[:<subject>]` | BitGate (its shape, `docs/governance-lists.md` in its repository) | allow and block lists, per world and per owner | 2026-11-21 |
 | The tag `subject` inside those lists | BitGate | which world a list is for | 2026-11-21 |
-| The namespace `nswp` in those lists | the kit | every client's lists for worlds | 2026-11-21 (provisional until BitGate's follow-up is merged) |
+| The namespace `nswp` in those lists | the kit | every client's lists for worlds | 2026-11-21 (final: BitGate's vectors at 8b98ed9) |
+| `keepers`, `by_invitation`, `named_only` in a world's manifest entry | the kit's builder | worlds by invitation | 2026-11-21 |
+| The announcement tag `["by-invitation"]` | the kit's builder | a world that says it is by invitation | 2026-11-21 |
+| The page `/doors/` in BitPortal | the BitPortal session | the lobby's own page | 2026-11-21 |
+| `docs/start.md` in NSWP; `/start/` and `/start.md` in BitPortal | the BitPortal session | the getting-started page | 2026-11-21 |
+| Namespaces `bitunlock.sellers`, `bitunlock.payees`, `bitunlock.listings`, `bitunlock.people` in governance lists | BitGate (its `named-lists.json`, merged at a9b02cb) | who may sell, be paid, which listings may be sold, who is blocked, at BitUnlock | 2026-11-21 (BitUnlock agreed) |
+| The role `list-curator` in a root's role document | BitGate | a key that may keep lists and nothing else | 2026-11-21 |
 
 ## Trying things together
 
