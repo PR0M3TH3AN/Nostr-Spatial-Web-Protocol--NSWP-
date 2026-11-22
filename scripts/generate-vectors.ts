@@ -15,7 +15,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { readShares, splitPrice, type Share } from "../packages/core/src/shares.js";
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
-import { listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope } from "../packages/core/src/owner-lists.js";
+import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
 import { accessFor } from "../packages/core/src/manifest.js";
 import {
@@ -914,10 +914,11 @@ type WritingVector = {
 };
 /** What one change makes, by the rules this file states: newer than the list it changes, people each once, in key order. */
 const writeChange = (scope: ListScope, subject: string, before: WritingVector["before"], change: Change, now: number): WritingVector["expect"] => {
-  const was = before?.people ?? [];
-  const people = change.op === "add" ? [...new Set([...was, change.person])] : was.filter((p) => p !== change.person);
-  const createdAt = before ? Math.max(now, before.createdAt + 1) : now;
-  const event = ownerListTemplate({ scope, subject, people, createdAt });
+  // The list there was, signed as its keeper would have, and the core's own writer of one change (`changeOwnerList`):
+  // so this file and the kit's writer can't drift apart.
+  const beforeEvent = before ? sign(ownerListTemplate({ scope, subject, people: before.people, createdAt: before.createdAt })!) : null;
+  const named: OwnerListChange = scope === "user-allow" ? (change.op === "add" ? "allow" : "unallow") : change.op === "add" ? "block" : "unblock";
+  const event = changeOwnerList(beforeEvent, { subject, change: named, key: change.person, now });
   if (!event) return { refused: "too_many_people" };
   const signed = sign(event);
   const back = readOwnerList(signed, { now });

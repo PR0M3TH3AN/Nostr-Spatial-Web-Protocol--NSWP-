@@ -37,7 +37,8 @@ import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
-import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldSaves } from "./ui/identity.js";
+import { enginePresence } from "./engine-presence.js";
+import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldPeople, worldSaves } from "./ui/identity.js";
 import { mountHud, type Hud } from "./ui/hud.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -407,7 +408,12 @@ const gateNow = (): Record<string, unknown> =>
 function rowsForGate(): void {
   if (!gated || !controls || gateRows) return;
   gateRows = true;
-  addGateControls(controls, gated, { presenting: () => vr.presenting });
+  addGateControls(controls, gated, {
+    presenting: () => vr.presenting,
+    // The owner's screen offers a keeper the people here now (named: their pass checked out) and the people they follow.
+    here: () => enginePresence()?.session?.members.flatMap((m) => (m.identity ? [m.identity] : [])) ?? [],
+    follows: () => worldPeople().follows(),
+  });
 }
 
 /**

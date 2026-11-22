@@ -26,8 +26,10 @@
  * Nothing here draws anything: a world shows the gate its own way and reads `open`. The control is added to the
  * visitor's console, so it is the same on a flat screen and in a headset.
  */
-import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, LIST_KIND, listD, LISTING_KIND, listingSeller, OWNER_LIST_LIMITS, parseManifest, priceWords, readListing, readReceipt, resolveOwnerList, worldSubject, WORLD_KIND, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
-import { askWell } from "./relay-book.js";
+import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, isHex64, LIST_KIND, listD, LISTING_KIND, listingSeller, OWNER_LIST_LIMITS, parseManifest, priceWords, publishEvent, readListing, readReceipt, isOwnerListAsked, resolveOwnerList, scopeOfChange, shortNpub, worldSubject, WORLD_KIND, type OwnerListChange, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
+import { keyIn } from "./following.js";
+import { createProfiles, type Profiles } from "./profiles.js";
+import { askWell, sendWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
 import type { Controls } from "./ui/model.js";
 
@@ -64,7 +66,7 @@ export interface GateOffer {
 }
 
 /** What the gate needs of the page's signer: no more than it uses. */
-export type GateSigner = Pick<WorldSigner, "state" | "pubkey" | "host" | "have" | "buy" | "onChange" | "whenAnswered">;
+export type GateSigner = Pick<WorldSigner, "state" | "pubkey" | "host" | "have" | "buy" | "guests" | "onChange" | "whenAnswered">;
 
 export interface PaidGateOptions {
   /** The page's own signer, or null where the visitor came with none (`worldGate` gives it). Asked each time. */
@@ -83,6 +85,8 @@ export interface PaidGateOptions {
   manifest?: () => Promise<unknown>;
   /** For tests: what asks relays. */
   query?: (relays: string[], filter: Filter, timeoutMs?: number) => Promise<QueryResult>;
+  /** For tests: what sends a changed list to relays. */
+  publish?: typeof publishEvent;
   /**
    * For tests: what asks the service that signed a receipt whether it has taken it back since. Left out, that
    * service is asked at its own address. "unknown" where it couldn't be asked.
@@ -131,6 +135,18 @@ export interface PaidGate {
   readonly host: string;
   /** A purchase is with the visitor now, at their sign-in address. */
   readonly buying: boolean;
+  /** The visitor signed in here, where they are one of this world's keepers (their key), or null: "Who comes in" is theirs. */
+  readonly keeper: string | null;
+  /** Who the guest list itself names, as read (not the keepers, always let in), where the world is by invitation; else null. */
+  readonly guests: readonly string[] | null;
+  /**
+   * Change one person on this world's own lists, for a keeper signed in here (protocol/10-identity.md, "The owner's
+   * screen"): let in or take off the guest list (a world by invitation), block or unblock. Call it from a press.
+   * Their sign-in address asks them on its own page; what comes back is checked, sent to relays, and taken here at
+   * once. Where no list was found, the first press says so and a second, for the same change, starts one: a relay
+   * that was down must not wipe a list. `said` is what to tell them, in words; `again` that a second press is wanted.
+   */
+  changeList(change: OwnerListChange, key: string): Promise<{ ok: boolean; said: string; again?: boolean }>;
   /**
    * Ask the visitor to buy one of the offers (the first, left out). Call it from a press. Their sign-in address
    * asks them on its own page. Resolves true only once a receipt that holds up has opened the gate.
@@ -265,6 +281,9 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
   const asked = new Map<string, number>();
   let endsAt = 0;
   let buying = false;
+  /** A change to the lists is with the keeper now; and the change a second press would start a new list for. */
+  let changing = false;
+  let starting: { what: string; at: number } | null = null;
   let disposed = false;
   let round = 0;
   let endTimer: ReturnType<typeof setTimeout> | undefined;
@@ -660,6 +679,56 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
     get buying() {
       return buying;
     },
+    get keeper() {
+      const signer = opts.signer();
+      return signer && signer.state === "unlocked" && signer.pubkey && isKeeper(signer.pubkey) ? signer.pubkey : null;
+    },
+    get guests() {
+      return byInvitation ? [...invited] : null;
+    },
+    async changeList(change, key) {
+      const signer = opts.signer();
+      const me = signer?.state === "unlocked" ? signer.pubkey : null;
+      if (disposed || !lists || !signer || !me || !isKeeper(me)) return { ok: false, said: "Only one of this world's keepers, signed in here, can change who comes in." };
+      if (!isHex64(key)) return { ok: false, said: "That isn't someone's key." };
+      if (isKeeper(key)) return { ok: false, said: "That's one of this world's keepers: always let in, and never kept out." };
+      const scope = scopeOfChange(change);
+      if (scope === "user-allow" && !byInvitation) return { ok: false, said: "This world isn't by invitation, so there is no list of who is let in." };
+      if (changing) return { ok: false, said: "One change at a time: the last is still with your sign-in address." };
+      // The list of the coordinate whose keepers include them: the first such, which is the world's own entry.
+      const subject = lists.subjects.find((s) => rootOf(s).includes(me))!;
+      const d = listD(scope, subject);
+      const found = rememberedLists()[d] ?? null;
+      let none = false;
+      if (!found) {
+        const standing = scope === "user-deny" ? listState : inviteState;
+        if (standing === "reading" || standing === "unanswered") return { ok: false, said: "The list couldn't be read just now, so it isn't changed: one started now could wipe a list a relay is holding. Try again in a moment." };
+        const what = `${change} ${key}`;
+        if (!starting || starting.what !== what || sec() - starting.at > 60) {
+          starting = { what, at: sec() };
+          return { ok: false, again: true, said: `No ${scope === "user-allow" ? "guest" : "block"} list for this world was found. Press again to start one, naming only them.` };
+        }
+        none = true;
+      }
+      starting = null;
+      changing = true;
+      changed();
+      const signed = await signer.guests({ world: subject, list: found, change, key, ...(none ? { none: true } : {}) }).catch(() => null);
+      changing = false;
+      // Checked here too, whatever signer the gate was given: exactly that list with that one change, by this keeper.
+      if (!signed || disposed || !isOwnerListAsked(signed, { list: found, subject, change, key, pubkey: me })) {
+        changed();
+        return { ok: false, said: "Nothing changed: your sign-in window said no, or can't change this world's list yet." };
+      }
+      // Taken here at once: the gate and the room act on it without waiting for a relay to give it back.
+      rememberList(d, signed);
+      applyLists([signed]);
+      void look();
+      const sent = await sendWell(signed, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...(opts.publish ? { publish: opts.publish } : {}), ...(opts.query ? { query: opts.query } : {}), now }).catch(() => null);
+      const done = change === "allow" ? "Invited." : change === "unallow" ? "Taken off the list." : change === "block" ? "Kept out." : "No longer kept out.";
+      if (!sent || sent.took === 0) return { ok: true, said: `${done} It holds here, but no relay took the list yet, so nobody else sees the change.` };
+      return { ok: true, said: `${done} Anyone can read this list.` };
+    },
     async buy(listing) {
       const wanted = cleanListing(listing ?? offerList()[0]?.listing ?? "");
       const signer = opts.signer();
@@ -701,7 +770,7 @@ export function createPaidGate(opts: PaidGateOptions): PaidGate {
       return () => void watchers.delete(fn);
     },
     info() {
-      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
+      return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held ? held.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1000) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, changing, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
     },
     dispose() {
       disposed = true;
@@ -735,6 +804,12 @@ export function addGateControls(
     section?: string;
     /** What starts signing in, from a press. Left out, the kit's own sign-in row. False if nothing could be started. */
     signIn?: () => boolean;
+    /** The owner's screen: who is here now, by their keys (those whose pass checked out), to offer a keeper. */
+    here?: () => readonly string[];
+    /** The owner's screen: who the visitor follows, by their keys, or null where that isn't known (`worldPeople().follows`). */
+    follows?: () => readonly string[] | null;
+    /** For tests: what reads what the visitor copied. Left out, the browser's clipboard. */
+    copied?: () => Promise<string>;
   } = {},
 ): { refresh(): void; press(listing?: string): void } {
   const section = opts.section ?? "travel";
@@ -802,5 +877,134 @@ export function addGateControls(
   };
   gate.onChange(refresh);
   refresh();
+  addOwnersScreen(controls, gate, opts);
   return { refresh, press };
 }
+
+/** The most people the owner's screen offers at once: the lists' own first, then who is here, who they follow, who they copied. */
+const SCREEN_MOST = 40;
+
+/**
+ * The owner's screen, "Who comes in" (protocol/10-identity.md, "The owner's screen"; docs/plans/a-world-by-invitation.md
+ * §4), in the console of a keeper signed in here and nobody else's. Who the lists name, as read; and for the people on
+ * them, the people here now, the people they follow and someone whose key they copied: let in or take off the guest list
+ * (a world by invitation), block or unblock. Each is one change, asked on their sign-in address's own page every time.
+ * In a headset that page can't be seen, so the rows say to step out, as buying does.
+ */
+function addOwnersScreen(controls: Controls, gate: PaidGate, opts: { presenting?: () => boolean; here?: () => readonly string[]; follows?: () => readonly string[] | null; copied?: () => Promise<string> }): void {
+  let profiles: Profiles | null = null;
+  const nameOf = (key: string): string => profiles?.get(key)?.name || shortNpub(key);
+  const typed: string[] = [];
+  const rows = new Set<string>();
+  const inHeadset = (): boolean => !!opts.presenting?.();
+  const stepOut = "Take the headset off to change who comes in: your sign-in window can't be shown in here.";
+
+  controls.addSection({
+    id: "guests",
+    label: "Who comes in",
+    icon: "people",
+    note: () => {
+      if (!gate.keeper) return "";
+      const lists: string[] = [];
+      if (gate.byInvitation) lists.push(gate.invites === "read" ? `${count(gate.guests?.length ?? 0, "person", "people")} invited` : gate.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
+      lists.push(gate.lists === "read" || gate.lists === "not-found" ? `${count(gate.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
+      return `Anyone can read this list. ${capital(lists.join(", "))}.${inHeadset() ? ` ${stepOut}` : ""}`;
+    },
+  });
+
+  /** The keys the lists themselves name. */
+  const listed = (): string[] => [...(gate.guests ?? []), ...gate.ownerBlocked];
+  const isGuest = (key: string): boolean => (gate.guests ?? []).includes(key);
+
+  const change = (key: string, what: OwnerListChange): void => {
+    if (inHeadset()) return controls.say(stepOut);
+    const name = nameOf(key);
+    const asking = what === "allow" ? `let ${name} in` : what === "unallow" ? `take ${name} off the list` : what === "block" ? `block ${name}` : `unblock ${name}`;
+    controls.say(`${gate.host || "Your sign-in address"} is asking you to ${asking}. Say yes there.`);
+    void gate.changeList(what, key).then((r) => {
+      controls.say(r.ok ? `${name}: ${r.said}` : r.said);
+      refresh();
+    });
+  };
+
+  /** The people to offer, in order, each once: on a list, here now, followed, copied. Never the keeper themselves. */
+  const people = (): string[] => {
+    if (!gate.keeper) return [];
+    const me = gate.keeper;
+    const all = [...listed(), ...(opts.here?.() ?? []), ...(opts.follows?.() ?? []), ...typed];
+    return [...new Set(all)].filter((k) => isHex64(k) && k !== me).slice(0, SCREEN_MOST);
+  };
+
+  const addRows = (key: string): void => {
+    controls.add(
+      {
+        id: `guests-allow-${key}`,
+        section: "guests",
+        icon: "door",
+        hidden: () => !gate.keeper || !gate.byInvitation,
+        label: () => (isGuest(key) ? `${nameOf(key)}: invited. Take them off the list` : `Let ${nameOf(key)} in`),
+        short: () => (isGuest(key) ? "Take off" : "Let in"),
+        act: () => change(key, isGuest(key) ? "unallow" : "allow"),
+      },
+      {
+        id: `guests-block-${key}`,
+        section: "guests",
+        icon: "exit",
+        tone: "warn",
+        hidden: () => !gate.keeper,
+        label: () => (gate.ownerBlocked.includes(key) ? `${nameOf(key)}: kept out. Unblock them` : `Block ${nameOf(key)}`),
+        short: () => (gate.ownerBlocked.includes(key) ? "Unblock" : "Block"),
+        act: () => change(key, gate.ownerBlocked.includes(key) ? "unblock" : "block"),
+      },
+    );
+  };
+
+  // Someone not here and not followed: by the key they copied (an npub, or 64 hex).
+  controls.add({
+    id: "guests-copied",
+    section: "guests",
+    icon: "you",
+    hidden: () => !gate.keeper,
+    label: "Someone whose key I copied",
+    short: "By key",
+    act: async () => {
+      let text = "";
+      try {
+        text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+      } catch {
+        return controls.say("What you copied couldn't be read here. Copy someone's key (npub1…), allow this site to read what you copy, and press again.");
+      }
+      const key = keyIn(text);
+      if (!key) return controls.say("That isn't someone's key. Copy their npub1… and press again.");
+      if (key === gate.keeper) return controls.say("That's your own key: you are always let in.");
+      typed.unshift(key);
+      refresh();
+      controls.say(`${nameOf(key)} is in the list below: let them in, or block them.`);
+    },
+  });
+
+  const refresh = (): void => {
+    const now = people();
+    if (now.length && !profiles) {
+      profiles = createProfiles();
+      profiles.onChange(() => controls.signal("gate"));
+    }
+    if (now.length) void profiles?.fetch(now);
+    for (const key of [...rows]) {
+      if (now.includes(key)) continue;
+      controls.remove(`guests-allow-${key}`);
+      controls.remove(`guests-block-${key}`);
+      rows.delete(key);
+    }
+    for (const key of now) {
+      if (rows.has(key)) continue;
+      addRows(key);
+      rows.add(key);
+    }
+  };
+  gate.onChange(refresh);
+  refresh();
+}
+
+const count = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);

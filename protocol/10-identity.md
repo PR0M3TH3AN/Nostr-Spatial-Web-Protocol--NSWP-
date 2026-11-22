@@ -829,8 +829,10 @@ on a door for what the visitor already holds.
 
 **Status:** the block list and a world by invitation are implemented (core
 `readOwnerList`, `resolveOwnerList`; the gate and rooms), tried with
-scripted visitors on a relay on one machine. The owner's screen in the
-console is not built · **Vectors:**
+scripted visitors on a relay on one machine; the owner's screen in the
+console is implemented (`changeOwnerList`, `isOwnerListAsked`, the
+`guests` request, the gate's `changeList`), tried with a stand-in sign-in
+address · **Vectors:**
 [`governance-lists`](../vectors/governance-lists.json) (BitGate's own),
 [`owner-list-writing`](../vectors/owner-list-writing.json) (writing one) ·
 **Code:** [`owner-lists.ts`](../packages/core/src/owner-lists.ts)
@@ -879,6 +881,8 @@ every writer makes the same note
   later, so that it replaces it.
 - A change that would put more than 500 people on it is refused, and
   nothing is written.
+- A writer may add a `client` tag after the `p`s, saying which client wrote
+  it. Readers ignore it, and the kit's own writers add none.
 
 **What a world does with a block list:**
 
@@ -935,11 +939,34 @@ blocks, which stay on their device, published nowhere and told to nobody
 **Writing one.** `nswp sign-world-list <block|allow> <world> [people…] --key-file
 <file>` signs the whole list as it should be, and `nswp publish` sends it,
 which for a real world is its owner's word. A screen in the visitor's
-console for the owner is not built: it needs a request to the sign-in
-address that asks the owner each time, built as following one person is, and
-never by loosening what a world's signer may sign.
+console for the owner is the next section's.
 
-**Not built:** the owner's screen in the console, a newer list passed round
+**The owner's screen.** In the console of a keeper signed in here, and
+nobody else's, a section "Who comes in" (`guests`):
+
+- It says plainly that anyone can read the list, and how many people it
+  invites and keeps out, as read.
+- It offers the people on either list, the people here now (named: their
+  pass checked out), the people the keeper follows, and someone whose key
+  they copied. For each: "Let in" or "Take off the list", where the world
+  is by invitation, and "Block" or "Unblock". Never the keeper themselves.
+- Each press is **one change**, asked of their sign-in address with the
+  `guests` request: the world's coordinate (the one whose keepers include
+  the signed-in key, the first if more than one), the newest list found,
+  and the change. The sign-in address shows it on its own page every time;
+  no standing permission is granted for it. What comes back is taken only
+  if it is exactly that list with that one change, by that keeper
+  (`isOwnerListAsked`), and is then sent to relays and acted on at once.
+- Where no list was found, the first press says so and only a second, for
+  the same change, starts one. Nothing is changed while relays haven't
+  answered and no copy is remembered: a list started then could wipe one a
+  relay is holding.
+- A sign-in address that refuses, or doesn't know the request, changes
+  nothing, and the screen says so in those words.
+- In a headset the sign-in address's page can't be seen, so the rows say to
+  take the headset off, as buying does.
+
+**Not built:** a newer list passed round
 a room the moment it changes (a new word on the channel, to be asked for),
 the owner's block list for every world of theirs (BitGate's
 application-wide list, which has no examples yet), and the sealed kind.

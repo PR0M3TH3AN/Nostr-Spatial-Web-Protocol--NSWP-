@@ -346,7 +346,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   hooks.gate = () => gate?.info() ?? null;
   // Its one control, in the console like every other, so it is the same on a flat screen and in a headset. Added
   // here, ahead of this world's doors: where the way is shut, it is the first thing a visitor came to do.
-  const gateRows = gate ? addGateControls(controls, gate, { presenting: () => renderer.xr.isPresenting }) : null;
+  // The owner's screen offers a keeper the people here now (named: their pass checked out) and the people they follow.
+  const gateRows = gate ? addGateControls(controls, gate, { presenting: () => renderer.xr.isPresenting, here: () => presence?.session?.members.flatMap((m) => (m.identity ? [m.identity] : [])) ?? [], follows: () => worldPeople().follows() }) : null;
   // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
   // are theirs, kept for this site.
   const sounds = createSounds({ context: THREE.AudioContext.getContext() as unknown as AudioContext, seed: cfg.title, kit: "/sounds/kit/", theme: { music: ["/sounds/music.ogg", "/sounds/music-2.ogg"], ...cfg.sounds } });
