@@ -9,7 +9,10 @@ import { spawnSync } from "node:child_process";
 const quick = process.argv.includes("--quick");
 const steps = [
   ["build", "the core, the tools and every site"],
-  ["build:engine", "the kit for other engines"],
+  // Checked before anything here writes engines/: the check builds the engine script, the Godot add-on's copy of
+  // it, the doorway's frame and the sounds into a folder of its own and compares them with what is committed. With a
+  // build of engines/ before it (as there was until 2026-11-22), it compared the gate's own output with itself and
+  // could never fail: a stale committed script passed.
   ["engine:check", "what is in the repository is what the source builds"],
   ["vectors:check", "the examples are current, and the core agrees with every one"],
   ["typecheck", "types"],
