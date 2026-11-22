@@ -6,7 +6,7 @@
 - **Who:** the NSWP builder (the kit: the console's Bag section,
   `packages/sdk/src/bagging.ts`, and how the console draws a section's
   tiles), for every world, the template and BitPortal alike.
-- **State:** building. Built on the NSWP builder's branch `bag-icon`, not merged: a tile's `mark` and `faint`, the Bag using them; before-and-after pictures in the orchestrator's notes folder (`bag-marks-*.png`).
+- **State:** merged 2026-11-22 (NSWP 331, a tile's `mark` and `faint`, the Bag using them), after the owner saw the before-and-after pictures ("Yes, merge it"). In no kit version yet; not live.
 
 ## What it is
 

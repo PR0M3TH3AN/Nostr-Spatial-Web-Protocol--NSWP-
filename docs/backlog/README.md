@@ -45,8 +45,7 @@ it at any time; nothing in it is a decision about what an item does.
    `achievements-granted`, `hidden-items-easter-eggs`,
    `scores-across-worlds`, `scores-checked`.
 8. `shared-physics` (a written design first).
-9. `bag-icon-on-items`: merged 2026-11-22 (NSWP 331); not live. (Was: small; taken between steps
-   of the seated mode).
+9. `bag-icon-on-items`: merged 2026-11-22 (NSWP 331); not live.
 10. Then: `door-and-airlock-skins` (after `item-file-hosts`, whose rule it
     uses), `items-scarce`, `starter-world-as-a-3d-website`,
    `rooms-stun-servers`, `tests-that-depend-on-the-clock`,
