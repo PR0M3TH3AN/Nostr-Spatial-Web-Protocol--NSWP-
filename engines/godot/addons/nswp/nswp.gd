@@ -144,6 +144,8 @@ var kit: Dictionary = {
 	"lookSpeed": 0.0022,
 	"fov": 0,
 	"pitchLimit": 1.4835298641951802,
+	"tiltLimit": 1.0471975511965976,
+	"levelRate": 1.6,
 	"doubleTap": 400,
 	"pathMost": 12,
 	"faceRate": 2.8,

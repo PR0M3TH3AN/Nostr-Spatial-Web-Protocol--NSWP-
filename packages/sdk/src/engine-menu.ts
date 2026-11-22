@@ -31,7 +31,7 @@ import { DOOR_REACH, DOOR_SPACING, PORTAL_HEIGHT, PORTAL_SIGN_HEIGHT, PORTAL_SPR
 import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
-import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, PATH_MOST, TAP_REACH, TOP_SPEED, WALK_SPEED } from "./stroll.js";
+import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, LEVEL_RATE, PATH_MOST, TAP_REACH, TILT_LIMIT, TOP_SPEED, WALK_SPEED } from "./stroll.js";
 import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
@@ -96,6 +96,9 @@ export function kit(): string {
     // How wide they asked to see at a desk, in degrees top to bottom, or 0 for the world's own.
     fov: visitorFov() ?? 0,
     pitchLimit: PITCH_LIMIT,
+    // Moving the casual way: how far a drag up or down tilts the view, and how fast it comes back level as they walk.
+    tiltLimit: TILT_LIMIT,
+    levelRate: LEVEL_RATE,
     doubleTap: DOUBLE_TAP,
     pathMost: PATH_MOST,
     faceRate: FACE_RATE,

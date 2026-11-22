@@ -65,6 +65,79 @@ export const FACE_RATE = 2.8;
 /** How far dragging turns a visitor on a flat screen, in radians a pixel. Dragging right brings what was on the left round. */
 export const DRAG_LOOK = 0.005;
 
+/**
+ * How far a drag tilts the view up or down on a flat screen moving the casual way, at most, in radians: about sixty
+ * degrees either way (the owner, 2026-11-22: "B, as recommended", with the tilt "about 60 degrees up and down").
+ * Enough to look at someone on a balcony or something at their feet; never so far that up and down are lost.
+ */
+export const TILT_LIMIT = (60 * Math.PI) / 180;
+/** How fast the view comes back to level once they walk, in radians a second: from the full tilt in under a second. */
+export const LEVEL_RATE = 1.6;
+
+/**
+ * Where a visitor looks after a drag of (dx, dy) pixels on a flat screen, moving the casual way: a drag sideways
+ * turns them as it always has, and a drag up or down tilts the view, held within `TILT_LIMIT`. The drag takes the
+ * world with it, as the sideways one does: dragging down brings what was above into view.
+ */
+export function dragTurn(yaw: number, pitch: number, dx: number, dy: number, speed = DRAG_LOOK): { yaw: number; pitch: number } {
+  const clean = (v: number) => (Number.isFinite(v) ? v : 0);
+  return { yaw: yaw + clean(dx) * speed, pitch: Math.min(TILT_LIMIT, Math.max(-TILT_LIMIT, clean(pitch) + clean(dy) * speed)) };
+}
+
+/** The tilt a moment later while they walk: eased back towards level, never past it. */
+export function levelled(pitch: number, dt: number, rate = LEVEL_RATE): number {
+  const step = Math.max(0, dt) * rate;
+  return Math.abs(pitch) <= step ? 0 : pitch - Math.sign(pitch) * step;
+}
+
+/**
+ * Looking round by dragging, on a flat screen moving the casual way: the rig turns, the camera tilts. While it isn't
+ * theirs to move (the intense way of moving holds the view to the mouse, a headset holds it to the head), it leaves
+ * the view alone, and hands it over level.
+ */
+export function createDragLook(o: { rig: { rotation: { y: number } }; camera: { rotation: { x: number } }; scale?: () => number }): {
+  /** A drag of (dx, dy) pixels. */
+  drag(dx: number, dy: number): void;
+  /** Call every frame: `walking` while a walk is under way (a tap's, or the keys'); `active` while the view is the drag's to move. */
+  update(dt: number, s: { walking: boolean; active: boolean }): void;
+  /** Bring the view level now. */
+  level(): void;
+  readonly pitch: number;
+} {
+  let pitch = 0;
+  let active = true;
+  return {
+    drag(dx, dy) {
+      if (!active) return;
+      const next = dragTurn(o.rig.rotation.y, pitch, dx, dy, DRAG_LOOK * (o.scale?.() ?? 1));
+      o.rig.rotation.y = next.yaw;
+      pitch = next.pitch;
+      o.camera.rotation.x = pitch;
+    },
+    update(dt, s) {
+      if (!s.active) {
+        // Handed over: level, so whatever holds the view now starts from where it expects.
+        if (active && pitch !== 0) o.camera.rotation.x = 0;
+        active = false;
+        pitch = 0;
+        return;
+      }
+      active = true;
+      if (s.walking && pitch !== 0) {
+        pitch = levelled(pitch, dt);
+        o.camera.rotation.x = pitch;
+      }
+    },
+    level() {
+      pitch = 0;
+      o.camera.rotation.x = 0;
+    },
+    get pitch() {
+      return pitch;
+    },
+  };
+}
+
 /** The spot a tap leads to: the one tapped, or the point `reach` metres towards it when it is further off. */
 export function reachOf(fromX: number, fromZ: number, toX: number, toZ: number, reach = TAP_REACH): [number, number] {
   const dx = toX - fromX;

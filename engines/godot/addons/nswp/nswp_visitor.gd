@@ -207,9 +207,14 @@ func _casual_input(event: InputEvent) -> void:
 				_tap(event.position)
 	elif event is InputEventMouseMotion:
 		if _pressed:
-			# Dragging turns the visitor the way the kit's worlds do.
+			# Dragging looks round the way the kit's worlds do: sideways it turns them, up and down
+			# it tilts the view, within the kit's limit (`tiltLimit`).
 			_dragged += absf(event.relative.x) + absf(event.relative.y)
-			rotate_y(event.relative.x * float(Nswp.kit.get("dragLook", 0.005)))
+			var drag := float(Nswp.kit.get("dragLook", 0.005))
+			var tilt := float(Nswp.kit.get("tiltLimit", 1.0471975511965976))
+			rotate_y(event.relative.x * drag)
+			_pitch = clampf(_pitch + event.relative.y * drag, -tilt, tilt)
+			flat_camera.rotation.x = _pitch
 		else:
 			var hit := _ray(event.position)
 			_point(null if hit.is_empty() else hit.collider)
@@ -457,6 +462,11 @@ func _physics_process(delta: float) -> void:
 			float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)),
 		)
 	var speed := float(Nswp.kit.walkSpeed)
+	# Moving the casual way, walking (by the keys, or a tapped path) brings a tilted view back level.
+	if not intense() and not _presenting and _pitch != 0.0 and (keys != Vector2.ZERO or not _path.is_empty()):
+		var step := delta * float(Nswp.kit.get("levelRate", 1.6))
+		_pitch = 0.0 if absf(_pitch) <= step else _pitch - signf(_pitch) * step
+		flat_camera.rotation.x = _pitch
 	if keys != Vector2.ZERO:
 		# A key takes over from a tap, and from the whole of a pressed-out path.
 		_path.clear()

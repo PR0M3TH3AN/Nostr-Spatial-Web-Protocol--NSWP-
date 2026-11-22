@@ -392,8 +392,14 @@ for in its description, for a renderer to grant within a ceiling.
 
 **The two presses, in the kit:**
 
-- A tap or a click on the view is the first press, and what it sends out
-  goes where the visitor pressed. A press held is still how they walk.
+- On a touch screen, both presses are under the thumb: a sight in the
+  middle of the view, the first press as a large round button by the right
+  thumb, the second as a smaller one beside it (by the left thumb, if the
+  visitor says so). The first sends along the sight. A tap on the view is a
+  walk, exactly as with nothing in hand, so a walk never fires. With
+  nothing that does something in hand, none of it shows.
+- At a desk, a click on the view is the first press, and what it sends out
+  goes where the visitor clicked. A press held is still how they walk.
 - Moving the intense way at a desk, the mouse button is the first press.
   The other mouse button brings the item's sight up to the eye and leaves
   it there; pressed again, it puts it down. Nothing is held while aiming.
@@ -401,7 +407,8 @@ for in its description, for a renderer to grant within a ceiling.
   It is how the thing looks and nothing else: where it is aimed is worked
   out from the view, so no shot is moved by it. Not while it is up at the
   eye, in a headset, or where they asked for no motion.
-- R is the second press at a desk; both are on the bar everywhere.
+- R is the second press at a desk; both are on the bar everywhere but a
+  touch screen, where they are under the thumb (and in the menu's Bag tab).
 - In a headset, the trigger of the hand that holds it.
 
 ## A holder's own colours

@@ -180,6 +180,7 @@ export function items(options?: string): string {
     holdingHand: () => -1,
     dom: typeof document === "undefined" ? null : document.querySelector("canvas"),
     sight: (wanted) => void (state.wantSight = wanted),
+    presenting: () => world.presenting,
   });
   onEnginePresence(() => state.presses.refresh());
   addFrameStart(itemsHeard);
