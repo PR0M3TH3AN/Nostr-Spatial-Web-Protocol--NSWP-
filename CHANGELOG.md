@@ -2,7 +2,7 @@
 
 Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`'s.
 
-## Next
+## 0.75.0
 
 - **Fixed: Home stranded a visitor holding an item whose logic was running** (`wayWithoutDestination`). The way home read at most 400 characters of settings while a world may send 900 (`SETTINGS_LINK_LIMIT`); holding the dart blaster with its script running made them 435, so the Airlock took the way home for a mistake and showed its own page with no way out. Found live by the owner, 2026-11-21.
 - **A world owner can keep someone out** (NSWP-10, "A world's own lists"; NSWP-06, "A world's own rules"). The owner's block list is a signed note in BitGate's shape (kind 30078, `d` `nswp:governance:user-deny:v1:37300:<key>:<d>`), read in core (`readOwnerList`, `resolveOwnerList`) and held to BitGate's own 55 examples, copied unchanged into `vectors/governance-lists.json`. It counts only when signed by the world's own manifest's `keepers`. Someone on it is stopped at the gate ("The owner of this world has asked you not to come in"), blocked beating a receipt, and let go from every room that keeps the rule the moment their pass checks out. A keeper is never kept out. A list that can't be read stops nobody, and is asked for again soon. Anyone can read the list, by the owner's decision.
