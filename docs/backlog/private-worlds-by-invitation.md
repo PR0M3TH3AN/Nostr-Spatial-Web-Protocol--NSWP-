@@ -11,12 +11,7 @@
   room's, `packages/sdk/src/front-room.ts`). The list's shape, BitGate
   (one shape for an allow and a block list everywhere, see
   [bitgate](bitgate.md)). The client's half, BitPortal.
-- **State:** building. Stage 1 (the owner's block list) and stage 2 (a world by invitation, and "By invitation" as the eighth door tile) are merged as kits 0.75.0 and 0.77.0. Not live; no world uses them. Not built: the owner's screen to invite people from the menus (needs a request at the sign-in address, BitLogin's), BitPortal hiding a door from someone not invited, and the sealed kind.
-- **The list.** One signed event from the world's owner, per world,
-  naming keys allowed and keys blocked, in the shape BitGate uses for its
-  lists (ask BitGate; don't invent a second). Read and checked in
-  `@nswp/core` beside `readListing`, with vectors, so an engine or another
-  client reads it the same way. Blocked beats allowed.
+- **State:** building. Stage 1 (block list) and stage 2 (by invitation, the eighth door tile) are live in the kit since 0.78.1 (no world uses them). BitLogin's request for a world owner to change their list (`guests`, shown in words every time) is live on bitlogin.network (its main 6f33eee, 2026-11-22). Next: the owner's screen in the kit's menus, built on that request (the NSWP builder). Not built: BitPortal hiding a door from someone not invited, and the sealed kind.
 - **The gate.** `worldGate()` gains a second thing that opens it: being on
   the list. Signed out, it sends the visitor to sign in, as the paid gate
   does. A world may ask for both (invited and paid) or either.
