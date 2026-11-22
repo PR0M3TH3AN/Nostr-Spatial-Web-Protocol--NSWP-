@@ -4,7 +4,7 @@
   the landing) on how to get started. Assume mostly agents will be reading
   it. 3JS and Gdot are supported. stuff like this."
 - **Who:** BitPortal's session for the page; the words come from the kit.
-- **State:** briefed
+- **State:** building. The kit's half is written: `docs/start.md`, every command in it run on 2026-11-21 in a fresh copy of the template with a throwaway key and an isolated home (dev, check, keygen, preview, sign, check, the announce dry run, and check:live against the starter world). Not run: `announce -- --yes` (public, permanent) and anything Godot (not installed here). BitPortal's page follows once it is vendored.
 
 ## The kit's half
 
