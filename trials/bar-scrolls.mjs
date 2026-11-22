@@ -6,7 +6,10 @@
 // The Grove at 320 and 390 wide (a phone, touch) and 1280 (a desk), each with four tabs pinned to the bar and the
 // dart blaster in hand, so Fire and Reload lead it. Not tried: a swipe along the bar. This browser's synthetic touch
 // gestures move neither it nor the menu's tab row, which has always slid by touch. Pictures of each in SHOTS/bar-scrolls-<width>-*.png.
-// `SHOTS_ONLY=1` takes the pictures and checks nothing (for a "before" from a build without the arrows).
+// `SHOTS_ONLY=1` takes the pictures and checks nothing (for a "before" from a build without the arrows). `DSF` is the
+// phones' pixel density (2 by default, for sharp pictures). This browser draws the 3D scene in software and, at 390
+// and 2, now and then falls behind: a picture may show the bar as an empty box while the page has every key in place.
+// `DSF=1` doesn't.
 //
 // What is real here: this checkout's own build of the Grove (sites/grove/dist, so run `npm run build` first), the
 // kit's bar, pins and item controls inside it, and the dart blaster's own signed description, model and logic.
@@ -52,7 +55,7 @@ mkdirSync(SHOTS, { recursive: true });
 /** One screen: its width, and whether it is a phone. */
 async function screen(width, phone) {
   const name = `${width}`;
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width, height: phone ? 700 : 760 }, ...(phone ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}) });
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width, height: phone ? 700 : 760 }, ...(phone ? { isMobile: true, hasTouch: true, deviceScaleFactor: Number(process.env.DSF ?? 2) } : {}) });
   await ctx.addInitScript(() => { window.__nswpTrial = { gate: true }; });
   await ctx.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -113,7 +116,7 @@ async function screen(width, phone) {
       };
     });
   // A phone is pressed with a finger: a mouse's click there would make the kit take it for a desk.
-  const press = (sel) => (phone ? page.locator("nswp-hud").locator(sel).tap({ timeout: 5000 }) : page.locator("nswp-hud").locator(sel).click({ timeout: 5000 }));
+  const press = (sel) => (phone ? page.locator("nswp-hud").locator(sel).tap({ timeout: 15000 }) : page.locator("nswp-hud").locator(sel).click({ timeout: 15000 }));
   /** Until the bar has come to rest: a slide is smooth, and a busy headless browser draws few frames a second. */
   const settle = async () => {
     let last = -1;
