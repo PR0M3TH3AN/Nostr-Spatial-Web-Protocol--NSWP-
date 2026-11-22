@@ -96,6 +96,24 @@ through the owner's own signer and never a file; and a curator key of its
 own, held in a signer too, because a curator who may allow can let a
 seller be paid.
 
+## Built in BitGate since (2026-11-21, its session; merged in its repository)
+
+- Lists of worlds (NSWP-08, kind 30004) read as they are, held to NSWP's
+  own vectors (its pull request 9). BitPortal's allow list and starter
+  set are BitGate input without being published again.
+- Named lists for BitUnlock, as vectors (its pull request 10): sellers,
+  payees, listings allowed, listings blocked, people blocked; and the
+  decisions may-sell, may-be-paid, may-sell-listing. Blocked beats
+  allowed; payable is not the same as able to sell. Names given under
+  rule 11 (`docs/fleet.md`).
+- A required signature check on every path that reads events (its pull
+  request 11).
+- MIT since its pull request 8, on the owner's word.
+
+Nothing of it is used by BitUnlock, BitPortal or BitLogin yet. Next is
+BitGate's own proposal: shadow first, each project computing the answer
+beside its own list and logging disagreements.
+
 ## Done looks like
 
 To be written when briefed. The first piece is a report from a session
