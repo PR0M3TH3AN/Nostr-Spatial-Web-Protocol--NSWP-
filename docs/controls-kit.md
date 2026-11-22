@@ -415,6 +415,12 @@ so a tab pinned in one world is on their bar in the next that has it. Give a
 tab of your own a short plain id (a lowercase word of twelve letters at
 most) and it can be pinned and travel too.
 
+Six keys of your own and four pinned tabs are wider than a phone. The bar
+then slides sideways, with an arrow at each end that has more, as the
+menu's tab row does. The arrows stand beside the keys, never over one.
+What is in hand (Fire, Reload) leads the bar, and taking something up
+brings the bar back to its start.
+
 ### People's names and pictures
 
 Someone who came by name is shown by the name and the picture from their
