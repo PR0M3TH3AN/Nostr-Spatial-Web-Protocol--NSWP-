@@ -5,7 +5,7 @@
   of users. And many features that are planned have not been fully developed
   or proven at scale."
 - **Who:** BitPortal's session.
-- **State:** merged (BitPortal pull request 161, its main at 96e9d09; `npm run gate` exit 0, 295 tests). Not live. Shown on the landing page and in the room, once, remembered in the browser for ninety days (the builder's number). Looked at on a desk, a phone-sized screen and a headset browser's page; not in a real headset.
+- **State:** live (deployed 2026-11-21 with kit 0.73.0; seen on portal.bitblocks.network). 
 
 On arriving at BitPortal, a visitor is told once, plainly: this is early, a
 prototype, not ready for many people at once, and much of what is planned
