@@ -153,7 +153,7 @@ stages 1 and 2). Answered by the orchestrator as design:
   is loosened.
 - Given under the fleet's rule 11, provisional until BitGate's vectors
   are merged: kind 30078, `d` as those vectors give it, namespace `nswp`.
-- A door carries at most eight tiles, so "By invitation" would be the eighth. Adding a line to what a door shows is the owner's word (asked 2026-11-21).
+- A door carries at most eight tiles, so "By invitation" would be the eighth. Adding a line to what a door shows is the owner's word; asked "Add an eighth door icon, 'By invitation'?", they said: "Yes, add it" (2026-11-21). It stands at the foot beside "Paid".
 - Names given under rule 11: in the world's manifest entry, `keepers` (at most four keys), `by_invitation` (exactly `true`) and `named_only` (exactly `true`); in the announcement, the tag `["by-invitation"]`. BitGate's vectors to copy: commit 8b98ed9, `vectors/governance-lists/scoped-lists.json`, sha256 a29211c8ec46d51a5b88bf1dafd338d6c5caf776896c91b8aa93cd655600d372.
 
 **The owner's, and not yet answered:** that an owner's list can be read
