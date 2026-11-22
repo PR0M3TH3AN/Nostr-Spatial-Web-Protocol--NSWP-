@@ -5,7 +5,7 @@
   side scrolling and arrows as the tabs in the menu at the edge of the
   screen to allow users to move them left or right so they can be clicked."
 - **Who:** the NSWP builder (the kit, `ui/hud.ts`), for every world.
-- **State:** briefed
+- **State:** building. Built on the NSWP builder's branch `bar-scrolls`, not merged
 
 When the bar is wider than the screen it scrolls sideways like the menu's
 tab row, with the same arrows at its edges, shown only when there is more

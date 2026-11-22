@@ -50,7 +50,7 @@ request that does the work. The page of what is in motion (the board,
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
 | [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | BitPortal (kit) | briefed (option B chosen) |
-| [bar-scrolls-when-too-wide](bar-scrolls-when-too-wide.md) | The bar along the bottom scrolls with arrows when it is too wide | NSWP builder | briefed |
+| [bar-scrolls-when-too-wide](bar-scrolls-when-too-wide.md) | The bar along the bottom scrolls with arrows when it is too wide | NSWP builder | building |
 | [game-worlds-kit-gaps](game-worlds-kit-gaps.md) | What a game world like COMBATRIG needs: a presence source, a seated mode, a loading signal and more | not briefed (COMBATRIG answered) | asked |
 | [items-scarce](items-scarce.md) | Items of which only so many exist | not briefed | asked |
 | [protocol-status-lines](protocol-status-lines.md) | Four status lines that say BitLogin hasn't built what it has | the orchestrator | merged |
