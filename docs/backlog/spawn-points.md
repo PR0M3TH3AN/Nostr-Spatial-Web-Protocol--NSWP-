@@ -4,7 +4,7 @@
   in each world with a minimum number set so that the game can always
   find a clear area to spawn if someone else is there."
 - **Who:** not briefed. The kit (and the template and other engines).
-- **State:** being built (the kit's half: NSWP-01 "Places to arrive"; the template and BitPortal's room follow)
+- **State:** merged 2026-11-22: the kit's half in kit 0.81.0 (NSWP 316, 318), the template (129) and BitPortal's room (194); not live. Not tried in a headset, on a phone, or with two visitors in Godot. A fade for the step aside comes with the casual fade (`docs/plans/seated-mode.md`).
 
 ## What exists today
 
