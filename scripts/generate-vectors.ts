@@ -505,6 +505,16 @@ const arrivalVectors = [
     expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", moving: "intense" }, warnings: [] },
   },
   {
+    name: "how_they_move_in_a_headset_is_said_both_ways",
+    value: encodeArrival({ entry: "main-entrance", settings: { headset: "casual", intense: false } }),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { intense: false, headset: "casual" } }, warnings: [] },
+  },
+  {
+    name: "a_way_of_moving_in_a_headset_nobody_knows_is_left_out",
+    value: Buffer.from(JSON.stringify({ v: "nswp/arrival/0.3", entry: "main-entrance", settings: { headset: "smooth", turn: 45 } })).toString("base64url"),
+    expect: { valid: true, decoded: { v: "nswp/arrival/0.3", entry: "main-entrance", settings: { turn: 45 } }, warnings: [] },
+  },
+  {
     name: "with_settings_that_travel",
     value: encodeArrival({ entry: "main-entrance", settings: { sound: { off: false, effects: 0.7, music: 0, voices: 1, hum: true }, text: 1.15, motion: false, wrist: "right", turn: 45, hand: "right", narrow: true, full: true } }),
     expect: {

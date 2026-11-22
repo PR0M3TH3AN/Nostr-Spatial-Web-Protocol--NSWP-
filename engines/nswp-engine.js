@@ -81,7 +81,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.75.0";
+  var KIT_VERSION = "0.76.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -5127,6 +5127,8 @@ var NSWP = (() => {
       out.full = s.full;
     if (typeof s.intense === "boolean")
       out.intense = s.intense;
+    if (s.headset === "casual" || s.headset === "intense")
+      out.headset = s.headset;
     if (typeof s.look === "number" && Number.isFinite(s.look))
       out.look = Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], s.look)) * 100) / 100;
     if (typeof s.fov === "number" && Number.isFinite(s.fov))
@@ -8712,8 +8714,7 @@ postMessage({ t: "started" });
   }
   function keepIntense(on3, key = DESK_KEY) {
     try {
-      if (on3) localStorage.setItem(key, "1");
-      else localStorage.removeItem(key);
+      localStorage.setItem(key, on3 ? "1" : "0");
     } catch {
     }
   }
