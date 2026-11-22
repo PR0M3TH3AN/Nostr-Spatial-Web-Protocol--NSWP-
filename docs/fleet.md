@@ -159,6 +159,9 @@ when. Ask the orchestrator before using one that isn't here.
 | `keepers`, `by_invitation`, `named_only` in a world's manifest entry | the kit's builder | worlds by invitation | 2026-11-21 |
 | The announcement tag `["by-invitation"]` | the kit's builder | a world that says it is by invitation | 2026-11-21 |
 | The page `/doors/` in BitPortal | the BitPortal session | the lobby's own page | 2026-11-21 |
+| `docs/start.md` in NSWP; `/start/` and `/start.md` in BitPortal | the BitPortal session | the getting-started page | 2026-11-21 |
+| Namespaces `bitunlock.sellers`, `bitunlock.payees`, `bitunlock.listings`, `bitunlock.people` in governance lists | BitGate (its `named-lists.json`, merged at a9b02cb) | who may sell, be paid, which listings may be sold, who is blocked, at BitUnlock | 2026-11-21 (BitUnlock may still object before anything reads them) |
+| The role `list-curator` in a root's role document | BitGate | a key that may keep lists and nothing else | 2026-11-21 |
 
 ## Trying things together
 
