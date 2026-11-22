@@ -5,7 +5,7 @@
   intense its smooth locomotion. (i like smooth loco in VR)"
 - **Who:** BitPortal (to check its room shows it and say what the owner
   will see); the kit has it.
-- **State:** building (2026-11-21: the BitPortal session found why, below; fixes ordered)
+- **State:** building. Step 1 merged (BitPortal pull request 169, b1dbc81: intense now goes through a door from BitPortal's room). Steps 2 and 3 next, in the kit. Not live.
 
 ## What is already built
 
@@ -56,6 +56,15 @@ preference is kept by choosing intense once.
    session, offer the choice once, in the headset (casual or intense, and
    that it can be changed later); remembered, never asked again, never
    asked of someone who arrived carrying a choice; casual if dismissed.
+   The owner, the same day: "when the user enters vr the game should pop
+   up an option for the first time they enter VR and ask if they prefer
+   casual or intense mode. And then it should save that setting in the
+   users settings that syncs and is persistent. I think its a nostr note".
+   So the choice becomes one of the settings that travel (core
+   `TravelSettings`, a new field named under rule 11), and BitPortal's
+   sealed settings note (NIP-78, only the visitor's key can open it,
+   NSWP-11) keeps it, so a second device starts from it and isn't asked
+   again.
    The switch reads "How you move: casual / intense". The menu's order of
    tabs stays as it is.
 
