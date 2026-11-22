@@ -51,7 +51,16 @@ A list's address is its coordinate, `30004:<pubkey>:<d>`, shared as an
 `naddr`. A client follows a list by that coordinate, which fixes the key:
 
 - A newer copy replaces the one a client has only if **the same key** signed
-  it and its `created_at` is later.
+  it and its `created_at` is later. Of two with the same `created_at`, the
+  one with the smaller `id` is the list (NIP-01).
+- **A copy dated in the future is left out.** One whose `created_at` is more
+  than 600 seconds (ten minutes) after the reader's own clock is dropped
+  before choosing, whatever else it says, and the client says it saw one.
+  Otherwise a copy signed with a clock a year fast would stand for a year,
+  and no honest newer copy could replace it. Exactly 600 seconds ahead is
+  still read. Once the reader's clock catches up, the copy is read like any
+  other. BitGate's lists keep the same rule
+  ([NSWP-10](10-identity.md), "A world's own lists").
 - When relays are silent, the last copy the client saw stands.
 - Whose lists a visitor follows is theirs to keep. Following a list tells its
   curator nothing, and a client does not publish it unless the visitor asks.

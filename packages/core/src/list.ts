@@ -5,14 +5,23 @@
  *
  * A curation set can hold other things too. A reader here keeps the worlds
  * and passes over the rest without complaint.
+ *
+ * A list is replaceable: of the copies relays give, the newest from its
+ * curator's key is the list (`resolveList`). One dated more than ten minutes
+ * ahead of the reader's clock is left out before choosing, and said, so a
+ * copy signed with a clock a year fast can't stand until then over every
+ * honest newer one. BitGate's lists keep the same rule (`owner-lists.ts`).
  */
 import { CURATION_SET_KIND, LIMITS, WORLD_KIND } from "./constants.js";
-import { getTags, getTagValue, hasEventShape, isHex64, nowSeconds, type EventTemplate } from "./event.js";
+import { getTags, getTagValue, hasEventShape, isHex64, nowSeconds, verifyEvent, type EventTemplate, type NostrEvent } from "./event.js";
 import { coordinate, parseCoordinate } from "./nip19.js";
 import { Collector, type Result } from "./result.js";
 
-/** Ceilings a reader enforces whatever a list claims. */
-export const LIST_LIMITS = { worlds: 200, titleChars: 200, descriptionChars: 1000 } as const;
+/**
+ * Ceilings a reader enforces whatever a list claims. `ahead`: how far ahead of the reader's clock a copy may be
+ * dated, in seconds, and still be chosen.
+ */
+export const LIST_LIMITS = { worlds: 200, titleChars: 200, descriptionChars: 1000, ahead: 600 } as const;
 
 export interface ListInput {
   /** The list's name under its curator's key. */
@@ -107,4 +116,50 @@ export function parseListEvent(input: unknown, opts: ParseListOptions = {}): Res
     if (d !== undefined) list.coordinate = coordinate({ kind: CURATION_SET_KIND, pubkey, identifier: d });
   }
   return c.result(list);
+}
+
+/** The list as chosen from what relays gave: the newest good copy, or null; and the copies left out for being dated ahead. */
+export interface ListChosen {
+  list: WorldList | null;
+  /** The id of the copy chosen, or null. */
+  id: string | null;
+  /** The ids of copies left out for being dated more than `LIST_LIMITS.ahead` seconds ahead: worth saying. */
+  futureDated: string[];
+}
+
+/**
+ * Choose a list from whatever relays gave for its coordinate (`30004:<pubkey>:<d>`): the copies of that kind,
+ * signed by that key, with exactly that `d` and a good signature. Those dated more than ten minutes ahead of `now`
+ * are left out first, and named in `futureDated`. The newest of the rest is the list, a tie going to the smallest
+ * id (NIP-01). Anything else relays sent is passed over.
+ */
+export function resolveList(events: readonly unknown[], q: { coordinate: string; now?: number }): ListChosen {
+  const now = q.now ?? nowSeconds();
+  const at = parseCoordinate(q.coordinate);
+  const futureDated: string[] = [];
+  if (!at || at.kind !== CURATION_SET_KIND) return { list: null, id: null, futureDated };
+  const candidates: NostrEvent[] = [];
+  const seen = new Set<string>();
+  for (const e of events) {
+    if (!hasEventShape(e)) continue;
+    const ev = e as NostrEvent;
+    if (ev.kind !== CURATION_SET_KIND || ev.pubkey !== at.pubkey || seen.has(ev.id) || !Number.isInteger(ev.created_at)) continue;
+    const ds = ev.tags.filter((t) => t[0] === "d");
+    if (ds.length !== 1 || ds[0]![1] !== at.identifier) continue;
+    let signed = false;
+    try {
+      signed = verifyEvent(ev);
+    } catch {
+      signed = false;
+    }
+    if (!signed) continue;
+    seen.add(ev.id);
+    if (ev.created_at > now + LIST_LIMITS.ahead) futureDated.push(ev.id);
+    else candidates.push(ev);
+  }
+  candidates.sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1));
+  const newest = candidates[0];
+  // The newest copy that can't be read leaves no list: an older one never stands in for it.
+  const r = newest ? parseListEvent(newest, { requireSigned: true }) : null;
+  return r?.ok ? { list: r.value, id: newest!.id, futureDated } : { list: null, id: null, futureDated };
 }

@@ -43,7 +43,7 @@ request that does the work. The page of what is in motion (the board,
 | [room-computers-sign-in-words](room-computers-sign-in-words.md) | The room's computers still say "Sign in on the front page" | BitPortal | asked |
 | [avatars-own-models](avatars-own-models.md) | Your own model, size and animations as your look, in every world that allows it | not briefed | asked |
 | [world-maps](world-maps.md) | Maps of the connected worlds, made by travelling, private unless shared, drawn as a graph | not briefed | asked |
-| [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | asked |
+| [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | building |
 | [headset-casual-and-intense](headset-casual-and-intense.md) | Casual or intense, asked once in a headset and at a desk, kept in synced settings; a phone always casual | BitPortal (kit and room) | building (intense lost at every door: being fixed; offered once on entering VR) |
 | [rooms-stun-servers](rooms-stun-servers.md) | Every room asks Cloudflare's and Google's STUN servers, who see each joiner's address | not briefed | asked |
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
