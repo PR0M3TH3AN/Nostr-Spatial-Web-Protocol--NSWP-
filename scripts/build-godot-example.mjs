@@ -70,7 +70,8 @@ if (access.length !== said.length) throw new Error(`${world.d}: "access" in its 
 const keepers = world.keepers === undefined ? null : cleanRoot(world.keepers);
 if (world.keepers !== undefined && (!keepers || !Array.isArray(world.keepers) || keepers.length !== world.keepers.length)) throw new Error(`${world.d}: "keepers" in its world.json must be a list of one to four keys, each 64 lowercase hex, each once.`);
 if (world.named_only !== undefined && typeof world.named_only !== "boolean") throw new Error(`${world.d}: "named_only" in its world.json must be true or false.`);
-const needs = access.length > 0 || !!keepers || world.named_only === true;
+if (world.by_invitation !== undefined && typeof world.by_invitation !== "boolean") throw new Error(`${world.d}: "by_invitation" in its world.json must be true or false.`);
+const needs = access.length > 0 || !!keepers || world.named_only === true || world.by_invitation === true;
 const gateInCode = /^const NEEDS_GATE := (true|false)$/m.exec(readFileSync(join(project, "example", "main.gd"), "utf8"))?.[1];
 if (gateInCode !== String(needs)) throw new Error(`engines/godot/world.json ${needs ? "asks for a gate (access, keepers or named_only)" : "asks for no gate"}, and example/main.gd says NEEDS_GATE := ${gateInCode}. They must agree.`);
 mkdirSync(join(dist, ".well-known"), { recursive: true });
@@ -93,6 +94,7 @@ writeFileSync(
           ...(access.length ? { access } : {}),
           ...(keepers ? { keepers } : {}),
           ...(world.named_only === true ? { named_only: true } : {}),
+          ...(world.by_invitation === true ? { by_invitation: true } : {}),
         },
       },
       relays: config.relays,

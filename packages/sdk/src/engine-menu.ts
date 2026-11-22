@@ -125,18 +125,18 @@ export function check(url: string): string {
 }
 
 /**
- * What a world offers, for the tiles beside its door, as JSON: twelve lines
+ * What a world offers, for the tiles beside its door, as JSON: thirteen lines
  * in a set order, each with `id`, `on` (the world's announcement says it),
  * `name`, `words` (one sentence, for whichever case it is) and `onDoor`. The
- * seven a door shows also have `icon`: the kit's line drawing for it, as SVG
+ * eight a door shows also have `icon`: the kit's line drawing for it, as SVG
  * path data on a 24-unit square. Draw them lit where `on`, dark where not,
  * and say `words` when one is pointed at. `world` is JSON with what the
- * place's announcement says: `modes`, `capabilities`, and `items` and
- * `access` where it says them. Anything else in it is not read, and a world
+ * place's announcement says: `modes`, `capabilities`, and `items`, `access`
+ * and `byInvitation` (true) where it says them. Anything else in it is not read, and a world
  * it can't read offers nothing.
  */
 export function offers(world: string): string {
-  let said: { modes?: unknown; capabilities?: unknown; items?: unknown; access?: unknown } = {};
+  let said: { modes?: unknown; capabilities?: unknown; items?: unknown; access?: unknown; byInvitation?: unknown } = {};
   try {
     const read: unknown = JSON.parse(typeof world === "string" ? world : "");
     if (read && typeof read === "object") said = read as typeof said;
@@ -145,7 +145,7 @@ export function offers(world: string): string {
   }
   const words = (list: unknown) => (Array.isArray(list) ? list.filter((w): w is string => typeof w === "string") : []);
   const items = typeof said.items === "string" && (ITEM_RULES as readonly string[]).includes(said.items) ? (said.items as ItemsRule) : undefined;
-  const lines = worldOffers({ modes: words(said.modes), capabilities: words(said.capabilities), ...(items ? { items } : {}), ...(said.access ? { access: said.access as never } : {}) });
+  const lines = worldOffers({ modes: words(said.modes), capabilities: words(said.capabilities), ...(items ? { items } : {}), ...(said.access ? { access: said.access as never } : {}), ...(said.byInvitation === true ? { byInvitation: true as const } : {}) });
   return JSON.stringify(lines.map((o) => ({ ...o, ...(o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id as keyof typeof OFFER_ICONS]] } : {}) })));
 }
 

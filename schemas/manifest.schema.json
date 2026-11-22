@@ -50,6 +50,7 @@
           "airlock": { "type": "string", "description": "Must be https://; clients ignore other values with a warning." },
           "access": { "description": "The listings a paid world is entered by: a list of listings' coordinates (30078:<pubkey>:<name>), each sold by a key this file names as a publisher of this world, at most 8. Left out, the world is free. Clients ignore anything else with a warning." },
           "keepers": { "description": "A list of 64 lowercase hex keys; clients skip anything else with a warning. Meaning: Whose allow and block lists count for this world, at most 4 (more are ignored with a warning). Left out, the world's publishers; but a world that writes neither this nor a word that needs a list reads no list." },
+          "by_invitation": { "description": "true: only people a keeper's allow list names, and the keepers, may go in, and the world's rooms show only them. Only exactly true turns it on; clients ignore other values with a warning." },
           "named_only": { "description": "true: in this world's rooms a visitor's kit shows and hears only people whose pass checks out. Only exactly true turns it on; clients ignore other values with a warning." }
         }
       }

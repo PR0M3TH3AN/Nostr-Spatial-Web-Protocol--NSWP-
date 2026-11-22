@@ -477,7 +477,82 @@
             "9f291ef1d9b69e3f1bec4935f0fc53b2e471830509adcf8128076406bc5b6bd6",
             "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
           ],
-          "namedOnly": true
+          "namedOnly": true,
+          "byInvitation": false
+        }
+      }
+    },
+    {
+      "name": "by_invitation",
+      "description": "A world that is by invitation: only people a keeper's allow list names may go in. With no keepers named, its publishers' lists count.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "by_invitation": true
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false,
+          "byInvitation": true
+        }
+      }
+    },
+    {
+      "name": "by_invitation_not_true",
+      "description": "Only exactly true makes a world by invitation: anything else is ignored with a warning.",
+      "manifest": {
+        "schema": "nswp/manifest/0.3",
+        "publishers": {
+          "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6": {
+            "worlds": [
+              "example-museum"
+            ]
+          }
+        },
+        "worlds": {
+          "example-museum": {
+            "entry": {
+              "url": "https://museum.example/world"
+            },
+            "by_invitation": "yes"
+          }
+        },
+        "relays": [
+          "wss://relay.example"
+        ]
+      },
+      "expect": {
+        "valid": true,
+        "errors": [],
+        "warnings": [
+          "invalid_field"
+        ],
+        "access": [],
+        "rules": {
+          "keepers": null,
+          "namedOnly": false,
+          "byInvitation": false
         }
       }
     },
@@ -522,7 +597,8 @@
           "keepers": [
             "01b5370e39784301c3e347b0130266ebb005c5c6141be582e32cda7c367285c6"
           ],
-          "namedOnly": false
+          "namedOnly": false,
+          "byInvitation": false
         }
       }
     },
@@ -570,7 +646,8 @@
             "3333333333333333333333333333333333333333333333333333333333333333",
             "4444444444444444444444444444444444444444444444444444444444444444"
           ],
-          "namedOnly": false
+          "namedOnly": false,
+          "byInvitation": false
         }
       }
     },
@@ -620,7 +697,8 @@
         "access": [],
         "rules": {
           "keepers": null,
-          "namedOnly": false
+          "namedOnly": false,
+          "byInvitation": false
         }
       }
     }

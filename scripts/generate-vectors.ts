@@ -146,7 +146,7 @@ const withTags = (f: (tags: string[][]) => string[][]): EventTemplate => {
   return { ...t, tags: f(t.tags) };
 };
 
-type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null; items?: string | null; access?: string[] } };
+type WorldVector = { name: string; description: string; event: unknown; expect: { valid: boolean; signatureValid: boolean | null; errors: string[]; warnings: string[]; audience?: string; category?: string | null; items?: string | null; access?: string[]; byInvitation?: boolean } };
 const worldCases: Omit<WorldVector, "event"> & { event: unknown }[] = [];
 const goodWorld = sign(buildWorldEvent(baseWorld));
 const tampered = { ...goodWorld, content: "edited after signing" };
@@ -181,6 +181,10 @@ const worldVectors: WorldVector[] = [
   { name: "priced_by_someone_else", description: "A listing sold by another key is left out: nobody puts a price on a world that isn't theirs. With none left, the world is free.", event: sign(buildWorldEvent({ ...baseWorld, access: `30078:${PK2}:museum day pass` })), expect: { valid: true, signatureValid: true, errors: [], warnings: ["access_not_own"], access: [] } },
   { name: "access_that_is_no_listing", description: "An access tag that isn't a listing's coordinate is left out.", event: withTags((t) => [...t, ["a", `37303:${PK1}:a-lantern`, "", "access"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["invalid_coordinate"], access: [] } },
   { name: "one_listing_named_twice", description: "The same listing twice is one listing.", event: withTags((t) => [...t, ["a", `30078:${PK1}:museum-for-good`, "", "access"], ["a", `30078:${PK1}:museum-for-good`, "", "access"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: [], access: [`30078:${PK1}:museum-for-good`] } },
+  // Whether a world is by invitation, as its announcement says it for a door. `byInvitation` in `expect` is what a reader takes from it.
+  { name: "by_invitation", description: "Says it is by invitation: one tag, with nothing after it. A door shows it.", event: sign(buildWorldEvent({ ...baseWorld, byInvitation: true })), expect: { valid: true, signatureValid: true, errors: [], warnings: [], byInvitation: true } },
+  { name: "by_invitation_with_a_value", description: "The tag takes no value: what follows is ignored with a warning, and the tag still says it.", event: withTags((t) => [...t, ["by-invitation", "friends only"]]), expect: { valid: true, signatureValid: null, errors: [], warnings: ["ignored_value"], byInvitation: true } },
+  { name: "not_by_invitation", description: "Says nothing of it: a door doesn't say it is by invitation.", event: goodWorld, expect: { valid: true, signatureValid: true, errors: [], warnings: [], byInvitation: false } },
   { name: "tampered_content", description: "Content changed after signing: the structure is valid but the signature is not.", event: tampered, expect: { valid: true, signatureValid: false, errors: [], warnings: [] } },
   {
     name: "missing_required",
@@ -272,6 +276,7 @@ for (const v of worldVectors) {
   if (v.expect.category !== undefined && r.ok) expectEqual(`world/${v.name} category`, r.value.category ?? null, v.expect.category);
   if (v.expect.items !== undefined && r.ok) expectEqual(`world/${v.name} items`, r.value.items ?? null, v.expect.items);
   if (v.expect.access !== undefined && r.ok) expectEqual(`world/${v.name} access`, r.value.access ?? [], v.expect.access);
+  if (v.expect.byInvitation !== undefined && r.ok) expectEqual(`world/${v.name} byInvitation`, r.value.byInvitation === true, v.expect.byInvitation);
 }
 void worldCases;
 
@@ -327,28 +332,40 @@ const manifestVectors = [
     name: "keepers_and_named_only",
     description: "A world names the keys whose lists count for it, and says its rooms show only people whose pass checks out.",
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: [PK2, PK1], named_only: true } } }),
-    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: [PK2, PK1], namedOnly: true } },
+    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: [PK2, PK1], namedOnly: true, byInvitation: false } },
+  },
+  {
+    name: "by_invitation",
+    description: "A world that is by invitation: only people a keeper's allow list names may go in. With no keepers named, its publishers' lists count.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, by_invitation: true } } }),
+    expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: true } },
+  },
+  {
+    name: "by_invitation_not_true",
+    description: "Only exactly true makes a world by invitation: anything else is ignored with a warning.",
+    manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, by_invitation: "yes" } } }),
+    expect: { valid: true, errors: [], warnings: ["invalid_field"], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false } },
   },
   {
     name: "keepers_that_are_not_keys",
     description: "Anything in keepers that isn't a 64-character lowercase hex key is left out, and only exactly true turns named_only on.",
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: [PK1, PK1.toUpperCase(), "npub1example"], named_only: "yes" } } }),
-    expect: { valid: true, errors: [], warnings: ["invalid_field", "invalid_keeper"], access: [], rules: { keepers: [PK1], namedOnly: false } },
+    expect: { valid: true, errors: [], warnings: ["invalid_field", "invalid_keeper"], access: [], rules: { keepers: [PK1], namedOnly: false, byInvitation: false } },
   },
   {
     name: "too_many_keepers",
     description: "Four keepers at most: the rest are ignored.",
     manifest: manifest({ worlds: { "example-museum": { entry: { url: "https://museum.example/world" }, keepers: ["1", "2", "3", "4", "5"].map((n) => n.repeat(64)) } } }),
-    expect: { valid: true, errors: [], warnings: ["too_many_keepers"], access: [], rules: { keepers: ["1", "2", "3", "4"].map((n) => n.repeat(64)), namedOnly: false } },
+    expect: { valid: true, errors: [], warnings: ["too_many_keepers"], access: [], rules: { keepers: ["1", "2", "3", "4"].map((n) => n.repeat(64)), namedOnly: false, byInvitation: false } },
   },
-  { name: "no_rules", description: "A world that says neither keeps no list, and its rooms are as they always were.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false } } },
-] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean } } }[];
+  { name: "no_rules", description: "A world that says neither keeps no list, and its rooms are as they always were.", manifest: manifest(), expect: { valid: true, errors: [], warnings: [], access: [], rules: { keepers: null, namedOnly: false, byInvitation: false } } },
+] as { name: string; description: string; manifest: unknown; byteLength?: number; expect: { valid: boolean; errors: string[]; warnings: string[]; access?: string[]; rules?: { keepers: string[] | null; namedOnly: boolean; byInvitation: boolean } } }[];
 for (const v of manifestVectors) {
   const r = parseManifest(v.manifest, v.byteLength === undefined ? {} : { byteLength: v.byteLength });
   if (v.expect.access !== undefined && r.ok) expectEqual(`manifest/${v.name} access`, accessFor(r.value, "https://museum.example/world")?.listings ?? null, v.expect.access);
   if (v.expect.rules !== undefined && r.ok) {
     const got = accessFor(r.value, "https://museum.example/world");
-    expectEqual(`manifest/${v.name} rules`, got ? { keepers: got.keepers, namedOnly: got.namedOnly } : null, v.expect.rules);
+    expectEqual(`manifest/${v.name} rules`, got ? { keepers: got.keepers, namedOnly: got.namedOnly, byInvitation: got.byInvitation } : null, v.expect.rules);
   }
   expectEqual(`manifest/${v.name} valid`, r.ok, v.expect.valid);
   expectEqual(`manifest/${v.name} errors`, r.ok ? [] : codes(r.errors), [...v.expect.errors].sort());

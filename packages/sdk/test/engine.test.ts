@@ -75,7 +75,7 @@ describe("what another engine takes from the kit", () => {
     expect(main).toMatch(/^const NEEDS_GATE := false$/m);
     expect(main).toContain("Nswp.gate(NEEDS_GATE)");
     const world = JSON.parse(readFileSync(join(root, "engines", "godot", "world.json"), "utf8")) as Record<string, unknown>;
-    for (const word of ["access", "keepers", "named_only"]) expect(world[word], word).toBeUndefined();
+    for (const word of ["access", "keepers", "named_only", "by_invitation"]) expect(world[word], word).toBeUndefined();
   });
 
   it("gives a jump the kit's own sound in Godot too: the visitor asks the script, and plays no cue of its own", () => {

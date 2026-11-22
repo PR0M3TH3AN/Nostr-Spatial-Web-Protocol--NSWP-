@@ -82,7 +82,7 @@ var NSWP = (() => {
     arrival: "nswp/arrival/0.3"
   };
   var WELL_KNOWN_PATH = "/.well-known/nswp.json";
-  var KIT_VERSION = "0.76.0";
+  var KIT_VERSION = "0.77.0";
   function parseKitVersion(v2) {
     const m = typeof v2 === "string" ? /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(v2) : null;
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -4515,7 +4515,7 @@ var NSWP = (() => {
   }
 
   // packages/core/dist/offers.js
-  var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "paid"];
+  var DOOR_OFFERS = ["headset", "people", "voice", "items", "saves", "records", "by-invitation", "paid"];
   var MORE_OFFERS = ["tips", "doors", "looks", "by-name", "home"];
   var OFFERS = [...DOOR_OFFERS, ...MORE_OFFERS];
   var NAMES = {
@@ -4525,6 +4525,7 @@ var NSWP = (() => {
     items: "Items",
     saves: "Saves",
     records: "Scores",
+    "by-invitation": "By invitation",
     paid: "Paid",
     tips: "Tips",
     doors: "Doors",
@@ -4537,6 +4538,7 @@ var NSWP = (() => {
     people: ["You can meet other people here.", "It doesn't say you can meet other people here."],
     voice: ["You can talk with people here.", "It doesn't say you can talk with people here."],
     saves: ["Your progress is kept for you here.", "It doesn't say it keeps your progress."],
+    "by-invitation": ["Only people its owner invited may go in.", "It doesn't say it is by invitation."],
     paid: ["It costs money to go in.", "It doesn't say it costs anything to go in."],
     tips: ["You can tip this place.", "It doesn't say it takes tips."],
     doors: ["It has doors on to other places.", "It doesn't say it has doors on to other places."],
@@ -4561,6 +4563,8 @@ var NSWP = (() => {
       ],
       // What costs money to go into names what is sold (the `access` tag). Saying it takes payments is not that.
       // Only a listing counts: a list with nothing in it, or nothing in it that is a listing, is a free world.
+      // Its announcement says so outright: the tag, and nothing else. A world's manifest saying it is not a door's word.
+      "by-invitation": line("by-invitation", world2.byInvitation === true),
       paid: line("paid", cleanAccess(world2.access).length > 0),
       tips: line("tips", says("tips")),
       doors: line("doors", says("spatial-portals")),
@@ -4830,6 +4834,12 @@ var NSWP = (() => {
           if (keepers.length)
             w.keepers = keepers.slice(0, KEEPERS_MOST);
         }
+        if (raw.by_invitation !== void 0) {
+          if (raw.by_invitation === true)
+            w.byInvitation = true;
+          else if (raw.by_invitation !== false)
+            c.warn("invalid_field", `${p}.by_invitation`, "by_invitation must be true or false; ignored.");
+        }
         if (raw.named_only !== void 0) {
           if (raw.named_only === true)
             w.namedOnly = true;
@@ -4871,7 +4881,7 @@ var NSWP = (() => {
       return null;
     const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
     const w = manifest.worlds[d];
-    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true };
+    return { d, listings: [...w.access ?? []], sellers, keepers: w.keepers ? [...w.keepers] : null, namedOnly: w.namedOnly === true, byInvitation: w.byInvitation === true };
   }
 
   // packages/core/dist/layout.js
@@ -8020,6 +8030,9 @@ postMessage({ t: "started" });
     let listState = "none";
     let ownerBlocked = [];
     let namedOnly = false;
+    let byInvitation = false;
+    let inviteState = "none";
+    let invited = [];
     let listRetries = 0;
     let listTimer;
     const changed = () => {
@@ -8107,6 +8120,12 @@ postMessage({ t: "started" });
         seekTimer = setTimeout(() => void look(), 3e3);
       }
       if (isBlocked(buyer)) return shut("blocked");
+      if (byInvitation) {
+        if (!signer || !buyer) return shut(signer ? "signed-out" : "no-signer");
+        if (inviteState === "reading" || listState === "reading") return;
+        if (!isInvited(buyer)) return shut("not-invited");
+        if (!paid) return set("open", "");
+      }
       if (!paid) {
         if (lists && buyer && listState === "reading") return;
         return set("open", "");
@@ -8147,32 +8166,48 @@ postMessage({ t: "started" });
       clearTimeout(retryTimer);
       if ([...unread.values()].some((w) => w === "no-relay" || w === "not-found")) retryTimer = setTimeout(() => void readOffers(), Math.min(2e4 * 2 ** retries++, GATE_TIMES.look * 1e3));
     };
-    const isBlocked = (key) => !!lists && !!key && ownerBlocked.includes(key) && !lists.root.includes(key);
-    const applyLists = (events2, answered = true) => {
-      if (!lists) return;
+    const rootOf = (subject) => lists?.root ?? [subject.split(":")[1]];
+    const isKeeper = (key) => !!lists && lists.subjects.some((s) => rootOf(s).includes(key));
+    const isBlocked = (key) => !!lists && !!key && ownerBlocked.includes(key) && !isKeeper(key);
+    const isInvited = (key) => isKeeper(key) || inviteState === "read" && invited.includes(key) || inviteState === "unanswered" && invited.includes(key);
+    const chooseList = (scope, events2, answered) => {
       const kept2 = rememberedLists();
-      const blocked = /* @__PURE__ */ new Set();
+      const people2 = /* @__PURE__ */ new Set();
       let state2 = "not-found";
+      let found2 = false;
       for (const subject of lists.subjects) {
-        const d = listD("user-deny", subject);
+        const d = listD(scope, subject);
+        const root = rootOf(subject);
         const all = [...events2, ...kept2[d] ? [kept2[d]] : []];
-        const r = resolveOwnerList(all, { scope: "user-deny", subject, root: lists.root, now: sec() });
-        const newest = all.filter((e) => e && e.kind === LIST_KIND && lists.root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
+        const r = resolveOwnerList(all, { scope, subject, root, now: sec() });
+        const newest = all.filter((e) => e && e.kind === LIST_KIND && root.includes(e.pubkey) && e.created_at <= sec() + OWNER_LIST_LIMITS.ahead && Array.isArray(e.tags) && e.tags.some((t) => t[0] === "d" && t[1] === d)).sort((a, b) => b.created_at - a.created_at || (a.id < b.id ? -1 : 1))[0];
         if (newest && (!kept2[d] || newest.created_at > kept2[d].created_at || newest.created_at === kept2[d].created_at && newest.id < kept2[d].id)) rememberList(d, newest);
         if (r.ok) {
-          for (const key of r.entries) blocked.add(key);
+          for (const key of r.entries) people2.add(key);
           state2 = "read";
-        } else if (r.reason !== "not_found" && state2 !== "read") state2 = "unreadable";
+          found2 = true;
+        } else if (r.reason !== "not_found" && !found2) state2 = "unreadable";
       }
-      listState = answered ? state2 : "unanswered";
-      const next = [...blocked].sort();
-      const differs = next.join() !== ownerBlocked.join();
-      ownerBlocked = next;
+      return { people: [...people2].sort(), state: answered ? state2 : "unanswered" };
+    };
+    const applyLists = (events2, answered = true) => {
+      if (!lists) return;
+      const blocks = chooseList("user-deny", events2, answered);
+      listState = blocks.state;
+      let differs = blocks.people.join() !== ownerBlocked.join();
+      ownerBlocked = blocks.people;
+      if (byInvitation) {
+        const invites = chooseList("user-allow", events2, answered);
+        differs || (differs = invites.people.join() !== invited.join() || invites.state !== inviteState);
+        inviteState = invites.state;
+        invited = invites.state === "read" || invites.state === "unanswered" ? invites.people : [];
+      }
       if (differs) changed();
     };
     const readLists = async () => {
       if (!lists || disposed) return;
-      const filter = { kinds: [LIST_KIND], authors: [...lists.root], "#d": lists.subjects.map((s) => listD("user-deny", s)) };
+      const scopes = byInvitation ? ["user-deny", "user-allow"] : ["user-deny"];
+      const filter = { kinds: [LIST_KIND], authors: [...new Set(lists.subjects.flatMap(rootOf))], "#d": lists.subjects.flatMap((s) => scopes.map((scope) => listD(scope, s))) };
       const got = await askWell(filter, { own: ownRelays, usual: opts.relays ?? DEFAULT_RELAYS, ...opts.query ? { query: opts.query } : {}, now }).catch(() => null);
       if (disposed) return;
       const answered = !!got && Object.values(got.relays).some((said2) => said2 === "eose");
@@ -8209,14 +8244,16 @@ postMessage({ t: "started" });
       const named2 = file?.worlds?.[access.d]?.access;
       const meant = opts.listings ? opts.listings.length > 0 : Array.isArray(named2) ? named2.length > 0 : named2 !== void 0;
       paid = meant;
-      if (access.keepers && access.sellers.length) {
+      byInvitation = access.byInvitation;
+      if ((access.keepers || byInvitation) && access.sellers.length) {
         lists = { root: access.keepers, subjects: access.sellers.map((key) => worldSubject(key, access.d)) };
         listState = "reading";
+        if (byInvitation) inviteState = "reading";
       }
       if (!meant && !lists) return set("free", "");
       if (meant && listings.length === 0) return set("shut", "not-own");
       if (lists) {
-        const remembered = lists.subjects.some((s) => rememberedLists()[listD("user-deny", s)]);
+        const remembered = lists.subjects.some((s) => rememberedLists()[listD("user-deny", s)] || byInvitation && rememberedLists()[listD("user-allow", s)]);
         if (remembered) {
           applyLists([]);
           void readLists().then(() => look());
@@ -8241,6 +8278,13 @@ postMessage({ t: "started" });
       if (reason === "no-manifest") return "This world couldn't read its own list of what it is sold by, so the way stays shut. It is being read again.";
       if (reason === "not-own") return "What this world says it is sold by isn't its own to sell, so nothing here can be bought. That is the world's to put right.";
       if (reason === "blocked") return "The owner of this world has asked you not to come in.";
+      if (reason === "not-invited") {
+        if (inviteState === "not-found") return "This world is by invitation, and its owner's list of who is invited wasn't found. Only its owner may go in until it is.";
+        if (inviteState === "unreadable") return "This world is by invitation, and its owner's list of who is invited doesn't read, so only its owner may go in.";
+        if (inviteState === "unanswered" && !invited.length) return "This world is by invitation, and its owner's list of who is invited couldn't be read just now. It is being asked for again.";
+        return "This world is by invitation, and its owner hasn't invited you.";
+      }
+      if (byInvitation && (reason === "signed-out" || reason === "no-signer") && !paid) return reason === "signed-out" ? "This world is by invitation. Sign in, so it can see whether you are invited." : "This world is by invitation, and sign-in is done at a sign-in address: this world was given none for you.";
       const list = offerList();
       const firstUnread = [...unread.values()][0];
       const sale = list.length ? `Past here is for people who have bought it: ${list.map((o) => `${o.name}, ${o.words}`).join("; or ")}.` : `Past here is for people who have bought it. ${firstUnread ? unreadWords(firstUnread) : "What it costs is being read."}`;
@@ -8268,7 +8312,7 @@ postMessage({ t: "started" });
         return offerList();
       },
       get read() {
-        return offers2.size > 0 || unread.size > 0;
+        return !paid || offers2.size > 0 || unread.size > 0;
       },
       get until() {
         return state === "open" && held2 ? held2.expiresAt : null;
@@ -8284,6 +8328,15 @@ postMessage({ t: "started" });
       },
       get lists() {
         return listState;
+      },
+      get byInvitation() {
+        return byInvitation;
+      },
+      get invites() {
+        return inviteState;
+      },
+      get invited() {
+        return byInvitation && lists ? [.../* @__PURE__ */ new Set([...invited, ...lists.subjects.flatMap(rootOf)])].sort() : null;
       },
       get host() {
         return host();
@@ -8327,7 +8380,7 @@ postMessage({ t: "started" });
         return () => void watchers7.delete(fn);
       },
       info() {
-        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly };
+        return { state, open: state === "free" || state === "open" || state === "ending", reason, why: why(), offers: offerList(), unread: Object.fromEntries(unread), until: state === "open" && held2 ? held2.expiresAt : null, endsAt: endsAt ? Math.round(endsAt / 1e3) : null, signedIn: signedIn(), buying, listings: [...listings], lists: listState, ownerBlocked: ownerBlocked.length, namedOnly, byInvitation, invites: inviteState, invited: invited.length };
       },
       dispose() {
         disposed = true;
@@ -8364,7 +8417,7 @@ postMessage({ t: "started" });
         else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
       });
     };
-    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked";
+    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked" && gate2.reason !== "not-invited";
     for (let i = 0; i < ACCESS_MOST; i++) {
       const offer = () => gate2.offers[i];
       controls2.add({
@@ -8378,6 +8431,7 @@ postMessage({ t: "started" });
         label: () => {
           const o = offer();
           if (o) return `${gate2.signedIn ? "Buy" : "Sign in to buy"} ${o.name}: ${o.words}`;
+          if (gate2.byInvitation && !gate2.signedIn) return "Sign in, to show you are invited";
           return gate2.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
         },
         hidden: () => !showing() || !offer() && (i > 0 || gate2.offers.length > 0),
@@ -8441,6 +8495,8 @@ postMessage({ t: "started" });
     bag: "M6 8h12l1.2 12H4.8L6 8ZM9 8V6.5a3 3 0 0 1 6 0V8",
     trophy: "M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4",
     tip: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
+    // An envelope: a world that is by invitation (the eighth thing a door shows).
+    invite: "M4 6h16v12H4ZM4 7l8 6 8-6",
     coin: "M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM14.6 9.6c-.5-1-1.4-1.6-2.6-1.6-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2 2.6.8 2.6 2-1.1 2-2.6 2c-1.2 0-2.1-.6-2.6-1.6M12 6.5V8M12 16v1.5"
   };
 
@@ -8452,6 +8508,7 @@ postMessage({ t: "started" });
     items: "bag",
     saves: "save",
     records: "trophy",
+    "by-invitation": "invite",
     paid: "coin"
   };
   var OFFER_LINE_ICONS = {
@@ -8967,8 +9024,10 @@ postMessage({ t: "started" });
       __publicField(this, "ownerBlocked", /* @__PURE__ */ new Set());
       /** Session keys let go this visit for the world's rules (the owner's list, or no pass where one is needed): not answered again. */
       __publicField(this, "turnedAway", /* @__PURE__ */ new Set());
-      /** Whether this room shows only people whose pass checks out. */
+      /** Whether this room shows only people whose pass checks out: so where it is by invitation, too. */
       __publicField(this, "namedOnly");
+      /** Where the world is by invitation, who may be in its rooms; null where it isn't. */
+      __publicField(this, "invited", null);
       /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
       __publicField(this, "announced", /* @__PURE__ */ new Set());
       __publicField(this, "waiting", /* @__PURE__ */ new Map());
@@ -9055,7 +9114,14 @@ postMessage({ t: "started" });
       this.iceServers = opts.iceServers ?? DEFAULT_ICE;
       for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
       for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
-      this.namedOnly = opts.namedOnly === true;
+      this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
+      this.namedOnly = opts.namedOnly === true || this.invited !== null;
+    }
+    /** Who may be in this world's rooms, as its gate last read the owner's allow list. Anyone here not on it is let go at once. */
+    setInvited(keys) {
+      if (keys === null || this.invited === null) return;
+      this.invited = new Set([...keys].filter((k) => /^[0-9a-f]{64}$/.test(k)));
+      for (const peer of [...this.peers.values()]) if (peer.member.identity && !this.invited.has(peer.member.identity)) this.turnAway(peer.member.pubkey);
     }
     /**
      * The keys the world's owner keeps out, as the world's gate last read them. Anyone here whose pass names one is
@@ -9355,7 +9421,7 @@ postMessage({ t: "started" });
         this.drop(peer.member.pubkey, true);
         return;
       }
-      if (this.ownerBlocked.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
+      if (this.ownerBlocked.has(checked.value.pubkey) || this.invited && !this.invited.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
       peer.passUntil = checked.value.expiresAt;
       Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
       if (this.namedOnly && !this.announced.has(peer.member.pubkey)) {
@@ -44972,7 +45038,7 @@ void main() {
   var pageGate = null;
   var rulesWatchers = /* @__PURE__ */ new Set();
   function pageRules() {
-    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly } : { blocked: [], namedOnly: false };
+    return pageGate ? { blocked: pageGate.ownerBlocked, namedOnly: pageGate.namedOnly, invited: pageGate.invited } : { blocked: [], namedOnly: false, invited: null };
   }
   function onPageRules(fn) {
     rulesWatchers.add(fn);
@@ -46903,7 +46969,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
     const words2 = (list) => Array.isArray(list) ? list.filter((w) => typeof w === "string") : [];
     const items2 = typeof said2.items === "string" && ITEM_RULES.includes(said2.items) ? said2.items : void 0;
-    const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {} });
+    const lines = worldOffers({ modes: words2(said2.modes), capabilities: words2(said2.capabilities), ...items2 ? { items: items2 } : {}, ...said2.access ? { access: said2.access } : {}, ...said2.byInvitation === true ? { byInvitation: true } : {} });
     return JSON.stringify(lines.map((o) => ({ ...o, ...o.onDoor ? { icon: ICONS[OFFER_ICONS[o.id]] } : {} })));
   }
   function menu(options) {
@@ -52440,7 +52506,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
   function createPresence(d) {
     const rulesNow = () => d.worldRules?.() ?? pageRules();
-    if (!d.worldRules) onPageRules(() => session2?.setOwnerBlocked(rulesNow().blocked));
+    const takeRules = () => {
+      const now = rulesNow();
+      session2?.setOwnerBlocked(now.blocked);
+      session2?.setInvited(now.invited ?? null);
+    };
+    if (!d.worldRules) onPageRules(takeRules);
     const labelColor = d.labelColor ?? "#ffffff";
     const changed = () => d.onChange?.();
     const listener = new AudioListener();
@@ -52900,9 +52971,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const look = typeof d.look === "function" ? d.look() : d.look;
       const identity = await byName(typeof d.identity === "function" ? d.identity() : d.identity);
       const rules = rulesNow();
+      const invitedOnly = rules.invited ?? null;
+      if (invitedOnly && !identity) throw new Error("this world is by invitation. Sign in, then join.");
       if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
       if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
-      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly });
+      if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
+      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
       session2 = s;
       if (!offsetApplied) {
         const off = spawnOffset(s.self.pubkey);
@@ -53235,7 +53309,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         changed();
       },
       rulesChanged() {
-        session2?.setOwnerBlocked(rulesNow().blocked);
+        takeRules();
       },
       blocked() {
         return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];

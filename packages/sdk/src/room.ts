@@ -106,6 +106,12 @@ export interface JoinOptions {
    * heard only once their pass has checked out, and one who shows none within a few seconds is let go.
    */
   namedOnly?: boolean;
+  /**
+   * Where the world is by invitation: the identity keys that may be in its rooms (the people its owner invited,
+   * and the keepers). A member is shown and heard only once their pass names one of them, as for `namedOnly`, and
+   * anyone else is let go. Left out or null, the world isn't by invitation.
+   */
+  invited?: Iterable<string> | null;
 }
 
 export type RoomStatus = "connecting" | "open" | "no-relays" | "closed";
@@ -239,8 +245,10 @@ export class RoomSession {
   private ownerBlocked = new Set<string>();
   /** Session keys let go this visit for the world's rules (the owner's list, or no pass where one is needed): not answered again. */
   private readonly turnedAway = new Set<string>();
-  /** Whether this room shows only people whose pass checks out. */
+  /** Whether this room shows only people whose pass checks out: so where it is by invitation, too. */
   readonly namedOnly: boolean;
+  /** Where the world is by invitation, who may be in its rooms; null where it isn't. */
+  private invited: Set<string> | null = null;
   /** In a room that shows only named people: the members shown, by session key, and what arrived for each before. */
   private readonly announced = new Set<string>();
   private readonly waiting = new Map<string, { kind: "audio" | "music" | "video"; stream: MediaStream }[]>();
@@ -330,7 +338,15 @@ export class RoomSession {
     this.iceServers = opts.iceServers ?? DEFAULT_ICE;
     for (const k of opts.blocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.blocked.add(k);
     for (const k of opts.ownerBlocked ?? []) if (/^[0-9a-f]{64}$/.test(k)) this.ownerBlocked.add(k);
-    this.namedOnly = opts.namedOnly === true;
+    this.invited = opts.invited ? new Set([...opts.invited].filter((k) => /^[0-9a-f]{64}$/.test(k))) : null;
+    this.namedOnly = opts.namedOnly === true || this.invited !== null;
+  }
+
+  /** Who may be in this world's rooms, as its gate last read the owner's allow list. Anyone here not on it is let go at once. */
+  setInvited(keys: Iterable<string> | null): void {
+    if (keys === null || this.invited === null) return;
+    this.invited = new Set([...keys].filter((k) => /^[0-9a-f]{64}$/.test(k)));
+    for (const peer of [...this.peers.values()]) if (peer.member.identity && !this.invited.has(peer.member.identity)) this.turnAway(peer.member.pubkey);
   }
 
   /**
@@ -674,8 +690,8 @@ export class RoomSession {
       this.drop(peer.member.pubkey, true);
       return;
     }
-    // Someone the world's owner keeps out: let go the moment who they are is known.
-    if (this.ownerBlocked.has(checked.value.pubkey)) return this.turnAway(peer.member.pubkey);
+    // Someone the world's owner keeps out, or hasn't invited where it is by invitation: let go the moment who they are is known.
+    if (this.ownerBlocked.has(checked.value.pubkey) || (this.invited && !this.invited.has(checked.value.pubkey))) return this.turnAway(peer.member.pubkey);
     peer.passUntil = checked.value.expiresAt;
     Object.assign(peer.member, { guest: false, identity: checked.value.pubkey, name: checked.value.name || shortNpub(checked.value.pubkey) });
     // In a room that shows only named people, they are shown from now: that they are here, then what was kept.

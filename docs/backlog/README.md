@@ -60,4 +60,4 @@ request that does the work. The page of what is in motion (the board,
 | [landing-04-prototype-notice](landing-04-prototype-notice.md) | A notice, once, that this is an early prototype | BitPortal | live (kit 0.73.0 release) |
 | [starter-world-as-a-3d-website](starter-world-as-a-3d-website.md) | The starter world as a walk through every feature | not briefed | asked |
 | [bitgate](bitgate.md) | BitGate deciding who may sell, be paid, and be shown | BitGate | briefed |
-| [private-worlds-by-invitation](private-worlds-by-invitation.md) | A world by invitation: its owner's own list of who may come in, and who may not | NSWP builder (kit); BitGate (the list's shape); BitPortal (client) | building (plan written; one decision is the owner's) |
+| [private-worlds-by-invitation](private-worlds-by-invitation.md) | A world by invitation: its owner's own list of who may come in, and who may not | NSWP builder (kit); BitGate (the list's shape); BitPortal (client) | building (block list and by-invitation merged, kit 0.77.0; the invite screen and sealed kind left) |

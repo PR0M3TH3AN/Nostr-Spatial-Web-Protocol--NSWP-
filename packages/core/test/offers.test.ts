@@ -11,8 +11,9 @@ const on = (world: World) => worldOffers(world).filter((o) => o.on).map((o) => o
 const words = (world: World, id: string) => worldOffers(world).find((o) => o.id === id)!.words;
 
 describe("what a world offers, from its announcement", () => {
-  it("is twelve things in a set order: seven for a door, then the rest", () => {
-    expect([...DOOR_OFFERS]).toEqual(["headset", "people", "voice", "items", "saves", "records", "paid"]);
+  it("is thirteen things in a set order: eight for a door, then the rest", () => {
+    // Eight is the most a door carries. "By invitation" sits beside "Paid" at the foot: what it takes to get in.
+    expect([...DOOR_OFFERS]).toEqual(["headset", "people", "voice", "items", "saves", "records", "by-invitation", "paid"]);
     expect([...OFFERS]).toEqual([...DOOR_OFFERS, ...MORE_OFFERS]);
     const all = worldOffers(read({}));
     expect(all.map((o) => o.id)).toEqual([...OFFERS]);
@@ -39,6 +40,15 @@ describe("what a world offers, from its announcement", () => {
     expect(on(read({ capabilities: ["rooms"] }))).toEqual(["people"]);
   });
 
+  it("lights 'By invitation' only where the announcement says it outright", () => {
+    const line = (w: Partial<World>) => worldOffers({ modes: [], capabilities: [], ...w }).find((o) => o.id === "by-invitation")!;
+    expect([line({ byInvitation: true }).on, line({ byInvitation: true }).words, line({ byInvitation: true }).name]).toEqual([true, "Only people its owner invited may go in.", "By invitation"]);
+    expect([line({}).on, line({}).words]).toEqual([false, "It doesn't say it is by invitation."]);
+    // Read from the announcement's tag, and from nothing else.
+    expect(worldOffers(read({ byInvitation: true })).find((o) => o.id === "by-invitation")!.on).toBe(true);
+    expect(worldOffers(read({ capabilities: ["entry-assertion", "home"] })).find((o) => o.id === "by-invitation")!.on).toBe(false);
+  });
+
   it("lights 'paid' only where a listing is named: an empty list, or one with no listing in it, is a free world", () => {
     const said = { modes: ["inline-3d"], capabilities: [] };
     const listing = `30078:${"b".repeat(64)}:ticket`;
@@ -56,7 +66,7 @@ describe("what a world offers, from its announcement", () => {
   });
 
   it("a world that says everything has every line on, with the words for it", () => {
-    const full = read({ modes: ["immersive-vr", "inline-3d"], capabilities: [...CAPABILITIES], items: "allowed", access: `30078:${"b".repeat(64)}:ticket` });
+    const full = read({ modes: ["immersive-vr", "inline-3d"], capabilities: [...CAPABILITIES], items: "allowed", access: `30078:${"b".repeat(64)}:ticket`, byInvitation: true });
     expect(on(full)).toEqual([...OFFERS]);
     for (const o of worldOffers(full)) expect(o.words, o.id).not.toMatch(/doesn't say/);
     expect(words(full, "saves")).toBe("Your progress is kept for you here.");
@@ -90,7 +100,8 @@ describe("what a world offers, from its announcement", () => {
     for (const world of [read({}), read({ capabilities: [...CAPABILITIES], items: "play", modes: ["immersive-vr"] })])
       for (const o of worldOffers(world)) {
         expect(o.name.length, o.id).toBeGreaterThan(2);
-        expect(o.name.length, o.id).toBeLessThanOrEqual(8);
+        // A word or two. The longest is "By invitation", the owner's own words for it (2026-11-21).
+        expect(o.name.length, o.id).toBeLessThanOrEqual(13);
         expect(o.words, o.id).toMatch(/^[A-Z].*\.$/);
         expect(o.words, o.id).not.toMatch(/capabilit|announcement|tag\b/i);
       }

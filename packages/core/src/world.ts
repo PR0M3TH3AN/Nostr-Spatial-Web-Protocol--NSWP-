@@ -77,6 +77,8 @@ export interface WorldInput {
    * signed by the key that signs this announcement. Left out, the world is free.
    */
   access?: string | string[];
+  /** It is by invitation: only people its owner invited may go in (its manifest says whose lists count). Written as `["by-invitation"]`. */
+  byInvitation?: boolean;
   createdAt?: number;
 }
 
@@ -114,6 +116,8 @@ export interface World {
    * listing's coordinate whose seller is the key that signed this announcement. Left out, the world is free.
    */
   access?: string[];
+  /** Its announcement says it is by invitation (`["by-invitation"]`). Left out where it doesn't. */
+  byInvitation?: true;
   createdAt: number;
 }
 
@@ -170,6 +174,7 @@ export function buildWorldEvent(w: WorldInput): EventTemplate {
   if (w.manifest) tags.push(["manifest", w.manifest]);
   for (const p of w.coCreators ?? []) tags.push(["p", p, "", "co-creator"]);
   for (const listing of [w.access ?? []].flat()) tags.push(["a", listing, "", "access"]);
+  if (w.byInvitation) tags.push(["by-invitation"]);
   tags.push(["alt", `Spatial world listing: ${w.title}`]);
   return { kind: WORLD_KIND, created_at: w.createdAt ?? nowSeconds(), tags, content: w.description ?? "" };
 }
@@ -382,6 +387,11 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
     else access.push(listing);
   }
 
+  // By invitation: one tag, with nothing after it. Anything after it is ignored, with a warning; the tag still says it.
+  const invitation = getTags({ tags }, "by-invitation");
+  if (invitation.length > 1) c.warn("duplicate_tag", "tags.by-invitation", "by-invitation appears more than once.");
+  if (invitation.some((t) => t.length > 1)) c.warn("ignored_value", "tags.by-invitation", "by-invitation takes no value; what follows it is ignored.");
+
   const world: World = {
     d: d ?? "",
     title: title ?? "",
@@ -411,6 +421,7 @@ export function parseWorldEvent(input: unknown, opts: ParseWorldOptions = {}): R
   if (items) world.items = items;
   if (manifest) world.manifest = manifest;
   if (access.length) world.access = access;
+  if (invitation.length) world.byInvitation = true;
   return c.result(world);
 }
 

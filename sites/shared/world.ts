@@ -260,10 +260,11 @@ function wrap(text: string, width: number): string[] {
 
 /**
  * Whether a world's own world.json asks for a gate: it names what the world is entered by (`access`), whose lists
- * count (`keepers`), or that its rooms show only named people (`named_only`). None of the worlds here does.
+ * count (`keepers`), that its rooms show only named people (`named_only`), or that it is by invitation
+ * (`by_invitation`). None of the worlds here does.
  */
 export function needsGate(world: Record<string, unknown>): boolean {
-  return (Array.isArray(world.access) ? world.access.length > 0 : world.access !== undefined) || world.keepers !== undefined || world.named_only === true;
+  return (Array.isArray(world.access) ? world.access.length > 0 : world.access !== undefined) || world.keepers !== undefined || world.named_only === true || world.by_invitation === true;
 }
 
 export async function startWorld(cfg: WorldConfig): Promise<void> {

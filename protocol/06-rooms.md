@@ -202,6 +202,11 @@ with nobody in charge, so this is what an honest client does.
   let go as above, and so is one whose pass runs out. A visitor who is a
   guest there is told, when they press Join, that they must sign in first,
   and is not joined.
+- **Only invited people,** where the world is by invitation. As for only
+  named people, and a member's pass must also name someone on the owner's
+  allow list, or a keeper; anyone else is let go. When the list changes,
+  anyone no longer on it is let go at once. A visitor not invited is told
+  so at Join, and is not joined.
 - **Refused after the connection opens, not before.** A pass travels on the
   channel, which opens before it can be read. So someone kept out does
   connect for a moment, and learns the addresses connections are made

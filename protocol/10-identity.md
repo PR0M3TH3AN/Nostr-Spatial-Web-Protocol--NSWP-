@@ -827,10 +827,10 @@ on a door for what the visitor already holds.
 
 ## A world's own lists
 
-**Status:** the block list is implemented (kit after 0.74.0: core
-`readOwnerList`, `resolveOwnerList`; the gate and rooms), tried with three
-scripted visitors on a relay on one machine. The allow list, and a world
-that is by invitation, are designed and not built · **Vectors:**
+**Status:** the block list and a world by invitation are implemented (core
+`readOwnerList`, `resolveOwnerList`; the gate and rooms), tried with
+scripted visitors on a relay on one machine. The owner's screen in the
+console is not built · **Vectors:**
 [`governance-lists`](../vectors/governance-lists.json) (BitGate's own) ·
 **Code:** [`owner-lists.ts`](../packages/core/src/owner-lists.ts)
 
@@ -885,23 +885,48 @@ held to every one of them.
   unreadable. This is so that a relay that is down can't shut a world.
 - It is read as the world loads and every five minutes after.
 
+**A world by invitation** says so twice: `by_invitation` in its manifest,
+which is what it acts on, and `["by-invitation"]` in its announcement, so a
+door can say it before anyone crosses ([NSWP-01](01-worlds.md)). Its owner's
+allow list (`user-allow`) names who is invited.
+
+- The gate opens only for a visitor signed in as a key on the allow list,
+  or a keeper. Someone signed out is asked to sign in, so the world can see
+  whether they are invited; someone signed in and not on it is told "This
+  world is by invitation, and its owner hasn't invited you." and offered
+  nothing to press.
+- **Blocked beats invited:** someone on both is kept out.
+- **A list that isn't found, doesn't read, or that no relay answered with
+  lets nobody in but a keeper**, and the gate says which. An allow list that
+  names nobody is a list: nobody but the owner, never "no list". Where no
+  relay answers, the copy this device remembers still lets in whom it names.
+- With no `keepers` named, the key that announced the world keeps its lists.
+- A world that is by invitation and paid wants both: invited, and a receipt.
+- **Its rooms show and hear only invited people** and the keepers
+  ([NSWP-06](06-rooms.md), "A world's own rules"), as `named_only` does for
+  everyone with a pass.
+- **By invitation is not private.** It keeps people from walking in. The
+  world's files are still handed to anyone who asks for them outside the
+  kit. Only a world whose contents are sealed, with the key handed to each
+  person invited, is private, and that is not built.
+
 **Anyone can read the list.** That is the owner's decision (2026-11-21):
 every screen that changes one says "Anyone can read this list", and a block
 list shows the world whom its owner blocked. It is not the visitor's own
 blocks, which stay on their device, published nowhere and told to nobody
 ("In a room"), and the two are never merged.
 
-**Writing one.** `nswp sign-world-list block <world> [people…] --key-file
+**Writing one.** `nswp sign-world-list <block|allow> <world> [people…] --key-file
 <file>` signs the whole list as it should be, and `nswp publish` sends it,
 which for a real world is its owner's word. A screen in the visitor's
 console for the owner is not built: it needs a request to the sign-in
 address that asks the owner each time, built as following one person is, and
 never by loosening what a world's signer may sign.
 
-**Not built:** the allow list and `by_invitation` (stage 2), the owner's
-screen, a newer list passed round a room the moment it changes (a new word
-on the channel, to be asked for), and the owner's block list for every world
-of theirs (BitGate's application-wide list, which has no examples yet).
+**Not built:** the owner's screen in the console, a newer list passed round
+a room the moment it changes (a new word on the channel, to be asked for),
+the owner's block list for every world of theirs (BitGate's
+application-wide list, which has no examples yet), and the sealed kind.
 
 ## Shares
 

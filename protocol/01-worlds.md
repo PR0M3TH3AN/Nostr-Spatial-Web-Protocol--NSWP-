@@ -72,7 +72,7 @@ world, publish it with `status` `retired`.
 
 A client has a world's announcement before anyone looks at its door, so a
 door can say what its world offers without a site being asked anything.
-Twelve things, read by one function (`worldOffers` in `@nswp/core`), each
+Thirteen things, read by one function (`worldOffers` in `@nswp/core`), each
 from what the announcement says in so many words:
 
 | A door shows | It is said by |
@@ -83,6 +83,7 @@ from what the announcement says in so many words:
 | The things visitors carry work there | `items` `allowed` or `play` |
 | A visitor's progress is kept ([NSWP-12](12-saves.md)) | `capability` `saves` |
 | It keeps scores, or marks what a visitor achieves ([NSWP-15](15-scores.md), [NSWP-16](16-achievements.md)) | `capability` `scores`, `achievements` |
+| Only people its owner invited may go in | `by-invitation` (see "A world by invitation") |
 | It costs money to go in | an `a` tag marked `access`, naming what is sold |
 
 | A door's details add | It is said by |
@@ -148,6 +149,17 @@ has listed, and drops from those any that say they are adult.
 `t` tags are hashtags: lowercase, without the `#`. A client may let a
 visitor find worlds by them, and rank by the ones the visitor likes.
 
+### A world by invitation
+
+`["by-invitation"]`, one tag with nothing after it, says only people its
+owner invited may go in. Anything after it is ignored with a warning, and
+the tag still says it. A door shows it as the eighth thing it carries,
+beside "Paid" at the foot: what it takes to get in. It is there so a client
+can say so before anyone crosses, with nothing asked of the world. What the
+world acts on is its own site's word, `by_invitation` in its manifest
+("The manifest", below), and who is invited is its owner's allow list
+([NSWP-10](10-identity.md), "A world's own lists").
+
 ### A paid world
 
 A world that is paid says so by naming what it is entered by: one `a` tag
@@ -206,7 +218,7 @@ the world's own address, and from nowhere else: the world never passes it
 along when it asks ([NSWP-10](10-identity.md), "Tips, buying, and
 receipts"). The file is readable from any site, as it already must be.
 
-`keepers` and `named_only`, inside a world's own entry, are the world's
+`keepers`, `named_only` and `by_invitation`, inside a world's own entry, are the world's
 own rules for who comes in ([NSWP-10](10-identity.md), "A world's own
 lists"):
 
@@ -217,8 +229,12 @@ lists"):
 - `named_only`: `true` says this world's rooms show only people whose pass
   checks out ([NSWP-06](06-rooms.md), "A world's own rules"). Only exactly
   `true` turns it on; any other value is ignored with a warning.
+- `by_invitation`: `true` says only people a keeper's allow list names, and
+  the keepers, may go in, and its rooms show only them. With no `keepers`,
+  the key that announced the world keeps its lists. Only exactly `true`
+  turns it on; any other value is ignored with a warning.
 
-Both are left out of the example above because most worlds say neither.
+All three are left out of the example above because most worlds say neither.
 
 `access`, inside a world's own entry, is the same list of listings the
 announcement gives, as the site itself says it: an array of coordinates.

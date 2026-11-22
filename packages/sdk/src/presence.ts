@@ -29,7 +29,7 @@ export interface PresenceOptions {
    * room is joined, and again when `rulesChanged()` is called. Left out, the page's own gate's (`pageRules` in
    * ui/identity.ts), taken again whenever that gate reads a change; with no gate, a room is as it always was.
    */
-  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean };
+  worldRules?: () => { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null };
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   /** The object that moves the visitor around; the camera is inside it. */
@@ -419,9 +419,15 @@ export function speechSprite(text: string, width = 0.8): THREE.Sprite {
 
 export function createPresence(d: PresenceOptions): Presence {
   /** The world's rules for its rooms: as given, or as this page's gate last read them. */
-  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean } => d.worldRules?.() ?? pageRules();
+  const rulesNow = (): { blocked: readonly string[]; namedOnly: boolean; invited?: readonly string[] | null } => d.worldRules?.() ?? pageRules();
+  /** A room here takes the world's rules as they now stand. */
+  const takeRules = (): void => {
+    const now = rulesNow();
+    session?.setOwnerBlocked(now.blocked);
+    session?.setInvited(now.invited ?? null);
+  };
   // The page's gate read a newer list: a room here takes it at once.
-  if (!d.worldRules) onPageRules(() => session?.setOwnerBlocked(rulesNow().blocked));
+  if (!d.worldRules) onPageRules(takeRules);
   const labelColor = d.labelColor ?? "#ffffff";
   const changed = () => d.onChange?.();
   const listener = new THREE.AudioListener();
@@ -966,9 +972,12 @@ export function createPresence(d: PresenceOptions): Presence {
     // The world's own rules: who its owner keeps out, and whether only named people are shown. A visitor they'd
     // keep out is told so here, before anyone else learns their address by being joined.
     const rules = rulesNow();
+    const invitedOnly = rules.invited ?? null;
+    if (invitedOnly && !identity) throw new Error("this world is by invitation. Sign in, then join.");
     if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
     if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
-    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly });
+    if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
+    const s = await room.join({ ...(name ? { name } : {}), ...(look ? { look } : {}), ...(identity ? { identity } : {}), blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
     session = s;
     if (!offsetApplied) {
       // Step aside from the spawn point so two people don't arrive inside each other.
@@ -1317,7 +1326,7 @@ export function createPresence(d: PresenceOptions): Presence {
       changed();
     },
     rulesChanged() {
-      session?.setOwnerBlocked(rulesNow().blocked);
+      takeRules();
     },
     blocked() {
       return [...keptBlocks.map((b) => ({ key: b.key, name: b.name, kept: true })), ...[...blockedNow].map(([key, name]) => ({ key, name, kept: false }))];

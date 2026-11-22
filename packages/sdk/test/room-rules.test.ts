@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 /** A session, and a way to have someone arrive in it, show a pass, and send a voice. */
-function room(opts: { ownerBlocked?: string[]; namedOnly?: boolean; blocked?: string[] } = {}) {
+function room(opts: { ownerBlocked?: string[]; namedOnly?: boolean; blocked?: string[]; invited?: string[] } = {}) {
   const s = new RoomSession({ world: WORLD, relays: [], ...opts }) as Session & Record<string, unknown>;
   const seen = { member: [] as string[], leave: [] as string[], audio: [] as string[], identity: [] as string[] };
   s.on("member", (m: Member) => seen.member.push(m.pubkey));
@@ -102,6 +102,32 @@ describe("the world owner's block list, in a room", () => {
     const r = room({ ownerBlocked: [getPublicKey(key(4))] });
     const guest = r.arrive(4);
     expect(r.members()).toEqual([guest.pubkey]);
+  });
+});
+
+describe("a room in a world by invitation", () => {
+  it("shows only people whose pass names someone invited, and lets anyone else go", () => {
+    const invited = [getPublicKey(key(11))];
+    const r = room({ invited });
+    expect(r.s.namedOnly).toBe(true);
+    const them = r.arrive(11);
+    const other = r.arrive(12);
+    them.voice();
+    other.voice();
+    expect(r.members()).toEqual([]);
+    them.pass(11);
+    other.pass(12);
+    expect([r.members(), r.seen.member, r.seen.audio]).toEqual([[them.pubkey], [them.pubkey], [them.pubkey]]);
+    expect(r.internals.turnedAway.has(other.pubkey)).toBe(true);
+  });
+
+  it("lets go of someone no longer invited when the list changes", () => {
+    const r = room({ invited: [getPublicKey(key(13))] });
+    const them = r.arrive(13);
+    them.pass(13);
+    expect(r.members()).toEqual([them.pubkey]);
+    r.s.setInvited([]);
+    expect([r.members(), r.seen.leave]).toEqual([[], [them.pubkey]]);
   });
 });
 

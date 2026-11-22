@@ -153,11 +153,12 @@ When a timed pass runs out with the visitor inside, `open` stays true for
 two minutes (`state` "ending") and then turns false: stand them before the
 gate again, and load nothing.
 
-A world that keeps lists (its manifest names `keepers`), or whose rooms show
-only named people (`named_only`), calls `NSWP.gate()` too, paid or not: that
+A world that keeps lists (its manifest names `keepers`), whose rooms show
+only named people (`named_only`), or that is by invitation
+(`by_invitation`), calls `NSWP.gate()` too, paid or not: that
 is what reads its own rules ([NSWP-10](../protocol/10-identity.md), "A
 world's own lists"). The gate then also shuts for someone its owner keeps
-out, with `reason` "blocked", and the room the kit's script keeps for the
+out (`reason` "blocked") or hasn't invited (`reason` "not-invited"), and the room the kit's script keeps for the
 engine takes the same rules with nothing more to do.
 
 ## The latest, always
@@ -198,7 +199,7 @@ not copies of them. The menu is drawn by the page over the engine's canvas.
 | `NSWP.claim(on)` | Take every key for the game, or give them back. |
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
-| `NSWP.offers(world)` | What a world offers, for the tiles beside its door: twelve lines in a set order, each lit or dark with a sentence for it, and a drawing for the seven a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
+| `NSWP.offers(world)` | What a world offers, for the tiles beside its door: thirteen lines in a set order, each lit or dark with a sentence for it, and a drawing for the eight a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
 | `NSWP.gate(options)` | A paid world's gate: what the visitor holds, what is for sale, and `gate-buy` in the menu. Returns JSON (`state`, `open`, `reason`, `why`, `offers`, `until`); a `gate` event with the same fields comes when it changes. `{"paid":false}` makes nothing. See "A paid world's gate" |
 
 The events are `moving` (they chose casual or intense), `menu` (it opened or
