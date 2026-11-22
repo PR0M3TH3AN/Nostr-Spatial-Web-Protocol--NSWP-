@@ -83,6 +83,20 @@ Mobile is always casual."
 - Desk and headset are two choices, each asked once; one never answers
   the other.
 
+## How it is carried (the orchestrator's decision, 2026-11-21, after the BitPortal session's check)
+
+- The kit's own way out was already right (step 2 needed no change), and
+  `set=`'s `intense` and `turn` are the desk's choice and the headset's
+  notch, as written. The headset's choice travels only as `moving`, which
+  is present only for intense, so "answered casual" couldn't be told from
+  "never asked".
+- So the headset's choice gets one new field in `TravelSettings`, with
+  both values, as the desk's `intense` already has (NSWP-11 first, a name
+  given under rule 11, vectors). `moving` stays as it is.
+- A world asks the headset or desk question only when nothing for that
+  choice arrived and nothing is kept on that site; BitPortal's sealed note
+  keeps both. A world reached with nothing carried asks once on that site.
+
 ## Done looks like
 
 The owner, on the Quest, switches to intense in BitPortal's room, walks
