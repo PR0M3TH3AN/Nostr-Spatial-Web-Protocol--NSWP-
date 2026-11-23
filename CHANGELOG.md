@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Nothing above a world can turn "Load people's files from anywhere" on** (core `cleanMenuSettings`, `MenuSettings`; SDK `file-hosts.ts`, `ui/port-below.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). No change for a visitor: no client has said it yet.
+  - The switch is for the one place the visitor is in, and that place keeps it. Where a client draws the menu the row is still the world's, pressed through the client, so a client has no need to say it.
+  - `filesAnywhere: true` in a client's settings is now dropped, as a link's always was. `false` is still taken, as from a link. Two examples in the vectors say so.
+  - A client never says it down, on or off (`portBelow`): a client that said "off" with everything else would have turned it off in every world it showed.
+  - This undoes one line of the entry for the world's end below, which let a client turn it on for the world the visitor was in.
+
 - **The chat's pane says whose it is** (`packages/sdk/src/ui/hud.ts`; the orchestrator, 2026-11-23). Where a world keeps the chat's pane because its client has the menu, the pane has the world's name at its head. It is in the world's colour and the client's menu in the visitor's, so the colour and the name tell the two apart. Nothing changes where a world draws its own menu.
 - **A trial routes every WebSocket too, and lists what was asked for** (`trials/README.md`, under Rules): a route for requests doesn't see the relays a world opens.
 

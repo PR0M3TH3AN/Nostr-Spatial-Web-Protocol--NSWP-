@@ -9860,12 +9860,12 @@ postMessage({ t: "started" });
       kept2 = globalThis.localStorage?.getItem(ANYWHERE_KEY) ?? null;
     } catch {
     }
-    anywhere = came === false ? false : came === true ? true : kept2 === "on";
-    if (came !== void 0) keep3(anywhere);
+    anywhere = came === false ? false : kept2 === "on";
+    if (came === false) keep3(false);
     reportSettings(
       "files-anywhere",
       () => filesAnywhere() ? {} : { filesAnywhere: false },
-      (now) => void (now.filesAnywhere !== void 0 && now.filesAnywhere !== anywhere && setFilesAnywhere(now.filesAnywhere))
+      (now) => void (now.filesAnywhere === false && anywhere !== false && setFilesAnywhere(false))
     );
     return anywhere;
   }

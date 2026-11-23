@@ -16,10 +16,7 @@ import { cleanMenuSettings, cleanSettings, type MenuSettings, type TravelSetting
 
 export type { MenuSettings, TravelSettings } from "@nswp/core";
 
-/**
- * What they arrived with, and over it whatever their client has said since. `filesAnywhere: true` can only have come
- * from a client above (`changeSettings`): a link's settings drop it as they are read.
- */
+/** What they arrived with, and over it whatever their client has said since. */
 let arrived: MenuSettings = {};
 const parts = new Map<string, () => TravelSettings>();
 const takers = new Map<string, (changed: MenuSettings) => void>();
@@ -57,8 +54,8 @@ export function reportSettings(part: string, now: () => TravelSettings, take?: (
  * they changed something in it (protocol/02-doors.md, "The client has the menu"). Each part of the kit that holds
  * one of these settings takes it at once. A part that hasn't started yet begins from it when it does.
  *
- * Only for words from the page directly above, read with `readMenuWordDown`: this is the one way
- * `filesAnywhere: true` is ever taken, and a link must never reach it.
+ * What a client says is cleaned as a link's settings are: it can turn nothing on that a link couldn't, and
+ * "load people's files from anywhere" least of all. That switch is the world's own row, at the visitor's own press.
  */
 export function changeSettings(settings: unknown): MenuSettings {
   const changed = cleanMenuSettings(settings);

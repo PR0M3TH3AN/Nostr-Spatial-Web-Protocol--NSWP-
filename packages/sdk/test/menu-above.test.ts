@@ -199,9 +199,10 @@ describe("what a world takes from above", () => {
     const w = make();
     w.say({ nswp: "menu", has: true, v: 1, settings: { text: 1.3 } });
     expect(w.controls.theme.scale).toBe(1.3);
+    // And never "load people's files from anywhere": nothing above a world turns that on.
     w.say({ nswp: "menu", settings: { motion: false, filesAnywhere: true } });
     expect(w.controls.theme.motion).toBe(false);
-    expect(filesAnywhere()).toBe(true);
+    expect(filesAnywhere()).toBe(false);
   });
 
   it("is nothing at all from a page that hasn't said it has the menu", () => {

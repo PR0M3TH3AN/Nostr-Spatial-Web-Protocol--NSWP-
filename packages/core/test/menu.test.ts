@@ -20,7 +20,7 @@ const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")
 
 describe("the menu's words, by the examples", () => {
   it("has examples of every kind", () => {
-    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([16, 17, 13, 4]);
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([16, 19, 13, 4]);
   });
   for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
   for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));
@@ -47,8 +47,11 @@ describe("the limits and the lists", () => {
     expect(reportedSettings(null)).toEqual({});
   });
 
-  it("let only a client's word turn loading from anywhere on, never a link's settings", () => {
-    expect(cleanMenuSettings({ filesAnywhere: true, text: 1.1 })).toEqual({ filesAnywhere: true, text: 1.1 });
+  it("let nothing above a world turn loading from anywhere on: a client's settings are cleaned as a link's are", () => {
+    expect(cleanMenuSettings({ filesAnywhere: true, text: 1.1 })).toEqual({ text: 1.1 });
+    expect(readMenuWordDown({ nswp: "menu", has: true, v: 1, settings: { filesAnywhere: true } })).toEqual({ what: "has", has: true, v: 1, settings: {} });
+    expect(readMenuWordDown({ nswp: "menu", settings: { filesAnywhere: true } })).toEqual({ what: "settings", settings: {} });
+    // Off is always safe, and is taken.
     expect(cleanMenuSettings({ filesAnywhere: false })).toEqual({ filesAnywhere: false });
     expect(cleanMenuSettings("on")).toEqual({});
   });

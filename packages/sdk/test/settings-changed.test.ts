@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { lookScale, resetDesk, visitorFov } from "../src/desk.js";
-import { filesAnywhere, forgetFileHosts } from "../src/file-hosts.js";
+import { filesAnywhere, forgetFileHosts, setFilesAnywhere } from "../src/file-hosts.js";
 import { forgetItemsSwitch, showsItems } from "../src/item-store.js";
 import { forgetModelsSwitch, showsModels } from "../src/look-models.js";
 import { resetPictures, showsPictures } from "../src/picture.js";
@@ -99,22 +99,28 @@ describe("loading people's files from anywhere", () => {
     expect(filesAnywhere()).toBe(false);
   });
 
-  it("is turned on by the visitor's own client, for this world, and off again", () => {
+  it("is never turned on by the visitor's client either: nothing above a world can", () => {
     expect(filesAnywhere()).toBe(false);
+    expect(changeSettings({ filesAnywhere: true, text: 1.2 })).toEqual({ text: 1.2 });
+    expect(filesAnywhere()).toBe(false);
+  });
+
+  it("isn't on from the start because a client said so before anything asked", () => {
     changeSettings({ filesAnywhere: true });
+    expect(filesAnywhere()).toBe(false);
+  });
+
+  it("is turned on by the visitor's own press here, and off by their client, which is always safe", () => {
+    setFilesAnywhere(true);
+    expect(filesAnywhere()).toBe(true);
+    changeSettings({ text: 1.1 });
     expect(filesAnywhere()).toBe(true);
     changeSettings({ filesAnywhere: false });
     expect(filesAnywhere()).toBe(false);
   });
 
-  it("is on from the start where their client said so before anything asked", () => {
-    changeSettings({ filesAnywhere: true });
-    expect(filesAnywhere()).toBe(true);
-  });
-
   it("never goes on through a door, though it is on here", () => {
-    changeSettings({ filesAnywhere: true });
-    expect(filesAnywhere()).toBe(true);
+    setFilesAnywhere(true);
     expect(currentSettings().filesAnywhere).toBeUndefined();
   });
 });

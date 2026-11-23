@@ -188,7 +188,13 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     removeEventListener: (type, fn) => window.removeEventListener(type, fn),
   };
   const self = opts.origin ?? location.origin;
-  const settingsNow = (): MenuSettings => cleanMenuSettings(opts.settings ? opts.settings() : currentSettings());
+  // "Load people's files from anywhere" is never said down, on or off: it is for one place, the visitor's own press
+  // on that place's own row, and that place keeps it. A client that said "off" with everything else would turn it
+  // off in every world it showed.
+  const settingsNow = (): MenuSettings => {
+    const { filesAnywhere: _notSaid, ...rest } = cleanMenuSettings(opts.settings ? opts.settings() : currentSettings());
+    return rest;
+  };
   const watchers = new Set<() => void>();
   const viewers = new Set<() => void>();
   const sayers = new Set<(text: string) => void>();

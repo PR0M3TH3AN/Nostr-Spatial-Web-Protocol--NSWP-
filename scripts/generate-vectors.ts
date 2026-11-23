@@ -1704,11 +1704,13 @@ const files: Record<string, unknown> = {
   expectEqual("menu-words/counting too_big", counting[3]!.expect, null);
 
   const down: { name: string; word: unknown; expect: unknown }[] = [
-    { name: "has", word: { nswp: "menu", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"], filesAnywhere: true, admin: true } }, expect: { what: "has", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"], filesAnywhere: true } } },
+    { name: "has", word: { nswp: "menu", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"], filesAnywhere: true, admin: true } }, expect: { what: "has", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"] } } },
     { name: "has_a_newer_version", word: { nswp: "menu", has: true, v: 7, settings: {} }, expect: { what: "has", has: true, v: MENU_VERSION, settings: {} } },
     { name: "has_no_version", word: { nswp: "menu", has: true, settings: {} }, expect: null },
     { name: "has_no_longer", word: { nswp: "menu", has: false }, expect: { what: "has", has: false } },
     { name: "settings", word: { nswp: "menu", settings: { sound: { music: 0.25 }, turn: 45 } }, expect: { what: "settings", settings: { sound: { music: 0.25 }, turn: 45 } } },
+    { name: "settings_cant_turn_files_from_anywhere_on", word: { nswp: "menu", settings: { filesAnywhere: true, text: 1.1 } }, expect: { what: "settings", settings: { text: 1.1 } } },
+    { name: "settings_can_turn_files_from_anywhere_off", word: { nswp: "menu", settings: { filesAnywhere: false } }, expect: { what: "settings", settings: { filesAnywhere: false } } },
     { name: "press", word: { nswp: "menu", press: "room-join" }, expect: { what: "press", press: "room-join" } },
     { name: "press_with_what_was_typed", word: { nswp: "menu", press: "guests-key", field: " npub1ana\n" }, expect: { what: "press", press: "guests-key", field: " npub1ana\n" } },
     { name: "press_with_too_much_typed", word: { nswp: "menu", press: "guests-key", field: "k".repeat(MENU_LIMITS.field + 1) }, expect: null },
@@ -1752,12 +1754,12 @@ const files: Record<string, unknown> = {
     { name: "says_it_wrongly", here: { nswp: "here", at: "/", menu: "1" }, expect: 0 },
   ];
   for (const c of here) expectEqual(`menu-words/here ${c.name}`, menuVersionOf(c.here), c.expect);
-  expectEqual("menu-words/settings a link can't carry", [cleanMenuSettings({ filesAnywhere: true }), cleanMenuSettings({ filesAnywhere: "yes" })], [{ filesAnywhere: true }, {}]);
+  expectEqual("menu-words/nothing above a world turns files from anywhere on", [cleanMenuSettings({ filesAnywhere: true }), cleanMenuSettings({ filesAnywhere: "yes" }), cleanMenuSettings({ filesAnywhere: false })], [{}, {}, { filesAnywhere: false }]);
   expectEqual("menu-words/reported nothing private", reportedSettings({ filesAnywhere: false, pictures: false, models: false, chat: false, items: false, holding: "", full: true, intense: true }), { intense: true });
 
   files["menu-words.json"] = {
     description:
-      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
     waits: { MENU_WAIT_MS, LEAVE_MS },
