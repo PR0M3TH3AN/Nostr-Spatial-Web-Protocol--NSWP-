@@ -789,6 +789,8 @@ here is known to work until a person has done it. Kept as one list so none is lo
 | Signed in to a world for real, press "Sign out here" in the client's menu | The world signs you out at once, without asking: people there see a guest, and the row becomes "Sign in to <the world>" | The trials have no sign-in, so only the word and the world's act on it are tested |
 | Bag: choose a thing in the client's menu | Its picture turns at the head of the tab, as it does in a world's own menu | The stand-in client gives the kit's Bag no previews, so its turning picture was never drawn in a client's page |
 | Bag: take up a thing that does things of its own (the dart blaster) | The client's Bag asks first, "Let it run, and hold…"; the second press holds it, and it works in the world | Tried with a made-up visitor and a made-up bag only |
+| Moving: switch to the intense way in the client's menu, close it, and press on the view | The mouse looks round at once, and W, A, S, D walk: the way the world moves you changed with the switch | A scripted browser can't hold the pointer; the trial reads the world's own switch, not the moving |
+| On a phone, or a Quest's flat page: "Jump" in the client's menu, under the world's name in Moving | You jump. It is the only way to jump with no keyboard | No touch screen was tried |
 | On a phone, the client's menu over a world | Step 5: the frame on a phone is its own step | |
 
 **Parked while this is built:** seated mode step 2 (the seat). The fade from step 1 of
