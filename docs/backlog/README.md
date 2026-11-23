@@ -120,7 +120,7 @@ urgent (a live fault), it goes first.
 | [headset-menu-like-the-flat-one](headset-menu-like-the-flat-one.md) | In a headset, the flat screen's menu: larger, floating, the bar below tilted towards you, things coming forward under the pointer | NSWP builder | asked (after Godot's headset controls; a design with pictures first) |
 | [guest-accounts](guest-accounts.md) | One identity across BitPortal: a guest is a generated account made automatically, and a guest or an account is known in every world without being asked | design first (BitLogin, with the kit's half) | asked |
 | [ai-keys-and-agents](ai-keys-and-agents.md) | AI provider keys kept in BitLogin (intelligence, voice, System 1, other), and AI agents in the worlds made by signed notes, paid for by each visitor's own key | design first (BitLogin, the kit, BitPortal) | asked |
-| [agents-0-contracts](agents-0-contracts.md) | The words and the boundaries, before anything is built | not briefed (nswp-agents) | asked; not a priority |
+| [agents-0-contracts](agents-0-contracts.md) | The words and the boundaries, before anything is built | not briefed (nswp-agents) | started 2026-11-23 in nswp-agents (the owner's word to its session) |
 | [agents-1-several-in-one-world](agents-1-several-in-one-world.md) | Several agents in one world, in the visitor's own browser | not briefed (nswp-agents) | asked; not a priority |
 | [agents-2-a-world-places-them](agents-2-a-world-places-them.md) | A world's maker places agents by writing data | not briefed (nswp-agents) | asked; not a priority |
 | [agents-3-who-an-agent-is](agents-3-who-an-agent-is.md) | Who an agent is, as signed notes, with its SOUL | not briefed (nswp-agents) | asked; not a priority |
