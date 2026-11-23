@@ -16,8 +16,10 @@
   the kit (the NSWP builder) and BitPortal's shell (the BitPortal session).
 - **State:** asked; first in the order (the owner, 2026-11-23). Design
   drafted: [`docs/plans/the-clients-menu.md`](../plans/the-clients-menu.md),
-  with questions for the owner and the orchestrator (its section 14).
-  Nothing is built until they are answered.
+  answered by the orchestrator on 2026-11-23 (names given, steps agreed).
+  Steps 0 (the seam) and 0b (the press trial) are being built by the NSWP
+  builder. The owner's eight questions (its section 14) are open, and step
+  1 waits for them.
 
 ## What is true today
 
