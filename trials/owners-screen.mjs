@@ -213,7 +213,13 @@ try {
 
   // ---- Ben, arriving again: let in.
   await ben.arrive();
-  const gb2 = await ben.until(async () => { const g = await ben.gate(); return g.state !== "checking" ? g : null; }, 60000);
+  // Waited for until he is let in, not until the gate has said anything at all: on a busy machine his page's first
+  // reading of the relay can come back with the list as it was a moment before, and the gate says "shut" until its
+  // next reading. (This step failed that way once on 2026-11-23, at a load of 25, and passed on the next run.) What
+  // the gate said first is kept beside it, so a gate that is shut first and open after is still seen.
+  const gbFirst = await ben.until(async () => { const g = await ben.gate(); return g.state !== "checking" ? g : null; }, 60000);
+  const gb2 = (await ben.until(async () => { const g = await ben.gate(); return g.state === "open" ? g : null; }, 60000)) ?? (await ben.gate());
+  r["10 what Ben's gate said first"] = gbFirst && [gbFirst.state, gbFirst.reason ?? null];
   want("10 Ben, arriving again, is let in", [gb2.state, gb2.open], ["open", true]);
 
   // ---- Blocking: Cy, from the keeper's screen. Blocked beats invited.
