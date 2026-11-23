@@ -508,6 +508,64 @@ export function cleanSongs(input: unknown): Song[] {
   return out;
 }
 
+// ------------------------------------------------------- how their own music is played
+
+/** How the visitor's own music is played. Theirs, kept with their songs, for this site. */
+export interface JukeHow {
+  /** The songs in an order of chance, not the order they were added. */
+  shuffle: boolean;
+  /** What happens at the end: stop after the last song, go round again, or play this one again. */
+  repeat: "off" | "all" | "one";
+  /** Play and pause kept on their bar, with what is playing named under it. */
+  bar: boolean;
+}
+export const JUKE_REPEATS = ["off", "all", "one"] as const;
+/** As it was before there was a choice: the list goes round. */
+export const DEFAULT_HOW: JukeHow = { shuffle: false, repeat: "all", bar: false };
+/** How far "back" and "forward" move within a song, in seconds. */
+export const SKIP_SECONDS = 15;
+/** "Previous", this far into a song or further, goes to the song's start; sooner than that, to the song before. */
+export const RESTART_AFTER = 3;
+
+export function cleanHow(input: unknown): JukeHow {
+  const h = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return { shuffle: h.shuffle === true, repeat: (JUKE_REPEATS as readonly unknown[]).includes(h.repeat) ? (h.repeat as JukeHow["repeat"]) : DEFAULT_HOW.repeat, bar: h.bar === true };
+}
+
+/** A time in a song as a clock shows it: 0:07, 3:45, 1:02:03. */
+export function songClock(seconds: number): string {
+  const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const two = (n: number) => String(n).padStart(2, "0");
+  const [h, m, sec] = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60];
+  return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+}
+
+/**
+ * The songs in an order of chance, with the one playing first, so that turning shuffle on changes nothing they are
+ * hearing. Every song once.
+ */
+export function shuffledSongs(ids: readonly string[], first: string | null, random: () => number = Math.random): string[] {
+  const rest = ids.filter((id) => id !== first);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j]!, rest[i]!];
+  }
+  return first !== null && ids.includes(first) ? [first, ...rest] : rest;
+}
+
+/**
+ * The song after the current one in an order (`step` 1), or before it (-1). Past either end it goes round where
+ * `round` says so, and is null where it doesn't. With no current song, or one that isn't in the order, the first.
+ */
+export function songBeside(order: readonly string[], current: string | null, step: 1 | -1, round: boolean): string | null {
+  if (order.length === 0) return null;
+  const at = current === null ? -1 : order.indexOf(current);
+  if (at === -1) return order[0]!;
+  const to = at + step;
+  if (to >= 0 && to < order.length) return order[to]!;
+  return round ? order[(to + order.length) % order.length]! : null;
+}
+
 /** Whether a file may be kept as a song, and if not, why, in words for the visitor. */
 export function songRefusal(file: { type?: string; size?: number; name?: string }, have: number): string | null {
   const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";

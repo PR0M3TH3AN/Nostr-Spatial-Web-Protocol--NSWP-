@@ -308,6 +308,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 .field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
 .field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
+/* A bar that is moved along: what it is of, the bar, and where it is in words. */
+.slide { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 12px; margin: 0; padding: 8px 12px;
+  border-radius: 10px; border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
+.slide.on { border-color: rgba(var(--accent), .5); }
+.slide.on svg { color: rgb(var(--accent)); }
+.slide .name { min-width: 0; grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slide input { grid-column: 1 / 3; width: 100%; min-height: 28px; margin: 0; accent-color: rgb(var(--accent)); }
+.slide input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
+.slide .time { font-size: .86em; color: rgba(var(--ink), .7); white-space: nowrap; }
 /* A row that takes a file: its button, and under it where the file goes. */
 .takes { grid-column: 1 / -1; display: grid; gap: 4px; }
 .takes .to { margin: 0; padding: 0 12px; font-size: .86em; color: rgba(var(--ink), .6); }
@@ -721,6 +730,69 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const clearFields = () => {
     for (const f of fields.values()) f.input.value = "";
     fields.clear();
+    sliders.clear();
+    if (looking) clearInterval(looking);
+    looking = null;
+  };
+  /**
+   * The bars that are moved along (`kind: "slider"`), by id: each is kept while the menu is up, as a box typed into
+   * is, so that the list being laid out afresh doesn't take one from under the visitor's hand. Where it is and its
+   * words are not part of what the menu is drawn from: they are asked for again twice a second while one is in
+   * sight, so that a song is seen to run without anything else being drawn again. The row is told only where the
+   * visitor let go, not every place on the way.
+   */
+  const sliders = new Map<string, { box: HTMLElement; name: HTMLElement; range: HTMLInputElement; time: HTMLElement; item: UiItemView; held: boolean }>();
+  let looking: ReturnType<typeof setInterval> | null = null;
+  const showSlider = (s: { range: HTMLInputElement; time: HTMLElement; item: UiItemView; held: boolean }) => {
+    const max = s.item.slider?.max() ?? 0;
+    s.range.max = String(Math.max(1, Math.floor(max)));
+    // Until its end is known there is nowhere to move it to.
+    s.range.disabled = !(max > 0);
+    if (s.held) return;
+    s.range.value = String(Math.floor(s.item.slider?.value() ?? 0));
+    s.time.textContent = s.item.slider?.text?.() ?? "";
+  };
+  const drawSlider = (item: UiItemView): HTMLElement => {
+    let s = sliders.get(item.id);
+    if (!s) {
+      const range = el("input", { type: "range", min: "0", step: "1", value: "0" });
+      const name = el("span", { class: "name" });
+      const time = el("span", { class: "time mono" });
+      const box = el("label", { class: "slide" }, icon(item.icon), name, range, time);
+      const made: { box: HTMLElement; name: HTMLElement; range: HTMLInputElement; time: HTMLElement; item: UiItemView; held: boolean } = { box, name, range, time, item, held: false };
+      s = made;
+      const letGo = () => (made.held = false);
+      range.addEventListener("pointerdown", () => (made.held = true));
+      range.addEventListener("input", () => (made.held = true));
+      range.addEventListener("change", () => {
+        letGo();
+        controls.run(made.item.id, range.value);
+        // Shown at once where they left it; the next look says where it really is.
+        setTimeout(() => showSlider(made), 150);
+      });
+      range.addEventListener("pointerup", () => setTimeout(letGo, 0));
+      range.addEventListener("blur", letGo);
+      sliders.set(item.id, s);
+    }
+    s.item = item;
+    s.name.textContent = item.label;
+    s.range.setAttribute("aria-label", item.label);
+    s.box.classList.toggle("on", item.on === true);
+    showSlider(s);
+    looking ??= setInterval(() => {
+      let seen = false;
+      for (const each of sliders.values()) {
+        if (!each.box.isConnected) continue;
+        seen = true;
+        showSlider(each);
+      }
+      // None in sight (another tab): nothing is asked until one is drawn again.
+      if (!seen && looking) {
+        clearInterval(looking);
+        looking = null;
+      }
+    }, 500);
+    return s.box;
   };
   /** A tab kept on the bar: pressed, the menu comes up on it; pressed again while it is up, the menu is put away. */
   const openPin = (id: string) => {
@@ -1261,9 +1333,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
           run = null;
           if (whose) laid.push(el("p", { class: "from" }, whose));
         }
-        if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save") {
+        if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save" || item.kind === "slider") {
           run = null;
-          laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : item.kind === "file" ? drawFile(item, view.title) : drawRow(item));
+          laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : item.kind === "file" ? drawFile(item, view.title) : item.kind === "slider" ? drawSlider(item) : drawRow(item));
           continue;
         }
         if (run?.kind !== item.kind) {
@@ -1293,6 +1365,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     // A row that is no longer anywhere takes what was half typed in it away with it.
     const still = new Set(view.sections.flatMap((s) => s.items.filter((i) => i.kind === "field").map((i) => i.id)));
     for (const id of [...fields.keys()]) if (!still.has(id)) fields.delete(id);
+    const bars = new Set(view.sections.flatMap((s) => s.items.filter((i) => i.kind === "slider").map((i) => i.id)));
+    for (const id of [...sliders.keys()]) if (!bars.has(id)) sliders.delete(id);
     if (fresh && about) rows.scrollTop = 0;
     rows.hidden = !current?.items.length && !current?.card;
     note.textContent = current?.note ?? "";
@@ -1547,6 +1621,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     },
     remove() {
       clearInterval(tick);
+      if (looking) clearInterval(looking);
       clearTimeout(asTimer);
       tabsWatch?.disconnect();
       barWatch?.disconnect();

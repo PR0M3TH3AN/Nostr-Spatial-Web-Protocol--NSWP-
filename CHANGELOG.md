@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Playback controls for a visitor's own music** (SDK `sound.ts`, `sound-store.ts`, `ui/hud.ts`, `ui/model.ts`, `ui/icons.ts`, `console.ts`, `menu-above.ts`, `visitor-switches.ts`; the engine script; `trials/menu-client.mjs`; `docs/backlog/own-music-everywhere.md`, the owner's ask of 2026-11-23). The names are proposed, for the orchestrator to give. The engine script's version is not changed.
+  - The jukebox could play, pause and go to the next song. It now also goes to the song before, moves within a song, and says how far in it is and how long the song is.
+  - **In Sound, the menu's own rows,** the same in a client's page and in a world's own menu: what is playing with a bar to move along and the time ("1:23 of 3:45"), "Previous song", play and pause, "Next song", "Back 15 seconds" and "Forward 15 seconds", then adding, taking out, and the songs.
+  - **Proposed, each one row:** "Shuffle", "Repeat" (all your songs, this song, off; it starts as all, which is how it always went), and "Play and pause on your bar", which puts a key on the bar with the song's name under it.
+  - **A new kind of row, a bar that is moved along (`slider`).** Where it is and its words are asked for as it is drawn and twice a second while it is in sight, so a song is seen to run without the menu being drawn again. It is the menu's own: no word of the menu's port carries one, and a world's row of this kind is not described to a client. A headset's console draws no bar, and has the two buttons.
+  - **A world never names a visitor's songs to its client.** A world whose own site held songs of the visitor's would have described a row for each, by name, to a client above it. Now nothing of their music is in what a world describes: every row whose id begins `juke-` or `song-` is the visitor's own (`visitorsOwnRow`).
+  - Tried in the stand-in client with two songs (`trials/menu-client.mjs`): the time runs on the same bar, a press along the bar goes to that place, back and forward move 15 seconds, previous restarts the song or goes to the one before, next, shuffle and repeat do as they say, the key on the bar pauses and plays, the world is told none of it, and the world's own menu has the same rows.
+  - Not checked: by ear, a headset, a phone, a song longer than a minute.
+
 ## 0.84.0
 
 - **A file handed down and a picture handed up: the last of step 1 of the client's menu** (core `menu.ts`; SDK `ui/port-below.ts`, `menu-above.ts`, `ui/hud.ts`, `save-file.ts` (new), `camera.ts`, `panels.ts`, `room-controls.ts`, `client-frame.ts`; the engine script; `trials/menu-client.mjs`; NSWP-02, "A file going down, and something to save going up"). The words were given by the orchestrator on 2026-11-23. The version of the menu's words stays 1, and the engine script's version is not changed.

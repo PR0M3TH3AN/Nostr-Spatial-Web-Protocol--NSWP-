@@ -55,11 +55,19 @@ import {
   type CuePart,
   type Song,
   type SoundLevels,
-  type SoundTheme, STRIDE } from "./sound-store.js";
+  type SoundTheme, STRIDE,
+  cleanHow,
+  JUKE_REPEATS,
+  RESTART_AFTER,
+  shuffledSongs,
+  SKIP_SECONDS,
+  songBeside,
+  songClock,
+  type JukeHow } from "./sound-store.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
-import type { Controls } from "./ui/model.js";
+import type { Controls, UiAction } from "./ui/model.js";
 
-export { CUES, type Cue, type Song, type SoundLevels, type SoundPlace, type SoundTheme } from "./sound-store.js";
+export { CUES, type Cue, type JukeHow, type Song, type SoundLevels, type SoundPlace, type SoundTheme } from "./sound-store.js";
 
 export interface SoundsOptions {
   /** The page's sound context, if it has one already (three.js keeps one: `THREE.AudioContext.getContext()`). */
@@ -76,8 +84,8 @@ export interface SoundsOptions {
    * can't be had, the defaults are the ones made in the browser.
    */
   kit?: string;
-  /** Keep the visitor's volumes and songs under these names. Left out, the kit's own, for this site. */
-  keep?: { levels?: string; songs?: string };
+  /** Keep the visitor's volumes, their songs and how their music is played under these names. Left out, the kit's own, for this site. */
+  keep?: { levels?: string; songs?: string; how?: string };
 }
 
 export interface Jukebox {
@@ -89,9 +97,21 @@ export interface Jukebox {
   /** Play a song, or carry on with the current one. Returns false if it couldn't be played. */
   play(id?: string): Promise<boolean>;
   pause(): void;
+  /** The song after this one: in the order they were added, or in an order of chance where shuffle is on. */
   next(): Promise<boolean>;
+  /** Back to the start of this song, or, in its first few seconds, to the song before it. */
+  previous(): Promise<boolean>;
+  /** Move within the current song: to this many seconds from its start. */
+  seek(seconds: number): void;
   readonly playing: boolean;
   readonly current: Song | null;
+  /** How far into the current song it is, in seconds. */
+  readonly position: number;
+  /** How long the current song is, in seconds: 0 until the browser has read that much of it. */
+  readonly duration: number;
+  /** How their music is played: shuffle, what happens at the end, and whether play and pause are on their bar. */
+  readonly how: JukeHow;
+  setHow(patch: Partial<JukeHow>): void;
   /**
    * What the jukebox is playing, as a line that can be sent to someone else:
    * for sharing music with people nearby, which is the visitor's to turn on.
@@ -175,6 +195,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   const theme: CleanTheme = cleanTheme(o.theme, base);
   const levelsKey = o.keep?.levels ?? "nswp:sound";
   const songsKey = o.keep?.songs ?? "nswp:jukebox";
+  const howKey = o.keep?.how ?? "nswp:jukebox:how";
   const read = (key: string): unknown => {
     try {
       return JSON.parse(localStorage.getItem(key) ?? "null");
@@ -194,6 +215,7 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   const came = arrivedSettings().sound;
   let levels = cleanLevels({ ...(read(levelsKey) as object | null), ...came });
   let songs = cleanSongs(read(songsKey));
+  let how = cleanHow(read(howKey));
   let disposed = false;
   if (came) write(levelsKey, levels);
   const stopReporting = reportSettings(
@@ -685,9 +707,27 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       // A second way out, before the visitor's own volume: what would be shared, if they share.
       juke.tap = ctx.createMediaStreamDestination();
       source.connect(juke.tap);
-      juke.audio.addEventListener("ended", () => void jukebox.next());
+      // A song ran to its end: again, the next, or (after the last, where nothing repeats) nothing more.
+      juke.audio.addEventListener("ended", () => {
+        if (how.repeat === "one") return void jukebox.play(juke.current?.id);
+        const after = songBeside(order(), juke.current?.id ?? null, 1, how.repeat === "all");
+        if (after) return void jukebox.play(after);
+        juke.audio!.currentTime = 0;
+        stopOwn();
+      });
+      // How long it is becomes known a moment after it starts: said, so that whoever shows it looks again.
+      juke.audio.addEventListener("durationchange", () => changed());
     }
     return { audio: juke.audio, tap: juke.tap };
+  };
+  // The order the songs are gone through in: as they were added, or by chance. A chance order is made when shuffle
+  // is turned on or the songs change, with what is playing first, and kept: "next" then "previous" is the same song.
+  let chance: string[] = [];
+  const order = (): string[] => {
+    const ids = songs.map((s) => s.id);
+    if (!how.shuffle) return ids;
+    if (chance.length !== ids.length || ids.some((id) => !chance.includes(id))) chance = shuffledSongs(ids, juke.current?.id ?? null);
+    return chance;
   };
   const jukebox: Jukebox = {
     list: () => [...songs],
@@ -739,16 +779,48 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       return true;
     },
     pause: stopOwn,
+    // Asked for by a press, both go round: the last song's "next" is the first, whatever happens at a song's own end.
     async next() {
-      if (songs.length === 0) return false;
-      const at = songs.findIndex((s) => s.id === juke.current?.id);
-      return jukebox.play(songs[(at + 1) % songs.length]!.id);
+      const to = songBeside(order(), juke.current?.id ?? null, 1, true);
+      return to ? jukebox.play(to) : false;
+    },
+    async previous() {
+      if (juke.current && (juke.audio?.currentTime ?? 0) >= RESTART_AFTER) {
+        jukebox.seek(0);
+        return juke.playing ? true : jukebox.play();
+      }
+      const to = songBeside(order(), juke.current?.id ?? null, -1, true);
+      return to ? jukebox.play(to) : false;
+    },
+    seek(seconds) {
+      if (!juke.audio || !juke.current || !Number.isFinite(seconds)) return;
+      const most = Number.isFinite(juke.audio.duration) ? juke.audio.duration : seconds;
+      juke.audio.currentTime = Math.max(0, Math.min(seconds, most));
+      changed();
     },
     get playing() {
       return juke.playing;
     },
     get current() {
       return juke.current;
+    },
+    get position() {
+      return juke.current ? (juke.audio?.currentTime ?? 0) : 0;
+    },
+    get duration() {
+      const d = juke.current ? (juke.audio?.duration ?? 0) : 0;
+      return Number.isFinite(d) && d > 0 ? d : 0;
+    },
+    get how() {
+      return how;
+    },
+    setHow(patch) {
+      const was = how.shuffle;
+      how = cleanHow({ ...how, ...patch });
+      // A new order of chance each time shuffle is turned on.
+      if (how.shuffle && !was) chance = [];
+      write(howKey, how);
+      changed();
     },
     output: () => player().tap.stream.getAudioTracks()[0]!,
   };
@@ -875,7 +947,34 @@ export function addSoundControls(controls: Controls, sounds: Sounds, opts: Sound
     refresh();
   });
 
+  const juke = sounds.jukebox;
+  /** Where in the song it is, and how long the song is once that is known: "1:23 of 3:45". */
+  const clock = () => (juke.duration ? `${songClock(juke.position)} of ${songClock(juke.duration)}` : songClock(juke.position));
+  const REPEAT_WORDS = { off: "Repeat: off", all: "Repeat: all your songs", one: "Repeat: this song" } as const;
+  // Play and pause. On the bar where the visitor said so, with what is playing named under it: a "now playing" at a
+  // glance, and one press to stop it.
+  const playRow = (): UiAction => ({
+    id: "juke-play",
+    section: "sound",
+    icon: () => (juke.playing ? "pause" : "play"),
+    on: () => juke.playing,
+    hidden: () => juke.list().length === 0,
+    hotbar: juke.how.bar && juke.list().length > 0,
+    label: () => (juke.playing ? "Pause your music" : "Play your music"),
+    short: () => juke.current?.title ?? "Your music",
+    act: async () => {
+      if (juke.playing) return juke.pause();
+      if (!(await juke.play())) controls.say("Your music couldn't be played.");
+    },
+  });
+  let barWas = juke.how.bar && juke.list().length > 0;
   const refresh = () => {
+    // Whether play and pause are on the bar is part of the row itself, so the row is given again when that changes.
+    const bar = juke.how.bar && juke.list().length > 0;
+    if (bar !== barWas) {
+      barWas = bar;
+      controls.add(playRow());
+    }
     for (const id of listed) controls.remove(id);
     const songs = sounds.jukebox.list();
     listed = songs.map((s) => `song-${s.id}`);
@@ -956,32 +1055,89 @@ export function addSoundControls(controls: Controls, sounds: Sounds, opts: Sound
       label: () => (sounds.levels.hum ? "The room's hum: on" : "The room's hum: off"),
       act: () => sounds.setLevels({ hum: !sounds.levels.hum }),
     },
+    // ---- The visitor's own music. What is playing and where in it, with a bar to move along; the song before, play
+    // and pause, the song after; a little way back and on, for a menu that draws no bar (a headset's console); how it
+    // goes; then adding, taking out, and the songs themselves. The same rows wherever this is drawn.
+    {
+      id: "juke-place",
+      section: "sound",
+      icon: "music",
+      kind: "slider",
+      hidden: () => !juke.current,
+      on: () => juke.playing,
+      // "Your music", since the place may be playing a piece of its own, named in the row above.
+      label: () => `${juke.playing ? "Your music" : "Your music, paused"}: ${juke.current?.title ?? ""}`,
+      slider: { value: () => juke.position, max: () => juke.duration, text: clock },
+      act: (to) => juke.seek(Number(to)),
+    },
+    {
+      id: "juke-previous",
+      section: "sound",
+      icon: "previous",
+      hidden: () => !juke.current,
+      label: "Previous song",
+      short: "Previous",
+      act: async () => void (await juke.previous()),
+    },
+    playRow(),
+    {
+      id: "juke-next",
+      section: "sound",
+      icon: "next",
+      hidden: () => juke.list().length < 2,
+      label: "Next song",
+      short: "Next",
+      act: () => void juke.next(),
+    },
+    {
+      id: "juke-back",
+      section: "sound",
+      icon: "rewind",
+      hidden: () => !juke.current,
+      label: `Back ${SKIP_SECONDS} seconds`,
+      act: () => juke.seek(juke.position - SKIP_SECONDS),
+    },
+    {
+      id: "juke-forward",
+      section: "sound",
+      icon: "forward",
+      hidden: () => !juke.current,
+      label: `Forward ${SKIP_SECONDS} seconds`,
+      act: () => juke.seek(juke.position + SKIP_SECONDS),
+    },
+    {
+      id: "juke-shuffle",
+      section: "sound",
+      icon: "shuffle",
+      on: () => juke.how.shuffle,
+      hidden: () => juke.list().length < 2,
+      label: () => (juke.how.shuffle ? "Shuffle: on" : "Shuffle: off"),
+      act: () => juke.setHow({ shuffle: !juke.how.shuffle }),
+    },
+    {
+      id: "juke-repeat",
+      section: "sound",
+      icon: "repeat",
+      on: () => juke.how.repeat !== "off",
+      hidden: () => juke.list().length === 0,
+      label: () => REPEAT_WORDS[juke.how.repeat],
+      act: () => juke.setHow({ repeat: JUKE_REPEATS[(JUKE_REPEATS.indexOf(juke.how.repeat) + 1) % JUKE_REPEATS.length]! }),
+    },
+    {
+      id: "juke-bar",
+      section: "sound",
+      icon: "pin",
+      on: () => juke.how.bar,
+      hidden: () => juke.list().length === 0,
+      label: () => (juke.how.bar ? "Play and pause on your bar: on" : "Play and pause on your bar: off"),
+      act: () => juke.setHow({ bar: !juke.how.bar }),
+    },
     {
       id: "juke-add",
       section: "sound",
       icon: "save",
       label: "Add music from this device",
       act: () => picker.click(),
-    },
-    {
-      id: "juke-play",
-      section: "sound",
-      icon: "note",
-      on: () => sounds.jukebox.playing,
-      hidden: () => sounds.jukebox.list().length === 0,
-      label: () => (sounds.jukebox.playing ? "Pause your music" : "Play your music"),
-      act: async () => {
-        if (sounds.jukebox.playing) return sounds.jukebox.pause();
-        if (!(await sounds.jukebox.play())) controls.say("Your music couldn't be played.");
-      },
-    },
-    {
-      id: "juke-next",
-      section: "sound",
-      icon: "turn",
-      hidden: () => sounds.jukebox.list().length < 2,
-      label: "Next song",
-      act: () => void sounds.jukebox.next(),
     },
     {
       id: "juke-remove",

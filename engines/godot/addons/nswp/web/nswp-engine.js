@@ -9591,6 +9591,16 @@ postMessage({ t: "started" });
     door: "M7 21V10a5 5 0 0 1 10 0v11M5 21h14M14.5 14h.01",
     link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.700l1-1",
     save: "M7 4h10v17l-5-3.5L7 21V4Z",
+    /** For the visitor's own music: play, pause, the song after and before, a little way on and back, and how it goes. */
+    play: "M7 4.5v15l12-7.5Z",
+    pause: "M8 5v14M16 5v14",
+    next: "M6 5.5v13l10-6.5ZM19 5v14",
+    previous: "M18 5.5v13L8 12ZM5 5v14",
+    rewind: "M11 7v10l-7-5ZM20 7v10l-7-5Z",
+    forward: "M13 7v10l7-5ZM4 7v10l7-5Z",
+    shuffle: "M3 7h4l8 10h5M3 17h4l2.5-3.1M12.5 10.100 15 7h5M17 4l3 3-3 3M17 14l3 3-3 3",
+    repeat: "M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4",
+    music: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
     pin: "M9 4h6l-1 6 3 3H7l3-3-1-6ZM12 13v7",
     step: "M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.800-6 10-6 10ZM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
     size: "M4 18 9 6l5 12M5.700 14h6.600M15 18l3.500-8 3.500 8M16 15.700h5",
@@ -44437,6 +44447,36 @@ void main() {
     }
     return out;
   }
+  var JUKE_REPEATS = ["off", "all", "one"];
+  var DEFAULT_HOW = { shuffle: false, repeat: "all", bar: false };
+  var SKIP_SECONDS = 15;
+  var RESTART_AFTER = 3;
+  function cleanHow(input) {
+    const h = input && typeof input === "object" ? input : {};
+    return { shuffle: h.shuffle === true, repeat: JUKE_REPEATS.includes(h.repeat) ? h.repeat : DEFAULT_HOW.repeat, bar: h.bar === true };
+  }
+  function songClock(seconds) {
+    const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+    const two = (n) => String(n).padStart(2, "0");
+    const [h, m, sec] = [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60];
+    return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+  }
+  function shuffledSongs(ids, first, random = Math.random) {
+    const rest = ids.filter((id2) => id2 !== first);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    return first !== null && ids.includes(first) ? [first, ...rest] : rest;
+  }
+  function songBeside(order, current, step, round2) {
+    if (order.length === 0) return null;
+    const at = current === null ? -1 : order.indexOf(current);
+    if (at === -1) return order[0];
+    const to = at + step;
+    if (to >= 0 && to < order.length) return order[to];
+    return round2 ? order[(to + order.length) % order.length] : null;
+  }
   function songRefusal(file, have) {
     const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";
     const isSound = (file.type ?? "").startsWith("audio/") || SOUND_LIMITS.extensions.includes(ext);
@@ -44457,6 +44497,7 @@ void main() {
     const theme = cleanTheme2(o.theme, base);
     const levelsKey = o.keep?.levels ?? "nswp:sound";
     const songsKey = o.keep?.songs ?? "nswp:jukebox";
+    const howKey = o.keep?.how ?? "nswp:jukebox:how";
     const read6 = (key) => {
       try {
         return JSON.parse(localStorage.getItem(key) ?? "null");
@@ -44473,6 +44514,7 @@ void main() {
     const came = arrivedSettings().sound;
     let levels = cleanLevels({ ...read6(levelsKey), ...came });
     let songs = cleanSongs(read6(songsKey));
+    let how = cleanHow(read6(howKey));
     let disposed = false;
     if (came) write(levelsKey, levels);
     const stopReporting = reportSettings(
@@ -44911,9 +44953,23 @@ void main() {
         source.connect(ownMusic);
         juke.tap = ctx.createMediaStreamDestination();
         source.connect(juke.tap);
-        juke.audio.addEventListener("ended", () => void jukebox.next());
+        juke.audio.addEventListener("ended", () => {
+          if (how.repeat === "one") return void jukebox.play(juke.current?.id);
+          const after2 = songBeside(order(), juke.current?.id ?? null, 1, how.repeat === "all");
+          if (after2) return void jukebox.play(after2);
+          juke.audio.currentTime = 0;
+          stopOwn();
+        });
+        juke.audio.addEventListener("durationchange", () => changed());
       }
       return { audio: juke.audio, tap: juke.tap };
+    };
+    let chance = [];
+    const order = () => {
+      const ids = songs.map((s) => s.id);
+      if (!how.shuffle) return ids;
+      if (chance.length !== ids.length || ids.some((id2) => !chance.includes(id2))) chance = shuffledSongs(ids, juke.current?.id ?? null);
+      return chance;
     };
     const jukebox = {
       list: () => [...songs],
@@ -44965,16 +45021,47 @@ void main() {
         return true;
       },
       pause: stopOwn,
+      // Asked for by a press, both go round: the last song's "next" is the first, whatever happens at a song's own end.
       async next() {
-        if (songs.length === 0) return false;
-        const at = songs.findIndex((s) => s.id === juke.current?.id);
-        return jukebox.play(songs[(at + 1) % songs.length].id);
+        const to = songBeside(order(), juke.current?.id ?? null, 1, true);
+        return to ? jukebox.play(to) : false;
+      },
+      async previous() {
+        if (juke.current && (juke.audio?.currentTime ?? 0) >= RESTART_AFTER) {
+          jukebox.seek(0);
+          return juke.playing ? true : jukebox.play();
+        }
+        const to = songBeside(order(), juke.current?.id ?? null, -1, true);
+        return to ? jukebox.play(to) : false;
+      },
+      seek(seconds) {
+        if (!juke.audio || !juke.current || !Number.isFinite(seconds)) return;
+        const most = Number.isFinite(juke.audio.duration) ? juke.audio.duration : seconds;
+        juke.audio.currentTime = Math.max(0, Math.min(seconds, most));
+        changed();
       },
       get playing() {
         return juke.playing;
       },
       get current() {
         return juke.current;
+      },
+      get position() {
+        return juke.current ? juke.audio?.currentTime ?? 0 : 0;
+      },
+      get duration() {
+        const d = juke.current ? juke.audio?.duration ?? 0 : 0;
+        return Number.isFinite(d) && d > 0 ? d : 0;
+      },
+      get how() {
+        return how;
+      },
+      setHow(patch) {
+        const was = how.shuffle;
+        how = cleanHow({ ...how, ...patch });
+        if (how.shuffle && !was) chance = [];
+        write(howKey, how);
+        changed();
       },
       output: () => player().tap.stream.getAudioTracks()[0]
     };
@@ -45077,7 +45164,30 @@ void main() {
       controls2.say(added ? `${added === 1 ? "1 song" : `${added} songs`} added. Only you hear your music.${refused ? ` ${refused}` : ""}` : refused || "Nothing was added.");
       refresh();
     });
+    const juke = sounds2.jukebox;
+    const clock = () => juke.duration ? `${songClock(juke.position)} of ${songClock(juke.duration)}` : songClock(juke.position);
+    const REPEAT_WORDS = { off: "Repeat: off", all: "Repeat: all your songs", one: "Repeat: this song" };
+    const playRow = () => ({
+      id: "juke-play",
+      section: "sound",
+      icon: () => juke.playing ? "pause" : "play",
+      on: () => juke.playing,
+      hidden: () => juke.list().length === 0,
+      hotbar: juke.how.bar && juke.list().length > 0,
+      label: () => juke.playing ? "Pause your music" : "Play your music",
+      short: () => juke.current?.title ?? "Your music",
+      act: async () => {
+        if (juke.playing) return juke.pause();
+        if (!await juke.play()) controls2.say("Your music couldn't be played.");
+      }
+    });
+    let barWas = juke.how.bar && juke.list().length > 0;
     const refresh = () => {
+      const bar = juke.how.bar && juke.list().length > 0;
+      if (bar !== barWas) {
+        barWas = bar;
+        controls2.add(playRow());
+      }
       for (const id2 of listed) controls2.remove(id2);
       const songs = sounds2.jukebox.list();
       listed = songs.map((s) => `song-${s.id}`);
@@ -45148,32 +45258,89 @@ void main() {
         label: () => sounds2.levels.hum ? "The room's hum: on" : "The room's hum: off",
         act: () => sounds2.setLevels({ hum: !sounds2.levels.hum })
       },
+      // ---- The visitor's own music. What is playing and where in it, with a bar to move along; the song before, play
+      // and pause, the song after; a little way back and on, for a menu that draws no bar (a headset's console); how it
+      // goes; then adding, taking out, and the songs themselves. The same rows wherever this is drawn.
+      {
+        id: "juke-place",
+        section: "sound",
+        icon: "music",
+        kind: "slider",
+        hidden: () => !juke.current,
+        on: () => juke.playing,
+        // "Your music", since the place may be playing a piece of its own, named in the row above.
+        label: () => `${juke.playing ? "Your music" : "Your music, paused"}: ${juke.current?.title ?? ""}`,
+        slider: { value: () => juke.position, max: () => juke.duration, text: clock },
+        act: (to) => juke.seek(Number(to))
+      },
+      {
+        id: "juke-previous",
+        section: "sound",
+        icon: "previous",
+        hidden: () => !juke.current,
+        label: "Previous song",
+        short: "Previous",
+        act: async () => void await juke.previous()
+      },
+      playRow(),
+      {
+        id: "juke-next",
+        section: "sound",
+        icon: "next",
+        hidden: () => juke.list().length < 2,
+        label: "Next song",
+        short: "Next",
+        act: () => void juke.next()
+      },
+      {
+        id: "juke-back",
+        section: "sound",
+        icon: "rewind",
+        hidden: () => !juke.current,
+        label: `Back ${SKIP_SECONDS} seconds`,
+        act: () => juke.seek(juke.position - SKIP_SECONDS)
+      },
+      {
+        id: "juke-forward",
+        section: "sound",
+        icon: "forward",
+        hidden: () => !juke.current,
+        label: `Forward ${SKIP_SECONDS} seconds`,
+        act: () => juke.seek(juke.position + SKIP_SECONDS)
+      },
+      {
+        id: "juke-shuffle",
+        section: "sound",
+        icon: "shuffle",
+        on: () => juke.how.shuffle,
+        hidden: () => juke.list().length < 2,
+        label: () => juke.how.shuffle ? "Shuffle: on" : "Shuffle: off",
+        act: () => juke.setHow({ shuffle: !juke.how.shuffle })
+      },
+      {
+        id: "juke-repeat",
+        section: "sound",
+        icon: "repeat",
+        on: () => juke.how.repeat !== "off",
+        hidden: () => juke.list().length === 0,
+        label: () => REPEAT_WORDS[juke.how.repeat],
+        act: () => juke.setHow({ repeat: JUKE_REPEATS[(JUKE_REPEATS.indexOf(juke.how.repeat) + 1) % JUKE_REPEATS.length] })
+      },
+      {
+        id: "juke-bar",
+        section: "sound",
+        icon: "pin",
+        on: () => juke.how.bar,
+        hidden: () => juke.list().length === 0,
+        label: () => juke.how.bar ? "Play and pause on your bar: on" : "Play and pause on your bar: off",
+        act: () => juke.setHow({ bar: !juke.how.bar })
+      },
       {
         id: "juke-add",
         section: "sound",
         icon: "save",
         label: "Add music from this device",
         act: () => picker.click()
-      },
-      {
-        id: "juke-play",
-        section: "sound",
-        icon: "note",
-        on: () => sounds2.jukebox.playing,
-        hidden: () => sounds2.jukebox.list().length === 0,
-        label: () => sounds2.jukebox.playing ? "Pause your music" : "Play your music",
-        act: async () => {
-          if (sounds2.jukebox.playing) return sounds2.jukebox.pause();
-          if (!await sounds2.jukebox.play()) controls2.say("Your music couldn't be played.");
-        }
-      },
-      {
-        id: "juke-next",
-        section: "sound",
-        icon: "turn",
-        hidden: () => sounds2.jukebox.list().length < 2,
-        label: "Next song",
-        act: () => void sounds2.jukebox.next()
       },
       {
         id: "juke-remove",
@@ -52491,6 +52658,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     "juke-play",
     "juke-next",
     "juke-remove",
+    "juke-place",
+    "juke-previous",
+    "juke-back",
+    "juke-forward",
+    "juke-shuffle",
+    "juke-repeat",
+    "juke-bar",
     // In Moving, which both fill: how they move at a desk, how fast they look round, and how they move in a headset
     // (fps.ts, desk.ts, input.ts) are the visitor's, each a setting that travels. What is the world's there is what
     // it does for them: a jump.
@@ -52503,6 +52677,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     "move-narrow",
     "move-fade"
   ];
+  var visitorsOwnRow = (id2) => VISITOR_SWITCHES.includes(id2) || id2.startsWith("juke-") || id2.startsWith("song-");
   var picturesSwitch = (controls2) => ({
     id: "people-pictures",
     section: "people",
@@ -52730,7 +52905,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         ...s.card ? { card: cardOf(s.card) } : {},
         // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
         // client's own rows, which it draws itself inside this tab.
-        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !VISITOR_SWITCHES.includes(i.id)).map((i) => rowOf(i, onBar.has(i.id)))
+        // Not the visitor's own rows, and not a bar that is moved along: no word of these carries one.
+        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !visitorsOwnRow(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id)))
       })).filter((s) => s.rows.length > 0 || s.card || s.id === "help" && about)
     };
   }
@@ -53343,6 +53519,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 .field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
 .field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
+/* A bar that is moved along: what it is of, the bar, and where it is in words. */
+.slide { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 12px; margin: 0; padding: 8px 12px;
+  border-radius: 10px; border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
+.slide.on { border-color: rgba(var(--accent), .5); }
+.slide.on svg { color: rgb(var(--accent)); }
+.slide .name { min-width: 0; grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slide input { grid-column: 1 / 3; width: 100%; min-height: 28px; margin: 0; accent-color: rgb(var(--accent)); }
+.slide input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
+.slide .time { font-size: .86em; color: rgba(var(--ink), .7); white-space: nowrap; }
 /* A row that takes a file: its button, and under it where the file goes. */
 .takes { grid-column: 1 / -1; display: grid; gap: 4px; }
 .takes .to { margin: 0; padding: 0 12px; font-size: .86em; color: rgba(var(--ink), .6); }
@@ -53685,6 +53870,59 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const clearFields = () => {
       for (const f of fields.values()) f.input.value = "";
       fields.clear();
+      sliders.clear();
+      if (looking) clearInterval(looking);
+      looking = null;
+    };
+    const sliders = /* @__PURE__ */ new Map();
+    let looking = null;
+    const showSlider = (s) => {
+      const max = s.item.slider?.max() ?? 0;
+      s.range.max = String(Math.max(1, Math.floor(max)));
+      s.range.disabled = !(max > 0);
+      if (s.held) return;
+      s.range.value = String(Math.floor(s.item.slider?.value() ?? 0));
+      s.time.textContent = s.item.slider?.text?.() ?? "";
+    };
+    const drawSlider = (item) => {
+      let s = sliders.get(item.id);
+      if (!s) {
+        const range = el("input", { type: "range", min: "0", step: "1", value: "0" });
+        const name = el("span", { class: "name" });
+        const time = el("span", { class: "time mono" });
+        const box = el("label", { class: "slide" }, icon(item.icon), name, range, time);
+        const made = { box, name, range, time, item, held: false };
+        s = made;
+        const letGo = () => made.held = false;
+        range.addEventListener("pointerdown", () => made.held = true);
+        range.addEventListener("input", () => made.held = true);
+        range.addEventListener("change", () => {
+          letGo();
+          controls2.run(made.item.id, range.value);
+          setTimeout(() => showSlider(made), 150);
+        });
+        range.addEventListener("pointerup", () => setTimeout(letGo, 0));
+        range.addEventListener("blur", letGo);
+        sliders.set(item.id, s);
+      }
+      s.item = item;
+      s.name.textContent = item.label;
+      s.range.setAttribute("aria-label", item.label);
+      s.box.classList.toggle("on", item.on === true);
+      showSlider(s);
+      looking ?? (looking = setInterval(() => {
+        let seen = false;
+        for (const each of sliders.values()) {
+          if (!each.box.isConnected) continue;
+          seen = true;
+          showSlider(each);
+        }
+        if (!seen && looking) {
+          clearInterval(looking);
+          looking = null;
+        }
+      }, 500));
+      return s.box;
     };
     const openPin = (id3) => {
       controls2.signal("press");
@@ -54155,9 +54393,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             run2 = null;
             if (whose) laid2.push(el("p", { class: "from" }, whose));
           }
-          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save") {
+          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save" || item.kind === "slider") {
             run2 = null;
-            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : item.kind === "file" ? drawFile(item, view2.title) : drawRow(item));
+            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : item.kind === "file" ? drawFile(item, view2.title) : item.kind === "slider" ? drawSlider(item) : drawRow(item));
             continue;
           }
           if (run2?.kind !== item.kind) {
@@ -54183,6 +54421,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       const still = new Set(view2.sections.flatMap((s) => s.items.filter((i) => i.kind === "field").map((i) => i.id)));
       for (const id3 of [...fields.keys()]) if (!still.has(id3)) fields.delete(id3);
+      const bars = new Set(view2.sections.flatMap((s) => s.items.filter((i) => i.kind === "slider").map((i) => i.id)));
+      for (const id3 of [...sliders.keys()]) if (!bars.has(id3)) sliders.delete(id3);
       if (fresh && about) rows.scrollTop = 0;
       rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
@@ -54394,6 +54634,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       remove() {
         clearInterval(tick);
+        if (looking) clearInterval(looking);
         clearTimeout(asTimer);
         tabsWatch?.disconnect();
         barWatch?.disconnect();
@@ -54679,7 +54920,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const a = actions.find((x) => x.id === id2);
         if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" ? typed : void 0)).catch(() => {
+        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : void 0)).catch(() => {
         }).finally(changed);
         return true;
       },
@@ -54705,11 +54946,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       },
       view() {
         const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
-        const pressable = showing2.filter((a) => a.kind !== "line");
+        const pressable = showing2.filter((a) => a.kind !== "line" && a.kind !== "slider");
         const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
-          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, ...a.kind === "slider" && a.slider ? { slider: a.slider } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));

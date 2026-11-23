@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanKit, nextVariant, pieceName, stepShape, STEP_LEVEL, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
+import { cleanHow, DEFAULT_HOW, shuffledSongs, songBeside, songClock, RESTART_AFTER, SKIP_SECONDS, cleanKit, nextVariant, pieceName, stepShape, STEP_LEVEL, MUSIC_RANGE, MUSIC_SOURCES, musicFade, musicToHear, ambiencePlan, cleanLevels, cleanSongs, cleanTheme, cueRecipe, CUES, DEFAULT_LEVELS, levelStep, LEVEL_STEPS, nextLevel, recipeLength, seeded, songRefusal, songTitle, SOUND_LIMITS } from "../src/sound-store.js";
 
 describe("the default cues", () => {
   it("has one for everything on the list, each short and quiet", () => {
@@ -222,5 +222,46 @@ describe("what a piece of music is called", () => {
     expect(pieceName("https://world.example/")).toBe("a piece with no name");
     expect(pieceName(`https://world.example/${"a".repeat(300)}.ogg`)).toHaveLength(60);
     expect(pieceName("https://world.example/one%0Atwo.ogg")).toBe("onetwo");
+  });
+});
+
+describe("how a visitor's own music is played", () => {
+  it("starts as it always went, the list going round, and trusts nothing it reads back", () => {
+    expect(DEFAULT_HOW).toEqual({ shuffle: false, repeat: "all", bar: false });
+    for (const bad of [null, undefined, 5, "all", [], {}]) expect(cleanHow(bad)).toEqual(DEFAULT_HOW);
+    expect(cleanHow({ shuffle: true, repeat: "one", bar: true, loud: true })).toEqual({ shuffle: true, repeat: "one", bar: true });
+    expect(cleanHow({ shuffle: "yes", repeat: "forever", bar: 1 })).toEqual(DEFAULT_HOW);
+    expect(cleanHow({ repeat: "off" }).repeat).toBe("off");
+  });
+
+  it("shows a time in a song as a clock does", () => {
+    expect([0, 7, 59.9, 60, 225, 3599, 3600, 3723].map(songClock)).toEqual(["0:00", "0:07", "0:59", "1:00", "3:45", "59:59", "1:00:00", "1:02:03"]);
+    expect([-4, NaN, Infinity].map(songClock)).toEqual(["0:00", "0:00", "0:00"]);
+  });
+
+  it("goes to the song after and the song before, round the ends only where that is wanted", () => {
+    const order = ["a", "b", "c"];
+    expect([songBeside(order, "a", 1, false), songBeside(order, "b", 1, false), songBeside(order, "c", 1, false), songBeside(order, "c", 1, true)]).toEqual(["b", "c", null, "a"]);
+    expect([songBeside(order, "c", -1, false), songBeside(order, "a", -1, false), songBeside(order, "a", -1, true)]).toEqual(["b", null, "c"]);
+    // Nothing playing yet, or a song that was taken out: the first.
+    expect([songBeside(order, null, 1, false), songBeside(order, "gone", -1, true), songBeside([], "a", 1, true)]).toEqual(["a", "a", null]);
+    expect(songBeside(["only"], "only", 1, true)).toBe("only");
+  });
+
+  it("shuffles every song once, with the one playing first so that nothing they hear changes", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    let n = 0;
+    const random = () => ((n = (n * 9301 + 49297) % 233280), n / 233280);
+    const mixed = shuffledSongs(ids, "d", random);
+    expect(mixed[0]).toBe("d");
+    expect([...mixed].sort()).toEqual(ids);
+    expect(mixed).not.toEqual(["d", "a", "b", "c", "e", "f"]);
+    expect([...shuffledSongs(ids, null, random)].sort()).toEqual(ids);
+    expect([...shuffledSongs(ids, "gone", random)].sort()).toEqual(ids);
+    expect(shuffledSongs([], "a")).toEqual([]);
+  });
+
+  it("moves a little way at a time, and counts a song as begun after a few seconds", () => {
+    expect([SKIP_SECONDS, RESTART_AFTER]).toEqual([15, 3]);
   });
 });

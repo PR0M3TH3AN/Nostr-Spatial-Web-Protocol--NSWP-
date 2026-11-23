@@ -10,7 +10,9 @@
   client's menu's step 2. Controls: the NSWP builder (the kit's menu, the
   Sound tab). From BitLogin's files: BitLogin and BitPortal, with the menu's
   step 4. Not briefed.
-- **State:** asked.
+- **State:** asked. **The controls: building** (the NSWP builder, 2026-11-23;
+  built and tried, waiting on the owner's look at the pictures before it
+  merges). The other two pieces are as they were.
 
 ## What is true today
 
@@ -51,6 +53,38 @@
   It needs a word from BitLogin's panel for "the visitor chose this file",
   carrying the file and nothing else of the account. Only audio kinds, and a
   size limit. The world is never given it.
+
+## The controls, as built (2026-11-23)
+
+The menu's own rows in Sound, the same in a client's page and in a world's
+own menu. In order:
+
+| Row | What it does |
+|---|---|
+| "Your music: <the song>", with a bar and "1:23 of 3:45" | Says what is playing ("Your music, paused: …" when it isn't), apart from the place's own piece. The bar is moved along to go to a place in the song. The time runs without the menu being drawn again |
+| "Previous song" | Back to the start of this song; in its first three seconds, to the song before |
+| "Play your music" / "Pause your music" | As before, with a play or pause mark |
+| "Next song" | The song after. Shown with two songs or more |
+| "Back 15 seconds", "Forward 15 seconds" | Moving within the song without the bar: for the keyboard, and for a headset |
+| "Shuffle: on / off" | Proposed. The songs in an order of chance. Turning it on doesn't change what is playing. Shown with two songs or more |
+| "Repeat: all your songs / this song / off" | Proposed. What happens when a song ends. It starts as "all your songs", which is how it always went |
+| "Play and pause on your bar: on / off" | Proposed, as the "now playing" on the bar: play and pause become a key on the bar, with the song's name under it |
+| "Add music from this device", "Take out <the song>", then the songs | As before |
+
+- **Proposed, for the owner to keep or drop:** shuffle, repeat, and the key
+  on the bar. Each is one row and comes out cleanly.
+- **How it is kept:** shuffle, repeat and the bar's key are kept with the
+  songs, in this browser, for the site that plays them. In a client that is
+  the client's site, so they are the same in every world.
+- **In a headset** the console has the same rows as buttons, and draws no bar
+  and no time: "Back 15 seconds" and "Forward 15 seconds" are how a visitor
+  moves within a song there. A bar and the time in a headset belong with
+  `headset-menu-like-the-flat-one`.
+- **A world is never told:** none of these rows, and no song's name, is in
+  what a world describes to a client. Before this, a world whose own site
+  held songs of the visitor's would have named them to a client above it.
+- **Not built here:** across worlds in BitPortal (its step 2), playing from
+  BitLogin's files (step 4), and sharing with people nearby from a client.
 
 ## For the design to settle
 

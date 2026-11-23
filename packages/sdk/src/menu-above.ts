@@ -18,7 +18,7 @@ import { framed, hearClientMenu, sayToClient, setSaver, sinceHere, speakMenu } f
 import { loadPicture } from "./picture.js";
 import { changeSettings, currentSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
-import { VISITOR_SWITCHES } from "./visitor-switches.js";
+import { visitorsOwnRow } from "./visitor-switches.js";
 
 export { helpWords } from "./ui/help.js";
 export { keepMenu, type KeptMenu } from "./menu-keeper.js";
@@ -162,7 +162,8 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help
         ...(s.card ? { card: cardOf(s.card) } : {}),
         // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
         // client's own rows, which it draws itself inside this tab.
-        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !VISITOR_SWITCHES.includes(i.id)).map((i) => rowOf(i, onBar.has(i.id))),
+        // Not the visitor's own rows, and not a bar that is moved along: no word of these carries one.
+        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !visitorsOwnRow(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id))),
       }))
       .filter((s) => s.rows.length > 0 || s.card || (s.id === "help" && about)),
   };

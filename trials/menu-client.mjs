@@ -636,12 +636,13 @@ try {
   // that the client's page says it is playing.
   {
     const NEXT = "https://grove.test";
-    const tune = join(SHOTS, "menu-client-a-tune.wav");
+    const tune = join(SHOTS, "Night drive.wav");
+    const tune2 = join(SHOTS, "Low tide.wav");
     {
       const rate = 8000, n = rate * 60, head = Buffer.alloc(44);
       head.write("RIFF", 0); head.writeUInt32LE(36 + n, 4); head.write("WAVEfmt ", 8); head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(1, 22);
       head.writeUInt32LE(rate, 24); head.writeUInt32LE(rate, 28); head.writeUInt16LE(1, 32); head.writeUInt16LE(8, 34); head.write("data", 36); head.writeUInt32LE(n, 40);
-      writeFileSync(tune, Buffer.concat([head, Buffer.from(Array.from({ length: n }, (_, i) => 128 + Math.round(20 * Math.sin((i * 2 * Math.PI * 220) / rate))))]));
+      for (const [file, note] of [[tune, 220], [tune2, 165]]) writeFileSync(file, Buffer.concat([head, Buffer.from(Array.from({ length: n }, (_, i) => 128 + Math.round(20 * Math.sin((i * 2 * Math.PI * note) / rate))))]));
     }
     const ctx5 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
     const refused5 = new Set();
@@ -670,11 +671,27 @@ try {
       }
     };
     const choosers = [];
-    page5.on("filechooser", (c) => { choosers.push(c.page() === page5 && c.element() ? "opened" : "opened elsewhere"); void c.setFiles(tune); });
+    page5.on("filechooser", (c) => { choosers.push(c.page() === page5 && c.element() ? "opened" : "opened elsewhere"); void c.setFiles([tune, tune2]); });
     const hud5 = page5.locator("nswp-hud");
     const frameAt5 = (origin) => page5.frames().find((f) => f.url().startsWith(origin));
     const worldUp5 = (origin) => until5(() => frameAt5(origin)?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
-    const press5 = async (name) => { const at = await hud5.getByRole("button", { name }).first().boundingBox(); if (!at) return false; await page5.mouse.click(at.x + at.width / 2, at.y + at.height / 2); return true; };
+    // A press at where the row is once it has stopped moving: the sheet slides up as it opens, and a press sent to
+    // where a row was a moment ago misses it.
+    const press5 = async (name) => {
+      const where = () => hud5.getByRole("button", { name }).first().boundingBox({ timeout: 1000 });
+      let at = await until5(where, 8000);
+      // A long tab scrolls: a row down the list is brought into sight first, as a person would scroll to it.
+      if (at) await hud5.getByRole("button", { name }).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
+      for (let i = 0; at && i < 20; i++) {
+        await page5.waitForTimeout(150);
+        const now = await where().catch(() => null);
+        if (now && now.x === at.x && now.y === at.y) break;
+        at = now;
+      }
+      if (!at) return false;
+      await page5.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+      return true;
+    };
     const juke = () => page5.evaluate(() => { const j = window.__client.sounds.jukebox; return { songs: j.list().map((x) => x.title), playing: j.playing, current: j.current?.title ?? null, page: window.__sameSince }; });
     try {
       await page5.goto(`${CLIENT}/`, { timeout: 60000 });
@@ -682,7 +699,7 @@ try {
       await page5.evaluate(() => { window.__sameSince = Math.random(); window.__client.menu.setOpen(true, "sound"); });
       const first = (await juke()).page;
       check("music/the client's own row opens the browser's chooser, at a press on the client's page", (await press5("Add music from this device")) && (await until5(() => choosers.length > 0, 8000)) && choosers[0] === "opened", choosers);
-      check("music/the chosen file is kept by the client's page", await until5(async () => (await juke()).songs.length === 1, 10000), await juke());
+      check("music/the chosen files are kept by the client's page, named from their files", await until5(async () => JSON.stringify((await juke()).songs) === '["Night drive","Low tide"]', 10000), await juke());
       const title = (await juke()).songs[0];
       await until5(() => hud5.getByRole("button", { name: "Play your music" }).first().boundingBox(), 5000);
       await press5("Play your music");
@@ -690,18 +707,113 @@ try {
       const told = await frameAt5(WORLD).evaluate(() => window.__told ?? []);
       check("music/the world is told nothing of it", told.length > 0 && !told.some((w) => w.includes(title) || /song-|juke/.test(w)), told.filter((w) => w.includes(title) || /song-|juke/.test(w)).map((w) => w.slice(0, 200)));
       check("music/and keeps none of it", (await frameAt5(WORLD).evaluate(() => window.__nswpTest.sounds.jukebox.list().length)) === 0);
+
+      // ---- Playback controls (docs/backlog/own-music-everywhere.md): the menu's own rows in Sound. What is playing
+      // with a bar to move along and the time, the song before and after, a little way back and on, how it goes, and
+      // play and pause on the bar where the visitor says. Presses are a real mouse at places on the screen.
+      const place = () =>
+        page5.evaluate(() => {
+          const bar = document.querySelector("nswp-hud").shadowRoot.querySelector(".slide");
+          const j = window.__client.sounds.jukebox;
+          return bar ? { name: bar.querySelector(".name").textContent, time: bar.querySelector(".time").textContent, max: Number(bar.querySelector("input").max), at: j.position, long: j.duration, playing: j.playing, same: window.__bar ? window.__bar === bar : null } : null;
+        });
+      const at = async () => (await place())?.at ?? -1;
+      const p0 = await until5(async () => { const p = await place(); return p && p.long > 0 ? p : null; }, 10000);
+      check("controls/what is playing is named, with a bar to move along and the time", p0?.name === `Your music: ${title}` && /^0:\d\d of 1:00$/.test(p0.time) && p0.max === 60, p0);
+      await page5.evaluate(() => { window.__bar = document.querySelector("nswp-hud").shadowRoot.querySelector(".slide"); });
+      await page5.waitForTimeout(2300);
+      const p1 = await place();
+      check("controls/the time runs, and nothing is drawn again for it: the bar is the same one", p1.at > p0.at + 1.5 && p1.time !== p0.time && p1.same === true, [p0, p1]);
+      const rowsNow = await page5.evaluate(() => window.__client.below.port.view().sections.find((x) => x.id === "sound").items.filter((i) => i.id.startsWith("juke-") || i.id.startsWith("song-")).map((i) => i.id.startsWith("song-") ? "a song" : i.id));
+      check("controls/the rows: what is playing, before, play, after, back, on, shuffle, repeat, the bar, adding, taking out, the songs", JSON.stringify(rowsNow) === JSON.stringify(["juke-place", "juke-previous", "juke-play", "juke-next", "juke-back", "juke-forward", "juke-shuffle", "juke-repeat", "juke-bar", "juke-add", "juke-remove", "a song", "a song"]), rowsNow);
+      await press5("Forward 15 seconds");
+      check("controls/forward moves on a little way", await until5(async () => (await at()) >= p1.at + 14, 5000), await at());
+      const range = await hud5.locator(".slide input").boundingBox();
+      await page5.mouse.click(range.x + range.width * 0.75, range.y + range.height / 2);
+      check("controls/a press along the bar moves to that place in the song", await until5(async () => Math.abs((await at()) - 45) < 5, 5000), await at());
+      await press5("Back 15 seconds");
+      check("controls/back moves a little way back", await until5(async () => Math.abs((await at()) - 31) < 5, 5000), await at());
+      await page5.waitForTimeout(700);
       await page5.screenshot({ path: join(SHOTS, "menu-client-10-music.png") });
+      await press5("Previous song");
+      const again = await until5(async () => { const p = await place(); return p && p.at < 3 ? p : null; }, 5000);
+      check("controls/previous, well into a song, goes to its start, still playing", again?.playing === true && again.name === `Your music: ${title}`, await place());
+      await press5("Next song");
+      check("controls/next goes to the song after", await until5(async () => (await place())?.name === "Your music: Low tide", 5000), await place());
+      await press5("Previous song");
+      check("controls/and previous, in a song's first seconds, to the song before", await until5(async () => (await place())?.name === `Your music: ${title}`, 5000), await place());
+      await press5("Shuffle: off");
+      check("controls/shuffle is turned on, and what is playing doesn't change", (await until5(() => page5.evaluate(() => window.__client.sounds.jukebox.how.shuffle === true), 3000)) && (await place())?.name === `Your music: ${title}`, await place());
+      await press5("Shuffle: on");
+      await press5("Repeat: all your songs");
+      check("controls/what happens at the end goes round: all, this one, off", await until5(() => page5.evaluate(() => window.__client.sounds.jukebox.how.repeat === "one"), 3000) && (await press5("Repeat: this song")) && (await until5(() => page5.evaluate(() => window.__client.sounds.jukebox.how.repeat === "off"), 3000)), await page5.evaluate(() => window.__client.sounds.jukebox.how));
+      await press5("Repeat: off");
+      await page5.waitForTimeout(400);
+
+      // Play and pause on the bar: a "now playing" at a glance, with the menu put away.
+      await press5("Play and pause on your bar: off");
+      const key = () => page5.evaluate((name) => { const k = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".hotbar button.key")].find((b) => b.querySelector(".name")?.textContent === name); const r = k?.getBoundingClientRect(); return r && r.width ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; }, title);
+      check("controls/play and pause go on the bar where the visitor says, named for what is playing", !!(await until5(key, 5000)), await page5.evaluate(() => window.__client.below.port.view().hotbar.map((i) => [i.id, i.short])));
+      // The rest of the tab, scrolled to: how it goes, the bar's switch, adding, taking out, and the songs.
+      await hud5.getByRole("button", { name: "Low tide" }).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
+      await page5.waitForTimeout(500);
+      await page5.screenshot({ path: join(SHOTS, "menu-client-10b-music-the-rest.png") });
+      await page5.evaluate(() => window.__client.menu.setOpen(false));
+      await page5.waitForTimeout(600);
+      await page5.screenshot({ path: join(SHOTS, "menu-client-13-music-bar.png") });
+      // The bar is laid out afresh as things change, so the key is looked for until it is there.
+      let k = await until5(key, 8000);
+      await page5.mouse.click(k.x, k.y);
+      check("controls/pressed on the bar, it pauses", await until5(async () => (await juke()).playing === false, 5000), await juke());
+      await page5.waitForTimeout(300);
+      k = await until5(key, 8000);
+      await page5.mouse.click(k.x, k.y);
+      check("controls/and pressed again, it plays on", await until5(async () => (await juke()).playing === true, 5000), await juke());
+      check("controls/none of it reached the world", !(await frameAt5(WORLD).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
+
+      // The same rows in a world's own menu (the fallback: this Gallery opened as a page of its own, no client). Its
+      // songs are its own site's: the file is chosen again there.
+      {
+        const own = await ctx5.newPage();
+        own.on("filechooser", (c) => void c.setFiles([tune, tune2]));
+        await own.goto(`${WORLD}/`, { timeout: 60000 });
+        await until5(() => own.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+        const ownHud = own.locator("nswp-hud");
+        // Where a thing is, once it is in sight and has stopped moving (a tab may be along the strip, a row down the list).
+        // This page is only looked at, so the scripting tool's own press is used: it waits for a thing to be in sight
+        // and still, and presses it with the mouse where it is.
+        const pressOwn = (role, name) => ownHud.getByRole(role, { name }).first().click({ timeout: 15000 }).then(() => true, () => false);
+        await pressOwn("button", "Menu");
+        await pressOwn("tab", "Sound");
+        await pressOwn("button", "Add music from this device");
+        await until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.list().length === 2), 10000);
+        await pressOwn("button", "Play your music");
+        await until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.playing && window.__nswpTest.sounds.jukebox.duration > 0), 10000);
+        const ownRows = await own.evaluate(() => window.__nswpTest.controls.view().sections.find((x) => x.id === "sound").items.filter((i) => i.id.startsWith("juke-") || i.id.startsWith("song-")).map((i) => (i.id.startsWith("song-") ? "a song" : i.id)));
+        check("controls/a world's own menu has the same rows, where no client draws it", JSON.stringify(ownRows) === JSON.stringify(rowsNow), ownRows);
+        const ownBar = await until5(() => own.evaluate(() => { const bar = document.querySelector("nswp-hud").shadowRoot.querySelector(".slide"); return bar && /of 1:00$/.test(bar.querySelector(".time").textContent) ? bar.querySelector(".name").textContent : null; }), 8000);
+        check("controls/and draws the same bar", ownBar === `Your music: ${title}`, ownBar);
+        await own.waitForTimeout(600);
+        await own.screenshot({ path: join(SHOTS, "menu-client-14-music-own-menu.png") });
+        await own.evaluate(() => window.__nswpTest.sounds.jukebox.pause());
+        await own.close();
+      }
 
       // Through a door: the next world comes into the frame, and the client's page stays.
       await page5.evaluate((to) => (document.getElementById("view").src = to), `${NEXT}/`);
       await worldUp5(NEXT);
       await page5.waitForTimeout(2000);
       const after = await juke();
-      check("music/it doesn't stop at a door: the client's page is the same one, still playing the same song", after.playing === true && after.current === title && after.page === first, after);
+      // The songs are a minute long, so by now it may have gone on to the other one: what matters is that it never stopped.
+      check("music/it doesn't stop at a door: the client's page is the same one, still playing", after.playing === true && after.songs.includes(after.current) && after.page === first, after);
       check("music/and the next world is told nothing of it either", !(await frameAt5(NEXT).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
       results["music/refused, as everything but these sites is"] = [...refused5];
+    } catch (e) {
+      // Said with everything else, so that what was seen before it is not lost.
+      check("music/the visit ran to its end", false, String(e).slice(0, 300));
     } finally {
       rmSync(tune, { force: true });
+      rmSync(tune2, { force: true });
       await ctx5.close();
     }
   }
@@ -766,6 +878,7 @@ try {
     const press6 = async (name) => {
       const where = () => hud6.getByRole("button", { name }).first().boundingBox();
       let at = await until6(where, 8000);
+      if (at) await hud6.getByRole("button", { name }).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
       for (let i = 0; at && i < 20; i++) {
         await page6.waitForTimeout(150);
         const now = await where();
@@ -818,6 +931,8 @@ try {
       check("save/the client says what it saved and from which world, and the world doesn't claim to have saved it", after.includes("A picture from The Gallery was saved to this device.") && !after.some((t) => /Picture saved to this device/.test(t)), after);
       await page6.screenshot({ path: join(SHOTS, "menu-client-12-save.png") });
       results["file/refused, as everything but these sites is"] = [...refused6];
+    } catch (e) {
+      check("file/the visit ran to its end", false, String(e).slice(0, 300));
     } finally {
       rmSync(dot, { force: true });
       rmSync(text, { force: true });
