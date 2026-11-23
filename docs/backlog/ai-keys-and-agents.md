@@ -147,7 +147,10 @@ account spends nothing until it is secured; and the client's menu is where a
 visitor turns credit on, sees what is spent and mutes or removes an agent.
 
 **Decided by the owner the same day:** it is not a priority. Each piece is
-in the backlog and none is started.
+in the backlog. The first, `agents-0-contracts`, was started the same day in
+`nswp-agents` on the owner's word to that repository's session.
+The pack itself is committed there on the branch
+`docs/agent-platform-spec-v0.3` (c9d77eb).
 
 ## Must not
 
