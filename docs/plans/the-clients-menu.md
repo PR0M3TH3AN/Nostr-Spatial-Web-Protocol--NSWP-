@@ -1,13 +1,15 @@
 # The client's menu: a design
 
-**Status:** the orchestrator answered on 2026-11-23 (section 14): the names are given
-and the steps stand. Step 0b (the press trial) is done, and step 0 (the seam) is built:
-the menu takes a world's port and nothing else (`nswp-sdk/menu`, `ui/port.ts`), and is
-a file of a world's own build. The owner's eight questions are still open, and step 1
-waits for them. NSWP builder, 2026-11-23. From
-`docs/backlog/menus-are-the-clients.md` and
-`docs/backlog/menu-tabs-wallet-files-order-pin.md`. Every new name is a proposal, listed
-in section 13; none is used before it is given (rule 11).
+**Status:** decided, and being built. The owner answered all eight questions on
+2026-11-23 (section 14), and decided that entering a headset is two presses, named
+"Enter VR" and "Launch" (section 8). The orchestrator gave the names (section 13).
+The shell's review (section 16) is folded into sections 4 to 8, 13 and 15. Step 0 (the
+seam) is merged: the menu takes a world's port and nothing else (`nswp-sdk/menu`,
+`ui/port.ts`), and is a file of a world's own build. Step 0b (the press trial) is
+done, with a second part on the pointer and on windows. Step 1 is next. NSWP builder,
+2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
+`docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
+in section 13 is not used before it is given (rule 11).
 
 ## 0. In one paragraph
 
@@ -110,6 +112,9 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >   eight times a second: `{ nswp: "menu", world }`, its description (below).
 > - the client, at the visitor's press on something the world described:
 >   `{ nswp: "menu", press: id }`. Only for an `id` in the world's last description.
+>   The word is not the visitor's press: the browser doesn't count it as one in the
+>   world's page. So a world never copies, opens a window, takes the pointer or starts
+>   a headset session on it (see "Two kinds of row the client does itself", below).
 > - the world, for the few keys that are the visitor's and are pressed while it has
 >   the keyboard: `{ nswp: "menu", key }`, where `key` is `"summon"`, `"escape"`,
 >   `"menu"` or a digit `"1"` to `"9"`. Never any other key, and never what was typed.
@@ -117,15 +122,18 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >   leaves the visitor's input alone in between, as NSWP-11 asks.
 > - the client, as the visitor leaves by their own Home: `{ nswp: "menu", go: "home" }`.
 >   The world may go itself at once, carrying what the visitor carries. Whether it
->   does or not, the client takes them home within a second.
+>   does or not, the client takes them home within a second. Where the world didn't
+>   go itself, what was in the visitor's hand doesn't come with them: only the world
+>   knew it. A client says so as it takes them.
 > - the world, with words to show for a moment: `{ nswp: "menu", say }`, at most 200
 >   characters of plain text, shown under the world's name.
 >
 > **A world's description** is plain data. Nothing in it is run, and every word is
 > shown as text:
 >
-> - `title`, at most 80 characters. The address shown beside it is the one the browser
->   gives the client for the frame, never the world's word.
+> - `title`, at most 80 characters. The address shown beside it is never the world's
+>   word: it is the origin the browser reports for the page that last said `here`. A
+>   client can't read a frame's address, so until a `here` it shows none.
 > - `level` (`full`, `quiet`, `hidden`) and `corner`: how much room the console takes
 >   (NSWP-11, "The world leads"), and `keys: false` while the world has taken every key.
 > - `state`: the things every place has and only the world can run. Whether there is
@@ -139,6 +147,36 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >   `label`, and optionally `short`, `icon` (a name from the console's own set),
 >   `kind`, `on`, `tone`, `color`, `mark`, `faint`, `bar`, and a small `picture`.
 >
+> **A client keeps a description only as long as the page that sent it.** At every
+> load of the frame the description is dropped, with its title, its tabs and its
+> address, before the next page says anything. One world's tabs never stand over the
+> next, or over a page that never says `here`.
+>
+> **Two kinds of row the client does itself,** because the word of a press is not a
+> press in the world's page:
+>
+> - `kind: "copy"`, with `copy`, the text. At the visitor's press the client writes
+>   that text to the clipboard itself, and says it did. The world is told of the press
+>   like any other.
+> - `kind: "field"`: a row the visitor types into. The client draws the box and a
+>   button with the row's `label`. At the visitor's press on that button, and only
+>   then, it sends `{ nswp: "menu", press: id, field }`, where `field` is what they
+>   typed. A client keeps four rules for it:
+>   - it shows, under the world's name, that what is typed there goes to that world;
+>   - it is plain text, of a limited length;
+>   - the client never fills it from anything the visitor didn't type or paste there:
+>     not the clipboard, not what they typed before, not the browser's own filling-in;
+>   - nothing typed is sent before the press, and nothing of it is kept after.
+>
+>   A `field` row may stand only in the keeper's "Who comes in" and in a world's own
+>   tabs. Anywhere else it is left out.
+>
+> **A picture that changes.** A row whose picture is fed by the world as it runs (a
+> camera's view, a watched screen) sends each new one alone, without a description:
+> `{ nswp: "menu", picture, id }`, a bitmap for the row `id` of the last description.
+> At most eight a second for a row, 256 pixels a side, and only while the menu is up.
+> A client draws them only for a row in sight, and may drop any.
+>
 > A world may fill only the tabs that are its to fill: Room, People, Camera, Panels,
 > View, Scores, Achievements, its own doors under Travel, its keeper's "Who comes in",
 > and **at most two tabs of its own**. A world's own tab is drawn in the client's
@@ -148,7 +186,8 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >
 > Limits a client holds a world to, whatever it sends: 12 sections, 60 rows in one, 200
 > rows in all, 120 characters in a label, a picture of 256 pixels a side, 64 kilobytes
-> of description without its pictures. What is over is left out, not cut to fit.
+> of description without its pictures, 2000 characters of text to copy, 500 characters
+> typed into a field. What is over is left out, not cut to fit.
 >
 > Nothing about the visitor is in any of the world's words. The client's words carry
 > their settings and nothing else of them: the same settings a link already carries
@@ -186,6 +225,16 @@ Notes on the words, not for the protocol:
   world may be given a narrower one (off, there) but never a wider one than they set.
 - **Pictures** cross as bitmaps the browser copies between pages, so the client never
   fetches an address a world names.
+- **Pages of the client's own origin are the client's own** (section 16, point 1).
+  BitPortal's room and its Airlock are shown in the same frame as a world. A page
+  whose origin is exactly the shell's may fill any tab, the visitor's own included,
+  still as data through these same words; the limits on which tabs a world may fill
+  are for every other origin. This is the client's rule about itself and is not
+  protocol text. A later step moves the room's tabs into the shell's menu.
+- **The Bag's turning item is drawn by the client,** from the kit's own previews and
+  `fetchByHash`. Only a picture a world feeds crosses as a bitmap.
+- **The picture word, the two limits (`copy` 2000, `field` 500) and `field` on a
+  press are proposals** (section 13).
 
 ## 5. What a world can't do, and how each is held
 
@@ -197,6 +246,10 @@ Notes on the words, not for the protocol:
 | Keep the visitor from going home | The client owns the frame, and takes it home itself |
 | Put its words in the client's mouth | Its tab carries its name; its words for a moment are shown under its name; it may fill only the tabs listed |
 | Swallow the summons for good | See section 7: the client's own mark, and the browser's own Escape, don't pass through the world |
+| Leave its name or tabs standing over the next place | The client drops a description at every load of the frame, and shows an address only from the origin of the last `here` |
+| Read what the visitor copied | The frame is never allowed it (`clipboard-read` is not in the frame's `allow`, and is not to be added). What a visitor wants a world to have, they paste into a `field` row, and see it go |
+| Have the client type or paste for it | A `field` row is filled only by the visitor, and sent only at their press |
+| Carry off what is in hand when the client takes the visitor home | It can't, and neither can the client: if the world didn't go itself within a second, what was in hand is left behind, and the client says so |
 
 **Imitation that is left, said plainly:** a world can still draw, inside its own frame,
 something that looks like the menu. Nothing but a browser of our own can stop that
@@ -211,7 +264,15 @@ place, above the world, and a world's drawing can never be above it.
 - **Framed, and nothing is said within about 300 ms:** the world loads its own menu.
   A client that doesn't know these words (or isn't one) changes nothing.
 - **The client answers late:** the world's own menu is put away, and the client's
-  stands. One menu at any moment, never two.
+  stands. One menu at any moment, never two. This is not rare: on a development
+  server the shell asks the network whether a place may be shown before it answers,
+  so `has: true` can come after `MENU_WAIT_MS`. It is one of step 1's trial cases.
+- **A new page in the frame:** the client drops the last description at the frame's
+  load and shows only its own tabs and Home until the new page says `here` and
+  describes itself (section 4).
+- **The client's own pages** (its room, its Airlock) say the same words. The room may
+  fill any tab. At the Airlock the menu shows Home and the visitor's own tabs only,
+  and nothing of the menu may cover the Airlock's own panel.
 - **A world that doesn't speak the words** (an older kit, or built some other way)
   draws its own console in the frame, as today. The client then draws no menu of its
   own over it, only what it always has (the screen, the sign-in panel). Such a world
@@ -234,6 +295,26 @@ A page above a frame doesn't hear keys or touches while the frame has them. So:
 - **While the menu is up the client has the keyboard itself,** so nothing typed in the
   menu reaches the world, and the world is told only that it came up and went. When it
   goes, the keys go back to the frame.
+- **The client's bar must not strand the world's keys.** Any press on the client's
+  page moves the keys to it, and the world stops hearing them: walking stops, with
+  the sheet down. So the rule is: *while the sheet is down and the panel is down,
+  the frame has the keys.* A press on the bar or the mark doesn't take them, and
+  after the row has acted the client gives them to the frame again, whatever
+  happened. Section 17.2 has every case, for the shell; the stand-in client keeps
+  the same rule.
+- **The client hears the summons keys itself whenever it does have the keys,** and
+  does what the forwarded key would have done. Only one page hears a given press, so
+  nothing is done twice. Any other key it hears there can't be passed into the
+  frame: it gives the frame the keys at once, and that one press is lost.
+- **A pointer the world holds** (the intense way). The client's bar can't be pressed
+  while the world holds the pointer, and the page above can't let go of it. So:
+  - at `open: true` the world lets the pointer go;
+  - Escape with the pointer held is the browser's. The world hears no key, only that
+    its hold ended without its asking, and says `key: "escape"` for that too;
+  - after the menu closes, the pointer is taken again at a press on the view.
+    (Chrome also let a world that had let go by itself take it again at
+    `open: false` with no press: step 0b's second part. Whether the kit tries that
+    first is a question for the orchestrator; the rule stands until answered.)
 - **A world built some other way could swallow those keys.** Three things don't pass
   through it:
   - the client's own mark and bar, drawn above the frame and pressed with a pointer or
@@ -245,6 +326,12 @@ A page above a frame doesn't hear keys or touches while the frame has them. So:
   ("hidden means hidden"). There the summons rests on the world's part forwarding the
   key, as it rests on the world today. A client frames only the worlds it names, so
   this is a trust it has already given. (A question for the owner: section 14.)
+- **Escape in fullscreen.** Only the top page can hold Escape; a frame can't. The
+  client holds it itself whenever it fills the screen, where the browser lets it
+  (Chrome and its kin; elsewhere as now, where Escape leaves fullscreen). Then
+  Escape brings the menu, and Escape again leaves fullscreen: the owner's ask in
+  `docs/backlog/fullscreen-button-and-escape.md`. The key is still heard by
+  whichever page has the keys, so the world's part forwards it as above.
 - **A headset:** the summons stays the world's part's, with the console it draws.
 
 ## 8. A headset
@@ -276,11 +363,27 @@ Only the world's page can draw into a headset's view. So:
 [`the-clients-menu-presses.md`](the-clients-menu-presses.md), Chrome only). A press on
 the client's menu is not a press in the world. So:
 
-- Entering a headset takes one more press, in the world: the client's row tells the
-  world, and the world shows its own "press to enter" across its view.
-- The pointer for the intense way is taken at the next press on the view, and only the
-  world can let it go, when told the menu is up.
-- Copying, and reading what the visitor copied, are the client's to do.
+- **Entering a headset is two presses, each with its own name** (decided: the owner,
+  2026-11-23, "Yes, two presses", and each named differently). The row in the
+  client's menu is **"Enter VR"**. It tells the world, and the world shows its own
+  press across its view, which says **"Launch"**. The world says "Launch" wherever
+  it shows that screen, including for a visitor who left a headset to come here.
+  In the fallback, where the menu is in the world's own page, "Enter VR" is the one
+  press, as today.
+- The pointer for the intense way is taken at a press on the view, and only the
+  world can let it go, when told the menu is up (section 7).
+- Copying is the client's to do: a row of the kind `copy` (section 4).
+- **Reading what the visitor copied is never a framed world's.** The two rows that do
+  it today ("Put in the item I copied" in the Bag, "Someone whose key I copied" in
+  "Who comes in") can't work in a world shown in BitPortal's frame. This is **a known
+  fault for a framed world, with no quick fix**: `clipboard-read` is not added to
+  the frame's `allow` (the orchestrator, 2026-11-23), since a world would then read
+  the visitor's clipboard under the client's name. The fix is step 1's: the Bag's
+  row becomes the client's own, and the keeper's becomes a `field` row the visitor
+  pastes into. Until then both rows say why the read was refused.
+- A window can't be opened by a world from a press on the client's menu (tried with
+  the browser's blocker on, step 0b's second part). The windows the menu opens are
+  the client's own to open: the sign-in address's pages, in the panel.
 - Sound and the microphone need nothing.
 
 ## 9. A phone, and other engines
@@ -359,7 +462,7 @@ ask of a client's console, in place of what a world owes.
 
 ## 13. Pins, order and the bar as one idea; and the names to give
 
-**One idea, proposed: a pinned tab comes first.**
+**One idea, decided (the owner, 2026-11-23): a pinned tab comes first.**
 
 - The visitor **orders** their tabs as they like: drag, the keyboard, or "Move left /
   Move right" in a headset. The order is theirs everywhere.
@@ -374,13 +477,26 @@ ask of a client's console, in place of what a world owes.
   visitor put it is kept by the client for that world, and never sent to any world,
   since it would say where they have been.
 
-(The other reading, exactly one far-left pin kept apart from the bar's four, is the
-owner's to choose: section 14, question 1.)
+(The other reading, exactly one far-left pin kept apart from the bar's four, was not
+taken: section 14, question 1.)
 
 **Wallet and Files.** Each is a tab whose body is the sign-in address's own page for
 it, in the panel the shell already draws (`wallet`, `files`), shown in the sheet. In
 the fallback, where no client can draw that panel, each tab has the one row that opens
-the sign-in address's window, as the rows under You do today.
+the sign-in address's window, as the rows under You do today. A guest sees both tabs,
+each saying to sign in (section 14, question 4).
+
+**The panel, in the client's menu** (section 16, points 6 and 10):
+
+- The panel is a frame of the client's page directly, never inside another frame,
+  with a place of its own above the sheet's body. While it is up the menu draws
+  nothing in its box. For Wallet and Files its size is the client's to set, and no
+  longer comes from a place a world names.
+- **Account and Library stay rows under You,** opening the panel in the sheet as
+  Wallet and Files do. They are not tabs.
+- **The client opens the sign-in ask itself,** from its You tab, for the origin of
+  the world in the frame. A world's own `sign-in` ask still works, and the client
+  places it itself, since the world has no menu to point at.
 
 **Names, given by the orchestrator on 2026-11-23, all as proposed** (recorded in
 `docs/fleet.md` with step 0):
@@ -402,34 +518,44 @@ the sign-in address's window, as the rows under You do today.
 | The two new tabs | `wallet`, `files` |
 | The browser's feature name | `nswp.can("menu")` |
 | The engine script's version | the next |
+| A row the client copies for the world (given 2026-11-23) | a row's `kind: "copy"`, with its text in `copy` |
+| A row the visitor types into (given 2026-11-23, in place of `ask`) | a row's `kind: "field"` |
+
+**Proposals, not yet given, and not used until they are:**
+
+| What | Proposed |
+|---|---|
+| How the typed text goes down | `field` on the press: `{ nswp: "menu", press: id, field }` |
+| The longest text typed into a field | `MENU_LIMITS.field` (500): room for a key or an item's address with its relays, and no more |
+| The longest text a `copy` row carries | `MENU_LIMITS.copy` (2000) |
+| A row's picture, sent alone as it changes | `{ nswp: "menu", picture, id }`: the bitmap, and the row it is for. At most eight a second for a row, held by the client; `MENU_LIMITS.picture` (256) is its size |
 
 ## 14. Questions
 
-**For the owner, each with my recommendation:**
+**The owner's answers (2026-11-23: "go with you recs on the questions for me you
+had"). All eight are decided as recommended:**
 
-1. **Pins.** One idea (pin up to four; pinned come first, the first of them far left,
-   and they are the bar's), or exactly one far-left pin kept apart from the bar?
-   *Recommend the one idea:* it is one thing to learn, and no new setting.
-2. **Does a world's colour still tint the menu?** Today each world's accent colours
-   the console. *Recommend no:* the client's menu wears the visitor's own look
-   everywhere, and a world's colour shows on its name and its own tab only. That is
-   "the same in every world", and one less thing a world can dress up.
-3. **The hidden level.** Draw nothing until summoned, as now, or always keep one small
-   mark of the client's that no world can hide? *Recommend as now,* for worlds the
-   client names; a small mark that can't be hidden for any world a client frames
-   without naming it.
-4. **A guest's Wallet and Files.** Shown, each saying "Sign in to have one" with the
-   sign-in row, or not shown? *Recommend shown,* so the menu is the same shape for
-   everyone.
-5. **Changing the bag anywhere.** Today a bag is changed only at home. With the menu
-   the client's, it could be changed from any world, since the world isn't the one
-   changing it. *Recommend yes, in the last step,* and unchanged until then.
-6. **How many tabs a world may add.** *Recommend two.*
-7. **Worlds on an older kit** keep their own menu in the frame until they take a newer
-   one (section 6). Accept that, or have the client stop framing them after a date?
-   *Recommend accept:* every world of ours moves together on one deploy.
-8. **A phone.** Try the frame on a phone as its own step after the desk is done
-   (section 15, step 5), or sooner? *Recommend after.*
+1. **Pins are one idea.** Pin up to four. Pinned tabs come first, the first of them
+   at the far left, and the menu opens on it. They are the bar's keys. Not a single
+   far-left pin kept apart from the bar.
+2. **A world's colour no longer tints the menu.** The client's menu wears the
+   visitor's own look everywhere. A world's colour shows on its name and its own tab
+   only.
+3. **The hidden level stays as now:** nothing is drawn until summoned, for the worlds
+   a client names. A client that frames a world it doesn't name keeps one small mark
+   that can't be hidden.
+4. **A guest's Wallet and Files are shown,** each saying to sign in, with the sign-in
+   row. The menu is the same shape for everyone.
+5. **The bag can be changed from any world,** in the last step (step 4), and is
+   unchanged until then.
+6. **A world may add two tabs.**
+7. **Worlds on an older kit keep their own menu in the frame** until they take a
+   newer one (section 6). The client doesn't stop framing them.
+8. **A phone comes after the desk** (step 5).
+
+**Also decided by the owner (2026-11-23):** entering a headset from the client's menu
+is two presses, named "Enter VR" (the client's row) and "Launch" (the world's own
+press across its view). Section 8.
 
 **The orchestrator's answers (2026-11-23):**
 
@@ -443,7 +569,20 @@ the sign-in address's window, as the rows under You do today.
 - Two additions, now in sections 4, 8 and 10: privacy switches are not comfort
   settings, and what a world may report back from a headset is limited by name.
 - Steps 0 and 0b go ahead now. Step 1 waits for the owner's answers above and for
-  BitPortal's review of the shell's half.
+  BitPortal's review of the shell's half. (Both are in: the answers above, and the
+  review as section 16, folded into sections 4 to 8, 13 and 15.)
+- The names `copy` and `field` are given (section 13). `field`, not `ask`.
+- The clipboard fault of a framed world gets no quick fix: `clipboard-read` is never
+  added to the frame's `allow`. The `field` row in step 1 is the fix (section 8).
+
+**Open, for the orchestrator:**
+
+- The four proposals in section 13: `field` on a press, `MENU_LIMITS.field` (500),
+  `MENU_LIMITS.copy` (2000), and the word for a row's picture sent alone.
+- Whether a world that let the pointer go by itself at `open: true` tries to take it
+  again at `open: false` before waiting for a press on the view (section 7). Chrome
+  allowed it with no press. After the browser's own Escape a press is needed, which
+  a person's keyboard has still to show.
 
 ## 15. The build, a pull request a step
 
@@ -454,10 +593,10 @@ step in the real shell.
 
 | Step | What | Done looks like | Trials |
 |---|---|---|---|
-| **0. The seam** | The menu and the world's port, with the direct carrier only. The kit's entry for the menu. Nothing a visitor can see changes | Every world behaves exactly as before; a framed world's build has the menu as a file of its own | The gate; the existing console trials unchanged; the bar and sheet pictured before and after, alike |
-| **0b. What needs a press in the world's own page** (done: [`the-clients-menu-presses.md`](the-clients-menu-presses.md)) | A trial, no feature: entering a headset, the microphone, the pointer, sound, copying, from a press in a page above | A written list, and for each what the client's row does | `trials/presses-from-above.mjs`: two sites in a scripted Chrome. Not the made-up headset, which asks for no press |
-| **1. The client has the menu** | The words of section 4, both carriers. The client draws the bar, marks and sheet. The visitor's own tabs run in the client: You, Travel (Home, their doors), Bag, Display, Moving, Sound, Help. Every tab the world fills is described and drawn. The summons and keys forwarded. Home as a guarantee. Protocol text | In the stand-in client: one menu, the client's, over the Gallery, the Grove and the Godot example; the world draws none; Home works with the world's script stopped; nothing of the visitor's tabs in any word sent down; a world sending too much, markup or a tab it may not fill is held to the limits | Unit tests for the words and limits, with examples in `vectors/`; a trial per world; a world that never answers, answers late, and stops answering; frame times and bytes |
-| **2. BitPortal's shell** (the BitPortal session) | The shell mounts the menu from its copy of the kit and speaks the client's end | The owner walks from the room through three worlds with one menu that never changes | Its own trials; the owner's look, with pictures |
+| **0. The seam** (done: merged, 2026-11-23) | The menu and the world's port, with the direct carrier only. The kit's entry for the menu. Nothing a visitor can see changes | Every world behaves exactly as before; a framed world's build has the menu as a file of its own | The gate; the existing console trials unchanged; the bar and sheet pictured before and after, alike |
+| **0b. What needs a press in the world's own page** (done: [`the-clients-menu-presses.md`](the-clients-menu-presses.md)) | A trial, no feature: entering a headset, the microphone, the pointer, sound, copying, from a press in a page above | A written list, and for each what the client's row does. A second part adds windows, and a pointer the world holds | `trials/presses-from-above.mjs`: two sites in a scripted Chrome. Not the made-up headset, which asks for no press |
+| **1. The client has the menu** | The words of section 4, both carriers. The client draws the bar, marks and sheet. The visitor's own tabs run in the client: You, Travel (Home, their doors), Bag, Display, Moving, Sound, Help. Every tab the world fills is described and drawn, with the `copy` and `field` rows. The summons and keys forwarded; the bar never strands the world's keys; the world lets the pointer go as the menu comes up. Home as a guarantee. "Enter VR" in the menu and "Launch" in the world. Protocol text | In the stand-in client: one menu, the client's, over the Gallery, the Grove and the Godot example; the world draws none; Home works with the world's script stopped, and says what was in hand is left behind; nothing of the visitor's tabs in any word sent down; a world sending too much, markup or a tab it may not fill is held to the limits; a description is gone at the frame's next load; a key pasted into "Who comes in" reaches the world only at the press; the four done-conditions of section 17.2, in the stand-in client | Unit tests for the words and limits, with examples in `vectors/`; a trial per world; a world that never answers, answers late (after `MENU_WAIT_MS`, as a development server makes it), and stops answering; frame times and bytes. Anything about keys or presses is tried with real presses at places on the screen, never a scripted call into a page |
+| **2. BitPortal's shell** (the BitPortal session) | The shell mounts the menu from its copy of the kit and speaks the client's end. Its own pages (the room, the Airlock) speak the same words. It holds Escape in fullscreen where the browser lets it | The owner walks from the room through three worlds with one menu that never changes; the menu runs under the shell's policy unchanged (section 17.1); who has the keys, as section 17.2 says | Its own trials; the owner's look, with pictures |
 | **3. Rooms and people, from facts** | The world says who is here (session keys and passes), microphones and recording, as facts. The client draws Room and People itself: names, the proven mark, follow, mute and block from the visitor's own lists. The room's chat, Following and Messages run in the client | A world can't put a name or a picture on someone; blocks and follows never pass through a world | Two scripted visitors in the stand-in client; the owner-lists trial through it |
 | **4. Wallet, Files, order and pins** | The two tabs; reorder by drag, keyboard and in a headset; pins as section 13 says; the order travels and syncs; the bag changed anywhere, if the owner says so | Both backlog pages' "done": the tabs open as tabs; a tab moved stays put after a reload and on another device; a pinned tab stays far left; the same in every world, and in the fallback | Unit tests for the order and pins; a trial in the stand-in client and unframed; pictures for the owner |
 | **5. A phone** | The frame tried on a phone, by the list in section 9 | A written result, and either the shell opened to phones or the reasons not | The owner's own phone; a scripted phone-sized browser for what it can show |
