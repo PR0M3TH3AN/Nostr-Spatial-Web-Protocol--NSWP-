@@ -5,7 +5,9 @@
 - **Who:** the NSWP builder (the Godot add-on, `engines/godot/addons/nswp`,
   and the engine script where it carries the settings). Not briefed.
 - **State:** briefed (the orchestrator, 2026-11-23). The approach is written:
-  `docs/plans/godot-headset-controls.md`. Nothing is built yet. The owner is right: confirmed in the code and already
+  `docs/plans/godot-headset-controls.md`. **Building:** the stopgap first (a
+  controller's menu button leaves VR, with the page's menu and Home), since
+  today there is no way out of a headset here. Moving and the console follow. The owner is right: confirmed in the code and already
   noted in `docs/plans/seated-mode.md` ("The Godot visitor
   (`nswp_visitor.gd`) has no controller movement in a headset at all: it
   shows the view and nothing moves it"). Next for the builder once the

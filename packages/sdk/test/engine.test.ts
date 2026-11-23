@@ -100,6 +100,21 @@ describe("what another engine takes from the kit", () => {
     }
   });
 
+  it("gives a visitor in a headset in Godot a way out: the button the console comes up on leaves the session, with the page's menu up", () => {
+    // Before this the visitor node turned every input off in a session and had no hands at all: the only way out
+    // of a headset in a Godot world was to take it off (docs/plans/godot-headset-controls.md).
+    const visitor = godot("nswp_visitor.gd");
+    // Two hands, by the names Godot gives the trackers.
+    expect(visitor).toMatch(/for tracker in \["left_hand", "right_hand"\]:\n\t\tvar hand := XRController3D\.new\(\)/);
+    expect(visitor).toMatch(/for hand in _hands:\n\t\thand\.button_pressed\.connect\(_on_hand_button\)/);
+    // The kit's menu button is the upper one under the thumb, B or Y (`Intent.menu`, from `secondary`): Godot's name for it.
+    expect(visitor).toContain('const MENU_BUTTON := "by_button"');
+    expect(readFileSync(join(root, "packages", "sdk", "src", "actions.ts"), "utf8")).toMatch(/const menu = pads\.some\(\(p\) => p\.pad\.secondary\);/);
+    // Only that button, only in a session: it ends the session and brings the page's menu up.
+    expect(visitor).toMatch(/func _on_hand_button\(button: String\) -> void:\n\tif button != MENU_BUTTON or not _presenting:\n\t\treturn\n\t_on_vr_pressed\(false\)\n\tNswp\.open_console\(true\)\n\tNswp\.say\(/);
+    expect(godot("nswp.gd")).toMatch(/^func open_console\(open: bool = true\) -> void:/m);
+  });
+
   it("gives a jump the kit's own sound in Godot too: the visitor asks the script, and plays no cue of its own", () => {
     expect(godot("nswp.gd")).toMatch(/^func jumped\(\) -> void:\n\tif _js != null:\n\t\t_js.jumped\(\)$/m);
     const visitor = godot("nswp_visitor.gd");
