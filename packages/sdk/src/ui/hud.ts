@@ -177,6 +177,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
 .chat header b { flex: 1; font-weight: 650; }
+.chat .whose { margin: 0; padding: 8px 14px 0; font-size: .86em; color: rgba(var(--ink), .6); }
 .chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
 .chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
 .chat header svg { width: 1.2em; height: 1.2em; }
@@ -296,6 +297,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .line svg { flex: none; margin-top: 1px; opacity: .55; }
 .line.on { color: rgb(var(--ink)); }
 .line.on svg { opacity: 1; color: rgb(var(--accent)); }
+/* The chat's pane and nothing else, for a world whose client has the menu. */
+:host(.chat-only) :is(.corner, .id, .menu, .quiet, .as, .full, .says, .sheet, .low) { display: none !important; }
 .row .grow { flex: 1; min-width: 0; }
 /* A row typed into: a box and its button, and under them where what is typed goes. */
 .field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin: 0; padding: 8px 12px; border-radius: 10px;
@@ -444,10 +447,23 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
  * The port is all it is given of the world: what to draw comes as `view()`, and a press goes back as an id. So the
  * same menu can be given a port carried some other way (by words, from a page above the world) and not know it.
  */
-export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}): Hud {
+export interface MenuMountOptions {
+  parent?: HTMLElement;
+  /**
+   * Draw the chat's pane and nothing else: no bar, no mark, no sheet, no words for a moment, and no key but the
+   * chat's own. For a world whose client above has the menu (protocol/02-doors.md, "The client has the menu"): until
+   * a client runs the room's chat, messages and posts itself, the world keeps that one pane, in its own frame, opened
+   * from a row it describes. Its colour is the world's, as the client's menu's is the visitor's.
+   */
+  only?: "chat";
+}
+
+export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   // Called `controls` throughout what follows, as it was when this was given a world's controls whole.
   const controls = port;
   const host = document.createElement("nswp-hud");
+  const chatOnly = opts.only === "chat";
+  if (chatOnly) host.classList.add("chat-only");
   const root = host.attachShadow({ mode: "open" });
   // A constructed stylesheet, not a <style> element: a site with a strict
   // content security policy forbids inline styles, and this isn't one.
@@ -580,6 +596,9 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
+  // Whose pane it is, at its head, where it is the only thing this page draws: the client above has the menu, and the
+  // pane is this world's own (the client's menu wears the visitor's colour, and this the world's).
+  const chatWhose = el("p", { class: "whose", hidden: "" });
   const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
   const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
   // A private conversation with one person: named for who it is with, so it is never taken for the other two.
@@ -595,7 +614,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   const chatHint = el("p", { class: "hint", role: "status" });
   const chatSend = el("button", { type: "submit" }, "Send");
   const chatForm = el("form", {}, chatField, chatSend);
-  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
+  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
   root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine, target, bar));
   (opts.parent ?? document.body).append(host);
 
@@ -774,6 +793,10 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
     if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1]!.mine) setChatState("peek");
     chatNewest = newest;
     const showing = chatState === "open" ? dockTab : "room";
+    if (chatOnly) {
+      chatWhose.hidden = false;
+      chatWhose.textContent = controls.view().title;
+    }
     // "5 min ago" is worked out again each minute.
     const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 60000), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 60000), l.title] : 0]);
     if (now === chatDrawn) return;
@@ -1217,6 +1240,8 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   /** What had the keys when the menu came up: they go back to it when the menu goes away. */
   let cameFrom: HTMLElement | null = null;
   const setOpen = (next: boolean, at?: string) => {
+    // With only the chat's pane there is no menu here to bring up: the client above has it.
+    if (chatOnly) return;
     // Asked for by name: that section, whether the menu is up already or not.
     if (next && at) {
       section = at;
@@ -1274,7 +1299,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
 
   /** One of the visitor's few keys, by name, said by a framed world that heard it. */
   const pressKey = (key: string): void => {
-    if (host.hidden) return;
+    if (host.hidden || chatOnly) return;
     if (key === "summon") return setOpen(!open);
     if (key === "escape") {
       const does = escapeDoes({ menuOpen: open, held: escapeHeld() });
@@ -1298,7 +1323,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
     // Escape: in fullscreen, where the page holds the key, the first opens the menu and the next leaves fullscreen
     // (ui/fullscreen.ts, `escapeDoes`). Otherwise it closes an open menu whatever the world has done with the other
     // keys: a way out of our own sheet is ours to keep.
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !chatOnly) {
       const does = escapeDoes({ menuOpen: open, held: escapeHeld() });
       if (does !== "nothing") e.preventDefault();
       if (does === "close-menu") return setOpen(false);
@@ -1306,14 +1331,14 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
       if (does === "leave-fullscreen") return void leaveFullscreen();
     }
     const view = controls.view();
-    if (view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
+    if (!chatOnly && view.keys.menu && e.key.toLowerCase() === view.keys.menu && view.presence !== "hidden") return setOpen(!open);
     // Enter, or the chat key, opens the chat to write in. Enter on a button is that button's, and is left alone.
     if (view.keys.chat && view.chat.ready && view.presence !== "hidden" && !open && !e.repeat && (e.key.toLowerCase() === view.keys.chat || (e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A"))) {
       // Or the letter that opened it would be the first thing written.
       e.preventDefault();
       return setChatOpen(true);
     }
-    if (!view.keys.hotbar || view.presence !== "full") return;
+    if (chatOnly || !view.keys.hotbar || view.presence !== "full") return;
     const item = view.hotbar.find((i) => i.key === e.key);
     if (item) return press(item);
     const pin = view.pins.find((p) => p.key && p.key === e.key);
@@ -1359,7 +1384,8 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   // world has done with its screen and its keys, and it is heard before the world hears anything, so a world
   // can neither take the gesture nor be disturbed by it.
   const onSummonKey = (e: KeyboardEvent) => {
-    if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+    // With only the chat's pane, the summons is the world's end of the port's to hear, and to say upward.
+    if (chatOnly || e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
     const at = e.composedPath()[0] as HTMLElement | undefined;
     if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
     e.preventDefault();
@@ -1367,7 +1393,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
     if (!e.repeat) setOpen(!open);
   };
   const swallow = (e: KeyboardEvent) => {
-    if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+    if (!chatOnly && e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
   };
   const hold = createHoldWatch({
     onHeld: () => {
@@ -1390,6 +1416,13 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   });
   const stop = controls.subscribe(draw);
   // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.
+  // The page is given the keys while the chat is open with nothing holding them: they go to the box to write in.
+  // A page in a frame can't take the keys for itself (a browser lets it only at a press in it), so when the chat is
+  // opened from the page above, the box is focused once that page hands the keys down.
+  const onPageFocus = () => {
+    if (chatState === "open" && !host.hidden && (document.activeElement === document.body || document.activeElement === null)) chatField.focus({ preventScroll: true });
+  };
+  addEventListener("focus", onPageFocus);
   const stopAsking = controls.onSignal((name) => {
     if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
     if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
@@ -1451,6 +1484,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
       vv?.removeEventListener("scroll", onViewport);
       stop();
       stopAsking();
+      removeEventListener("focus", onPageFocus);
       stopSay();
       removeEventListener("keydown", onKey);
       stopLeft();

@@ -60,6 +60,12 @@ Node's own requests need this machine's certificate: run a trial with
 
 ## Rules
 
+- **A trial routes every request and every WebSocket, and lists what was asked for.** Routing pages and files
+  is not enough: a world opens relays by WebSocket, which a route for requests doesn't see. A trial that says
+  nothing else is reached answers every socket itself (`ctx.routeWebSocket`), with the relay's "nothing more"
+  to each request and nothing else, and prints which addresses were asked for. (`menu-above.mjs` and
+  `menu-rows.mjs` went onto `main` on 2026-11-23 with their sockets unrouted. Nothing was asked for in any
+  run, but nothing would have stopped it.)
 - **A trial about presses or keys never runs anything inside the page it is
   asking about.** A scripted call into a page counts there as the visitor's own
   press, and so does the call a scripting tool makes to find a button
