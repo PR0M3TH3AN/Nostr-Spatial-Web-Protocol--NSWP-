@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A world made with another engine steps its menu aside too; and one piece of code keeps to who draws the menu** (SDK `packages/sdk/src/menu-keeper.ts`: `keepMenu`; `engine-menu.ts`; the engine script and the Godot add-on's copy; `sites/shared/world.ts`; `trials/menu-above-engine.mjs`; NSWP-02). Nothing a visitor can see changes yet: no real client has the menu.
+  - **The engine script speaks the menu's words.** A world on it, or on the Godot add-on, says so in its `here`. Where its client has the menu it draws none, from the first moment, and says upward what the engine added: its name, its tabs, its own words for Help (`menu()`'s `help`, where that is at most 400 characters), whether it can start a headset session, whether the place has a hum. Presses, the menu coming and going, the visitor's settings and the summons work as in a Three.js world. With no answer in 300 ms it draws its own menu, as before.
+  - **`keepMenu(controls, above, mount)`** is the rule of who draws the menu, in one place: the world's own where nobody above has it; none, but for the chat's pane, where its client has; the other when the answer changes; and asked again each time the world's own menu arrives. The reference worlds and the engine script both use it, where the reference worlds had their own copy. It has unit tests for each case.
+  - A setting changed in the client's menu for how a visitor moves at a desk is now taken by an engine world too, and the engine is told.
+  - The menu's own sounds are not made twice in an engine world whose client has the menu.
+  - Tried: `trials/menu-above-engine.mjs` (17 checks), a bare page with only the engine script, in a frame. `trials/console-first.mjs` still passes: the script's own menu is up from the first moment where no client is above.
+- The client's own row for a sign-in address that didn't answer says "Press to try again." (the orchestrator's words, 2026-11-23).
+
 - **You and the Bag in a client's menu: the kit's half** (core `MENU_SIGN_IN`, `MenuState.signIn`, the word `sign: "out"`; SDK `ui/port-below.ts`: `signInRows`, `below.signOut`, `below.hold`; `menu-above.ts`; `sites/shared/world.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes yet: no real client has the menu.
   - **You stays the client's alone.** A world never puts a row there. It says where its own way of signing in stands as one of four facts (`state.signIn`: `none`, `ready`, `asking`, `unanswered`) beside `state.named`, and the menu words its own rows from them (`signInRows`).
   - **Signing out of a world is one word,** client to world: `{ nswp: "menu", sign: "out" }`. It carries nothing and can only take away. The reference worlds lock what signs for the visitor there, without asking. There is no word for signing in: a client opens its sign-in address's panel itself.

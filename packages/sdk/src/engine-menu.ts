@@ -39,7 +39,11 @@ import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
 import { enginePresence } from "./engine-presence.js";
 import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldPeople, worldSaves } from "./ui/identity.js";
-import { mountMenu, type Hud } from "./ui/hud.js";
+// Loaded with the script, so that the page's `here` says this world speaks the menu's words (menu-above.ts): where
+// its client above has the menu, this script draws none, and describes what the engine added upward.
+import { portAbove, type MenuAbove } from "./menu-above.js";
+import { keepMenu, type KeptMenu } from "./menu-keeper.js";
+import { mountMenu } from "./ui/hud.js";
 import { portHere } from "./ui/port.js";
 import { createControls, type Controls } from "./ui/model.js";
 
@@ -67,7 +71,28 @@ const menuWatchers = new Set<(look: { title: string; accent?: string; hold: bool
 export const onMenu = (fn: (look: { title: string; accent?: string; hold: boolean }) => void): void => void menuWatchers.add(fn);
 
 let controls: Controls | null = null;
-let hud: Hud | null = null;
+/** The menu, whoever draws it: this script's own, or the visitor's client's above this page (menu-keeper.ts). */
+let hud: KeptMenu | null = null;
+/** The page above, asked whether it has the menu. */
+let above: MenuAbove | null = null;
+/** What the world says of itself in Help, in its own words, or "": said upward where a client draws the menu. */
+let helpSaid = "";
+/** The menu's own sounds, which a client's page makes where it has the menu: not made here too. */
+const MENU_CUES: readonly string[] = ["press", "menuOpen", "menuClose", "notice"];
+/**
+ * Ask the page above whether it has the menu, and keep to the answer: this script's own menu where nobody above has
+ * it, none where the client has (but for the chat's pane), and whichever it is when the answer changes. The menu is
+ * in this one file, so it is mounted as soon as it is known to be wanted.
+ */
+const meet = (c: Controls): KeptMenu => {
+  above = portAbove(c, {
+    state: () => ({ headset: { supported: vr.supported, presenting: vr.presenting }, hum: sounds?.hasHum === true }),
+    help: () => helpSaid,
+    // The engine does the going: it may have a headset session to end first.
+    home: () => tell({ type: arrival.atHome() ? "doors" : "home" }),
+  });
+  return keepMenu(c, above, (only) => mountMenu(portHere(c), only ? { only } : {}));
+};
 let sounds: Sounds | null = null;
 let moving: "casual" | "intense" = "casual";
 const vr = { supported: false, presenting: false };
@@ -183,7 +208,7 @@ export function earlyMenu(o: { title: string; accent?: string; home: () => boole
   const c = (controls = createControls(opts));
   early = { opts, line: !loadingNow };
   c.setLoading(loadingNow ?? EARLY_LINE);
-  hud = mountMenu(portHere(c));
+  hud = meet(c);
   const atHome = arrival.atHome();
   c.add({
     id: "home",
@@ -210,6 +235,8 @@ export function roomChanged(state: string): void {
   if (filled || state === "failed") return;
   hud?.remove();
   hud = null;
+  above?.dispose();
+  above = null;
   controls = null;
   early = null;
 }
@@ -237,7 +264,9 @@ export function menu(options?: string): string {
   named = title;
   const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : undefined;
   let c: Controls;
-  let h: Hud;
+  let h: KeptMenu;
+  // Only the world's own words about itself go upward in Help: how to move is the client's own to say there.
+  helpSaid = words(o.help, 400);
   if (early && controls && hud) {
     // The console the visitor already has (earlyMenu): filled in, not made again. Its Home is the engine's from now on.
     c = controls;
@@ -248,7 +277,7 @@ export function menu(options?: string): string {
   } else {
     c = controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) });
     if (loadingNow) c.setLoading(loadingNow);
-    h = hud = mountMenu(portHere(c));
+    h = hud = meet(c);
   }
   for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
   const s = (sounds = createSounds({
@@ -256,7 +285,7 @@ export function menu(options?: string): string {
     ...(typeof o.kit === "string" && o.kit ? { kit: o.kit } : {}),
     ...(o.sounds && typeof o.sounds === "object" ? { theme: o.sounds as SoundTheme } : {}),
   }));
-  addSoundControls(c, s);
+  addSoundControls(c, s, { quiet: (cue) => above?.has === true && MENU_CUES.includes(cue) });
   // The latest, always, as in a Three.js world (ui/fresh.ts).
   c.add(freshAction(c, { busy: () => vr.presenting }));
   // A paid world's gate that was begun before its menu: its control joins the menu now, ahead of the world's doors.
@@ -298,7 +327,18 @@ export function menu(options?: string): string {
   const context = arrival.read().context;
   moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
   // What they prefer goes on with them through the next door. Where there is no mouse nothing is said about it.
-  if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
+  if (hasMouse())
+    reportSettings(
+      "moving",
+      () => ({ intense: moving === "intense" }),
+      // Their client's menu changed how they move at a desk (settings.ts, `changeSettings`).
+      (now) => {
+        if (typeof now.intense !== "boolean" || (now.intense ? "intense" : "casual") === moving) return;
+        moving = now.intense ? "intense" : "casual";
+        keepIntense(moving === "intense");
+        tell({ type: "moving", moving });
+      },
+    );
   c.add({
     id: "fps",
     section: "moving",

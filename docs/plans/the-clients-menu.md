@@ -19,9 +19,10 @@ items, Sound and Help are tabs both fill, the client's part first, and the kit's
 half of You and the Bag is done: a word for signing out, a fact for where
 signing in stands, the menu's own sign-in rows, and the kit's Bag run in a
 client's page with what is taken up there reaching the world. The rest of You
-and the Bag in a real client is BitPortal's, in step 2. Still to come in step
-1: the engine script as a world's end, frame times and bytes, and the trials of
-the four presses. NSWP builder,
+and the Bag in a real client is BitPortal's, in step 2. The engine script is a
+world's end too (`trials/menu-above-engine.mjs`), and the rule for who draws the
+menu is one piece of code for every world (`menu-keeper.ts`). Still to come in
+step 1: frame times and bytes, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -333,14 +334,14 @@ place, above the world, and a world's drawing can never be above it.
   that wires a menu: when its own menu's file arrives, ask who has the menu now; a
   menu that arrives for a page whose client has one is put away before it is seen;
   and a change of who has it is listened for from before the fetch, not after.
-  - *The reference worlds* (`sites/shared/world.ts`) do this since PR 372, and
+  - *The rule is one piece of code,* `keepMenu` (`packages/sdk/src/menu-keeper.ts`),
+    with unit tests for each case, the answer that comes while the menu is on its
+    way among them. Every world built on the kit keeps it by using that.
+  - *The reference worlds* (`sites/shared/world.ts`) use it, and
     `trials/menu-above.mjs` has the case ("during").
-  - *The engine script* can't have this fault today, for two reasons: it doesn't
-    speak the menu's words, so no client ever has its menu; and its menu is in the
-    one file, mounted as that file runs, so there is no fetch for an answer to
-    land in. When it comes to speak the words, the second still holds, and it
-    needs only the other half of the rule: put its own menu away when a client
-    says it has one, however late.
+  - *The engine script* speaks the menu's words and uses it too. Its menu is in the
+    one file, so there is no fetch for an answer to land in; a late answer puts
+    its own menu away (`trials/menu-above-engine.mjs`).
   - *BitPortal's room* (`/walk/`) mounts its menu as its page starts, from its
     own bundle, and doesn't speak the words yet. When it does, as a page of the
     client's own, the same rule is its to keep. BitPortal's session has been told.

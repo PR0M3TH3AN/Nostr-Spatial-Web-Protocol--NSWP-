@@ -21,6 +21,7 @@ import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
 import { VISITOR_SWITCHES } from "./visitor-switches.js";
 
 export { helpWords } from "./ui/help.js";
+export { keepMenu, type KeptMenu } from "./menu-keeper.js";
 import { SUMMON_KEY } from "./ui/summon.js";
 
 speakMenu(MENU_VERSION);

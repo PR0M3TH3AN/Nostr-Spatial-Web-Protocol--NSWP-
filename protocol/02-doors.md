@@ -436,7 +436,8 @@ screen can't be filled at all.
 **Status:** the words, their limits and the reading of them are in the
 kit's core (`packages/core/src/menu.ts`), with examples in
 `vectors/menu-words.json`. The reference worlds speak the world's end
-(`nswp-sdk/menu-above`); worlds on the engine script don't yet. The
+(`nswp-sdk/menu-above`), and so do worlds on the engine script and the
+Godot add-on. The
 client's end is in the kit (`portBelow`, in `nswp-sdk/menu`) and is tried
 in a stand-in client. No client anyone uses speaks them yet, so every
 world still draws its own console. Not yet a rule for anyone.

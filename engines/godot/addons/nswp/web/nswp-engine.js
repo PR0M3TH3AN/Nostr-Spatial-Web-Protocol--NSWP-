@@ -2898,9 +2898,9 @@ var NSWP = (() => {
       content: template.content,
       pubkey
     };
-    const id = getEventHash(unsigned);
-    const sig = bytesToHex(schnorr.sign(hexToBytes(id), secretKey, auxRand));
-    return { ...unsigned, id, sig };
+    const id2 = getEventHash(unsigned);
+    const sig = bytesToHex(schnorr.sign(hexToBytes(id2), secretKey, auxRand));
+    return { ...unsigned, id: id2, sig };
   }
   function hasEventShape(v2) {
     if (typeof v2 !== "object" || v2 === null)
@@ -2968,10 +2968,10 @@ var NSWP = (() => {
       throw new TypeError(`${label}: array of numbers expected`);
   }
   function chain(...args) {
-    const id = (a) => a;
+    const id2 = (a) => a;
     const wrap = (a, b) => (c) => a(b(c));
-    const encode = args.map((x) => x.encode).reduceRight(wrap, id);
-    const decode = args.map((x) => x.decode).reduce(wrap, id);
+    const encode = args.map((x) => x.encode).reduceRight(wrap, id2);
+    const decode = args.map((x) => x.decode).reduce(wrap, id2);
     return { encode, decode };
   }
   var powers = /* @__PURE__ */ (() => {
@@ -4576,10 +4576,10 @@ var NSWP = (() => {
       home: line("home", says("home"))
     };
     const onDoor = new Set(DOOR_OFFERS);
-    return OFFERS.map((id) => ({ id, on: read6[id][0], name: NAMES[id], words: read6[id][1], onDoor: onDoor.has(id) }));
+    return OFFERS.map((id2) => ({ id: id2, on: read6[id2][0], name: NAMES[id2], words: read6[id2][1], onDoor: onDoor.has(id2) }));
   }
-  function line(id, on3) {
-    return [on3, WORDS[id][on3 ? 0 : 1]];
+  function line(id2, on3) {
+    return [on3, WORDS[id2][on3 ? 0 : 1]];
   }
 
   // packages/core/dist/chat.js
@@ -4624,30 +4624,30 @@ var NSWP = (() => {
     globalThis.crypto.getRandomValues(bytes);
     return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   }
-  function buildSay(text2, id = chatId()) {
+  function buildSay(text2, id2 = chatId()) {
     const cleaned = cleanChat(text2);
-    if (!cleaned || !/^[0-9a-f]{8}$/.test(id))
+    if (!cleaned || !/^[0-9a-f]{8}$/.test(id2))
       return null;
-    return `say:${id}:${cleaned}`;
+    return `say:${id2}:${cleaned}`;
   }
   function parseSay(data) {
     if (typeof data !== "string" || !data.startsWith("say:") || data[12] !== ":")
       return null;
-    const id = data.slice(4, 12);
-    if (!/^[0-9a-f]{8}$/.test(id))
+    const id2 = data.slice(4, 12);
+    if (!/^[0-9a-f]{8}$/.test(id2))
       return null;
     const text2 = cleanChat(data.slice(13));
-    return text2 ? { id, text: text2 } : null;
+    return text2 ? { id: id2, text: text2 } : null;
   }
   function createChatGate(limits = CHAT_LIMITS) {
     const ids = [];
     let times = [];
     const recent = (now) => times = times.filter((t) => now - t < limits.perMs);
     return {
-      take(id, now) {
-        if (ids.includes(id))
+      take(id2, now) {
+        if (ids.includes(id2))
           return false;
-        ids.push(id);
+        ids.push(id2);
         if (ids.length > limits.remembered)
           ids.shift();
         if (recent(now).length >= limits.burst)
@@ -4887,8 +4887,8 @@ var NSWP = (() => {
     if (!isPlainObject(input.worlds)) {
       c.error("missing_field", "worlds", "worlds must be an object keyed by world ID.");
     } else {
-      for (const [id, raw] of Object.entries(input.worlds)) {
-        const p = `worlds.${id}`;
+      for (const [id2, raw] of Object.entries(input.worlds)) {
+        const p = `worlds.${id2}`;
         if (!isPlainObject(raw) || !isPlainObject(raw.entry) || !isHttpsUrl(raw.entry.url)) {
           c.error("invalid_entry", `${p}.entry.url`, "Each world needs entry.url as an https URL.");
           continue;
@@ -4956,7 +4956,7 @@ var NSWP = (() => {
               const listing2 = cleanListing(said2);
               if (!listing2)
                 c.warn("invalid_listing", `${p}.access`, "Ignoring an access entry that is not a listing's coordinate (30078:<pubkey>:<name>).");
-              else if (!publishers[listingSeller(listing2)]?.worlds.includes(id))
+              else if (!publishers[listingSeller(listing2)]?.worlds.includes(id2))
                 c.warn("access_not_own", `${p}.access`, "Ignoring an access listing sold by a key that isn't a publisher of this world.");
               else if (access.includes(listing2))
                 continue;
@@ -4991,7 +4991,7 @@ var NSWP = (() => {
           else if (raw.named_only !== false)
             c.warn("invalid_field", `${p}.named_only`, "named_only must be true or false; ignored.");
         }
-        worlds[id] = w;
+        worlds[id2] = w;
       }
     }
     const relays = [];
@@ -5013,7 +5013,7 @@ var NSWP = (() => {
   }
   function doorFor(manifest, url) {
     const here = normalizeUrl(url);
-    const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id].entry.url) === here);
+    const d = Object.keys(manifest.worlds).find((id2) => normalizeUrl(manifest.worlds[id2].entry.url) === here);
     const publishers = d === void 0 ? [] : Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
     if (d === void 0 || publishers.length !== 1)
       return { url };
@@ -5021,7 +5021,7 @@ var NSWP = (() => {
   }
   function accessFor(manifest, url) {
     const here = normalizeUrl(url);
-    const d = Object.keys(manifest.worlds).find((id) => normalizeUrl(manifest.worlds[id].entry.url) === here);
+    const d = Object.keys(manifest.worlds).find((id2) => normalizeUrl(manifest.worlds[id2].entry.url) === here);
     if (d === void 0)
       return null;
     const sellers = Object.keys(manifest.publishers).filter((key) => manifest.publishers[key].worlds.includes(d));
@@ -6694,12 +6694,12 @@ ${roomName}`)));
     if (!event || event.kind !== ACHIEVEMENT_KIND || !isHex64(event.pubkey) || !Array.isArray(event.tags))
       return null;
     const world2 = worldCoordinate(getTags(event, "a")[0]?.[1]);
-    const id = cleanAchievementId(getTags(event, "achievement")[0]?.[1]);
+    const id2 = cleanAchievementId(getTags(event, "achievement")[0]?.[1]);
     const title = cleanLine(getTags(event, "title")[0]?.[1], ACHIEVEMENT_LIMITS.title);
-    if (!world2 || !id || !title || getTags(event, "d")[0]?.[1] !== `${world2}/${id}`)
+    if (!world2 || !id2 || !title || getTags(event, "d")[0]?.[1] !== `${world2}/${id2}`)
       return null;
     const askedAt = event.tags.filter((t) => SITE_MARKS.includes(t[0] ?? "")).map((t) => cleanOrigin(t[1])).filter(Boolean);
-    return { by: event.pubkey, world: world2, id, title, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
+    return { by: event.pubkey, world: world2, id: id2, title, at: Number.isInteger(event.created_at) ? event.created_at : 0, askedAt };
   }
   function isAchievementAsked(signed, o) {
     if (!o.pubkey || !verifyEvent(signed) || signed.pubkey !== o.pubkey)
@@ -6932,6 +6932,7 @@ ${roomName}`)));
   }
 
   // packages/core/dist/menu.js
+  var MENU_VERSION = 1;
   var MENU_LIMITS = {
     /** Tabs in one description. */
     sections: 12,
@@ -6958,6 +6959,55 @@ ${roomName}`)));
     /** Characters in a tab's note, and in what a card says at length. */
     note: 400
   };
+  var MENU_WAIT_MS = 300;
+  var LEAVE_MS = 1e3;
+  var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "moving", "look"];
+  var MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  var MENU_CARD_PICTURE = "card:";
+  var UNSEEN_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
+  var isObject = (v2) => !!v2 && typeof v2 === "object" && !Array.isArray(v2);
+  var count = (s) => {
+    let n = 0;
+    for (const _ of s)
+      n++;
+    return n;
+  };
+  var id = (v2) => typeof v2 === "string" && v2.length > 0 && v2.length <= MENU_LIMITS.label && !/\s/.test(v2) && !UNSEEN_BUT_LINES.test(v2) ? v2 : void 0;
+  function cleanMenuSettings(input) {
+    return cleanSettings(input);
+  }
+  var isMenu = (data) => isObject(data) && data.nswp === "menu";
+  var UP_ONLY = ["world", "key", "say", "picture", "id"];
+  var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
+  function readMenuWordDown(data) {
+    if (!isMenu(data) || hasAny(data, UP_ONLY))
+      return null;
+    if (data.has === true) {
+      const v2 = typeof data.v === "number" && Number.isInteger(data.v) && data.v >= 1 ? Math.min(data.v, MENU_VERSION) : null;
+      return v2 ? { what: "has", has: true, v: v2, settings: cleanMenuSettings(data.settings) } : null;
+    }
+    if (data.has === false)
+      return { what: "has", has: false };
+    if (data.settings !== void 0)
+      return isObject(data.settings) ? { what: "settings", settings: cleanMenuSettings(data.settings) } : null;
+    if (data.press !== void 0) {
+      const press = id(data.press);
+      if (!press)
+        return null;
+      if (data.field === void 0)
+        return { what: "press", press };
+      if (typeof data.field !== "string" || data.field.length > MENU_LIMITS.field * 4 || UNSEEN_BUT_LINES.test(data.field) || count(data.field) > MENU_LIMITS.field)
+        return null;
+      return { what: "press", press, field: data.field };
+    }
+    if (typeof data.open === "boolean")
+      return { what: "open", open: data.open };
+    if (data.go === "home")
+      return { what: "go", go: "home" };
+    if (data.sign === "out")
+      return { what: "sign", sign: "out" };
+    return null;
+  }
 
   // packages/core/dist/item.js
   var ITEM_LIMITS = {
@@ -7563,8 +7613,8 @@ postMessage({ t: "started" });
           morphs = Math.max(morphs, p.targets.length);
         const mode = typeof p.mode === "number" ? p.mode : 4;
         const from = typeof p.indices === "number" ? p.indices : p.attributes?.POSITION;
-        const count3 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
-        triangles += mode === 4 ? Math.floor(count3 / 3) : mode === 5 || mode === 6 ? Math.max(0, count3 - 2) : Math.ceil(count3 / 3);
+        const count4 = typeof from === "number" && typeof accessors[from]?.count === "number" ? accessors[from].count : 0;
+        triangles += mode === 4 ? Math.floor(count4 / 3) : mode === 5 || mode === 6 ? Math.max(0, count4 - 2) : Math.ceil(count4 / 3);
       }
     }
     let texture = 0;
@@ -7583,7 +7633,7 @@ postMessage({ t: "started" });
       for (const j of Array.isArray(skin.joints) ? skin.joints : [])
         if (typeof j === "number")
           joints.add(j);
-    const count2 = {
+    const count3 = {
       triangles,
       // What a renderer makes a mesh of is each part of each mesh.
       meshes: parts3,
@@ -7594,8 +7644,8 @@ postMessage({ t: "started" });
       joints: joints.size,
       morphs
     };
-    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count2.materials <= budget.materials && texture <= budget.texture && count2.joints <= (budget.joints ?? Infinity) && morphs <= (budget.morphs ?? Infinity);
-    return within2 ? { ok: true, count: count2 } : { ok: false, why: "over-budget" };
+    const within2 = parts3 > 0 && parts3 <= budget.meshes && triangles <= budget.triangles && count3.materials <= budget.materials && texture <= budget.texture && count3.joints <= (budget.joints ?? Infinity) && morphs <= (budget.morphs ?? Infinity);
+    return within2 ? { ok: true, count: count3 } : { ok: false, why: "over-budget" };
   }
 
   // packages/core/dist/look-model.js
@@ -8143,6 +8193,20 @@ postMessage({ t: "started" });
     } catch {
     }
   };
+  function speakMenu(version) {
+    if (saidHereAt === null) menuSpoken = version;
+  }
+  var sinceHere = () => saidHereAt === null ? null : performance.now() - saidHereAt;
+  function hearClientMenu(fn) {
+    menuHearer = fn;
+    if (!fn) return;
+    const waiting3 = menuUnheard;
+    menuUnheard = [];
+    for (const word of waiting3) fn(word);
+  }
+  function sayToClient(word) {
+    if (framed()) say({ ...word, nswp: "menu" });
+  }
   function askClientForScreen(fill) {
     if (framed()) say({ nswp: "screen", fill });
   }
@@ -8234,6 +8298,17 @@ postMessage({ t: "started" });
       parts.delete(part);
       takers.delete(part);
     };
+  }
+  function changeSettings(settings) {
+    const changed = cleanMenuSettings(settings);
+    arrived = { ...arrived, ...changed, ...changed.sound || arrived.sound ? { sound: { ...arrived.sound, ...changed.sound } } : {} };
+    for (const take of [...takers.values()]) {
+      try {
+        take(changed);
+      } catch {
+      }
+    }
+    return changed;
   }
   function currentSettings() {
     let out = cleanSettings(arrived);
@@ -8593,7 +8668,7 @@ postMessage({ t: "started" });
       press(key, nameOf(key), true);
     };
     const refresh = () => {
-      for (const id of shown4) controls2.remove(id);
+      for (const id2 of shown4) controls2.remove(id2);
       shown4 = [];
       const me = f.pubkey();
       if (me !== wasMe) {
@@ -9317,8 +9392,8 @@ postMessage({ t: "started" });
       note: () => {
         if (!gate2.keeper) return "";
         const lists = [];
-        if (gate2.byInvitation) lists.push(gate2.invites === "read" ? `${count(gate2.guests?.length ?? 0, "person", "people")} invited` : gate2.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
-        lists.push(gate2.lists === "read" || gate2.lists === "not-found" ? `${count(gate2.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
+        if (gate2.byInvitation) lists.push(gate2.invites === "read" ? `${count2(gate2.guests?.length ?? 0, "person", "people")} invited` : gate2.invites === "not-found" ? "nobody invited yet" : "who is invited couldn't be read just now");
+        lists.push(gate2.lists === "read" || gate2.lists === "not-found" ? `${count2(gate2.ownerBlocked.length, "person", "people")} kept out` : "who is kept out couldn't be read just now");
         return `Anyone can read this list. ${capital(lists.join(", "))}.${inHeadset() ? ` ${stepOut}` : ""}`;
       }
     });
@@ -9413,7 +9488,7 @@ postMessage({ t: "started" });
     gate2.onChange(refresh);
     refresh();
   }
-  var count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  var count2 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   var capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
   // packages/sdk/src/ui/icons.ts
@@ -10223,9 +10298,9 @@ postMessage({ t: "started" });
       if (!this.closed && this.peers.size < this.maxMembers - 1) this.publish(buildHello(this.topic, this.key));
     }
     async onEvent(raw) {
-      const id = raw?.id;
-      if (typeof id !== "string" || this.seen.has(id)) return;
-      this.seen.add(id);
+      const id2 = raw?.id;
+      if (typeof id2 !== "string" || this.seen.has(id2)) return;
+      this.seen.add(id2);
       if (this.seen.size > 2e3) this.seen.clear();
       const opened = openSignal(raw, this.key, this.topic);
       if (!opened || this.closed) return;
@@ -14957,8 +15032,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count2) {
-      this.updateRanges.push({ start: start2, count: count2 });
+    addUpdateRange(start2, count3) {
+      this.updateRanges.push({ start: start2, count: count3 });
     }
     /**
      * Clears the update ranges.
@@ -15981,8 +16056,8 @@ postMessage({ t: "started" });
       this.scissorTest = false;
       this.viewport = new Vector4(0, 0, width, height);
       this.textures = [];
-      const count2 = options.count;
-      for (let i = 0; i < count2; i++) {
+      const count3 = options.count;
+      for (let i = 0; i < count3; i++) {
         this.textures[i] = new Texture({ width, height, depth: options.depth });
         this.textures[i].isRenderTargetTexture = true;
         this.textures[i].renderTarget = this;
@@ -18226,8 +18301,8 @@ postMessage({ t: "started" });
      * @param {number} id - The id.
      * @return {Object3D|undefined} The found 3D object. Returns `undefined` if no 3D object has been found.
      */
-    getObjectById(id) {
-      return this.getObjectByProperty("id", id);
+    getObjectById(id2) {
+      return this.getObjectByProperty("id", id2);
     }
     /**
      * Searches through the 3D object and its children, starting with the 3D object
@@ -20741,8 +20816,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count2) {
-      this.updateRanges.push({ start: start2, count: count2 });
+    addUpdateRange(start2, count3) {
+      this.updateRanges.push({ start: start2, count: count3 });
     }
     /**
      * Clears the update ranges.
@@ -21544,10 +21619,10 @@ postMessage({ t: "started" });
      * @param {number} count - Specifies how many vertices (or indices) are part of this group.
      * @param {number} [materialIndex=0] - The material array index to use.
      */
-    addGroup(start2, count2, materialIndex = 0) {
+    addGroup(start2, count3, materialIndex = 0) {
       this.groups.push({
         start: start2,
-        count: count2,
+        count: count3,
         materialIndex
       });
     }
@@ -21564,9 +21639,9 @@ postMessage({ t: "started" });
      * @param {number} count - For non-indexed BufferGeometry, `count` is the number of vertices to render.
      * For indexed BufferGeometry, `count` is the number of indices to render.
      */
-    setDrawRange(start2, count2) {
+    setDrawRange(start2, count3) {
       this.drawRange.start = start2;
-      this.drawRange.count = count2;
+      this.drawRange.count = count3;
     }
     /**
      * Applies the given 4x4 transformation matrix to the geometry.
@@ -21903,8 +21978,8 @@ postMessage({ t: "started" });
       for (let i = 0, il = groups.length; i < il; ++i) {
         const group = groups[i];
         const start2 = group.start;
-        const count2 = group.count;
-        for (let j = start2, jl = start2 + count2; j < jl; j += 3) {
+        const count3 = group.count;
+        for (let j = start2, jl = start2 + count3; j < jl; j += 3) {
           handleTriangle(
             index.getX(j + 0),
             index.getX(j + 1),
@@ -22244,8 +22319,8 @@ postMessage({ t: "started" });
      * @param {number} start - Position at which to start update.
      * @param {number} count - The number of components to update.
      */
-    addUpdateRange(start2, count2) {
-      this.updateRanges.push({ start: start2, count: count2 });
+    addUpdateRange(start2, count3) {
+      this.updateRanges.push({ start: start2, count: count3 });
     }
     /**
      * Clears the update ranges.
@@ -24972,16 +25047,16 @@ postMessage({ t: "started" });
      * @param {Material|Array<Material>} [material] - The mesh material.
      * @param {number} count - The number of instances.
      */
-    constructor(geometry, material, count2) {
+    constructor(geometry, material, count3) {
       super(geometry, material);
       this.isInstancedMesh = true;
-      this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count2 * 16), 16);
+      this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count3 * 16), 16);
       this.instanceColor = null;
       this.morphTexture = null;
-      this.count = count2;
+      this.count = count3;
       this.boundingBox = null;
       this.boundingSphere = null;
-      for (let i = 0; i < count2; i++) {
+      for (let i = 0; i < count3; i++) {
         this.setMatrixAt(i, _identity);
       }
     }
@@ -24992,7 +25067,7 @@ postMessage({ t: "started" });
      */
     computeBoundingBox() {
       const geometry = this.geometry;
-      const count2 = this.count;
+      const count3 = this.count;
       if (this.boundingBox === null) {
         this.boundingBox = new Box3();
       }
@@ -25000,7 +25075,7 @@ postMessage({ t: "started" });
         geometry.computeBoundingBox();
       }
       this.boundingBox.makeEmpty();
-      for (let i = 0; i < count2; i++) {
+      for (let i = 0; i < count3; i++) {
         this.getMatrixAt(i, _instanceLocalMatrix);
         _box3.copy(geometry.boundingBox).applyMatrix4(_instanceLocalMatrix);
         this.boundingBox.union(_box3);
@@ -25013,7 +25088,7 @@ postMessage({ t: "started" });
      */
     computeBoundingSphere() {
       const geometry = this.geometry;
-      const count2 = this.count;
+      const count3 = this.count;
       if (this.boundingSphere === null) {
         this.boundingSphere = new Sphere();
       }
@@ -25021,7 +25096,7 @@ postMessage({ t: "started" });
         geometry.computeBoundingSphere();
       }
       this.boundingSphere.makeEmpty();
-      for (let i = 0; i < count2; i++) {
+      for (let i = 0; i < count3; i++) {
         this.getMatrixAt(i, _instanceLocalMatrix);
         _sphere$4.copy(geometry.boundingSphere).applyMatrix4(_instanceLocalMatrix);
         this.boundingSphere.union(_sphere$4);
@@ -34001,14 +34076,14 @@ postMessage({ t: "started" });
     function setMode(value) {
       mode = value;
     }
-    function render(start2, count2) {
-      gl.drawArrays(mode, start2, count2);
-      info.update(count2, mode, 1);
+    function render(start2, count3) {
+      gl.drawArrays(mode, start2, count3);
+      info.update(count3, mode, 1);
     }
-    function renderInstances(start2, count2, primcount) {
+    function renderInstances(start2, count3, primcount) {
       if (primcount === 0) return;
-      gl.drawArraysInstanced(mode, start2, count2, primcount);
-      info.update(count2, mode, primcount);
+      gl.drawArraysInstanced(mode, start2, count3, primcount);
+      info.update(count3, mode, primcount);
     }
     function renderMultiDraw(starts2, counts, drawCount) {
       if (drawCount === 0) return;
@@ -34954,12 +35029,12 @@ postMessage({ t: "started" });
       return texture;
     }
     function isCubeTextureComplete(image) {
-      let count2 = 0;
+      let count3 = 0;
       const length = 6;
       for (let i = 0; i < length; i++) {
-        if (image[i] !== void 0) count2++;
+        if (image[i] !== void 0) count3++;
       }
-      return count2 === length;
+      return count3 === length;
     }
     function onCubemapDispose(event) {
       const texture = event.target;
@@ -35026,7 +35101,7 @@ postMessage({ t: "started" });
   function WebGLGeometries(gl, attributes, info, bindingStates) {
     const geometries = {};
     const wireframeAttributes = /* @__PURE__ */ new WeakMap();
-    const registry = new FinalizationRegistry((id) => delete geometries[id]);
+    const registry = new FinalizationRegistry((id2) => delete geometries[id2]);
     function onGeometryDispose(event) {
       destroyGeometry(event.target);
     }
@@ -35072,14 +35147,14 @@ postMessage({ t: "started" });
       if (geometryPosition === void 0) {
         return;
       }
-      const count2 = geometryIndex !== null ? geometryIndex.array.length : geometryPosition.array.length / 3 - 1;
+      const count3 = geometryIndex !== null ? geometryIndex.array.length : geometryPosition.array.length / 3 - 1;
       const IndexBufferAttribute = geometryPosition.count >= 65535 ? Uint32BufferAttribute : Uint16BufferAttribute;
-      const attribute = new IndexBufferAttribute(Math.ceil(count2 / 3) * 6, 1);
+      const attribute = new IndexBufferAttribute(Math.ceil(count3 / 3) * 6, 1);
       const indices = attribute.array;
       if (geometryIndex !== null) {
         const array = geometryIndex.array;
         version = geometryIndex.version;
-        for (let i = 0, j = 0; i < count2; i += 3) {
+        for (let i = 0, j = 0; i < count3; i += 3) {
           const a = array[i + 0];
           const b = array[i + 1];
           const c = array[i + 2];
@@ -35092,7 +35167,7 @@ postMessage({ t: "started" });
         }
       } else {
         version = geometryPosition.version;
-        for (let i = 0, j = 0; i < count2; i += 3) {
+        for (let i = 0, j = 0; i < count3; i += 3) {
           const a = i + 0;
           const b = i + 1;
           const c = i + 2;
@@ -35124,8 +35199,8 @@ postMessage({ t: "started" });
       return wireframeAttributes.get(geometry);
     }
     function dispose() {
-      for (const id in geometries) {
-        const geometry = geometries[id].deref();
+      for (const id2 in geometries) {
+        const geometry = geometries[id2].deref();
         if (geometry !== void 0) destroyGeometry(geometry);
       }
     }
@@ -35146,14 +35221,14 @@ postMessage({ t: "started" });
       type = value.type;
       bytesPerElement = value.bytesPerElement;
     }
-    function render(start2, count2) {
-      gl.drawElements(mode, count2, type, start2 * bytesPerElement);
-      info.update(count2, mode, 1);
+    function render(start2, count3) {
+      gl.drawElements(mode, count3, type, start2 * bytesPerElement);
+      info.update(count3, mode, 1);
     }
-    function renderInstances(start2, count2, primcount) {
+    function renderInstances(start2, count3, primcount) {
       if (primcount === 0) return;
-      gl.drawElementsInstanced(mode, count2, type, start2 * bytesPerElement, primcount);
-      info.update(count2, mode, primcount);
+      gl.drawElementsInstanced(mode, count3, type, start2 * bytesPerElement, primcount);
+      info.update(count3, mode, primcount);
     }
     function renderMultiDraw(starts2, counts, drawCount) {
       if (drawCount === 0) return;
@@ -35183,23 +35258,23 @@ postMessage({ t: "started" });
       points: 0,
       lines: 0
     };
-    function update(count2, mode, instanceCount) {
+    function update(count3, mode, instanceCount) {
       render.calls++;
       switch (mode) {
         case gl.TRIANGLES:
-          render.triangles += instanceCount * (count2 / 3);
+          render.triangles += instanceCount * (count3 / 3);
           break;
         case gl.LINES:
-          render.lines += instanceCount * (count2 / 2);
+          render.lines += instanceCount * (count3 / 2);
           break;
         case gl.LINE_STRIP:
-          render.lines += instanceCount * (count2 - 1);
+          render.lines += instanceCount * (count3 - 1);
           break;
         case gl.LINE_LOOP:
-          render.lines += instanceCount * count2;
+          render.lines += instanceCount * count3;
           break;
         case gl.POINTS:
-          render.points += instanceCount * count2;
+          render.points += instanceCount * count3;
           break;
         default:
           error("WebGLInfo: Unknown draw mode:", mode);
@@ -36145,8 +36220,8 @@ postMessage({ t: "started" });
     }
   }
   var SingleUniform = class {
-    constructor(id, activeInfo, addr) {
-      this.id = id;
+    constructor(id2, activeInfo, addr) {
+      this.id = id2;
       this.addr = addr;
       this.cache = [];
       this.type = activeInfo.type;
@@ -36154,8 +36229,8 @@ postMessage({ t: "started" });
     }
   };
   var PureArrayUniform = class {
-    constructor(id, activeInfo, addr) {
-      this.id = id;
+    constructor(id2, activeInfo, addr) {
+      this.id = id2;
       this.addr = addr;
       this.cache = [];
       this.type = activeInfo.type;
@@ -36164,8 +36239,8 @@ postMessage({ t: "started" });
     }
   };
   var StructuredUniform = class {
-    constructor(id) {
-      this.id = id;
+    constructor(id2) {
+      this.id = id2;
       this.seq = [];
       this.map = {};
     }
@@ -36187,17 +36262,17 @@ postMessage({ t: "started" });
     RePathPart.lastIndex = 0;
     while (true) {
       const match = RePathPart.exec(path), matchEnd2 = RePathPart.lastIndex;
-      let id = match[1];
+      let id2 = match[1];
       const idIsIndex = match[2] === "]", subscript = match[3];
-      if (idIsIndex) id = id | 0;
+      if (idIsIndex) id2 = id2 | 0;
       if (subscript === void 0 || subscript === "[" && matchEnd2 + 2 === pathLength) {
-        addUniform(container, subscript === void 0 ? new SingleUniform(id, activeInfo, addr) : new PureArrayUniform(id, activeInfo, addr));
+        addUniform(container, subscript === void 0 ? new SingleUniform(id2, activeInfo, addr) : new PureArrayUniform(id2, activeInfo, addr));
         break;
       } else {
         const map = container.map;
-        let next = map[id];
+        let next = map[id2];
         if (next === void 0) {
-          next = new StructuredUniform(id);
+          next = new StructuredUniform(id2);
           addUniform(container, next);
         }
         container = next;
@@ -38387,8 +38462,8 @@ postMessage({ t: "started" });
     function onMaterialDispose(event) {
       const material = event.target;
       material.removeEventListener("dispose", onMaterialDispose);
-      for (const id in _materialCache) {
-        const cache = _materialCache[id];
+      for (const id2 in _materialCache) {
+        const cache = _materialCache[id2];
         const uuid = event.target.uuid;
         if (uuid in cache) {
           const shadowMaterial = cache[uuid];
@@ -38633,13 +38708,13 @@ postMessage({ t: "started" });
     const viewportParam = gl.getParameter(gl.VIEWPORT);
     const currentScissor = new Vector4().fromArray(scissorParam);
     const currentViewport = new Vector4().fromArray(viewportParam);
-    function createTexture(type, target2, count2, dimensions) {
+    function createTexture(type, target2, count3, dimensions) {
       const data = new Uint8Array(4);
       const texture = gl.createTexture();
       gl.bindTexture(type, texture);
       gl.texParameteri(type, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(type, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      for (let i = 0; i < count2; i++) {
+      for (let i = 0; i < count3; i++) {
         if (type === gl.TEXTURE_3D || type === gl.TEXTURE_2D_ARRAY) {
           gl.texImage3D(target2, 0, gl.RGBA, 1, 1, dimensions, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
         } else {
@@ -38662,16 +38737,16 @@ postMessage({ t: "started" });
     setCullFace(CullFaceBack);
     enable(gl.CULL_FACE);
     setBlending(NoBlending);
-    function enable(id) {
-      if (enabledCapabilities[id] !== true) {
-        gl.enable(id);
-        enabledCapabilities[id] = true;
+    function enable(id2) {
+      if (enabledCapabilities[id2] !== true) {
+        gl.enable(id2);
+        enabledCapabilities[id2] = true;
       }
     }
-    function disable(id) {
-      if (enabledCapabilities[id] !== false) {
-        gl.disable(id);
-        enabledCapabilities[id] = false;
+    function disable(id2) {
+      if (enabledCapabilities[id2] !== false) {
+        gl.disable(id2);
+        enabledCapabilities[id2] = false;
       }
     }
     function bindFramebuffer(target2, framebuffer) {
@@ -41728,8 +41803,8 @@ void main() {
       delete updateList[uniformsGroup.id];
     }
     function dispose() {
-      for (const id in buffers) {
-        gl.deleteBuffer(buffers[id]);
+      for (const id2 in buffers) {
+        gl.deleteBuffer(buffers[id2]);
       }
       buffers = {};
       updateList = {};
@@ -43194,9 +43269,9 @@ void main() {
         object.onAfterRender(_this, scene, camera, geometry, material, group);
       }
       function countLightProbeGrids(grids) {
-        let count2 = 0;
-        for (const grid of grids) if (grid.texture !== null) count2++;
-        return count2;
+        let count3 = 0;
+        for (const grid of grids) if (grid.texture !== null) count3++;
+        return count3;
       }
       function getProgram(material, scene, object) {
         if (scene.isScene !== true) scene = _emptyScene;
@@ -43500,16 +43575,16 @@ void main() {
           materials.refreshMaterialUniforms(m_uniforms, material, _pixelRatio, _height, currentRenderState.state.transmissionRenderTarget[camera.id]);
           if (materialProperties.needsLights && materialProperties.numLightProbeGrids > 0) {
             const grids = lightProbeGridUniforms;
-            let count2 = 0;
+            let count3 = 0;
             for (const grid of currentRenderState.state.lightProbeGridArray) {
               if (grid.texture === null) continue;
-              grids.textures[count2] = grid.texture;
-              grids.min[count2] = grid.boundingBox.min;
-              grids.max[count2] = grid.boundingBox.max;
-              grids.resolution[count2] = grid.resolution;
-              count2++;
+              grids.textures[count3] = grid.texture;
+              grids.min[count3] = grid.boundingBox.min;
+              grids.max[count3] = grid.boundingBox.max;
+              grids.resolution[count3] = grid.resolution;
+              count3++;
             }
-            for (const key in grids) grids[key].length = count2;
+            for (const key in grids) grids[key].length = count3;
             m_uniforms.probesSH.value = grids.textures;
             m_uniforms.probesMin.value = grids.min;
             m_uniforms.probesMax.value = grids.max;
@@ -44179,10 +44254,10 @@ void main() {
       pan: side * (0.08 + random() * 0.1)
     };
   }
-  function nextVariant(count2, last, random = Math.random) {
-    if (count2 <= 1) return 0;
-    if (last < 0 || last >= count2) return Math.min(count2 - 1, Math.floor(random() * count2));
-    const i = Math.floor(random() * (count2 - 1));
+  function nextVariant(count3, last, random = Math.random) {
+    if (count3 <= 1) return 0;
+    if (last < 0 || last >= count3) return Math.min(count3 - 1, Math.floor(random() * count3));
+    const i = Math.floor(random() * (count3 - 1));
     return i >= last ? i + 1 : i;
   }
   var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
@@ -44272,10 +44347,10 @@ void main() {
     const seen = /* @__PURE__ */ new Set();
     for (const s of input) {
       if (!s || typeof s !== "object") continue;
-      const { id, title, size, at } = s;
-      if (typeof id !== "string" || !/^[a-z0-9-]{4,40}$/.test(id) || seen.has(id)) continue;
-      seen.add(id);
-      out.push({ id, title: songTitle(title), size: typeof size === "number" && size > 0 ? Math.floor(size) : 0, at: typeof at === "number" && at > 0 ? Math.floor(at) : 0 });
+      const { id: id2, title, size, at } = s;
+      if (typeof id2 !== "string" || !/^[a-z0-9-]{4,40}$/.test(id2) || seen.has(id2)) continue;
+      seen.add(id2);
+      out.push({ id: id2, title: songTitle(title), size: typeof size === "number" && size > 0 ? Math.floor(size) : 0, at: typeof at === "number" && at > 0 ? Math.floor(at) : 0 });
       if (out.length >= SOUND_LIMITS.songs) break;
     }
     return out;
@@ -44763,26 +44838,26 @@ void main() {
       async add(file) {
         const refusal = songRefusal({ type: file.type, size: file.size, ...file.name ? { name: file.name } : {} }, songs.length);
         if (refusal) return refusal;
-        const id = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-        const kept2 = await fileStore("readwrite", (s) => s.put(file, `song:${id}`));
+        const id2 = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const kept2 = await fileStore("readwrite", (s) => s.put(file, `song:${id2}`));
         if (kept2 === void 0) return "This browser couldn't keep that file.";
-        songs = cleanSongs([...songs, { id, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
+        songs = cleanSongs([...songs, { id: id2, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
         keepSongs();
         changed();
         return null;
       },
-      async remove(id) {
-        if (juke.current?.id === id) {
+      async remove(id2) {
+        if (juke.current?.id === id2) {
           stopOwn();
           juke.current = null;
         }
-        songs = songs.filter((s) => s.id !== id);
+        songs = songs.filter((s) => s.id !== id2);
         keepSongs();
-        await fileStore("readwrite", (s) => s.delete(`song:${id}`));
+        await fileStore("readwrite", (s) => s.delete(`song:${id2}`));
         changed();
       },
-      async play(id) {
-        const song = id ? songs.find((s) => s.id === id) : juke.current ?? songs[0];
+      async play(id2) {
+        const song = id2 ? songs.find((s) => s.id === id2) : juke.current ?? songs[0];
         if (!song || disposed) return false;
         player();
         if (juke.current?.id !== song.id || !juke.url) {
@@ -44921,7 +44996,7 @@ void main() {
       refresh();
     });
     const refresh = () => {
-      for (const id of listed) controls2.remove(id);
+      for (const id2 of listed) controls2.remove(id2);
       const songs = sounds2.jukebox.list();
       listed = songs.map((s) => `song-${s.id}`);
       controls2.addSection({
@@ -44944,8 +45019,8 @@ void main() {
         })
       );
     };
-    const level2 = (id, name, key) => ({
-      id,
+    const level2 = (id2, name, key) => ({
+      id: id2,
       section: "sound",
       label: () => `${name}: ${word(sounds2.levels[key])}`,
       on: () => sounds2.levels[key] > 0,
@@ -46213,17 +46288,17 @@ void main() {
         return buffer.then(function(res) {
           const byteOffset = extensionDef.byteOffset || 0;
           const byteLength = extensionDef.byteLength || 0;
-          const count2 = extensionDef.count;
+          const count3 = extensionDef.count;
           const stride = extensionDef.byteStride;
           const source = new Uint8Array(res, byteOffset, byteLength);
           if (decoder4.decodeGltfBufferAsync) {
-            return decoder4.decodeGltfBufferAsync(count2, stride, source, extensionDef.mode, extensionDef.filter).then(function(res2) {
+            return decoder4.decodeGltfBufferAsync(count3, stride, source, extensionDef.mode, extensionDef.filter).then(function(res2) {
               return res2.buffer;
             });
           } else {
             return decoder4.ready.then(function() {
-              const result = new ArrayBuffer(count2 * stride);
-              decoder4.decodeGltfBuffer(new Uint8Array(result), count2, stride, source, extensionDef.mode, extensionDef.filter);
+              const result = new ArrayBuffer(count3 * stride);
+              decoder4.decodeGltfBuffer(new Uint8Array(result), count3, stride, source, extensionDef.mode, extensionDef.filter);
               return result;
             });
           }
@@ -46267,15 +46342,15 @@ void main() {
       return Promise.all(pending).then((results) => {
         const nodeObject = results.pop();
         const meshes = nodeObject.isGroup ? nodeObject.children : [nodeObject];
-        const count2 = results[0].count;
+        const count3 = results[0].count;
         const instancedMeshes = [];
         for (const mesh of meshes) {
           const m = new Matrix4();
           const p = new Vector3();
           const q2 = new Quaternion();
           const s = new Vector3(1, 1, 1);
-          const instancedMesh = new InstancedMesh(mesh.geometry, mesh.material, count2);
-          for (let i = 0; i < count2; i++) {
+          const instancedMesh = new InstancedMesh(mesh.geometry, mesh.material, count3);
+          for (let i = 0; i < count3; i++) {
             if (attributes.TRANSLATION) {
               p.fromBufferAttribute(attributes.TRANSLATION, i);
             }
@@ -48917,7 +48992,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let lines = [];
     let unread = 0;
     let version = 0;
-    let count2 = 0;
+    let count3 = 0;
     const bump2 = () => {
       version++;
       changed();
@@ -48948,7 +49023,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (!send || !showsChat()) return;
         const text2 = cleanChat(line2.text);
         if (!text2) return;
-        lines.push({ key: `${line2.id ?? "n"}-${++count2}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
+        lines.push({ key: `${line2.id ?? "n"}-${++count3}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
         if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
         if (!line2.mine && !line2.note) unread++;
         bump2();
@@ -49947,11 +50022,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         thing.floor = y;
       },
       info() {
-        const count2 = (state) => things.filter((t) => t.state === state).length;
+        const count3 = (state) => things.filter((t) => t.state === state).length;
         return {
-          flying: count2("flying"),
-          stuck: count2("stuck"),
-          falling: count2("falling") + count2("lying"),
+          flying: count3("flying"),
+          stuck: count3("stuck"),
+          falling: count3("falling") + count3("lying"),
           things: things.map((t) => ({ by: t.by, id: t.shot.id, state: t.state, on: t.on, onto: `${t.object.parent?.type ?? ""}:${t.object.parent?.name ?? ""}`, at: t.object.getWorldPosition(new Vector3()).toArray().map((n) => Math.round(n * 100) / 100) })),
           sent,
           landed,
@@ -50316,8 +50391,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
     };
     const putToThem = (request, read6) => new Promise((done) => {
-      for (const [id, earlier] of put) {
-        put.delete(id);
+      for (const [id2, earlier] of put) {
+        put.delete(id2);
         clearTimeout(earlier.timer);
         earlier.finish(null);
       }
@@ -50535,26 +50610,26 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       sign(note) {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
         const asked = { kind: note.kind, content: note.content, tags: note.tags ?? [] };
-        const id = `q${++n}`;
+        const id2 = `q${++n}`;
         return new Promise((done) => {
           const timer = setTimeout(() => {
-            pending.delete(id);
+            pending.delete(id2);
             done(null);
           }, 8e3);
-          pending.set(id, { asked, done, timer });
-          tell2({ t: "sign", id, event: asked });
+          pending.set(id2, { asked, done, timer });
+          tell2({ t: "sign", id: id2, event: asked });
         });
       },
       pass(session2) {
         if (state !== "unlocked" || !frame2) return Promise.resolve(null);
-        const id = `p${++n}`;
+        const id2 = `p${++n}`;
         return new Promise((done) => {
           const timer = setTimeout(() => {
-            pending.delete(id);
+            pending.delete(id2);
             done(null);
           }, 8e3);
-          pending.set(id, { session: session2, done, timer });
-          tell2({ t: "pass", id, session: session2 });
+          pending.set(id2, { session: session2, done, timer });
+          tell2({ t: "pass", id: id2, session: session2 });
         });
       },
       save(slot, data) {
@@ -52248,8 +52323,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const { controls: controls2, sounds: sounds2 } = parts3;
     const nothing = async () => new Group();
     const shapeless = {
-      describe: (id) => engineItemStore().describe(id),
-      known: (id) => engineItemStore().known(id),
+      describe: (id2) => engineItemStore().describe(id2),
+      known: (id2) => engineItemStore().known(id2),
       modelBytes: (named2) => engineItemStore().modelBytes(named2),
       sound: (...a) => engineItemStore().sound(...a),
       script: (...a) => engineItemStore().script(...a),
@@ -52317,12 +52392,427 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return JSON.stringify({ index, place: places[index] ?? null });
   }
 
+  // packages/sdk/src/visitor-switches.ts
+  var VISITOR_SWITCHES = [
+    "people-pictures",
+    "people-models",
+    "room-chat-show",
+    "fov",
+    // In Sound, which both fill: the volumes, the hum's switch and the visitor's own music are the client's (sound.ts).
+    // What is the world's there is the piece it is playing.
+    "sound-all",
+    "sound-effects",
+    "sound-music",
+    "sound-voices",
+    "sound-hum",
+    "juke-add",
+    "juke-play",
+    "juke-next",
+    "juke-remove"
+  ];
+  var picturesSwitch = (controls2) => ({
+    id: "people-pictures",
+    section: "people",
+    icon: "selfie",
+    on: () => showsPictures(),
+    label: () => showsPictures() ? "Profile pictures: on" : "Profile pictures: off",
+    short: "Pictures",
+    act: () => {
+      setShowsPictures(!showsPictures());
+      controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
+    }
+  });
+  var modelsSwitch = (controls2) => ({
+    id: "people-models",
+    section: "people",
+    icon: "people",
+    on: () => showsModels(),
+    label: () => showsModels() ? "Show people's own models: on" : "Show people's own models: off",
+    short: "Models",
+    act: () => {
+      setShowsModels(!showsModels());
+      controls2.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
+    }
+  });
+  var chatSwitch = (tell2) => ({
+    id: "room-chat-show",
+    section: "room",
+    icon: "chat",
+    label: () => showsChat() ? "Written chat: on" : "Written chat: off",
+    on: () => showsChat(),
+    act: () => {
+      setShowsChat(!showsChat());
+      tell2(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
+    }
+  });
+
+  // packages/sdk/src/menu-keeper.ts
+  function keepMenu(controls2, above2, mount) {
+    let own2 = null;
+    let chatPane = null;
+    let ownComing = null;
+    let chatComing = false;
+    let hidden2 = false;
+    let gone = false;
+    const chatIfNeeded = () => {
+      if (gone || !above2.has || own2 || chatPane || chatComing) return;
+      const now = controls2.view();
+      if (!now.chat.ready && !now.feed.ready && !now.letters.ready) return;
+      chatComing = true;
+      void Promise.resolve(mount("chat")).then(
+        (pane) => {
+          chatComing = false;
+          if (gone || !above2.has || own2 || chatPane) return pane.remove();
+          chatPane = pane;
+          if (hidden2) pane.setHidden(true);
+        },
+        () => chatComing = false
+      );
+    };
+    const settle = () => {
+      if (gone) return Promise.resolve();
+      if (above2.has) {
+        own2?.remove();
+        own2 = null;
+        chatIfNeeded();
+        return Promise.resolve();
+      }
+      chatPane?.remove();
+      chatPane = null;
+      if (own2) return Promise.resolve();
+      ownComing ?? (ownComing = Promise.resolve(mount()).then(
+        (menu2) => {
+          ownComing = null;
+          if (gone || above2.has || own2) menu2.remove();
+          else {
+            own2 = menu2;
+            if (hidden2) menu2.setHidden(true);
+          }
+          return settle();
+        },
+        () => void (ownComing = null)
+      ));
+      return ownComing;
+    };
+    const stopView = controls2.subscribe(chatIfNeeded);
+    const stopSignals = controls2.onSignal((name) => {
+      if ((name === "chatOpen" || name === "feedOpen") && above2.has && above2.menu.open) above2.menu.setOpen(false);
+    });
+    const stopChange = above2.onChange(() => void settle());
+    const ready2 = above2.ready.then(() => settle());
+    return {
+      get open() {
+        return own2 ? own2.open : above2.menu.open;
+      },
+      setOpen(open2, at) {
+        if (own2) own2.setOpen(open2, at);
+        else above2.menu.setOpen(open2);
+      },
+      setHidden(next) {
+        hidden2 = next;
+        own2?.setHidden(next);
+        chatPane?.setHidden(next);
+      },
+      get own() {
+        return own2;
+      },
+      get chatPane() {
+        return !!chatPane;
+      },
+      ready: ready2,
+      remove() {
+        gone = true;
+        stopView();
+        stopSignals();
+        stopChange();
+        own2?.remove();
+        chatPane?.remove();
+        own2 = null;
+        chatPane = null;
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/summon.ts
+  var SUMMON_KEY = "Backquote";
+  var SUMMON_HOLD = 600;
+  var SUMMON_SLOP = 18;
+  function createHoldWatch(o) {
+    const hold = o.hold ?? SUMMON_HOLD;
+    const slop = o.slop ?? SUMMON_SLOP;
+    let from = null;
+    let timer = null;
+    const cancel = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      from = null;
+    };
+    return {
+      touches(points) {
+        if (points.length !== 2) return cancel();
+        if (!from) {
+          from = points.map((p) => ({ x: p.x, y: p.y }));
+          timer = setTimeout(() => {
+            cancel();
+            o.onHeld();
+          }, hold);
+          return;
+        }
+        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
+      },
+      cancel
+    };
+  }
+
+  // packages/sdk/src/menu-above.ts
+  speakMenu(MENU_VERSION);
+  async function bitmapOf(from) {
+    if (typeof createImageBitmap !== "function") return null;
+    const source = typeof from === "string" ? await loadPicture(from) : from;
+    if (!source) return null;
+    const size = source;
+    const w = size.videoWidth || size.naturalWidth || (typeof size.width === "number" ? size.width : 0);
+    const h = size.videoHeight || size.naturalHeight || (typeof size.height === "number" ? size.height : 0);
+    if (!w || !h) return null;
+    const k = Math.min(1, MENU_LIMITS.picture / Math.max(w, h));
+    try {
+      return await createImageBitmap(source, { resizeWidth: Math.max(1, Math.round(w * k)), resizeHeight: Math.max(1, Math.round(h * k)), resizeQuality: "medium" });
+    } catch {
+      return null;
+    }
+  }
+  var CLIENTS = MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages");
+  var VISITORS_ROWS = ["back", "home", "go-home", "doors", "list"];
+  var COLOR = /^#[0-9a-f]{6}$/;
+  var EVERY_MS2 = 125;
+  var rowOf = (item, onBar) => ({
+    id: item.id,
+    label: item.label,
+    ...item.short && item.short !== item.label ? { short: item.short } : {},
+    ...item.icon ? { icon: item.icon } : {},
+    kind: item.kind,
+    ...item.on === null ? {} : { on: item.on },
+    ...item.tone === "normal" ? {} : { tone: item.tone },
+    ...COLOR.test(item.color) ? { color: item.color } : {},
+    ...item.mark ? { mark: item.mark } : {},
+    ...item.faint ? { faint: true } : {},
+    ...onBar ? { bar: true } : {},
+    ...item.kind === "copy" ? { copy: item.copy ?? "" } : {}
+  });
+  var cardOf = (card) => ({
+    title: card.title,
+    ...card.tag ? { tag: card.tag } : {},
+    ...card.proven ? { proven: true } : {},
+    ...card.sub ? { sub: card.sub } : {},
+    ...card.copy ? { copy: card.copy } : {},
+    ...card.text ? { text: card.text.slice(0, MENU_LIMITS.note) } : {},
+    ...COLOR.test(card.color) ? { color: card.color } : {},
+    ...card.now.length ? { now: card.now } : {},
+    ...card.acts?.length ? { acts: card.acts } : {}
+  });
+  function describeWorld(view2, state = {}, help = "") {
+    const onBar = new Set(view2.hotbar.map((i) => i.id));
+    const about = help.trim().length <= MENU_LIMITS.note ? help.trim() : "";
+    return {
+      title: view2.title.slice(0, MENU_LIMITS.title),
+      level: view2.presence,
+      corner: view2.corner,
+      // A world that has taken every key says so, and the client leaves the digits alone.
+      keys: view2.keys.hotbar || view2.keys.menu !== null,
+      state,
+      target: view2.target ? [view2.target, ...view2.detail].slice(0, 6) : [],
+      loading: view2.loading,
+      sections: view2.sections.filter((s) => !CLIENTS.includes(s.id)).map((s) => ({
+        id: s.id,
+        label: s.label,
+        ...s.icon ? { icon: s.icon } : {},
+        ...s.id === "help" ? about ? { note: about } : {} : s.note ? { note: s.note } : {},
+        ...s.card ? { card: cardOf(s.card) } : {},
+        // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
+        // client's own rows, which it draws itself inside this tab.
+        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !VISITOR_SWITCHES.includes(i.id)).map((i) => rowOf(i, onBar.has(i.id)))
+      })).filter((s) => s.rows.length > 0 || s.card || s.id === "help" && about)
+    };
+  }
+  var idsOf = (world2) => new Set(world2.sections.flatMap((s) => s.rows.map((r) => r.id)));
+  function portAbove(controls2, opts = {}) {
+    const above2 = opts.above ?? { framed, sinceHere, say: sayToClient, hear: hearClientMenu };
+    const keys = opts.keys ?? (typeof window === "undefined" ? null : window);
+    const watchers8 = /* @__PURE__ */ new Set();
+    let has = false;
+    let known = false;
+    let settle = () => {
+    };
+    const ready2 = new Promise((resolve) => settle = resolve);
+    const know = () => {
+      if (known) return;
+      known = true;
+      settle(has);
+    };
+    if (!above2.framed()) {
+      know();
+      return { ready: ready2, has: false, onChange: () => () => {
+      }, menu: { open: false, setOpen: () => {
+      } }, dispose: () => {
+      } };
+    }
+    let named2 = /* @__PURE__ */ new Set();
+    const makePicture = opts.picture ?? bitmapOf;
+    const made = /* @__PURE__ */ new Map();
+    const want2 = (key, from) => {
+      if (!from || made.get(key) === from) return;
+      made.set(key, from);
+      void makePicture(from).then(
+        (picture2) => {
+          if (picture2 && has && open2 && made.get(key) === from) above2.say({ picture: picture2, id: key });
+        },
+        () => {
+        }
+      );
+    };
+    const picturesOf = (view2) => {
+      if (!open2) return;
+      for (const s of view2.sections) {
+        if (CLIENTS.includes(s.id)) continue;
+        if (s.card?.picture) want2(`${MENU_CARD_PICTURE}${s.id}`, s.card.picture);
+        for (const i of s.items) if (i.picture && named2.has(i.id)) want2(i.id, i.picture());
+      }
+    };
+    let last = "";
+    let lastAt = -Infinity;
+    let waiting3 = null;
+    const describe = () => {
+      waiting3 = null;
+      if (!has) return;
+      const view2 = controls2.view();
+      const world2 = describeWorld(view2, opts.state?.(), opts.help?.() ?? "");
+      const text2 = JSON.stringify(world2);
+      if (text2 !== last) {
+        last = text2;
+        lastAt = performance.now();
+        named2 = idsOf(world2);
+        above2.say({ world: world2 });
+      }
+      picturesOf(view2);
+    };
+    const changed = () => {
+      if (!has || waiting3) return;
+      const wait = EVERY_MS2 - (performance.now() - lastAt);
+      if (wait <= 0) describe();
+      else waiting3 = setTimeout(describe, wait);
+    };
+    const stopView = controls2.subscribe(changed);
+    const tick = setInterval(changed, 400);
+    const stopSay = controls2.onSay((text2) => {
+      if (has && text2) above2.say({ say: text2.slice(0, MENU_LIMITS.say) });
+    });
+    const setHas = (next) => {
+      if (next === has) return know();
+      has = next;
+      last = "";
+      open2 = false;
+      if (has) describe();
+      else {
+        if (waiting3) clearTimeout(waiting3);
+        waiting3 = null;
+        named2 = /* @__PURE__ */ new Set();
+      }
+      know();
+      for (const fn of [...watchers8]) fn(has);
+    };
+    let leaving2 = null;
+    let open2 = false;
+    above2.hear((data) => {
+      const word = readMenuWordDown(data);
+      if (!word) return;
+      if (word.what === "has") {
+        if (word.has) changeSettings(word.settings);
+        return setHas(word.has);
+      }
+      if (!has) return;
+      if (word.what === "settings") return void changeSettings(word.settings);
+      if (word.what === "press") return void (named2.has(word.press) && controls2.run(word.press, word.field));
+      if (word.what === "open") {
+        if (word.open === open2) return;
+        open2 = word.open;
+        made.clear();
+        controls2.signal(open2 ? "menuOpen" : "menuClose");
+        if (open2) changed();
+        return;
+      }
+      if (word.what === "sign") return void opts.signOut?.();
+      if (word.what === "go" && !leaving2) {
+        opts.home?.();
+        leaving2 = setTimeout(() => leaving2 = null, LEAVE_MS);
+      }
+    });
+    const tell2 = (key) => above2.say({ key });
+    const typing = (e) => {
+      const at = e.composedPath?.()[0];
+      return !!at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable === true);
+    };
+    const onKey = (e) => {
+      if (!has || e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
+      if (e.code === SUMMON_KEY) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) tell2("summon");
+        return;
+      }
+      if (e.repeat) return;
+      if (e.key === "Escape") return tell2("escape");
+      const view2 = controls2.view();
+      if (view2.presence !== "hidden" && view2.keys.menu && e.key.toLowerCase() === view2.keys.menu) return tell2("menu");
+      if (view2.keys.hotbar && view2.presence === "full" && MENU_KEYS.includes(e.key) && /^[1-9]$/.test(e.key)) tell2(e.key);
+    };
+    const swallow = (e) => {
+      if (has && e.code === SUMMON_KEY && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+    };
+    const listening = { capture: true };
+    keys?.addEventListener("keydown", onKey, listening);
+    keys?.addEventListener("keyup", swallow, listening);
+    const since = above2.sinceHere();
+    const left = since === null ? MENU_WAIT_MS : MENU_WAIT_MS - since;
+    const giveUp = left <= 0 ? (know(), null) : setTimeout(know, left);
+    return {
+      ready: ready2,
+      get has() {
+        return has;
+      },
+      onChange(fn) {
+        watchers8.add(fn);
+        return () => void watchers8.delete(fn);
+      },
+      menu: {
+        get open() {
+          return has && open2;
+        },
+        setOpen(next) {
+          if (has && next !== open2) tell2("summon");
+        }
+      },
+      dispose() {
+        if (giveUp) clearTimeout(giveUp);
+        if (waiting3) clearTimeout(waiting3);
+        clearInterval(tick);
+        if (leaving2) clearTimeout(leaving2);
+        stopView();
+        stopSay();
+        above2.hear(null);
+        keys?.removeEventListener("keydown", onKey, listening);
+        keys?.removeEventListener("keyup", swallow, listening);
+        watchers8.clear();
+        know();
+      }
+    };
+  }
+
   // packages/sdk/src/ui/port.ts
   function portHere(controls2) {
     return {
       view: () => controls2.view(),
       subscribe: (fn) => controls2.subscribe(fn),
-      run: (id, typed) => controls2.run(id, typed),
+      run: (id2, typed) => controls2.run(id2, typed),
       say: (text2) => controls2.say(text2),
       onSay: (fn) => controls2.onSay(fn),
       signal: (name) => controls2.signal(name),
@@ -52354,7 +52844,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     let loading4 = false;
     let said2 = "";
     let version = 0;
-    let count2 = 0;
+    let count3 = 0;
     let asked = 0;
     const bump2 = () => {
       version++;
@@ -52410,7 +52900,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         if (!mine) return "There is nothing to post with: sign in first.";
         const words2 = cleanChat(text2);
         if (!words2) return null;
-        const post = { key: `new-${++count2}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        const post = { key: `new-${++count3}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         posts.unshift(post);
         said2 = "";
         bump2();
@@ -52427,11 +52917,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         const mine = opts;
         const post = posts.find((p) => p.key === key);
         if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
-        const id = post.id;
+        const id2 = post.id;
         post.state = "removing";
         said2 = "";
         bump2();
-        void mine.remove(id).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
+        void mine.remove(id2).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
           if (opts !== mine) return;
           if (how.ok) posts = posts.filter((p) => p !== post);
           else post.state = "out";
@@ -52456,37 +52946,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const days = Math.floor(s / 86400);
     if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
     return new Date(at * 1e3).toISOString().slice(0, 10);
-  }
-
-  // packages/sdk/src/ui/summon.ts
-  var SUMMON_KEY = "Backquote";
-  var SUMMON_HOLD = 600;
-  var SUMMON_SLOP = 18;
-  function createHoldWatch(o) {
-    const hold = o.hold ?? SUMMON_HOLD;
-    const slop = o.slop ?? SUMMON_SLOP;
-    let from = null;
-    let timer = null;
-    const cancel = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = null;
-      from = null;
-    };
-    return {
-      touches(points) {
-        if (points.length !== 2) return cancel();
-        if (!from) {
-          from = points.map((p) => ({ x: p.x, y: p.y }));
-          timer = setTimeout(() => {
-            cancel();
-            o.onHeld();
-          }, hold);
-          return;
-        }
-        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
-      },
-      cancel
-    };
   }
 
   // packages/sdk/src/ui/hud.ts
@@ -52887,7 +53346,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
     const title = el("b");
     const address = el("span", { class: "mono" });
-    const id = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
+    const id2 = el("div", { class: "id glass" }, el("span", { class: "mark", "aria-hidden": "true" }), el("div", {}, title, address));
     const menu2 = el("button", { class: "menu glass", type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" }, icon("menu"), el("span", {}, "Menu"), el("kbd", {}, "M"));
     const quiet = el("button", { class: "quiet glass", type: "button", "aria-label": "Menu", "aria-haspopup": "dialog", "aria-expanded": "false" }, el("span", { class: "mark", "aria-hidden": "true" }));
     const target2 = el("div", { class: "target glass", "aria-live": "polite" });
@@ -53002,7 +53461,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
+    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id2, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
@@ -53057,10 +53516,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       for (const f of fields.values()) f.input.value = "";
       fields.clear();
     };
-    const openPin = (id2) => {
+    const openPin = (id3) => {
       controls2.signal("press");
-      if (open2 && section === id2) setOpen(false);
-      else setOpen(true, id2);
+      if (open2 && section === id3) setOpen(false);
+      else setOpen(true, id3);
     };
     const drawCard = (card, acts = []) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
@@ -53552,7 +54011,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (at && at[0] !== null && at[1] !== null) typingIn.input.setSelectionRange(at[0], at[1]);
       }
       const still = new Set(view2.sections.flatMap((s) => s.items.filter((i) => i.kind === "field").map((i) => i.id)));
-      for (const id2 of [...fields.keys()]) if (!still.has(id2)) fields.delete(id2);
+      for (const id3 of [...fields.keys()]) if (!still.has(id3)) fields.delete(id3);
       if (fresh && about) rows.scrollTop = 0;
       rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
@@ -53746,12 +54205,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setChatOpen,
       bounds() {
         if (host.hidden) return [];
-        return [id, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
+        return [id2, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
       },
       cover() {
         if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
         const low = bar.getBoundingClientRect();
-        const high = id.getBoundingClientRect();
+        const high = id2.getBoundingClientRect();
         return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
       },
       pressKey,
@@ -53795,7 +54254,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let waiting3 = [];
     let said2 = "";
     let version = 0;
-    let count2 = 0;
+    let count3 = 0;
     const bump2 = () => {
       version++;
       changed();
@@ -53823,7 +54282,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!mine) return "There is nobody to write to: choose someone first.";
         const words2 = cleanMessage(text2);
         if (!words2) return null;
-        const line2 = { key: `new-${++count2}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        const line2 = { key: `new-${++count3}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
         waiting3.push(line2);
         said2 = "";
         bump2();
@@ -53895,8 +54354,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
   var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
   var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
-  var rank = (id) => {
-    const i = STANDARD_ORDER.indexOf(id);
+  var rank = (id2) => {
+    const i = STANDARD_ORDER.indexOf(id2);
     return i === -1 ? STANDARD_ORDER.length : i;
   };
   var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
@@ -53997,9 +54456,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         }
         changed();
       },
-      has: (id) => actions.some((x) => x.id === id),
-      remove(id) {
-        const i = actions.findIndex((x) => x.id === id);
+      has: (id2) => actions.some((x) => x.id === id2),
+      remove(id2) {
+        const i = actions.findIndex((x) => x.id === id2);
         if (i !== -1) actions.splice(i, 1);
         changed();
       },
@@ -54045,8 +54504,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       say(text2) {
         for (const fn of sayers) fn(text2);
       },
-      run(id, typed) {
-        const a = actions.find((x) => x.id === id);
+      run(id2, typed) {
+        const a = actions.find((x) => x.id === id2);
         if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
         void Promise.resolve().then(() => a.act(a.kind === "field" ? typed : void 0)).catch(() => {
@@ -54068,7 +54527,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const now = pins ?? [];
         if (pinned === now.includes(section)) return true;
         if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
-        pins = pinned ? [...now, section] : now.filter((id) => id !== section);
+        pins = pinned ? [...now, section] : now.filter((id2) => id2 !== section);
         savePins(pins);
         changed();
         return true;
@@ -54082,7 +54541,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
         };
         const known = new Set(sections.map((s) => s.id));
-        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
+        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
         const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
         return {
           title: opts.title,
@@ -54093,10 +54552,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           sections: shown4,
           hotbar: bar.map(item),
           // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
-          pins: (pins ?? []).flatMap((id, i) => {
-            const tab = shown4.find((x) => x.id === id);
+          pins: (pins ?? []).flatMap((id2, i) => {
+            const tab = shown4.find((x) => x.id === id2);
             const n = bar.length + i + 1;
-            return tab ? [{ id, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+            return tab ? [{ id: id2, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
           }),
           pinsFull: (pins ?? []).length >= PINS_MOST,
           theme,
@@ -54176,6 +54635,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var onMenu = (fn) => void menuWatchers.add(fn);
   var controls = null;
   var hud = null;
+  var above = null;
+  var helpSaid = "";
+  var MENU_CUES = ["press", "menuOpen", "menuClose", "notice"];
+  var meet = (c) => {
+    above = portAbove(c, {
+      state: () => ({ headset: { supported: vr.supported, presenting: vr.presenting }, hum: sounds?.hasHum === true }),
+      help: () => helpSaid,
+      // The engine does the going: it may have a headset session to end first.
+      home: () => tell({ type: arrival.atHome() ? "doors" : "home" })
+    });
+    return keepMenu(c, above, (only2) => mountMenu(portHere(c), only2 ? { only: only2 } : {}));
+  };
   var sounds = null;
   var moving = "casual";
   var vr = { supported: false, presenting: false };
@@ -54246,7 +54717,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const c = controls = createControls(opts);
     early = { opts, line: !loadingNow };
     c.setLoading(loadingNow ?? EARLY_LINE);
-    hud = mountMenu(portHere(c));
+    hud = meet(c);
     const atHome = arrival.atHome();
     c.add({
       id: "home",
@@ -54268,6 +54739,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     if (filled2 || state === "failed") return;
     hud?.remove();
     hud = null;
+    above?.dispose();
+    above = null;
     controls = null;
     early = null;
   }
@@ -54280,6 +54753,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const accent = /^#[0-9a-f]{6}$/i.test(String(o.accent)) ? String(o.accent) : void 0;
     let c;
     let h;
+    helpSaid = words(o.help, 400);
     if (early && controls && hud) {
       c = controls;
       h = hud;
@@ -54289,7 +54763,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     } else {
       c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
       if (loadingNow) c.setLoading(loadingNow);
-      h = hud = mountMenu(portHere(c));
+      h = hud = meet(c);
     }
     for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
     const s = sounds = createSounds({
@@ -54297,7 +54771,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       ...typeof o.kit === "string" && o.kit ? { kit: o.kit } : {},
       ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
     });
-    addSoundControls(c, s);
+    addSoundControls(c, s, { quiet: (cue) => above?.has === true && MENU_CUES.includes(cue) });
     c.add(freshAction(c, { busy: () => vr.presenting }));
     rowsForGate();
     const atHome = arrival.atHome();
@@ -54328,7 +54802,18 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
     const context = arrival.read().context;
     moving = startsIntense(context?.moving === "intense") ? "intense" : "casual";
-    if (hasMouse()) reportSettings("moving", () => ({ intense: moving === "intense" }));
+    if (hasMouse())
+      reportSettings(
+        "moving",
+        () => ({ intense: moving === "intense" }),
+        // Their client's menu changed how they move at a desk (settings.ts, `changeSettings`).
+        (now) => {
+          if (typeof now.intense !== "boolean" || (now.intense ? "intense" : "casual") === moving) return;
+          moving = now.intense ? "intense" : "casual";
+          keepIntense(moving === "intense");
+          tell({ type: "moving", moving });
+        }
+      );
     c.add({
       id: "fps",
       section: "moving",
@@ -54516,8 +55001,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       hotbar: v2.hotbar.map(item)
     });
   }
-  function run(id) {
-    return typeof id === "string" && !!controls?.run(id);
+  function run(id2) {
+    return typeof id2 === "string" && !!controls?.run(id2);
   }
   function open(on3) {
     hud?.setOpen(on3 === true || on3 === "true" || on3 === "1" || on3 === 1);
@@ -54530,17 +55015,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function door(entry) {
     const d = read4(entry);
-    const id = words(d.id, 60);
-    if (!id || !controls) return;
-    const menuId = `door-${id}`;
+    const id2 = words(d.id, 60);
+    if (!id2 || !controls) return;
+    const menuId = `door-${id2}`;
     if (d.remove === true) {
-      doors.delete(id);
+      doors.delete(id2);
       controls.remove(menuId);
       return;
     }
-    if (doors.has(id) || doors.size >= 24) return;
-    doors.set(id, words(d.label, 80) || "A door");
-    controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id) ?? "A door", short: "Door", act: () => tell({ type: "door", id }) });
+    if (doors.has(id2) || doors.size >= 24) return;
+    doors.set(id2, words(d.label, 80) || "A door");
+    controls.add({ id: menuId, section: "travel", icon: "door", label: () => doors.get(id2) ?? "A door", short: "Door", act: () => tell({ type: "door", id: id2 }) });
   }
 
   // packages/sdk/src/bag.ts
@@ -54926,7 +55411,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       drawnHolding = opts.holding();
       const held2 = heldNow();
       if (held2 !== void 0) keepHolding(held2);
-      for (const id of shown4) controls2.remove(id);
+      for (const id2 of shown4) controls2.remove(id2);
       shown4 = [];
       const me = opts.me();
       if (me !== wasMe) {
@@ -55605,43 +56090,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return true;
   }
 
-  // packages/sdk/src/visitor-switches.ts
-  var picturesSwitch = (controls2) => ({
-    id: "people-pictures",
-    section: "people",
-    icon: "selfie",
-    on: () => showsPictures(),
-    label: () => showsPictures() ? "Profile pictures: on" : "Profile pictures: off",
-    short: "Pictures",
-    act: () => {
-      setShowsPictures(!showsPictures());
-      controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
-    }
-  });
-  var modelsSwitch = (controls2) => ({
-    id: "people-models",
-    section: "people",
-    icon: "people",
-    on: () => showsModels(),
-    label: () => showsModels() ? "Show people's own models: on" : "Show people's own models: off",
-    short: "Models",
-    act: () => {
-      setShowsModels(!showsModels());
-      controls2.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
-    }
-  });
-  var chatSwitch = (tell2) => ({
-    id: "room-chat-show",
-    section: "room",
-    icon: "chat",
-    label: () => showsChat() ? "Written chat: on" : "Written chat: off",
-    on: () => showsChat(),
-    act: () => {
-      setShowsChat(!showsChat());
-      tell2(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
-    }
-  });
-
   // packages/sdk/src/messages.ts
   var MOST2 = 300;
   var FRESH_MS4 = 45e3;
@@ -55997,7 +56445,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       say3(hand.ask(go2));
     };
     const refresh = () => {
-      for (const id of shown4) controls2.remove(id);
+      for (const id2 of shown4) controls2.remove(id2);
       shown4 = [];
       const me = hand.pubkey();
       if (me !== wasMe) {
@@ -56238,7 +56686,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     }
     let worldTipRows = [];
     const tendWorldTip = () => {
-      for (const id of worldTipRows) controls2.remove(id);
+      for (const id2 of worldTipRows) controls2.remove(id2);
       worldTipRows = [];
       if (!tipper || !takesTips || !follows().pubkey()) return;
       worldTipRows = tipRows("world", "travel", null, "this world", "Tip this world").map((r) => r.id);
@@ -56393,7 +56841,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const here = presence3.session ? presence3.people() : [];
       if (presence3.session && here.length !== headcount) controls2.signal(here.length > headcount ? "join" : "leave");
       headcount = presence3.session ? here.length : 0;
-      for (const id of [...listed, ...extras]) controls2.remove(id);
+      for (const id2 of [...listed, ...extras]) controls2.remove(id2);
       extras = [];
       listed = here.map((m) => `person-${m.pubkey.slice(0, 12)}`);
       if (!here.some((m) => m.pubkey === chosen)) chosen = null;
@@ -56564,10 +57012,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         );
       }
       for (const b of presence3.blocked()) {
-        const id = `unblock-${b.key.slice(0, 12)}`;
-        extras.push(id);
+        const id2 = `unblock-${b.key.slice(0, 12)}`;
+        extras.push(id2);
         controls2.add({
-          id,
+          id: id2,
           section: "people",
           icon: "check",
           label: `Unblock ${b.name}${b.kept ? "" : " (blocked this visit)"}`,
@@ -56772,13 +57220,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const where = own2 === n ? `${kept3} of your ${n} relays` : own2 ? `${kept3} of ${n} relays: yours, and the usual ones because too few of your own were answering` : `${kept3} of the ${n} usual relays: you have published no relay list of your own`;
       return kept3 ? { ok: true, said: `Sent out, to ${where}. Anyone can read it now.`, id: note.id } : { ok: false, said: "Signed, but no relay took it. It wasn't sent." };
     };
-    const removeNote = async (id) => {
+    const removeNote = async (id2) => {
       const host = notes2.host?.() ?? "your sign-in address";
       if (presence3.presenting) return { ok: false, said: `Not deleted: ${host} has to ask you this itself, which can't be seen from in here. Step out of the headset and press Delete again.` };
       const key = notes2.pubkey?.();
-      const signed = await notes2.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id], ["k", "1"]] }).catch(() => null);
+      const signed = await notes2.propose?.({ kind: DELETION_KIND, content: "", tags: [["e", id2], ["k", "1"]] }).catch(() => null);
       const names = signed ? signed.tags.filter((t) => t[0] === "e" || t[0] === "a") : [];
-      const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0][1] === id ? signed : null;
+      const note = signed && verifyEvent(signed) && signed.kind === DELETION_KIND && (!key || signed.pubkey === key) && names.length === 1 && names[0][1] === id2 ? signed : null;
       if (!note) return { ok: false, said: `Not deleted: ${host} didn't sign it. Either you said no there, or it can't do this yet.` };
       const to = await sendWell(note, { own: await ownRelays(note.pubkey), usual: usualRelays() }).catch(() => null);
       const kept3 = to?.took ?? 0;

@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 // Loaded with the page, never later: it is what tells the page above that this world speaks the menu's words.
 import { portAbove } from "nswp-sdk/menu-above";
-import { helpWords } from "nswp-sdk/menu-above";
+import { helpWords, keepMenu } from "nswp-sdk/menu-above";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type MenuState, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addDoorControls, createControls, type Controls, type MenuDoor, addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
@@ -383,79 +383,20 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     help: () => cfg.purpose,
     home: () => void goHome(),
   });
-  let own: Awaited<ReturnType<typeof ownMenu>> | null = null;
-  async function ownMenu() {
+  // One menu, never two (menu-keeper.ts): this world's own where nobody above has it; none, but for the chat's
+  // pane, where its client has; and whichever it is asked again each time this world's own menu arrives, which is a
+  // file fetched here when it is needed, so a world whose client draws the menu never fetches it.
+  const hud = keepMenu(controls, above, async (only) => {
     const { mountMenu, portHere } = await import("nswp-sdk/menu");
-    return mountMenu(portHere(controls));
-  }
-  // The menu, whoever has it, for this world's own parts: whether it is up, and how to ask for it.
-  const hud = {
-    get open() {
-      return own ? own.open : above.menu.open;
-    },
-    setOpen(open: boolean, at?: string) {
-      if (own) own.setOpen(open, at);
-      else above.menu.setOpen(open);
-    },
-    setHidden(hidden: boolean) {
-      own?.setHidden(hidden);
-      chatPane?.setHidden(hidden);
-    },
-  };
-  // The chat's pane, kept by this world while its client has the menu (docs/plans/the-clients-menu.md, section 15,
-  // "The chat's pane, for steps 1 to 3"): the room's chat, messages and posts are not yet words between the two
-  // pages, so until a client runs them itself they are drawn here, in this frame, and nothing else of the menu is.
-  // It is the menu's own file, mounted to draw that one pane, and fetched only once there is something to write to.
-  let chatPane: Awaited<ReturnType<typeof ownMenu>> | null = null;
-  let chatComing = false;
-  const chatIfNeeded = () => {
-    if (!above.has || own || chatPane || chatComing) return;
-    const now = controls.view();
-    if (!now.chat.ready && !now.feed.ready && !now.letters.ready) return;
-    chatComing = true;
-    void import("nswp-sdk/menu").then(({ mountMenu, portHere }) => {
-      chatComing = false;
-      if (above.has && !own && !chatPane) chatPane = mountMenu(portHere(controls), { only: "chat" });
-    });
-  };
-  controls.subscribe(chatIfNeeded);
-  // One thing at a time over the world: as the chat comes up here, the client's menu is asked to go, which also
-  // gives this frame the keys to write with.
-  controls.onSignal((name) => {
-    if ((name === "chatOpen" || name === "feedOpen") && above.has && above.menu.open) above.menu.setOpen(false);
+    return mountMenu(portHere(controls), only ? { only } : {});
   });
-  // One menu, never two: whoever has it now is what stands, however the answer and this page's own loading fell.
-  // This world's own menu is a file fetched when it is needed, and a client can answer while it is on its way (it
-  // answers late on a busy machine, or a development server): so who has the menu is asked again each time that
-  // file arrives, and a menu that arrives for a world whose client now has one is put away before it is seen.
-  let ownComing: Promise<void> | null = null;
-  const settle = (): Promise<void> => {
-    if (above.has) {
-      own?.remove();
-      own = null;
-      chatIfNeeded();
-      return Promise.resolve();
-    }
-    chatPane?.remove();
-    chatPane = null;
-    if (own) return Promise.resolve();
-    ownComing ??= ownMenu().then((menu) => {
-      ownComing = null;
-      if (above.has || own) menu.remove();
-      else own = menu;
-      return settle();
-    });
-    return ownComing;
-  };
-  above.onChange(() => void settle());
-  await above.ready;
   // As before for a world with no client above: its own menu is up before anything else is set going.
-  await settle();
+  await hud.ready;
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
   hooks.menuAbove = () => above.has;
-  hooks.chatPane = () => !!chatPane;
+  hooks.chatPane = () => hud.chatPane;
   // The gate of a paid world, where this world is one. None here is: `on` is false in every world.json's reading,
   // so no gate is made and nothing of this runs. What it is entered by is read from the world's own manifest.
   const gate: PaidGate | null = cfg.gate && (cfg.gate.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;

@@ -489,7 +489,7 @@ export function signInRows(below: Pick<MenuBelow, "world" | "signOut">, opts: { 
       section: "you",
       icon: "key",
       hidden: () => !state() || state()!.named || state()!.signIn === "none",
-      label: () => (state()?.signIn === "asking" ? "Asking your sign-in address…" : state()?.signIn === "unanswered" ? "Your sign-in address didn't answer. Press to ask again" : `Sign in to ${where()}`),
+      label: () => (state()?.signIn === "asking" ? "Asking your sign-in address…" : state()?.signIn === "unanswered" ? "Your sign-in address didn't answer. Press to try again." : `Sign in to ${where()}`),
       short: "Sign in",
       act: () => opts.ask(),
     },
