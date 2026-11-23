@@ -1,7 +1,8 @@
 # The client's menu: a design
 
-**Status:** a draft, for the orchestrator and the owner to answer (sections 13 and 14).
-Nothing is built from it until they have. NSWP builder, 2026-11-23. From
+**Status:** the orchestrator answered on 2026-11-23 (section 14): the names are given,
+the steps stand, and steps 0 and 0b go ahead. The owner's eight questions are still
+open, and step 1 waits for them. NSWP builder, 2026-11-23. From
 `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. Every new name is a proposal, listed
 in section 13; none is used before it is given (rule 11).
@@ -150,13 +151,37 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 > Nothing about the visitor is in any of the world's words. The client's words carry
 > their settings and nothing else of them: the same settings a link already carries
 > into a world.
+>
+> **A switch that guards the visitor's privacy is not a comfort setting.** "Load
+> people's files from anywhere" is turned on by the visitor's own press, for the one
+> place they are in. A client above may say `filesAnywhere: true` only to the world
+> the visitor turned it on for, and to no other; a link still never can. The same
+> care holds for whether they see people's pictures and people's own models: a client
+> sends each as the visitor set it for that world, and never widens one on a world's
+> word.
+>
+> **What a world may say back.** While its headset session runs, where only it can
+> draw the console, a world may report the settings the visitor changed there:
+> `{ nswp: "menu", settings }`. A client takes from it only comfort and layout, by
+> name: how they move and turn (`headset`, `intense`, `turn`, `hand`, `narrow`,
+> `fade`, `look`, `fov`, `wrist`), the volumes (`sound`), whether things move
+> (`motion`), the size of text (`text`), and the order of their tabs and their pins
+> (`tabs`, `pins`). Everything else in it is dropped: a world's report can never turn
+> a privacy switch on, or change who the visitor is, what they hold or what they see
+> of other people.
 
 Notes on the words, not for the protocol:
 
 - **`settings` go only to the world that said `here`.** The client addresses them to
   that page's own address, not to whatever is in the frame.
 - **A world may send `{ nswp: "menu", settings }` back only while its headset session
-  runs** (section 8), and the client cleans them as anything that arrives is cleaned.
+  runs** (section 8). The client takes the named comfort and layout settings from it
+  and drops the rest, then cleans what it took as anything that arrives is cleaned.
+- **The client keeps the privacy switches per world.** `filesAnywhere` on is kept
+  against the world's address it was pressed for, and is in the `settings` sent to
+  that world only. Off is the default everywhere and is what every other world is
+  told. Pictures and people's own models are the visitor's general settings, and a
+  world may be given a narrower one (off, there) but never a wider one than they set.
 - **Pictures** cross as bitmaps the browser copies between pages, so the client never
   fetches an address a world names.
 
@@ -229,14 +254,19 @@ Only the world's page can draw into a headset's view. So:
   the same tabs in the same order, because it is the same code and the same settings.
 - **What the client still holds:** the visitor's settings, including the order of
   their tabs and their pins, which it sent in. Changes made in the headset are said
-  back (`settings`), cleaned, and kept by the client, so they are there on the flat
-  screen and in the next world.
+  back (`settings`), and the client keeps the ones that are comfort and layout
+  (section 4 names them), so they are there on the flat screen and in the next world.
+- **A privacy switch pressed in a headset is the world's own to act on, and stays
+  there.** "Load people's files from anywhere", turned on in the headset's console,
+  holds in that world for that visit, as it does in any world today. The client
+  doesn't take it from the world's report, so it isn't on when the visitor comes back
+  by the client, until they press it in the client's own menu.
 - **Wallet and Files in a headset** say to take the headset off, as buying does: the
   sign-in address's pages can't be shown in there.
 - **This is no worse than today for trust,** and no better: inside a headset a world
-  runs the visitor's tabs itself, as every world does now. A world could report
-  settings the visitor didn't choose; today any world can do the same on the link to
-  the next. Outside a headset it no longer can.
+  runs the visitor's tabs itself, as every world does now. A world could report a
+  comfort setting the visitor didn't choose; today any world can do the same on the
+  link to the next. It can report nothing else, and outside a headset nothing at all.
 - **A browser of our own** is what makes the headset's console the client's too
   (section 11).
 
@@ -277,6 +307,14 @@ way is taken at a press on the view, which is the world's page already.
   whoever draws the console: the client on a flat screen, the world's part in a
   headset. The answer is a setting like any other.
 - **The link still carries settings,** for the worlds reached with no client above.
+- **Two kinds of setting, held differently:**
+  - *Comfort and layout* (how they move, the volumes, text, motion, tabs and pins) are
+    the visitor's everywhere. The client sends the same to every world.
+  - *Privacy switches* (`filesAnywhere`; whether they see people's pictures and
+    people's own models; whether anything carried is drawn) say what the visitor lets
+    other people's things do to them. `filesAnywhere` on is kept per world, sent only
+    to the world it was pressed for, and never rides a link. The rest are the
+    visitor's general settings, and no world's word ever widens one.
 
 **What it costs.** Nothing is sent per frame. Words go when something changes: a
 description at most eight times a second, a setting when the visitor changes one, a
@@ -339,9 +377,10 @@ it, in the panel the shell already draws (`wallet`, `files`), shown in the sheet
 the fallback, where no client can draw that panel, each tab has the one row that opens
 the sign-in address's window, as the rows under You do today.
 
-**Names for the orchestrator to give:**
+**Names, given by the orchestrator on 2026-11-23, all as proposed** (recorded in
+`docs/fleet.md` with step 0):
 
-| What | Proposed name |
+| What | Name |
 |---|---|
 | The version a world says in `here` | `menu` (a number, 1) |
 | The topic of every new word | `nswp: "menu"` |
@@ -387,17 +426,19 @@ the sign-in address's window, as the rows under You do today.
 8. **A phone.** Try the frame on a phone as its own step after the desk is done
    (section 15, step 5), or sooner? *Recommend after.*
 
-**For the orchestrator:**
+**The orchestrator's answers (2026-11-23):**
 
-- (a) The names in section 13.
-- (b) The order of steps in section 15, and Sound and Help joining the first tabs to
-  move (they are settings and words, like Moving and Display).
-- (c) Rooms' chat, Following and Messages: with Room and People (step 3), as written,
-  or later?
-- (d) The split of work: the kit's half is mine; the shell's half is the BitPortal
-  session's, from a stand-in client this repository carries for its own trials.
-- (e) Whether NSWP-02 and NSWP-11's new text is written with step 1 (the words exist
-  then) or all at once at the end.
+- (a) All the names in section 13 are given as proposed.
+- (b) The steps stand, in that order, with Sound and Help among the first tabs to move.
+- (c) The room's chat, Following and Messages come with step 3. Step 1 stays small.
+- (d) The kit's half is the NSWP builder's and the shell's half is BitPortal's. Each
+  step is tried first in a stand-in client under `trials/`.
+- (e) The protocol text is written with step 1, marked with its status as NSWP-02
+  does today, and revised as later steps land.
+- Two additions, now in sections 4, 8 and 10: privacy switches are not comfort
+  settings, and what a world may report back from a headset is limited by name.
+- Steps 0 and 0b go ahead now. Step 1 waits for the owner's answers above and for
+  BitPortal's review of the shell's half.
 
 ## 15. The build, a pull request a step
 
