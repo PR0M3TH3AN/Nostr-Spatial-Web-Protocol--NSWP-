@@ -93,6 +93,7 @@ urgent (a live fault), it goes first.
 | [avatars-own-models](avatars-own-models.md) | Your own model, size and animations as your look, in every world that allows it | BitPortal session (design: `docs/plans/own-models.md`; the owner's answers 2026-11-22) | building, parked (steps 1 and 2 merged; what was owed first is done) |
 | [world-maps](world-maps.md) | Maps of the connected worlds, made by travelling, private unless shared, drawn as a graph | not briefed | asked |
 | [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | building |
+| [gate-shut-for-a-moment](gate-shut-for-a-moment.md) | Someone just invited can be told a world is shut, for a moment, before they are let in | NSWP builder | asked |
 | [headset-casual-and-intense](headset-casual-and-intense.md) | Casual or intense, asked once in a headset and at a desk, kept in synced settings; a phone always casual | BitPortal (kit and room) | building (intense lost at every door: being fixed; offered once on entering VR) |
 | [rooms-stun-servers](rooms-stun-servers.md) | Every room asks Cloudflare's and Google's STUN servers, who see each joiner's address | not briefed | asked |
 | [item-file-hosts](item-file-hosts.md) | An item's files are fetched from any host its maker chose, which can learn the address of everyone in the room | BitPortal session (the rule decided 2026-11-22) | building |
