@@ -168,6 +168,22 @@ describe("what a world says of itself", () => {
   });
 });
 
+describe("what a world says of the things only it can run", () => {
+  it("is said again when it changes, though nothing told the controls: a headset session starting", async () => {
+    let presenting = false;
+    const w = make({ state: () => ({ headset: { supported: true, presenting } }) });
+    w.say(HAS);
+    expect(w.worlds().at(-1)!.state).toMatchObject({ headset: { supported: true, presenting: false } });
+    presenting = true;
+    await vi.advanceTimersByTimeAsync(600);
+    expect(w.worlds()).toHaveLength(2);
+    expect(w.worlds().at(-1)!.state).toMatchObject({ headset: { supported: true, presenting: true } });
+    // And not again while nothing changes.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(w.worlds()).toHaveLength(2);
+  });
+});
+
 describe("what a world takes from above", () => {
   it("is a press on something it described, and on nothing else", () => {
     const w = make();
@@ -175,7 +191,7 @@ describe("what a world takes from above", () => {
     expect(w.pressed).toEqual([]);
     w.say(HAS);
     for (const id of ["room-join", "home", "bag-item", "loud", "nothing"]) w.say({ nswp: "menu", press: id });
-    return vi.runAllTimersAsync().then(() => expect(w.pressed).toEqual([["room-join", undefined]]));
+    return vi.advanceTimersByTimeAsync(50).then(() => expect(w.pressed).toEqual([["room-join", undefined]]));
   });
 
   it("is what was typed into a row, at the press", async () => {
@@ -183,7 +199,7 @@ describe("what a world takes from above", () => {
     w.say(HAS);
     w.say({ nswp: "menu", press: "guests-key", field: "npub1ana" });
     w.say({ nswp: "menu", press: "room-join", field: "ignored" });
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(50);
     expect(w.pressed).toEqual([["guests-key", "npub1ana"], ["room-join", undefined]]);
   });
 

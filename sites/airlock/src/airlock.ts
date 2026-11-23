@@ -208,7 +208,7 @@ async function render(): Promise<void> {
   if (w?.status && w.status !== "live") chips.append(chip(`Status: ${w.status}`, w.status === "retired" ? "bad" : "plain"));
   if (w?.contentWarning !== undefined) chips.append(chip(`Content warning${w.contentWarning ? `: ${w.contentWarning}` : ""}`, "bad"));
 
-  const device = el("p", { class: "muted" }, vr ? "This device can enter VR. You'll press Enter VR again on arrival." : "This device can't enter VR; the world opens in your browser.");
+  const device = el("p", { class: "muted" }, vr ? "This device can enter VR. You'll press Launch on arrival." : "This device can't enter VR; the world opens in your browser.");
 
   const card = el(
     "section",

@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 // Loaded with the page, never later: it is what tells the page above that this world speaks the menu's words.
 import { portAbove } from "nswp-sdk/menu-above";
-import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
+import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type MenuState, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addDoorControls, createControls, type Controls, type MenuDoor, addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import previews from "../previews/index.json";
@@ -352,8 +352,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // whether it has the menu (`portAbove`). If it does, this page draws none: it describes itself upward and takes
   // presses back. If not, or nothing is said in time, the menu is drawn here, from this world's own port. The menu
   // is a file of this build's own, fetched only then, so a world whose client draws it never fetches it.
+  // What this world says of the things every place has and only it can run (the description's `state`). Each is
+  // filled in further down, as the part that runs it starts: asked before then, it isn't so.
+  const facts: { room?: () => MenuState["room"]; named?: () => boolean; holding?: () => string; items?: ItemsRule } = {};
   const above = portAbove(controls, {
-    state: () => ({ headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting } }),
+    state: () => ({
+      headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting },
+      ...(facts.room ? { room: facts.room() } : {}),
+      named: facts.named?.() ?? false,
+      holding: facts.holding?.() ?? "",
+      ...(facts.items ? { items: facts.items } : {}),
+    }),
     home: () => void goHome(),
   });
   let own: Awaited<ReturnType<typeof ownMenu>> | null = null;
@@ -474,6 +483,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Scores, for a world that names boards (protocol/15-scores.md). The world's own code records what a visitor
   // scored; it is kept on the device, and posted only when the visitor says to, from the menu.
   const signedInHere = () => signerNamed() && worldSigner().state === "unlocked";
+  // Whether this world has the visitor's name: something signs for them here, and has said who they are.
+  facts.named = signedInHere;
   const scores: Scores | null = cfg.boards?.length
     ? createScores({
         world: `${WORLD_KIND}:${sites.publisher}:${places[cfg.site]?.d ?? ""}`,
@@ -1122,6 +1133,13 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   }
   // Their bag, and the one thing in their hand (protocol/17-items.md). It is looked through here, and changed
   // at their home. In a world that draws nothing carried, it says so.
+  // For a client that draws the menu: what is in hand, the rule here for what is carried, and who is in the room.
+  facts.items = itemsRule;
+  facts.holding = () => presence.holding ?? "";
+  facts.room = () => {
+    const now = travelling();
+    return { has: true, joined: now.joined, mic: now.joined ? now.mic : null, count: presence.session ? presence.people().length : 0 };
+  };
   const bag = createBag({ me: () => (signedInHere() ? worldSigner().pubkey : null) });
   const bagging = addBagControls(controls, {
     bag,
@@ -1246,7 +1264,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     hud,
     onState: (x) => (state.xr = x),
     ...(backToHeadset ? { arrived: { title: cfg.title } } : {}),
-    onOffer: (showing) => (offered = showing),
+    onOffer: (showing) => {
+      offered = showing;
+      // "Launch" is across this view, and the client's menu is over it: the menu is asked to go, which also gives
+      // this frame the keys, so that any key is the press.
+      if (showing && above.has && above.menu.open) above.menu.setOpen(false);
+    },
     // Who they are and how they look are their own client's to keep. They leave by the crossing's room, as through
     // any door, and come back the same way: in the room they were in, moving as they were.
     leaving: async (to) => {

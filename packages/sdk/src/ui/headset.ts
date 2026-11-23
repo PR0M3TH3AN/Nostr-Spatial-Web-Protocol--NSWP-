@@ -52,11 +52,17 @@ const GIVE_UP_MS = 12_000;
  * screen: with the link, or Escape. Whoever put it up takes it down (`remove`), once a session has started or
  * they have chosen to stay.
  */
-export function offerHeadset(title: string, enter: () => void, stay: () => void): HeadsetOffer {
+export function offerHeadset(title: string, enter: () => void, stay: () => void, opts: { asked?: boolean } = {}): HeadsetOffer {
+  // Why it is up. Arriving from a headset: they left a session to come here, and this is the way back in. Asked
+  // for (`asked`): they pressed "Enter VR" in a menu their client draws above this page. That press was not in this
+  // page, and a browser starts a headset session only at a press that is: so this page asks for one of its own.
+  // Either way the press here says "Launch", so the two presses of that second way each have their own name
+  // (the owner, 2026-11-23: "Enter VR", then "Launch").
+  const asked = opts.asked === true;
   const scrim = document.createElement("div");
   scrim.id = "nswp-enter";
   scrim.setAttribute("role", "dialog");
-  scrim.setAttribute("aria-label", `You've arrived at ${title}`);
+  scrim.setAttribute("aria-label", asked ? `Launch VR in ${title}` : `You've arrived at ${title}`);
   Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center", cursor: "pointer" });
   const heading = document.createElement("p");
   heading.textContent = title;
@@ -64,13 +70,13 @@ export function offerHeadset(title: string, enter: () => void, stay: () => void)
   const go = document.createElement("button");
   go.type = "button";
   go.id = "nswp-enter-vr";
-  go.textContent = "Enter VR";
+  go.textContent = "Launch";
   // Large, for whoever does aim at it. Nobody has to: the page behind it does the same.
   Object.assign(go.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
   const hint = document.createElement("p");
   hint.id = "nswp-enter-hint";
   hint.setAttribute("aria-live", "polite");
-  hint.textContent = "Press anywhere, with anything, to go back in.";
+  hint.textContent = asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
   Object.assign(hint.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
   const flat = document.createElement("button");
   flat.type = "button";

@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **"Enter VR", then "Launch"; and a world says the state of what only it can run** (SDK `packages/sdk/src/three.ts`, `ui/headset.ts`, `menu-above.ts`; `sites/shared/world.ts`; `sites/airlock`; `trials/menu-client.mjs`; NSWP-02; the owner, 2026-11-23: two presses, each with its own name).
+  - **A visitor sees one change today:** the large button shown to someone who left a headset to come to a world now says **"Launch"**, not "Enter VR", and the Airlock's line about it says so. The row in the menu still says "Enter VR".
+  - **Pressed in a menu drawn above the world,** "Enter VR" is not a press in the world's page, and a browser starts a headset session only at one that is. The world then shows that same screen across its view: "Launch", "Press anywhere, with anything, to start VR." A press there starts the session. The world asks the browser whether the press was its own (`navigator.userActivation`), and also takes the browser's refusal for want of one as the same thing.
+  - As the screen comes up the client's menu is asked to go, which gives the world's frame the keys, so that any key is the press.
+  - **The world's `state`:** whether there is a room, whether the visitor is joined, their microphone and how many are here; whether this world has their name; what is in their hand; and its rule for items. With the headset's, said before.
+  - A world whose client has the menu now looks again at what it says on a slow tick, as its own menu does, and says it only if it differs. Before, a headset session starting changed no row's words in a way the controls were told of, so the page above wasn't told.
+  - Tried in the stand-in client with a made-up headset in the world's page (`trials/menu-client.mjs`, 56 checks): "Enter VR" on the client's bar starts no session and brings "Launch" up; a press on the world's view starts it; the world says so upward.
+  - Not tried: a real headset. Worlds on the engine script show "Launch" to an arriving visitor too (it is the same screen), and are otherwise unchanged.
+
 - **A world's pictures go up to the client's menu as bitmaps** (SDK `packages/sdk/src/menu-above.ts`, `ui/port-below.ts`, `ui/hud.ts`; `trials/menu-client.mjs`; NSWP-02, "Pictures"). Nothing a visitor can see changes yet: no real client has the menu.
   - A world whose client has the menu sends each picture alone, by the `picture` word: a tile's by its row's id, and the picture at the head of a tab (someone's face, in People) by `card:` and the tab's id. Never in the description, which is text and is said again at every change.
   - They are made only while the menu is up, afresh each time it comes up, at most 256 pixels a side. Someone's picture is fetched by the world, as today, and crosses as a bitmap: the page above is never given an address.
