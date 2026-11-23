@@ -59,6 +59,13 @@ export interface MenuAboveOptions {
   signOut?: () => void;
   /** Leave for home, carrying what the visitor carries: the client's Home was pressed. */
   home?: () => void;
+  /**
+   * This page is of its client's own origin (a client's own room, in the client's frame), and fills the visitor's
+   * own tabs itself: it describes those too, and its own rows under Travel. It only changes what this page says. A
+   * client takes the visitor's tabs only from a page whose origin is exactly its own, whatever the page says of
+   * itself, so any other page gains nothing by setting this.
+   */
+  own?: boolean;
   /** For tests and other carriers: the page above. By default the one this page is framed by (client-frame.ts). */
   above?: { framed(): boolean; sinceHere(): number | null; say(word: Record<string, unknown>): void; hear(fn: ((word: unknown) => void) | null): void };
   /** For tests: where the visitor's keys are heard. By default this page's window. */
@@ -138,8 +145,13 @@ const cardOf = (card: UiCard): Record<string, unknown> => ({
  * What a world says of itself, from what its own menu would have drawn. Only the tabs that are the world's to fill
  * are in it: nothing of the visitor's own tabs is ever said upward.
  */
-export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help = ""): Record<string, unknown> {
+export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help = "", own = false): Record<string, unknown> {
   const onBar = new Set(view.hotbar.map((i) => i.id));
+  // A page of its client's own origin says the visitor's own tabs as well, and its own rows under Travel. Still not
+  // said, by any page: what the client's page makes for itself from the same kit and so already has (the switches
+  // that change a setting, Display's own rows, the one-time questions on moving), which would be there twice.
+  const leftOut = own ? CLIENTS.filter((id) => !(MENU_VISITOR_TABS as readonly string[]).includes(id)) : CLIENTS;
+  const kits = (id: string) => visitorsOwnRow(id) || (own && id.startsWith("look-"));
   // In Help the world's own menu has the kit's words on how to move, after the world's sentence about itself. Above
   // a world the first of those is the client's own to say, so only the world's sentence is said, and only if it fits.
   const about = help.trim().length <= MENU_LIMITS.note ? help.trim() : "";
@@ -153,7 +165,7 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help
     target: view.target ? [view.target, ...view.detail].slice(0, 6) : [],
     loading: view.loading,
     sections: view.sections
-      .filter((s) => !CLIENTS.includes(s.id))
+      .filter((s) => !leftOut.includes(s.id))
       .map((s) => ({
         id: s.id,
         label: s.label,
@@ -163,7 +175,7 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help
         // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
         // client's own rows, which it draws itself inside this tab.
         // Not the visitor's own rows, and not a bar that is moved along: no word of these carries one.
-        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !visitorsOwnRow(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id))),
+        rows: s.items.filter((i) => !(s.id === "travel" && !own && VISITORS_ROWS.includes(i.id)) && !kits(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id))),
       }))
       .filter((s) => s.rows.length > 0 || s.card || (s.id === "help" && about)),
   };
@@ -234,7 +246,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     waiting = null;
     if (!has) return;
     const view = controls.view();
-    const world = describeWorld(view, opts.state?.(), opts.help?.() ?? "");
+    const world = describeWorld(view, opts.state?.(), opts.help?.() ?? "", opts.own === true);
     const text = JSON.stringify(world);
     if (text !== last) {
       last = text;

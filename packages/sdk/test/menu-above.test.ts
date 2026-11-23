@@ -577,3 +577,33 @@ describe("a file handed down, and something to save handed up", () => {
     expect([savesWait(), handUp(shot())]).toEqual([false, false]);
   });
 });
+
+describe("a page of its client's own origin", () => {
+  it("describes the visitor's own tabs too, and takes presses on them, where it says so; and says none of them otherwise", async () => {
+    const tabsOf = (w: Record<string, unknown> | undefined) => (w?.sections as { id: string }[]).map((s) => s.id);
+    const plain = make();
+    plain.say(HAS);
+    expect(tabsOf(plain.worlds().at(-1))).toEqual(["travel", "room", "following", "guests"]);
+    plain.say({ nswp: "menu", press: "bag-item" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(plain.pressed).toEqual([]);
+
+    const controls = createControls({ title: "The room" });
+    const pressed: string[] = [];
+    controls.add({ id: "home", section: "travel", label: "Go home", act: () => void pressed.push("home") });
+    controls.add({ id: "bag-item", section: "bag", label: "A lantern", act: () => void pressed.push("bag-item") });
+    controls.add({ id: "people-pictures", section: "people", label: "Pictures", act: () => {} });
+    const sent: Record<string, unknown>[] = [];
+    let hear: ((word: unknown) => void) | null = null;
+    portAbove(controls, { own: true, above: { framed: () => true, sinceHere: () => 0, say: (word) => sent.push(word), hear: (fn) => void (hear = fn) }, keys: { addEventListener: (() => {}) as never, removeEventListener: (() => {}) as never } });
+    hear!(HAS);
+    const said = sent.filter((w) => w.world).at(-1)!.world as Record<string, unknown>;
+    expect((said.sections as { id: string; rows: { id: string }[] }[]).map((s) => `${s.id}: ${s.rows.map((r) => r.id).join(" ")}`)).toEqual(["travel: home", "bag: bag-item"]);
+    // A switch that changes a setting is still the client's page's own to draw, and is not said.
+    expect(JSON.stringify(said)).not.toMatch(/people-pictures|look-/);
+    hear!({ nswp: "menu", press: "bag-item" });
+    hear!({ nswp: "menu", press: "home" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(pressed).toEqual(["bag-item", "home"]);
+  });
+});

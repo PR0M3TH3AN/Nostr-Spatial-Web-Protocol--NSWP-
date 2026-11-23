@@ -476,7 +476,10 @@ pages, and a world takes them only from the page directly above it.
   never what was typed.
 - the client, as its menu comes up and goes: `{ nswp: "menu", open }`. The
   world leaves the visitor's input alone in between, as NSWP-11 asks, and
-  lets go of the pointer if it holds it: the page above can't.
+  lets go of the pointer if it holds it: the page above can't. While its
+  menu is up the client keeps the keys, and a press anywhere outside the
+  menu puts it away and reaches nothing in the world. As the menu goes the
+  client gives the world the keys, and leaves them there.
 - the client, as the visitor leaves by their own Home:
   `{ nswp: "menu", go: "home" }`. The world may go itself at once,
   carrying what the visitor carries. Whether it does or not, the client
@@ -544,6 +547,14 @@ carries the world's name. The tabs every place has are named by the
 client, not the world. A world never fills, reads or presses the visitor's
 own tabs (`you`, `figure`, `bag`, `wallet`, `files`, `following`,
 `messages`, `look`), and is never told what is in them or which is open.
+
+**A page of the client's own** is the one exception, and it is the
+client's rule about itself: a page whose origin is exactly the client's
+(its own room, shown in its own frame) may fill any tab, the visitor's
+too. Such a page describes those tabs as well. Any page may describe
+them; a client takes them only by the origin the browser gives for the
+page in its frame, never by what a page says of itself, so a world that
+describes the visitor's tabs has them left out as before.
 
 **You is the client's alone.** A world never puts a row there: a sign-in
 row under a world's name, naming a host, is exactly what a visitor should

@@ -43,7 +43,9 @@ whatever the world has done with the keys:
 | A touch screen | Two fingers held still for a little over half a second |
 | A headset, with controllers | The upper face button (B or Y) held for a little over half a second |
 
-It is put away the same way, or with Escape or its Close button. In a
+It is put away the same way, or with Escape or its Close button, or by a
+press anywhere outside it. That press puts the console away and is nothing
+else: it is not a step, a shot or a door in the world underneath. In a
 headset, a press of the same button or its Close button puts it away.
 
 In fullscreen at a desk, where the browser lets a page hold Escape, Escape
