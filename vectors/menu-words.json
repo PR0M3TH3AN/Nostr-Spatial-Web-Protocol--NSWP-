@@ -1,5 +1,5 @@
 {
-  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
   "version": 1,
   "limits": {
     "sections": 12,
@@ -29,9 +29,7 @@
       "following",
       "messages",
       "moving",
-      "sound",
-      "look",
-      "help"
+      "look"
     ],
     "world": [
       "travel",
@@ -42,7 +40,9 @@
       "view",
       "scores",
       "achievements",
-      "guests"
+      "guests",
+      "sound",
+      "help"
     ]
   },
   "keys": [
@@ -98,7 +98,8 @@
           },
           "named": true,
           "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
-          "items": "play"
+          "items": "play",
+          "hum": true
         },
         "target": [
           "A painting",
@@ -175,7 +176,8 @@
           },
           "named": true,
           "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
-          "items": "play"
+          "items": "play",
+          "hum": true
         },
         "target": [
           "A painting",
@@ -259,7 +261,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -352,29 +355,11 @@
             ]
           },
           {
-            "id": "sound",
-            "rows": [
-              {
-                "id": "sound-x",
-                "label": "Row sound-x"
-              }
-            ]
-          },
-          {
             "id": "look",
             "rows": [
               {
                 "id": "look-x",
                 "label": "Row look-x"
-              }
-            ]
-          },
-          {
-            "id": "help",
-            "rows": [
-              {
-                "id": "help-x",
-                "label": "Row help-x"
               }
             ]
           }
@@ -397,7 +382,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -452,7 +438,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -522,7 +509,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -551,6 +539,134 @@
             "id": "door",
             "rows": [],
             "label": "Door"
+          }
+        ]
+      }
+    },
+    {
+      "name": "sound_and_help",
+      "why": "Sound and Help are filled by both. A world adds what is its own to them (the piece it is playing; a note about itself), which a client draws below its own rows, under the world's name. Nothing typed goes to a world from either: a `field` row there is left out.",
+      "world": {
+        "sections": [
+          {
+            "id": "sound",
+            "rows": [
+              {
+                "id": "sound-piece",
+                "label": "Playing here: Nocturne. Next of 2",
+                "icon": "note"
+              },
+              {
+                "id": "sound-name",
+                "label": "Row sound-name",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "help",
+            "note": "Six sculptures, each a few lines of code turned into a shape.",
+            "rows": [
+              {
+                "id": "help-ask",
+                "label": "Row help-ask",
+                "kind": "field"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed",
+          "hum": false
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "sound",
+            "rows": [
+              {
+                "id": "sound-piece",
+                "label": "Playing here: Nocturne. Next of 2",
+                "kind": "button",
+                "icon": "note"
+              }
+            ]
+          },
+          {
+            "id": "help",
+            "rows": [],
+            "note": "Six sculptures, each a few lines of code turned into a shape."
+          }
+        ]
+      }
+    },
+    {
+      "name": "a_help_note_too_long",
+      "why": "A world's words in Help are a note of at most the limit. One that is over is left out, never cut to fit.",
+      "world": {
+        "sections": [
+          {
+            "id": "help",
+            "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "rows": [
+              {
+                "id": "fresh",
+                "label": "Row fresh"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed",
+          "hum": false
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "help",
+            "rows": [
+              {
+                "id": "fresh",
+                "label": "Row fresh",
+                "kind": "button"
+              }
+            ]
           }
         ]
       }
@@ -598,7 +714,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -669,7 +786,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -743,7 +861,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -864,7 +983,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -924,7 +1044,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [
           "A door"
@@ -985,7 +1106,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -1061,7 +1183,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -1133,7 +1256,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -1197,7 +1321,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "none"
+          "items": "none",
+          "hum": false
         },
         "target": [],
         "loading": {
@@ -1242,7 +1367,8 @@
           },
           "named": false,
           "holding": "",
-          "items": "allowed"
+          "items": "allowed",
+          "hum": false
         },
         "target": [],
         "loading": null,
@@ -1272,7 +1398,7 @@
         "rows": [
           60
         ],
-        "bytes": 3063
+        "bytes": 3075
       }
     },
     {
@@ -1301,7 +1427,7 @@
           0,
           0
         ],
-        "bytes": 11489
+        "bytes": 11501
       }
     },
     {
@@ -1330,7 +1456,7 @@
           0,
           0
         ],
-        "bytes": 476
+        "bytes": 488
       }
     },
     {
@@ -1601,7 +1727,8 @@
             },
             "named": false,
             "holding": "",
-            "items": "allowed"
+            "items": "allowed",
+            "hum": false
           },
           "target": [],
           "loading": null,

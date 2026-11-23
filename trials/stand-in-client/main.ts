@@ -4,7 +4,7 @@
 // shell. It is not a client anyone uses: it has no sign-in, no bag and no room of its own, only a way home.
 //
 // Bundled and served by the trial that uses it (trials/menu-client.mjs). `?home=` is where its Home goes.
-import { addDeskControls, chatSwitch, modelsSwitch, mountMenu, picturesSwitch, portBelow } from "nswp-sdk/menu";
+import { addDeskControls, addSoundControls, chatSwitch, createSounds, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow } from "nswp-sdk/menu";
 import { createControls } from "nswp-sdk/ui";
 
 const frame = document.getElementById("view") as HTMLIFrameElement;
@@ -34,6 +34,16 @@ controls.add(
   { ...chatSwitch((text) => controls.say(text)), hidden: () => !worldFills("room") },
 );
 
+// Sound and Help are tabs both fill. The client's part of Sound: the volumes, the visitor's own music (chosen and
+// played here, so it doesn't stop at a door), and the switch for a place's hum, shown where the world says it has
+// one. This page has no music or hum of its own. The menu's own sounds (a press, the menu coming and going) are made
+// here, and a world whose client has the menu doesn't make them too.
+const sounds = createSounds({ theme: { music: null, hum: null } });
+addSoundControls(controls, sounds, { hasHum: () => below.world?.state.hum === true });
+// The client's part of Help: how to move, and how to bring these controls up. What a world says of itself comes
+// after, under the world's name.
+controls.addSection({ id: "help", label: "Help", icon: "help", note: helpWords("client") });
+
 const menu = mountMenu(below.port);
 below.attach(menu);
 // A client draws no menu over a page that doesn't speak the words: such a page draws its own. Before any page has
@@ -44,4 +54,4 @@ show();
 // Whenever a page comes into the frame it is given the keys, as a client does.
 frame.addEventListener("load", () => frame.focus());
 
-(window as unknown as { __client: unknown }).__client = { below, menu, controls };
+(window as unknown as { __client: unknown }).__client = { below, menu, controls, sounds };

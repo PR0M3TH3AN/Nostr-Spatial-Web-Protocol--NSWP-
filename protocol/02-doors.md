@@ -501,8 +501,9 @@ Plain data. Nothing in it is run, and every word is shown as text.
 - `state`: the things every place has and only the world can run.
   `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`,
   `presenting`), `named` (whether this world has the visitor's name),
-  `holding` (the address of what is in their hand) and `items` (the
-  world's rule for items).
+  `holding` (the address of what is in their hand), `items` (the
+  world's rule for items) and `hum` (whether the place has a hum under
+  its music).
 - `target`: what is pointed at, as its name and then at most five more
   lines about it. `loading`: what is still loading (`fraction`, `words`),
   as NSWP-11 has it.
@@ -522,14 +523,35 @@ address, before the next page says anything.
 
 **Which tabs.** A world may fill the tabs that are its to fill: `travel`
 (its own doors), `room`, `people`, `camera`, `panels`, `view`, `scores`,
-`achievements`, its keeper's `guests` ("Who comes in"), and **at most two
-tabs of its own**, each with a `label`. A world's own tab is drawn in the
-client's style, stands after the visitor's tabs, and carries the world's
-name. The tabs every place has are named by the client, not the world. A
-world never fills, reads or presses the visitor's own tabs (`you`,
-`figure`, `bag`, `wallet`, `files`, `following`, `messages`, `moving`,
-`sound`, `look`, `help`), and is never told what is in them or which is
-open.
+`achievements`, its keeper's `guests` ("Who comes in"), `sound`, `help`,
+and **at most two tabs of its own**, each with a `label`. A world's own
+tab is drawn in the client's style, stands after the visitor's tabs, and
+carries the world's name. The tabs every place has are named by the
+client, not the world. A world never fills, reads or presses the visitor's
+own tabs (`you`, `figure`, `bag`, `wallet`, `files`, `following`,
+`messages`, `moving`, `look`), and is never told what is in them or which
+is open.
+
+**A world's part of a tab is always visibly the world's.** Several of
+those tabs are filled by both: the client has rows of its own in them (the
+way home in Travel, the visitor's switches in People and Room, the volumes
+in Sound, its help in Help). There the client's own rows come first, and
+the world's stand below them under the world's name. A world's `note` is
+never drawn as the client's own words: it comes after the client's, under
+the world's name, in every tab but one of the world's own, where the name
+is on the tab. Nobody reading a client's menu should be able to take a
+world's sentence for the client's.
+
+- **Sound.** The volumes, "all sound", the switch for a place's hum and
+  the visitor's own music are the client's. A world adds what is its own:
+  the piece it is playing, and the way on to its next. It says whether
+  the place has a hum (`state.hum`), and the client shows its switch for
+  one only where it does.
+- **Help.** How to move and how to bring the controls up are the client's
+  to say. A world may add a `note` about itself, of at most 400
+  characters, and rows of its own.
+- **Nothing typed goes to a world from either:** a `field` row there is
+  left out, as in every tab but `guests` and a world's own.
 
 **A row that changes one of the visitor's travelling settings is the
 client's own, wherever it stands.** Whether they see people's pictures and

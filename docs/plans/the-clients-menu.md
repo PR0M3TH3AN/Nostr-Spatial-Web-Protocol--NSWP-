@@ -13,11 +13,11 @@ its second part, both ends of the port are built (`portAbove`, in the reference 
 `portBelow`, in a stand-in client: `trials/menu-client.mjs`) and the menu draws
 rows typed into and rows that copy. A world that steps aside keeps the chat's
 pane, the rows that change a travelling setting are the client's own, a world's
-pictures go up as bitmaps, "Enter VR" above is "Launch" in the world, and the
-world says the state of its room, the visitor's name, what is in hand and its
-rule for items. Still to come in step 1: the rest of the visitor's own tabs in
-the client, the engine script, frame times and bytes, and the trials of the four
-presses. NSWP builder,
+pictures go up as bitmaps, "Enter VR" above is "Launch" in the world, the world
+says the state of its room, the visitor's name, what is in hand and its rule for
+items, and Sound and Help are tabs both fill, the client's part first. Still to
+come in step 1: You and the Bag in the client, the engine script, frame times
+and bytes, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -190,10 +190,21 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >
 > A world may fill only the tabs that are its to fill: Room, People, Camera, Panels,
 > View, Scores, Achievements, its own doors under Travel, its keeper's "Who comes in",
-> and **at most two tabs of its own**. A world's own tab is drawn in the client's
-> style, stands after the visitor's tabs, and carries the world's name. A world never
-> fills, reads or presses the visitor's own tabs (You, Bag, Wallet, Files, Following,
-> Messages, Moving, Sound, Display), and is never told what is in them or which is open.
+> its own part of Sound and of Help, and **at most two tabs of its own**. A world's own
+> tab is drawn in the client's style, stands after the visitor's tabs, and carries the
+> world's name. A world never fills, reads or presses the visitor's own tabs (You,
+> Your look, Bag, Wallet, Files, Following, Messages, Moving, Display), and is never
+> told what is in them or which is open.
+>
+> **A world's part of a tab is always visibly the world's** (the orchestrator,
+> 2026-11-23, with Sound and Help becoming tabs both fill). Where the client has rows
+> of its own in a tab, they come first, and the world's stand below under the world's
+> name. A world's note is never drawn as the client's own words: it comes after the
+> client's, under the world's name. In Sound the volumes, "all sound", the hum's
+> switch and the visitor's own music are the client's; the world adds the piece it is
+> playing, and says whether the place has a hum (`state.hum`). In Help the client's
+> own help comes first, and a world's sentence about itself is a note after it, within
+> `MENU_LIMITS.note`. Nothing typed goes to a world from either tab.
 >
 > Limits a client holds a world to, whatever it sends: 12 sections, 60 rows in one, 200
 > rows in all, 120 characters in a label, a picture of 256 pixels a side, 64 kilobytes

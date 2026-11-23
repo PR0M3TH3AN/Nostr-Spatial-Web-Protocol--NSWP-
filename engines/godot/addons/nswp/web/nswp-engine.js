@@ -44899,7 +44899,7 @@ void main() {
       }
     };
   }
-  function addSoundControls(controls2, sounds2) {
+  function addSoundControls(controls2, sounds2, opts = {}) {
     const word = (v2) => LEVEL_WORDS[levelStep(v2)];
     let listed = [];
     const picker = document.createElement("input");
@@ -44987,7 +44987,7 @@ void main() {
         section: "sound",
         icon: "sound",
         on: () => sounds2.levels.hum,
-        hidden: () => !sounds2.hasHum,
+        hidden: () => !(opts.hasHum ? opts.hasHum() : sounds2.hasHum),
         label: () => sounds2.levels.hum ? "The room's hum: on" : "The room's hum: off",
         act: () => sounds2.setLevels({ hum: !sounds2.levels.hum })
       },
@@ -45035,9 +45035,9 @@ void main() {
     );
     refresh();
     controls2.onSignal((name) => {
-      if (CUES.includes(name)) sounds2.play(name);
+      if (CUES.includes(name) && !opts.quiet?.(name)) sounds2.play(name);
     });
-    controls2.onSay(() => sounds2.play("notice"));
+    controls2.onSay(() => void (opts.quiet?.("notice") || sounds2.play("notice")));
     sounds2.onChange(() => refresh());
     return { refresh };
   }
@@ -52767,6 +52767,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .person blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
 .person .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
 
+/* A world's part of a tab its client draws: the world's name over its rows, and before its words. */
+.from { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 12px; font-size: .82em; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: rgba(var(--ink), .55); }
+.note.said { border-left-color: rgba(var(--ink), .3); }
+.note.said b { color: rgba(var(--ink), .9); margin-right: .45em; }
 .note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
 .note:empty { display: none; }
 .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
@@ -52976,10 +52980,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let barDrawn = "";
     const rows = el("div", { class: "rows" });
     const note = el("p", { class: "note" });
+    const said2 = el("p", { class: "note said", hidden: "" });
     const close = el("button", { class: "close", type: "button" }, "Close");
     const pinWords = el("span");
     const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, el("div", { class: "foot" }, pinIt, close));
     const chatTitle = el("b");
     const chatWhose = el("p", { class: "whose", hidden: "" });
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
@@ -53513,7 +53518,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const lay = (items2) => {
         const laid2 = [];
         let run2 = null;
+        let whose = "";
         for (const item of items2) {
+          if ((item.from ?? "") !== whose) {
+            whose = item.from ?? "";
+            run2 = null;
+            if (whose) laid2.push(el("p", { class: "from" }, whose));
+          }
           if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
             run2 = null;
             laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : drawRow(item));
@@ -53545,6 +53556,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (fresh && about) rows.scrollTop = 0;
       rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
+      said2.hidden = !current?.said;
+      said2.replaceChildren(...current?.said ? [el("b", {}, current.said.from), current.said.note] : []);
       sheet.hidden = !open2;
       menu2.setAttribute("aria-expanded", String(open2));
       quiet.setAttribute("aria-expanded", String(open2));

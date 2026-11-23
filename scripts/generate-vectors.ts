@@ -1545,7 +1545,7 @@ const files: Record<string, unknown> = {
 
 // ---- The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
 {
-  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, holding: "", items: "allowed" };
+  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, holding: "", items: "allowed", hum: false };
   const bare = (over: Record<string, unknown> = {}) => ({ title: "", level: "full", keys: true, state: STATE, target: [], loading: null, sections: [], ...over });
   const row = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, ...more });
   const kept = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, kind: "button", ...more });
@@ -1559,7 +1559,7 @@ const files: Record<string, unknown> = {
         level: "quiet",
         corner: "top-right",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play" },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1571,7 +1571,7 @@ const files: Record<string, unknown> = {
         title: "The Gallery",
         level: "quiet",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play" },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1602,6 +1602,23 @@ const files: Record<string, unknown> = {
       opts: { own: true },
       world: { sections: [{ id: "bag", rows: [row("bag-add", { kind: "field" })] }, { id: "desk", label: "Desk", rows: [] }, { id: "shelf", label: "Shelf", rows: [] }, { id: "door", label: "Door", rows: [] }] },
       expect: bare({ sections: [{ id: "bag", rows: [kept("bag-add", { kind: "field" })] }, { id: "desk", rows: [], label: "Desk" }, { id: "shelf", rows: [], label: "Shelf" }, { id: "door", rows: [], label: "Door" }] }),
+    },
+    {
+      name: "sound_and_help",
+      why: "Sound and Help are filled by both. A world adds what is its own to them (the piece it is playing; a note about itself), which a client draws below its own rows, under the world's name. Nothing typed goes to a world from either: a `field` row there is left out.",
+      world: {
+        sections: [
+          { id: "sound", rows: [row("sound-piece", { label: "Playing here: Nocturne. Next of 2", icon: "note" }), row("sound-name", { kind: "field" })] },
+          { id: "help", note: "Six sculptures, each a few lines of code turned into a shape.", rows: [row("help-ask", { kind: "field" })] },
+        ],
+      },
+      expect: bare({ sections: [{ id: "sound", rows: [{ id: "sound-piece", label: "Playing here: Nocturne. Next of 2", kind: "button", icon: "note" }] }, { id: "help", rows: [], note: "Six sculptures, each a few lines of code turned into a shape." }] }),
+    },
+    {
+      name: "a_help_note_too_long",
+      why: "A world's words in Help are a note of at most the limit. One that is over is left out, never cut to fit.",
+      world: { sections: [{ id: "help", note: "x".repeat(MENU_LIMITS.note + 1), rows: [row("fresh")] }] },
+      expect: bare({ sections: [{ id: "help", rows: [kept("fresh")] }] }),
     },
     {
       name: "three_tabs_of_its_own",
@@ -1693,7 +1710,7 @@ const files: Record<string, unknown> = {
   const counting = [
     { name: "rows_in_one_tab", sent: `one tab of ${MENU_LIMITS.rows + 5} rows`, world: { sections: [{ id: "room", rows: many(MENU_LIMITS.rows + 5) }] } },
     { name: "rows_in_all", sent: `nine tabs of 30 rows each (270)`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id) })) } },
-    { name: "tabs", sent: `fourteen tabs: nine every place has, three of the visitor's own, then two of the world's`, world: { sections: [...tabs, "bag", "you", "sound", "one", "two"].map((id) => ({ id, label: id, rows: [] })) } },
+    { name: "tabs", sent: `fourteen tabs: nine every place has, three of the visitor's own, then two of the world's`, world: { sections: [...tabs, "bag", "you", "moving", "one", "two"].map((id) => ({ id, label: id, rows: [] })) } },
     { name: "too_big", sent: `two hundred rows, each with ${MENU_LIMITS.copy} characters to copy`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id).map((r) => ({ ...r, kind: "copy", copy: "c".repeat(MENU_LIMITS.copy) })) })) } },
   ].map((c) => {
     const got = cleanMenuWorld(c.world);
@@ -1760,7 +1777,7 @@ const files: Record<string, unknown> = {
 
   files["menu-words.json"] = {
     description:
-      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
     waits: { MENU_WAIT_MS, LEAVE_MS },

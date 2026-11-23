@@ -149,6 +149,12 @@ export interface UiItemView {
   faint: boolean;
   /** A tile's picture, asked for as it is drawn. Not part of what is written out as text. */
   picture?: () => CanvasImageSource | null;
+  /**
+   * Whose row it is, where it isn't the menu's own: the name of the world in the frame, for a row that world
+   * described to a client drawing the menu above it. Such rows stand below the client's own in a tab both fill,
+   * under this name, so that a world's part is never taken for the client's.
+   */
+  from?: string;
 }
 export interface UiSectionView {
   id: string;
@@ -159,6 +165,11 @@ export interface UiSectionView {
   items: UiItemView[];
   /** The visitor keeps this tab on their bar. */
   pinned: boolean;
+  /**
+   * What the world in the frame says in this tab, where the menu is its client's: a note of the world's own, shown
+   * after the menu's own note and under the world's name. Never in `note`, which is the menu's own words.
+   */
+  said?: { from: string; note: string };
 }
 /** A tab of the menu the visitor keeps on their bar: pressing it brings the menu up on that tab. */
 export interface UiPinView {

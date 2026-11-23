@@ -19,6 +19,8 @@ import { loadPicture } from "./picture.js";
 import { changeSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
 import { VISITOR_SWITCHES } from "./visitor-switches.js";
+
+export { helpWords } from "./ui/help.js";
 import { SUMMON_KEY } from "./ui/summon.js";
 
 speakMenu(MENU_VERSION);
@@ -43,6 +45,12 @@ export interface MenuAbove {
 export interface MenuAboveOptions {
   /** The things every place has and only the world can run, as they are now. What is left out is not so. */
   state?: () => Partial<MenuState>;
+  /**
+   * What the world says of itself in Help: a sentence or two on what the place is for. The client's own help (how
+   * to move, how to bring the controls up) comes first there, and this is a note after it, under the world's name.
+   * Left out, or over the limit on a note, a world says nothing in Help.
+   */
+  help?: () => string;
   /** Leave for home, carrying what the visitor carries: the client's Home was pressed. */
   home?: () => void;
   /** For tests and other carriers: the page above. By default the one this page is framed by (client-frame.ts). */
@@ -117,8 +125,11 @@ const cardOf = (card: UiCard): Record<string, unknown> => ({
  * What a world says of itself, from what its own menu would have drawn. Only the tabs that are the world's to fill
  * are in it: nothing of the visitor's own tabs is ever said upward.
  */
-export function describeWorld(view: UiView, state: Partial<MenuState> = {}): Record<string, unknown> {
+export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help = ""): Record<string, unknown> {
   const onBar = new Set(view.hotbar.map((i) => i.id));
+  // In Help the world's own menu has the kit's words on how to move, after the world's sentence about itself. Above
+  // a world the first of those is the client's own to say, so only the world's sentence is said, and only if it fits.
+  const about = help.trim().length <= MENU_LIMITS.note ? help.trim() : "";
   return {
     title: view.title.slice(0, MENU_LIMITS.title),
     level: view.presence,
@@ -134,13 +145,13 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}): Rec
         id: s.id,
         label: s.label,
         ...(s.icon ? { icon: s.icon } : {}),
-        ...(s.note ? { note: s.note } : {}),
+        ...(s.id === "help" ? (about ? { note: about } : {}) : s.note ? { note: s.note } : {}),
         ...(s.card ? { card: cardOf(s.card) } : {}),
         // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
         // client's own rows, which it draws itself inside this tab.
         rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !VISITOR_SWITCHES.includes(i.id)).map((i) => rowOf(i, onBar.has(i.id))),
       }))
-      .filter((s) => s.rows.length > 0 || s.card),
+      .filter((s) => s.rows.length > 0 || s.card || (s.id === "help" && about)),
   };
 }
 
@@ -204,7 +215,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     waiting = null;
     if (!has) return;
     const view = controls.view();
-    const world = describeWorld(view, opts.state?.());
+    const world = describeWorld(view, opts.state?.(), opts.help?.() ?? "");
     const text = JSON.stringify(world);
     if (text !== last) {
       last = text;

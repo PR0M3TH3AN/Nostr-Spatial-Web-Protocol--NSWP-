@@ -21,4 +21,8 @@ export { mergeView, portBelow, type MenuBelow, type MenuBelowOptions } from "./u
 // leaves them out of what it describes: look speed and how wide they see, and the switches for people's pictures,
 // people's own models and what people write.
 export { addDeskControls } from "./desk.js";
+// Sound and Help are tabs both fill. A client's own part of each: the volumes, the hum's switch and the visitor's
+// own music, played by the client's page; and the menu's own words on how to move.
+export { addSoundControls, createSounds, type SoundControlsOptions, type Sounds } from "./sound.js";
+export { helpWords } from "./ui/help.js";
 export { chatSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "./visitor-switches.js";

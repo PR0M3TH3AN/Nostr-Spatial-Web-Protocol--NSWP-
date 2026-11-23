@@ -29,7 +29,8 @@ const BAR_MOST = 6;
 
 const iconOf = (name: string | undefined): IconName | null => (name && Object.prototype.hasOwnProperty.call(ICONS, name) ? (name as IconName) : null);
 
-const itemOf = (row: MenuRow, sent?: unknown): UiItemView => ({
+const itemOf = (row: MenuRow, sent?: unknown, from?: string): UiItemView => ({
+  ...(from ? { from } : {}),
   id: `${WORLDS}${row.id}`,
   label: row.label,
   icon: iconOf(row.icon),
@@ -81,23 +82,28 @@ export function mergeView(base: UiView, world: MenuWorld | null, from: { address
   const own: UiSectionView[] = [];
   const onBar: UiItemView[] = [];
   for (const said of world.sections) {
-    const items = said.rows.map((row) => itemOf(row, from.pictures?.get(row.id)));
+    const standard = standardTab(said.id);
+    // In a tab the menu has its own name for, a world's rows carry the world's name, and stand below the menu's own.
+    const whose = world.title || from.address;
+    const items = said.rows.map((row) => itemOf(row, from.pictures?.get(row.id), standard ? whose : undefined));
     for (const [i, row] of said.rows.entries()) if (row.bar) onBar.push(items[i]!);
     const card = said.card ? cardOf(said.card, from.pictures?.get(`${MENU_CARD_PICTURE}${said.id}`)) : null;
     const there = sections.find((s) => s.id === said.id);
     if (there) {
       there.items.push(...items);
       there.card ??= card;
-      if (!there.note && said.note) there.note = said.note;
+      // A world's words are never the menu's own: kept apart, to be shown after them under the world's name.
+      if (said.note) there.said = { from: whose, note: said.note };
       continue;
     }
-    const standard = standardTab(said.id);
     const section: UiSectionView = {
       id: said.id,
       // A tab of the world's own carries the world's name, so that it is never taken for one of the visitor's.
       label: standard ? standard.label : `${said.label ?? said.id} · ${world.title || from.address}`.slice(0, MENU_LIMITS.label),
       icon: standard ? standard.icon : iconOf(said.icon),
-      note: said.note ?? "",
+      // In a tab of the world's own the name is on the tab, and its note is plainly its own.
+      note: standard ? "" : (said.note ?? ""),
+      ...(standard && said.note ? { said: { from: whose, note: said.note } } : {}),
       card,
       items,
       pinned: from.pins.includes(said.id),
