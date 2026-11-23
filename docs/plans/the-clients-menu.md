@@ -203,11 +203,12 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >
 > **A switch that guards the visitor's privacy is not a comfort setting.** "Load
 > people's files from anywhere" is turned on by the visitor's own press, for the one
-> place they are in. A client above may say `filesAnywhere: true` only to the world
-> the visitor turned it on for, and to no other; a link still never can. The same
-> care holds for whether they see people's pictures and people's own models: a client
-> sends each as the visitor set it for that world, and never widens one on a world's
-> word.
+> place they are in, and that place keeps it. Where a client draws the menu the row
+> is still the world's, pressed through the client. A client never holds it and never
+> says it: nothing above a world can turn it on, and `filesAnywhere: true` in a
+> client's settings is dropped as a link's is. The same care holds for whether they
+> see people's pictures and people's own models: those are the client's own rows, a
+> client says each as the visitor set it, and never widens one on a world's word.
 >
 > **What a world may say back.** While its headset session runs, where only it can
 > draw the console, a world may report the settings the visitor changed there:
@@ -226,11 +227,14 @@ Notes on the words, not for the protocol:
 - **A world may send `{ nswp: "menu", settings }` back only while its headset session
   runs** (section 8). The client takes the named comfort and layout settings from it
   and drops the rest, then cleans what it took as anything that arrives is cleaned.
-- **The client keeps the privacy switches per world.** `filesAnywhere` on is kept
-  against the world's address it was pressed for, and is in the `settings` sent to
-  that world only. Off is the default everywhere and is what every other world is
-  told. Pictures and people's own models are the visitor's general settings, and a
-  world may be given a narrower one (off, there) but never a wider one than they set.
+- **"Load people's files from anywhere" stays the world's own row** (the orchestrator,
+  2026-11-23, in place of "the client keeps it per world", which this section first
+  said). It is for one place, pressed there through the client, and that place keeps
+  it on its own site. So the client never holds it, never says it on or off, and
+  can't say it to another world; and the core drops `filesAnywhere: true` from a
+  client's settings as from a link's. Nothing above a world can turn that switch on.
+  Pictures and people's own models are the visitor's general settings, held by the
+  client and said to every world.
 - **Pictures** cross as bitmaps the browser copies between pages, so the client never
   fetches an address a world names.
 - **Pages of the client's own origin are the client's own** (section 16, point 1).
@@ -454,9 +458,10 @@ the client's menu is not a press in the world. So:
     the visitor's everywhere. The client sends the same to every world.
   - *Privacy switches* (`filesAnywhere`; whether they see people's pictures and
     people's own models; whether anything carried is drawn) say what the visitor lets
-    other people's things do to them. `filesAnywhere` on is kept per world, sent only
-    to the world it was pressed for, and never rides a link. The rest are the
-    visitor's general settings, and no world's word ever widens one.
+    other people's things do to them. `filesAnywhere` is each world's own: turned on
+    by the visitor's press there, kept by that place, never held or said by a
+    client, and never on a link. The rest are the visitor's general settings, and no
+    world's word ever widens one.
 
 **What it costs.** Nothing is sent per frame. Words go when something changes: a
 description at most eight times a second, a setting when the visitor changes one, a

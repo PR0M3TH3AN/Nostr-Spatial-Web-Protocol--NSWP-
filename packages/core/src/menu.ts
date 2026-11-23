@@ -369,17 +369,19 @@ export function menuBytes(world: MenuWorld): number {
 }
 
 /**
- * The visitor's settings as a client says them to a world: the settings that travel (settings.ts), and one thing a
- * link can never carry. `filesAnywhere: true` may be said here, by a client, to the one world the visitor turned
- * it on for.
+ * The visitor's settings as a client says them to a world: the settings that travel (settings.ts), and nothing a
+ * link couldn't carry.
+ *
+ * "Load people's files from anywhere" is not among them. It is turned on by the visitor's own press for the one
+ * place they are in, and that place keeps it: where a client draws the menu the row is still the world's, pressed
+ * through the client. So nothing above a world can turn it on, and `filesAnywhere: true` from a client is dropped
+ * exactly as a link's is. (`false` is still taken: turning it off is always safe.)
  */
-export type MenuSettings = Omit<TravelSettings, "filesAnywhere"> & { filesAnywhere?: boolean };
+export type MenuSettings = TravelSettings;
 
-/** Settings as a client said them, cleaned as anything that arrives is cleaned. Never throws. */
+/** Settings as a client said them, cleaned as a link's are. Never throws. */
 export function cleanMenuSettings(input: unknown): MenuSettings {
-  const out: MenuSettings = cleanSettings(input);
-  if (isObject(input) && input.filesAnywhere === true) out.filesAnywhere = true;
-  return out;
+  return cleanSettings(input);
 }
 
 /**

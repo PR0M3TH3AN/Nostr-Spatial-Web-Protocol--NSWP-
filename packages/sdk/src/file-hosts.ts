@@ -43,15 +43,15 @@ export function filesAnywhere(): boolean {
   } catch {
     /* nothing kept */
   }
-  // From a link only an off can arrive (the settings drop anything else as they are read): it is always safe. An
-  // on can only be the visitor's own client, above this page, saying they turned it on for this world
-  // (settings.ts, `changeSettings`): their own press, made in their own menu.
-  anywhere = came === false ? false : came === true ? true : kept === "on";
-  if (came !== undefined) keep(anywhere);
+  // Only an arriving off is taken (the settings drop anything else as they are read): it is always safe. That holds
+  // for a link and for a client above this page alike. Nothing but the visitor's own press on this place's own row
+  // turns it on.
+  anywhere = came === false ? false : kept === "on";
+  if (came === false) keep(false);
   reportSettings(
     "files-anywhere",
     () => (filesAnywhere() ? {} : { filesAnywhere: false }),
-    (now) => void (now.filesAnywhere !== undefined && now.filesAnywhere !== anywhere && setFilesAnywhere(now.filesAnywhere)),
+    (now) => void (now.filesAnywhere === false && anywhere !== false && setFilesAnywhere(false)),
   );
   return anywhere;
 }

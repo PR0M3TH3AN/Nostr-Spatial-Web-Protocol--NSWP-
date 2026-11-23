@@ -587,11 +587,14 @@ link already carries into a world.
 
 **A switch that guards the visitor's privacy is not a comfort setting.**
 "Load people's files from anywhere" is turned on by the visitor's own
-press, for the one place they are in. A client above may say
-`filesAnywhere: true` only to the world the visitor turned it on for, and
-to no other; a link still never can. The same care holds for whether they
-see people's pictures and people's own models: a client sends each as the
-visitor set it for that world, and never widens one on a world's word.
+press, for the one place they are in, and that place keeps it. Where a
+client draws the menu the row is still the world's, pressed through the
+client. A client never holds it and never says it: nothing above a world
+can turn it on, and `filesAnywhere: true` in a client's settings is
+dropped as a link's is (`false` is taken, as from a link). The same care
+holds for whether they see people's pictures and people's own models:
+those are the client's own rows, a client says each as the visitor set
+it, and never widens one on a world's word.
 
 **What a world may say back.** While its headset session runs, where only
 it can draw the console, a world may report the settings the visitor

@@ -245,6 +245,19 @@ describe("the menu coming up and going, keys, and words for a moment", () => {
   });
 });
 
+describe("loading people's files from anywhere", () => {
+  it("is never said down, on or off: it is for one place, and that place keeps it", async () => {
+    const { reportSettings } = await import("../src/settings.js");
+    // A part of this page says it is off, as the kit's own does wherever the switch has been read.
+    reportSettings("files-anywhere", () => ({ filesAnywhere: false }));
+    const c = make();
+    c.here();
+    c.controls.setTheme({ scale: 1.2 }, true);
+    expect(c.words()).toEqual([{ nswp: "menu", has: true, v: 1, settings: {} }, { nswp: "menu", settings: { text: 1.2 } }]);
+    expect(JSON.stringify(c.words())).not.toMatch(/filesAnywhere/);
+  });
+});
+
 describe("the way home", () => {
   it("is asked of the world first, and taken by the client when the world hasn't gone in time", async () => {
     const went: boolean[] = [];
