@@ -14,8 +14,10 @@
   up to the top of the list for the backlog so we get it in place asap."
 - **Who:** a written design first (`docs/plans/the-clients-menu.md`), then
   the kit (the NSWP builder) and BitPortal's shell (the BitPortal session).
-- **State:** asked; first in the order (the owner, 2026-11-23). Design not
-  started.
+- **State:** asked; first in the order (the owner, 2026-11-23). Design
+  drafted: [`docs/plans/the-clients-menu.md`](../plans/the-clients-menu.md),
+  with questions for the owner and the orchestrator (its section 14).
+  Nothing is built until they are answered.
 
 ## What is true today
 
