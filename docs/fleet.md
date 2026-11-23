@@ -93,6 +93,21 @@ the same way. The orchestrator says what is live.
     merges only if the head is still that commit; a push meanwhile means the
     gate is run twice (it happened, 2026-11-21). A fix found after handing
     over is said in a message first.
+13. **A session merges its own pull request when it changes only words**
+    (the owner, 2026-11-23: "yes do 4 and 5 as well"). Every pull request
+    used to pass through the orchestrator, backlog notes and plans included,
+    and its turns went on those. So in NSWP and BitPortal a session gates
+    and merges its own pull request, without handing it over, where every
+    file it changes is under `docs/`: the gate (`npm run gate -- --quick`)
+    exited 0 on that commit, tested by its exit code; the branch is on the
+    current `main`; the merge is read back as merged; and the orchestrator
+    is told in one line, for information. Everything else is still handed
+    over: code, tests, scripts, `protocol/`, `schemas/`, `vectors/`,
+    `CHANGELOG.md`, the engine script, and any change to these rules. In
+    `docs/fleet.md` a session may add only rows to "Names given", for names
+    the orchestrator gave. A plan with questions for the orchestrator or
+    the owner may be merged as a draft, but nothing is built from it until
+    they are answered. Never in BitLogin, where a merge to `main` deploys.
 
 ## What a bigger fleet taught us
 
@@ -170,6 +185,7 @@ when. Ask the orchestrator before using one that isn't here.
 | `xrInput.sit`, `xrInput.stand`, `xrInput.recentre`, `xrInput.jump` | the NSWP builder | the seat, recentring, and a jump with the fade (seated mode) | 2026-11-22 |
 | Console ids `ride-ask`, `ride-here`, `recentre`, `move-fade` | the NSWP builder | the in-world question, its Moving switch, recentring, and the fade's Moving switch (seated mode) | 2026-11-22 |
 | `CATCH_UP_MS` = 1000 | the NSWP builder | the shortest time between a casual visitor's catch-up jumps in a vehicle (seated mode) | 2026-11-22 |
+| `scripts/release-prepare.mjs`, `npm run release:prepare` | whoever builds `one-command-release` | everything of a release up to the deploy, in one command | 2026-11-23 |
 | Engine script: `seated(on)`, `kit()`'s `slide` and `fade`, the event `{ type: "recentre" }`, engine VERSION 18 | the NSWP builder | seated mode in engine worlds | 2026-11-22 |
 | Godot: `NswpSeat`, `Nswp.recentre_asked` | the NSWP builder | seated mode in Godot | 2026-11-22 |
 | `mark` and `faint` on a menu control (`UiAction`), given in the view (`UiItemView`) as `mark` and `faint` | the NSWP builder | a tile's small icon in its corner, and a tile drawn greyed and still pressable, for any tile (the Bag's items) | 2026-11-22 |
