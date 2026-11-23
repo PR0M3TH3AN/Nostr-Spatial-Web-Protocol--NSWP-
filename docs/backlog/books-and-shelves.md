@@ -74,12 +74,34 @@ world stays where a visitor left it. NSWP-17 has no placed things.
     updating; an article its author deleted (the bound version is still
     what it was, if a relay or the keeper still has it); and pictures, which
     are bound by hash with a version and are bound again at an update.
-- **Pictures in a book** are somebody else's files. They follow the rule for
-  every such file (NSWP-17, "Where a file is fetched from"): named by hash,
-  fetched only from the reader's own file hosts unless they turned "from
-  anywhere" on. A long-form note's pictures are ordinary web addresses, so
-  binding a book has to take a copy by hash, or the picture is left out with
-  a line saying why.
+- **A book shows its pictures** (the owner's decision, 2026-11-23, against
+  the orchestrator's proposal that a book's pictures be copied by hash and
+  fetched only from the reader's own file hosts: "i think if users want more
+  privacy then they should use a VPN. books should images."). So a book's
+  pictures are loaded from the addresses its article gives, as any Nostr
+  reader loads them. What that means, said plainly in the design and once to
+  a reader: the place that keeps a picture learns the reader's address and
+  when they opened the book. This is a decision for books; the rule for
+  items' and people's own files (NSWP-17, "Where a file is fetched from") is
+  unchanged unless the owner says so. Still held to: `https` only, taken as
+  a picture and nothing else, within limits on size and number, and never
+  loaded until the book is opened to that page.
+- **A book can be blocked and banned** (the owner, the same message: "And
+  also books should be allowed to be ban or blocked."):
+  - a reader blocks a book, or everything by its author, for themselves, and
+    doesn't see it again (their own list, which travels with them);
+  - a world's keeper bans a book or an author from their world, so it can't
+    be placed there and is taken off its shelves;
+  - curated lists (BitGate's) of books or authors a client or a world chooses
+    to follow, as for worlds and people.
+  A blocked book on a shelf is drawn as a plain closed book that says it is
+  blocked, so a shelf's places don't shift.
+- **A book is rated** (the owner, next message: "And raited"). Two readings,
+  and the owner is asked which: what is in it, as a world says how intense it
+  is and what a visitor should know before going in (`rating.ts`), said by
+  whoever binds it and shown before it is opened; or readers' own marks for
+  how good it is. The first goes with blocking and banning; the second is a
+  thing of its own.
 - **A book's words are a stranger's words:** shown as text and pictures,
   nothing run, no markup taken as more than headings, emphasis, lists and
   quotes, and a link is shown and never followed by itself.
@@ -97,6 +119,6 @@ world stays where a visitor left it. NSWP-17 has no placed things.
 ## Must not
 
 - Let a book's content differ by who is looking.
-- Fetch anything on a reader's behalf from a place the book's maker chose.
+- Run anything a book carries, or load a picture before its page is opened.
 - Let a visitor place anything in a world whose keeper hasn't allowed it.
 - Change what is in a placed book without its keeper's own press.
