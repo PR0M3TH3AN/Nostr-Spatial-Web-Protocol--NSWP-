@@ -5,7 +5,12 @@ npm run build && node scripts/serve-local.mjs --lan --https
 ```
 
 Each built site is served at one address: `https`, at this machine's
-address on the network, on a port of its own. On a machine at
+address on the network, on a port of its own. That address is chosen
+(`scripts/lan-address.mjs`): a private one (192.168, 10 or 172.16), never a
+VPN's own end and never a container's or a virtual machine's network. At
+start the server waits up to 30 seconds for the network to come up before
+falling back to whatever address there is, and says so if it had to. Set
+`LOCAL_HOST` to name the address yourself. On a machine at
 `192.168.1.20`, BitPortal is at `https://192.168.1.20:4300`, the
 reference worlds on 4301 to 4307, the world template on 4308, and the Godot
 example on 4309 if it has been exported (`npm run build:godot`). A flat
