@@ -263,3 +263,71 @@ describe("the visitor's few keys", () => {
     expect(w.sent).toEqual([]);
   });
 });
+
+describe("pictures", () => {
+  /** A world with a tile that has a picture, and a card with someone's picture by its address. */
+  const withPictures = () => {
+    const controls = createControls({ title: "The Gallery" });
+    const canvas = { width: 512, height: 256 } as unknown as CanvasImageSource;
+    controls.add({ id: "print", section: "camera", kind: "tile", label: "A print", picture: () => canvas, act: () => {} });
+    controls.addSection({ id: "people", label: "People", card: () => ({ title: "Ana", tag: "By name", proven: true, sub: "npub1ana…", copy: "", text: "", picture: "https://pics.example/ana.png", color: "#336699", now: [] }) });
+    const sent: Record<string, unknown>[] = [];
+    let hear: ((word: unknown) => void) | null = null;
+    const asked: unknown[] = [];
+    const above = portAbove(controls, {
+      above: { framed: () => true, sinceHere: () => 0, say: (word) => sent.push(word), hear: (fn) => (hear = fn) },
+      keys: { addEventListener: (() => {}) as never, removeEventListener: (() => {}) as never },
+      picture: async (from) => {
+        asked.push(from);
+        return { bitmapOf: typeof from === "string" ? from : "the print" };
+      },
+    });
+    const worlds = () => sent.filter((w) => w.world).map((w) => w.world);
+    /** The pictures sent, each alone, by the id it was for. */
+    const pictures = () => Object.fromEntries(sent.filter((w) => w.picture).map((w) => [w.id as string, w.picture]));
+    return { controls, above, say: (w: unknown) => hear?.(w), worlds, pictures, sent, asked, canvas };
+  };
+
+  it("are not made while the menu is down: nobody would see them", async () => {
+    const w = withPictures();
+    w.say(HAS);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(w.asked).toEqual([]);
+    expect(w.pictures()).toEqual({});
+  });
+
+  it("go up each alone once the menu is up, as bitmaps: a row's by its id, a card's by its tab", async () => {
+    const w = withPictures();
+    w.say(HAS);
+    w.say({ nswp: "menu", open: true });
+    await vi.advanceTimersByTimeAsync(500);
+    // In the order of the tabs: People's card, then Camera's tile.
+    expect(w.asked).toEqual(["https://pics.example/ana.png", w.canvas]);
+    expect(w.pictures()).toEqual({ "card:people": { bitmapOf: "https://pics.example/ana.png" }, print: { bitmapOf: "the print" } });
+    // What a client reads of each: a picture for an id, where it has a check for pictures.
+    const word = w.sent.find((s) => s.id === "print")!;
+    expect(readMenuWordUp({ ...word, nswp: "menu" }, { picture: (p) => !!p && typeof p === "object" })).toEqual({ what: "picture", id: "print", picture: { bitmapOf: "the print" } });
+  });
+
+  it("are never in the description, and neither is anyone's address", async () => {
+    const w = withPictures();
+    w.say(HAS);
+    w.say({ nswp: "menu", open: true });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(JSON.stringify(w.worlds())).not.toMatch(/picture|pics\.example/);
+  });
+
+  it("are made once for each thing, and afresh the next time the menu comes up", async () => {
+    const w = withPictures();
+    w.say(HAS);
+    w.say({ nswp: "menu", open: true });
+    await vi.advanceTimersByTimeAsync(500);
+    w.controls.setTarget("A painting");
+    await vi.advanceTimersByTimeAsync(500);
+    expect(w.asked).toHaveLength(2);
+    w.say({ nswp: "menu", open: false });
+    w.say({ nswp: "menu", open: true });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(w.asked).toHaveLength(4);
+  });
+});

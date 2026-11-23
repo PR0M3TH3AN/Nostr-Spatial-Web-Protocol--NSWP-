@@ -236,7 +236,14 @@ Notes on the words, not for the protocol:
   Pictures and people's own models are the visitor's general settings, held by the
   client and said to every world.
 - **Pictures** cross as bitmaps the browser copies between pages, so the client never
-  fetches an address a world names.
+  fetches an address a world names. Each goes alone by the `picture` word, never in
+  the description (which is text, and said again at every change): a row's by its
+  id, a card's by `card:` and its tab. The world makes them only while the menu is
+  up, afresh each time it comes up; the client keeps each by id until the world
+  stops describing the thing it is of. Someone's picture on a People card is
+  fetched by the world and crosses as a bitmap. Built: a tile's picture and a
+  card's face. Not built, since nothing in the kit has one in a tab a world fills:
+  a picture fed as the world runs (a camera's view).
 - **Pages of the client's own origin are the client's own** (section 16, point 1).
   BitPortal's room and its Airlock are shown in the same frame as a world. A page
   whose origin is exactly the shell's may fill any tab, the visitor's own included,

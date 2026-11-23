@@ -245,6 +245,56 @@ describe("the menu coming up and going, keys, and words for a moment", () => {
   });
 });
 
+describe("a world's pictures", () => {
+  const picture = (p: unknown) => !!p && typeof p === "object";
+  const up = () => {
+    const controls = createControls({ title: "The client" });
+    const win = { postMessage: () => {} };
+    const frame = { contentWindow: win, addEventListener: () => {}, removeEventListener: () => {}, focus: () => {} } as unknown as HTMLIFrameElement;
+    let onMessage: (e: MessageEvent) => void = () => {};
+    const below = portBelow(frame, { controls, origin: CLIENT, picture, hear: { addEventListener: (_t, fn) => void (onMessage = fn), removeEventListener: () => {} } });
+    const from = (data: unknown) => onMessage({ data, origin: WORLD, source: win } as MessageEvent);
+    const world = (rows: string[], card = true) => ({ nswp: "menu", world: { title: "The Gallery", sections: [{ id: "people", ...(card ? { card: { title: "Ana" } } : {}), rows: rows.map((id) => ({ id, label: id, kind: "tile" })) }] } });
+    from({ nswp: "here", at: "/", menu: 1 });
+    const drawn = () => {
+      const people = below.port.view().sections.find((s) => s.id === "people")!;
+      return { face: people.card?.face ?? null, rows: Object.fromEntries(people.items.map((i) => [i.id, i.picture?.() ?? null])) };
+    };
+    return { from, world, drawn };
+  };
+  const A = { bitmap: "a" };
+  const B = { bitmap: "b" };
+
+  it("come each alone, for a row by its id and a card by its tab, and are what the menu draws", () => {
+    const c = up();
+    c.from(c.world(["print"]));
+    expect(c.drawn()).toEqual({ face: null, rows: { "world:print": null } });
+    c.from({ nswp: "menu", picture: A, id: "print" });
+    c.from({ nswp: "menu", picture: B, id: "card:people" });
+    expect(c.drawn()).toEqual({ face: B, rows: { "world:print": A } });
+  });
+
+  it("stay while the world says the same things again, and go with a row or a card it stops describing", () => {
+    const c = up();
+    c.from(c.world(["print", "other"]));
+    c.from({ nswp: "menu", picture: A, id: "print" });
+    c.from({ nswp: "menu", picture: B, id: "card:people" });
+    c.from(c.world(["print", "other"]));
+    expect(c.drawn()).toEqual({ face: B, rows: { "world:print": A, "world:other": null } });
+    c.from(c.world(["other"], false));
+    c.from(c.world(["print", "other"]));
+    expect(c.drawn()).toEqual({ face: null, rows: { "world:print": null, "world:other": null } });
+  });
+
+  it("are kept only for something the world described, and only where they pass the client's check", () => {
+    const c = up();
+    c.from(c.world(["print"]));
+    c.from({ nswp: "menu", picture: A, id: "nothing-there" });
+    c.from({ nswp: "menu", picture: "https://tracker.example/pixel.png", id: "print" });
+    expect(c.drawn()).toEqual({ face: null, rows: { "world:print": null } });
+  });
+});
+
 describe("loading people's files from anywhere", () => {
   it("is never said down, on or off: it is for one place, and that place keeps it", async () => {
     const { reportSettings } = await import("../src/settings.js");

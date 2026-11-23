@@ -4,6 +4,13 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A world's pictures go up to the client's menu as bitmaps** (SDK `packages/sdk/src/menu-above.ts`, `ui/port-below.ts`, `ui/hud.ts`; `trials/menu-client.mjs`; NSWP-02, "Pictures"). Nothing a visitor can see changes yet: no real client has the menu.
+  - A world whose client has the menu sends each picture alone, by the `picture` word: a tile's by its row's id, and the picture at the head of a tab (someone's face, in People) by `card:` and the tab's id. Never in the description, which is text and is said again at every change.
+  - They are made only while the menu is up, afresh each time it comes up, at most 256 pixels a side. Someone's picture is fetched by the world, as today, and crosses as a bitmap: the page above is never given an address.
+  - The client keeps each by id until the world stops describing the thing it is of, and takes none for something the world hasn't described. The menu draws a card's face from a bitmap (`UiCard.face`), and draws again when a picture is a new one.
+  - Tried in the stand-in client (`trials/menu-client.mjs`, 50 checks): a tile's picture crosses at 256 pixels and is drawn by the client. Also tried there, as owed: "Load people's files from anywhere" pressed through the client is on in the world, stays on when the client says its settings again, and is never in any word the client says.
+  - Not built: a picture fed as the world runs (a camera's view). Nothing in the kit has one in a tab a world fills.
+
 - **One menu, never two: a client that answers while the world's own menu is on its way** (`sites/shared/world.ts`; `trials/menu-above.mjs`). A fault in the reference worlds' wiring, found by a trial on a busy machine. No visitor met it: no real client says it has the menu yet.
   - A framed world that hears nothing from its client in 300 ms fetches its own menu, which is a file of its own. If the client's answer came while that file was on its way, the world drew its menu when the file arrived, though the client now had one: two menus.
   - Who has the menu is now asked again each time the world's own menu's file arrives, and a menu that arrives for a world whose client has one is put away before it is seen.

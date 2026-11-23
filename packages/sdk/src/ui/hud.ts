@@ -623,6 +623,15 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   /** Whether the visitor has picked a section themselves. Until they do, the menu comes up on the first: the way home. */
   let chose = false;
   let drawn = "";
+  /** A number for each picture that has been drawn from, so that another in its place is seen as a change. */
+  const marks = new WeakMap<object, number>();
+  let marked = 0;
+  const markOf = (picture: unknown): number => {
+    if (!picture || typeof picture !== "object") return 0;
+    let n = marks.get(picture);
+    if (!n) marks.set(picture, (n = ++marked));
+    return n;
+  };
 
   const press = (item: UiItemView) => controls.run(item.id);
   /**
@@ -716,6 +725,19 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
         tick();
       };
       requestAnimationFrame(begin);
+    }
+    if (card.face && !paint) {
+      // Their picture, already in hand (a framed world's card): drawn as it is, with nothing fetched.
+      const from = card.face as { width?: number; height?: number };
+      const copy = document.createElement("canvas");
+      copy.width = Math.max(1, Math.min(256, Math.round(from.width ?? 128)));
+      copy.height = Math.max(1, Math.min(256, Math.round(from.height ?? 128)));
+      try {
+        copy.getContext("2d")?.drawImage(card.face, 0, 0, copy.width, copy.height);
+        face.replaceChildren(copy);
+      } catch {
+        /* a picture that can't be drawn leaves the letter in its place */
+      }
     }
     if (card.picture) {
       void loadPicture(card.picture).then((drawn) => {
@@ -1049,7 +1071,11 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
 
     if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
     // Rebuilding the buttons would drop the keyboard's place among them, so only do it when something they show has changed.
-    const now = JSON.stringify([view.hotbar, view.pins, view.pinsFull, view.sections, section, open, view.presence]);
+    // A picture is not text, so a new one is told from the old by which thing it is: where the menu is up, the
+    // pictures of the tab in sight are each given a number the first time they are seen.
+    const inSight = open ? view.sections.find((s) => s.id === section) : undefined;
+    const pictured = inSight ? [inSight.card?.face ? markOf(inSight.card.face) : 0, ...inSight.items.map((i) => (i.picture ? markOf(i.picture()) : 0))] : [];
+    const now = JSON.stringify([view.hotbar, view.pins, view.pinsFull, view.sections, section, open, view.presence, pictured]);
     if (now === drawn) return;
     drawn = now;
 

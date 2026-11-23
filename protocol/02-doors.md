@@ -564,13 +564,21 @@ is not a press in the world's page:
   A `field` row may stand only in `guests` and in a world's own tabs.
   Anywhere else it is left out.
 
-**A picture that changes.** A row whose picture is fed by the world as it
-runs (a camera's view, a watched screen) sends each new one alone:
-`{ nswp: "menu", picture, id }`, a bitmap for the row `id` of the last
-description. At most eight a second for a row, 256 pixels a side, and only
-while the menu is up. A client draws them only for a row in sight, and may
-drop any. Pictures cross as bitmaps the browser copies between the pages:
-a client never fetches an address a world names.
+**Pictures.** A description is text, said again whenever a word of it
+changes. A picture is sent alone: `{ nswp: "menu", picture, id }`, a
+bitmap for the row `id` of the last description, or for the card at the
+head of a tab as `card:` and the tab's id (`card:people`). At most eight
+a second for one thing, 256 pixels a side, and only while the menu is up.
+A client keeps each until another comes for the same thing or the world
+stops describing that thing; it draws them only for what is in sight, and
+may drop any. A picture for something the world hasn't described is not
+kept.
+
+Pictures cross as bitmaps the browser copies between the pages: a client
+never fetches an address a world names. Someone's picture on a card is
+fetched by the world, as a world fetches it today, and crosses as a
+bitmap. A world that feeds a picture as it runs (a camera's view, a
+watched screen) sends each new one the same way.
 
 **Limits a client holds a world to,** whatever it sends: 12 tabs, 60 rows
 in one, 200 rows in all, 120 characters in a label or any other short
