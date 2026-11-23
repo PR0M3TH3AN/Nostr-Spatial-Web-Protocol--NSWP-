@@ -335,6 +335,15 @@ That makes this an agreement and not a guarantee:
   headset's own controls are still the visitor's sure way out, and nothing
   security depends on the console.
 
+**Where a client keeps the screen, it can draw the console.** A client that
+shows a world in a frame of its own page is above that world, and can draw
+there. [NSWP-02](02-doors.md), "The client has the menu", has the words:
+the world's console steps aside, the world describes the tabs that are its
+to fill, and the visitor's own tabs, and the way home, are the client's.
+For a world shown that way the way home is then a guarantee, and a world
+can no longer break it. (Status: the words are in the kit's core; no world
+or client speaks them yet.)
+
 A client that stays with the visitor inside every world, whatever that world
 does, has to be the browser itself. [`browser/spec.md`](../browser/spec.md)
 is the plan for one. There, the console would be the browser's own, the

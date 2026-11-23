@@ -1,0 +1,1706 @@
+{
+  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+  "version": 1,
+  "limits": {
+    "sections": 12,
+    "rows": 60,
+    "allRows": 200,
+    "label": 120,
+    "picture": 256,
+    "bytes": 65536,
+    "ownTabs": 2,
+    "say": 200,
+    "copy": 2000,
+    "field": 500,
+    "title": 80,
+    "note": 400
+  },
+  "waits": {
+    "MENU_WAIT_MS": 300,
+    "LEAVE_MS": 1000
+  },
+  "tabs": {
+    "visitor": [
+      "you",
+      "figure",
+      "bag",
+      "wallet",
+      "files",
+      "following",
+      "messages",
+      "moving",
+      "sound",
+      "look",
+      "help"
+    ],
+    "world": [
+      "travel",
+      "room",
+      "people",
+      "camera",
+      "panels",
+      "view",
+      "scores",
+      "achievements",
+      "guests"
+    ]
+  },
+  "keys": [
+    "summon",
+    "escape",
+    "menu",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
+  ],
+  "reported": [
+    "headset",
+    "intense",
+    "turn",
+    "hand",
+    "narrow",
+    "fade",
+    "look",
+    "fov",
+    "wrist",
+    "sound",
+    "motion",
+    "text",
+    "tabs",
+    "pins"
+  ],
+  "describing": [
+    {
+      "name": "a_whole_description",
+      "why": "Everything a world may say, kept as said.",
+      "world": {
+        "title": "The Gallery",
+        "level": "quiet",
+        "corner": "top-right",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": true,
+            "joined": true,
+            "mic": false,
+            "count": 3
+          },
+          "headset": {
+            "supported": true,
+            "presenting": false
+          },
+          "named": true,
+          "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
+          "items": "play"
+        },
+        "target": [
+          "A painting",
+          "Oil on board, 1911"
+        ],
+        "loading": {
+          "fraction": 0.4,
+          "words": "The east wing"
+        },
+        "sections": [
+          {
+            "id": "room",
+            "note": "Three people are here.",
+            "rows": [
+              {
+                "id": "room-leave",
+                "label": "Row room-leave",
+                "short": "Leave",
+                "icon": "room",
+                "on": true,
+                "tone": "warn",
+                "bar": true
+              },
+              {
+                "id": "room-link",
+                "label": "Row room-link",
+                "kind": "copy",
+                "copy": "https://gallery.example/#room=east"
+              }
+            ]
+          },
+          {
+            "id": "shop",
+            "label": "The shop",
+            "icon": "save",
+            "rows": [
+              {
+                "id": "shop-red",
+                "label": "Row shop-red",
+                "kind": "swatch",
+                "color": "#aa2211"
+              },
+              {
+                "id": "shop-print",
+                "label": "Row shop-print",
+                "kind": "tile",
+                "mark": "check",
+                "faint": true
+              },
+              {
+                "id": "shop-open",
+                "label": "Row shop-open",
+                "kind": "line",
+                "on": false
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "The Gallery",
+        "level": "quiet",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": true,
+            "joined": true,
+            "mic": false,
+            "count": 3
+          },
+          "headset": {
+            "supported": true,
+            "presenting": false
+          },
+          "named": true,
+          "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
+          "items": "play"
+        },
+        "target": [
+          "A painting",
+          "Oil on board, 1911"
+        ],
+        "loading": {
+          "fraction": 0.4,
+          "words": "The east wing"
+        },
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "room-leave",
+                "label": "Row room-leave",
+                "kind": "button",
+                "short": "Leave",
+                "icon": "room",
+                "on": true,
+                "tone": "warn",
+                "bar": true
+              },
+              {
+                "id": "room-link",
+                "label": "Row room-link",
+                "kind": "copy",
+                "copy": "https://gallery.example/#room=east"
+              }
+            ],
+            "note": "Three people are here."
+          },
+          {
+            "id": "shop",
+            "rows": [
+              {
+                "id": "shop-red",
+                "label": "Row shop-red",
+                "kind": "swatch",
+                "color": "#aa2211"
+              },
+              {
+                "id": "shop-print",
+                "label": "Row shop-print",
+                "kind": "tile",
+                "mark": "check",
+                "faint": true
+              },
+              {
+                "id": "shop-open",
+                "label": "Row shop-open",
+                "kind": "line",
+                "on": false
+              }
+            ],
+            "label": "The shop",
+            "icon": "save"
+          }
+        ],
+        "corner": "top-right"
+      }
+    },
+    {
+      "name": "nothing_said",
+      "why": "An empty description is a world with no name and no tabs.",
+      "world": {},
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": []
+      }
+    },
+    {
+      "name": "not_a_description",
+      "why": "Text, a list or nothing is no description.",
+      "world": [
+        "room"
+      ],
+      "expect": null
+    },
+    {
+      "name": "the_visitors_own_tabs",
+      "why": "A world never fills the visitor's own tabs: each is left out whole.",
+      "world": {
+        "sections": [
+          {
+            "id": "you",
+            "rows": [
+              {
+                "id": "you-x",
+                "label": "Row you-x"
+              }
+            ]
+          },
+          {
+            "id": "figure",
+            "rows": [
+              {
+                "id": "figure-x",
+                "label": "Row figure-x"
+              }
+            ]
+          },
+          {
+            "id": "bag",
+            "rows": [
+              {
+                "id": "bag-x",
+                "label": "Row bag-x"
+              }
+            ]
+          },
+          {
+            "id": "wallet",
+            "rows": [
+              {
+                "id": "wallet-x",
+                "label": "Row wallet-x"
+              }
+            ]
+          },
+          {
+            "id": "files",
+            "rows": [
+              {
+                "id": "files-x",
+                "label": "Row files-x"
+              }
+            ]
+          },
+          {
+            "id": "following",
+            "rows": [
+              {
+                "id": "following-x",
+                "label": "Row following-x"
+              }
+            ]
+          },
+          {
+            "id": "messages",
+            "rows": [
+              {
+                "id": "messages-x",
+                "label": "Row messages-x"
+              }
+            ]
+          },
+          {
+            "id": "moving",
+            "rows": [
+              {
+                "id": "moving-x",
+                "label": "Row moving-x"
+              }
+            ]
+          },
+          {
+            "id": "sound",
+            "rows": [
+              {
+                "id": "sound-x",
+                "label": "Row sound-x"
+              }
+            ]
+          },
+          {
+            "id": "look",
+            "rows": [
+              {
+                "id": "look-x",
+                "label": "Row look-x"
+              }
+            ]
+          },
+          {
+            "id": "help",
+            "rows": [
+              {
+                "id": "help-x",
+                "label": "Row help-x"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": []
+      }
+    },
+    {
+      "name": "a_tab_the_client_still_takes",
+      "why": "A client that doesn't yet run Following itself takes it from a world (`also`), and a row may be typed into there.",
+      "opts": {
+        "also": [
+          "following"
+        ]
+      },
+      "world": {
+        "sections": [
+          {
+            "id": "following",
+            "rows": [
+              {
+                "id": "follow-key",
+                "label": "Row follow-key",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "messages",
+            "rows": [
+              {
+                "id": "m",
+                "label": "Row m"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "following",
+            "rows": [
+              {
+                "id": "follow-key",
+                "label": "Row follow-key",
+                "kind": "field"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "the_clients_own_page",
+      "why": "A page of the client's own origin may fill any tab, and add more than two of its own.",
+      "opts": {
+        "own": true
+      },
+      "world": {
+        "sections": [
+          {
+            "id": "bag",
+            "rows": [
+              {
+                "id": "bag-add",
+                "label": "Row bag-add",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "desk",
+            "label": "Desk",
+            "rows": []
+          },
+          {
+            "id": "shelf",
+            "label": "Shelf",
+            "rows": []
+          },
+          {
+            "id": "door",
+            "label": "Door",
+            "rows": []
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "bag",
+            "rows": [
+              {
+                "id": "bag-add",
+                "label": "Row bag-add",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "desk",
+            "rows": [],
+            "label": "Desk"
+          },
+          {
+            "id": "shelf",
+            "rows": [],
+            "label": "Shelf"
+          },
+          {
+            "id": "door",
+            "rows": [],
+            "label": "Door"
+          }
+        ]
+      }
+    },
+    {
+      "name": "three_tabs_of_its_own",
+      "why": "A world may add two tabs. The third is left out, and so is one with no name.",
+      "world": {
+        "sections": [
+          {
+            "id": "nameless",
+            "rows": []
+          },
+          {
+            "id": "one",
+            "label": "One",
+            "rows": []
+          },
+          {
+            "id": "two",
+            "label": "Two",
+            "rows": []
+          },
+          {
+            "id": "three",
+            "label": "Three",
+            "rows": []
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "one",
+            "rows": [],
+            "label": "One"
+          },
+          {
+            "id": "two",
+            "rows": [],
+            "label": "Two"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the_clients_names_stand",
+      "why": "A tab every place has is named by the client: a world's name and icon for it are not taken. A tab said twice is the first.",
+      "world": {
+        "sections": [
+          {
+            "id": "room",
+            "label": "Your wallet",
+            "icon": "wallet",
+            "rows": [
+              {
+                "id": "a",
+                "label": "Row a"
+              }
+            ]
+          },
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "b",
+                "label": "Row b"
+              }
+            ]
+          },
+          {
+            "id": "Room",
+            "rows": []
+          },
+          {
+            "id": "a-name-that-is-too-long",
+            "label": "x",
+            "rows": []
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "a",
+                "label": "Row a",
+                "kind": "button"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "where_a_row_may_be_typed_into",
+      "why": "A `field` row stands only in the keeper's tab and in a world's own tabs. Elsewhere it is left out.",
+      "world": {
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "say",
+                "label": "Row say",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "guests",
+            "rows": [
+              {
+                "id": "guests-key",
+                "label": "Row guests-key",
+                "kind": "field",
+                "bar": true
+              }
+            ]
+          },
+          {
+            "id": "shop",
+            "label": "Shop",
+            "rows": [
+              {
+                "id": "shop-code",
+                "label": "Row shop-code",
+                "kind": "field"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "room",
+            "rows": []
+          },
+          {
+            "id": "guests",
+            "rows": [
+              {
+                "id": "guests-key",
+                "label": "Row guests-key",
+                "kind": "field"
+              }
+            ]
+          },
+          {
+            "id": "shop",
+            "rows": [
+              {
+                "id": "shop-code",
+                "label": "Row shop-code",
+                "kind": "field"
+              }
+            ],
+            "label": "Shop"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rows_left_out",
+      "why": "A row is left out, never mended: with no id or label, a label over the limit, a kind this doesn't know, a `copy` with no text, a swatch with no colour, or an id already said.",
+      "world": {
+        "sections": [
+          {
+            "id": "view",
+            "rows": [
+              {
+                "label": "No id"
+              },
+              {
+                "id": "no-label"
+              },
+              {
+                "id": "long",
+                "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "id": "just",
+                "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              },
+              {
+                "id": "new-kind",
+                "label": "Row new-kind",
+                "kind": "slider"
+              },
+              {
+                "id": "copy-nothing",
+                "label": "Row copy-nothing",
+                "kind": "copy"
+              },
+              {
+                "id": "copy-much",
+                "label": "Row copy-much",
+                "kind": "copy",
+                "copy": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+              },
+              {
+                "id": "swatch-none",
+                "label": "Row swatch-none",
+                "kind": "swatch",
+                "color": "red"
+              },
+              {
+                "id": "just",
+                "label": "Row just"
+              },
+              {
+                "id": "an id",
+                "label": "Row an id"
+              },
+              {
+                "id": "fine",
+                "label": "Row fine",
+                "short": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+                "icon": "Not An Icon",
+                "tone": "loud",
+                "color": "url(x)",
+                "on": "yes",
+                "faint": 1,
+                "bar": "true"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "view",
+            "rows": [
+              {
+                "id": "just",
+                "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "kind": "button"
+              },
+              {
+                "id": "fine",
+                "label": "Row fine",
+                "kind": "button"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "words_are_text",
+      "why": "Markup is shown as the letters sent. Anything unseen in a line (a control character, a mark that turns text round) becomes a space, and a line read is trimmed.",
+      "world": {
+        "title": "  <b>Free</b>\u202e sats\u0007 ",
+        "target": [
+          "\u200bA\tdoor\n"
+        ],
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "r",
+                "label": "<img src=x onerror=alert(1)>"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "<b>Free</b> sats",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [
+          "A door"
+        ],
+        "loading": null,
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "r",
+                "label": "<img src=x onerror=alert(1)>",
+                "kind": "button"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "text_to_copy_is_whole_or_not_at_all",
+      "why": "Text to copy is kept exactly as written, lines and all, and refused if anything in it is unseen.",
+      "world": {
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "two-lines",
+                "label": "Row two-lines",
+                "kind": "copy",
+                "copy": "one\ntwo"
+              },
+              {
+                "id": "hidden",
+                "label": "Row hidden",
+                "kind": "copy",
+                "copy": "npub1\u200babc"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "room",
+            "rows": [
+              {
+                "id": "two-lines",
+                "label": "Row two-lines",
+                "kind": "copy",
+                "copy": "one\ntwo"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a_card",
+      "why": "A card's words are text; the rows it names are that tab's own.",
+      "world": {
+        "sections": [
+          {
+            "id": "people",
+            "card": {
+              "title": "Ana",
+              "tag": "By name",
+              "proven": true,
+              "sub": "npub1ana\u2026",
+              "copy": "npub1ana",
+              "text": "Keeper of clocks.",
+              "color": "#336699",
+              "now": [
+                "Recording",
+                5
+              ],
+              "acts": [
+                "mute",
+                "elsewhere"
+              ]
+            },
+            "rows": [
+              {
+                "id": "mute",
+                "label": "Row mute"
+              }
+            ]
+          },
+          {
+            "id": "room",
+            "card": {
+              "tag": "no title"
+            },
+            "rows": []
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "people",
+            "rows": [
+              {
+                "id": "mute",
+                "label": "Row mute",
+                "kind": "button"
+              }
+            ],
+            "card": {
+              "title": "Ana",
+              "tag": "By name",
+              "proven": true,
+              "sub": "npub1ana\u2026",
+              "copy": "npub1ana",
+              "text": "Keeper of clocks.",
+              "color": "#336699",
+              "now": [
+                "Recording"
+              ],
+              "acts": [
+                "mute"
+              ]
+            }
+          },
+          {
+            "id": "room",
+            "rows": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "state_as_it_can_be",
+      "why": "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none.",
+      "world": {
+        "level": "loud",
+        "corner": "middle",
+        "keys": false,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": true,
+            "mic": true,
+            "count": 4
+          },
+          "headset": {
+            "presenting": true
+          },
+          "named": "yes",
+          "holding": 5,
+          "items": "everything"
+        },
+        "loading": {
+          "fraction": 7,
+          "words": 3
+        },
+        "target": [
+          5,
+          "about nothing"
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": false,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "none"
+        },
+        "target": [],
+        "loading": {
+          "fraction": 1,
+          "words": ""
+        },
+        "sections": []
+      }
+    },
+    {
+      "name": "pictures_need_a_check",
+      "why": "A picture is kept only by a caller that checks it (its kind and size, in a browser). Here there is none.",
+      "world": {
+        "sections": [
+          {
+            "id": "camera",
+            "rows": [
+              {
+                "id": "shot",
+                "label": "Row shot",
+                "kind": "tile",
+                "picture": "https://tracker.example/pixel.png"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "camera",
+            "rows": [
+              {
+                "id": "shot",
+                "label": "Row shot",
+                "kind": "tile"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "counting": [
+    {
+      "name": "rows_in_one_tab",
+      "sent": "one tab of 65 rows",
+      "expect": {
+        "tabs": [
+          "room"
+        ],
+        "rows": [
+          60
+        ],
+        "bytes": 3063
+      }
+    },
+    {
+      "name": "rows_in_all",
+      "sent": "nine tabs of 30 rows each (270)",
+      "expect": {
+        "tabs": [
+          "travel",
+          "room",
+          "people",
+          "camera",
+          "panels",
+          "view",
+          "scores",
+          "achievements",
+          "guests"
+        ],
+        "rows": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          20,
+          0,
+          0
+        ],
+        "bytes": 11489
+      }
+    },
+    {
+      "name": "tabs",
+      "sent": "fourteen tabs: nine every place has, three of the visitor's own, then two of the world's",
+      "expect": {
+        "tabs": [
+          "travel",
+          "room",
+          "people",
+          "camera",
+          "panels",
+          "view",
+          "scores",
+          "achievements",
+          "guests"
+        ],
+        "rows": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "bytes": 476
+      }
+    },
+    {
+      "name": "too_big",
+      "sent": "two hundred rows, each with 2000 characters to copy",
+      "expect": null
+    }
+  ],
+  "down": [
+    {
+      "name": "has",
+      "word": {
+        "nswp": "menu",
+        "has": true,
+        "v": 1,
+        "settings": {
+          "text": 1.2,
+          "motion": false,
+          "pins": [
+            "room"
+          ],
+          "filesAnywhere": true,
+          "admin": true
+        }
+      },
+      "expect": {
+        "what": "has",
+        "has": true,
+        "v": 1,
+        "settings": {
+          "text": 1.2,
+          "motion": false,
+          "pins": [
+            "room"
+          ],
+          "filesAnywhere": true
+        }
+      }
+    },
+    {
+      "name": "has_a_newer_version",
+      "word": {
+        "nswp": "menu",
+        "has": true,
+        "v": 7,
+        "settings": {}
+      },
+      "expect": {
+        "what": "has",
+        "has": true,
+        "v": 1,
+        "settings": {}
+      }
+    },
+    {
+      "name": "has_no_version",
+      "word": {
+        "nswp": "menu",
+        "has": true,
+        "settings": {}
+      },
+      "expect": null
+    },
+    {
+      "name": "has_no_longer",
+      "word": {
+        "nswp": "menu",
+        "has": false
+      },
+      "expect": {
+        "what": "has",
+        "has": false
+      }
+    },
+    {
+      "name": "settings",
+      "word": {
+        "nswp": "menu",
+        "settings": {
+          "sound": {
+            "music": 0.25
+          },
+          "turn": 45
+        }
+      },
+      "expect": {
+        "what": "settings",
+        "settings": {
+          "sound": {
+            "music": 0.25
+          },
+          "turn": 45
+        }
+      }
+    },
+    {
+      "name": "press",
+      "word": {
+        "nswp": "menu",
+        "press": "room-join"
+      },
+      "expect": {
+        "what": "press",
+        "press": "room-join"
+      }
+    },
+    {
+      "name": "press_with_what_was_typed",
+      "word": {
+        "nswp": "menu",
+        "press": "guests-key",
+        "field": " npub1ana\n"
+      },
+      "expect": {
+        "what": "press",
+        "press": "guests-key",
+        "field": " npub1ana\n"
+      }
+    },
+    {
+      "name": "press_with_too_much_typed",
+      "word": {
+        "nswp": "menu",
+        "press": "guests-key",
+        "field": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+      },
+      "expect": null
+    },
+    {
+      "name": "press_with_something_unseen_typed",
+      "word": {
+        "nswp": "menu",
+        "press": "guests-key",
+        "field": "npub1\u200bana"
+      },
+      "expect": null
+    },
+    {
+      "name": "press_nothing",
+      "word": {
+        "nswp": "menu",
+        "press": ""
+      },
+      "expect": null
+    },
+    {
+      "name": "open",
+      "word": {
+        "nswp": "menu",
+        "open": true
+      },
+      "expect": {
+        "what": "open",
+        "open": true
+      }
+    },
+    {
+      "name": "closed",
+      "word": {
+        "nswp": "menu",
+        "open": false
+      },
+      "expect": {
+        "what": "open",
+        "open": false
+      }
+    },
+    {
+      "name": "go_home",
+      "word": {
+        "nswp": "menu",
+        "go": "home"
+      },
+      "expect": {
+        "what": "go",
+        "go": "home"
+      }
+    },
+    {
+      "name": "go_elsewhere",
+      "word": {
+        "nswp": "menu",
+        "go": "https://elsewhere.example/"
+      },
+      "expect": null
+    },
+    {
+      "name": "another_topic",
+      "word": {
+        "nswp": "screen",
+        "holds": true,
+        "filled": false
+      },
+      "expect": null
+    },
+    {
+      "name": "not_a_word",
+      "word": "menu",
+      "expect": null
+    },
+    {
+      "name": "a_worlds_word",
+      "word": {
+        "nswp": "menu",
+        "settings": {
+          "turn": 90
+        },
+        "say": "Hello"
+      },
+      "expect": null
+    }
+  ],
+  "up": [
+    {
+      "name": "world",
+      "word": {
+        "nswp": "menu",
+        "world": {
+          "title": "The Grove"
+        }
+      },
+      "expect": {
+        "what": "world",
+        "world": {
+          "title": "The Grove",
+          "level": "full",
+          "keys": true,
+          "state": {
+            "room": {
+              "has": false,
+              "joined": false,
+              "mic": null,
+              "count": 0
+            },
+            "headset": {
+              "supported": false,
+              "presenting": false
+            },
+            "named": false,
+            "holding": "",
+            "items": "allowed"
+          },
+          "target": [],
+          "loading": null,
+          "sections": []
+        }
+      }
+    },
+    {
+      "name": "world_that_is_no_description",
+      "word": {
+        "nswp": "menu",
+        "world": "The Grove"
+      },
+      "expect": null
+    },
+    {
+      "name": "key_summon",
+      "word": {
+        "nswp": "menu",
+        "key": "summon"
+      },
+      "expect": {
+        "what": "key",
+        "key": "summon"
+      }
+    },
+    {
+      "name": "key_escape",
+      "word": {
+        "nswp": "menu",
+        "key": "escape"
+      },
+      "expect": {
+        "what": "key",
+        "key": "escape"
+      }
+    },
+    {
+      "name": "key_digit",
+      "word": {
+        "nswp": "menu",
+        "key": "3"
+      },
+      "expect": {
+        "what": "key",
+        "key": "3"
+      }
+    },
+    {
+      "name": "key_any_other",
+      "word": {
+        "nswp": "menu",
+        "key": "a"
+      },
+      "expect": null
+    },
+    {
+      "name": "key_zero",
+      "word": {
+        "nswp": "menu",
+        "key": "0"
+      },
+      "expect": null
+    },
+    {
+      "name": "key_as_a_number",
+      "word": {
+        "nswp": "menu",
+        "key": 3
+      },
+      "expect": null
+    },
+    {
+      "name": "say",
+      "word": {
+        "nswp": "menu",
+        "say": "Saved\nto your bag."
+      },
+      "expect": {
+        "what": "say",
+        "say": "Saved to your bag."
+      }
+    },
+    {
+      "name": "say_too_much",
+      "word": {
+        "nswp": "menu",
+        "say": "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+      },
+      "expect": null
+    },
+    {
+      "name": "settings_reported",
+      "word": {
+        "nswp": "menu",
+        "settings": {
+          "turn": 90,
+          "hand": "left",
+          "sound": {
+            "voices": 0.5
+          },
+          "pins": [
+            "room",
+            "bag"
+          ],
+          "filesAnywhere": true,
+          "pictures": true,
+          "models": true,
+          "chat": true,
+          "items": true,
+          "holding": {
+            "item": "37303:abababababababababababababababababababababababababababababababab:lantern"
+          },
+          "full": true
+        }
+      },
+      "expect": {
+        "what": "settings",
+        "settings": {
+          "turn": 90,
+          "hand": "left",
+          "sound": {
+            "voices": 0.5
+          },
+          "pins": [
+            "room",
+            "bag"
+          ]
+        }
+      }
+    },
+    {
+      "name": "picture_with_no_check",
+      "word": {
+        "nswp": "menu",
+        "picture": "a bitmap",
+        "id": "shot"
+      },
+      "expect": null
+    },
+    {
+      "name": "a_clients_word",
+      "word": {
+        "nswp": "menu",
+        "has": true,
+        "v": 1,
+        "settings": {}
+      },
+      "expect": null
+    }
+  ],
+  "here": [
+    {
+      "name": "speaks_them",
+      "here": {
+        "nswp": "here",
+        "at": "/",
+        "menu": 1
+      },
+      "expect": 1
+    },
+    {
+      "name": "speaks_a_newer_version",
+      "here": {
+        "nswp": "here",
+        "at": "/",
+        "menu": 4
+      },
+      "expect": 1
+    },
+    {
+      "name": "says_nothing_of_it",
+      "here": {
+        "nswp": "here",
+        "at": "/"
+      },
+      "expect": 0
+    },
+    {
+      "name": "says_it_wrongly",
+      "here": {
+        "nswp": "here",
+        "at": "/",
+        "menu": "1"
+      },
+      "expect": 0
+    }
+  ]
+}
