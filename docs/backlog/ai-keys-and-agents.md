@@ -26,8 +26,8 @@ use. In categories:
 
 - **Intelligence** (OpenRouter, or another that answers in words);
 - **Voice** (ElevenLabs, or others);
-- **System 1** (JEV; the orchestrator doesn't know what JEV is, and has
-  asked the owner);
+- **System 1** (JEV: a fast provider that chooses among typed actions, as
+  the owner's design pack describes it);
 - **Other**, named by the visitor, for whatever comes next.
 
 Each key is the visitor's own, bought from that service, and using it costs
@@ -85,6 +85,69 @@ the worlds and talk with them, the cost falling on the visitor's own key.
   doesn't answer, or nothing.
 - Whether a provider's own browser rules allow a call from the sign-in
   address's page at all, for each service named.
+
+## The owner's design pack (handed over 2026-11-23), and what the orchestrator made of it
+
+The owner handed over a fuller design the same day: "NSWP Agent Platform,
+Modular Design Pack", 0.3 draft, eleven documents written for the private
+repository `PR0M3TH3AN/nswp-agents` (which exists, with an experimental
+companion in it). It is the owner's document and lives with that repository;
+it is not copied here. It is planning, not anything built.
+
+**It holds to every line above, and adds its own:** an agent's identity, its
+placement in a world, its running, its memory and its authority are five
+separate things; a visitor sees and talks with a local agent without joining
+a room or giving any key; a `SOUL.md` changes personality and never
+authority; nothing waits on a model to draw a frame; every paid call is
+opt-in with a budget; and no key is revealed to a world's own code.
+
+**What was checked against the repositories:**
+
+- BitLogin already has an encrypted Connection Vault
+  (`docs/connection-vault.md`, "design with core implementation"). So "a new
+  data type for AI keys" is a new profile on what exists (the pack's M6
+  steps 1 and 2), not a new store.
+- The pack's candidate kinds 37309, 37310 and 37311 are the next three after
+  the kinds NSWP uses today (37300 to 37308). They are still to be given
+  (fleet rule 11) and checked against the wider registry.
+
+**What is possible, by how hard:**
+
+1. *Now, touching nothing shared* (the pack's M0 to M2, in `nswp-agents`):
+   several agents in one world, running in the visitor's own browser, moving
+   and talking by a free local model or simple rules, placed by data a
+   world's maker writes. No protocol change, no BitLogin change, no key.
+2. *With a reviewed protocol change* (M3): agents and their documents as
+   signed notes, so two clients agree on who an agent is.
+3. *In BitLogin, modest* (M6, steps 1 to 3): provider keys kept in the vault
+   by category, with a screen to add, rotate and remove them, and asking
+   permission without revealing anything.
+4. *The hard part* (M6, step 4): spending a visitor's key for a world
+   without the world ever holding it. The pack is right that revealing a key
+   to a page, or passing it through a frame, is not this. The orchestrator's
+   view: for a provider that takes calls from a browser, the sign-in
+   address's own page can make the call and hand back only the answer, as it
+   pays from a wallet today, with its own limits and the provider's own cap
+   on the key. For a provider that doesn't, it needs a service somebody
+   runs, which is a new host resource and the owner's word.
+5. *Needs a service* (M7): an agent that goes on while nobody who pays is
+   there, and one agent shared by everyone in a room.
+6. *Easier here than the pack assumes* (M8): the pack takes it that going
+   through a door ends everything running, so a companion is saved and
+   restored. BitPortal's shell now stays as one page with each world in a
+   frame, so a companion could run in the shell and simply stay, as the
+   visitor's music will. It would need words between the shell and a world
+   for what the agent sees and may do there.
+
+**Where it meets today's other decisions:** one identity across BitPortal
+(`guest-accounts`) settles who the visitor is to an agent everywhere; a guest
+account spends nothing until it is secured; and the client's menu is where a
+visitor turns credit on, sees what is spent and mutes or removes an agent.
+
+**Not decided:** when it starts, and in which session. It is the largest
+piece of work asked for so far. By the owner's order the menu comes first;
+the first tier touches nothing the menu touches and could run beside it in a
+session of its own.
 
 ## Must not
 
