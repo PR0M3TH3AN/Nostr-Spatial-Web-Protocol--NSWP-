@@ -1,0 +1,121 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
+
+/**
+ * The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
+ * `vectors/menu-words.json` holds the examples; these run them, and try what a file of JSON can't hold: pictures,
+ * and a world that sends far too much.
+ */
+const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")) as {
+  limits: Record<string, number>;
+  describing: { name: string; opts?: MenuReadOptions; world: unknown; expect: unknown }[];
+  down: { name: string; word: unknown; expect: unknown }[];
+  up: { name: string; word: unknown; expect: unknown }[];
+  here: { name: string; here: unknown; expect: number }[];
+};
+
+describe("the menu's words, by the examples", () => {
+  it("has examples of every kind", () => {
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([15, 17, 13, 4]);
+  });
+  for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
+  for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));
+  for (const c of v.up) it(`a word from the page in the frame: ${c.name}`, () => expect(readMenuWordUp(c.word)).toEqual(c.expect));
+  for (const c of v.here) it(`a world's here: ${c.name}`, () => expect(menuVersionOf(c.here)).toBe(c.expect));
+});
+
+describe("the limits and the lists", () => {
+  it("are the ones the plan and the protocol give", () => {
+    expect(MENU_LIMITS).toEqual({ sections: 12, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400 });
+    expect(v.limits).toEqual(MENU_LIMITS);
+    expect([MENU_VERSION, MENU_WAIT_MS, LEAVE_MS]).toEqual([1, 300, 1000]);
+    expect(MENU_KEYS).toEqual(["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+  });
+
+  it("put no tab on both sides", () => {
+    expect(MENU_VISITOR_TABS.filter((t) => (MENU_WORLD_TABS as readonly string[]).includes(t))).toEqual([]);
+    expect(new Set([...MENU_VISITOR_TABS, ...MENU_WORLD_TABS]).size).toBe(MENU_VISITOR_TABS.length + MENU_WORLD_TABS.length);
+  });
+
+  it("let a world report back nothing that guards the visitor's privacy, or says who they are or what they hold", () => {
+    for (const name of ["filesAnywhere", "pictures", "models", "chat", "items", "holding", "full"]) expect(MENU_REPORTED as readonly string[], name).not.toContain(name);
+    expect(reportedSettings({ filesAnywhere: true, pictures: true, models: true, chat: true, items: true, holding: { item: `37303:${"ab".repeat(32)}:x` }, turn: 30 })).toEqual({ turn: 30 });
+    expect(reportedSettings(null)).toEqual({});
+  });
+
+  it("let only a client's word turn loading from anywhere on, never a link's settings", () => {
+    expect(cleanMenuSettings({ filesAnywhere: true, text: 1.1 })).toEqual({ filesAnywhere: true, text: 1.1 });
+    expect(cleanMenuSettings({ filesAnywhere: false })).toEqual({ filesAnywhere: false });
+    expect(cleanMenuSettings("on")).toEqual({});
+  });
+});
+
+describe("pictures", () => {
+  const bitmap = { width: 64, height: 64 };
+  const big = { width: 512, height: 64 };
+  const picture = (p: unknown) => !!p && typeof p === "object" && (p as { width: number }).width <= MENU_LIMITS.picture && (p as { height: number }).height <= MENU_LIMITS.picture;
+  const world = { sections: [{ id: "camera", card: { title: "The view", picture: bitmap }, rows: [{ id: "small", label: "Small", kind: "tile", picture: bitmap }, { id: "large", label: "Large", kind: "tile", picture: big }] }] };
+
+  it("are kept only when the caller's own check lets them through", () => {
+    const got = cleanMenuWorld(world, { picture })!;
+    expect(got.sections[0]!.rows.map((r) => [r.id, r.picture])).toEqual([["small", bitmap], ["large", undefined]]);
+    expect(got.sections[0]!.card!.picture).toBe(bitmap);
+    expect(cleanMenuWorld(world)!.sections[0]!.rows.every((r) => r.picture === undefined)).toBe(true);
+  });
+
+  it("are not counted in a description's size", () => {
+    expect(menuBytes(cleanMenuWorld(world, { picture })!)).toBe(menuBytes(cleanMenuWorld(world)!));
+  });
+
+  it("sent alone are for a row by its id, and need the same check", () => {
+    expect(readMenuWordUp({ nswp: "menu", picture: bitmap, id: "small" }, { picture })).toEqual({ what: "picture", id: "small", picture: bitmap });
+    expect(readMenuWordUp({ nswp: "menu", picture: big, id: "small" }, { picture })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", picture: bitmap }, { picture })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", picture: bitmap, id: "small" })).toBeNull();
+  });
+});
+
+describe("a world that sends too much", () => {
+  it("is read in bounded work: only the first tabs and rows are looked at", () => {
+    let looked = 0;
+    const row = () => ({ get id() { looked++; return `r${looked}`; }, label: "Row" });
+    const sections = Array.from({ length: 40 }, (_, i) => ({ id: i === 0 ? "room" : `t${i}`, label: "T", rows: Array.from({ length: 400 }, row) }));
+    const got = cleanMenuWorld({ sections })!;
+    // The room, and the two tabs of its own a world may add: the rest are never opened.
+    expect(got.sections.map((s) => s.rows.length)).toEqual([60, 60, 60]);
+    expect(looked).toBe(3 * MENU_LIMITS.rows);
+  });
+
+  it("is left out whole when what was kept is over the limit on size", () => {
+    const fat = (n: number): unknown => ({ sections: ["room", "people", "view"].map((id) => ({ id, rows: Array.from({ length: n }, (_, i) => ({ id: `${id}${i}`, label: "Copy", kind: "copy", copy: "c".repeat(MENU_LIMITS.copy) })) })) });
+    expect(cleanMenuWorld(fat(5))).not.toBeNull();
+    expect(cleanMenuWorld(fat(20))).toBeNull();
+  });
+
+  it("has its size counted as the bytes of its JSON in UTF-8", () => {
+    const base = cleanMenuWorld({})!;
+    const titled = (title: string): MenuWorld => ({ ...base, title });
+    expect(menuBytes(titled("a")) - menuBytes(base)).toBe(1);
+    expect(menuBytes(titled("é")) - menuBytes(base)).toBe(2);
+    expect(menuBytes(titled("世")) - menuBytes(base)).toBe(3);
+    expect(menuBytes(titled("🌳")) - menuBytes(base)).toBe(4);
+  });
+
+  it("has characters counted as a reader counts them, not as the machine stores them", () => {
+    const trees = "🌳".repeat(MENU_LIMITS.title);
+    expect(cleanMenuWorld({ title: trees })!.title).toBe(trees);
+    expect(cleanMenuWorld({ title: `${trees}🌳` })!.title).toBe("");
+  });
+
+  it("never throws, whatever arrives", () => {
+    for (const bad of [null, undefined, 0, "", [], () => 1, { sections: "room" }, { sections: [null, 5, "x", { id: 5 }, { id: "room", rows: "many" }, { id: "room", rows: [null, 5, [], { id: {}, label: [] }] }] }, { state: 5, target: "x", loading: [] }]) {
+      expect(() => cleanMenuWorld(bad)).not.toThrow();
+      expect(() => readMenuWordUp({ nswp: "menu", world: bad })).not.toThrow();
+      expect(() => readMenuWordDown({ nswp: "menu", settings: bad, press: bad })).not.toThrow();
+    }
+  });
+});

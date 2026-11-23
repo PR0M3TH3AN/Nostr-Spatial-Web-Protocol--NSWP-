@@ -431,6 +431,169 @@ a frame, as against the same world opened by its address (the same for
 worlds on one site as their client, not otherwise); and a phone, where a
 screen can't be filled at all.
 
+## The client has the menu
+
+**Status:** the words, their limits and the reading of them are in the
+kit's core (`packages/core/src/menu.ts`), with examples in
+`vectors/menu-words.json`. No world and no client speaks them yet: that
+is the next step of `docs/plans/the-clients-menu.md`. Not yet a rule for
+anyone.
+
+A client that keeps the screen can draw the visitor's console itself,
+above the world, so that it is the same in every world
+([NSWP-11](11-the-visitors-console.md)). The world's own console then
+steps aside. As with the screen, it is done in a few words between the two
+pages, and a world takes them only from the page directly above it.
+
+- the world, as it loads: `{ nswp: "here", at, menu: 1 }`. `menu` is the
+  version of these words it speaks. A world that leaves it out draws its
+  own console, as before. The lower of the two sides' versions is the one
+  spoken, and each side ignores what it doesn't know.
+- the client, in answer: `{ nswp: "menu", has: true, v: 1, settings }`.
+  The client draws the console for this world. `settings` are the
+  visitor's, in the shape of NSWP-11's "Settings that travel". The world's
+  own console draws nothing from then on: no bar, no mark, no sheet. The
+  client says `{ nswp: "menu", settings }` again whenever they change,
+  and `{ nswp: "menu", has: false }` if it stops, at which the world's own
+  console comes back.
+- the world, whenever what it says changes, whole each time, and no
+  oftener than eight times a second: `{ nswp: "menu", world }`, its
+  description (below).
+- the client, at the visitor's press on something the world described:
+  `{ nswp: "menu", press: id }`. Only for an `id` in the world's last
+  description. **The word is not the visitor's press:** a browser doesn't
+  count it as one in the world's page. So a world never copies, opens a
+  window, takes the pointer or starts a headset session on it.
+- the world, for the few keys that are the visitor's and are pressed while
+  it has the keyboard: `{ nswp: "menu", key }`, where `key` is `"summon"`,
+  `"escape"`, `"menu"` or a digit `"1"` to `"9"`. Never any other key, and
+  never what was typed.
+- the client, as its menu comes up and goes: `{ nswp: "menu", open }`. The
+  world leaves the visitor's input alone in between, as NSWP-11 asks, and
+  lets go of the pointer if it holds it: the page above can't.
+- the client, as the visitor leaves by their own Home:
+  `{ nswp: "menu", go: "home" }`. The world may go itself at once,
+  carrying what the visitor carries. Whether it does or not, the client
+  takes them home within a second. Where the world didn't go itself, what
+  was in the visitor's hand doesn't come with them: only the world knew
+  it. A client says so as it takes them.
+- the world, with words to show for a moment: `{ nswp: "menu", say }`, at
+  most 200 characters of plain text, shown under the world's name.
+
+One word says one thing. A word with anything in it that only the other
+side says is not read.
+
+### A world's description
+
+Plain data. Nothing in it is run, and every word is shown as text.
+
+- `title`, at most 80 characters. The address shown beside it is never the
+  world's word: it is the origin the browser reports for the page that
+  last said `here`. Until a `here`, a client shows none.
+- `level` (`full`, `quiet`, `hidden`) and `corner`: how much room the
+  console takes (NSWP-11, "The world leads"); and `keys: false` while the
+  world has taken every key.
+- `state`: the things every place has and only the world can run.
+  `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`,
+  `presenting`), `named` (whether this world has the visitor's name),
+  `holding` (the address of what is in their hand) and `items` (the
+  world's rule for items).
+- `target`: what is pointed at, as its name and then at most five more
+  lines about it. `loading`: what is still loading (`fraction`, `words`),
+  as NSWP-11 has it.
+- `sections`: the tabs the world fills. Each has an `id` and its `rows`,
+  and may have a `note` and a `card` at its head. A row has an `id` and a
+  `label`, and optionally `short`, `icon` (a name from the console's own
+  set), `kind`, `on`, `tone`, `color` (as `#rrggbb`), `mark`, `faint`,
+  `bar` and a small `picture`.
+
+A client keeps a description only as long as the page that sent it. At
+every load of the frame it is dropped, with its title, its tabs and its
+address, before the next page says anything.
+
+**Which tabs.** A world may fill the tabs that are its to fill: `travel`
+(its own doors), `room`, `people`, `camera`, `panels`, `view`, `scores`,
+`achievements`, its keeper's `guests` ("Who comes in"), and **at most two
+tabs of its own**, each with a `label`. A world's own tab is drawn in the
+client's style, stands after the visitor's tabs, and carries the world's
+name. The tabs every place has are named by the client, not the world. A
+world never fills, reads or presses the visitor's own tabs (`you`,
+`figure`, `bag`, `wallet`, `files`, `following`, `messages`, `moving`,
+`sound`, `look`, `help`), and is never told what is in them or which is
+open.
+
+*As built so far:* until a client runs Room's chat, Following and Messages
+itself, it still takes `following` and `messages` from a world, as a
+world draws them today.
+
+**Two kinds of row the client does itself,** because the word of a press
+is not a press in the world's page:
+
+- `kind: "copy"`, with `copy`, the text. At the visitor's press the client
+  writes that text to the clipboard itself, and says it did. The world is
+  told of the press like any other.
+- `kind: "field"`: a row the visitor types into. The client draws the box
+  and a button with the row's `label`. At the visitor's press on that
+  button, and only then, it sends `{ nswp: "menu", press: id, field }`,
+  where `field` is what they typed. A client keeps four rules for it:
+  - it shows, under the world's name, that what is typed there goes to
+    that world;
+  - it is plain text, of a limited length;
+  - the client never fills it from anything the visitor didn't type or
+    paste there: not the clipboard, not what they typed before, not the
+    browser's own filling-in;
+  - nothing typed is sent before the press, and nothing of it is kept
+    after.
+
+  A `field` row may stand only in `guests` and in a world's own tabs.
+  Anywhere else it is left out.
+
+**A picture that changes.** A row whose picture is fed by the world as it
+runs (a camera's view, a watched screen) sends each new one alone:
+`{ nswp: "menu", picture, id }`, a bitmap for the row `id` of the last
+description. At most eight a second for a row, 256 pixels a side, and only
+while the menu is up. A client draws them only for a row in sight, and may
+drop any. Pictures cross as bitmaps the browser copies between the pages:
+a client never fetches an address a world names.
+
+**Limits a client holds a world to,** whatever it sends: 12 tabs, 60 rows
+in one, 200 rows in all, 120 characters in a label or any other short
+line, 400 in a note, a picture of 256 pixels a side, 2000 characters of
+text to copy, 500 typed into a field, and 64 kilobytes of description
+without its pictures. Characters are counted as a reader counts them
+(code points). What is over is left out, not cut to fit: a row with a
+label too long is no row, and a description too big is no description. A
+row of a kind the client doesn't know is left out, never guessed at.
+
+Nothing about the visitor is in any of the world's words. The client's
+words carry their settings and nothing else of them: the same settings a
+link already carries into a world.
+
+**A switch that guards the visitor's privacy is not a comfort setting.**
+"Load people's files from anywhere" is turned on by the visitor's own
+press, for the one place they are in. A client above may say
+`filesAnywhere: true` only to the world the visitor turned it on for, and
+to no other; a link still never can. The same care holds for whether they
+see people's pictures and people's own models: a client sends each as the
+visitor set it for that world, and never widens one on a world's word.
+
+**What a world may say back.** While its headset session runs, where only
+it can draw the console, a world may report the settings the visitor
+changed there: `{ nswp: "menu", settings }`. A client takes from it only
+comfort and layout, by name: how they move and turn (`headset`, `intense`,
+`turn`, `hand`, `narrow`, `fade`, `look`, `fov`, `wrist`), the volumes
+(`sound`), whether things move (`motion`), the size of text (`text`), and
+the order of their tabs and their pins (`tabs`, `pins`). Everything else
+in it is dropped: a world's report can never turn a privacy switch on, or
+change who the visitor is, what they hold or what they see of other
+people.
+
+**What a world still can do,** said plainly: draw, inside its own frame,
+something that looks like the menu. Nothing but a browser of the
+visitor's own can stop that. What changes is that the real one is always
+in the same place, above the world, and a world's drawing can never be
+above it; and that the way home is the client's, whatever the world does.
+
 ## What this does not do
 
 A hostile world is a website, and a website can navigate anywhere without

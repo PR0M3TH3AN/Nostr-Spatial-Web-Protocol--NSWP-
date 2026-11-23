@@ -17,6 +17,7 @@ import { readShares, splitPrice, type Share } from "../packages/core/src/shares.
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
 import { accessFor } from "../packages/core/src/manifest.js";
 import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
@@ -1540,6 +1541,235 @@ const files: Record<string, unknown> = {
   }
   for (const c of v.resolve) expectEqual(`governance-lists/resolve ${c.name}`, resolveOwnerList(c.events, { ...c.query, now: v.now }), c.expect);
   expectEqual("governance-lists/how many", [v.decode.length, v.resolve.length], [43, 12]);
+}
+
+// ---- The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
+{
+  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, holding: "", items: "allowed" };
+  const bare = (over: Record<string, unknown> = {}) => ({ title: "", level: "full", keys: true, state: STATE, target: [], loading: null, sections: [], ...over });
+  const row = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, ...more });
+  const kept = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, kind: "button", ...more });
+
+  const describing: { name: string; why: string; opts?: MenuReadOptions; world: unknown; expect: unknown }[] = [
+    {
+      name: "a_whole_description",
+      why: "Everything a world may say, kept as said.",
+      world: {
+        title: "The Gallery",
+        level: "quiet",
+        corner: "top-right",
+        keys: true,
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play" },
+        target: ["A painting", "Oil on board, 1911"],
+        loading: { fraction: 0.4, words: "The east wing" },
+        sections: [
+          { id: "room", note: "Three people are here.", rows: [row("room-leave", { short: "Leave", icon: "room", on: true, tone: "warn", bar: true }), row("room-link", { kind: "copy", copy: "https://gallery.example/#room=east" })] },
+          { id: "shop", label: "The shop", icon: "save", rows: [row("shop-red", { kind: "swatch", color: "#aa2211" }), row("shop-print", { kind: "tile", mark: "check", faint: true }), row("shop-open", { kind: "line", on: false })] },
+        ],
+      },
+      expect: {
+        title: "The Gallery",
+        level: "quiet",
+        keys: true,
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play" },
+        target: ["A painting", "Oil on board, 1911"],
+        loading: { fraction: 0.4, words: "The east wing" },
+        sections: [
+          { id: "room", rows: [kept("room-leave", { short: "Leave", icon: "room", on: true, tone: "warn", bar: true }), kept("room-link", { kind: "copy", copy: "https://gallery.example/#room=east" })], note: "Three people are here." },
+          { id: "shop", rows: [kept("shop-red", { kind: "swatch", color: "#aa2211" }), kept("shop-print", { kind: "tile", mark: "check", faint: true }), kept("shop-open", { kind: "line", on: false })], label: "The shop", icon: "save" },
+        ],
+        corner: "top-right",
+      },
+    },
+    { name: "nothing_said", why: "An empty description is a world with no name and no tabs.", world: {}, expect: bare() },
+    { name: "not_a_description", why: "Text, a list or nothing is no description.", world: ["room"], expect: null },
+    {
+      name: "the_visitors_own_tabs",
+      why: "A world never fills the visitor's own tabs: each is left out whole.",
+      world: { sections: MENU_VISITOR_TABS.map((id) => ({ id, rows: [row(`${id}-x`)] })) },
+      expect: bare(),
+    },
+    {
+      name: "a_tab_the_client_still_takes",
+      why: "A client that doesn't yet run Following itself takes it from a world (`also`), and a row may be typed into there.",
+      opts: { also: ["following"] },
+      world: { sections: [{ id: "following", rows: [row("follow-key", { kind: "field" })] }, { id: "messages", rows: [row("m")] }] },
+      expect: bare({ sections: [{ id: "following", rows: [kept("follow-key", { kind: "field" })] }] }),
+    },
+    {
+      name: "the_clients_own_page",
+      why: "A page of the client's own origin may fill any tab, and add more than two of its own.",
+      opts: { own: true },
+      world: { sections: [{ id: "bag", rows: [row("bag-add", { kind: "field" })] }, { id: "desk", label: "Desk", rows: [] }, { id: "shelf", label: "Shelf", rows: [] }, { id: "door", label: "Door", rows: [] }] },
+      expect: bare({ sections: [{ id: "bag", rows: [kept("bag-add", { kind: "field" })] }, { id: "desk", rows: [], label: "Desk" }, { id: "shelf", rows: [], label: "Shelf" }, { id: "door", rows: [], label: "Door" }] }),
+    },
+    {
+      name: "three_tabs_of_its_own",
+      why: "A world may add two tabs. The third is left out, and so is one with no name.",
+      world: { sections: [{ id: "nameless", rows: [] }, { id: "one", label: "One", rows: [] }, { id: "two", label: "Two", rows: [] }, { id: "three", label: "Three", rows: [] }] },
+      expect: bare({ sections: [{ id: "one", rows: [], label: "One" }, { id: "two", rows: [], label: "Two" }] }),
+    },
+    {
+      name: "the_clients_names_stand",
+      why: "A tab every place has is named by the client: a world's name and icon for it are not taken. A tab said twice is the first.",
+      world: { sections: [{ id: "room", label: "Your wallet", icon: "wallet", rows: [row("a")] }, { id: "room", rows: [row("b")] }, { id: "Room", rows: [] }, { id: "a-name-that-is-too-long", label: "x", rows: [] }] },
+      expect: bare({ sections: [{ id: "room", rows: [kept("a")] }] }),
+    },
+    {
+      name: "where_a_row_may_be_typed_into",
+      why: "A `field` row stands only in the keeper's tab and in a world's own tabs. Elsewhere it is left out.",
+      world: { sections: [{ id: "room", rows: [row("say", { kind: "field" })] }, { id: "guests", rows: [row("guests-key", { kind: "field", bar: true })] }, { id: "shop", label: "Shop", rows: [row("shop-code", { kind: "field" })] }] },
+      expect: bare({ sections: [{ id: "room", rows: [] }, { id: "guests", rows: [kept("guests-key", { kind: "field" })] }, { id: "shop", rows: [kept("shop-code", { kind: "field" })], label: "Shop" }] }),
+    },
+    {
+      name: "rows_left_out",
+      why: "A row is left out, never mended: with no id or label, a label over the limit, a kind this doesn't know, a `copy` with no text, a swatch with no colour, or an id already said.",
+      world: {
+        sections: [
+          {
+            id: "view",
+            rows: [
+              { label: "No id" },
+              { id: "no-label" },
+              row("long", { label: "x".repeat(MENU_LIMITS.label + 1) }),
+              row("just", { label: "x".repeat(MENU_LIMITS.label) }),
+              row("new-kind", { kind: "slider" }),
+              row("copy-nothing", { kind: "copy" }),
+              row("copy-much", { kind: "copy", copy: "y".repeat(MENU_LIMITS.copy + 1) }),
+              row("swatch-none", { kind: "swatch", color: "red" }),
+              row("just"),
+              row("an id"),
+              row("fine", { short: "z".repeat(MENU_LIMITS.label + 1), icon: "Not An Icon", tone: "loud", color: "url(x)", on: "yes", faint: 1, bar: "true" }),
+            ],
+          },
+        ],
+      },
+      expect: bare({ sections: [{ id: "view", rows: [{ id: "just", label: "x".repeat(MENU_LIMITS.label), kind: "button" }, kept("fine")] }] }),
+    },
+    {
+      name: "words_are_text",
+      why: "Markup is shown as the letters sent. Anything unseen in a line (a control character, a mark that turns text round) becomes a space, and a line read is trimmed.",
+      world: { title: "  <b>Free</b>\u202e sats\u0007 ", target: ["\u200bA\tdoor\n"], sections: [{ id: "room", rows: [{ id: "r", label: "<img src=x onerror=alert(1)>" }] }] },
+      expect: bare({ title: "<b>Free</b> sats", target: ["A door"], sections: [{ id: "room", rows: [{ id: "r", label: "<img src=x onerror=alert(1)>", kind: "button" }] }] }),
+    },
+    {
+      name: "text_to_copy_is_whole_or_not_at_all",
+      why: "Text to copy is kept exactly as written, lines and all, and refused if anything in it is unseen.",
+      world: { sections: [{ id: "room", rows: [row("two-lines", { kind: "copy", copy: "one\ntwo" }), row("hidden", { kind: "copy", copy: "npub1\u200babc" })] }] },
+      expect: bare({ sections: [{ id: "room", rows: [kept("two-lines", { kind: "copy", copy: "one\ntwo" })] }] }),
+    },
+    {
+      name: "a_card",
+      why: "A card's words are text; the rows it names are that tab's own.",
+      world: { sections: [{ id: "people", card: { title: "Ana", tag: "By name", proven: true, sub: "npub1ana…", copy: "npub1ana", text: "Keeper of clocks.", color: "#336699", now: ["Recording", 5], acts: ["mute", "elsewhere"] }, rows: [row("mute")] }, { id: "room", card: { tag: "no title" }, rows: [] }] },
+      expect: bare({ sections: [{ id: "people", rows: [kept("mute")], card: { title: "Ana", tag: "By name", proven: true, sub: "npub1ana…", copy: "npub1ana", text: "Keeper of clocks.", color: "#336699", now: ["Recording"], acts: ["mute"] } }, { id: "room", rows: [] }] }),
+    },
+    {
+      name: "state_as_it_can_be",
+      why: "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none.",
+      world: { level: "loud", corner: "middle", keys: false, state: { room: { has: false, joined: true, mic: true, count: 4 }, headset: { presenting: true }, named: "yes", holding: 5, items: "everything" }, loading: { fraction: 7, words: 3 }, target: [5, "about nothing"] },
+      expect: bare({ keys: false, state: { ...STATE, items: "none" }, loading: { fraction: 1, words: "" } }),
+    },
+    {
+      name: "pictures_need_a_check",
+      why: "A picture is kept only by a caller that checks it (its kind and size, in a browser). Here there is none.",
+      world: { sections: [{ id: "camera", rows: [row("shot", { kind: "tile", picture: "https://tracker.example/pixel.png" })] }] },
+      expect: bare({ sections: [{ id: "camera", rows: [kept("shot", { kind: "tile" })] }] }),
+    },
+  ];
+  for (const c of describing) expectEqual(`menu-words/describing ${c.name}`, cleanMenuWorld(c.world, c.opts), c.expect);
+
+  // The limits on how much, where writing each case out would be thousands of lines: what is sent is said in words.
+  const many = (n: number, at = "r") => Array.from({ length: n }, (_, i) => row(`${at}${i}`));
+  const tabs = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests"];
+  const counting = [
+    { name: "rows_in_one_tab", sent: `one tab of ${MENU_LIMITS.rows + 5} rows`, world: { sections: [{ id: "room", rows: many(MENU_LIMITS.rows + 5) }] } },
+    { name: "rows_in_all", sent: `nine tabs of 30 rows each (270)`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id) })) } },
+    { name: "tabs", sent: `fourteen tabs: nine every place has, three of the visitor's own, then two of the world's`, world: { sections: [...tabs, "bag", "you", "sound", "one", "two"].map((id) => ({ id, label: id, rows: [] })) } },
+    { name: "too_big", sent: `two hundred rows, each with ${MENU_LIMITS.copy} characters to copy`, world: { sections: tabs.map((id) => ({ id, rows: many(30, id).map((r) => ({ ...r, kind: "copy", copy: "c".repeat(MENU_LIMITS.copy) })) })) } },
+  ].map((c) => {
+    const got = cleanMenuWorld(c.world);
+    return { name: c.name, sent: c.sent, expect: got ? { tabs: got.sections.map((s) => s.id), rows: got.sections.map((s) => s.rows.length), bytes: menuBytes(got) } : null };
+  });
+  expectEqual("menu-words/counting rows_in_one_tab", counting[0]!.expect && counting[0]!.expect.rows, [MENU_LIMITS.rows]);
+  expectEqual("menu-words/counting rows_in_all", counting[1]!.expect && counting[1]!.expect.rows, [30, 30, 30, 30, 30, 30, 20, 0, 0]);
+  expectEqual("menu-words/counting tabs", counting[2]!.expect && counting[2]!.expect.tabs, tabs);
+  expectEqual("menu-words/counting too_big", counting[3]!.expect, null);
+
+  const down: { name: string; word: unknown; expect: unknown }[] = [
+    { name: "has", word: { nswp: "menu", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"], filesAnywhere: true, admin: true } }, expect: { what: "has", has: true, v: 1, settings: { text: 1.2, motion: false, pins: ["room"], filesAnywhere: true } } },
+    { name: "has_a_newer_version", word: { nswp: "menu", has: true, v: 7, settings: {} }, expect: { what: "has", has: true, v: MENU_VERSION, settings: {} } },
+    { name: "has_no_version", word: { nswp: "menu", has: true, settings: {} }, expect: null },
+    { name: "has_no_longer", word: { nswp: "menu", has: false }, expect: { what: "has", has: false } },
+    { name: "settings", word: { nswp: "menu", settings: { sound: { music: 0.25 }, turn: 45 } }, expect: { what: "settings", settings: { sound: { music: 0.25 }, turn: 45 } } },
+    { name: "press", word: { nswp: "menu", press: "room-join" }, expect: { what: "press", press: "room-join" } },
+    { name: "press_with_what_was_typed", word: { nswp: "menu", press: "guests-key", field: " npub1ana\n" }, expect: { what: "press", press: "guests-key", field: " npub1ana\n" } },
+    { name: "press_with_too_much_typed", word: { nswp: "menu", press: "guests-key", field: "k".repeat(MENU_LIMITS.field + 1) }, expect: null },
+    { name: "press_with_something_unseen_typed", word: { nswp: "menu", press: "guests-key", field: "npub1\u200bana" }, expect: null },
+    { name: "press_nothing", word: { nswp: "menu", press: "" }, expect: null },
+    { name: "open", word: { nswp: "menu", open: true }, expect: { what: "open", open: true } },
+    { name: "closed", word: { nswp: "menu", open: false }, expect: { what: "open", open: false } },
+    { name: "go_home", word: { nswp: "menu", go: "home" }, expect: { what: "go", go: "home" } },
+    { name: "go_elsewhere", word: { nswp: "menu", go: "https://elsewhere.example/" }, expect: null },
+    { name: "another_topic", word: { nswp: "screen", holds: true, filled: false }, expect: null },
+    { name: "not_a_word", word: "menu", expect: null },
+    { name: "a_worlds_word", word: { nswp: "menu", settings: { turn: 90 }, say: "Hello" }, expect: null },
+  ];
+  for (const c of down) expectEqual(`menu-words/down ${c.name}`, readMenuWordDown(c.word), c.expect);
+
+  const up: { name: string; word: unknown; expect: unknown }[] = [
+    { name: "world", word: { nswp: "menu", world: { title: "The Grove" } }, expect: { what: "world", world: bare({ title: "The Grove" }) } },
+    { name: "world_that_is_no_description", word: { nswp: "menu", world: "The Grove" }, expect: null },
+    { name: "key_summon", word: { nswp: "menu", key: "summon" }, expect: { what: "key", key: "summon" } },
+    { name: "key_escape", word: { nswp: "menu", key: "escape" }, expect: { what: "key", key: "escape" } },
+    { name: "key_digit", word: { nswp: "menu", key: "3" }, expect: { what: "key", key: "3" } },
+    { name: "key_any_other", word: { nswp: "menu", key: "a" }, expect: null },
+    { name: "key_zero", word: { nswp: "menu", key: "0" }, expect: null },
+    { name: "key_as_a_number", word: { nswp: "menu", key: 3 }, expect: null },
+    { name: "say", word: { nswp: "menu", say: "Saved\nto your bag." }, expect: { what: "say", say: "Saved to your bag." } },
+    { name: "say_too_much", word: { nswp: "menu", say: "s".repeat(MENU_LIMITS.say + 1) }, expect: null },
+    {
+      name: "settings_reported",
+      word: { nswp: "menu", settings: { turn: 90, hand: "left", sound: { voices: 0.5 }, pins: ["room", "bag"], filesAnywhere: true, pictures: true, models: true, chat: true, items: true, holding: { item: "37303:" + "ab".repeat(32) + ":lantern" }, full: true } },
+      expect: { what: "settings", settings: { turn: 90, hand: "left", sound: { voices: 0.5 }, pins: ["room", "bag"] } },
+    },
+    { name: "picture_with_no_check", word: { nswp: "menu", picture: "a bitmap", id: "shot" }, expect: null },
+    { name: "a_clients_word", word: { nswp: "menu", has: true, v: 1, settings: {} }, expect: null },
+  ];
+  for (const c of up) expectEqual(`menu-words/up ${c.name}`, readMenuWordUp(c.word), c.expect);
+
+  const here = [
+    { name: "speaks_them", here: { nswp: "here", at: "/", menu: 1 }, expect: 1 },
+    { name: "speaks_a_newer_version", here: { nswp: "here", at: "/", menu: 4 }, expect: MENU_VERSION },
+    { name: "says_nothing_of_it", here: { nswp: "here", at: "/" }, expect: 0 },
+    { name: "says_it_wrongly", here: { nswp: "here", at: "/", menu: "1" }, expect: 0 },
+  ];
+  for (const c of here) expectEqual(`menu-words/here ${c.name}`, menuVersionOf(c.here), c.expect);
+  expectEqual("menu-words/settings a link can't carry", [cleanMenuSettings({ filesAnywhere: true }), cleanMenuSettings({ filesAnywhere: "yes" })], [{ filesAnywhere: true }, {}]);
+  expectEqual("menu-words/reported nothing private", reportedSettings({ filesAnywhere: false, pictures: false, models: false, chat: false, items: false, holding: "", full: true, intense: true }), { intense: true });
+
+  files["menu-words.json"] = {
+    description:
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+    version: MENU_VERSION,
+    limits: MENU_LIMITS,
+    waits: { MENU_WAIT_MS, LEAVE_MS },
+    tabs: { visitor: MENU_VISITOR_TABS, world: MENU_WORLD_TABS },
+    keys: MENU_KEYS,
+    reported: MENU_REPORTED,
+    describing,
+    counting,
+    down,
+    up,
+    here,
+  };
+}
+
+// Every expectation above is checked here, last, so that none can be added below a check and never be looked at.
+// (Until 2026-11-23 the only check stood partway up this file: everything after it could disagree and still be written.)
+if (failures.length) {
+  console.error(`@nswp/core disagrees with ${failures.length} vector expectation(s):\n\n${failures.join("\n\n")}`);
+  process.exit(1);
 }
 
 mkdirSync(outDir, { recursive: true });
