@@ -92,8 +92,9 @@ the worlds and talk with them, the cost falling on the visitor's own key.
 The owner handed over a fuller design the same day: "NSWP Agent Platform,
 Modular Design Pack", 0.3 draft, eleven documents written for the private
 repository `PR0M3TH3AN/nswp-agents` (which exists, with an experimental
-companion in it). It is the owner's document and lives with that repository;
-it is not copied here. It is planning, not anything built.
+companion in it). It is the owner's document and lives with that repository
+(under `docs/plans/agent-platform/`, saved there on 2026-11-23 by the
+session that has it, "NSWP-Agents Agent"); it is not copied here. It is planning, not anything built.
 
 **It holds to every line above, and adds its own:** an agent's identity, its
 placement in a world, its running, its memory and its authority are five
