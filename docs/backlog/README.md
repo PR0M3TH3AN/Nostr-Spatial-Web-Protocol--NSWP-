@@ -43,6 +43,9 @@ same day).
 **With it, the same day:** `bitlogin-panels-feel-native`: measured now by
 the BitLogin session, fixed before the menu's Wallet and Files tabs (step 4).
 
+**After the menu, asked the same day:** `items-for-guests`, items a visitor
+can use without signing in, where the world and the item's maker allow it.
+
 **Second, the same day:** `one-command-release`, everything of a release
 up to the deploy in one command.
 
@@ -100,6 +103,7 @@ urgent (a live fault), it goes first.
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | merged (NSWP 331); not live |
+| [items-for-guests](items-for-guests.md) | Items a visitor can use without signing in, where the world and the item's maker both allow it | not briefed (kit first) | asked |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
 | [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | BitPortal (kit) | briefed (option B chosen) |
 | [bar-scrolls-when-too-wide](bar-scrolls-when-too-wide.md) | The bar along the bottom scrolls with arrows when it is too wide | NSWP builder | building |
