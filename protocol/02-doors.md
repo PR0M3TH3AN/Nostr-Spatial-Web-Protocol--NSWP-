@@ -567,7 +567,9 @@ is not a press in the world's page:
 **Pictures.** A description is text, said again whenever a word of it
 changes. A picture is sent alone: `{ nswp: "menu", picture, id }`, a
 bitmap for the row `id` of the last description, or for the card at the
-head of a tab as `card:` and the tab's id (`card:people`). At most eight
+head of a tab as `card:` and the tab's id (`card:people`). So that the two
+can't be confused, no row's id begins `card:`: a row that does is left
+out as the description is read. At most eight
 a second for one thing, 256 pixels a side, and only while the menu is up.
 A client keeps each until another comes for the same thing or the world
 stops describing that thing; it draws them only for what is in sight, and

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
 
 /**
  * The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
@@ -67,6 +67,16 @@ describe("the proven mark on a card", () => {
   });
   it("is kept from a page of the client's own origin", () => {
     expect(cleanMenuWorld(world, { own: true })!.sections[0]!.card).toEqual({ title: "Ana", tag: "By name", proven: true });
+  });
+});
+
+describe("a card's picture, and a row named like one", () => {
+  it("can never be confused: a row whose id begins as a card's picture's does is left out", () => {
+    expect(MENU_CARD_PICTURE).toBe("card:");
+    const world = { sections: [{ id: "people", card: { title: "Ana" }, rows: [{ id: "card:people", label: "A row made to look like the card" }, { id: "card", label: "Fine" }, { id: "postcard:1", label: "Fine too" }] }] };
+    expect(cleanMenuWorld(world)!.sections[0]!.rows.map((r) => r.id)).toEqual(["card", "postcard:1"]);
+    // A press can't be for one either: nothing the client drew has that id.
+    expect(cleanMenuWorld(world, { own: true })!.sections[0]!.rows.map((r) => r.id)).toEqual(["card", "postcard:1"]);
   });
 });
 

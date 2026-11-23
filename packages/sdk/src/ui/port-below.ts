@@ -15,7 +15,7 @@
  *
  * Nothing of the visitor's own tabs is ever said down: only their settings, and their presses on the world's rows.
  */
-import { cleanMenuSettings, LEAVE_MS, MENU_LIMITS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
+import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, MENU_LIMITS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
 import { currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
 import { STANDARD_TABS, standardTab, type Controls, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
@@ -28,9 +28,6 @@ export const WORLDS = "world:";
 const BAR_MOST = 6;
 
 const iconOf = (name: string | undefined): IconName | null => (name && Object.prototype.hasOwnProperty.call(ICONS, name) ? (name as IconName) : null);
-
-/** Before a tab's id, for the picture of the card at its head, as a world's end says it (menu-above.ts). */
-const CARD_PICTURE = "card:";
 
 const itemOf = (row: MenuRow, sent?: unknown): UiItemView => ({
   id: `${WORLDS}${row.id}`,
@@ -86,7 +83,7 @@ export function mergeView(base: UiView, world: MenuWorld | null, from: { address
   for (const said of world.sections) {
     const items = said.rows.map((row) => itemOf(row, from.pictures?.get(row.id)));
     for (const [i, row] of said.rows.entries()) if (row.bar) onBar.push(items[i]!);
-    const card = said.card ? cardOf(said.card, from.pictures?.get(`${CARD_PICTURE}${said.id}`)) : null;
+    const card = said.card ? cardOf(said.card, from.pictures?.get(`${MENU_CARD_PICTURE}${said.id}`)) : null;
     const there = sections.find((s) => s.id === said.id);
     if (there) {
       there.items.push(...items);
@@ -277,7 +274,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     if (word.what === "world") {
       world = word.world;
       // A picture lasts as long as the thing it is of: gone with a row or a card the world no longer describes.
-      const still = new Set(world.sections.flatMap((s) => [...s.rows.map((r) => r.id), ...(s.card ? [`${CARD_PICTURE}${s.id}`] : [])]));
+      const still = new Set(world.sections.flatMap((s) => [...s.rows.map((r) => r.id), ...(s.card ? [`${MENU_CARD_PICTURE}${s.id}`] : [])]));
       for (const key of [...pictures.keys()]) if (!still.has(key)) pictures.delete(key);
       return changed();
     }
@@ -292,7 +289,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     if (word.what === "settings") return void (world?.state.headset.presenting && opts.onReported?.(word.settings));
     // Only for a row or a card of the last description: a picture is never kept for something that isn't there.
     if (word.what === "picture" && world) {
-      const there = world.sections.some((s) => (s.card && `${CARD_PICTURE}${s.id}` === word.id) || s.rows.some((r) => r.id === word.id));
+      const there = world.sections.some((s) => (s.card && `${MENU_CARD_PICTURE}${s.id}` === word.id) || s.rows.some((r) => r.id === word.id));
       if (!there) return;
       pictures.set(word.id, word.picture);
       changed();
