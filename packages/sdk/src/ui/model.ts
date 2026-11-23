@@ -32,7 +32,8 @@ export interface UiAction {
   section?: string;
   /**
    * What a press does. For a row the visitor types into (`kind: "field"`) it is given what they typed, at their
-   * press and not before.
+   * press and not before. Where the menu has no box to type in (a headset's console draws the row as a button),
+   * it is given nothing, and asks for the text its own way.
    */
   act(typed?: string): void | Promise<void>;
   /** Leave it out while this returns true. */
@@ -526,7 +527,7 @@ export function createControls(opts: ControlsOptions): Controls {
       if (!a || a.hidden?.() || a.kind === "line") return false;
       for (const fn of signals) fn("press");
       void Promise.resolve()
-        .then(() => a.act(a.kind === "field" ? (typed ?? "") : undefined))
+        .then(() => a.act(a.kind === "field" ? typed : undefined))
         .catch(() => {})
         .finally(changed);
       return true;

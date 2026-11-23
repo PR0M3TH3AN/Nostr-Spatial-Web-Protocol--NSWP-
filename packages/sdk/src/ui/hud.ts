@@ -20,6 +20,7 @@
  * small mark in a corner) or hidden, so that it never competes with an
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
  */
+import { MENU_LIMITS } from "@nswp/core";
 import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
@@ -290,6 +291,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .line.on { color: rgb(var(--ink)); }
 .line.on svg { opacity: 1; color: rgb(var(--accent)); }
 .row .grow { flex: 1; min-width: 0; }
+/* A row typed into: a box and its button, and under them where what is typed goes. */
+.field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin: 0; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
+.field input { min-width: 0; min-height: 40px; padding: 6px 10px; border-radius: 8px; font: inherit; color: inherit;
+  border: 1px solid rgba(var(--ink), .25); background: rgba(var(--glass), .6); }
+.field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
+.field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
+.field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
@@ -591,6 +600,60 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
   let drawn = "";
 
   const press = (item: UiItemView) => controls.run(item.id);
+  /**
+   * A row that copies (`kind: "copy"`): the menu writes the text itself, at this press, in this page. Where a client
+   * above draws the menu, a press here is no press in the world's page, and a browser lets a page copy only at one.
+   * The world is told of the press like any other.
+   */
+  const copyRow = (item: UiItemView) => {
+    const text = item.copy ?? "";
+    void (text && navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject(new Error("nothing to copy with"))).then(
+      () => controls.say("Copied."),
+      () => controls.say(text ? `It couldn't be copied here. It is: ${text}`.slice(0, 200) : "There is nothing to copy."),
+    );
+    press(item);
+  };
+  /**
+   * The rows typed into (`kind: "field"`), by id: each box is kept while the menu is up, so that what is half typed
+   * is still there when the menu is drawn again, which happens whenever anything changes. What is typed is given
+   * to the row only at the visitor's press on its button, is never filled in by the menu or the browser, and is
+   * gone once pressed or once the menu is put away.
+   */
+  const fields = new Map<string, { form: HTMLFormElement; input: HTMLInputElement; button: HTMLButtonElement; to: HTMLElement }>();
+  /** The box that has the keys just now, if one of them does. */
+  const typingNow = () => {
+    let at = document.activeElement as HTMLElement | null;
+    while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement as HTMLElement;
+    return [...fields.values()].find((f) => f.input === at);
+  };
+  const drawField = (item: UiItemView, whose: string): HTMLElement => {
+    let f = fields.get(item.id);
+    if (!f) {
+      const input = el("input", { type: "text", maxlength: String(MENU_LIMITS.field), autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false", enterkeyhint: "done" });
+      const button = el("button", { type: "submit" });
+      const to = el("p", { class: "to" });
+      const form = el("form", { class: "field" }, input, button, to);
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = input.value;
+        if (!text.trim()) return;
+        // Gone from the box before anything else happens: nothing typed is kept after the press.
+        input.value = "";
+        controls.run(item.id, text);
+      });
+      f = { form, input, button, to };
+      fields.set(item.id, f);
+    }
+    f.input.setAttribute("aria-label", item.label);
+    f.button.textContent = item.label;
+    f.to.textContent = whose ? `What you type here goes to ${whose}.` : "";
+    return f.form;
+  };
+  /** Forget every box, and anything half typed in one. */
+  const clearFields = () => {
+    for (const f of fields.values()) f.input.value = "";
+    fields.clear();
+  };
   /** A tab kept on the bar: pressed, the menu comes up on it; pressed again while it is up, the menu is put away. */
   const openPin = (id: string) => {
     controls.signal("press");
@@ -1087,7 +1150,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
         item.on !== null && el("span", { class: "state" }, item.on ? "On" : "Off"),
         item.key ? el("kbd", { class: "mono" }, item.key) : null,
       );
-      b.addEventListener("click", () => press(item));
+      b.addEventListener("click", () => (item.kind === "copy" ? copyRow(item) : press(item)));
       return b;
     };
     // Something to read: not a button, never focused, never pressed. Its words are the whole sentence, which says
@@ -1099,9 +1162,9 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
       const laid: (HTMLElement | string)[] = [];
       let run = null as { kind: string; box: HTMLElement } | null;
       for (const item of items) {
-        if (item.kind === "button" || item.kind === "line") {
+        if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
           run = null;
-          laid.push(item.kind === "line" ? drawLine(item) : drawRow(item));
+          laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : drawRow(item));
           continue;
         }
         if (run?.kind !== item.kind) {
@@ -1120,7 +1183,17 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
     const about = current?.card ? `${section}:${current.card.title}` : "";
     const fresh = about !== cardShown;
     cardShown = about;
+    // A box being typed in keeps the keys, and where the visitor was in it, though the list is laid out afresh.
+    const typingIn = typingNow();
+    const at = typingIn ? ([typingIn.input.selectionStart, typingIn.input.selectionEnd] as const) : null;
     rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
+    if (typingIn?.form.isConnected) {
+      typingIn.input.focus();
+      if (at && at[0] !== null && at[1] !== null) typingIn.input.setSelectionRange(at[0], at[1]);
+    }
+    // A row that is no longer anywhere takes what was half typed in it away with it.
+    const still = new Set(view.sections.flatMap((s) => s.items.filter((i) => i.kind === "field").map((i) => i.id)));
+    for (const id of [...fields.keys()]) if (!still.has(id)) fields.delete(id);
     if (fresh && about) rows.scrollTop = 0;
     rows.hidden = !current?.items.length && !current?.card;
     note.textContent = current?.note ?? "";
@@ -1152,6 +1225,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
       if (!chose) section = "";
     }
     open = next;
+    if (!open) clearFields();
     controls.signal(open ? "menuOpen" : "menuClose");
     draw();
     if (open) return void (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();

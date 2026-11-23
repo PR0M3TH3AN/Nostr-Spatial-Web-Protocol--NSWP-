@@ -828,7 +828,20 @@ describe("the owner's screen: who comes in", () => {
     expect(await gate.changeList("allow", OTHER)).toMatchObject({ ok: false, said: "This world isn't by invitation, so there is no list of who is let in." });
   });
 
-  it("takes someone by the key they copied", async () => {
+  it("takes someone by the key they typed into the row, and reads nothing they copied", async () => {
+    relayHolds = [ownerList("user-deny", [])];
+    const { gate } = await keeperAt({ invitation: false });
+    const c = consoleFor(gate, { copied: pk(9) });
+    expect(screen(c)!.items.find((i) => i.id === "guests-copied")).toMatchObject({ kind: "field", label: "Add someone by key (npub1…)" });
+    c.controls.run("guests-copied", `  ${pk(8)}\n`);
+    await pass(0);
+    await pass(0);
+    const ids = screen(c)!.items.map((i) => i.id);
+    expect(ids).toContain(`guests-block-${pk(8)}`);
+    expect(ids).not.toContain(`guests-block-${pk(9)}`);
+  });
+
+  it("takes someone by the key they copied, where the menu has no box to type in", async () => {
     relayHolds = [ownerList("user-deny", [])];
     const { gate } = await keeperAt({ invitation: false });
     const c = consoleFor(gate, { copied: `  ${pk(8)}\n` });

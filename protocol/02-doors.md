@@ -504,7 +504,11 @@ Plain data. Nothing in it is run, and every word is shown as text.
   lines about it. `loading`: what is still loading (`fraction`, `words`),
   as NSWP-11 has it.
 - `sections`: the tabs the world fills. Each has an `id` and its `rows`,
-  and may have a `note` and a `card` at its head. A row has an `id` and a
+  and may have a `note` and a `card` at its head. A card's words are the
+  world's own. Its `proven` (the mark for a name the person's own client
+  vouched for) is not taken from a world: a client that drew that mark,
+  in its own style, on a world's say-so would be vouching for what it
+  hasn't checked. A client draws it only for what it checked itself. A row has an `id` and a
   `label`, and optionally `short`, `icon` (a name from the console's own
   set), `kind`, `on`, `tone`, `color` (as `#rrggbb`), `mark`, `faint`,
   `bar` and a small `picture`.
@@ -526,7 +530,9 @@ open.
 
 *As built so far:* until a client runs Room's chat, Following and Messages
 itself, it still takes `following` and `messages` from a world, as a
-world draws them today.
+world draws them today, and the world keeps its chat's pane in its own
+frame. Until a client draws People from passes it checks itself, nobody
+in a framed world's People carries the proven mark.
 
 **Two kinds of row the client does itself,** because the word of a press
 is not a press in the world's page:

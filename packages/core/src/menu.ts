@@ -100,6 +100,7 @@ export interface MenuRow {
 export interface MenuCard {
   title: string;
   tag?: string;
+  /** The mark for a name their own client vouched for. Only ever kept from a page of the client's own origin. */
   proven?: true;
   sub?: string;
   /** Text to copy from it (a key in full). */
@@ -237,7 +238,10 @@ function readCard(raw: unknown, o: MenuReadOptions): MenuCard | undefined {
   const card: MenuCard = { title };
   const tag = line(raw.tag, MENU_LIMITS.label);
   if (tag) card.tag = tag;
-  if (raw.proven === true) card.proven = true;
+  // The mark for a name their own client vouched for is the client's to give. Drawn by the client on a world's
+  // say-so, it would be the client vouching for what it hasn't checked: so it is taken only from the client's own
+  // pages. A world may still write what it likes in `tag`, which is its own words.
+  if (raw.proven === true && o.own) card.proven = true;
   const sub = line(raw.sub, MENU_LIMITS.label);
   if (sub) card.sub = sub;
   const copy = whole(raw.copy, MENU_LIMITS.copy);
