@@ -5,7 +5,10 @@
   able to reorder tabs as they like. And select 1 to pin on the far left."
 - **Who:** part of the client's menu (`menus-are-the-clients`); its design
   covers this. Not briefed.
-- **State:** asked.
+- **State:** asked. Covered by the draft design,
+  [`docs/plans/the-clients-menu.md`](../plans/the-clients-menu.md)
+  (section 13, and step 4 of its build); the owner's question on pins is
+  its section 14, question 1.
 
 ## What it is
 
