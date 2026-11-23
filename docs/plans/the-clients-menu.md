@@ -757,6 +757,24 @@ The words for a file going down and a picture going up, with their limits, are
 proposed once the trial shows they work. Copying the room's link (Room) is a `copy`
 row.
 
+**For the owner to try by hand, once step 2 is up** (BitPortal's shell with the menu).
+Each of these a scripted browser can't show, or a made-up headset can't, so nothing
+here is known to work until a person has done it. Kept as one list so none is lost.
+
+| What to do | What should happen | Why a trial can't say |
+|---|---|---|
+| Moving the intense way (the mouse looks round), press Escape | The world lets the pointer go and the client's menu comes up. It takes one press of Escape, and nothing else happens | A scripted Escape never reaches the browser's own handling |
+| The same, then close the menu | Looking round starts again by itself, or at the next press on the view | The same |
+| Moving the intense way, try to press the client's bar | The pointer is the world's, so the bar can't be pressed until Escape or the summons key | A scripted mouse goes to a place on the screen whatever holds the pointer |
+| In fullscreen, press Escape, then Escape again | The first brings the menu, the second leaves fullscreen | A scripted Escape doesn't leave fullscreen |
+| On the Quest: "Enter VR" in the client's menu | The world shows "Launch" across its view. A press there starts the session. Two presses, and they read as intended | The made-up headset starts a session whenever asked |
+| Press things in the menu with sound on | Each press is heard once, not twice | The trial counts which page was asked to play, and doesn't listen |
+| Sound: add a piece of your own music from a file, and go through a door | It plays, and doesn't stop at the door | Choosing a file needs a person, and nobody listened |
+| Sound: turn "The room's hum" off in a place that has one | The hum stops, and stays off in the next place | Not tried end to end |
+| People, in a room with someone who has a picture: choose them | Their face is on the card in the client's menu | Needs a room and a person with a picture |
+| In a headset, a row typed into (a keeper's "Add someone by key") | It asks its own way there, as before | Not looked at in a made-up headset |
+| On a phone, the client's menu over a world | Step 5: the frame on a phone is its own step | |
+
 **Parked while this is built:** seated mode step 2 (the seat). The fade from step 1 of
 that plan is the world's part and is not touched by this.
 
