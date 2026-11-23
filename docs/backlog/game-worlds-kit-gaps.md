@@ -35,7 +35,7 @@
 
 | Gap | Where it stands | When |
 |---|---|---|
-| A presence source: a world with its own netcode and voice feeds the kit's room, microphone and recording signs and its leave and mute | not planned | first (bitp-2) |
+| A presence source: a world with its own netcode and voice feeds the kit's room, microphone and recording signs and its leave and mute | COMBATRIG reported 2026-11-23 (below); the shape is the client's menu's step 3, built then | first (bitp-2) |
 | A seated or vehicle mode: a seat anchor, recentring, a comfort vignette, smooth movement asked for at the Airlock through the world's comfort notes (`comfort.seated` exists in the announcement) | designed, waiting for the orchestrator's names: [`docs/plans/seated-mode.md`](../plans/seated-mode.md); touches "never slide unasked" | second (bitp-3) |
 | A "you're in, still loading" signal, and the Airlock reading `budgets.initial_download_mb` (the manifest already carries it) | merged 2026-11-22: kit 0.80.0 (`controls.setLoading`, engine `loading`/`loaded`, `worldDownload`), the engine script's console from the first moment (NSWP 311), the Airlock's line (BitPortal 192); not live | done |
 | Touch sticks and dragging to look up and down | being looked into (`touch-look-and-item-presses`) | with that |
@@ -45,3 +45,42 @@
 | A per-world key for saves | tried end to end 2026-11-22 (BitLogin's trial against a kit world); not needed: saves (NSWP-12) go through the visitor's sign-in, and BitLogin's side has been live since 2026-11-20 (the orchestrator said otherwise to COMBATRIG on 2026-11-21, wrongly); a world never gets more than a session key from a pass, by design | available now |
 | A TURN relay | see `rooms-stun-servers`; someone has to run and pay for one | the owner's |
 | A public template with a game example, and testing on a real headset | the template is public; no game example | later |
+
+## COMBATRIG's presence report (2026-11-23), and the orchestrator's answer
+
+Read from its code at its main ce275a9, not run or measured:
+
+- **Shape:** one host and up to N clients over WebRTC, clients linked only
+  to the host, which forwards every voice track. Signalling over Nostr on
+  its own relays. A room is one multiplayer session; solo play has none.
+- **In a room:** a clean yes or no, with events as it opens and closes.
+- **Who:** a roster of `{ id, pubkey, name, chassis, team? }`, with join and
+  leave events. Names are the pilot's own callsign and are not pass-checked;
+  the key is their BitLogin key or an anonymous one.
+- **Our own microphone:** three states: none; armed (a track held, silent);
+  live (push-to-talk held).
+- **Other people's:** only who is audibly talking now, from metering. No
+  signalled state; it offered to add a `mic:<0|1|2>` message per pilot.
+- **Recording:** none exists. Photo mode takes stills only.
+- **Leave:** abandoning the contract from its pause menu; not confirmed to
+  close the session cleanly. A host leaving hands over to another pilot.
+- **Mute:** its own mic by dropping the track's `enabled`; per person
+  `voice.mute(pubkey, on)` exists with no screen calling it; the host can
+  mute and kick.
+- **Its suggestion:** the world pushes `setRoom({ in, members, selfMic,
+  recording })` on change, and the kit calls back `onLeave()`,
+  `onSelfMute(on)`, `onMute(id, on)`.
+
+**Answered the same day:** the shape is right in spirit, and it is not built
+yet, because it is the same shape as the client's menu's step 3 ("Rooms and
+people, from facts", `docs/plans/the-clients-menu.md`): one shape for the
+kit's own rooms and for a world with its own netcode. Settled now: pushed on
+change, never polled; a member's id is their key; a name is the world's word
+and the kit never takes "verified" from a world (a proven mark comes only
+from a pass the kit or client checks itself); the three states of one's own
+microphone; a per-person `mic` message is wanted, with `talking` kept;
+"nobody recording" is fine while there are no clips; leave is one function
+that really closes the session, and a world must also survive the page just
+going, since the client's Home is a guarantee; mute as suggested, plus the
+visitor's travelling block list, which the world must honour for voice and
+names. The words go to COMBATRIG for comment before step 3 is built.
