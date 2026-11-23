@@ -270,13 +270,16 @@ Only the world's page can draw into a headset's view. So:
 - **A browser of our own** is what makes the headset's console the client's too
   (section 11).
 
-**To be tried before step 1, not assumed:** which presses must land in the world's own
-page. A browser starts a headset session only at a press in the page that asks for it,
-and a press in the client's menu is a press in another page. If that holds for entering
-a headset (and for anything else found), the row in the client's menu tells the world,
-and the world shows its own "press to enter" across its view, as it already does for a
-visitor who left a headset to come here: one press more. The pointer for the intense
-way is taken at a press on the view, which is the world's page already.
+**Which presses must land in the world's own page: tried** (step 0b,
+[`the-clients-menu-presses.md`](the-clients-menu-presses.md), Chrome only). A press on
+the client's menu is not a press in the world. So:
+
+- Entering a headset takes one more press, in the world: the client's row tells the
+  world, and the world shows its own "press to enter" across its view.
+- The pointer for the intense way is taken at the next press on the view, and only the
+  world can let it go, when told the menu is up.
+- Copying, and reading what the visitor copied, are the client's to do.
+- Sound and the microphone need nothing.
 
 ## 9. A phone, and other engines
 
@@ -450,7 +453,7 @@ step in the real shell.
 | Step | What | Done looks like | Trials |
 |---|---|---|---|
 | **0. The seam** | The menu and the world's port, with the direct carrier only. The kit's entry for the menu. Nothing a visitor can see changes | Every world behaves exactly as before; a framed world's build has the menu as a file of its own | The gate; the existing console trials unchanged; the bar and sheet pictured before and after, alike |
-| **0b. What needs a press in the world's own page** | A trial, no feature: entering a headset, the microphone, the pointer, sound, from a press in a page above | A written list, and for each what the client's row does | A scripted client above a world, in Chrome; the made-up headset |
+| **0b. What needs a press in the world's own page** (done: [`the-clients-menu-presses.md`](the-clients-menu-presses.md)) | A trial, no feature: entering a headset, the microphone, the pointer, sound, copying, from a press in a page above | A written list, and for each what the client's row does | `trials/presses-from-above.mjs`: two sites in a scripted Chrome. Not the made-up headset, which asks for no press |
 | **1. The client has the menu** | The words of section 4, both carriers. The client draws the bar, marks and sheet. The visitor's own tabs run in the client: You, Travel (Home, their doors), Bag, Display, Moving, Sound, Help. Every tab the world fills is described and drawn. The summons and keys forwarded. Home as a guarantee. Protocol text | In the stand-in client: one menu, the client's, over the Gallery, the Grove and the Godot example; the world draws none; Home works with the world's script stopped; nothing of the visitor's tabs in any word sent down; a world sending too much, markup or a tab it may not fill is held to the limits | Unit tests for the words and limits, with examples in `vectors/`; a trial per world; a world that never answers, answers late, and stops answering; frame times and bytes |
 | **2. BitPortal's shell** (the BitPortal session) | The shell mounts the menu from its copy of the kit and speaks the client's end | The owner walks from the room through three worlds with one menu that never changes | Its own trials; the owner's look, with pictures |
 | **3. Rooms and people, from facts** | The world says who is here (session keys and passes), microphones and recording, as facts. The client draws Room and People itself: names, the proven mark, follow, mute and block from the visitor's own lists. The room's chat, Following and Messages run in the client | A world can't put a name or a picture on someone; blocks and follows never pass through a world | Two scripted visitors in the stand-in client; the owner-lists trial through it |
