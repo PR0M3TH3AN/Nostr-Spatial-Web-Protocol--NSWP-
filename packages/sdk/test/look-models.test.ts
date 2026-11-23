@@ -4,7 +4,7 @@ import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import * as THREE from "three";
 import { beforeEach, describe, expect, it } from "vitest";
 import { forgetFileHosts, setFilesAnywhere } from "../src/file-hosts.js";
-import { createLookModels, forgetModelsSwitch, lookBudget, ownLookNote, setShowsModels, showsModels } from "../src/look-models.js";
+import { chooseLooks, worldDrawsModels, createLookModels, forgetModelsSwitch, lookBudget, ownLookNote, setShowsModels, showsModels } from "../src/look-models.js";
 import { forgetRelays } from "../src/relay-book.js";
 import { arriveWith, currentSettings, resetSettings } from "../src/settings.js";
 import { tinyVrm } from "./tiny-vrm.js";
@@ -123,5 +123,49 @@ describe("the visitor's own look note", () => {
     expect(await ownLookNote({ naddr, author: getPublicKey(sha256(utf8ToBytes("other"))), query: relays([note()]) })).toBeNull();
     expect(await ownLookNote({ naddr, author: null, query: relays([note()]) })).toBeNull();
     expect(await ownLookNote({ naddr: null, author: me, query: relays([note()]) })).toBeNull();
+  });
+});
+
+// The plan's trials 3 and 5 (docs/plans/own-models.md), as the rule presence draws by.
+describe("who is drawn as their own model", () => {
+  const person = (key: string, metres: number, o: { format?: string | null; simple?: boolean } = {}) => ({ key, metres, format: o.format === undefined ? "vrm" : o.format, ...(o.simple ? { simple: true } : {}) });
+  const both = { formats: ["vrm", "glb"] };
+
+  it("is nobody in a world that names no format, and nobody in one that dresses everyone itself", () => {
+    const people = [person("ada", 1), person("ben", 2, { format: "glb" }), person("guest", 3, { format: null })];
+    for (const world of [null, undefined, { formats: [] }, { formats: ["fbx"] }, { formats: ["vrm", "glb"], dress: "own" as const }]) {
+      expect(worldDrawsModels(world)).toBe(false);
+      expect([...chooseLooks(people, world, true)]).toEqual([["ada", "world"], ["ben", "world"], ["guest", "none"]]);
+    }
+  });
+
+  it("is only those whose format the world draws", () => {
+    expect(worldDrawsModels({ formats: ["vrm"] })).toBe(true);
+    expect(Object.fromEntries(chooseLooks([person("ada", 1), person("ben", 2, { format: "glb" })], { formats: ["vrm"] }, true))).toEqual({ ada: "draw", ben: "world" });
+  });
+
+  it("is nobody for a viewer who turned models off, and not the one person they chose to see simple", () => {
+    expect([...chooseLooks([person("ada", 1), person("ben", 2)], both, false).values()]).toEqual(["off", "off"]);
+    expect([...chooseLooks([person("ada", 1, { simple: true }), person("ben", 2)], both, true)]).toEqual([["ada", "person"], ["ben", "draw"]]);
+  });
+
+  it("is at most eight at once, the nearest: the ninth is drawn simple", () => {
+    const nine = Array.from({ length: 9 }, (_, i) => person(`p${i}`, 9 - i));
+    const chosen = chooseLooks(nine, both, true);
+    expect([...chosen.values()].filter((w) => w === "draw").length).toBe(8);
+    // p0 stands farthest off (9 m), and is the one left out.
+    expect(chosen.get("p0")).toBe("crowd");
+    expect(chosen.get("p8")).toBe("draw");
+    // Someone the viewer sees simple, or a guest, doesn't take one of the eight.
+    const ten = [...nine, person("guest", 0.5, { format: null }), person("plain", 0.6, { simple: true })];
+    const again = chooseLooks(ten, both, true);
+    expect([...again.values()].filter((w) => w === "draw").length).toBe(8);
+    expect(again.get("p0")).toBe("crowd");
+    // As they move, who is nearest changes, and so who is drawn.
+    const moved = chooseLooks(nine.map((p) => (p.key === "p0" ? { ...p, metres: 0.1 } : p)), both, true);
+    expect(moved.get("p0")).toBe("draw");
+    expect(moved.get("p1")).toBe("crowd");
+    // A place with a lower limit of its own.
+    expect([...chooseLooks(nine, both, true, 2).values()].filter((w) => w === "draw").length).toBe(2);
   });
 });

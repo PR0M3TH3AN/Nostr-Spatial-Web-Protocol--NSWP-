@@ -200,6 +200,10 @@ interface Peer {
   said?: { look: Look; seed: string };
   /** The look note they last handed the room, word for word: believed only once their pass names its author. */
   avatar?: string;
+  /** When a new look note was last taken from them, in milliseconds: no oftener than `AVATAR_EVERY_MS`. */
+  avatarAt?: number;
+  /** What that note came to, checked once for the key their pass names: its signature isn't checked again at every redraw. */
+  avatarRead?: { text: string; author: string; model: LookModel | undefined };
   /** The last pass they showed, word for word, so the same one isn't checked twice. */
   shown?: string;
   /** How many passes of theirs have failed. Past a few, they are not checked any more. */
@@ -246,6 +250,12 @@ const hexToBytes = (hex: string): Uint8Array => {
  * whose seed is a key is a claim to it, and without a pass the claim isn't
  * honoured: the mark is the session key's.
  */
+/**
+ * How often a new look note is taken from one member, at most, in milliseconds. A note doesn't change during a
+ * visit as a rule; a member who sends new ones faster is heard this often and no more.
+ */
+export const AVATAR_EVERY_MS = 3000;
+
 /** The model a look note names, if it is really a look note signed by `author`. */
 function modelOf(note: unknown, author: string): LookModel | undefined {
   if (!verifyEvent(note) || note.kind !== AVATAR_KIND || note.pubkey !== author) return undefined;
@@ -669,9 +679,13 @@ export class RoomSession {
       if (typeof e.data === "string") {
         if (e.data.startsWith("avatar:")) {
           // Their look note, kept as it came: it counts only once their pass names the key that signed it.
+          // The same note said again costs nothing. A new one is taken no oftener than every few seconds from each
+          // member, so nobody can have everyone here check signatures as fast as they can send.
           const text = e.data.slice(7);
-          if (text.length <= LOOK_NOTE_LIMIT && text !== peer.avatar) {
+          const now = Date.now();
+          if (text.length <= LOOK_NOTE_LIMIT && text !== peer.avatar && now - (peer.avatarAt ?? -AVATAR_EVERY_MS) >= AVATAR_EVERY_MS) {
             peer.avatar = text;
+            peer.avatarAt = now;
             this.redraw(peer);
           }
         } else if (e.data.startsWith("look:")) {
@@ -720,7 +734,12 @@ export class RoomSession {
   /** Draw a member again if what is known about them changes how they look. */
   private redraw(peer: Peer): void {
     const look = seenLook(peer.member, peer.said);
-    const model = peer.member.identity && peer.avatar ? modelFrom(peer.avatar, peer.member.identity) : undefined;
+    let model: LookModel | undefined;
+    if (peer.member.identity && peer.avatar) {
+      // Checked once for this note and this key, and kept: a redraw for any other reason checks no signature.
+      if (peer.avatarRead?.text !== peer.avatar || peer.avatarRead.author !== peer.member.identity) peer.avatarRead = { text: peer.avatar, author: peer.member.identity, model: modelFrom(peer.avatar, peer.member.identity) };
+      model = peer.avatarRead.model;
+    }
     if (JSON.stringify(look) === JSON.stringify(peer.member.look) && JSON.stringify(model) === JSON.stringify(peer.member.model)) return;
     peer.member.look = look;
     if (model) peer.member.model = model;
