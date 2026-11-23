@@ -86,7 +86,7 @@ urgent (a live fault), it goes first.
 | [shared-physics](shared-physics.md) | Physics that everyone in a room sees the same, and what happens when the one in charge leaves | not briefed (the owner asked to talk it through) | asked |
 | [spawn-points](spawn-points.md) | Enough places to arrive at that nobody arrives inside someone | BitPortal | merged (kit 0.81.0, template 129, BitPortal 194); not live |
 | [room-computers-sign-in-words](room-computers-sign-in-words.md) | The room's computers still say "Sign in on the front page" | BitPortal | merged (BitPortal 193; its Sign in button tried in the room); not live |
-| [avatars-own-models](avatars-own-models.md) | Your own model, size and animations as your look, in every world that allows it | BitPortal session (design: `docs/plans/own-models.md`; the owner's answers 2026-11-22) | building |
+| [avatars-own-models](avatars-own-models.md) | Your own model, size and animations as your look, in every world that allows it | BitPortal session (design: `docs/plans/own-models.md`; the owner's answers 2026-11-22) | building, parked (steps 1 and 2 merged; two things owed first: see the file) |
 | [world-maps](world-maps.md) | Maps of the connected worlds, made by travelling, private unless shared, drawn as a graph | not briefed | asked |
 | [lists-dated-in-the-future](lists-dated-in-the-future.md) | A list of worlds signed with a fast clock can pin itself | NSWP builder | building |
 | [headset-casual-and-intense](headset-casual-and-intense.md) | Casual or intense, asked once in a headset and at a desk, kept in synced settings; a phone always casual | BitPortal (kit and room) | building (intense lost at every door: being fixed; offered once on entering VR) |
