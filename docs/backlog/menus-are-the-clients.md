@@ -78,6 +78,18 @@ every world at once. The client owning the menus gets the same result for
 the interface without that. The kit's default looks (doors, sounds, icons)
 as published data can follow with `door-and-airlock-skins`.
 
+## Asked with it, the same day
+
+- Wallet and Files as their own tabs, tabs the visitor can reorder, and one
+  pinned at the far left: `menu-tabs-wallet-files-order-pin`.
+- The orchestrator's proposals from the same talk, for the design to take
+  or leave: **one menu, two places it runs** (the client's menu and the
+  kit's fallback are the same code, so they can't drift apart); **the kit
+  in two parts** (what a world runs: movement, doors, presence; and the
+  console, which a client carries), so a world's part changes less often;
+  and **the same words for BitPortal's shell and for BitBrowser**, so the
+  browser's own console needs no second design.
+
 ## Must not
 
 - Let a world read what is in the client's menu, or press it.
