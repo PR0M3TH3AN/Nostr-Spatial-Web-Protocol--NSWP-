@@ -106,3 +106,52 @@ describe("a world in its client's frame, and the sign-in address's panel", () =>
     expect([alone.framed(), alone.askClientForSignIn(), alone.clientSignsInAt()]).toEqual([false, false, null]);
   });
 });
+
+/**
+ * A page says `here` once, as soon as the files loaded with it have all run. In a browser those run one after
+ * another with nothing in between; this test runner loads them one at a time, with gaps. So the moment "once they
+ * have all run" is held here by hand, and let go after the world's end of the port has loaded.
+ */
+const loadSpeaking = async () => {
+  vi.resetModules();
+  CLIENT.postMessage.mockClear();
+  const held: (() => void)[] = [];
+  vi.stubGlobal("queueMicrotask", (fn: () => void) => void held.push(fn));
+  await import("../src/menu-above.js");
+  const now = await import("../src/client-frame.js");
+  expect(sent("here")).toEqual([]);
+  for (const fn of held) fn();
+  return now;
+};
+
+describe("a world that speaks the menu's words", () => {
+  it("says so in its one here, when the world's end of the port is loaded with the page", async () => {
+    await loadSpeaking();
+    expect(sent("here")).toEqual([{ nswp: "here", at: "/", menu: 1 }]);
+  });
+
+  it("says nothing of it otherwise, and can't once here has been said", () => {
+    expect(sent("here")).toEqual([{ nswp: "here", at: "/" }]);
+    frame.speakMenu(1);
+    hear({ source: CLIENT, data: { nswp: "menu", has: true, v: 1, settings: {} } });
+    const heard: unknown[] = [];
+    frame.hearClientMenu((w) => heard.push(w));
+    // A page that never said it speaks them keeps nothing a client said about them.
+    expect(heard).toEqual([]);
+    expect(sent("here")).toHaveLength(1);
+  });
+
+  it("keeps what its client said before it listened, takes it only from the page above, and says its own words upward", async () => {
+    const now = await loadSpeaking();
+    hear({ source: {}, data: { nswp: "menu", has: true, v: 1, settings: {} } });
+    hear({ source: CLIENT, data: { nswp: "menu", has: true, v: 1, settings: { text: 1.2 } } });
+    const heard: unknown[] = [];
+    now.hearClientMenu((w) => heard.push(w));
+    expect(heard).toEqual([{ nswp: "menu", has: true, v: 1, settings: { text: 1.2 } }]);
+    hear({ source: CLIENT, data: { nswp: "menu", open: true } });
+    expect(heard).toHaveLength(2);
+    now.sayToClient({ key: "summon", nswp: "screen" });
+    expect(sent("menu")).toEqual([{ key: "summon", nswp: "menu" }]);
+    expect(now.sinceHere()).toBeGreaterThanOrEqual(0);
+  });
+});

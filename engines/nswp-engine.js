@@ -8089,6 +8089,10 @@ postMessage({ t: "started" });
   var copiedRefused = (copy, inFrame = framed()) => inFrame ? `What you copied can't be read in a world shown inside another page. Open this world by its own address, ${copy.charAt(0).toLowerCase()}${copy.slice(1)}, and press again.` : `What you copied couldn't be read here. ${copy}, allow this site to read what you copy, and press again.`;
   var holds = false;
   var filled = false;
+  var menuSpoken = 0;
+  var saidHereAt = null;
+  var menuHearer = null;
+  var menuUnheard = [];
   var met = false;
   var watchers = /* @__PURE__ */ new Set();
   var signInAt = null;
@@ -8145,6 +8149,11 @@ postMessage({ t: "started" });
       if (e.source !== window.parent) return;
       const said2 = e.data;
       if (!said2 || typeof said2 !== "object") return;
+      if (said2.nswp === "menu") {
+        if (menuHearer) menuHearer(said2);
+        else if (menuSpoken && menuUnheard.length < 32) menuUnheard.push(said2);
+        return;
+      }
       if (said2.nswp === "sign-in" && typeof said2.open === "boolean") {
         const failed2 = !said2.open && said2.failed === true;
         if (failed2) {
@@ -8169,27 +8178,37 @@ postMessage({ t: "started" });
       at = `${location.pathname}${location.search}`.slice(0, 300);
     } catch {
     }
-    say({ nswp: "here", at });
+    const hello = () => {
+      saidHereAt = performance.now();
+      say({ nswp: "here", at, ...menuSpoken ? { menu: menuSpoken } : {} });
+    };
+    if (typeof queueMicrotask === "function") queueMicrotask(hello);
+    else hello();
   }
   meetClient();
 
   // packages/sdk/src/settings.ts
   var arrived = {};
   var parts = /* @__PURE__ */ new Map();
+  var takers = /* @__PURE__ */ new Map();
   function arriveWith(settings) {
     arrived = cleanSettings(settings);
   }
   function arrivedSettings() {
     return arrived;
   }
-  function reportSettings(part, now) {
+  function reportSettings(part, now, take) {
     parts.set(part, now);
+    if (take) takers.set(part, take);
+    else takers.delete(part);
     return () => {
-      if (parts.get(part) === now) parts.delete(part);
+      if (parts.get(part) !== now) return;
+      parts.delete(part);
+      takers.delete(part);
     };
   }
   function currentSettings() {
-    let out = { ...arrived };
+    let out = cleanSettings(arrived);
     for (const now of parts.values()) {
       let said2 = {};
       try {
@@ -8216,7 +8235,7 @@ postMessage({ t: "started" });
     }
     shown = came ?? kept2 !== "0";
     if (came !== void 0) keep(shown);
-    reportSettings("pictures", () => ({ pictures: showsPictures() }));
+    reportSettings("pictures", () => ({ pictures: showsPictures() }), (now) => void (now.pictures !== void 0 && now.pictures !== shown && setShowsPictures(now.pictures)));
     return shown;
   }
   var keep = (on3) => {
@@ -9506,7 +9525,15 @@ postMessage({ t: "started" });
     const came = arrivedSettings();
     prefs = { look: clampLook(came.look ?? kept2.look), fov: came.fov !== void 0 ? clampFov(came.fov) : clampFov(kept2.fov) };
     if (came.look !== void 0 || came.fov !== void 0) keep2(prefs);
-    reportSettings("desk", () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }));
+    reportSettings(
+      "desk",
+      () => ({ look: load().look, ...load().fov === null ? {} : { fov: load().fov } }),
+      // Their client's menu changed one (settings.ts, `changeSettings`).
+      (now) => {
+        if (now.look !== void 0) setLookScale(now.look);
+        if (now.fov !== void 0) setVisitorFov(now.fov);
+      }
+    );
     return prefs;
   }
   var change = (next) => {
@@ -9798,9 +9825,13 @@ postMessage({ t: "started" });
       kept2 = globalThis.localStorage?.getItem(ANYWHERE_KEY) ?? null;
     } catch {
     }
-    anywhere = came === false ? false : kept2 === "on";
-    if (came === false) keep3(false);
-    reportSettings("files-anywhere", () => filesAnywhere() ? {} : { filesAnywhere: false });
+    anywhere = came === false ? false : came === true ? true : kept2 === "on";
+    if (came !== void 0) keep3(anywhere);
+    reportSettings(
+      "files-anywhere",
+      () => filesAnywhere() ? {} : { filesAnywhere: false },
+      (now) => void (now.filesAnywhere !== void 0 && now.filesAnywhere !== anywhere && setFilesAnywhere(now.filesAnywhere))
+    );
     return anywhere;
   }
   function setFilesAnywhere(on3) {
@@ -44252,7 +44283,18 @@ void main() {
     let songs = cleanSongs(read6(songsKey));
     let disposed = false;
     if (came) write(levelsKey, levels);
-    const stopReporting = reportSettings("sound", () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }));
+    const stopReporting = reportSettings(
+      "sound",
+      () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }),
+      // Their client's menu changed a volume (settings.ts, `changeSettings`): as their own hand on it here would.
+      (now) => {
+        if (!now.sound || disposed) return;
+        levels = cleanLevels({ ...levels, ...now.sound });
+        write(levelsKey, levels);
+        apply();
+        changed();
+      }
+    );
     const master = ctx.createGain();
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -14;
@@ -47975,7 +48017,7 @@ void main() {
     }
     shown2 = came ?? kept2 !== "off";
     if (came !== void 0) keep4(shown2);
-    reportSettings("items", () => ({ items: showsItems() }));
+    reportSettings("items", () => ({ items: showsItems() }), (now) => void (now.items !== void 0 && now.items !== shown2 && setShowsItems(now.items)));
     return shown2;
   }
   function setShowsItems(on3) {
@@ -48813,7 +48855,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
     shown3 = came ?? kept2 !== "0";
     if (came !== void 0) keep5(shown3);
-    reportSettings("chat", () => ({ chat: showsChat() }));
+    reportSettings("chat", () => ({ chat: showsChat() }), (now) => void (now.chat !== void 0 && now.chat !== shown3 && setShowsChat(now.chat)));
     return shown3;
   }
   var keep5 = (on3) => {
@@ -50972,7 +51014,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     }
     showing = came ?? kept2 !== "off";
     if (came !== void 0) keepModels(showing);
-    reportSettings("models", () => ({ models: showsModels() }));
+    reportSettings("models", () => ({ models: showsModels() }), (now) => void (now.models !== void 0 && now.models !== showing && setShowsModels(now.models)));
     return showing;
   }
   function setShowsModels(on3) {
@@ -52242,7 +52284,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return {
       view: () => controls2.view(),
       subscribe: (fn) => controls2.subscribe(fn),
-      run: (id) => controls2.run(id),
+      run: (id, typed) => controls2.run(id, typed),
       say: (text2) => controls2.say(text2),
       onSay: (fn) => controls2.onSay(fn),
       signal: (name) => controls2.signal(name),
@@ -53730,13 +53772,34 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       visitor = { ...visitor, ...brought };
       saveVisitorTheme(visitor);
     }
-    reportSettings("look", () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }));
+    reportSettings(
+      "look",
+      () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }),
+      // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
+      (now) => {
+        const patch = { ...now.text !== void 0 ? { scale: now.text } : {}, ...now.motion !== void 0 ? { motion: now.motion } : {}, ...now.wrist !== void 0 ? { wrist: now.wrist } : {} };
+        if (!Object.keys(patch).length) return;
+        visitor = { ...visitor, ...patch };
+        saveVisitorTheme(visitor);
+        theme = resolveTheme(opts.theme, visitor);
+        changed();
+      }
+    );
     let pins = loadPins();
     if (came.pins !== void 0) {
       pins = [...came.pins];
       savePins(pins);
     }
-    reportSettings("pins", () => pins ? { pins } : {});
+    reportSettings(
+      "pins",
+      () => pins ? { pins } : {},
+      (now) => {
+        if (now.pins === void 0) return;
+        pins = [...now.pins];
+        savePins(pins);
+        changed();
+      }
+    );
     let theme = resolveTheme(opts.theme, visitor);
     let target2 = "";
     let detail = [];
@@ -53816,11 +53879,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       say(text2) {
         for (const fn of sayers) fn(text2);
       },
-      run(id) {
+      run(id, typed) {
         const a = actions.find((x) => x.id === id);
         if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.act()).catch(() => {
+        void Promise.resolve().then(() => a.act(a.kind === "field" ? typed ?? "" : void 0)).catch(() => {
         }).finally(changed);
         return true;
       },
@@ -53850,7 +53913,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
-          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
