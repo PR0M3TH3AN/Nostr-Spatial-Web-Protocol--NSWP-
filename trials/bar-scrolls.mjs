@@ -118,6 +118,20 @@ async function screen(width, phone) {
     });
   // A phone is pressed with a finger: a mouse's click there would make the kit take it for a desk.
   const press = (sel) => (phone ? page.locator("nswp-hud").locator(sel).tap({ timeout: 15000 }) : page.locator("nswp-hud").locator(sel).click({ timeout: 15000 }));
+  const scrollNow = () => page.evaluate(() => Math.round(document.querySelector("nswp-hud").shadowRoot.querySelector(".hotbar").scrollLeft));
+  /**
+   * Press something that slides the bar, and wait until the bar has begun to move from where it was, and then come
+   * to rest. Waiting only for it to be still takes "not begun yet" for "done": on a busy machine a smooth slide may
+   * not begin for a second or more after the press. (This trial failed that way, with nothing wrong in the bar, on
+   * 2026-11-23, on a machine with a load of 25.) Where the bar never moves, this gives up after 20 seconds and the
+   * check that follows says so.
+   */
+  const slide = async (doIt) => {
+    const from = await scrollNow();
+    await doIt();
+    await until(async () => (await scrollNow()) !== from, 20000, 100);
+    await settle();
+  };
   /** Until the bar has come to rest: a slide is smooth, and a busy headless browser draws few frames a second. */
   const settle = async () => {
     let last = -1;
@@ -152,8 +166,7 @@ async function screen(width, phone) {
       // bar there (the bar ends where the arrow starts).
       want(`${name}: the arrow is beside the bar, not over it`, !!first.arrows.onBox && first.arrows.onBox.left >= first.bar.right - 1, true);
       // The arrow moves it along.
-      await press(".bar .more.right");
-      await settle();
+      await slide(() => press(".bar .more.right"));
       const moved = await look();
       r[`${name} after the right arrow`] = moved;
       want(`${name}: the right arrow moves it along`, moved.scroll > first.scroll, true);
@@ -168,8 +181,7 @@ async function screen(width, phone) {
         const at = await look();
         steps.push({ scroll: at.scroll, on: at.arrows.on });
         if (!at.arrows.on) break;
-        await press(".bar .more.right").catch((e) => steps.push(`press: ${String(e).split("\n")[0]}`));
-        await settle();
+        await slide(() => press(".bar .more.right").catch((e) => steps.push(`press: ${String(e).split("\n")[0]}`)));
       }
       r[`${name} to the end`] = steps;
       const end = await look();
