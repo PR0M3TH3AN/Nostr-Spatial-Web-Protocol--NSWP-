@@ -5,9 +5,9 @@
   priority. Id like for each to be added to the backlog."
 - **State:** asked. Not a priority (the owner, 2026-11-23). Not briefed.
 - **The whole of it:** `ai-keys-and-agents`. The pack is the owner's own, for
-  the private repository `PR0M3TH3AN/nswp-agents` (to live there under
-  `docs/plans/agent-platform/`; on 2026-11-23 it was only the file the owner
-  handed over, `NSWP_Agents_Modular_Spec_Pack_v0.3 (1).zip`). This entry is a
+  the private repository `PR0M3TH3AN/nswp-agents` (kept there under
+  `docs/plans/agent-platform/` by the session that has that repository, since
+  2026-11-23). This entry is a
   short account of one piece of it, not a copy.
 - **In the pack:** M7, document 07.
 - **Whose:** NSWP and `nswp-agents`.

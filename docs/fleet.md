@@ -14,6 +14,7 @@ is how they stay one system, written down on 2026-11-21 when the owner said:
 | **Bitlogin** | The sign-in address: accounts, the signer, the wallet, the buy and tip screens | Everything in its own code and its own releases |
 | **Bitunlock** | The selling service: listings, payments, receipts | Everything in its own code and its own releases |
 | **BitBrowser** | A headset browser of our own (a fork) | Everything in its own code; nothing of payments or identity (`browser/spec.md`, section 2a) |
+| **NSWP-Agents Agent** (started 2026-11-23) | `nswp-agents` (a private repository): the agent brain, its memory and its decision and voice adapters, from the owner's design pack kept there under `docs/plans/agent-platform/` | Everything in its own code. No note kinds of its own (rule 11), no keys given to a world, and nothing in another session's folder. Not a priority (the owner, 2026-11-23) |
 
 The owner works through the orchestrator (2026-11-21: "id like to work
 through you directly"): they say what they want, it is written as a brief
