@@ -137,8 +137,14 @@ try {
     check("has/the world describes itself", worlds.length >= 1 && worlds.at(-1).title.length > 0 && worlds.at(-1).sections.length > 0, worlds.at(-1));
     const last = worlds.at(-1) ?? { sections: [] };
     const tabs = last.sections.map((s) => s.id);
-    const own = ["you", "figure", "bag", "wallet", "files", "moving", "sound", "look", "help"];
+    const own = ["you", "figure", "bag", "wallet", "files", "moving", "look"];
     check("has/nothing of the visitor's own tabs is said upward", !tabs.some((t) => own.includes(t)), tabs);
+    // Sound and Help are filled by both: of Sound a world says only what is its own, never a volume or the
+    // visitor's own music; of Help, its own sentence about itself and not the words on how to move.
+    const soundRows = last.sections.find((s) => s.id === "sound")?.rows.map((r) => r.id) ?? [];
+    check("has/in Sound the world says only what is its own", soundRows.every((id) => ["sound-piece", "sound-hear"].includes(id)), soundRows);
+    const helpNote = last.sections.find((s) => s.id === "help")?.note ?? "";
+    check("has/in Help the world says its own sentence, not how to move", helpNote.length > 0 && helpNote.length <= 400 && !/Drag to look around/.test(helpNote), helpNote);
     const travel = last.sections.find((s) => s.id === "travel");
     check("has/the way home is not the world's to describe", !travel || !travel.rows.some((r) => ["home", "go-home", "back", "doors", "list"].includes(r.id)), travel?.rows.map((r) => r.id));
     check("has/the visitor's settings came down with the answer", v.inWorld.scale === 1.3, v.inWorld.scale);

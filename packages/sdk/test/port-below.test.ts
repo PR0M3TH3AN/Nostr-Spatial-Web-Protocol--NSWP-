@@ -167,6 +167,60 @@ describe("what the menu draws over a world", () => {
   });
 });
 
+describe("a tab both fill", () => {
+  /** The client's own Sound and Help, and a world that adds what is its own to each. */
+  const drawn = () => {
+    const c = make();
+    c.controls.add({ id: "sound-all", section: "sound", label: "All sound: on", act: () => {} });
+    c.controls.add({ id: "sound-music", section: "sound", label: "Music", act: () => {} });
+    c.controls.addSection({ id: "help", label: "Help", note: "Drag to look around. These controls are your own client's." });
+    c.here();
+    c.from({
+      nswp: "menu",
+      world: {
+        title: "The Gallery",
+        sections: [
+          { id: "sound", rows: [{ id: "sound-piece", label: "Playing here: Nocturne. Next of 2" }, { id: "sound-name", label: "Name this piece", kind: "field" }] },
+          { id: "help", note: "Six sculptures, each a few lines of code turned into a shape.", rows: [{ id: "fresh", label: "This world has been updated" }] },
+          { id: "camera", note: "Pictures are saved to this device.", rows: [{ id: "shot", label: "Take a picture" }] },
+          { id: "shop", label: "Shop", note: "Open till late.", rows: [{ id: "shop-print", label: "A print" }] },
+        ],
+      },
+    });
+    const view = c.below.port.view();
+    const tab = (id: string) => view.sections.find((s) => s.id === id)!;
+    return { c, tab };
+  };
+
+  it("has the client's own rows first, and the world's below them under the world's name", () => {
+    const { tab } = drawn();
+    expect(tab("sound").items.map((i) => [i.id, i.from])).toEqual([["sound-all", undefined], ["sound-music", undefined], ["world:sound-piece", "The Gallery"]]);
+    expect(tab("help").items.map((i) => [i.id, i.from])).toEqual([["world:fresh", "The Gallery"]]);
+  });
+
+  it("keeps the client's own words as the tab's, and the world's as the world's, after them", () => {
+    const { tab } = drawn();
+    expect(tab("help").note).toBe("Drag to look around. These controls are your own client's.");
+    expect(tab("help").said).toEqual({ from: "The Gallery", note: "Six sculptures, each a few lines of code turned into a shape." });
+  });
+
+  it("never lets a world's words stand as the menu's own, even in a tab the client says nothing in", () => {
+    const { tab } = drawn();
+    expect([tab("camera").note, tab("camera").said]).toEqual(["", { from: "The Gallery", note: "Pictures are saved to this device." }]);
+    expect(tab("camera").items.map((i) => i.from)).toEqual(["The Gallery"]);
+  });
+
+  it("takes nothing typed for a world from Sound or Help", () => {
+    const { tab } = drawn();
+    expect(tab("sound").items.some((i) => i.kind === "field")).toBe(false);
+  });
+
+  it("leaves a tab of the world's own as it is: the world's name is on the tab", () => {
+    const { tab } = drawn();
+    expect([tab("shop").label, tab("shop").note, tab("shop").said, tab("shop").items.map((i) => i.from)]).toEqual(["Shop · The Gallery", "Open till late.", undefined, [undefined]]);
+  });
+});
+
 describe("a press", () => {
   const up = () => {
     const c = make();

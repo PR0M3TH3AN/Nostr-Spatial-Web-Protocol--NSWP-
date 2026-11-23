@@ -38,7 +38,7 @@ const make = (o: { framed?: boolean; since?: number | null; before?: unknown[]; 
   controls.add({ id: "room-link", section: "room", label: "Copy the room's link", kind: "copy", copy: "https://gallery.example/#room", act: act("room-link") });
   controls.add({ id: "guests-key", section: "guests", label: "Add someone by key", kind: "field", act: act("guests-key") });
   controls.add({ id: "bag-item", section: "bag", label: "A lantern", act: act("bag-item") });
-  controls.add({ id: "loud", section: "sound", label: "Louder", act: act("loud") });
+  controls.add({ id: "fast", section: "moving", label: "Faster", act: act("fast") });
   controls.add({ id: "follow-ana", section: "following", label: "Ana", act: act("follow-ana") });
   const sent: Record<string, unknown>[] = [];
   let hear: ((word: unknown) => void) | null = null;
@@ -126,7 +126,7 @@ describe("what a world says of itself", () => {
     const world = w.worlds()[0]!;
     const sections = world.sections as { id: string; rows: { id: string }[] }[];
     expect(sections.map((s) => [s.id, s.rows.map((r) => r.id)])).toEqual([["travel", ["door-grove"]], ["room", ["room-join", "room-link"]], ["following", ["follow-ana"]], ["guests", ["guests-key"]]]);
-    expect(JSON.stringify(w.sent)).not.toMatch(/lantern|Louder|bag|sound/);
+    expect(JSON.stringify(w.sent)).not.toMatch(/lantern|Faster|bag|moving/);
   });
 
   it("is what a client keeps whole: it is within every limit as it leaves", () => {
@@ -168,6 +168,40 @@ describe("what a world says of itself", () => {
   });
 });
 
+describe("Sound and Help, which both fill", () => {
+  /** A world's own menu's Sound and Help: the visitor's rows and the kit's words on how to move among the world's own. */
+  const world = () => {
+    const c = createControls({ title: "The Gallery" });
+    c.addSection({ id: "help", label: "Help", note: "Six sculptures. Drag to look around. Walk with W, A, S, D." });
+    c.add({ id: "fresh", section: "help", label: "This world has been updated", act: () => {} });
+    for (const id of ["sound-all", "sound-effects", "sound-music", "sound-voices", "sound-hum", "juke-add", "juke-play", "juke-next", "juke-remove"]) c.add({ id, section: "sound", label: id, act: () => {} });
+    c.add({ id: "sound-piece", section: "sound", label: "Playing here: Nocturne. Next of 2", act: () => {} });
+    return c;
+  };
+  const sections = (said: Record<string, unknown>) => Object.fromEntries((said.sections as { id: string; note?: string; rows: { id: string }[] }[]).map((s) => [s.id, { note: s.note, rows: s.rows.map((r) => r.id) }]));
+
+  it("in Sound a world says only what is its own: the piece it is playing. The volumes and the visitor's music are the client's", () => {
+    expect(sections(describeWorld(world().view())).sound).toEqual({ note: undefined, rows: ["sound-piece"] });
+  });
+
+  it("in Help a world says its own sentence about itself, and not the words on how to move, which are the client's to say", () => {
+    const said = sections(describeWorld(world().view(), {}, "Six sculptures, each a few lines of code turned into a shape."));
+    expect(said.help).toEqual({ note: "Six sculptures, each a few lines of code turned into a shape.", rows: ["fresh"] });
+    expect(JSON.stringify(said)).not.toMatch(/Drag to look around/);
+  });
+
+  it("says nothing of itself in Help where it has nothing to say, or too much", () => {
+    expect(sections(describeWorld(world().view())).help).toEqual({ note: undefined, rows: ["fresh"] });
+    expect(sections(describeWorld(world().view(), {}, "x".repeat(401))).help).toEqual({ note: undefined, rows: ["fresh"] });
+  });
+
+  it("is kept by a client as it was said, and says whether the place has a hum", () => {
+    const kept = cleanMenuWorld(describeWorld(world().view(), { hum: true }, "Six sculptures."))!;
+    expect(kept.state.hum).toBe(true);
+    expect(kept.sections.map((s) => [s.id, s.note, s.rows.map((r) => r.id)])).toEqual([["sound", undefined, ["sound-piece"]], ["help", "Six sculptures.", ["fresh"]]]);
+  });
+});
+
 describe("what a world says of the things only it can run", () => {
   it("is said again when it changes, though nothing told the controls: a headset session starting", async () => {
     let presenting = false;
@@ -190,7 +224,7 @@ describe("what a world takes from above", () => {
     w.say({ nswp: "menu", press: "room-join" });
     expect(w.pressed).toEqual([]);
     w.say(HAS);
-    for (const id of ["room-join", "home", "bag-item", "loud", "nothing"]) w.say({ nswp: "menu", press: id });
+    for (const id of ["room-join", "home", "bag-item", "fast", "nothing"]) w.say({ nswp: "menu", press: id });
     return vi.advanceTimersByTimeAsync(50).then(() => expect(w.pressed).toEqual([["room-join", undefined]]));
   });
 

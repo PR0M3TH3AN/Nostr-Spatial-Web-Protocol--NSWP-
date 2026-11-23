@@ -839,7 +839,21 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
  * music. It also makes the kit's controls heard: a press, the menu, and the
  * things other parts of the kit signal (joining a room, a microphone).
  */
-export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(): void } {
+export interface SoundControlsOptions {
+  /**
+   * Whether the place has a hum, where that isn't this page's own to know: a client's page, drawing the menu above
+   * a world, is told by the world. "The room's hum" is shown where this says so. Left out, this page's own sounds say.
+   */
+  hasHum?: () => boolean;
+  /**
+   * A cue that is not to be played here just now. For a world whose client has the menu: the client's page makes
+   * the menu's own sounds (a press, the menu coming and going, words for a moment), so the world doesn't make them
+   * too.
+   */
+  quiet?: (cue: Cue) => boolean;
+}
+
+export function addSoundControls(controls: Controls, sounds: Sounds, opts: SoundControlsOptions = {}): { refresh(): void } {
   const word = (v: number) => LEVEL_WORDS[levelStep(v)]!;
   let listed: string[] = [];
   const picker = document.createElement("input");
@@ -938,7 +952,7 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
       section: "sound",
       icon: "sound",
       on: () => sounds.levels.hum,
-      hidden: () => !sounds.hasHum,
+      hidden: () => !(opts.hasHum ? opts.hasHum() : sounds.hasHum),
       label: () => (sounds.levels.hum ? "The room's hum: on" : "The room's hum: off"),
       act: () => sounds.setLevels({ hum: !sounds.levels.hum }),
     },
@@ -987,9 +1001,9 @@ export function addSoundControls(controls: Controls, sounds: Sounds): { refresh(
   refresh();
   // The kit's own controls, heard: whatever any part of it signals that is a cue, and a note when it speaks.
   controls.onSignal((name) => {
-    if ((CUES as readonly string[]).includes(name)) sounds.play(name as Cue);
+    if ((CUES as readonly string[]).includes(name) && !opts.quiet?.(name as Cue)) sounds.play(name as Cue);
   });
-  controls.onSay(() => sounds.play("notice"));
+  controls.onSay(() => void (opts.quiet?.("notice") || sounds.play("notice")));
   // A volume or the jukebox changed somewhere else: the words here are worked out again.
   sounds.onChange(() => refresh());
   return { refresh };

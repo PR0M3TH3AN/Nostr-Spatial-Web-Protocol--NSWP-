@@ -56,9 +56,15 @@ export const LEAVE_MS = 1000;
  * The visitor's own tabs. A world never fills, reads or presses them, and is never told what is in them.
  * (`figure` is "Your look" and `look` is "Display": the names are the kit's, and travel as pins already.)
  */
-export const MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "moving", "sound", "look", "help"] as const;
-/** The tabs every place has that a world fills: its room and people, its own doors under Travel, its keeper's list. */
-export const MENU_WORLD_TABS = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests"] as const;
+export const MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "moving", "look"] as const;
+/**
+ * The tabs every place has that a world fills: its room and people, its own doors under Travel, its keeper's list.
+ * Several are filled by both: the client's own rows come first in them, and the world's stand below, under the
+ * world's name. Sound and Help are of that kind. The volumes and the visitor's own music are the client's, and a
+ * world adds what is its own (the piece it is playing); the client's help comes first, and a world's words about
+ * itself are a note after it. Nothing typed goes to a world from either: a `field` row there is left out.
+ */
+export const MENU_WORLD_TABS = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests", "sound", "help"] as const;
 
 /** The few keys that are the visitor's, which a world forwards while it has the keyboard. Never any other. */
 export const MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
@@ -141,6 +147,8 @@ export interface MenuState {
   holding: string;
   /** The world's rule for items. */
   items: ItemsRule;
+  /** Whether the place has a hum under its music: the visitor's own switch for it is shown only where it does. */
+  hum: boolean;
 }
 
 /** A world's description of itself, as a client keeps it after reading. */
@@ -281,6 +289,7 @@ function readState(raw: unknown): MenuState {
     named: s.named === true,
     holding: id(s.holding) ?? "",
     items: cleanItemsRule(s.items),
+    hum: s.hum === true,
   };
 }
 

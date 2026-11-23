@@ -19,9 +19,26 @@ import type { Controls, UiAction } from "./ui/model.js";
 
 /**
  * The rows, by id, that are the visitor's own in a tab a world otherwise fills, and so are never in a world's
- * description: these, and how wide they see (desk.ts, `fov`, under View).
+ * description: the switches here, how wide they see (desk.ts, `fov`, under View), and in Sound the volumes, the
+ * hum's switch and the visitor's own music (sound.ts).
  */
-export const VISITOR_SWITCHES: readonly string[] = ["people-pictures", "people-models", "room-chat-show", "fov"];
+export const VISITOR_SWITCHES: readonly string[] = [
+  "people-pictures",
+  "people-models",
+  "room-chat-show",
+  "fov",
+  // In Sound, which both fill: the volumes, the hum's switch and the visitor's own music are the client's (sound.ts).
+  // What is the world's there is the piece it is playing.
+  "sound-all",
+  "sound-effects",
+  "sound-music",
+  "sound-voices",
+  "sound-hum",
+  "juke-add",
+  "juke-play",
+  "juke-next",
+  "juke-remove",
+];
 
 /** Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world. */
 export const picturesSwitch = (controls: Pick<Controls, "say">): UiAction => ({

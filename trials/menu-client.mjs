@@ -207,6 +207,55 @@ try {
   const down = await world().evaluate(() => window.__down);
   check("and the client never said it, on or off", down.length > 0 && !down.some((w) => w.includes("filesAnywhere")), down);
 
+  // ---- A world's part of a tab both fill is under the world's name, below the client's own.
+  check("in People, the world's rows stand under the world's name, below the client's own switches", await until(() => client(() => {
+    const kids = [...document.querySelector("nswp-hud").shadowRoot.querySelector(".rows").children];
+    const name = kids.findIndex((k) => k.classList.contains("from") && k.textContent === "The Gallery");
+    const own = kids.findIndex((k) => /Profile pictures/.test(k.textContent));
+    const worlds = kids.findIndex((k) => /Load people's files from anywhere/.test(k.textContent));
+    return own !== -1 && name > own && worlds > name;
+  })));
+
+  // ---- Sound and Help: tabs both fill.
+  const both = await client(() => {
+    const view = window.__client.below.port.view();
+    const tab = (id) => view.sections.find((s) => s.id === id);
+    return {
+      sound: tab("sound")?.items.map((i) => [i.id, i.from ?? null]),
+      help: { note: tab("help")?.note, said: tab("help")?.said ?? null, rows: tab("help")?.items.map((i) => [i.id, i.from ?? null]) },
+      hum: window.__client.below.world.state.hum,
+    };
+  });
+  results["sound and help, as the client's menu has them"] = both;
+  const ownSound = both.sound?.filter(([, from]) => !from).map(([id]) => id) ?? [];
+  const worldSound = both.sound?.filter(([, from]) => from).map(([id]) => id) ?? [];
+  check("Sound has the client's own volumes and music first", ["sound-all", "sound-effects", "sound-music", "sound-voices", "juke-add"].every((id) => ownSound.includes(id)) && both.sound.findIndex(([, from]) => from) === (worldSound.length ? ownSound.length : -1), both.sound);
+  // The piece the place is playing, and the room's own switch for hearing music other people share.
+  check("and of the world's, only what is the world's: never a volume or the visitor's music", worldSound.every((id) => ["world:sound-piece", "world:sound-hear"].includes(id)), worldSound);
+  check("the switch for the room's hum is the client's, shown where the world says it has one", ownSound.includes("sound-hum") === (both.hum === true), { hum: both.hum, ownSound });
+  check("Help has the client's own words on how to move as its own", /Drag to look around/.test(both.help.note ?? "") && /your own client's/.test(both.help.note ?? ""), both.help.note);
+  check("and the world's sentence about itself after them, under the world's name", both.help.said?.from === "The Gallery" && both.help.said.note.length > 0 && !/Drag to look around/.test(both.help.said.note), both.help.said);
+  await client(() => window.__client.menu.setOpen(true, "help"));
+  check("the menu draws the world's words apart, with the world's name before them", await until(() => client(() => {
+    const root = document.querySelector("nswp-hud").shadowRoot;
+    const own = root.querySelector(".note:not(.said)");
+    const said = root.querySelector(".note.said");
+    return !!own && !!said && !said.hidden && said.querySelector("b")?.textContent === "The Gallery" && (own.compareDocumentPosition(said) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+  })));
+  await page.screenshot({ path: join(SHOTS, "menu-client-7-help.png") });
+
+  // ---- One sound for one press: the client's page makes the menu's own sounds, and the world doesn't make them too.
+  await client(() => { window.__cues = []; const s = window.__client.sounds; const play = s.play.bind(s); s.play = (cue, from) => { window.__cues.push(cue); return play(cue, from); }; });
+  await world().evaluate(() => { window.__cues = []; const s = window.__nswpTest.sounds; const play = s.play.bind(s); s.play = (cue, from) => { window.__cues.push(cue); return play(cue, from); }; });
+  await client(() => window.__client.menu.setOpen(true, "room"));
+  await until(() => hud.getByRole("button", { name: "A row of the world's" }).first().isVisible());
+  await press(hud.getByRole("button", { name: "A row of the world's" }).first());
+  await until(() => world().evaluate(() => window.__got.filter((g) => g[0] === "plain").length >= 2));
+  await page.waitForTimeout(400);
+  const cues = { client: await client(() => window.__cues), world: await world().evaluate(() => window.__cues) };
+  check("a press on a world's row is heard once, from the client's page", cues.client.filter((c) => c === "press").length === 1 && !cues.world.includes("press"), cues);
+  check("and the menu coming up is heard from the client's page, not the world's", !cues.world.some((c) => c === "menuOpen" || c === "menuClose"), cues);
+
   // ---- A picture of the world's crosses as a bitmap, and the client draws it.
   await world().evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -283,7 +332,7 @@ try {
   await until(() => client(() => window.__client.below.speaks === true));
   // Its own tabs, and none of a world's: the switches for people's pictures and for chat stand only where a world
   // fills People and Room.
-  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look", "moving", "view"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
+  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look", "moving", "view", "sound", "help"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
   const saidHome = [];
   await client(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); });
   const startedAt = Date.now();

@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 // Loaded with the page, never later: it is what tells the page above that this world speaks the menu's words.
 import { portAbove } from "nswp-sdk/menu-above";
+import { helpWords } from "nswp-sdk/menu-above";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type MenuState, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addDoorControls, createControls, type Controls, type MenuDoor, addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
@@ -354,7 +355,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // is a file of this build's own, fetched only then, so a world whose client draws it never fetches it.
   // What this world says of the things every place has and only it can run (the description's `state`). Each is
   // filled in further down, as the part that runs it starts: asked before then, it isn't so.
-  const facts: { room?: () => MenuState["room"]; named?: () => boolean; holding?: () => string; items?: ItemsRule } = {};
+  const facts: { room?: () => MenuState["room"]; named?: () => boolean; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
   const above = portAbove(controls, {
     state: () => ({
       headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting },
@@ -362,7 +363,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
       named: facts.named?.() ?? false,
       holding: facts.holding?.() ?? "",
       ...(facts.items ? { items: facts.items } : {}),
+      hum: facts.hum?.() ?? false,
     }),
+    // What this world says of itself in Help. How to move is the client's own to say there.
+    help: () => cfg.purpose,
     home: () => void goHome(),
   });
   let own: Awaited<ReturnType<typeof ownMenu>> | null = null;
@@ -450,7 +454,10 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // Sound: the kit's cues unless this world names its own, the place's music, and the visitor's own. Their volumes
   // are theirs, kept for this site.
   const sounds = createSounds({ context: THREE.AudioContext.getContext() as unknown as AudioContext, seed: cfg.title, kit: "/sounds/kit/", theme: { music: ["/sounds/music.ogg", "/sounds/music-2.ogg"], ...cfg.sounds } });
-  addSoundControls(controls, sounds);
+  // Where this world's client has the menu, the client's page makes the menu's own sounds, so they aren't made twice.
+  const MENU_CUES: readonly string[] = ["press", "menuOpen", "menuClose", "notice"];
+  addSoundControls(controls, sounds, { quiet: (cue) => above.has && MENU_CUES.includes(cue) });
+  facts.hum = () => sounds.hasHum;
   hooks.sounds = sounds;
   if (cfg.quiet) {
     // A game has an interface of its own, and the keyboard is for playing (spec §21.3).
@@ -670,7 +677,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     id: "help",
     label: "Help",
     icon: "help",
-    note: `${cfg.purpose} Drag to look around. Walk with W, A, S, D or the up and down arrows; the left and right arrows turn you. Or point at the floor and select to step there: twice to run. Shift runs and Space jumps. The key left of 1 brings these controls up in any world, whatever is on screen; on a touch screen, hold two fingers still. Select a doorway to see where it leads before you go. These controls are this world's own: your headset's or browser's own controls always get you out.`,
+    note: `${cfg.purpose} ${helpWords("world")}`,
   });
   const xrConsole: XrConsole = createConsole(controls, { renderer, rig });
   scene.add(xrConsole.group);

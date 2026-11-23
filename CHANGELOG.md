@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Sound and Help are tabs both fill, the client's part first; and a world's part of any tab is under the world's name** (core `MENU_VISITOR_TABS`, `MENU_WORLD_TABS`, `MenuState.hum`; SDK `ui/port-below.ts`, `ui/hud.ts`, `menu-above.ts`, `sound.ts`, `ui/help.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes: where a world draws its own menu, Sound and Help are as they were.
+  - **Sound.** In a client's menu the volumes, "All sound", the switch for a place's hum and the visitor's own music are the client's, and the music is played by the client's page. A world adds what is its own: "Playing here", and the way on to its next piece. The world says whether the place has a hum (`state.hum`), and the client shows its switch only where it does.
+  - **Help.** The client's own words on how to move come first (`helpWords`). What a world says of itself is a note after them, under the world's name, of at most 400 characters (`portAbove`'s `help`). The reference worlds say their one sentence on what the place is for.
+  - **Under the world's name.** In every tab both fill, the client's own rows come first and the world's stand below a line with the world's name. A world's note is never drawn as the menu's own: it is kept apart (`UiSectionView.said`) and shown after, with the world's name before it. A row carries whose it is (`UiItemView.from`).
+  - Nothing typed goes to a world from Sound or Help: a `field` row there is left out, as before.
+  - **One sound for one press.** The client's page makes the menu's own sounds (a press, the menu coming and going, words for a moment). A world whose client has the menu doesn't make them too (`addSoundControls`' `quiet`).
+  - Two vectors: a world filling Sound and Help, with a `field` row in each left out; and a Help note over the limit left out.
+  - Tried in the stand-in client (`trials/menu-client.mjs`, 65 checks).
+
 - **"Enter VR", then "Launch"; and a world says the state of what only it can run** (SDK `packages/sdk/src/three.ts`, `ui/headset.ts`, `menu-above.ts`; `sites/shared/world.ts`; `sites/airlock`; `trials/menu-client.mjs`; NSWP-02; the owner, 2026-11-23: two presses, each with its own name).
   - **A visitor sees one change today:** the large button shown to someone who left a headset to come to a world now says **"Launch"**, not "Enter VR", and the Airlock's line about it says so. The row in the menu still says "Enter VR".
   - **Pressed in a menu drawn above the world,** "Enter VR" is not a press in the world's page, and a browser starts a headset session only at one that is. The world then shows that same screen across its view: "Launch", "Press anywhere, with anything, to start VR." A press there starts the session. The world asks the browser whether the press was its own (`navigator.userActivation`), and also takes the browser's refusal for want of one as the same thing.

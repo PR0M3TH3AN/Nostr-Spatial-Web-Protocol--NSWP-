@@ -339,6 +339,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .person blockquote { grid-column: 1 / -1; margin: 7px 0 0; padding: 1px 0 1px 10px; border-left: 2px solid rgba(var(--accent), .6); overflow-wrap: anywhere; }
 .person .now { grid-column: 1 / -1; margin: 5px 0 0; font-size: .9em; color: rgb(var(--accent)); }
 
+/* A world's part of a tab its client draws: the world's name over its rows, and before its words. */
+.from { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 12px; font-size: .82em; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: rgba(var(--ink), .55); }
+.note.said { border-left-color: rgba(var(--ink), .3); }
+.note.said b { color: rgba(var(--ink), .9); margin-right: .45em; }
 .note { margin: 0; padding: 4px 12px 0 12px; color: rgba(var(--ink), .78); border-left: 2px solid rgba(var(--accent), .6); margin-left: 12px; font-size: .95em; }
 .note:empty { display: none; }
 .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 12px 12px; }
@@ -588,11 +592,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   let barDrawn = "";
   const rows = el("div", { class: "rows" });
   const note = el("p", { class: "note" });
+  const said = el("p", { class: "note said", hidden: "" });
   const close = el("button", { class: "close", type: "button" }, "Close");
   // Keep the tab that is open on the bar, or take it off: the visitor's own doing, and nobody else's.
   const pinWords = el("span");
   const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
-  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
+  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, el("div", { class: "foot" }, pinIt, close));
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
@@ -1216,7 +1221,14 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     const lay = (items: UiItemView[]): (HTMLElement | string)[] => {
       const laid: (HTMLElement | string)[] = [];
       let run = null as { kind: string; box: HTMLElement } | null;
+      let whose = "";
       for (const item of items) {
+        // Where a world's rows begin, its name: what is under it is the world's, and what is above the menu's own.
+        if ((item.from ?? "") !== whose) {
+          whose = item.from ?? "";
+          run = null;
+          if (whose) laid.push(el("p", { class: "from" }, whose));
+        }
         if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
           run = null;
           laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : drawRow(item));
@@ -1252,6 +1264,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     if (fresh && about) rows.scrollTop = 0;
     rows.hidden = !current?.items.length && !current?.card;
     note.textContent = current?.note ?? "";
+    // What the world says in this tab, after the menu's own words and under the world's name.
+    said.hidden = !current?.said;
+    said.replaceChildren(...(current?.said ? [el("b", {}, current.said.from), current.said.note] : []));
     sheet.hidden = !open;
     menu.setAttribute("aria-expanded", String(open));
     quiet.setAttribute("aria-expanded", String(open));
