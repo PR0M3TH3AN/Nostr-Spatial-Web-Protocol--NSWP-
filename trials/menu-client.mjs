@@ -329,6 +329,64 @@ try {
   check("the world is told it went", await until(() => world().evaluate(() => window.__nswpTest.hud.open === false)));
   check("and the frame has the keys again", await until(() => client(() => document.activeElement?.tagName === "IFRAME")));
 
+  // ---- The keys at the sheet's closing, with the menu brought up as a visitor brings it up: by a press on the
+  // client's own Menu mark. (Above, it was brought up by this script, with the frame holding the keys, and the keys
+  // went back to the frame. A real client found what that hid: brought up from the mark, the menu gave the keys to
+  // the frame as it closed and took them back to the mark two milliseconds later, and the visitor could not walk
+  // until they pressed on the view.) So each is looked at a moment after, not at once, and a key is then pressed.
+  const mark = hud.locator("button.menu");
+  const keysNow = () => world().evaluate(() => window.__keys);
+  const stillTheWorlds = async () => {
+    await page.waitForTimeout(600);
+    const at = await client(() => document.activeElement?.tagName);
+    const before = await keysNow();
+    await page.keyboard.press("KeyW");
+    const heard = await until(async () => (await keysNow()) > before, 3000);
+    return { at, heard: !!heard };
+  };
+  await press(mark);
+  await until(() => client(() => window.__client.menu.open === true));
+  await page.waitForTimeout(500);
+  const heldUp = await keysNow();
+  await page.keyboard.press("KeyW");
+  await page.waitForTimeout(300);
+  check("with the menu up, brought up from its mark, the world hears no key", (await keysNow()) === heldUp, [heldUp, await keysNow()]);
+  await page.keyboard.press("Escape");
+  await until(() => client(() => window.__client.menu.open === false));
+  let after = await stillTheWorlds();
+  check("closed by Escape: a moment later the keys are still the world's, and a key walks", after.at === "IFRAME" && after.heard, after);
+  await press(mark);
+  await until(() => client(() => window.__client.menu.open === true));
+  await page.waitForTimeout(500);
+  await press(hud.getByRole("button", { name: "Close", exact: true }));
+  await until(() => client(() => window.__client.menu.open === false));
+  after = await stillTheWorlds();
+  check("closed by its own Close: the same", after.at === "IFRAME" && after.heard, after);
+  await press(mark);
+  await until(() => client(() => window.__client.menu.open === true));
+  await page.waitForTimeout(500);
+  await press(mark);
+  await until(() => client(() => window.__client.menu.open === false));
+  after = await stillTheWorlds();
+  check("closed by a second press on the mark: the same", after.at === "IFRAME" && after.heard, after);
+
+  // ---- A press outside the sheet closes the menu, and is nothing else. Without it the press went to the frame:
+  // the menu stayed up and the world heard keys with it up.
+  await press(mark);
+  await until(() => client(() => window.__client.menu.open === true));
+  await page.waitForTimeout(500);
+  await world().evaluate(() => { window.__pressed = []; for (const type of ["pointerdown", "pointerup", "click"]) addEventListener(type, () => window.__pressed.push(type), true); });
+  const sheetAt = await hud.locator("section.sheet").boundingBox();
+  check("the press is outside the sheet: to its left, over the world", !!sheetAt && sheetAt.x > 80, sheetAt);
+  await page.mouse.click(40, 300);
+  check("a press outside the sheet closes the client's menu", await until(() => client(() => window.__client.menu.open === false), 3000));
+  check("and the world is told it went", await until(() => world().evaluate(() => window.__nswpTest.hud.open === false), 3000));
+  check("it is nothing else: no part of the press reached the world", JSON.stringify(await world().evaluate(() => window.__pressed)) === "[]", await world().evaluate(() => window.__pressed));
+  after = await stillTheWorlds();
+  check("and a moment later the keys are the world's, and a key walks", after.at === "IFRAME" && after.heard, after);
+  await page.mouse.click(40, 300);
+  check("with the menu down, the same press is the world's again", await until(() => world().evaluate(() => window.__pressed.includes("pointerdown")), 3000), await world().evaluate(() => window.__pressed));
+
   // ---- Nothing of the visitor's own tabs was ever said down.
   results["refused, as everything but these sites is"] = [...refused];
   results["relays asked for, and answered here with nothing"] = [...sockets];

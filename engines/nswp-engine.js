@@ -52873,8 +52873,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     ...card.now.length ? { now: card.now } : {},
     ...card.acts?.length ? { acts: card.acts } : {}
   });
-  function describeWorld(view2, state = {}, help = "") {
+  function describeWorld(view2, state = {}, help = "", own2 = false) {
     const onBar = new Set(view2.hotbar.map((i) => i.id));
+    const leftOut = own2 ? CLIENTS.filter((id2) => !MENU_VISITOR_TABS.includes(id2)) : CLIENTS;
+    const kits = (id2) => visitorsOwnRow(id2) || own2 && id2.startsWith("look-");
     const about = help.trim().length <= MENU_LIMITS.note ? help.trim() : "";
     return {
       title: view2.title.slice(0, MENU_LIMITS.title),
@@ -52885,7 +52887,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       state,
       target: view2.target ? [view2.target, ...view2.detail].slice(0, 6) : [],
       loading: view2.loading,
-      sections: view2.sections.filter((s) => !CLIENTS.includes(s.id)).map((s) => ({
+      sections: view2.sections.filter((s) => !leftOut.includes(s.id)).map((s) => ({
         id: s.id,
         label: s.label,
         ...s.icon ? { icon: s.icon } : {},
@@ -52894,7 +52896,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
         // client's own rows, which it draws itself inside this tab.
         // Not the visitor's own rows, and not a bar that is moved along: no word of these carries one.
-        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !visitorsOwnRow(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id)))
+        rows: s.items.filter((i) => !(s.id === "travel" && !own2 && VISITORS_ROWS.includes(i.id)) && !kits(i.id) && i.kind !== "slider").map((i) => rowOf(i, onBar.has(i.id)))
       })).filter((s) => s.rows.length > 0 || s.card || s.id === "help" && about)
     };
   }
@@ -52950,7 +52952,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       waiting3 = null;
       if (!has) return;
       const view2 = controls2.view();
-      const world2 = describeWorld(view2, opts.state?.(), opts.help?.() ?? "");
+      const world2 = describeWorld(view2, opts.state?.(), opts.help?.() ?? "", opts.own === true);
       const text2 = JSON.stringify(world2);
       if (text2 !== last) {
         last = text2;
@@ -53434,6 +53436,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
   border-radius: 22px 22px 12px 12px; overflow: hidden; }
 .sheet[hidden] { display: none; }
+/* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
+.outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
+.outside[hidden] { display: none; }
 /* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
@@ -53785,7 +53790,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
     const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-    root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id2, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
+    const outside = el("div", { class: "outside", "aria-hidden": "true", hidden: "" });
+    root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id2, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
     let section = "";
@@ -54417,6 +54423,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       said2.hidden = !current?.said;
       said2.replaceChildren(...current?.said ? [el("b", {}, current.said.from), current.said.note] : []);
       sheet.hidden = !open2;
+      outside.hidden = !open2;
       menu2.setAttribute("aria-expanded", String(open2));
       quiet.setAttribute("aria-expanded", String(open2));
     };
@@ -54424,6 +54431,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       let at = document.activeElement;
       while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
       return at;
+    };
+    const keysElsewhere = () => {
+      const at = focused();
+      return !!at && at !== document.body && at !== document.documentElement && at !== host && at.getRootNode() !== root;
     };
     let cameFrom = null;
     const setOpen = (next, at) => {
@@ -54442,13 +54453,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       open2 = next;
       if (!open2) clearFields();
       controls2.signal(open2 ? "menuOpen" : "menuClose");
+      const givenAway = !open2 && keysElsewhere();
       draw();
       if (open2) return void tabs.querySelector('[aria-selected="true"]')?.focus();
       const back = cameFrom;
       cameFrom = null;
+      if (givenAway) return;
       if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
       else focused()?.blur();
     };
+    outside.addEventListener("click", () => setOpen(false));
     setMenuPlace(() => {
       if (!open2 || sheet.hidden) return null;
       const r = sheet.getBoundingClientRect();

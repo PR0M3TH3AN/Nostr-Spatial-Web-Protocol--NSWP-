@@ -650,3 +650,62 @@ describe("a file the visitor chose, and something a world hands up to save", () 
     }
   });
 });
+
+/**
+ * A page of its client's own origin (a client's own room, in the client's frame) fills the visitor's own tabs
+ * itself, and says so with `own` at the world's end (menu-above.ts). That only changes what a page says: whether it
+ * is taken is decided here, by the frame's origin exactly.
+ */
+describe("a page that says it is its client's own", () => {
+  /** A page with a row in the visitor's Bag, one in You, one of its own in Display, a way home and a list of doors. */
+  const page = (own: boolean) => {
+    const w = createControls({ title: "The room" });
+    w.add({ id: "home", section: "travel", label: "Go home", act: () => {} });
+    w.add({ id: "list", section: "travel", label: "Your doors, as a list", act: () => {} });
+    w.add({ id: "door-grove", section: "travel", label: "To the Grove", act: () => {} });
+    w.add({ id: "bag-lantern", section: "bag", label: "A lantern", act: () => {} });
+    w.add({ id: "you-sign-out", section: "you", label: "Sign out", act: () => {} });
+    w.add({ id: "figure-edit", section: "figure", label: "Change how you look", act: () => {} });
+    w.add({ id: "room-join", section: "room", label: "Join the room", act: () => {} });
+    return describeWorld(w.view(), {}, "", own);
+  };
+  const rowsOf = (c: ReturnType<typeof make>) => c.below.port.view().sections.flatMap((s) => s.items.filter((i) => i.id.startsWith(WORLDS)).map((i) => `${s.id}/${i.id.slice(WORLDS.length)}`));
+
+  it("says the visitor's own tabs, and its own rows under Travel, only where it says it is its client's own", () => {
+    const tabs = (w: Record<string, unknown>) => (w.sections as { id: string; rows: { id: string }[] }[]).map((s) => `${s.id}: ${s.rows.map((r) => r.id).join(" ")}`);
+    expect(tabs(page(false))).toEqual(["travel: door-grove", "room: room-join"]);
+    expect(tabs(page(true))).toEqual(["travel: home list door-grove", "you: you-sign-out", "room: room-join", "figure: figure-edit", "bag: bag-lantern"].sort((a, b) => tabs(page(true)).indexOf(a) - tabs(page(true)).indexOf(b)));
+    // What the client's page makes for itself from the same kit is still not said, or it would be there twice:
+    // Display's own rows, and the switches that change a setting.
+    expect(JSON.stringify(page(true))).not.toMatch(/look-lantern|look-size|look-motion/);
+  });
+
+  it("is taken, visitor's tabs and all, from a page whose origin is the client's own", () => {
+    const c = make({ origin: CLIENT });
+    c.here();
+    c.from({ nswp: "menu", world: page(true) });
+    expect(rowsOf(c).sort()).toEqual(["bag/bag-lantern", "figure/figure-edit", "room/room-join", "travel/door-grove", "travel/home", "travel/list", "you/you-sign-out"]);
+  });
+
+  it("gains a page of any other origin nothing: the visitor's tabs it says are left out, exactly as if it had not said them", async () => {
+    const honest = make();
+    honest.here();
+    honest.from({ nswp: "menu", world: page(false) });
+    const claims = make();
+    claims.here();
+    claims.from({ nswp: "menu", world: page(true) });
+    // Nothing in You, Your look or the Bag from it, whatever it said.
+    expect(rowsOf(claims).filter((r) => /^(you|figure|bag|look|wallet|files)\//.test(r))).toEqual([]);
+    // Under Travel it says two rows more, which any world could have described under any id: they are the world's,
+    // drawn under the world's name and marked as the world's, never the client's own way home.
+    expect(rowsOf(claims).sort()).toEqual([...rowsOf(honest), "travel/home", "travel/list"].sort());
+    const travel = claims.below.port.view().sections.find((s) => s.id === "travel")!.items;
+    expect(travel[0]).toMatchObject({ id: "home", label: "Home" });
+    expect(travel.find((i) => i.id === `${WORLDS}home`)).toMatchObject({ from: "The room", label: "Go home" });
+    // The client's own Home is the client's: pressed, nothing is said to the world.
+    claims.sent.length = 0;
+    claims.below.port.run("home");
+    await vi.advanceTimersByTimeAsync(0);
+    expect([claims.pressed, claims.sent.filter((x) => x.word.press !== undefined)]).toEqual([["home"], []]);
+  });
+});

@@ -107,6 +107,29 @@ try {
   await hud.getByRole("button", { name: "Copy the room's key" }).click();
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
+
+  // A press outside the sheet closes the menu, and is nothing else: in the world's own page, as in a client's. The
+  // world's view is under where the press lands, and hears none of it.
+  await page.evaluate(() => {
+    window.__nswpTest.hud.setOpen(true, "room");
+    window.__view = [];
+    for (const type of ["pointerdown", "pointerup", "click"]) document.querySelector("canvas").addEventListener(type, () => window.__view.push(type));
+  });
+  await page.waitForTimeout(600);
+  const sheetAt = await hud.locator("section.sheet").boundingBox();
+  check("the press is outside the sheet: to its left, on the view", !!sheetAt && sheetAt.x > 80, sheetAt);
+  await page.mouse.click(40, 300);
+  await page.waitForTimeout(300);
+  check("a press outside the sheet closes the menu", (await page.evaluate(() => window.__nswpTest.hud.open)) === false);
+  check("and is nothing else: the world's view heard no part of it", JSON.stringify(await page.evaluate(() => window.__view)) === "[]", await page.evaluate(() => window.__view));
+  await page.mouse.click(40, 300);
+  await page.waitForTimeout(300);
+  check("with the menu down, the same press is the world's again", (await page.evaluate(() => window.__view)).includes("pointerdown") && (await page.evaluate(() => window.__nswpTest.hud.open)) === false, await page.evaluate(() => window.__view));
+  // The bar and the menu's own mark are pressed as before with the sheet up: a press on the mark puts it away.
+  await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
+  await page.waitForTimeout(500);
+  await hud.locator("button.menu").click();
+  check("a press on the menu's own mark still puts it away, and not by way of what is outside", (await page.evaluate(() => window.__nswpTest.hud.open)) === false);
   results["relays asked for, and answered here with nothing"] = [...sockets];
   await ctx.close();
 } finally {

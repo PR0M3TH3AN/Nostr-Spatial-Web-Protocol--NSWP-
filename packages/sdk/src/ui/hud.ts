@@ -235,6 +235,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
   border-radius: 22px 22px 12px 12px; overflow: hidden; }
 .sheet[hidden] { display: none; }
+/* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
+.outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
+.outside[hidden] { display: none; }
 /* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
@@ -632,7 +635,10 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const chatSend = el("button", { type: "submit" }, "Send");
   const chatForm = el("form", {}, chatField, chatSend);
   const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
-  root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine, target, bar));
+  // Everything outside the sheet, while the sheet is up. It lies over the page and under the rest of the menu, so
+  // the bar, the marks and the sheet are pressed as before, and a press anywhere else lands here.
+  const outside = el("div", { class: "outside", "aria-hidden": "true", hidden: "" });
+  root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine, target, bar));
   (opts.parent ?? document.body).append(host);
 
   let open = false;
@@ -1374,6 +1380,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     said.hidden = !current?.said;
     said.replaceChildren(...(current?.said ? [el("b", {}, current.said.from), current.said.note] : []));
     sheet.hidden = !open;
+    outside.hidden = !open;
     menu.setAttribute("aria-expanded", String(open));
     quiet.setAttribute("aria-expanded", String(open));
   };
@@ -1383,6 +1390,11 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     let at = document.activeElement as HTMLElement | null;
     while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement as HTMLElement;
     return at;
+  };
+  /** Whether the keys are with something that is not this menu, and not nothing: a frame, a box of the page's own. */
+  const keysElsewhere = (): boolean => {
+    const at = focused();
+    return !!at && at !== document.body && at !== document.documentElement && at !== host && at.getRootNode() !== root;
   };
   /** What had the keys when the menu came up: they go back to it when the menu goes away. */
   let cameFrom: HTMLElement | null = null;
@@ -1405,15 +1417,26 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     open = next;
     if (!open) clearFields();
     controls.signal(open ? "menuOpen" : "menuClose");
+    // Whoever is told the menu went may give the keys away as it goes: a client's port gives them to the world in
+    // its frame (port-below.ts), which hears no key while this page has them. Then they are not ours to take back.
+    // (They were, until a real client found it: the frame was given the keys, the menu's own mark took them two
+    // milliseconds later, and the visitor could not walk until they pressed on the view.)
+    const givenAway = !open && keysElsewhere();
     draw();
     if (open) return void (tabs.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
     // Closing leaves nothing of ours holding the keys: they go back to whatever had them, the world's own
     // interface included, and to our own mark only if that is where the visitor came from.
     const back = cameFrom;
     cameFrom = null;
+    if (givenAway) return;
     if (back?.isConnected && back !== document.body && getComputedStyle(back).display !== "none") back.focus({ preventScroll: true });
     else focused()?.blur();
   };
+  // A press outside the sheet while it is up closes the menu, and does nothing else: it is not a step, a shot or a
+  // door in the world, in a world's own page or in a client's above one (where, without this, the press went to
+  // the frame and the world heard keys with the menu still up). Closed at the end of the press, so that no part of
+  // it reaches what is underneath.
+  outside.addEventListener("click", () => setOpen(false));
   // Shown inside a client that draws the sign-in address's panel over the world (client-frame.ts): the panel is
   // drawn where this menu is, so the menu says where that is, steps aside while the panel is up, and comes back.
   setMenuPlace(() => {
