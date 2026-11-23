@@ -13,8 +13,9 @@
 - **Who:** a written design first. BitLogin (the keys, and whatever uses
   them), the kit (what an agent is, and how a world shows one), BitPortal.
   Not briefed.
-- **State:** asked. After the client's menu and the identity work
-  (`guest-accounts`), which it builds on.
+- **State:** asked. Not a priority (the owner, 2026-11-23: "This is not a
+  priority. Id like for each to be added to the backlog."). Its pieces are
+  `agents-0-contracts` to `agents-8-a-companion-across-worlds`.
 
 ## The two halves
 
@@ -144,10 +145,8 @@ opt-in with a budget; and no key is revealed to a world's own code.
 account spends nothing until it is secured; and the client's menu is where a
 visitor turns credit on, sees what is spent and mutes or removes an agent.
 
-**Not decided:** when it starts, and in which session. It is the largest
-piece of work asked for so far. By the owner's order the menu comes first;
-the first tier touches nothing the menu touches and could run beside it in a
-session of its own.
+**Decided by the owner the same day:** it is not a priority. Each piece is
+in the backlog and none is started.
 
 ## Must not
 

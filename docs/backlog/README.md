@@ -76,6 +76,10 @@ up to the deploy in one command.
    `rooms-stun-servers`, `tests-that-depend-on-the-clock`,
    `local-security-checks`.
 
+**Last, and not a priority** (the owner, 2026-11-23): the agent platform,
+`ai-keys-and-agents` and its nine pieces, `agents-0-contracts` to
+`agents-8-a-companion-across-worlds`, in that order.
+
 New asks from the owner still go in the day they are asked; where one is
 urgent (a live fault), it goes first.
 
@@ -116,6 +120,15 @@ urgent (a live fault), it goes first.
 | [headset-menu-like-the-flat-one](headset-menu-like-the-flat-one.md) | In a headset, the flat screen's menu: larger, floating, the bar below tilted towards you, things coming forward under the pointer | NSWP builder | asked (after Godot's headset controls; a design with pictures first) |
 | [guest-accounts](guest-accounts.md) | One identity across BitPortal: a guest is a generated account made automatically, and a guest or an account is known in every world without being asked | design first (BitLogin, with the kit's half) | asked |
 | [ai-keys-and-agents](ai-keys-and-agents.md) | AI provider keys kept in BitLogin (intelligence, voice, System 1, other), and AI agents in the worlds made by signed notes, paid for by each visitor's own key | design first (BitLogin, the kit, BitPortal) | asked |
+| [agents-0-contracts](agents-0-contracts.md) | The words and the boundaries, before anything is built | not briefed (nswp-agents) | asked; not a priority |
+| [agents-1-several-in-one-world](agents-1-several-in-one-world.md) | Several agents in one world, in the visitor's own browser | not briefed (nswp-agents) | asked; not a priority |
+| [agents-2-a-world-places-them](agents-2-a-world-places-them.md) | A world's maker places agents by writing data | not briefed (nswp-agents) | asked; not a priority |
+| [agents-3-who-an-agent-is](agents-3-who-an-agent-is.md) | Who an agent is, as signed notes, with its SOUL | not briefed (nswp-agents) | asked; not a priority |
+| [agents-4-what-it-remembers](agents-4-what-it-remembers.md) | What an agent remembers of a visitor, kept private | not briefed (nswp-agents) | asked; not a priority |
+| [agents-5-thinking-deciding-speaking](agents-5-thinking-deciding-speaking.md) | Thinking, quick decisions, speaking and hearing, each replaceable | not briefed (nswp-agents) | asked; not a priority |
+| [agents-6-keys-in-bitlogin](agents-6-keys-in-bitlogin.md) | Provider keys kept in BitLogin, and spent without a world holding them | not briefed (bitlogin) | asked; not a priority |
+| [agents-7-shared-and-always-on](agents-7-shared-and-always-on.md) | One agent shared by a room, and agents that go on when nobody is there | not briefed (NSWP and nswp-agents) | asked; not a priority |
+| [agents-8-a-companion-across-worlds](agents-8-a-companion-across-worlds.md) | A companion that comes with you from world to world | not briefed (NSWP) | asked; not a priority |
 | [items-for-guests](items-for-guests.md) | Items a visitor can use without signing in, where the world and the item's maker both allow it | not briefed (kit first) | asked |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
 | [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | BitPortal (kit) | briefed (option B chosen) |
