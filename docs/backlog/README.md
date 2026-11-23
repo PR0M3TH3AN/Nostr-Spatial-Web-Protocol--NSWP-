@@ -43,6 +43,10 @@ same day).
 **With it, the same day:** `bitlogin-panels-feel-native`: measured now by
 the BitLogin session, fixed before the menu's Wallet and Files tabs (step 4).
 
+**For the builder once the menu's step 1 is done** (while BitPortal's
+session does step 2): `godot-headset-controls`, the same controls in a
+headset in a Godot world as in every other.
+
 **After the menu, asked the same day:** `guest-accounts` (a design first),
 then `items-for-guests`, which it largely replaces. In full: `items-for-guests`, items a visitor
 can use without signing in, where the world and the item's maker allow it.
@@ -104,6 +108,7 @@ urgent (a live fault), it goes first.
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | merged (NSWP 331); not live |
+| [godot-headset-controls](godot-headset-controls.md) | A Godot world has no way to move in a headset: the same controls as every other world | NSWP builder | asked (next for the builder after the menu's step 1) |
 | [guest-accounts](guest-accounts.md) | One identity across BitPortal: a guest is a generated account made automatically, and a guest or an account is known in every world without being asked | design first (BitLogin, with the kit's half) | asked |
 | [items-for-guests](items-for-guests.md) | Items a visitor can use without signing in, where the world and the item's maker both allow it | not briefed (kit first) | asked |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
