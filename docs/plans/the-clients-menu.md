@@ -591,15 +591,20 @@ press across its view). Section 8.
   default, on one condition: **step 1 must not lose anything a visitor can do
   today.** Section 15 lists every typed or pasted row, and where each goes.
 
-**Open, for the orchestrator** (both in section 15, under "Nothing is lost"):
+**Answered by the orchestrator on PRs 355 and 358 (2026-11-23):**
 
-- Until step 3 the chat's pane stays the world's own, drawn in its frame.
-  *Recommend yes:* the other way is to send the room's chat, messages and posts
-  through the words now, which is step 3's work.
-- Four more things need the visitor's press in the world's own page, by every
-  browser's own account, and are not yet tried: choosing a file, sharing the
-  screen, saving a photo, and the visitor's own music. *Recommend* the same second
-  press as "Launch" for the first three, and the client playing the music itself.
+- **The chat's pane stays the world's own until step 3,** drawn in its frame under the
+  client's menu and opened from a described row. It carries no bar, mark or sheet,
+  and nothing in it may look like the client's menu. Step 3 removes it (section 15).
+- **The four more presses are the orchestrator's to agree, by the rule the owner set**
+  (a second press with its own plain name reads as intended, as "Enter VR" then
+  "Launch" does). First, though, try whether the client can do the browser's part
+  itself and hand the result over, so that it stays one press (section 15).
+- **The names of step 1's first part are all given as listed** (`docs/fleet.md`).
+  Two decisions stand: a word carrying anything only the other side says isn't
+  read, and only the first 12 tabs sent are looked at.
+- **A card's `proven` is taken only from a page of the client's own origin.** From
+  any other world it is dropped (section 15, "The one thing knowingly given up").
 
 ## 15. The build, a pull request a step
 
@@ -637,24 +642,40 @@ section 4's two places. A client that runs Following itself leaves such a row ou
 
 **In a headset** nothing changes: the world draws the console and its own keyboard.
 
-**The chat's pane, until step 3.** The room's chat, messages and posts are models with
-calls of their own, not yet words (`ui/port.ts`). Sending them through the words is
-step 3's work. Until then the world keeps that one pane, and only that: no bar, no
-mark, no sheet. It is what a visitor has today, so nothing private passes through a
-world that doesn't already. A question for the orchestrator (section 14).
+**The chat's pane, for steps 1 to 3** (decided: the orchestrator, 2026-11-23). The
+room's chat, messages and posts are models with calls of their own, not yet words
+(`ui/port.ts`). Sending them through the words is step 3's work. Until then the world
+keeps that one pane, drawn in its own frame under the client's menu and opened from
+a described row. It carries no bar, no mark and no sheet, and nothing in it may look
+like the client's menu. It is what a visitor has today, so nothing private passes
+through a world that doesn't already. **Step 3 removes it.**
 
-**Four more presses that must land in the world's own page,** found while listing
-these, and not in step 0b's trial. Each is refused without a press in the page that
-asks, by every browser's own account; each is to be tried with step 1:
+**The one thing knowingly given up, for steps 1 and 2: the proven mark in People.**
+Until step 3 a world still fills People, and its card says who someone is. A card's
+`proven` (the mark for a name their own client vouched for) is taken only from a
+page of the client's own origin, and dropped from any other world (the orchestrator,
+2026-11-23). A proven mark drawn by the client, in the client's own style, on a
+world's say-so would be the client vouching for what it hasn't checked. That is
+worse than today, where the world draws its own menu and the mark is plainly the
+world's. A world can still write what it likes in a card's `tag`, which is its own
+words. Step 3 brings the mark back, from a pass the client checks itself.
 
-| What | Tab | Proposed |
-|---|---|---|
-| Choosing a file: "Hang a picture or video from this device" | Panels | The world shows its own press across its view, as for "Launch", saying "Choose a file" |
-| Sharing the screen | Room | The same, saying "Share your screen" |
-| Saving a photo (a download from a frame) | Camera | The same, saying "Save the photo", if Chrome refuses it from a `press` |
-| The visitor's own music (choosing the files) | Sound | Sound is the client's tab: the client's page chooses the files and plays them itself. The music then doesn't stop at a door |
+**Four more presses that must land in the page that asks,** found while listing
+these, and not in step 0b's trial. A browser refuses each without a press in the page
+that asks. Decided (the orchestrator, 2026-11-23): **before settling for a second
+press, try whether the client can do the browser's part itself and hand the result
+over,** so that it stays one press. Each is tried in the trial with step 1.
 
-Copying the room's link (Room) is a `copy` row.
+| What | Tab | First tried | If handing over fails |
+|---|---|---|---|
+| Choosing a file: "Hang a picture or video from this device" | Panels | The client's page has the press, so it opens the chooser and hands the file down to the world. The row says which world gets it, and nothing is sent until the visitor has chosen | A second press on the world's view: "Choose a file" |
+| Saving a photo | Camera | The world hands the picture up, and the client saves it from its own page | A second press: "Save the photo" |
+| The visitor's own music | Sound | Sound is the client's tab: the client's page chooses the files and plays them itself. The music then doesn't stop at a door | None needed |
+| Sharing the screen | Room | Not tried: the stream has to start in the page that uses it | A second press on the world's view: "Share your screen" |
+
+The words for a file going down and a picture going up, with their limits, are
+proposed once the trial shows they work. Copying the room's link (Room) is a `copy`
+row.
 
 **Parked while this is built:** seated mode step 2 (the seat). The fade from step 1 of
 that plan is the world's part and is not touched by this.
