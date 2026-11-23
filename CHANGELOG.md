@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The menu takes a world's port, and nothing else** (`nswp-sdk/menu`: `mountMenu`, `WorldPort`, `portHere`; `docs/plans/the-clients-menu.md`, step 0; names from the orchestrator). The first step towards the menu being the client's. Nothing a visitor can see changes.
+  - The flat-screen menu used to be handed a world's controls whole. It is now handed a port: what to draw as data, a press back by its id, and a few signals. `portHere(controls)` is the one carrier so far, the world's own controls, direct; the next step adds words from a page above.
+  - `mountHud(controls)` still works and is `mountMenu(portHere(controls))`.
+  - In the reference worlds the menu is a file of the build's own (56 KB, minified, in the Gallery), fetched by the world as it starts, so that a world whose client draws the menu need never fetch it. For that the world takes `createControls` from `nswp-sdk/three`, which now exports it; `nswp-sdk/ui` carries the menu with it.
+  - The engine script uses the port too. It stays one file.
+  - Not yet through the port: the headset's in-world console, which still reads the controls.
+  - Tried: the menu's pictures before and after are the same on a phone's width, and within 2 levels of 255 at a desk's; the fullscreen, bar, item, loading, engine-console and owner's-screen trials pass on the new build.
+- `trials/bar-scrolls.mjs` was out of date since kit 0.79.0, which put a held item's presses under the thumb on a touch screen: it no longer expects Fire and Reload on a phone's bar.
 - **The local sites are served at this machine's own network address, never a VPN's** (`scripts/lan-address.mjs`: `lanAddress`, `anyAddress`, `waitForLanAddress`; `scripts/serve-local.mjs`; `trials/lib.mjs`; the orchestrator, 2026-11-23). At boot the first address the machine listed was Tailscale's, and the sites redirected to an address the certificate doesn't cover.
   - The address is chosen: a private one (192.168, then 10, then 172.16), never a network's only address (a VPN's /32), never on an interface that is a VPN's, a container's or a virtual machine's by its name.
   - `serve-local.mjs --lan` waits up to 30 seconds at start for one (`LAN_WAIT_MS`), then falls back to what it did before and says so. `LOCAL_HOST` says the address outright, as it already did for the trials.

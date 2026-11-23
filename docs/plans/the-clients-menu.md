@@ -1,8 +1,10 @@
 # The client's menu: a design
 
-**Status:** the orchestrator answered on 2026-11-23 (section 14): the names are given,
-the steps stand, and steps 0 and 0b go ahead. The owner's eight questions are still
-open, and step 1 waits for them. NSWP builder, 2026-11-23. From
+**Status:** the orchestrator answered on 2026-11-23 (section 14): the names are given
+and the steps stand. Step 0b (the press trial) is done, and step 0 (the seam) is built:
+the menu takes a world's port and nothing else (`nswp-sdk/menu`, `ui/port.ts`), and is
+a file of a world's own build. The owner's eight questions are still open, and step 1
+waits for them. NSWP builder, 2026-11-23. From
 `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. Every new name is a proposal, listed
 in section 13; none is used before it is given (rule 11).

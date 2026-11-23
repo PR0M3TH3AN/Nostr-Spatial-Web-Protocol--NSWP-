@@ -29,6 +29,9 @@ import type { GoOptions } from "./index.js";
 export { createPresence, speechSprite, textSprite, type AvatarInfo, type Presence, type PresenceOptions } from "./presence.js";
 export { addRoomControls, type RoomFollows, type RoomNotes, type Travelling } from "./room-controls.js";
 export { addDoorControls, vouchedWords, type DoorControls, type DoorControlsOptions, type MenuDoor } from "./door-controls.js";
+// A world's controls, here too: a world that takes them from this entry and its menu from `nswp-sdk/menu` keeps the
+// menu's code in a file of its own (`nswp-sdk/ui` carries the menu with it, for a page that wants both at once).
+export { createControls, type Controls, type ControlsOptions } from "./ui/model.js";
 
 export interface CaptureOptions {
   /** Width of the panorama in pixels; the height is half of it. Default 2048, at most 4096. */

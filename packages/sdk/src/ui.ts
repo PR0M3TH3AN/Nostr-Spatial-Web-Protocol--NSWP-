@@ -4,7 +4,8 @@
  * `createConsole` in `nswp-sdk/three`.
  */
 export { createControls, type Controls, type ControlsOptions, type UiAction, type UiCard, type UiSection, type UiView, type UiItemView, type UiSectionView, type Presence, type Corner, type UiKeys } from "./ui/model.js";
-export { mountHud, type Hud } from "./ui/hud.js";
+export { mountHud, mountMenu, type Hud } from "./ui/hud.js";
+export { portHere, type WorldPort } from "./ui/port.js";
 // A door's details in the menu, with "Travel here" (door-controls.ts).
 export { addDoorControls, vouchedWords, type DoorControls, type DoorControlsOptions, type MenuDoor } from "./door-controls.js";
 // What the people in a room write to each other, as the controls hold it, and the visitor's switch for it.

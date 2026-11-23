@@ -22,6 +22,7 @@
  */
 import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
+import { portHere, type WorldPort } from "./port.js";
 import { loadPicture } from "../picture.js";
 import { ago } from "./feed.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./model.js";
@@ -423,7 +424,14 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
   return e;
 }
 
-export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}): Hud {
+/**
+ * The visitor's menu, drawn from a world's port and from nothing else (ui/port.ts; docs/plans/the-clients-menu.md).
+ * The port is all it is given of the world: what to draw comes as `view()`, and a press goes back as an id. So the
+ * same menu can be given a port carried some other way (by words, from a page above the world) and not know it.
+ */
+export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}): Hud {
+  // Called `controls` throughout what follows, as it was when this was given a world's controls whole.
+  const controls = port;
   const host = document.createElement("nswp-hud");
   const root = host.attachShadow({ mode: "open" });
   // A constructed stylesheet, not a <style> element: a site with a strict
@@ -1355,4 +1363,12 @@ export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}
       host.remove();
     },
   };
+}
+
+/**
+ * The menu over a world's own controls: the direct carrier, which is what a world with no client above it has.
+ * `mountMenu(portHere(controls))`, under the name it has always had.
+ */
+export function mountHud(controls: Controls, opts: { parent?: HTMLElement } = {}): Hud {
+  return mountMenu(portHere(controls), opts);
 }

@@ -9,6 +9,7 @@
     "./three": "./src/three.ts",
     "./home": "./src/home.ts",
     "./ui": "./src/ui.ts",
+    "./menu": "./src/menu.ts",
     "./terminal": "./src/terminal.ts"
   },
   "peerDependencies": {
