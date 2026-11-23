@@ -3,9 +3,12 @@
 - **Asked:** 2026-11-23. The owner handed over a design pack ("NSWP Agent
   Platform, Modular Design Pack", 0.3 draft) and said of it: "This is not a
   priority. Id like for each to be added to the backlog."
-- **State:** started 2026-11-23 in `nswp-agents`, by that repository's own
-  session, on the owner's word to it ("Start M0"). It needs no note kinds and
-  changes nothing outside that repository. The other pieces are not started.
+- **State:** done 2026-11-23 in `nswp-agents`, on the branch
+  `agents/m0-contracts` (its pull request 1, open and unmerged, which also
+  carries the owner's earlier unfinished work; merging is the owner's word).
+  Its gate passed, 254 tests. Nothing new runs in the app yet. The other pieces are
+  not started as the pack defines them; see `ai-keys-and-agents` for what
+  the owner asked for next.
 - **The whole of it:** `ai-keys-and-agents`. The pack is the owner's own, for
   the private repository `PR0M3TH3AN/nswp-agents` (kept there under
   `docs/plans/agent-platform/` by the session that has that repository, since

@@ -146,6 +146,20 @@ opt-in with a budget; and no key is revealed to a world's own code.
 account spends nothing until it is secured; and the client's menu is where a
 visitor turns credit on, sees what is spent and mutes or removes an agent.
 
+**The owner's direction for `nswp-agents`, 2026-11-23** (after "Not yet" to
+the pack's M1): "id like for it to get the memory, SOUL.md and other
+personality things worked out in the webUI i started in on. So we can see
+how steerable an agent like this is in its personality and in conversation
+history and memory loaded in from nostr. As well as if we can get JEV
+working to allow the agent to actually "play" like a player or NPC. We can
+use my little dev app over there as our testing playground". So that
+repository's session works, in the owner's own dev app and for one agent, on
+personality that can be steered, on history and memory loaded from Nostr,
+and on JEV choosing the agent's actions: the pack's documents 03, 04 and 05
+in small. It uses no note kinds of its own, keeps keys the owner's to type,
+and sends nothing test-made to real relays. The first milestone
+(`agents-0-contracts`) is done there, on a branch, unmerged.
+
 **Decided by the owner the same day:** it is not a priority. Each piece is
 in the backlog. The first, `agents-0-contracts`, was started the same day in
 `nswp-agents` on the owner's word to that repository's session.
