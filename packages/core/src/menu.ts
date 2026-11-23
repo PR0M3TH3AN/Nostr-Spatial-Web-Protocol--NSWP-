@@ -65,6 +65,13 @@ export const MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "
 export type MenuKey = (typeof MENU_KEYS)[number];
 
 /**
+ * Before a tab's id, for the picture of the card at its head: a card has no id of its own, so its picture is sent
+ * as `{ picture, id: "card:people" }`. So that this can never be taken for a row's picture, no row's id may begin
+ * with it: a row that does is left out as it is read.
+ */
+export const MENU_CARD_PICTURE = "card:";
+
+/**
  * What kind of row it is. `copy` and `field` are done by the client itself, since the word of a press is not a
  * press in the world's page: `copy` carries text the client writes to the clipboard, and `field` is typed into.
  */
@@ -205,7 +212,8 @@ function readRow(raw: unknown, mayType: boolean, o: MenuReadOptions): MenuRow | 
   if (!isObject(raw)) return null;
   const rowId = id(raw.id);
   const label = line(raw.label, MENU_LIMITS.label);
-  if (!rowId || !label) return null;
+  // An id that begins as a card's picture's does is no row's: a picture for it would be the card's.
+  if (!rowId || !label || rowId.startsWith(MENU_CARD_PICTURE)) return null;
   const kind = raw.kind === undefined ? "button" : (MENU_ROW_KINDS as readonly unknown[]).includes(raw.kind) ? (raw.kind as MenuRowKind) : null;
   // A kind this doesn't know is left out: it is never guessed to be a button.
   if (!kind) return null;

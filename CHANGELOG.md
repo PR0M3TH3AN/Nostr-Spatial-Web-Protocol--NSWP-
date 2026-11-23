@@ -9,6 +9,7 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
   - They are made only while the menu is up, afresh each time it comes up, at most 256 pixels a side. Someone's picture is fetched by the world, as today, and crosses as a bitmap: the page above is never given an address.
   - The client keeps each by id until the world stops describing the thing it is of, and takes none for something the world hasn't described. The menu draws a card's face from a bitmap (`UiCard.face`), and draws again when a picture is a new one.
   - Tried in the stand-in client (`trials/menu-client.mjs`, 50 checks): a tile's picture crosses at 256 pixels and is drawn by the client. Also tried there, as owed: "Load people's files from anywhere" pressed through the client is on in the world, stays on when the client says its settings again, and is never in any word the client says.
+  - A row's id can never be taken for a card's picture: a row whose id begins `card:` is left out as a description is read (core `MENU_CARD_PICTURE`, `cleanMenuWorld`; a case in `vectors/menu-words.json`).
   - Not built: a picture fed as the world runs (a camera's view). Nothing in the kit has one in a tab a world fills.
 
 - **One menu, never two: a client that answers while the world's own menu is on its way** (`sites/shared/world.ts`; `trials/menu-above.mjs`). A fault in the reference worlds' wiring, found by a trial on a busy machine. No visitor met it: no real client says it has the menu yet.

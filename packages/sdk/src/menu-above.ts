@@ -13,7 +13,7 @@
  *
  * This file is not the menu and doesn't load it. It is small, and is what lets a framed world never fetch the menu.
  */
-import { LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
+import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
 import { framed, hearClientMenu, sayToClient, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
 import { changeSettings } from "./settings.js";
@@ -57,8 +57,6 @@ export interface MenuAboveOptions {
   picture?: (from: CanvasImageSource | string) => Promise<unknown>;
 }
 
-/** Before a tab's id, for the picture of the card at its head: `card:people`. A row's picture goes by the row's own id. */
-export const CARD_PICTURE = "card:";
 
 /** A bitmap of at most the limit a side, keeping its shape. Null where the browser can't make one. */
 async function bitmapOf(from: CanvasImageSource | string): Promise<unknown> {
@@ -194,7 +192,8 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     if (!open) return;
     for (const s of view.sections) {
       if (CLIENTS.includes(s.id)) continue;
-      if (s.card?.picture) want(`${CARD_PICTURE}${s.id}`, s.card.picture);
+      // A row's picture goes by the row's own id, and a card's by its tab: a card has no id of its own.
+      if (s.card?.picture) want(`${MENU_CARD_PICTURE}${s.id}`, s.card.picture);
       for (const i of s.items) if (i.picture && named.has(i.id)) want(i.id, i.picture());
     }
   };
