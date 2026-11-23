@@ -104,7 +104,7 @@ urgent (a live fault), it goes first.
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | merged (NSWP 331); not live |
-| [guest-accounts](guest-accounts.md) | A guest is a generated account at the sign-in address, which signing up keeps; it marks itself as a guest | design first (BitLogin, with the kit's half) | asked |
+| [guest-accounts](guest-accounts.md) | One identity across BitPortal: a guest is a generated account made automatically, and a guest or an account is known in every world without being asked | design first (BitLogin, with the kit's half) | asked |
 | [items-for-guests](items-for-guests.md) | Items a visitor can use without signing in, where the world and the item's maker both allow it | not briefed (kit first) | asked |
 | [items-work-in-the-room](items-work-in-the-room.md) | Items like the dart blaster work in BitPortal's room | BitPortal | merged (not live) |
 | [touch-look-and-item-presses](touch-look-and-item-presses.md) | Looking up and down, and aiming, firing and reloading a held item, on a phone and at a casual desk | BitPortal (kit) | briefed (option B chosen) |
