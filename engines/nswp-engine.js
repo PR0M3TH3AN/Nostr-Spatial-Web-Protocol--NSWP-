@@ -52604,6 +52604,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
 .chat header b { flex: 1; font-weight: 650; }
+.chat .whose { margin: 0; padding: 8px 14px 0; font-size: .86em; color: rgba(var(--ink), .6); }
 .chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
 .chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
 .chat header svg { width: 1.2em; height: 1.2em; }
@@ -52979,6 +52980,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
     const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, el("div", { class: "foot" }, pinIt, close));
     const chatTitle = el("b");
+    const chatWhose = el("p", { class: "whose", hidden: "" });
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
     const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
     const tabLetters = el("button", { type: "button", class: "tab", role: "tab" }, "Private messages");
@@ -52993,7 +52995,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const chatHint = el("p", { class: "hint", role: "status" });
     const chatSend = el("button", { type: "submit" }, "Send");
     const chatForm = el("form", {}, chatField, chatSend);
-    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
+    const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
     root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu2, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine2, target2, bar));
     (opts.parent ?? document.body).append(host);
     let open2 = false;
@@ -53141,6 +53143,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
       chatNewest = newest;
       const showing2 = chatState === "open" ? dockTab : "room";
+      if (chatOnly) {
+        chatWhose.hidden = false;
+        chatWhose.textContent = controls2.view().title;
+      }
       const now = JSON.stringify([chatState, showing2, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing2 === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing2 === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
       if (now === chatDrawn) return;
       chatDrawn = now;

@@ -177,6 +177,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .chat[data-state="peek"] .frame { background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .chat header { display: flex; align-items: center; gap: 8px; padding: 9px 8px 8px 14px; border-bottom: 1px solid rgba(var(--accent), .22); }
 .chat header b { flex: 1; font-weight: 650; }
+.chat .whose { margin: 0; padding: 8px 14px 0; font-size: .86em; color: rgba(var(--ink), .6); }
 .chat header button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: rgba(var(--ink), .7); }
 .chat header button:hover { color: rgb(var(--ink)); background: rgba(var(--ink), .1); }
 .chat header svg { width: 1.2em; height: 1.2em; }
@@ -595,6 +596,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
+  // Whose pane it is, at its head, where it is the only thing this page draws: the client above has the menu, and the
+  // pane is this world's own (the client's menu wears the visitor's colour, and this the world's).
+  const chatWhose = el("p", { class: "whose", hidden: "" });
   const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
   const tabFeed = el("button", { type: "button", class: "tab", role: "tab" }, "My public feed");
   // A private conversation with one person: named for who it is with, so it is never taken for the other two.
@@ -610,7 +614,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const chatHint = el("p", { class: "hint", role: "status" });
   const chatSend = el("button", { type: "submit" }, "Send");
   const chatForm = el("form", {}, chatField, chatSend);
-  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
+  const chat = el("section", { class: "chat", "aria-label": "Room chat", "data-state": "closed", "data-tab": "room" }, el("div", { class: "frame glass" }, chatWhose, el("header", {}, chatTitle, chatTabs, chatClose), feedLead, chatEmpty, chatLines, chatHint, feedSaid, chatForm));
   root.append(style, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine, target, bar));
   (opts.parent ?? document.body).append(host);
 
@@ -789,6 +793,10 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1]!.mine) setChatState("peek");
     chatNewest = newest;
     const showing = chatState === "open" ? dockTab : "room";
+    if (chatOnly) {
+      chatWhose.hidden = false;
+      chatWhose.textContent = controls.view().title;
+    }
     // "5 min ago" is worked out again each minute.
     const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 60000), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 60000), l.title] : 0]);
     if (now === chatDrawn) return;

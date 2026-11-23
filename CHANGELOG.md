@@ -4,6 +4,9 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The chat's pane says whose it is** (`packages/sdk/src/ui/hud.ts`; the orchestrator, 2026-11-23). Where a world keeps the chat's pane because its client has the menu, the pane has the world's name at its head. It is in the world's colour and the client's menu in the visitor's, so the colour and the name tell the two apart. Nothing changes where a world draws its own menu.
+- **A trial routes every WebSocket too, and lists what was asked for** (`trials/README.md`, under Rules): a route for requests doesn't see the relays a world opens.
+
 - **The rows that change a setting the visitor carries are the client's own, where a client has the menu** (SDK `packages/sdk/src/visitor-switches.ts`: `picturesSwitch`, `modelsSwitch`, `chatSwitch`, `VISITOR_SWITCHES`; `models-switch.ts`; `menu-above.ts`; from `nswp-sdk/menu`, with `addDeskControls`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes: where a world draws its own menu the rows are where they were, with the same words.
   - "Profile pictures", "Show people's own models" (People), "Written chat" (Room) and "Field of view" (View) each change a setting the client now holds and says to every world. A world whose client has the menu leaves them out of what it describes, and the client draws them itself inside those tabs. A world that changed one itself would have left the client, and so the next world, with the old value. The first two guard the visitor's privacy.
   - The three switches are rows a client can add without carrying anything that draws a world: the models switch moved out of `look-models.ts` into `models-switch.ts`, and `look-models.ts` hands it on under the names it had.

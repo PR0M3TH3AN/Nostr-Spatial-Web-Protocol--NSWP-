@@ -208,6 +208,7 @@ try {
     return [".low", ".menu", ".quiet", ".sheet", ".id", ".says", ".full"].filter((sel) => { const el = root.querySelector(sel); return el && getComputedStyle(el).display !== "none"; });
   });
   check("and nothing else of a menu: no bar, no mark, no sheet", shownInWorld.length === 0, shownInWorld);
+  check("the pane says whose it is, at its head: the world's name", (await world().evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".chat .whose")?.textContent)) === "The Gallery", await world().evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".chat .whose")?.textContent));
   check("there is still one menu, the client's", (await client(() => document.querySelectorAll("nswp-hud:not(.chat-only)").length)) === 1);
   // Opened from the row the world described, pressed in the client's menu while it is up.
   await client(() => window.__client.menu.setOpen(true, "room"));
