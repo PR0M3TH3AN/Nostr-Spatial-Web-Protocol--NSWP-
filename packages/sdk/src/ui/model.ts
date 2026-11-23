@@ -345,11 +345,16 @@ const STANDARD: UiSection[] = [
   { id: "help", label: "Help", icon: "help" },
 ];
 
-/** The tabs every place has, by id, in the order they are shown. */
-export const STANDARD_TABS: readonly string[] = STANDARD.map((s) => s.id);
+/**
+ * A tab the kit knows that isn't on every place's list: a keeper's "Who comes in" is there only for a world's
+ * keeper, and the part that fills it adds it (front-room.ts). It stands after People.
+ */
+const KEEPERS: UiSection = { id: "guests", label: "Who comes in", icon: "people" };
+/** The tabs the menu has its own name for, by id, in the order they are shown. */
+export const STANDARD_TABS: readonly string[] = STANDARD.flatMap((s) => (s.id === "people" ? [s.id, KEEPERS.id] : [s.id]));
 /** What one of them is called, and its icon: the menu's own words for it, whoever fills it. Null for any other tab. */
 export const standardTab = (id: string): { label: string; icon: IconName | null } | null => {
-  const s = STANDARD.find((x) => x.id === id);
+  const s = id === KEEPERS.id ? KEEPERS : STANDARD.find((x) => x.id === id);
   return s ? { label: s.label, icon: s.icon ?? null } : null;
 };
 
