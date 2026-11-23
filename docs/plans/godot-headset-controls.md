@@ -144,7 +144,22 @@ the Grove.
 | In the page's menu before entering, choose the intense way; enter again | Walk smoothly with the left stick, turn smoothly with the right, and stop at walls |
 | Press the menu button on the left controller | Leave VR, with the page's menu and Home in front of you |
 
-## Questions for the orchestrator
+## Answered (the orchestrator, 2026-11-23)
+
+1. **The names are given:** `NSWP.hands(json)`, answering with the kit's `Intent`,
+   and the fade's numbers in `NSWP.kit()`. An engine can see this, so the engine
+   script's version goes up with it: 18 goes to this change, and seated mode
+   takes the next number.
+2. **The console is drawn once,** by the engine script, and shown in Godot as a
+   picture. What the pixels crossing costs is to be measured and said before it
+   is settled.
+3. **The stopgap is yes, and first, as a small pull request of its own:** a live
+   fault goes before everything else here.
+
+So the order is: the stopgap; then the kit pieces BitPortal's step 2 waits on;
+then moving; then the console.
+
+## The questions, as they were put
 
 1. **The names:** `NSWP.hands`, and in `NSWP.kit()` the fade's numbers.
 2. **The console drawn once and shown as a picture,** or drawn again in Godot.

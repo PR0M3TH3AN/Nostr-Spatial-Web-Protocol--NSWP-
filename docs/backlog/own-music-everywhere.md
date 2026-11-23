@@ -10,9 +10,10 @@
   client's menu's step 2. Controls: the NSWP builder (the kit's menu, the
   Sound tab). From BitLogin's files: BitLogin and BitPortal, with the menu's
   step 4. Not briefed.
-- **State:** asked. **The controls: building** (the NSWP builder, 2026-11-23;
-  built and tried, waiting on the owner's look at the pictures before it
-  merges). The other two pieces are as they were.
+- **State:** asked. **The controls: merged** (a490259, NSWP 414, on the owner's
+  word of 2026-11-23, "Yes, merge it", after they saw the pictures; shuffle,
+  repeat and the bar's key kept). Not live. The other two pieces are as they
+  were.
 
 ## What is true today
 
@@ -71,8 +72,8 @@ own menu. In order:
 | "Play and pause on your bar: on / off" | Proposed, as the "now playing" on the bar: play and pause become a key on the bar, with the song's name under it |
 | "Add music from this device", "Take out <the song>", then the songs | As before |
 
-- **Proposed, for the owner to keep or drop:** shuffle, repeat, and the key
-  on the bar. Each is one row and comes out cleanly.
+- **Proposed, and kept by the owner (2026-11-23):** shuffle, repeat, and the
+  key on the bar.
 - **How it is kept:** shuffle, repeat and the bar's key are kept with the
   songs, in this browser, for the site that plays them. In a client that is
   the client's site, so they are the same in every world.
