@@ -12,7 +12,7 @@
  * Adding a button, a section, or a whole new kind of control later means
  * adding to this list. Nothing about either renderer has to change.
  */
-import { cleanSettings, PINS_MOST } from "@nswp/core";
+import { cleanSettings, PINS_MOST, type MenuFileKind } from "@nswp/core";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import { createUiChat, type ChatView, type UiChat } from "./chat.js";
 import { createUiFeed, type FeedView, type UiFeed } from "./feed.js";
@@ -33,9 +33,10 @@ export interface UiAction {
   /**
    * What a press does. For a row the visitor types into (`kind: "field"`) it is given what they typed, at their
    * press and not before. Where the menu has no box to type in (a headset's console draws the row as a button),
-   * it is given nothing, and asks for the text its own way.
+   * it is given nothing, and asks for the text its own way. For a row that takes a file (`kind: "file"`) it is
+   * given the file the visitor chose, second, and nothing first; where the menu can show no chooser, nothing at all.
    */
-  act(typed?: string): void | Promise<void>;
+  act(typed?: string, file?: Blob): void | Promise<void>;
   /** Leave it out while this returns true. */
   hidden?: () => boolean;
   /** For something that is on or off: whether it is on now. */
@@ -64,10 +65,15 @@ export interface UiAction {
    * for the visitor. "field" is typed into: a box, and a button with the label, whose press gives `act` the text.
    * Whoever draws the menu does both of those itself: where a client above draws it, a press there is not a press
    * in this page, and a browser lets a page copy only at one (protocol/02-doors.md, "The client has the menu").
+   * "file" takes a file from the visitor's device: whoever draws the menu opens the browser's chooser at the press,
+   * offering only the kinds in `accept`, and gives `act` the file they chose. "save" is a button whose press may end
+   * in something to save (`saveFile`): where a client above draws the menu, what is saved goes up to it.
    */
-  kind?: "button" | "swatch" | "tile" | "line" | "copy" | "field";
+  kind?: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save";
   /** For a "copy" row: the text to copy. */
   copy?: Text;
+  /** For a "file" row: the kinds of file it takes (the core's `MENU_FILE_KINDS`). */
+  accept?: readonly MenuFileKind[];
   /**
    * For a tile: its picture as it is now, or null while there is none (a renderer then shows its first letter).
    * Asked again whenever the menu is drawn.
@@ -139,9 +145,11 @@ export interface UiItemView {
   /** The number key that presses it from the hotbar, or "". */
   key: string;
   short: string;
-  kind: "button" | "swatch" | "tile" | "line" | "copy" | "field";
+  kind: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save";
   /** For a "copy" row: the text to copy. */
   copy?: string;
+  /** For a "file" row: the kinds of file it takes. */
+  accept?: readonly MenuFileKind[];
   color: string;
   /** A tile's small icon in its corner, or null. */
   mark: IconName | null;
@@ -261,7 +269,7 @@ export interface Controls {
    */
   setLoading(state: { fraction?: number; words?: string } | null): void;
   /** Do an action by its id, as pressing it would. Returns false if it isn't there or isn't showing. */
-  run(id: string, typed?: string): boolean;
+  run(id: string, typed?: string, file?: Blob): boolean;
   /** Change the look. `keep` also remembers it as this visitor's choice, for this site. */
   setTheme(patch: Partial<UiTheme>, keep?: boolean): void;
   readonly presence: Presence;
@@ -551,13 +559,13 @@ export function createControls(opts: ControlsOptions): Controls {
     say(text) {
       for (const fn of sayers) fn(text);
     },
-    run(id, typed) {
+    run(id, typed, file) {
       const a = actions.find((x) => x.id === id);
       // A line is read, never pressed: nothing runs it, by a key, a click or a ray.
       if (!a || a.hidden?.() || a.kind === "line") return false;
       for (const fn of signals) fn("press");
       void Promise.resolve()
-        .then(() => a.act(a.kind === "field" ? typed : undefined))
+        .then(() => (a.kind === "file" ? a.act(undefined, file) : a.act(a.kind === "field" ? typed : undefined)))
         .catch(() => {})
         .finally(changed);
       return true;
@@ -588,7 +596,7 @@ export function createControls(opts: ControlsOptions): Controls {
       const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", ...(a.kind === "copy" ? { copy: read(a.copy) } : {}), color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", ...(a.kind === "copy" ? { copy: read(a.copy) } : {}), ...(a.kind === "file" ? { accept: a.accept ?? [] } : {}), color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);

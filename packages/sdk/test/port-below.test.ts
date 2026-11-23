@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LEAVE_MS } from "@nswp/core";
+import { LEAVE_MS, MENU_LIMITS, MENU_SAVE_MS } from "@nswp/core";
 import { describeWorld } from "../src/menu-above.js";
 import { resetSettings } from "../src/settings.js";
 import { createControls } from "../src/ui/model.js";
-import { mergeView, portBelow, WORLDS } from "../src/ui/port-below.js";
+import { mergeView, portBelow, WORLDS, type MenuBelowOptions, type SavedAbout } from "../src/ui/port-below.js";
 
 /**
  * The client's end of the menu's port (protocol/02-doors.md, "The client has the menu"): the client's own controls
@@ -38,7 +38,7 @@ const described = () => {
   return describeWorld(w.view());
 };
 
-const make = (o: { origin?: string; home?: (left: boolean) => void } = {}) => {
+const make = (o: { origin?: string; home?: (left: boolean) => void; more?: Partial<MenuBelowOptions> } = {}) => {
   const controls = createControls({ title: "The client" });
   const pressed: string[] = [];
   controls.add({ id: "home", section: "travel", label: "Home", icon: "home", hotbar: true, act: () => void pressed.push("home") });
@@ -55,6 +55,7 @@ const make = (o: { origin?: string; home?: (left: boolean) => void } = {}) => {
     origin: CLIENT,
     hear: { addEventListener: (_t, fn) => void (onMessage = fn), removeEventListener: () => {} },
     ...(o.home ? { home: o.home } : {}),
+    ...(o.more ?? {}),
   });
   const from = (data: unknown, origin = o.origin ?? WORLD, source: unknown = win) => onMessage({ data, origin, source } as MessageEvent);
   const here = (menu: number | undefined = 1, origin?: string) => from({ nswp: "here", at: "/", ...(menu ? { menu } : {}) }, origin);
@@ -505,5 +506,147 @@ describe("the way home", () => {
     c.here(0);
     c.below.leave();
     expect([went, c.sent]).toEqual([[false], []]);
+  });
+});
+
+describe("a file the visitor chose, and something a world hands up to save", () => {
+  const file = (name: string, type: string, size = 70) => new File([new Uint8Array(size)], name, { type });
+  const sized = (size: number, type: string) => Object.defineProperty(new File([new Uint8Array(4)], "big.png", { type }), "size", { value: size });
+  const shot = (type = "image/jpeg") => new Blob([new Uint8Array(2561)], { type });
+  const world = () => {
+    const w = createControls({ title: "The Gallery" });
+    w.add({ id: "panel-file", section: "panels", label: "Hang a picture from this device", kind: "file", accept: ["image"], act: () => {} });
+    w.add({ id: "camera-picture", section: "camera", label: "Take a picture", kind: "save", act: () => {} });
+    w.add({ id: "camera-clip", section: "camera", label: "Stop recording", kind: "save", act: () => {} });
+    w.add({ id: "room-join", section: "room", label: "Join the room", act: () => {} });
+    return describeWorld(w.view());
+  };
+  /** A client above that world, keeping what it is asked to save and what it says. */
+  const met = (more: Partial<MenuBelowOptions> = {}) => {
+    const saved: [Blob, SavedAbout][] = [];
+    let t = 1000;
+    const c = make({ more: { onSave: (f, about) => void saved.push([f, about]), now: () => t, ...more } });
+    const said: string[] = [];
+    c.controls.onSay((text) => said.push(text));
+    c.here();
+    c.from({ nswp: "menu", world: world() });
+    c.sent.length = 0;
+    return { ...c, saved, said, later: (ms: number) => (t += ms) };
+  };
+
+  it("draws a world's row that takes a file with the kinds it takes, and its row that saves", () => {
+    const c = met();
+    const items = c.below.port.view().sections.flatMap((s) => s.items);
+    expect(items.find((i) => i.id === `${WORLDS}panel-file`)).toMatchObject({ kind: "file", accept: ["image"], label: "Hang a picture from this device" });
+    expect(items.find((i) => i.id === `${WORLDS}camera-picture`)).toMatchObject({ kind: "save" });
+  });
+
+  it("hands the chosen file down as it is, with the press, to that world's origin only", () => {
+    const c = met();
+    const f = file("a dot.png", "image/png");
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, f)).toBe(true);
+    expect(c.sent).toEqual([{ word: { nswp: "menu", press: "panel-file", file: f }, to: WORLD }]);
+    expect((c.sent[0]!.word as { file: Blob }).file).toBe(f);
+  });
+
+  it("hands nothing down with no file, a file of a kind the row didn't ask for, an empty one, or one over the limit", () => {
+    const c = met();
+    expect(c.below.port.run(`${WORLDS}panel-file`)).toBe(false);
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, file("clip.mp4", "video/mp4"))).toBe(false);
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, file("notes.txt", "text/plain"))).toBe(false);
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, file("nothing.png", "image/png", 0))).toBe(false);
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, sized(MENU_LIMITS.file + 1, "image/png"))).toBe(false);
+    expect(c.sent).toEqual([]);
+    expect(c.below.port.run(`${WORLDS}panel-file`, undefined, sized(MENU_LIMITS.file, "image/png"))).toBe(true);
+  });
+
+  it("sends a file whose name may not go with it without one, and nothing else of where it was", () => {
+    const c = met();
+    for (const name of ["home/ana/secret plans.png", "n".repeat(MENU_LIMITS.fileName + 1)]) c.below.port.run(`${WORLDS}panel-file`, undefined, file(name, "image/png"));
+    for (const { word } of c.sent) {
+      const sent = (word as { file: Blob & { name?: string } }).file;
+      expect([sent.name, sent.size, sent.type]).toEqual([undefined, 70, "image/png"]);
+    }
+    expect(c.sent).toHaveLength(2);
+  });
+
+  it("gives no file to a row that takes none: a press on it is a press and nothing more", () => {
+    const c = met();
+    expect(c.below.port.run(`${WORLDS}room-join`, undefined, file("a.png", "image/png"))).toBe(true);
+    expect(c.sent.map((x) => x.word)).toEqual([{ nswp: "menu", press: "room-join" }]);
+  });
+
+  it("saves what a world hands up as the answer to a press on a row that saves, under a name of its own, and says so", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    const picture = shot();
+    c.from({ nswp: "menu", save: picture, id: "camera-picture" });
+    expect(c.saved).toHaveLength(1);
+    expect(c.saved[0]![0]).toBe(picture);
+    expect(c.saved[0]![1]).toMatchObject({ world: "The Gallery", kind: "picture", type: "image/jpeg" });
+    expect(c.saved[0]![1].name).toMatch(/^the-gallery-\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d\.jpg$/);
+    expect(c.said).toEqual(["A picture from The Gallery was saved."]);
+  });
+
+  it("names a clip as a clip, with an ending from its kind however it was packed", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-clip`);
+    c.from({ nswp: "menu", save: shot("video/webm;codecs=vp9"), id: "camera-clip" });
+    expect(c.saved[0]![1]).toMatchObject({ kind: "clip", type: "video/webm" });
+    expect(c.saved[0]![1].name).toMatch(/^the-gallery-clip-[0-9-]+\.webm$/);
+    expect(c.said).toEqual(["A clip from The Gallery was saved."]);
+  });
+
+  it("saves nothing a world hands up unasked: with no press, for another row, too late, or from another site", () => {
+    const c = met();
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    c.below.port.run(`${WORLDS}room-join`);
+    c.from({ nswp: "menu", save: shot(), id: "room-join" });
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", save: shot(), id: "camera-clip" });
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" }, "https://elsewhere.example");
+    c.from({ nswp: "menu", save: new Blob(["<p>"], { type: "text/html" }), id: "camera-picture" });
+    c.later(MENU_SAVE_MS + 1);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect([c.saved, c.said]).toEqual([[], []]);
+    // In time, it is.
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.later(MENU_SAVE_MS);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toHaveLength(1);
+  });
+
+  it("takes only so many for one press, and none once another page is in the frame", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    for (let i = 0; i < MENU_LIMITS.saves + 3; i++) c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toHaveLength(MENU_LIMITS.saves);
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.here();
+    c.from({ nswp: "menu", world: world() });
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toHaveLength(MENU_LIMITS.saves);
+  });
+
+  it("says the client's own words for it where the client gives some", () => {
+    const c = met({ onSave: () => "Kept in your files." });
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.said).toEqual(["Kept in your files."]);
+  });
+
+  it("saves it to the device from this page, where the client keeps files nowhere of its own", () => {
+    const link = { href: "", download: "", rel: "", click: vi.fn(), remove: vi.fn() };
+    (globalThis as { document?: unknown }).document = { createElement: () => link, body: { append: vi.fn() } };
+    try {
+      const c = met({ onSave: undefined });
+      c.below.port.run(`${WORLDS}camera-picture`);
+      c.from({ nswp: "menu", save: shot("image/png"), id: "camera-picture" });
+      expect(link.click).toHaveBeenCalledTimes(1);
+      expect(link.download).toMatch(/^the-gallery-[0-9-]+\.png$/);
+      expect(c.said).toEqual(["A picture from The Gallery was saved to this device."]);
+    } finally {
+      delete (globalThis as { document?: unknown }).document;
+    }
   });
 });

@@ -20,7 +20,7 @@
  * small mark in a corner) or hidden, so that it never competes with an
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
  */
-import { MENU_LIMITS } from "@nswp/core";
+import { MENU_LIMITS, menuFileKind, type MenuFileKind } from "@nswp/core";
 import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
@@ -308,6 +308,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 .field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
 .field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
+/* A row that takes a file: its button, and under it where the file goes. */
+.takes { grid-column: 1 / -1; display: grid; gap: 4px; }
+.takes .to { margin: 0; padding: 0 12px; font-size: .86em; color: rgba(var(--ink), .6); }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
@@ -638,7 +641,33 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     return n;
   };
 
-  const press = (item: UiItemView) => controls.run(item.id);
+  /**
+   * A row that takes a file (`kind: "file"`): the menu opens the browser's chooser itself, at this press, in this
+   * page, offering only the kinds of file the row asked for. Where a client above draws the menu, a press here is
+   * no press in the world's page, and a browser shows its chooser only to the page that was pressed. Choosing a
+   * file there is the visitor's yes: nothing is given to the row before that, and nothing if they choose none. A
+   * file of another kind, or over the limit, is not handed over, and the menu says why.
+   */
+  const kindsWords = (accept: readonly MenuFileKind[]) => (accept.length === 1 ? (accept[0] === "image" ? "pictures" : "video") : "pictures and video");
+  const fileRow = (item: UiItemView): boolean => {
+    const accept = item.accept ?? [];
+    const picker = el("input", { type: "file", accept: accept.map((k) => `${k}/*`).join(","), hidden: "" });
+    picker.addEventListener("cancel", () => picker.remove());
+    picker.addEventListener("change", () => {
+      const file = picker.files?.[0];
+      picker.remove();
+      if (!file) return;
+      const kind = menuFileKind(file.type);
+      if (!kind || !accept.includes(kind)) return controls.say(`Only ${kindsWords(accept)} can go here.`);
+      if (file.size > MENU_LIMITS.file) return controls.say("That file is too large to hand over: 64 MB at most.");
+      if (file.size < 1) return controls.say("That file is empty.");
+      controls.run(item.id, undefined, file);
+    });
+    root.append(picker);
+    picker.click();
+    return true;
+  };
+  const press = (item: UiItemView) => (item.kind === "file" ? fileRow(item) : controls.run(item.id));
   /**
    * A row that copies (`kind: "copy"`): the menu writes the text itself, at this press, in this page. Where a client
    * above draws the menu, a press here is no press in the world's page, and a browser lets a page copy only at one.
@@ -1213,6 +1242,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       b.addEventListener("click", () => (item.kind === "copy" ? copyRow(item) : press(item)));
       return b;
     };
+    // A row that takes a file: its button, and under it whose the file will be.
+    const drawFile = (item: UiItemView, whose: string) =>
+      el("div", { class: "takes" }, drawRow(item), whose ? el("p", { class: "to" }, `The file you choose goes to ${whose}.`) : null);
     // Something to read: not a button, never focused, never pressed. Its words are the whole sentence, which says
     // whether it is so, so a screen reader hears that and not "dimmed".
     const drawLine = (item: UiItemView) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
@@ -1229,9 +1261,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
           run = null;
           if (whose) laid.push(el("p", { class: "from" }, whose));
         }
-        if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
+        if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save") {
           run = null;
-          laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : drawRow(item));
+          laid.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view.title) : item.kind === "file" ? drawFile(item, view.title) : drawRow(item));
           continue;
         }
         if (run?.kind !== item.kind) {

@@ -13,8 +13,8 @@
  *
  * This file is not the menu and doesn't load it. It is small, and is what lets a framed world never fetch the menu.
  */
-import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
-import { framed, hearClientMenu, sayToClient, sinceHere, speakMenu } from "./client-frame.js";
+import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_SAVE_MS, menuSaveType, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
+import { framed, hearClientMenu, sayToClient, setSaver, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
 import { changeSettings, currentSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
@@ -119,6 +119,7 @@ const rowOf = (item: UiItemView, onBar: boolean): Record<string, unknown> => ({
   ...(item.faint ? { faint: true } : {}),
   ...(onBar ? { bar: true } : {}),
   ...(item.kind === "copy" ? { copy: item.copy ?? "" } : {}),
+  ...(item.kind === "file" ? { accept: [...(item.accept ?? [])] } : {}),
 });
 
 const cardOf = (card: UiCard): Record<string, unknown> => ({
@@ -167,8 +168,13 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}, help
   };
 }
 
-/** The ids a description names: the only ones a press from above may be for. */
-const idsOf = (world: Record<string, unknown>): Set<string> => new Set((world.sections as { rows: { id: string }[] }[]).flatMap((s) => s.rows.map((r) => r.id)));
+/** A file whose name may not go with it (a path, too long, something unseen in it) is given without one. */
+const nameless = (file: Blob): Blob => (typeof (file as { name?: unknown }).name === "string" ? file.slice(0, file.size, file.type) : file);
+
+/** The rows a description names, by id: the only ones a press from above may be for, and what kind each is. */
+type Named = Map<string, { kind: string; accept: readonly string[] }>;
+const rowsOf = (world: Record<string, unknown>): Named =>
+  new Map((world.sections as { rows: { id: string; kind: string; accept?: string[] }[] }[]).flatMap((s) => s.rows.map((r) => [r.id, { kind: r.kind, accept: r.accept ?? [] }] as const)));
 
 /**
  * Meet the client above, for a world's controls. Call it once, as the world starts and before any menu is mounted;
@@ -198,7 +204,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
   // One is made for each thing that has a picture, from what the world's own menu would have drawn (a tile's
   // canvas) or from the address of someone's picture, fetched here: the page above is never given an address.
   // They are made only while the menu is up (nobody sees one otherwise), and afresh each time it comes up.
-  let named = new Set<string>();
+  let named: Named = new Map();
   const makePicture = opts.picture ?? bitmapOf;
   const made = new Map<string, unknown>();
   const want = (key: string, from: CanvasImageSource | string | null | undefined) => {
@@ -232,7 +238,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     if (text !== last) {
       last = text;
       lastAt = performance.now();
-      named = idsOf(world);
+      named = rowsOf(world);
       above.say({ world });
     }
     // After the words, so that a picture is never for a row the page above hasn't heard of.
@@ -299,11 +305,27 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     else {
       if (waiting) clearTimeout(waiting);
       waiting = null;
-      named = new Set();
+      named = new Map();
+      saving = null;
     }
     know();
     for (const fn of [...watchers]) fn(has);
   };
+
+  // Saving. A press from above on a row that saves is not a press in this page, so what this page would then save
+  // (a picture, a clip) is handed up as that press's answer, and the page above saves it: for a while after the
+  // press, and only so many. With no such press waiting, what there is to save is kept for one (`savesWait`).
+  let saving: { id: string; until: number; left: number } | null = null;
+  const awaited = () => !!saving && saving.left > 0 && performance.now() < saving.until;
+  setSaver({
+    handUp(file) {
+      if (!has || !awaited() || !menuSaveType(file.type) || file.size < 1 || file.size > MENU_LIMITS.save) return false;
+      saving!.left--;
+      above.say({ save: file, id: saving!.id });
+      return true;
+    },
+    waits: () => has && !awaited(),
+  });
 
   let leaving: ReturnType<typeof setTimeout> | null = null;
   let open = false;
@@ -318,7 +340,15 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     if (!has) return;
     if (word.what === "settings") return void takeSettings(word.settings);
     // Only for something this world last described: a press is by id, and nothing else can be pressed from above.
-    if (word.what === "press") return void (named.has(word.press) && controls.run(word.press, word.field));
+    if (word.what === "press") {
+      const row = named.get(word.press);
+      if (!row) return;
+      // A file only for a row that takes one, and only of a kind that row asked for.
+      if (word.file) return void (row.kind === "file" && row.accept.includes(word.kind) && controls.run(word.press, undefined, word.name ? word.file : nameless(word.file)));
+      // A row that saves: what this page would save, for a while after this press, goes up as its answer.
+      if (row.kind === "save") saving = { id: word.press, until: performance.now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
+      return void controls.run(word.press, word.field);
+    }
     if (word.what === "open") {
       if (word.open === open) return;
       open = word.open;
@@ -396,6 +426,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       stopView();
       stopSay();
       above.hear(null);
+      setSaver(null);
       keys?.removeEventListener("keydown", onKey as EventListener, listening);
       keys?.removeEventListener("keyup", swallow as EventListener, listening);
       watchers.clear();

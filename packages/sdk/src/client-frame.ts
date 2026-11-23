@@ -54,6 +54,43 @@ export const copiedRefused = (copy: string, inFrame: boolean = framed()): string
     ? `What you copied can't be read in a world shown inside another page. Open this world by its own address, ${copy.charAt(0).toLowerCase()}${copy.slice(1)}, and press again.`
     : `What you copied couldn't be read here. ${copy}, allow this site to read what you copy, and press again.`;
 
+/**
+ * Whether this page may ask the browser to share the visitor's screen: true or false where the browser says, null
+ * where it doesn't say. A page in another site's frame may only where that frame hands it down
+ * (`display-capture`), and a client's frame does not and must not: the browser's own "choose what to share" names
+ * the page above, not the world asking, and comes up with no press at all
+ * (docs/plans/the-clients-menu-handed-over.md). Outside a frame it always may.
+ */
+export const mayShareScreen = (inFrame: boolean = framed()): boolean | null => {
+  if (!inFrame) return true;
+  try {
+    const policy = (document as unknown as { permissionsPolicy?: { allowsFeature?(name: string): boolean }; featurePolicy?: { allowsFeature?(name: string): boolean } });
+    const says = policy.permissionsPolicy?.allowsFeature ?? policy.featurePolicy?.allowsFeature;
+    return typeof says === "function" ? says.call(policy.permissionsPolicy ?? policy.featurePolicy, "display-capture") === true : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The address of the page this one is shown inside, where the browser says; "" where it doesn't, or outside a frame. */
+export const framedBy = (): string => {
+  try {
+    const above = framed() ? (location as unknown as { ancestorOrigins?: ArrayLike<string> }).ancestorOrigins?.[0] : undefined;
+    return above ? new URL(above).host : "";
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * What a world says where it can't share the visitor's screen because of the page it is shown inside: two lines,
+ * each short enough for a row. The page above is named by its address where that is known and fits.
+ */
+export const screenNotHere = (by: string = framedBy()): [string, string] => {
+  const named = `Sharing your screen isn't available in a world shown inside ${by}.`;
+  return [by && named.length <= 120 ? named : "Sharing your screen isn't available in a world shown inside another page.", "Open this world by its own address."];
+};
+
 let holds = false;
 let filled = false;
 /** The version of the menu's words this page speaks, said in its `here` (protocol/02-doors.md, "The client has the menu"), or 0. */
@@ -235,8 +272,27 @@ export function meetClient(): void {
 // Said as early as this is loaded: a client waits to hear that the place in its frame came up at all.
 meetClient();
 
+/**
+ * Where what this world would save goes, while its client has the menu. A press on the client's menu is not a
+ * press in this page, and a browser may refuse a page a save it wasn't pressed for. So a picture or a clip is
+ * handed up, as the answer to the visitor's press on a row that saves, and the client's page saves it. Set by the
+ * world's end of the menu's words (`menu-above.ts`); nothing, where no client has the menu.
+ */
+let saver: { handUp(file: Blob): boolean; waits(): boolean } | null = null;
+export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean } | null): void {
+  saver = next;
+}
+/** Hand something to save up to the client. False where it isn't the client's to save just now: this page saves it. */
+export const handUp = (file: Blob): boolean => saver?.handUp(file) ?? false;
+/**
+ * Whether something to save should be kept for a press: a client has the menu, and no press on a row that saves
+ * is waiting for it. Saving it from this page would be a save nobody pressed for.
+ */
+export const savesWait = (): boolean => saver?.waits() ?? false;
+
 /** For tests: forget who was met. */
 export function resetClientFrame(): void {
+  saver = null;
   holds = false;
   filled = false;
   signInAt = null;

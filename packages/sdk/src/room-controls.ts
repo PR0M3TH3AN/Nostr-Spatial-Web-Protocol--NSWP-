@@ -4,6 +4,7 @@
  * renderer, so it is the same in a world drawn with Three.js and in one made with another engine.
  */
 import * as THREE from "three";
+import { mayShareScreen, screenNotHere } from "./client-frame.js";
 import { CHAT_LIMITS, cleanLightningAddress, DEFAULT_RELAYS, DELETION_KIND, encodeNpub, readRelayList, RELAY_LIST_KIND, shortNpub, verifyEvent, type NostrEvent, type SignerMore } from "@nswp/core";
 import { askWell, sendWell } from "./relay-book.js";
 import { type Member, type RoomSession } from "./room.js";
@@ -161,6 +162,10 @@ export function addRoomControls(
   // For tests: a drawn picture that changes, in place of the browser's screen picker.
   const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
   const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
+  // In another site's frame the browser may refuse this page the screen whatever is pressed. Where it says so, the
+  // row is not offered and two lines say why. Where it doesn't say, the row stays and a refusal says what may be why.
+  const mayShare = useTestScreen ? true : mayShareScreen();
+  const notHere = screenNotHere();
   const sounds = opts.sharedMusic === false ? null : (opts.sounds ?? null);
   let invited = roomNameFromHash(location.hash);
   let busy = false;
@@ -1277,7 +1282,7 @@ export function addRoomControls(
       on: () => presence.screenOn,
       label: () => (presence.screenOn ? "Stop sharing your screen" : "Share your screen"),
       // A phone or a headset's browser can't offer a screen. It can still watch one.
-      hidden: () => !presence.session || !canShare,
+      hidden: () => !presence.session || !canShare || mayShare === false,
       act: async () => {
         if (presence.screenOn) {
           await presence.shareScreen(null);
@@ -1289,11 +1294,14 @@ export function addRoomControls(
           await presence.shareScreen(track);
           tell("Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.");
         } catch {
-          tell("Nothing was shared.");
+          tell(mayShare === null ? `Nothing was shared. ${notHere[0]} ${notHere[1]}` : "Nothing was shared.");
         }
         refresh();
       },
     },
+    // Where this page is in a frame that doesn't hand the screen down: said, in place of a row that could only fail.
+    { id: "room-screen-not-here", section: "room", kind: "line", icon: "panel", label: notHere[0], hidden: () => !presence.session || !canShare || mayShare !== false, act: () => {} },
+    { id: "room-screen-how", section: "room", kind: "line", icon: "link", label: notHere[1], hidden: () => !presence.session || !canShare || mayShare !== false, act: () => {} },
     {
       id: "room-invite",
       section: "room",

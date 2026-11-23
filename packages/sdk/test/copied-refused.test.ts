@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { copiedRefused } from "../src/client-frame.js";
+import { MENU_LIMITS } from "@nswp/core";
+import { copiedRefused, mayShareScreen, screenNotHere } from "../src/client-frame.js";
 
 /**
  * A row that reads what the visitor copied ("Put in the item I copied", "Someone whose key I copied") is refused by
@@ -36,5 +37,35 @@ describe("the words when what was copied can't be read", () => {
       expect(text, f).toMatch(/copiedRefused\(/);
       expect(text, f).not.toMatch(/allow this site to read what you copy/);
     }
+  });
+});
+
+/**
+ * Sharing the screen is refused the same way: a frame is given the screen only where the page above hands it down,
+ * and a client's doesn't (docs/plans/the-clients-menu-handed-over.md). "Share your screen" used to be offered there
+ * and answer only "Nothing was shared." Now the row is not offered, and two lines say why.
+ */
+describe("the words when the screen can't be shared from inside another page", () => {
+  it("name the page above by its address, and say what does work", () => {
+    expect(screenNotHere("bitportal.example")).toEqual(["Sharing your screen isn't available in a world shown inside bitportal.example.", "Open this world by its own address."]);
+  });
+
+  it("say \"another page\" where the address isn't known, or wouldn't fit in a row", () => {
+    expect(screenNotHere("")[0]).toBe("Sharing your screen isn't available in a world shown inside another page.");
+    expect(screenNotHere(`${"a-very-long-name.".repeat(5)}example`)[0]).toBe("Sharing your screen isn't available in a world shown inside another page.");
+    for (const by of ["", "bitportal.example", "x".repeat(200)]) for (const line of screenNotHere(by)) expect(line.length).toBeLessThanOrEqual(MENU_LIMITS.label);
+  });
+
+  it("are not said to a world in a page of its own: there it may always ask", () => {
+    expect(mayShareScreen(false)).toBe(true);
+  });
+
+  it("are said, in place of the row, wherever the kit offers the screen", () => {
+    const room = readFileSync(join(__dirname, "..", "src", "room-controls.ts"), "utf8");
+    expect(room).toMatch(/mayShare === false/);
+    expect(room).toMatch(/id: "room-screen-not-here"[^\n]*kind: "line"[^\n]*label: notHere\[0\]/);
+    expect(room).toMatch(/id: "room-screen-how"[^\n]*kind: "line"[^\n]*label: notHere\[1\]/);
+    // And where the browser doesn't say whether it may, a refusal says what may be why.
+    expect(room).toMatch(/mayShare === null \? `Nothing was shared\. \$\{notHere\[0\]\} \$\{notHere\[1\]\}`/);
   });
 });
