@@ -8,6 +8,10 @@
 - **State:** asked. After the client's menu (the owner's order of
   2026-11-23: the menu before new features).
 
+**See `guest-accounts` first** (asked minutes later): if a guest becomes a
+generated account, most of this is that design, and what is left here is the
+world's option and the item's maker's.
+
 ## What is true today
 
 NSWP-17: "Carrying an item into a world is tied to who they are there. A
