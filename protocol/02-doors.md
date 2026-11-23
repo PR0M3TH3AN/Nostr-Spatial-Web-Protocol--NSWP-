@@ -493,12 +493,25 @@ pages, and a world takes them only from the page directly above it.
   is no word for signing in. A client signs a visitor in by showing their
   sign-in address's own panel for the world in its frame, which is the
   client's to do ("A client that keeps the screen", above).
+- the client, as the visitor's own music starts and stops in its page:
+  `{ nswp: "menu", playing: true }`, and `false`. A visitor's own music is
+  their client's to play, so that it doesn't stop at a door, and a world
+  has music of its own; heard together they are a muddle. While it is
+  `true` a world steps its own music back to a tenth, and brings it up
+  again at `false`, when the client no longer has the menu, and when the
+  client's page goes. Only the place's own music: its hum, and music
+  shared by people nearby, are left as they are. The word carries nothing
+  else: not what is playing, nor where it is from. It is said at each
+  change, and once after the client says it has the menu if something is
+  already playing; a world that has heard nothing takes it that nothing
+  is. A world never says it: said upward, it is not read.
 - the world, with words to show for a moment: `{ nswp: "menu", say }`, at
   most 200 characters of plain text, shown under the world's name.
 - the client, with a file the visitor chose for a row that takes one:
   `{ nswp: "menu", press: id, file }`; and the world, with a picture or a
-  clip to be saved: `{ nswp: "menu", save, id }` ("A file going down, and
-  something to save going up", below).
+  clip to be saved: `{ nswp: "menu", save, id }`, and before it, where
+  the making may take a while, `{ nswp: "menu", making: id }` ("A file
+  going down, and something to save going up", below).
 
 One word says one thing. A word with anything in it that only the other
 side says is not read.
@@ -673,6 +686,19 @@ and the result is handed across. Each stays one press.
     kind in the world's last description, for that row, within ten
     seconds of the press. A world can't put a file on the visitor's
     device unasked;
+  - a slow device may take longer than that over a picture. So a world
+    that has begun making what the press asked for says so at once:
+    `{ nswp: "menu", making: id }`, for the row `id`, carrying nothing
+    else. The client then holds that one press open for sixty seconds,
+    counted from the press, and tells the visitor in its own words that
+    the world is making it (a client may leave that unsaid for a picture
+    that comes in a moment); and if nothing has come by then, that
+    nothing came. It takes the word only for the press that is waiting, within
+    the first ten seconds, before anything has come for that press, and
+    once: said again it changes nothing, so no world holds a press open
+    by repeating it. A world says it only when it has begun the making,
+    not for a press that starts something to be saved later ("Record a
+    clip");
   - up to 12 for one press. More wait for the next;
   - 64 megabytes at most, and of one of five types: `image/jpeg`,
     `image/png`, `image/webp`, `video/webm`, `video/mp4`. What follows a

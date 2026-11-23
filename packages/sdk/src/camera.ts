@@ -14,7 +14,7 @@ import * as THREE from "three";
 import type { Look } from "@nswp/core";
 import { createFigure } from "./figure.js";
 import type { Controls } from "./ui/model.js";
-import { savesWait } from "./client-frame.js";
+import { making, savesWait } from "./client-frame.js";
 import { saveFile } from "./save-file.js";
 
 export { saveFile };
@@ -236,6 +236,9 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
     }
   };
   const shoot = async (kind: "picture" | "selfie") => {
+    // Where the press was on a client's menu above, the client is told at once that the picture is being made: a
+    // slow device may take longer over it than a press is otherwise held open for.
+    making();
     try {
       const hide = d.hide?.() ?? [];
       const blob = kind === "selfie" ? await takeSelfie(d.renderer, d.scene, d.camera, d.look?.() ?? plain, { hide }) : await takePicture(d.renderer, d.scene, d.camera, { hide });
@@ -268,7 +271,11 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
       // The page's canvas isn't what a headset is shown, so there is nothing to record there.
       hidden: () => !canRecord() || (presenting() && !clip),
       act: async () => {
-        if (clip) return void clip.stop();
+        if (clip) {
+          // The clip is put together as it stops, which a slow device may take a while over.
+          making();
+          return void clip.stop();
+        }
         try {
           clip = recordClip(d.renderer.domElement, { maxSeconds: d.maxSeconds ?? 30 });
           d.recording?.(true);

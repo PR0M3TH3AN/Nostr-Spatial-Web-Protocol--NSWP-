@@ -15,7 +15,7 @@
  *
  * Nothing of the visitor's own tabs is ever said down: only their settings, and their presses on the world's rows.
  */
-import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, menuFileKind, menuFileName, MENU_LIMITS, MENU_SAVE_MS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSaveType, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
+import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, menuFileKind, menuFileName, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSaveType, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
 import { download } from "../save-file.js";
 import { changeSettings, currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
@@ -174,6 +174,14 @@ export interface MenuBelowOptions {
    */
   onSave?: (file: Blob, about: SavedAbout) => string | void;
   /**
+   * Whether the visitor's own music is playing in this page. A world is told when that changes, and once as it
+   * comes up if it is playing then, so that it steps its own music back and the two aren't heard on top of one
+   * another. Nothing of the music itself is said: not its name, not where it is from. It is read whenever the
+   * controls say something changed, which the kit's Sound controls do as a song starts and stops. Left out, no
+   * world is told anything.
+   */
+  playing?: () => boolean;
+  /**
    * The frame's first page had already finished loading when this was made. Say so if it may have: a `here` is
    * told apart from the next page's by whether a load is still waiting for one (below).
    */
@@ -240,6 +248,9 @@ export interface MenuBelow {
   dispose(): void;
 }
 
+/** How long after a world says it is making something to save the visitor is told so, if it hasn't come. */
+const MAKING_SAID_MS = 1500;
+
 const isBitmap = (value: unknown): boolean => typeof ImageBitmap !== "undefined" && value instanceof ImageBitmap && value.width <= MENU_LIMITS.picture && value.height <= MENU_LIMITS.picture;
 
 /** The client's end of the port, for the frame the world is shown in. */
@@ -267,8 +278,25 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   let speaks = false;
   let world: MenuWorld | null = null;
   /** The visitor's last press on a row that saves: what the world may still hand up for it, and until when. */
-  let saving: { id: string; until: number; left: number } | null = null;
+  let saving: { id: string; at: number; until: number; left: number; making: boolean } | null = null;
   const now = opts.now ?? (() => performance.now());
+  /** Told that it is being made, if it hasn't come in a moment; and told once more if it never came. */
+  let slow: ReturnType<typeof setTimeout> | null = null;
+  let overdue: ReturnType<typeof setTimeout> | null = null;
+  const forget = () => {
+    saving = null;
+    if (slow) clearTimeout(slow);
+    if (overdue) clearTimeout(overdue);
+    slow = overdue = null;
+  };
+  /** What the world in the frame was last told of the visitor's own music. A page newly up has been told nothing. */
+  let saidPlaying = false;
+  const sayPlaying = () => {
+    const on = speaks && opts.playing?.() === true;
+    if (on === saidPlaying) return;
+    saidPlaying = on;
+    if (speaks) say({ playing: on });
+  };
   /** The pictures a world sent, each alone, by the id of the row it is for, or `card:<tab>` for a tab's card. */
   const pictures = new Map<string, unknown>();
   let menu: { pressKey(key: string): void } | null = null;
@@ -294,7 +322,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     origin = "";
     speaks = false;
     world = null;
-    saving = null;
+    forget();
+    saidPlaying = false;
     pictures.clear();
     saidSettings = "";
     if (had) changed();
@@ -326,7 +355,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       if (awaiting) awaiting = false;
       else early = true;
       world = null;
-      saving = null;
+      forget();
+      saidPlaying = false;
       pictures.clear();
       origin = typeof e.origin === "string" ? e.origin : "";
       speaks = menuVersionOf(data) > 0 && !!origin && origin !== "null";
@@ -335,6 +365,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         saidSettings = JSON.stringify(settings);
         say({ has: true, v: menuVersionOf(data), settings });
         if (open) say({ open: true });
+        // Their own music, if it is playing as this world comes up: said once, after the rest.
+        sayPlaying();
       }
       return changed();
     }
@@ -361,6 +393,31 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     if (word.what === "settings") return void (world?.state.headset.presenting && (opts.onReported ?? changeSettings)(word.settings));
     // Something to save. Only as the answer to a press this page sent on a row that saves, for that row, in time,
     // and only so many: a world can't put a file on the visitor's device unasked. The name is this page's own.
+    // The world is making what the press asked for, and it may take a while (a slow device). Only for the press
+    // that is waiting, only in its first while, and only once: the press is then held open for longer, counted from
+    // the press itself, so no world can hold one open by saying this again. The visitor is told, in this page's
+    // words, and told again if nothing came of it.
+    if (word.what === "making") {
+      if (!saving || saving.id !== word.id || saving.making || saving.left < MENU_LIMITS.saves || now() > saving.until) return;
+      const held = saving;
+      held.making = true;
+      held.until = held.at + MENU_MAKING_MS;
+      const from = world?.title || host();
+      const waiting = () => saving === held && held.left === MENU_LIMITS.saves;
+      // Most pictures come at once, and then only the saving is said. One that hasn't come in a moment is said to
+      // be on its way, so that a press is never met with nothing.
+      slow = setTimeout(() => {
+        slow = null;
+        if (waiting()) controls.say(`${from} is making it. It will be saved when it is ready.`);
+      }, MAKING_SAID_MS);
+      overdue = setTimeout(() => {
+        overdue = null;
+        if (!waiting()) return;
+        saving = null;
+        controls.say(`Nothing came from ${from} to save. Press again to try once more.`);
+      }, Math.max(0, held.until - now()));
+      return;
+    }
     if (word.what === "save") {
       if (!saving || saving.id !== word.id || now() > saving.until || saving.left < 1) return;
       saving.left--;
@@ -384,6 +441,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
 
   // The visitor changed a setting in this menu: the world hears, and applies what is its to apply.
   const stopControls = controls.subscribe(() => {
+    sayPlaying();
     if (speaks) {
       const settings = settingsNow();
       const text = JSON.stringify(settings);
@@ -435,7 +493,11 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         return true;
       }
       // A row that saves: what the world hands up for it, for a while after this press, is saved here.
-      if (row.kind === "save") saving = { id: row.id, until: now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
+      if (row.kind === "save") {
+        forget();
+        const at = now();
+        saving = { id: row.id, at, until: at + MENU_SAVE_MS, left: MENU_LIMITS.saves, making: false };
+      }
       controls.signal("press");
       say({ press: row.id, ...(row.kind === "field" && typed !== undefined ? { field: typed.slice(0, MENU_LIMITS.field) } : {}) });
       return true;
@@ -529,6 +591,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     },
     dispose() {
       if (leaving) clearTimeout(leaving);
+      forget();
       frame.removeEventListener("load", onLoad);
       hear.removeEventListener("message", onMessage);
       stopControls();

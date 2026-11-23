@@ -151,6 +151,14 @@ func _ready() -> void:
   headset here, that is how a visitor reaches it without taking the headset
   off.
 
+  **The one-time question is not asked here.** In every other world, a
+  visitor's first headset session asks them once which way they would like
+  to move, casual or intense. It is asked in the console, and no console is
+  drawn in a headset here yet, so here it isn't asked: a visitor who was
+  never asked anywhere moves the casual way, and changes it in the page's
+  menu, in Moving ("In a headset: casual"), before they enter or after the
+  menu button. The question comes with the console.
+
   **Not tried in a real headset.** It is tried on a flat page with made-up
   hands, which shows everything but a real controller: its names for its
   stick and buttons, and which way its stick reads as forward
@@ -394,8 +402,10 @@ screen, a real purchase.
 - **A screen someone shares** in a room: it is watched on one of the kit's
   panels, and there are none of those here yet.
 - **The menu in a headset.** The page's menu can't be seen in a session, so
-  the menu button (B or Y) leaves the session to reach it. And what is in a
-  visitor's hand (`NswpItems`) is not held or used in a headset yet.
+  the menu button (B or Y) leaves the session to reach it. With it comes
+  the one-time question on how they move, casual or intense, which is not
+  asked in a headset here until then. And what is in a visitor's hand
+  (`NswpItems`) is not held or used in a headset yet.
 - **The view through a door** of where it leads: a doorway here shows its
   field of light.
 - **A room of its own shape to cross in.** The crossing's room is there, at

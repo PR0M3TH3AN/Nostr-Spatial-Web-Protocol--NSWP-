@@ -84,6 +84,12 @@ own menu. In order:
 - **A world is never told:** none of these rows, and no song's name, is in
   what a world describes to a client. Before this, a world whose own site
   held songs of the visitor's would have named them to a client above it.
+- **A world's own music steps back while theirs plays in a client's page**
+  (built 2026-11-23, for kit 0.86.0). The client says only that something
+  of theirs is playing, `{ nswp: "menu", playing: true }`, and `false` when
+  it stops: no name, no source. The world turns its own music down to a
+  tenth meanwhile, as it already did for a song played in its own page.
+  The hum and music shared by people nearby are left alone.
 - **Not built here:** across worlds in BitPortal (its step 2), playing from
   BitLogin's files (step 4), and sharing with people nearby from a client.
 

@@ -88,6 +88,12 @@ const MENU_CUES: readonly string[] = ["press", "menuOpen", "menuClose", "notice"
  */
 const meet = (c: Controls): KeptMenu => {
   above = portAbove(c, {
+    // The visitor's own music, playing in the client's page above: the world's own steps back while it does. It
+    // may be said before the sounds are made, so it is kept until they are.
+    playing: (on) => {
+      musicAbove = on;
+      sounds?.stepBack(on);
+    },
     state: () => ({ headset: { supported: vr.supported, presenting: vr.presenting }, hum: sounds?.hasHum === true }),
     help: () => helpSaid,
     // The engine does the going: it may have a headset session to end first.
@@ -96,6 +102,7 @@ const meet = (c: Controls): KeptMenu => {
   return keepMenu(c, above, (only) => mountMenu(portHere(c), only ? { only } : {}));
 };
 let sounds: Sounds | null = null;
+let musicAbove = false;
 let moving: "casual" | "intense" = "casual";
 const vr = { supported: false, presenting: false };
 /** The world's name, for the offer below. */
@@ -293,6 +300,7 @@ export function menu(options?: string): string {
     ...(o.sounds && typeof o.sounds === "object" ? { theme: o.sounds as SoundTheme } : {}),
   }));
   addSoundControls(c, s, { quiet: (cue) => above?.has === true && MENU_CUES.includes(cue) });
+  s.stepBack(musicAbove);
   // The latest, always, as in a Three.js world (ui/fresh.ts).
   c.add(freshAction(c, { busy: () => vr.presenting }));
   // A paid world's gate that was begun before its menu: its control joins the menu now, ahead of the world's doors.

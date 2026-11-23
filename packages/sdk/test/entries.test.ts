@@ -47,6 +47,10 @@ describe("the kit's entries", () => {
   it("hands the Bag's parts on from nswp-sdk/bag, and from nswp-sdk/three as before", async () => {
     const bag = await import("../src/bag-entry.js");
     expect([typeof bag.createBag, typeof bag.addBagControls, typeof bag.mayHold, typeof bag.scriptAllowed]).toEqual(["function", "function", "function", "function"]);
+    // What looks an item up, which the Bag can't be built without: the very one a world's own store is.
+    expect(bag.createItemStore).toBe((await import("../src/item-store.js")).createItemStore);
+    const store = bag.createItemStore({ query: async () => ({ events: [], relays: {} }), viewer: () => null });
+    expect([typeof store.known, typeof store.describe]).toEqual(["function", "function"]);
     const play = readFileSync(join(sdk, "src", "play.ts"), "utf8");
     expect(play).toMatch(/export \{ allowScript, mayHold, scriptAllowed \};/);
     const three = readFileSync(join(sdk, "src", "three.ts"), "utf8");
@@ -65,9 +69,11 @@ describe("the stand-in client", () => {
   const main = join(root, "trials", "stand-in-client", "main.ts");
   it("loads the kit only by its entries, as a client with a copy of the kit would: never by a path into it", () => {
     const from = [...readFileSync(main, "utf8").matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]!);
-    expect(from.length).toBeGreaterThan(3);
+    expect(from.length).toBeGreaterThan(2);
     expect(from.filter((f) => f.includes("packages/"))).toEqual([]);
-    expect(from.filter((f) => f.startsWith("nswp-sdk") || f.startsWith("@nswp/")).sort()).toEqual(["@nswp/core", "nswp-sdk/bag", "nswp-sdk/menu", "nswp-sdk/ui"]);
+    expect(from.filter((f) => f.startsWith("nswp-sdk") || f.startsWith("@nswp/")).sort()).toEqual(["nswp-sdk/bag", "nswp-sdk/menu", "nswp-sdk/ui"]);
+    // Its Bag is given nothing about any item: what an item is comes from the kit's store, by the item's address.
+    expect(from.filter((f) => f.endsWith(".json"))).toEqual([]);
   });
 
   it("names no renderer, with the menu, Sound and the Bag in it", async () => {
