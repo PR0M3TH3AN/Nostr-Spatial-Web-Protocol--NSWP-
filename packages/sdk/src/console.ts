@@ -374,7 +374,8 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
     // The open section's buttons, in two columns, or three when there are many.
     const current = view.sections.find((s) => s.id === section);
     // Lines are read, not pressed: they are laid out under the buttons, and are no region a ray can choose.
-    const items: UiItemView[] = (current?.items ?? []).filter((item) => item.kind !== "line");
+    // A bar that is moved along is not drawn here: whatever has one gives the same thing as buttons beside it.
+    const items: UiItemView[] = (current?.items ?? []).filter((item) => item.kind !== "line" && item.kind !== "slider");
     const lines: UiItemView[] = (current?.items ?? []).filter((item) => item.kind === "line");
     noteNow = current?.note ?? "";
     g.font = `400 ${Math.round(24 * k)}px ${SANS}`;
@@ -755,7 +756,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
         mount,
         section: open ? (current?.id ?? "") : "",
         sections: open ? view.sections.map((s) => s.label) : [],
-        buttons: open ? [...(current?.items.filter((i) => i.kind !== "line").map((i) => i.label) ?? []), ...(linePages > 1 ? [`Page ${linePage + 1} of ${linePages}`] : [])] : opener.visible ? ["Menu"] : [],
+        buttons: open ? [...(current?.items.filter((i) => i.kind !== "line" && i.kind !== "slider").map((i) => i.label) ?? []), ...(linePages > 1 ? [`Page ${linePage + 1} of ${linePages}`] : [])] : opener.visible ? ["Menu"] : [],
         lines: open ? (current?.items.filter((i) => i.kind === "line").map((i) => i.label) ?? []) : [],
         linesPage: { page: open ? linePage + 1 : 0, pages: open ? linePages : 0 },
         note: open ? (current?.note ?? "") : "",

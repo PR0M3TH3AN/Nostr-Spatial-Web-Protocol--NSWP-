@@ -41,6 +41,13 @@ export const VISITOR_SWITCHES: readonly string[] = [
   "juke-play",
   "juke-next",
   "juke-remove",
+  "juke-place",
+  "juke-previous",
+  "juke-back",
+  "juke-forward",
+  "juke-shuffle",
+  "juke-repeat",
+  "juke-bar",
   // In Moving, which both fill: how they move at a desk, how fast they look round, and how they move in a headset
   // (fps.ts, desk.ts, input.ts) are the visitor's, each a setting that travels. What is the world's there is what
   // it does for them: a jump.
@@ -53,6 +60,13 @@ export const VISITOR_SWITCHES: readonly string[] = [
   "move-narrow",
   "move-fade",
 ];
+
+/**
+ * Whether a row is the visitor's own, by its id: one of the switches above, anything of their own music (`juke-`),
+ * or one of their songs (`song-`, a row for each, whose words are the song's name). A world never describes these
+ * to a client: what a visitor listens to is not a world's to say.
+ */
+export const visitorsOwnRow = (id: string): boolean => VISITOR_SWITCHES.includes(id) || id.startsWith("juke-") || id.startsWith("song-");
 
 /** Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world. */
 export const picturesSwitch = (controls: Pick<Controls, "say">): UiAction => ({

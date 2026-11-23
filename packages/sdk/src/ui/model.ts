@@ -22,6 +22,13 @@ import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRE
 
 type Text = string | (() => string);
 
+/** A bar that is moved along: where it is, where it ends, and words for where it is. Each is asked for as it is drawn. */
+export interface UiSlider {
+  value(): number;
+  max(): number;
+  text?(): string;
+}
+
 export interface UiAction {
   id: string;
   /** What it says. A function is read again as things change, so the words follow what they describe. */
@@ -33,7 +40,8 @@ export interface UiAction {
   /**
    * What a press does. For a row the visitor types into (`kind: "field"`) it is given what they typed, at their
    * press and not before. Where the menu has no box to type in (a headset's console draws the row as a button),
-   * it is given nothing, and asks for the text its own way. For a row that takes a file (`kind: "file"`) it is
+   * it is given nothing, and asks for the text its own way. For a bar that is moved along (`kind: "slider"`) it is
+   * given where it was moved to, as a number in text. For a row that takes a file (`kind: "file"`) it is
    * given the file the visitor chose, second, and nothing first; where the menu can show no chooser, nothing at all.
    */
   act(typed?: string, file?: Blob): void | Promise<void>;
@@ -68,8 +76,18 @@ export interface UiAction {
    * "file" takes a file from the visitor's device: whoever draws the menu opens the browser's chooser at the press,
    * offering only the kinds in `accept`, and gives `act` the file they chose. "save" is a button whose press may end
    * in something to save (`saveFile`): where a client above draws the menu, what is saved goes up to it.
+   * "slider" is a bar to move along, for a place in something that runs (a song): it needs `slider`, and its `act`
+   * is given where the visitor moved it to. It is never on the hotbar. It is one of the menu's own controls and no
+   * word of the menu's port carries it, so a world's row of this kind is not described to a client. A menu that
+   * draws no bar (a headset's console) leaves it out: give the same thing as buttons beside it.
    */
-  kind?: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save";
+  kind?: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save" | "slider";
+  /**
+   * For a "slider" row: where it is now and where it ends, both asked for as it is drawn and again while it is in
+   * sight, so that something that runs is seen to; and words for where it is ("1:23 of 3:45"). An end of 0 is "not
+   * known yet": the bar is drawn, and can't be moved.
+   */
+  slider?: UiSlider;
   /** For a "copy" row: the text to copy. */
   copy?: Text;
   /** For a "file" row: the kinds of file it takes (the core's `MENU_FILE_KINDS`). */
@@ -145,7 +163,9 @@ export interface UiItemView {
   /** The number key that presses it from the hotbar, or "". */
   key: string;
   short: string;
-  kind: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save";
+  kind: "button" | "swatch" | "tile" | "line" | "copy" | "field" | "file" | "save" | "slider";
+  /** For a "slider" row: asked for as it is drawn. Not part of what is written out as text. */
+  slider?: UiSlider;
   /** For a "copy" row: the text to copy. */
   copy?: string;
   /** For a "file" row: the kinds of file it takes. */
@@ -565,7 +585,7 @@ export function createControls(opts: ControlsOptions): Controls {
       if (!a || a.hidden?.() || a.kind === "line") return false;
       for (const fn of signals) fn("press");
       void Promise.resolve()
-        .then(() => (a.kind === "file" ? a.act(undefined, file) : a.act(a.kind === "field" ? typed : undefined)))
+        .then(() => (a.kind === "file" ? a.act(undefined, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : undefined)))
         .catch(() => {})
         .finally(changed);
       return true;
@@ -592,11 +612,11 @@ export function createControls(opts: ControlsOptions): Controls {
     },
     view() {
       const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-      const pressable = showing.filter((a) => a.kind !== "line");
+      const pressable = showing.filter((a) => a.kind !== "line" && a.kind !== "slider");
       const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", ...(a.kind === "copy" ? { copy: read(a.copy) } : {}), ...(a.kind === "file" ? { accept: a.accept ?? [] } : {}), color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", ...(a.kind === "copy" ? { copy: read(a.copy) } : {}), ...(a.kind === "file" ? { accept: a.accept ?? [] } : {}), ...(a.kind === "slider" && a.slider ? { slider: a.slider } : {}), color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);
