@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.84.0
+
 - **A file handed down and a picture handed up: the last of step 1 of the client's menu** (core `menu.ts`; SDK `ui/port-below.ts`, `menu-above.ts`, `ui/hud.ts`, `save-file.ts` (new), `camera.ts`, `panels.ts`, `room-controls.ts`, `client-frame.ts`; the engine script; `trials/menu-client.mjs`; NSWP-02, "A file going down, and something to save going up"). The words were given by the orchestrator on 2026-11-23. The version of the menu's words stays 1, and the engine script's version is not changed.
   - A press on the client's menu is no press in the world's page, and a browser shows its chooser of files, and may keep its save, for the page that was pressed. So the client's page does the browser's part and the result is handed across. Each stays one press.
   - **A row of the kind `file`.** A world describes it with the kinds it takes (`accept`: `image`, `video`, and no others, ever). Whoever draws the menu opens the browser's chooser at the press and gives the row the file. Where that is a client, the file goes down with the press, `{ nswp: "menu", press, file }`, as the file it is and to the one world that described the row; under the row the client says "The file you choose goes to" that world. 64 MB at most, one file, never with typed text, its own name up to 255 characters and no path. A file of another kind is refused and the client says why. The world checks again: only for a row that takes one, only a kind it asked for. Only in Panels and a world's own tabs, never on the bar.
