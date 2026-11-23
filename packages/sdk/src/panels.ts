@@ -838,20 +838,13 @@ export function addPanelControls(controls: Controls, panels: Panels, o: { presen
       controls.say(err instanceof Error && /Put one away/.test(err.message) ? `${PANEL_LIMITS.count} panels are open. Put one away first.` : "That couldn't be hung.");
     }
   };
-  const picker = document.createElement("input");
-  picker.type = "file";
-  picker.accept = "image/*,video/*";
-  picker.hidden = true;
-  document.body.append(picker);
-  picker.addEventListener("change", () => {
-    const file = picker.files?.[0];
-    picker.value = "";
-    if (!file) return;
+  // A file from the device comes from whoever draws the menu: this page's own, or a client's above, whose page the
+  // visitor's press was in. Either opens the browser's chooser at the press and hands the chosen file here.
+  const hangFile = (file: Blob & { name?: string }) =>
     void panels.openFile(file).then(
       (p) => controls.say(p ? "Hung in front of you." : file.size > PANEL_LIMITS.fileBytes ? "That file is too large to hang: 64 MB at most." : "Only pictures and videos can be hung."),
       () => controls.say(`${PANEL_LIMITS.count} panels are open. Put one away first.`),
     );
-  });
   controls.add(
     {
       id: "panel-note",
@@ -883,7 +876,7 @@ export function addPanelControls(controls: Controls, panels: Panels, o: { presen
       },
     },
     // The device's own files: the browser shows those itself, as a flat window, so this is offered outside a headset.
-    { id: "panel-file", section: "panels", icon: "panel", label: "Hang a picture or video from this device", short: "Hang", hidden: o.presenting, act: () => picker.click() },
+    { id: "panel-file", section: "panels", icon: "panel", kind: "file", accept: ["image", "video"], label: "Hang a picture or video from this device", short: "Hang", hidden: o.presenting, act: (_typed, file) => void (file && hangFile(file)) },
     {
       id: "panel-hide",
       section: "panels",

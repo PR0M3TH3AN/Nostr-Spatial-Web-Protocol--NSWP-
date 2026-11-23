@@ -15,7 +15,8 @@
  *
  * Nothing of the visitor's own tabs is ever said down: only their settings, and their presses on the world's rows.
  */
-import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, MENU_LIMITS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
+import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, menuFileKind, menuFileName, MENU_LIMITS, MENU_SAVE_MS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSaveType, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
+import { download } from "../save-file.js";
 import { changeSettings, currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
 import { STANDARD_TABS, standardTab, type Controls, type UiAction, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
@@ -43,6 +44,7 @@ const itemOf = (row: MenuRow, sent?: unknown, from?: string): UiItemView => ({
   short: row.short ?? row.label,
   kind: row.kind,
   ...(row.kind === "copy" ? { copy: row.copy ?? "" } : {}),
+  ...(row.kind === "file" ? { accept: row.accept ?? [] } : {}),
   color: row.color ?? "",
   mark: iconOf(row.mark),
   faint: row.faint === true,
@@ -164,6 +166,14 @@ export interface MenuBelowOptions {
   /** Whether something a world sent as a picture may be kept. By default a bitmap within the limit on its size. */
   picture?: (value: unknown) => boolean;
   /**
+   * A world handed up a picture or a clip to be saved, as the answer to the visitor's press on a row that saves:
+   * already checked for its kind and size, and named by this page (the world's name, the date and time, an ending
+   * from its kind). Left out, this page saves it to the device as a download. A client that keeps the visitor's
+   * files somewhere of its own takes it here instead. Either way the visitor is told, for a moment, what was saved
+   * and from which world; return words of the client's own to say those instead.
+   */
+  onSave?: (file: Blob, about: SavedAbout) => string | void;
+  /**
    * The frame's first page had already finished loading when this was made. Say so if it may have: a `here` is
    * told apart from the next page's by whether a load is still waiting for one (below).
    */
@@ -172,7 +182,30 @@ export interface MenuBelowOptions {
   hear?: { addEventListener(type: "message", fn: (e: MessageEvent) => void): void; removeEventListener(type: "message", fn: (e: MessageEvent) => void): void };
   /** For tests: this page's own origin. */
   origin?: string;
+  /** For tests: the time, in milliseconds. */
+  now?: () => number;
 }
+
+/** What a client is told of something a world handed up to be saved. */
+export interface SavedAbout {
+  /** The name this page gave it. A world never names a file on the visitor's device. */
+  name: string;
+  /** The world it came from: its title, or its address where it has none. */
+  world: string;
+  kind: "picture" | "clip";
+  type: MenuSaveType;
+}
+
+const ENDING: Record<MenuSaveType, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/webm": "webm", "video/mp4": "mp4" };
+/** A name for a saved file, from the world's name and the time: plain letters, digits and hyphens. */
+const savedName = (world: string, kind: "picture" | "clip", type: MenuSaveType, at: Date): string =>
+  `${
+    world
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "world"
+  }-${kind === "clip" ? "clip-" : ""}${at.toISOString().slice(0, 19).replace(/[T:]/g, "-")}.${ENDING[type]}`;
 
 export interface MenuBelow {
   /** What the menu is mounted on: `mountMenu(below.port)`. */
@@ -233,6 +266,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   let origin = "";
   let speaks = false;
   let world: MenuWorld | null = null;
+  /** The visitor's last press on a row that saves: what the world may still hand up for it, and until when. */
+  let saving: { id: string; until: number; left: number } | null = null;
+  const now = opts.now ?? (() => performance.now());
   /** The pictures a world sent, each alone, by the id of the row it is for, or `card:<tab>` for a tab's card. */
   const pictures = new Map<string, unknown>();
   let menu: { pressKey(key: string): void } | null = null;
@@ -258,6 +294,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     origin = "";
     speaks = false;
     world = null;
+    saving = null;
     pictures.clear();
     saidSettings = "";
     if (had) changed();
@@ -289,6 +326,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       if (awaiting) awaiting = false;
       else early = true;
       world = null;
+      saving = null;
       pictures.clear();
       origin = typeof e.origin === "string" ? e.origin : "";
       speaks = menuVersionOf(data) > 0 && !!origin && origin !== "null";
@@ -321,6 +359,19 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     // Taken as the visitor's own, in this page, unless the client says what to do with them: each part here that
     // holds one takes it, and it is said to the next world with the rest.
     if (word.what === "settings") return void (world?.state.headset.presenting && (opts.onReported ?? changeSettings)(word.settings));
+    // Something to save. Only as the answer to a press this page sent on a row that saves, for that row, in time,
+    // and only so many: a world can't put a file on the visitor's device unasked. The name is this page's own.
+    if (word.what === "save") {
+      if (!saving || saving.id !== word.id || now() > saving.until || saving.left < 1) return;
+      saving.left--;
+      const kind = word.type.startsWith("video/") ? "clip" : "picture";
+      const from = world?.title || host();
+      const name = savedName(from, kind, word.type, new Date());
+      const own = opts.onSave ? opts.onSave(word.save, { name, world: from, kind, type: word.type }) : download(word.save, name);
+      // Never silent: what was saved, and from which world, in this page's own words.
+      controls.say(typeof own === "string" && own ? own.slice(0, MENU_LIMITS.say) : `${kind === "clip" ? "A clip" : "A picture"} from ${from} was saved${opts.onSave ? "" : " to this device"}.`);
+      return;
+    }
     // Only for a row or a card of the last description: a picture is never kept for something that isn't there.
     if (word.what === "picture" && world) {
       const there = world.sections.some((s) => (s.card && `${MENU_CARD_PICTURE}${s.id}` === word.id) || s.rows.some((r) => r.id === word.id));
@@ -364,14 +415,27 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       viewers.add(fn);
       return () => void viewers.delete(fn);
     },
-    run(id, typed) {
+    run(id, typed, file) {
       // A press on anything of this page's takes the keys from the frame, and the world stops hearing them: walking
       // stops. So with the menu down they are given back once the press has been taken, whatever it did.
       if (!open) setTimeout(() => !open && frame.focus(), 0);
-      if (!id.startsWith(WORLDS)) return controls.run(id, typed);
+      if (!id.startsWith(WORLDS)) return controls.run(id, typed, file);
       const row = rowOf(id);
       // Only for something in the world's last description, and something that can be pressed.
       if (!row || row.kind === "line") return false;
+      if (row.kind === "file") {
+        // The file the visitor chose in this page's chooser, as it is, to the one world that described the row. It is
+        // checked here whoever drew the menu: one of the kinds the row asked for, within the limit. Its own name goes
+        // with it only where a name may; otherwise the file goes without one.
+        const kind = file ? menuFileKind(file.type) : null;
+        if (!file || !kind || !row.accept?.includes(kind) || file.size < 1 || file.size > MENU_LIMITS.file) return false;
+        controls.signal("press");
+        const name = (file as { name?: unknown }).name;
+        say({ press: row.id, file: name === undefined || menuFileName(name) ? file : file.slice(0, file.size, file.type) });
+        return true;
+      }
+      // A row that saves: what the world hands up for it, for a while after this press, is saved here.
+      if (row.kind === "save") saving = { id: row.id, until: now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
       controls.signal("press");
       say({ press: row.id, ...(row.kind === "field" && typed !== undefined ? { field: typed.slice(0, MENU_LIMITS.field) } : {}) });
       return true;

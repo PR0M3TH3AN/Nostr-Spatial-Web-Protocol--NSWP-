@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_ROW_KINDS, MENU_SAVE_MS, MENU_SAVE_TYPES, menuFileKind, menuFileName, menuSaveType, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
 
 /**
  * The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
@@ -20,7 +20,7 @@ const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")
 
 describe("the menu's words, by the examples", () => {
   it("has examples of every kind", () => {
-    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([19, 22, 13, 4]);
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([21, 25, 16, 4]);
   });
   for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
   for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));
@@ -30,7 +30,7 @@ describe("the menu's words, by the examples", () => {
 
 describe("the limits and the lists", () => {
   it("are the ones the plan and the protocol give", () => {
-    expect(MENU_LIMITS).toEqual({ sections: 12, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400 });
+    expect(MENU_LIMITS).toEqual({ sections: 12, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400, file: 67_108_864, fileName: 255, save: 67_108_864, saves: 12 });
     expect(v.limits).toEqual(MENU_LIMITS);
     expect([MENU_VERSION, MENU_WAIT_MS, LEAVE_MS]).toEqual([1, 300, 1000]);
     expect(MENU_KEYS).toEqual(["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
@@ -159,5 +159,82 @@ describe("a world that sends too much", () => {
       expect(() => readMenuWordUp({ nswp: "menu", world: bad })).not.toThrow();
       expect(() => readMenuWordDown({ nswp: "menu", settings: bad, press: bad })).not.toThrow();
     }
+  });
+});
+
+/**
+ * A file the visitor chose going down with a press, and a picture or a clip going up to be saved. A file of JSON
+ * can't hold a file, so these are here and not among the examples.
+ */
+describe("a file going down, and a picture going up", () => {
+  const file = (name: string, type: string, size = 70) => new File([new Uint8Array(size)], name, { type });
+  /** A file that says it is bigger than it is: nothing of that size is made for a test. */
+  const sized = (size: number, type: string) => Object.defineProperty(new Blob([new Uint8Array(4)], { type }), "size", { value: size });
+
+  it("has the two kinds of row, the kinds of file, the types to save, and the limits, as given", () => {
+    expect(MENU_ROW_KINDS).toEqual(["button", "swatch", "tile", "line", "copy", "field", "file", "save"]);
+    expect(MENU_FILE_KINDS).toEqual(["image", "video"]);
+    expect(MENU_SAVE_TYPES).toEqual(["image/jpeg", "image/png", "image/webp", "video/webm", "video/mp4"]);
+    expect([MENU_LIMITS.file, MENU_LIMITS.fileName, MENU_LIMITS.save, MENU_LIMITS.saves, MENU_SAVE_MS]).toEqual([67_108_864, 255, 67_108_864, 12, 10_000]);
+  });
+
+  it("a press carries the file itself, with its kind and its own name", () => {
+    const f = file("a dot.png", "image/png");
+    const word = readMenuWordDown({ nswp: "menu", press: "panel-file", file: f });
+    expect(word).toEqual({ what: "press", press: "panel-file", file: f, kind: "image", name: "a dot.png" });
+    expect((word as { file: Blob }).file).toBe(f);
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: file("clip.MP4", "Video/MP4") })).toMatchObject({ kind: "video", name: "clip.MP4" });
+  });
+
+  it("is no press with a file of no kind a row takes, an empty one, or one over the limit", () => {
+    for (const type of ["audio/mpeg", "application/pdf", "text/html", "", "image", "/png"]) expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: file("x", type) }), type).toBeNull();
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: file("nothing.png", "image/png", 0) })).toBeNull();
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: sized(MENU_LIMITS.file, "image/png") })).not.toBeNull();
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: sized(MENU_LIMITS.file + 1, "image/png") })).toBeNull();
+  });
+
+  it("never carries both a file and what was typed", () => {
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: file("a.png", "image/png"), field: "and this" })).toBeNull();
+  });
+
+  it("leaves a name out that is too long, is a path, or has something unseen in it: the file still goes", () => {
+    for (const name of ["n".repeat(MENU_LIMITS.fileName + 1), "C:\\Users\\ana\\dot.png", "home/ana/dot.png", "dot\u202egnp.exe", ""]) {
+      const f = file(name, "image/png");
+      const word = readMenuWordDown({ nswp: "menu", press: "panel-file", file: f });
+      expect(word, name).toEqual({ what: "press", press: "panel-file", file: f, kind: "image" });
+    }
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: file("n".repeat(MENU_LIMITS.fileName), "image/png") })).toMatchObject({ name: "n".repeat(MENU_LIMITS.fileName) });
+    // A blob has no name at all.
+    const blob = new Blob([new Uint8Array(4)], { type: "video/webm" });
+    expect(readMenuWordDown({ nswp: "menu", press: "panel-file", file: blob })).toEqual({ what: "press", press: "panel-file", file: blob, kind: "video" });
+  });
+
+  it("a world hands up a picture or a clip, for a row by id, and its type is read without how it was packed", () => {
+    const shot = new Blob([new Uint8Array(2561)], { type: "image/jpeg" });
+    expect(readMenuWordUp({ nswp: "menu", save: shot, id: "camera-picture" })).toEqual({ what: "save", id: "camera-picture", save: shot, type: "image/jpeg" });
+    const clip = new Blob([new Uint8Array(9)], { type: "video/webm;codecs=vp9" });
+    expect(readMenuWordUp({ nswp: "menu", save: clip, id: "camera-clip" })).toEqual({ what: "save", id: "camera-clip", save: clip, type: "video/webm" });
+  });
+
+  it("reads nothing to save of another type, with no row, empty, or over the limit", () => {
+    for (const type of ["image/svg+xml", "text/html", "application/pdf", "application/x-msdownload", "image/gif", "video/quicktime", ""]) expect(readMenuWordUp({ nswp: "menu", save: new Blob(["x"], { type }), id: "camera-picture" }), type).toBeNull();
+    const shot = new Blob(["x"], { type: "image/png" });
+    expect(readMenuWordUp({ nswp: "menu", save: shot })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", save: shot, id: "an id" })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", save: new Blob([], { type: "image/png" }), id: "camera-picture" })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", save: sized(MENU_LIMITS.save, "image/png"), id: "camera-picture" })).not.toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", save: sized(MENU_LIMITS.save + 1, "image/png"), id: "camera-picture" })).toBeNull();
+  });
+
+  it("is not read by the wrong side: a world never reads something to save, a client never reads a file", () => {
+    const f = file("a.png", "image/png");
+    expect(readMenuWordDown({ nswp: "menu", save: f, id: "camera-picture" })).toBeNull();
+    expect(readMenuWordUp({ nswp: "menu", press: "panel-file", file: f })).toBeNull();
+  });
+
+  it("says a file's kind, a name that may go, and a type to save, of anything at all", () => {
+    expect(["image/png", "IMAGE/x-anything", "video/mp4", "audio/ogg", "image", "", 5, null].map(menuFileKind)).toEqual(["image", "image", "video", null, null, null, null, null]);
+    expect(["dot.png", "a/b.png", "a\\b.png", "", 5].map(menuFileName)).toEqual(["dot.png", undefined, undefined, undefined, undefined]);
+    expect(["image/jpeg", " Video/WebM ; codecs=vp8", "image/gif", 5].map(menuSaveType)).toEqual(["image/jpeg", "video/webm", null, null]);
   });
 });

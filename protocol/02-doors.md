@@ -492,6 +492,10 @@ pages, and a world takes them only from the page directly above it.
   client's to do ("A client that keeps the screen", above).
 - the world, with words to show for a moment: `{ nswp: "menu", say }`, at
   most 200 characters of plain text, shown under the world's name.
+- the client, with a file the visitor chose for a row that takes one:
+  `{ nswp: "menu", press: id, file }`; and the world, with a picture or a
+  clip to be saved: `{ nswp: "menu", save, id }` ("A file going down, and
+  something to save going up", below).
 
 One word says one thing. A word with anything in it that only the other
 side says is not read.
@@ -620,6 +624,69 @@ is not a press in the world's page:
   A `field` row may stand only in `guests` and in a world's own tabs.
   Anywhere else it is left out.
 
+**A file going down, and something to save going up.** Two things a
+browser gives only to the page that was pressed: its chooser of files,
+and (it may be) a save to the device. A press on the client's menu is a
+press in the client's page. So the client's page does the browser's part,
+and the result is handed across. Each stays one press.
+
+- `kind: "file"`, with `accept`, the kinds of file the row takes: `image`,
+  `video`, or both. Those two are all there are, and a row that names
+  neither is left out: no world can ask for any file at all. The client
+  draws a button with the row's `label`, and under it, in its own words,
+  which world gets the file ("The file you choose goes to The Gallery.").
+  At the visitor's press the client's page opens the browser's chooser,
+  offering only those kinds. Choosing a file there is the visitor's yes:
+  the client then sends `{ nswp: "menu", press: id, file }`, the file as
+  it is, to the one world that described the row. Nothing is said before
+  a file is chosen, and nothing if none is. A client keeps these rules:
+  - one file to a press, and never with `field`;
+  - 64 megabytes at most (67,108,864 bytes);
+  - its kind, by the type the browser gives it, is one the row asked for:
+    a chooser can be made to offer anything, so the client checks;
+  - its own name goes with it, as a chooser in the world's own page would
+    give it, up to 255 characters. A name that is longer, has a `/` or a
+    `\` in it, or has anything unseen in it, is left out, and the file
+    goes without one. Nothing else of the device goes: no path;
+  - over a limit, nothing is sent, and the client says why.
+
+  A world checks again as it reads the word: a file only for a row it
+  described as taking one, and only of a kind that row asked for. A `file`
+  row may stand only in `panels` and in a world's own tabs, and never on
+  the bar: where the file goes is written under it.
+- `kind: "save"`: a button whose press may end in something to save ("Take
+  a picture", "Stop recording", "Save 3 pictures"). The world then hands
+  it up: `{ nswp: "menu", save, id }`, a picture or a clip for the row
+  `id`, and the client's page saves it. A client keeps these rules:
+  - it takes one only as the answer to a press it sent, on a row of this
+    kind in the world's last description, for that row, within ten
+    seconds of the press. A world can't put a file on the visitor's
+    device unasked;
+  - up to 12 for one press. More wait for the next;
+  - 64 megabytes at most, and of one of five types: `image/jpeg`,
+    `image/png`, `image/webp`, `video/webm`, `video/mp4`. What follows a
+    `;` in a type is not counted (a recorder adds how it packed a clip).
+    Anything else is not read;
+  - the name is the client's own: the world's name, the date and time,
+    and an ending from the type. A world never names a file on the
+    visitor's device;
+  - it is never silent: the client says, for a moment and in its own
+    words, what it saved and from which world.
+
+  A client that keeps the visitor's files somewhere of its own may take
+  it there in place of the device. A world keeps what there is no press
+  to answer (a clip that ran to its end by itself) and offers a row that
+  saves it, as it does for pictures taken in a headset.
+
+**Sharing the screen is not handed down.** A world in a client's frame is
+not given the browser's "choose what to share", and a client does not
+allow its frame `display-capture`: that chooser names the page above and
+not the world asking, and a frame allowed it can bring it up with no
+press at all. So a world there offers no row for it, and says in two
+lines why, and that it works at the world's own address. The way it will
+work in a frame is for the client's page to share the screen and hand
+the picture down. That is not built.
+
 **Pictures.** A description is text, said again whenever a word of it
 changes. A picture is sent alone: `{ nswp: "menu", picture, id }`, a
 bitmap for the row `id` of the last description, or for the card at the
@@ -641,8 +708,9 @@ watched screen) sends each new one the same way.
 **Limits a client holds a world to,** whatever it sends: 12 tabs, 60 rows
 in one, 200 rows in all, 120 characters in a label or any other short
 line, 400 in a note, a picture of 256 pixels a side, 2000 characters of
-text to copy, 500 typed into a field, and 64 kilobytes of description
-without its pictures. Characters are counted as a reader counts them
+text to copy, 500 typed into a field, 64 megabytes in a file going down
+or something to save going up, and 64 kilobytes of description without
+its pictures. Characters are counted as a reader counts them
 (code points). What is over is left out, not cut to fit: a row with a
 label too long is no row, and a description too big is no description. A
 row of a kind the client doesn't know is left out, never guessed at.

@@ -6957,13 +6957,24 @@ ${roomName}`)));
     /** Characters in the world's name. */
     title: 80,
     /** Characters in a tab's note, and in what a card says at length. */
-    note: 400
+    note: 400,
+    /** Bytes in a file the visitor chose for a `file` row: 64 MB. */
+    file: 64 * 1024 * 1024,
+    /** Characters in that file's own name. A longer name is left out, and the file goes without one. */
+    fileName: 255,
+    /** Bytes in a picture or a clip a world hands up to be saved: 64 MB. */
+    save: 64 * 1024 * 1024,
+    /** How many a world may hand up in answer to one press. */
+    saves: 12
   };
   var MENU_WAIT_MS = 300;
   var LEAVE_MS = 1e3;
+  var MENU_SAVE_MS = 1e4;
   var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "look"];
   var MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
   var MENU_CARD_PICTURE = "card:";
+  var MENU_FILE_KINDS = ["image", "video"];
+  var MENU_SAVE_TYPES = ["image/jpeg", "image/png", "image/webp", "video/webm", "video/mp4"];
   var UNSEEN_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
   var isObject = (v2) => !!v2 && typeof v2 === "object" && !Array.isArray(v2);
   var count = (s) => {
@@ -6972,7 +6983,32 @@ ${roomName}`)));
       n++;
     return n;
   };
+  function whole(v2, most) {
+    if (typeof v2 !== "string" || !v2 || v2.length > most * 4 || UNSEEN_BUT_LINES.test(v2))
+      return void 0;
+    return count(v2) <= most ? v2 : void 0;
+  }
   var id = (v2) => typeof v2 === "string" && v2.length > 0 && v2.length <= MENU_LIMITS.label && !/\s/.test(v2) && !UNSEEN_BUT_LINES.test(v2) ? v2 : void 0;
+  function fileOf(v2, most) {
+    if (typeof Blob === "undefined" || !(v2 instanceof Blob))
+      return null;
+    return Number.isInteger(v2.size) && v2.size > 0 && v2.size <= most ? v2 : null;
+  }
+  function menuFileKind(type) {
+    if (typeof type !== "string" || type.length > 100)
+      return null;
+    const kind = type.slice(0, type.indexOf("/") === -1 ? 0 : type.indexOf("/")).toLowerCase();
+    return MENU_FILE_KINDS.includes(kind) ? kind : null;
+  }
+  function menuFileName(name) {
+    return typeof name === "string" && !/[\\/]/.test(name) ? whole(name, MENU_LIMITS.fileName) : void 0;
+  }
+  function menuSaveType(type) {
+    if (typeof type !== "string" || type.length > 100)
+      return null;
+    const plain = type.split(";")[0].trim().toLowerCase();
+    return MENU_SAVE_TYPES.includes(plain) ? plain : null;
+  }
   function cleanMenuSettings(input) {
     return cleanSettings(input);
   }
@@ -6986,7 +7022,7 @@ ${roomName}`)));
     return out;
   }
   var isMenu = (data) => isObject(data) && data.nswp === "menu";
-  var UP_ONLY = ["world", "key", "say", "picture", "id"];
+  var UP_ONLY = ["world", "key", "say", "picture", "save", "id"];
   var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
   function readMenuWordDown(data) {
     if (!isMenu(data) || hasAny(data, UP_ONLY))
@@ -7003,6 +7039,16 @@ ${roomName}`)));
       const press = id(data.press);
       if (!press)
         return null;
+      if (data.file !== void 0) {
+        if (data.field !== void 0)
+          return null;
+        const file = fileOf(data.file, MENU_LIMITS.file);
+        const kind = file && menuFileKind(file.type);
+        if (!file || !kind)
+          return null;
+        const name = menuFileName(file.name);
+        return { what: "press", press, file, kind, ...name ? { name } : {} };
+      }
       if (data.field === void 0)
         return { what: "press", press };
       if (typeof data.field !== "string" || data.field.length > MENU_LIMITS.field * 4 || UNSEEN_BUT_LINES.test(data.field) || count(data.field) > MENU_LIMITS.field)
@@ -8174,6 +8220,28 @@ postMessage({ t: "started" });
     }
   };
   var copiedRefused = (copy, inFrame = framed()) => inFrame ? `What you copied can't be read in a world shown inside another page. Open this world by its own address, ${copy.charAt(0).toLowerCase()}${copy.slice(1)}, and press again.` : `What you copied couldn't be read here. ${copy}, allow this site to read what you copy, and press again.`;
+  var mayShareScreen = (inFrame = framed()) => {
+    if (!inFrame) return true;
+    try {
+      const policy = document;
+      const says = policy.permissionsPolicy?.allowsFeature ?? policy.featurePolicy?.allowsFeature;
+      return typeof says === "function" ? says.call(policy.permissionsPolicy ?? policy.featurePolicy, "display-capture") === true : null;
+    } catch {
+      return null;
+    }
+  };
+  var framedBy = () => {
+    try {
+      const above2 = framed() ? location.ancestorOrigins?.[0] : void 0;
+      return above2 ? new URL(above2).host : "";
+    } catch {
+      return "";
+    }
+  };
+  var screenNotHere = (by = framedBy()) => {
+    const named2 = `Sharing your screen isn't available in a world shown inside ${by}.`;
+    return [by && named2.length <= 120 ? named2 : "Sharing your screen isn't available in a world shown inside another page.", "Open this world by its own address."];
+  };
   var holds = false;
   var filled = false;
   var menuSpoken = 0;
@@ -8287,6 +8355,10 @@ postMessage({ t: "started" });
     else hello();
   }
   meetClient();
+  var saver = null;
+  function setSaver(next) {
+    saver = next;
+  }
 
   // packages/sdk/src/settings.ts
   var arrived = {};
@@ -52624,7 +52696,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     ...item.mark ? { mark: item.mark } : {},
     ...item.faint ? { faint: true } : {},
     ...onBar ? { bar: true } : {},
-    ...item.kind === "copy" ? { copy: item.copy ?? "" } : {}
+    ...item.kind === "copy" ? { copy: item.copy ?? "" } : {},
+    ...item.kind === "file" ? { accept: [...item.accept ?? []] } : {}
   });
   var cardOf = (card) => ({
     title: card.title,
@@ -52661,7 +52734,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       })).filter((s) => s.rows.length > 0 || s.card || s.id === "help" && about)
     };
   }
-  var idsOf = (world2) => new Set(world2.sections.flatMap((s) => s.rows.map((r) => r.id)));
+  var nameless = (file) => typeof file.name === "string" ? file.slice(0, file.size, file.type) : file;
+  var rowsOf = (world2) => new Map(world2.sections.flatMap((s) => s.rows.map((r) => [r.id, { kind: r.kind, accept: r.accept ?? [] }])));
   function portAbove(controls2, opts = {}) {
     const above2 = opts.above ?? { framed, sinceHere, say: sayToClient, hear: hearClientMenu };
     const keys = opts.keys ?? (typeof window === "undefined" ? null : window);
@@ -52683,7 +52757,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       } }, dispose: () => {
       } };
     }
-    let named2 = /* @__PURE__ */ new Set();
+    let named2 = /* @__PURE__ */ new Map();
     const makePicture = opts.picture ?? bitmapOf;
     const made = /* @__PURE__ */ new Map();
     const want2 = (key, from) => {
@@ -52717,7 +52791,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (text2 !== last) {
         last = text2;
         lastAt = performance.now();
-        named2 = idsOf(world2);
+        named2 = rowsOf(world2);
         above2.say({ world: world2 });
       }
       picturesOf(view2);
@@ -52770,11 +52844,23 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       else {
         if (waiting3) clearTimeout(waiting3);
         waiting3 = null;
-        named2 = /* @__PURE__ */ new Set();
+        named2 = /* @__PURE__ */ new Map();
+        saving = null;
       }
       know();
       for (const fn of [...watchers8]) fn(has);
     };
+    let saving = null;
+    const awaited = () => !!saving && saving.left > 0 && performance.now() < saving.until;
+    setSaver({
+      handUp(file) {
+        if (!has || !awaited() || !menuSaveType(file.type) || file.size < 1 || file.size > MENU_LIMITS.save) return false;
+        saving.left--;
+        above2.say({ save: file, id: saving.id });
+        return true;
+      },
+      waits: () => has && !awaited()
+    });
     let leaving2 = null;
     let open2 = false;
     above2.hear((data) => {
@@ -52786,7 +52872,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       if (!has) return;
       if (word.what === "settings") return void takeSettings(word.settings);
-      if (word.what === "press") return void (named2.has(word.press) && controls2.run(word.press, word.field));
+      if (word.what === "press") {
+        const row = named2.get(word.press);
+        if (!row) return;
+        if (word.file) return void (row.kind === "file" && row.accept.includes(word.kind) && controls2.run(word.press, void 0, word.name ? word.file : nameless(word.file)));
+        if (row.kind === "save") saving = { id: word.press, until: performance.now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
+        return void controls2.run(word.press, word.field);
+      }
       if (word.what === "open") {
         if (word.open === open2) return;
         open2 = word.open;
@@ -52854,6 +52946,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         stopView();
         stopSay();
         above2.hear(null);
+        setSaver(null);
         keys?.removeEventListener("keydown", onKey, listening);
         keys?.removeEventListener("keyup", swallow, listening);
         watchers8.clear();
@@ -52867,7 +52960,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return {
       view: () => controls2.view(),
       subscribe: (fn) => controls2.subscribe(fn),
-      run: (id2, typed) => controls2.run(id2, typed),
+      run: (id2, typed, file) => controls2.run(id2, typed, file),
       say: (text2) => controls2.say(text2),
       onSay: (fn) => controls2.onSay(fn),
       signal: (name) => controls2.signal(name),
@@ -53250,6 +53343,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
 .field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
 .field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
+/* A row that takes a file: its button, and under it where the file goes. */
+.takes { grid-column: 1 / -1; display: grid; gap: 4px; }
+.takes .to { margin: 0; padding: 0 12px; font-size: .86em; color: rgba(var(--ink), .6); }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
@@ -53530,7 +53626,26 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (!n) marks.set(picture2, n = ++marked);
       return n;
     };
-    const press = (item) => controls2.run(item.id);
+    const kindsWords = (accept) => accept.length === 1 ? accept[0] === "image" ? "pictures" : "video" : "pictures and video";
+    const fileRow = (item) => {
+      const accept = item.accept ?? [];
+      const picker = el("input", { type: "file", accept: accept.map((k) => `${k}/*`).join(","), hidden: "" });
+      picker.addEventListener("cancel", () => picker.remove());
+      picker.addEventListener("change", () => {
+        const file = picker.files?.[0];
+        picker.remove();
+        if (!file) return;
+        const kind = menuFileKind(file.type);
+        if (!kind || !accept.includes(kind)) return controls2.say(`Only ${kindsWords(accept)} can go here.`);
+        if (file.size > MENU_LIMITS.file) return controls2.say("That file is too large to hand over: 64 MB at most.");
+        if (file.size < 1) return controls2.say("That file is empty.");
+        controls2.run(item.id, void 0, file);
+      });
+      root.append(picker);
+      picker.click();
+      return true;
+    };
+    const press = (item) => item.kind === "file" ? fileRow(item) : controls2.run(item.id);
     const copyRow = (item) => {
       const text2 = item.copy ?? "";
       void (text2 && navigator.clipboard ? navigator.clipboard.writeText(text2) : Promise.reject(new Error("nothing to copy with"))).then(
@@ -54028,6 +54143,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         b.addEventListener("click", () => item.kind === "copy" ? copyRow(item) : press(item));
         return b;
       };
+      const drawFile = (item, whose) => el("div", { class: "takes" }, drawRow(item), whose ? el("p", { class: "to" }, `The file you choose goes to ${whose}.`) : null);
       const drawLine = (item) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
       const lay = (items2) => {
         const laid2 = [];
@@ -54039,9 +54155,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             run2 = null;
             if (whose) laid2.push(el("p", { class: "from" }, whose));
           }
-          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
+          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field" || item.kind === "file" || item.kind === "save") {
             run2 = null;
-            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : drawRow(item));
+            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : item.kind === "file" ? drawFile(item, view2.title) : drawRow(item));
             continue;
           }
           if (run2?.kind !== item.kind) {
@@ -54559,11 +54675,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       say(text2) {
         for (const fn of sayers) fn(text2);
       },
-      run(id2, typed) {
+      run(id2, typed, file) {
         const a = actions.find((x) => x.id === id2);
         if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.act(a.kind === "field" ? typed : void 0)).catch(() => {
+        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" ? typed : void 0)).catch(() => {
         }).finally(changed);
         return true;
       },
@@ -54593,7 +54709,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
-          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
         };
         const known = new Set(sections.map((s) => s.id));
         const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
@@ -56635,6 +56751,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const useTone = new URLSearchParams(opts.search ?? location.search).get("mic") === "tone";
     const useTestScreen = new URLSearchParams(opts.search ?? location.search).get("screen") === "test";
     const canShare = useTestScreen || typeof navigator.mediaDevices?.getDisplayMedia === "function";
+    const mayShare = useTestScreen ? true : mayShareScreen();
+    const notHere = screenNotHere();
     const sounds2 = opts.sharedMusic === false ? null : opts.sounds ?? null;
     let invited = roomNameFromHash(location.hash);
     let busy = false;
@@ -57598,7 +57716,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         on: () => presence3.screenOn,
         label: () => presence3.screenOn ? "Stop sharing your screen" : "Share your screen",
         // A phone or a headset's browser can't offer a screen. It can still watch one.
-        hidden: () => !presence3.session || !canShare,
+        hidden: () => !presence3.session || !canShare || mayShare === false,
         act: async () => {
           if (presence3.screenOn) {
             await presence3.shareScreen(null);
@@ -57610,11 +57728,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
             await presence3.shareScreen(track);
             tell2("Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.");
           } catch {
-            tell2("Nothing was shared.");
+            tell2(mayShare === null ? `Nothing was shared. ${notHere[0]} ${notHere[1]}` : "Nothing was shared.");
           }
           refresh();
         }
       },
+      // Where this page is in a frame that doesn't hand the screen down: said, in place of a row that could only fail.
+      { id: "room-screen-not-here", section: "room", kind: "line", icon: "panel", label: notHere[0], hidden: () => !presence3.session || !canShare || mayShare !== false, act: () => {
+      } },
+      { id: "room-screen-how", section: "room", kind: "line", icon: "link", label: notHere[1], hidden: () => !presence3.session || !canShare || mayShare !== false, act: () => {
+      } },
       {
         id: "room-invite",
         section: "room",

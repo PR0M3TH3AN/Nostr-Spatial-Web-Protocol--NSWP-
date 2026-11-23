@@ -17,7 +17,7 @@ import { readShares, splitPrice, type Share } from "../packages/core/src/shares.
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_SIGN_IN, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_SAVE_MS, MENU_SAVE_TYPES, MENU_SIGN_IN, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
 import { accessFor } from "../packages/core/src/manifest.js";
 import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
@@ -1645,6 +1645,24 @@ const files: Record<string, unknown> = {
       expect: bare({ sections: [{ id: "room", rows: [] }, { id: "guests", rows: [kept("guests-key", { kind: "field" })] }, { id: "shop", rows: [kept("shop-code", { kind: "field" })], label: "Shop" }] }),
     },
     {
+      name: "where_a_file_may_be_asked_for",
+      why: "A `file` row stands only in Panels and in a world's own tabs, and names the kinds of file it takes from the ones there are (`image`, `video`). A kind that isn't one of those is not taken; a row that names none of them is left out. It is never on the bar: where the file goes is written under it.",
+      world: {
+        sections: [
+          { id: "room", rows: [row("room-file", { kind: "file", accept: ["image"] })] },
+          { id: "panels", rows: [row("panel-file", { kind: "file", accept: ["video", "audio", "*", "image"], bar: true }), row("panel-sound", { kind: "file", accept: ["audio"] }), row("panel-any", { kind: "file" }), row("panel-all", { kind: "file", accept: "image" })] },
+          { id: "shop", label: "Shop", rows: [row("shop-film", { kind: "file", accept: ["video"] })] },
+        ],
+      },
+      expect: bare({ sections: [{ id: "room", rows: [] }, { id: "panels", rows: [kept("panel-file", { kind: "file", accept: ["image", "video"] })] }, { id: "shop", rows: [kept("shop-film", { kind: "file", accept: ["video"] })], label: "Shop" }] }),
+    },
+    {
+      name: "a_row_that_saves",
+      why: "A `save` row is a button whose press may be answered by the world handing a picture or a clip up. It stands wherever a button does, the bar too.",
+      world: { sections: [{ id: "camera", rows: [row("camera-picture", { kind: "save", bar: true }), row("camera-clip", { kind: "save", on: true, tone: "warn" })] }] },
+      expect: bare({ sections: [{ id: "camera", rows: [kept("camera-picture", { kind: "save", bar: true }), kept("camera-clip", { kind: "save", on: true, tone: "warn" })] }] }),
+    },
+    {
       name: "rows_left_out",
       why: "A row is left out, never mended: with no id or label, a label over the limit, a kind this doesn't know, a `copy` with no text, a swatch with no colour, an id already said, or an id that begins `card:` (which is how the picture of a tab's card is addressed, and never a row).",
       world: {
@@ -1740,6 +1758,9 @@ const files: Record<string, unknown> = {
     { name: "press_with_too_much_typed", word: { nswp: "menu", press: "guests-key", field: "k".repeat(MENU_LIMITS.field + 1) }, expect: null },
     { name: "press_with_something_unseen_typed", word: { nswp: "menu", press: "guests-key", field: "npub1\u200bana" }, expect: null },
     { name: "press_nothing", word: { nswp: "menu", press: "" }, expect: null },
+    { name: "press_with_words_for_a_file", word: { nswp: "menu", press: "panel-file", file: "a picture" }, expect: null },
+    { name: "press_with_a_description_of_a_file", word: { nswp: "menu", press: "panel-file", file: { size: 70, type: "image/png", name: "dot.png" } }, expect: null },
+    { name: "press_that_carries_something_to_save", word: { nswp: "menu", press: "camera-picture", save: "a picture" }, expect: null },
     { name: "open", word: { nswp: "menu", open: true }, expect: { what: "open", open: true } },
     { name: "closed", word: { nswp: "menu", open: false }, expect: { what: "open", open: false } },
     { name: "go_home", word: { nswp: "menu", go: "home" }, expect: { what: "go", go: "home" } },
@@ -1770,6 +1791,9 @@ const files: Record<string, unknown> = {
       expect: { what: "settings", settings: { turn: 90, hand: "left", sound: { voices: 0.5 }, pins: ["room", "bag"] } },
     },
     { name: "picture_with_no_check", word: { nswp: "menu", picture: "a bitmap", id: "shot" }, expect: null },
+    { name: "save_with_words_for_a_picture", word: { nswp: "menu", save: "a picture", id: "camera-picture" }, expect: null },
+    { name: "save_with_a_description_of_a_picture", word: { nswp: "menu", save: { size: 2561, type: "image/jpeg" }, id: "camera-picture" }, expect: null },
+    { name: "save_that_carries_a_file_down", word: { nswp: "menu", save: "a picture", id: "camera-picture", file: "a picture" }, expect: null },
     { name: "a_clients_word", word: { nswp: "menu", has: true, v: 1, settings: {} }, expect: null },
   ];
   for (const c of up) expectEqual(`menu-words/up ${c.name}`, readMenuWordUp(c.word), c.expect);
@@ -1786,10 +1810,12 @@ const files: Record<string, unknown> = {
 
   files["menu-words.json"] = {
     description:
-      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound, Help and Moving among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound, Help and Moving among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none. A press may carry a file the visitor chose (`file`), and a world may hand a picture or a clip up to be saved (`save`); a file is not something this page can hold, so only what is refused for not being one is here, and the rest is in the core's tests.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
-    waits: { MENU_WAIT_MS, LEAVE_MS },
+    waits: { MENU_WAIT_MS, LEAVE_MS, MENU_SAVE_MS },
+    fileKinds: MENU_FILE_KINDS,
+    saveTypes: MENU_SAVE_TYPES,
     tabs: { visitor: MENU_VISITOR_TABS, world: MENU_WORLD_TABS },
     keys: MENU_KEYS,
     cardPicture: MENU_CARD_PICTURE,

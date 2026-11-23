@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanMenuWorld, MENU_WAIT_MS, readMenuWordUp } from "@nswp/core";
+import { cleanMenuWorld, MENU_LIMITS, MENU_SAVE_MS, MENU_WAIT_MS, readMenuWordUp } from "@nswp/core";
+import { handUp, savesWait } from "../src/client-frame.js";
 import { filesAnywhere, forgetFileHosts } from "../src/file-hosts.js";
 import { describeWorld, portAbove, type MenuAboveOptions } from "../src/menu-above.js";
 import { resetSettings } from "../src/settings.js";
@@ -463,5 +464,116 @@ describe("pictures", () => {
     w.say({ nswp: "menu", open: true });
     await vi.advanceTimersByTimeAsync(500);
     expect(w.asked).toHaveLength(4);
+  });
+});
+
+describe("a file handed down, and something to save handed up", () => {
+  const file = (name: string, type: string) => new File([new Uint8Array(70)], name, { type });
+  const shot = () => new Blob([new Uint8Array(2561)], { type: "image/jpeg" });
+  /** A world with a row that takes a picture or video, one that takes only pictures, and a camera. */
+  const world = (has = true) => {
+    const w = make();
+    const got: [string, Blob | undefined][] = [];
+    w.controls.add({ id: "panel-file", section: "panels", label: "Hang a picture or video from this device", kind: "file", accept: ["image", "video"], act: (_typed, f) => void got.push(["panel-file", f]) });
+    w.controls.add({ id: "panel-photo", section: "panels", label: "Hang a photo", kind: "file", accept: ["image"], act: (_typed, f) => void got.push(["panel-photo", f]) });
+    w.controls.add({ id: "camera-picture", section: "camera", label: "Take a picture", kind: "save", act: () => void got.push(["camera-picture", undefined]) });
+    if (has) w.say(HAS);
+    return { ...w, got, saves: () => w.sent.filter((x) => x.save !== undefined) };
+  };
+  const flush = () => vi.advanceTimersByTimeAsync(0);
+
+  it("says a row that takes a file with the kinds it takes, and a row that saves as one", () => {
+    const w = world();
+    const said = cleanMenuWorld(w.worlds().at(-1));
+    expect(said?.sections.find((s) => s.id === "panels")?.rows).toEqual([
+      { id: "panel-file", label: "Hang a picture or video from this device", kind: "file", accept: ["image", "video"] },
+      { id: "panel-photo", label: "Hang a photo", kind: "file", accept: ["image"] },
+    ]);
+    expect(said?.sections.find((s) => s.id === "camera")?.rows).toEqual([{ id: "camera-picture", label: "Take a picture", kind: "save" }]);
+  });
+
+  it("gives the row the file itself, with its own name", async () => {
+    const w = world();
+    const f = file("a dot.png", "image/png");
+    w.say({ nswp: "menu", press: "panel-file", file: f });
+    await flush();
+    expect(w.got).toEqual([["panel-file", f]]);
+    expect(w.got[0]![1]).toBe(f);
+  });
+
+  it("takes a file only for a row that takes one, and only of a kind that row asked for", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "panel-photo", file: file("clip.mp4", "video/mp4") });
+    w.say({ nswp: "menu", press: "camera-picture", file: file("a.png", "image/png") });
+    w.say({ nswp: "menu", press: "room-join", file: file("a.png", "image/png") });
+    w.say({ nswp: "menu", press: "no-such-row", file: file("a.png", "image/png") });
+    await flush();
+    expect([w.got, w.pressed]).toEqual([[], []]);
+  });
+
+  it("gives a file whose name may not go with it without one", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "panel-file", file: file("home/ana/secret plans.png", "image/png") });
+    await flush();
+    const given = w.got[0]![1]!;
+    expect([(given as { name?: string }).name, given.size, given.type]).toEqual([undefined, 70, "image/png"]);
+  });
+
+  it("gives a row that takes a file nothing, where the press carried none", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "panel-file" });
+    await flush();
+    expect(w.got).toEqual([["panel-file", undefined]]);
+  });
+
+  it("hands what it would save up to the client, as the answer to a press on a row that saves", async () => {
+    const w = world();
+    // No press yet: there is nothing for a save to answer, so it waits for one.
+    expect([savesWait(), handUp(shot())]).toEqual([true, false]);
+    w.say({ nswp: "menu", press: "camera-picture" });
+    await flush();
+    expect(savesWait()).toBe(false);
+    const picture = shot();
+    expect(handUp(picture)).toBe(true);
+    expect(w.saves()).toEqual([{ nswp: "menu", save: picture, id: "camera-picture" }]);
+    expect((w.saves()[0] as { save: Blob }).save).toBe(picture);
+  });
+
+  it("hands up only so many for one press, only for a while, and only a picture or a clip", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    expect(handUp(new Blob(["<p>"], { type: "text/html" }))).toBe(false);
+    expect(handUp(new Blob([], { type: "image/png" }))).toBe(false);
+    for (let i = 0; i < MENU_LIMITS.saves; i++) expect(handUp(shot()), String(i)).toBe(true);
+    expect([handUp(shot()), savesWait()]).toEqual([false, true]);
+    expect(w.saves()).toHaveLength(MENU_LIMITS.saves);
+    // Another press, and then too long after it.
+    w.say({ nswp: "menu", press: "camera-picture" });
+    await vi.advanceTimersByTimeAsync(MENU_SAVE_MS + 1);
+    expect([handUp(shot()), savesWait()]).toEqual([false, true]);
+    expect(w.saves()).toHaveLength(MENU_LIMITS.saves);
+  });
+
+  it("is not opened by a press on any other kind of row", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "room-join" });
+    await flush();
+    expect([w.pressed.map(([id]) => id), handUp(shot()), savesWait()]).toEqual([["room-join"], false, true]);
+  });
+
+  it("saves from its own page where no client has the menu, and again once a client gives the menu back", async () => {
+    const alone = world(false);
+    await vi.advanceTimersByTimeAsync(MENU_WAIT_MS + 1);
+    expect([savesWait(), handUp(shot())]).toEqual([false, false]);
+    expect(alone.saves()).toEqual([]);
+    const w = world();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    w.say({ nswp: "menu", has: false });
+    expect([savesWait(), handUp(shot())]).toEqual([false, false]);
+    // And a client that takes it again starts with no press waiting.
+    w.say(HAS);
+    expect([savesWait(), handUp(shot())]).toEqual([true, false]);
+    w.above.dispose();
+    expect([savesWait(), handUp(shot())]).toEqual([false, false]);
   });
 });

@@ -279,6 +279,10 @@ try {
   check("and the menu coming up is heard from the client's page, not the world's", !cues.world.some((c) => c === "menuOpen" || c === "menuClose"), cues);
 
   // ---- You is the client's own: the world says where signing in stands as a fact, and the words are the menu's.
+  // The Gallery names a sign-in address, which this trial refuses. Until the kit has waited on it the fact is "none"
+  // (nothing to press yet); then it is "unanswered". Which of the two a run met used to depend on how fast the
+  // machine was, and the press below was only tried in the second. So the fact is waited for.
+  check("the world's fact for signing in becomes one that can be pressed, once its sign-in address has not answered", await until(() => client(() => window.__client.below.world.state.signIn !== "none"), 40000), await client(() => window.__client.below.world.state.signIn));
   const signing = await client(() => {
     const row = window.__client.below.port.view().sections.find((s) => s.id === "you")?.items.find((i) => i.id === "world-sign-in");
     return { fact: window.__client.below.world.state.signIn, named: window.__client.below.world.state.named, row: row ? [row.label, row.from ?? null] : null, worldsRowsInYou: (window.__client.below.world.sections.find((s) => s.id === "you")?.rows ?? []).length };
@@ -286,13 +290,13 @@ try {
   results["signing in, as the world says it and the client words it"] = signing;
   const WORDS = { ready: "Sign in to The Gallery", asking: "Asking your sign-in address…", unanswered: "Your sign-in address didn't answer. Press to try again." };
   check("the world says where signing in stands as one of four facts, and puts no row in You", ["none", "ready", "asking", "unanswered"].includes(signing.fact) && signing.worldsRowsInYou === 0, signing);
-  check("the client words its own row from that fact", signing.fact === "none" ? signing.row === null : signing.row?.[0] === WORDS[signing.fact] && signing.row[1] === null, signing);
-  if (signing.fact !== "none") {
+  check("the client words its own row from that fact", signing.fact !== "none" && signing.row?.[0] === WORDS[signing.fact] && signing.row[1] === null, signing);
+  {
     await client(() => window.__client.menu.setOpen(true, "you"));
-    const signIn = hud.getByRole("button", { name: WORDS[signing.fact] });
-    await until(() => signIn.isVisible());
-    await press(signIn);
-    check("pressing it asks the client to open its sign-in, and says nothing to the world", await until(() => client(() => window.__client.asked.length === 1)));
+    const signIn = hud.getByRole("button", { name: WORDS[signing.fact] ?? "no such row" });
+    await until(() => signIn.isVisible(), 5000);
+    if (await signIn.isVisible()) await press(signIn);
+    check("pressing it asks the client to open its sign-in, and says nothing to the world", await until(() => client(() => window.__client.asked.length === 1), 5000));
   }
 
   // ---- A picture of the world's crosses as a bitmap, and the client draws it.
@@ -699,6 +703,125 @@ try {
     } finally {
       rmSync(tune, { force: true });
       await ctx5.close();
+    }
+  }
+
+  // ---- A file handed down, and a picture handed up (section 15, "Four more presses"; protocol/02-doors.md, "A file
+  // going down, and something to save going up"). A press on the client's menu is no press in the world's page, and
+  // a browser shows its chooser, and may keep its save, for the page that was pressed. So the client's page opens
+  // the chooser and hands the chosen file down, and the world hands its picture up for the client's page to save.
+  // The files are a one-dot picture and a line of text, made here and removed; this script chooses them at the
+  // browser's chooser, as a person would. Every chooser and every save is counted in the page that made it.
+  {
+    const dot = join(SHOTS, "menu-client-a-dot.png");
+    const text = join(SHOTS, "menu-client-not-a-picture.txt");
+    writeFileSync(dot, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"));
+    writeFileSync(text, "not a picture");
+    const ctx6 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 }, acceptDownloads: true });
+    const refused6 = new Set();
+    await ctx6.routeWebSocket(/^wss?:\/\//, (ws) => ws.onMessage((m) => { let msg; try { msg = JSON.parse(String(m)); } catch { return; } if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]])); }));
+    await ctx6.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
+      if (url.origin === WORLD) {
+        const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
+        if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+        return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      }
+      refused6.add(url.origin);
+      return route.abort();
+    });
+    // In every page, from its first moment: each chooser it opened, each save it made, and (in the world) each word
+    // that reached it, with a file written as what it is.
+    await ctx6.addInitScript(() => {
+      window.__choosers = 0;
+      window.__saves = [];
+      const open = HTMLInputElement.prototype.click;
+      HTMLInputElement.prototype.click = function () { if (this.type === "file") window.__choosers++; return open.call(this); };
+      const save = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () { if (this.hasAttribute("download")) window.__saves.push(this.download); return save.call(this); };
+      if (window === window.top) return;
+      window.__told = [];
+      addEventListener("message", (e) => { try { window.__told.push(JSON.stringify(e.data, (_k, v) => (v instanceof Blob ? `[a file: ${v.name ?? "no name"}, ${v.size} bytes, ${v.type}]` : v))); } catch { /* not words */ } });
+    });
+    const page6 = await ctx6.newPage();
+    const until6 = async (ask, ms = 30000) => {
+      const end = Date.now() + ms;
+      for (;;) {
+        const got = await Promise.resolve().then(ask).catch(() => null);
+        if (got || Date.now() > end) return got;
+        await page6.waitForTimeout(150);
+      }
+    };
+    const choosers6 = [];
+    let choose = text;
+    page6.on("filechooser", async (c) => { choosers6.push((await c.element().ownerFrame()) === page6.mainFrame() ? "the client's page" : "the world's page"); void c.setFiles(choose); });
+    const saved6 = [];
+    page6.on("download", (d) => { saved6.push(d.suggestedFilename()); void d.cancel().catch(() => undefined); });
+    const hud6 = page6.locator("nswp-hud");
+    const world6 = () => page6.frames().find((f) => f.url().startsWith(WORLD));
+    // A press at where the row is once it has stopped moving: the sheet slides up as it opens, and a press sent to
+    // where a row was a moment ago misses it.
+    const press6 = async (name) => {
+      const where = () => hud6.getByRole("button", { name }).first().boundingBox();
+      let at = await until6(where, 8000);
+      for (let i = 0; at && i < 20; i++) {
+        await page6.waitForTimeout(150);
+        const now = await where();
+        if (now && now.x === at.x && now.y === at.y) break;
+        at = now;
+      }
+      if (!at) return false;
+      await page6.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+      return true;
+    };
+    const said6 = () => page6.evaluate(() => window.__said);
+    const told6 = () => world6().evaluate(() => window.__told ?? []);
+    try {
+      await page6.goto(`${CLIENT}/`, { timeout: 60000 });
+      await until6(() => world6()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+      await page6.evaluate(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); window.__client.menu.setOpen(true, "panels"); });
+      const row = await until6(() => page6.evaluate(() => { const i = window.__client.below.port.view().sections.find((s) => s.id === "panels")?.items.find((x) => x.id === "world:panel-file"); return i ? { kind: i.kind, accept: i.accept, from: i.from ?? null, label: i.label } : null; }), 15000);
+      check("file/the world's row that takes a file is in the client's Panels, under the world's name, with the kinds it takes", row?.kind === "file" && JSON.stringify(row.accept) === '["image","video"]' && row.from === "The Gallery", row);
+      const line = await until6(() => page6.evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".takes .to")?.textContent ?? null), 8000);
+      check("file/and under it the client says which world gets the file", line === "The file you choose goes to The Gallery.", line);
+
+      // A file of a kind the row didn't ask for: the chooser offers only pictures and video, but a person can choose
+      // anything. The client refuses it, and says why; nothing reaches the world.
+      await press6("Hang a picture or video from this device");
+      check("file/the browser's chooser is opened by the client's page, at the press on the client's menu", (await until6(() => choosers6.length === 1, 8000)) && choosers6[0] === "the client's page", choosers6);
+      check("file/a file of another kind is not handed over, and the client says why", await until6(async () => (await said6()).includes("Only pictures and video can go here."), 8000), await said6());
+      check("file/and the world heard nothing of it", !(await told6()).some((w) => w.includes("a file:") || w.includes('"press"')), (await told6()).filter((w) => w.includes("press")));
+
+      // A picture: handed down as the file it is, with its own name, and hung by the world.
+      choose = dot;
+      const before = await world6().evaluate(() => window.__nswpTest.panels.list().length);
+      await press6("Hang a picture or video from this device");
+      const word = await until6(async () => (await told6()).find((w) => w.includes("a file:")), 10000);
+      check("file/a picture goes down with the press, as the file it is and under its own name", word === JSON.stringify({ press: "panel-file", file: "[a file: menu-client-a-dot.png, 70 bytes, image/png]", nswp: "menu" }), word);
+      check("file/the world hangs it", await until6(async () => (await world6().evaluate(() => window.__nswpTest.panels.list().length)) === before + 1, 15000), await world6().evaluate(() => window.__nswpTest.panels.list().length));
+      check("file/and says so, under its own name in the client's menu", await until6(async () => (await said6()).includes("The Gallery: Hung in front of you."), 8000), await said6());
+      check("file/the world opened no chooser of its own, either time", (await world6().evaluate(() => window.__choosers)) === 0 && choosers6.every((c) => c === "the client's page") && choosers6.length === 2, { world: await world6().evaluate(() => window.__choosers), choosers6 });
+      await page6.screenshot({ path: join(SHOTS, "menu-client-11-file.png") });
+
+      // A picture taken from the client's menu: the world takes it and hands it up, and the client's page saves it.
+      await page6.evaluate(() => { window.__said.length = 0; window.__client.menu.setOpen(true, "camera"); });
+      const camera = await until6(() => page6.evaluate(() => window.__client.below.port.view().sections.find((s) => s.id === "camera")?.items.filter((x) => x.kind === "save").map((x) => x.id)), 15000);
+      check("save/the world's camera rows are rows that save, in the client's menu", JSON.stringify(camera) === '["world:camera-picture","world:camera-selfie","world:camera-clip"]', camera);
+      await press6("Take a picture");
+      check("save/the picture is saved, under a name of the client's own making", (await until6(() => saved6.length === 1, 20000)) && /^the-gallery-\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d\.jpg$/.test(saved6[0]), saved6);
+      const saves = { client: await page6.evaluate(() => window.__saves), world: await world6().evaluate(() => window.__saves) };
+      check("save/by the client's page: the world's own page saved nothing", saves.client.length === 1 && saves.world.length === 0 && saves.client[0] === saved6[0], saves);
+      check("save/the world did take it", (await world6().evaluate(() => { const last = window.__nswpTest.camera.last(); return last ? [last.kind, last.blob.type, last.blob.size > 1000] : null; }))?.join() === "picture,image/jpeg,true");
+      const after = await said6();
+      check("save/the client says what it saved and from which world, and the world doesn't claim to have saved it", after.includes("A picture from The Gallery was saved to this device.") && !after.some((t) => /Picture saved to this device/.test(t)), after);
+      await page6.screenshot({ path: join(SHOTS, "menu-client-12-save.png") });
+      results["file/refused, as everything but these sites is"] = [...refused6];
+    } finally {
+      rmSync(dot, { force: true });
+      rmSync(text, { force: true });
+      await ctx6.close();
     }
   }
 } finally {

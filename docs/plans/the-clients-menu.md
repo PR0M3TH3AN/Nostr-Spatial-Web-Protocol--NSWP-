@@ -27,11 +27,14 @@ on how a visitor moves at a desk, and a world says back what a visitor changed
 in its headset session. What it costs is measured, with the Godot example in a
 frame (`docs/plans/the-clients-menu-cost.md`): no difference in frames, 18 KB
 fewer for a reference world. The four presses are tried
-(`docs/plans/the-clients-menu-handed-over.md`): a file can be handed down and a
-picture up, music is the client's own, and sharing the screen is a question put
-to the orchestrator. Still to come in step 1: the words for a file and a picture,
-once given, and whatever is decided for the screen. NSWP builder,
-2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
+(`docs/plans/the-clients-menu-handed-over.md`) and built: a file the visitor
+chose is handed down from the client's chooser (a row of the kind `file`), a
+picture or a clip is handed up and saved by the client's page (a row of the kind
+`save`), and music is the client's own. Sharing the screen is not handed down
+and never will be by allowing the frame: in a frame that doesn't allow it a
+world says why in place of the row, and the client sharing and handing the
+picture down goes with step 3. **With that, the kit's half of step 1 is
+complete.** NSWP builder, 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
 
@@ -726,7 +729,7 @@ step in the real shell.
 | **0b. What needs a press in the world's own page** (done: [`the-clients-menu-presses.md`](the-clients-menu-presses.md)) | A trial, no feature: entering a headset, the microphone, the pointer, sound, copying, from a press in a page above | A written list, and for each what the client's row does. A second part adds windows, and a pointer the world holds | `trials/presses-from-above.mjs`: two sites in a scripted Chrome. Not the made-up headset, which asks for no press |
 | **1. The client has the menu** | The words of section 4, both carriers. The client draws the bar, marks and sheet. The visitor's own tabs run in the client: You, Travel (Home, their doors), Bag, Display, Moving, Sound, Help. Every tab the world fills is described and drawn, with the `copy` and `field` rows. The summons and keys forwarded; the bar never strands the world's keys; the world lets the pointer go as the menu comes up. Home as a guarantee. "Enter VR" in the menu and "Launch" in the world. Nothing a visitor types today is lost (below). Protocol text | In the stand-in client: one menu, the client's, over the Gallery, the Grove and the Godot example; the world draws none; Home works with the world's script stopped, and says what was in hand is left behind; nothing of the visitor's tabs in any word sent down; a world sending too much, markup or a tab it may not fill is held to the limits; a description is gone at the frame's next load; a key pasted into "Who comes in" reaches the world only at the press; the four done-conditions of section 17.2, in the stand-in client | Unit tests for the words and limits, with examples in `vectors/`; a trial per world; a world that never answers, answers late (after `MENU_WAIT_MS`, as a development server makes it), and stops answering; frame times and bytes. Anything about keys or presses is tried with real presses at places on the screen, never a scripted call into a page |
 | **2. BitPortal's shell** (the BitPortal session) | The shell mounts the menu from its copy of the kit and speaks the client's end. Its own pages (the room, the Airlock) speak the same words. It holds Escape in fullscreen where the browser lets it | The owner walks from the room through three worlds with one menu that never changes; the menu runs under the shell's policy unchanged (section 17.1); who has the keys, as section 17.2 says | Its own trials; the owner's look, with pictures |
-| **3. Rooms and people, from facts** | The world says who is here (session keys and passes), microphones and recording, as facts. The client draws Room and People itself: names, the proven mark, follow, mute and block from the visitor's own lists. The room's chat, Following and Messages run in the client | A world can't put a name or a picture on someone; blocks and follows never pass through a world | Two scripted visitors in the stand-in client; the owner-lists trial through it |
+| **3. Rooms and people, from facts** | The world says who is here (session keys and passes), microphones and recording, as facts. The client draws Room and People itself: names, the proven mark, follow, mute and block from the visitor's own lists. The room's chat, Following and Messages run in the client. **Sharing the screen from a client's frame** (decided 2026-11-23): the client's own row, with the client's line first ("<the world> wants to show your screen to the room"); the client's page asks the browser, so the chooser's "share with <the client>" is true; the picture goes down to the world over a connection between the two pages, set up in words, and the kit's room takes the screen from it. The client holds the screen, so it can show that it is shared, stop it, and it stops at a door. Measured on 2026-11-23 (`docs/plans/the-clients-menu-handed-over.md`): the track itself can't be handed down; over a connection the frame had the picture 0.1 to 0.3 s after the offer, allowed nothing new; how it looks after being packed once more was not judged. The frame is never allowed `display-capture` | A world can't put a name or a picture on someone; blocks and follows never pass through a world; a world can't bring the browser's screen chooser up, or see the screen, without the client's row being pressed | Two scripted visitors in the stand-in client; the owner-lists trial through it; one sharing a made-up screen through the client, the other watching |
 | **4. Wallet, Files, order and pins** | The two tabs; reorder by drag, keyboard and in a headset; pins as section 13 says; the order travels and syncs; the bag changed anywhere, if the owner says so | Both backlog pages' "done": the tabs open as tabs; a tab moved stays put after a reload and on another device; a pinned tab stays far left; the same in every world, and in the fallback | Unit tests for the order and pins; a trial in the stand-in client and unframed; pictures for the owner |
 | **5. A phone** | The frame tried on a phone, by the list in section 9 | A written result, and either the shell opened to phones or the reasons not | The owner's own phone; a scripted phone-sized browser for what it can show |
 | **Later** | The browser's carrier (section 11), with the browser's session | | |
@@ -785,14 +788,16 @@ the whole result is `docs/plans/the-clients-menu-handed-over.md`):
 
 | What | What Chrome said | So |
 |---|---|---|
-| Choosing a file | The frame can't open the chooser from a press above. The page above can, and the file it hands down arrives as it is: 64 MB in 3 ms or less | **Handed down, one press** (the orchestrator, 2026-11-23) |
-| Saving a photo | The frame hands the picture up and the page above saves it, even seven seconds after the press | **Handed up, one press** (the orchestrator, 2026-11-23) |
+| Choosing a file | The frame can't open the chooser from a press above. The page above can, and the file it hands down arrives as it is: 64 MB in 3 ms or less | **Handed down, one press** (the orchestrator, 2026-11-23). **Built:** a row of the kind `file` |
+| Saving a photo | The frame hands the picture up and the page above saves it, even seven seconds after the press | **Handed up, one press** (the orchestrator, 2026-11-23). **Built:** a row of the kind `save` |
 | The visitor's own music | The stand-in client opens the chooser, keeps the file and plays it, through a door, and neither world is told | **The client's own. Nothing new is needed** |
-| Sharing the screen | In the shell's frame Chrome refuses it whatever is pressed: the frame is not allowed `display-capture`. A second press would be refused too. Allowed it, the chooser comes up with no press at all and names the client, not the world. The page above can share and hand the picture down over a connection | **A question for the orchestrator,** with three ways laid out |
+| Sharing the screen | In the shell's frame Chrome refuses it whatever is pressed: the frame is not allowed `display-capture`. A second press would be refused too. Allowed it, the chooser comes up with no press at all and names the client, not the world. The page above can share and hand the picture down over a connection | **Decided (the orchestrator, 2026-11-23): the client shares and hands the picture down, as its own piece with step 3, and the frame is never allowed `display-capture`.** Until then a world in such a frame offers no row, and two lines say why. **Built:** the lines |
 
 The words for a file going down (`file`) and a picture going up (`save`), with their
-limits, are proposed in that page and are not used until given. Copying the room's
-link (Room) is a `copy` row.
+limits, were given by the orchestrator on 2026-11-23 as proposed in that page, with
+one addition: the client says what it saved, and from which world, so a save is
+never silent. They are in `protocol/02-doors.md`, "A file going down, and something
+to save going up". Copying the room's link (Room) is a `copy` row.
 
 **For the owner to try by hand, once step 2 is up** (BitPortal's shell with the menu).
 Each of these a scripted browser can't show, or a made-up headset can't, so nothing
@@ -809,7 +814,10 @@ here is known to work until a person has done it. Kept as one list so none is lo
 | Sound: add a piece of your own music from a file, and go through a door | It plays, and doesn't stop at the door | The trial chooses the file and reads that the client's page says it is playing. Nobody listened |
 | In your own Chrome, with nothing pressed: does a world in a frame save a file to your device? | Whichever it is, write it down: handing the picture up to the client is the way regardless | The scripted Chrome let it, pressed or not, and may be more willing than yours |
 | Camera, once it is built: after a headset session, "Save 3 pictures" in the client's menu | All three are saved, and Chrome doesn't stop to ask about "multiple files" | The scripted Chrome saved two from one press without asking |
-| Only if the frame is ever allowed `display-capture`: does your Chrome want a press before its "Choose what to share" comes up? | Whichever it is, write it down | The scripted Chrome brought it up with nothing pressed, twice |
+| Panels: "Hang a picture or video from this device" in the client's menu, and choose a picture | Under the row it says "The file you choose goes to <the world>." Your browser's chooser opens, offering pictures and video. The picture hangs in front of you in the world | The trial chooses the file from outside; nobody saw the chooser or the panel |
+| Camera: "Take a picture" in the client's menu | One file is saved, named after the world and the time, and the client says "A picture from <the world> was saved to this device." Nothing asks you anything | The trial sees the save and drops it; where your browser puts it, and whether it asks, only you can see |
+| Camera: record a clip and leave it to run its 30 seconds | It is kept, and "Save 1 picture" appears in Camera. Pressing that saves the clip | A clip was never recorded in a trial |
+| In a room, in BitPortal: look for "Share your screen" | It isn't offered. Two lines say it isn't available in a world shown inside BitPortal, and to open the world by its own address. At the world's own address the row is there and works | The trial's frame is not BitPortal's |
 | Sound: turn "The room's hum" off in a place that has one | The hum stops, and stays off in the next place | Not tried end to end |
 | People, in a room with someone who has a picture: choose them | Their face is on the card in the client's menu | Needs a room and a person with a picture |
 | In a headset, a row typed into (a keeper's "Add someone by key") | It asks its own way there, as before | Not looked at in a made-up headset |

@@ -1,6 +1,13 @@
 # Four more presses: what the client can do itself and hand over
 
-**Status:** a trial's result, with words proposed and one question open. For step 1
+**Status:** a trial's result. **Its words were given and its question answered on
+2026-11-23** (the orchestrator): the two kinds of row are built as proposed here,
+with one addition (the client says what it saved, and from which world), and are
+in `protocol/02-doors.md`, "A file going down, and something to save going up". On
+the screen: C, as its own piece with step 3, and never B; until then A, which is
+built. What follows is as it was written before those answers.
+
+**As first written:** a trial's result, with words proposed and one question open. For step 1
 of `docs/plans/the-clients-menu.md` (its section 15, "Four more presses"), and the
 second half of `docs/plans/the-clients-menu-presses.md`. NSWP builder, 2026-11-23.
 Tried in Chrome 157, scripted, with `trials/presses-handed-over.mjs` and a new visit

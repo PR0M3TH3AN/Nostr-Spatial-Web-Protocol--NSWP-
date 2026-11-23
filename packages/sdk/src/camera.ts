@@ -14,6 +14,10 @@ import * as THREE from "three";
 import type { Look } from "@nswp/core";
 import { createFigure } from "./figure.js";
 import type { Controls } from "./ui/model.js";
+import { savesWait } from "./client-frame.js";
+import { saveFile } from "./save-file.js";
+
+export { saveFile };
 
 export interface PictureOptions {
   /** Pixels across and down. Default 1920 by 1080. */
@@ -153,19 +157,6 @@ export function recordClip(canvas: HTMLCanvasElement, opts: { fps?: number; maxS
   };
 }
 
-/** Hand a file to the visitor: their device's own save, as a download. */
-export function saveFile(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.rel = "noopener";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
-
 export interface Capture {
   kind: "picture" | "selfie" | "clip";
   blob: Blob;
@@ -234,8 +225,13 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
     if (presenting()) {
       kept.push(capture);
       tell(`Kept. Save ${kept.length === 1 ? "it" : `all ${kept.length}`} from the Camera menu when you leave VR.`);
-    } else {
-      saveFile(capture.blob, capture.name);
+    } else if (savesWait()) {
+      // The client above has the menu, and no press there is waiting for this (a clip that ran to its end): it is
+      // kept for one, as in a headset. Saved from here it would be a save nobody pressed for.
+      kept.push(capture);
+      tell(`Kept. Save ${kept.length === 1 ? "it" : `all ${kept.length}`} from the Camera menu.`);
+    } else if (!saveFile(capture.blob, capture.name)) {
+      // Saved by this page. Handed up to a client instead, the client says what it saved: its page did.
       tell(capture.kind === "clip" ? "Clip saved to this device." : "Picture saved to this device.");
     }
   };
@@ -256,12 +252,15 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
 
   controls.addSection({ id: "camera", label: "Camera", icon: "camera", note: () => (clip ? `Recording: ${Math.floor(clip.seconds())} s. Others in the room can see that you are.` : last) });
   controls.add(
-    { id: "camera-picture", section: "camera", icon: "camera", label: "Take a picture", short: "Picture", act: () => shoot("picture") },
-    { id: "camera-selfie", section: "camera", icon: "selfie", label: "Take a selfie", short: "Selfie", act: () => shoot("selfie") },
+    // Each of these may end in something to save, so each is a row that saves: where a client above has the menu,
+    // its press there is what the picture or the clip answers.
+    { id: "camera-picture", section: "camera", icon: "camera", kind: "save", label: "Take a picture", short: "Picture", act: () => shoot("picture") },
+    { id: "camera-selfie", section: "camera", icon: "selfie", kind: "save", label: "Take a selfie", short: "Selfie", act: () => shoot("selfie") },
     {
       id: "camera-clip",
       section: "camera",
       icon: "record",
+      kind: "save",
       label: () => (clip ? "Stop recording" : "Record a clip"),
       short: () => (clip ? "Stop" : "Clip"),
       on: () => !!clip,
@@ -285,13 +284,20 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
       id: "camera-save",
       section: "camera",
       icon: "save",
+      kind: "save",
       label: () => (kept.length === 1 ? "Save 1 picture" : `Save ${kept.length} pictures`),
       short: "Save",
       tone: "primary",
       hidden: () => kept.length === 0 || presenting(),
       act: () => {
-        for (const c of kept.splice(0)) saveFile(c.blob, c.name);
-        tell("Saved to this device.");
+        // A client above takes only so many for one press: the rest stay kept, and the row stays for the next.
+        let here = 0;
+        while (kept.length && !savesWait()) {
+          const c = kept.shift()!;
+          if (!saveFile(c.blob, c.name)) here++;
+        }
+        if (kept.length) tell(`${kept.length} more to save. Press again.`);
+        else if (here) tell("Saved to this device.");
       },
     },
   );
