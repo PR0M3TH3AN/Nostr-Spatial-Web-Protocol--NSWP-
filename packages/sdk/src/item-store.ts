@@ -58,7 +58,7 @@ export function showsItems(): boolean {
   }
   shown = came ?? kept !== "off";
   if (came !== undefined) keep(shown);
-  reportSettings("items", () => ({ items: showsItems() }));
+  reportSettings("items", () => ({ items: showsItems() }), (now) => void (now.items !== undefined && now.items !== shown && setShowsItems(now.items)));
   return shown;
 }
 

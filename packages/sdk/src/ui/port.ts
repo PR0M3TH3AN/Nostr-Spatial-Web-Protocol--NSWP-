@@ -29,8 +29,8 @@ export interface WorldPort {
   view(): UiView;
   /** Be told when what `view()` gives may have changed. Returns how to stop. */
   subscribe(fn: () => void): () => void;
-  /** The visitor pressed something, by its id. False if there is no such thing just now. */
-  run(id: string): boolean;
+  /** The visitor pressed something, by its id, with what they typed if it is a row typed into. False if there is no such thing just now. */
+  run(id: string, typed?: string): boolean;
   /** Words from the menu itself, shown for a moment ("Your bar is full"). */
   say(text: string): void;
   /** Words to show for a moment, from the world or the menu. */
@@ -56,7 +56,7 @@ export function portHere(controls: Controls): WorldPort {
   return {
     view: () => controls.view(),
     subscribe: (fn) => controls.subscribe(fn),
-    run: (id) => controls.run(id),
+    run: (id, typed) => controls.run(id, typed),
     say: (text) => controls.say(text),
     onSay: (fn) => controls.onSay(fn),
     signal: (name) => controls.signal(name),

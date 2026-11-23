@@ -196,7 +196,18 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
   let songs = cleanSongs(read(songsKey));
   let disposed = false;
   if (came) write(levelsKey, levels);
-  const stopReporting = reportSettings("sound", () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }));
+  const stopReporting = reportSettings(
+    "sound",
+    () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }),
+    // Their client's menu changed a volume (settings.ts, `changeSettings`): as their own hand on it here would.
+    (now) => {
+      if (!now.sound || disposed) return;
+      levels = cleanLevels({ ...levels, ...now.sound });
+      write(levelsKey, levels);
+      apply();
+      changed();
+    },
+  );
 
   // Everything goes out through one limiter: a world's file can be as loud as it likes going in.
   const master = ctx.createGain();

@@ -10,6 +10,7 @@
     "./home": "./src/home.ts",
     "./ui": "./src/ui.ts",
     "./menu": "./src/menu.ts",
+    "./menu-above": "./src/menu-above.ts",
     "./terminal": "./src/terminal.ts"
   },
   "peerDependencies": {

@@ -32,7 +32,7 @@ export function showsChat(): boolean {
   }
   shown = came ?? kept !== "0";
   if (came !== undefined) keep(shown);
-  reportSettings("chat", () => ({ chat: showsChat() }));
+  reportSettings("chat", () => ({ chat: showsChat() }), (now) => void (now.chat !== undefined && now.chat !== shown && setShowsChat(now.chat)));
   return shown;
 }
 const keep = (on: boolean): void => {

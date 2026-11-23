@@ -65,7 +65,15 @@ function load(): DeskPrefs {
   const came = arrivedSettings();
   prefs = { look: clampLook(came.look ?? kept.look), fov: came.fov !== undefined ? clampFov(came.fov) : clampFov(kept.fov) };
   if (came.look !== undefined || came.fov !== undefined) keep(prefs);
-  reportSettings("desk", () => ({ look: load().look, ...(load().fov === null ? {} : { fov: load().fov as number }) }));
+  reportSettings(
+    "desk",
+    () => ({ look: load().look, ...(load().fov === null ? {} : { fov: load().fov as number }) }),
+    // Their client's menu changed one (settings.ts, `changeSettings`).
+    (now) => {
+      if (now.look !== undefined) setLookScale(now.look);
+      if (now.fov !== undefined) setVisitorFov(now.fov);
+    },
+  );
   return prefs;
 }
 

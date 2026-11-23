@@ -10,6 +10,8 @@
  */
 import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
+// Loaded with the page, never later: it is what tells the page above that this world speaks the menu's words.
+import { portAbove } from "nswp-sdk/menu-above";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
 import { addDoorControls, createControls, type Controls, type MenuDoor, addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
@@ -215,6 +217,8 @@ type TestHooks = {
   fps?: Fps;
   /** The menu on a flat screen. */
   hud?: { readonly open: boolean; setOpen(open: boolean): void };
+  /** Whether the page above this one draws the visitor's menu, so that this page draws none. */
+  menuAbove?: () => boolean;
   /** Where a named thing is on the page, in pixels, or null if it is behind the visitor. */
   screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
@@ -342,14 +346,44 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   // ------------------------------------------------------------- the controls
   const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
-  // The visitor's menu, drawn from this world's port (docs/plans/the-clients-menu.md): given the controls' port and
-  // nothing else. It is a file of this build's own, fetched here, so that a world whose client draws the menu need
-  // never fetch it. Today every world does: there is one carrier for the port, this direct one.
-  const { mountMenu, portHere } = await import("nswp-sdk/menu");
-  const hud = mountMenu(portHere(controls));
+  // The visitor's menu (docs/plans/the-clients-menu.md). Shown in its client's frame, this world asks the page above
+  // whether it has the menu (`portAbove`). If it does, this page draws none: it describes itself upward and takes
+  // presses back. If not, or nothing is said in time, the menu is drawn here, from this world's own port. The menu
+  // is a file of this build's own, fetched only then, so a world whose client draws it never fetches it.
+  const above = portAbove(controls, {
+    state: () => ({ headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting } }),
+    home: () => void goHome(),
+  });
+  let own: Awaited<ReturnType<typeof ownMenu>> | null = null;
+  async function ownMenu() {
+    const { mountMenu, portHere } = await import("nswp-sdk/menu");
+    return mountMenu(portHere(controls));
+  }
+  // The menu, whoever has it, for this world's own parts: whether it is up, and how to ask for it.
+  const hud = {
+    get open() {
+      return own ? own.open : above.menu.open;
+    },
+    setOpen(open: boolean, at?: string) {
+      if (own) own.setOpen(open, at);
+      else above.menu.setOpen(open);
+    },
+    setHidden(hidden: boolean) {
+      own?.setHidden(hidden);
+    },
+  };
+  if (!(await above.ready)) own = await ownMenu();
+  // A client that answered late has the menu from then on, and this world's own is put away: one menu, never two.
+  above.onChange((has) => {
+    if (has) {
+      own?.remove();
+      own = null;
+    } else if (!own) void ownMenu().then((menu) => (above.has ? menu.remove() : (own = menu)));
+  });
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
+  hooks.menuAbove = () => above.has;
   // The gate of a paid world, where this world is one. None here is: `on` is false in every world.json's reading,
   // so no gate is made and nothing of this runs. What it is entered by is read from the world's own manifest.
   const gate: PaidGate | null = cfg.gate && (cfg.gate.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;

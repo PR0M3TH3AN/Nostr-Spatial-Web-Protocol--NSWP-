@@ -56,6 +56,14 @@ export const copiedRefused = (copy: string, inFrame: boolean = framed()): string
 
 let holds = false;
 let filled = false;
+/** The version of the menu's words this page speaks, said in its `here` (protocol/02-doors.md, "The client has the menu"), or 0. */
+let menuSpoken = 0;
+/** When this page said `here`, by its own clock, or null before it has. */
+let saidHereAt: number | null = null;
+/** The menu's words from the page above, for the world's end of the menu's port (menu-above.ts). */
+let menuHearer: ((word: unknown) => void) | null = null;
+/** Those that came before anything listened: a client answers a `here` at once, and a world is still starting. */
+let menuUnheard: unknown[] = [];
 let met = false;
 const watchers = new Set<() => void>();
 /** The sign-in address the client shows a panel for, by its origin, or null. */
@@ -97,6 +105,32 @@ const say = (words: Record<string, unknown>): void => {
     /* nobody to tell */
   }
 };
+
+/**
+ * Say, before this page's `here` goes, that it speaks the menu's words: once a client above says it has the menu,
+ * this page draws no console of its own. Only the world's end of the menu's port calls it (menu-above.ts), as that
+ * file is loaded: a page that said so and then drew its own console would leave the visitor with two.
+ */
+export function speakMenu(version: number): void {
+  if (saidHereAt === null) menuSpoken = version;
+}
+/** How long ago this page said `here`, in milliseconds, or null if it hasn't (it isn't in a frame). */
+export const sinceHere = (): number | null => (saidHereAt === null ? null : performance.now() - saidHereAt);
+/**
+ * Hear the menu's words from the page above, as they were sent: whoever listens reads them (`readMenuWordDown`).
+ * One listener, the world's end of the port. It is given at once whatever came before it listened.
+ */
+export function hearClientMenu(fn: ((word: unknown) => void) | null): void {
+  menuHearer = fn;
+  if (!fn) return;
+  const waiting = menuUnheard;
+  menuUnheard = [];
+  for (const word of waiting) fn(word);
+}
+/** Say one of the menu's words to the page above. Nothing about the visitor is ever in one. */
+export function sayToClient(word: Record<string, unknown>): void {
+  if (framed()) say({ ...word, nswp: "menu" });
+}
 
 /** Ask the client to fill the screen, or to give it back. Call it from the visitor's own press. */
 export function askClientForScreen(fill: boolean): void {
@@ -154,6 +188,12 @@ export function meetClient(): void {
     if (e.source !== window.parent) return;
     const said = e.data as { nswp?: unknown; holds?: unknown; filled?: unknown; signIn?: unknown; open?: unknown; failed?: unknown; allowed?: unknown } | null;
     if (!said || typeof said !== "object") return;
+    if (said.nswp === "menu") {
+      if (menuHearer) menuHearer(said);
+      // Kept only for a page that speaks these words, and only a few: a client says little before a world listens.
+      else if (menuSpoken && menuUnheard.length < 32) menuUnheard.push(said);
+      return;
+    }
     if (said.nswp === "sign-in" && typeof said.open === "boolean") {
       const failed = !said.open && said.failed === true;
       // A panel that never came up isn't asked for again on this page: the next press opens a window, as before.
@@ -181,7 +221,15 @@ export function meetClient(): void {
   } catch {
     /* the root, then */
   }
-  say({ nswp: "here", at });
+  // Said once the files loaded with this one have all run, and not a moment later: one of them may be the world's
+  // end of the menu's port, which says as it loads that this page speaks the menu's words (`speakMenu`). `here` is
+  // said once only: a client takes a second as the next page's.
+  const hello = () => {
+    saidHereAt = performance.now();
+    say({ nswp: "here", at, ...(menuSpoken ? { menu: menuSpoken } : {}) });
+  };
+  if (typeof queueMicrotask === "function") queueMicrotask(hello);
+  else hello();
 }
 
 // Said as early as this is loaded: a client waits to hear that the place in its frame came up at all.
@@ -195,6 +243,8 @@ export function resetClientFrame(): void {
   panelOpen = false;
   panelFailed = false;
   menuPlace = null;
+  menuHearer = null;
+  menuUnheard = [];
   watchers.clear();
   panelWatchers.clear();
 }

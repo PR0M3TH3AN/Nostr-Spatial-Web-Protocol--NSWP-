@@ -435,9 +435,11 @@ screen can't be filled at all.
 
 **Status:** the words, their limits and the reading of them are in the
 kit's core (`packages/core/src/menu.ts`), with examples in
-`vectors/menu-words.json`. No world and no client speaks them yet: that
-is the next step of `docs/plans/the-clients-menu.md`. Not yet a rule for
-anyone.
+`vectors/menu-words.json`. The reference worlds speak the world's end
+(`nswp-sdk/menu-above`); worlds on the engine script don't yet. No client
+speaks them yet, so every world still draws its own console: the client's
+end is the next piece of `docs/plans/the-clients-menu.md`. Not yet a rule
+for anyone.
 
 A client that keeps the screen can draw the visitor's console itself,
 above the world, so that it is the same in every world

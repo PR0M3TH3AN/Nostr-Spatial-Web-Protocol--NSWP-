@@ -30,7 +30,11 @@ export interface UiAction {
   icon?: IconName | (() => IconName);
   /** Which group it belongs to. Sections the kit doesn't know are added after the ones it does. */
   section?: string;
-  act(): void | Promise<void>;
+  /**
+   * What a press does. For a row the visitor types into (`kind: "field"`) it is given what they typed, at their
+   * press and not before.
+   */
+  act(typed?: string): void | Promise<void>;
   /** Leave it out while this returns true. */
   hidden?: () => boolean;
   /** For something that is on or off: whether it is on now. */
@@ -55,9 +59,14 @@ export interface UiAction {
    * "swatch" is a choice of colour, and needs `color`. "tile" is a thing with a picture of itself, one of several
    * laid out side by side: it needs `picture`. "line" is something to read and not to press: an icon, its words
    * (the whole sentence, in `label`) and whether it is so (`on`). A line never answers a press, is never focused
-   * as a button and never goes on the hotbar; its `act` is never called.
+   * as a button and never goes on the hotbar; its `act` is never called. "copy" is a button that copies its `copy`
+   * for the visitor. "field" is typed into: a box, and a button with the label, whose press gives `act` the text.
+   * Whoever draws the menu does both of those itself: where a client above draws it, a press there is not a press
+   * in this page, and a browser lets a page copy only at one (protocol/02-doors.md, "The client has the menu").
    */
-  kind?: "button" | "swatch" | "tile" | "line";
+  kind?: "button" | "swatch" | "tile" | "line" | "copy" | "field";
+  /** For a "copy" row: the text to copy. */
+  copy?: Text;
   /**
    * For a tile: its picture as it is now, or null while there is none (a renderer then shows its first letter).
    * Asked again whenever the menu is drawn.
@@ -123,7 +132,9 @@ export interface UiItemView {
   /** The number key that presses it from the hotbar, or "". */
   key: string;
   short: string;
-  kind: "button" | "swatch" | "tile" | "line";
+  kind: "button" | "swatch" | "tile" | "line" | "copy" | "field";
+  /** For a "copy" row: the text to copy. */
+  copy?: string;
   color: string;
   /** A tile's small icon in its corner, or null. */
   mark: IconName | null;
@@ -232,7 +243,7 @@ export interface Controls {
    */
   setLoading(state: { fraction?: number; words?: string } | null): void;
   /** Do an action by its id, as pressing it would. Returns false if it isn't there or isn't showing. */
-  run(id: string): boolean;
+  run(id: string, typed?: string): boolean;
   /** Change the look. `keep` also remembers it as this visitor's choice, for this site. */
   setTheme(patch: Partial<UiTheme>, keep?: boolean): void;
   readonly presence: Presence;
@@ -399,14 +410,35 @@ export function createControls(opts: ControlsOptions): Controls {
     saveVisitorTheme(visitor);
   }
   // Only what they chose themselves goes on with them. A world's own setting, or a device's, is not theirs to carry.
-  reportSettings("look", () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }));
+  reportSettings(
+    "look",
+    () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }),
+    // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
+    (now) => {
+      const patch: Partial<UiTheme> = { ...(now.text !== undefined ? { scale: now.text } : {}), ...(now.motion !== undefined ? { motion: now.motion } : {}), ...(now.wrist !== undefined ? { wrist: now.wrist } : {}) };
+      if (!Object.keys(patch).length) return;
+      visitor = { ...visitor, ...patch };
+      saveVisitorTheme(visitor);
+      theme = resolveTheme(opts.theme, visitor);
+      changed();
+    },
+  );
   // The tabs they keep on their bar. Null until they have chosen: then nothing is said of it to the next world.
   let pins: string[] | null = loadPins();
   if (came.pins !== undefined) {
     pins = [...came.pins];
     savePins(pins);
   }
-  reportSettings("pins", () => (pins ? { pins } : {}));
+  reportSettings(
+    "pins",
+    () => (pins ? { pins } : {}),
+    (now) => {
+      if (now.pins === undefined) return;
+      pins = [...now.pins];
+      savePins(pins);
+      changed();
+    },
+  );
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
   let detail: string[] = [];
@@ -488,13 +520,13 @@ export function createControls(opts: ControlsOptions): Controls {
     say(text) {
       for (const fn of sayers) fn(text);
     },
-    run(id) {
+    run(id, typed) {
       const a = actions.find((x) => x.id === id);
       // A line is read, never pressed: nothing runs it, by a key, a click or a ray.
       if (!a || a.hidden?.() || a.kind === "line") return false;
       for (const fn of signals) fn("press");
       void Promise.resolve()
-        .then(() => a.act())
+        .then(() => a.act(a.kind === "field" ? (typed ?? "") : undefined))
         .catch(() => {})
         .finally(changed);
       return true;
@@ -525,7 +557,7 @@ export function createControls(opts: ControlsOptions): Controls {
       const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
       const item = (a: UiAction): UiItemView => {
         const slot = bar.indexOf(a);
-        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+        return { id: a.id, label: read(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read(a.short) || read(a.label), kind: a.kind ?? "button", ...(a.kind === "copy" ? { copy: read(a.copy) } : {}), color: read(a.color), ...(a.picture ? { picture: a.picture } : {}), mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
       };
       const known = new Set(sections.map((s) => s.id));
       const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }) as UiSection);

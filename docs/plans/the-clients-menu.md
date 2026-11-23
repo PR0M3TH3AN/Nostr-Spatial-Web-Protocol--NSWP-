@@ -8,8 +8,10 @@ seam) is merged: the menu takes a world's port and nothing else (`nswp-sdk/menu`
 `ui/port.ts`), and is a file of a world's own build. Step 0b (the press trial) is
 done, with a second part on the pointer and on windows. Step 1's first part is
 built: the words, their limits and the reading of them, in the kit's core
-(`packages/core/src/menu.ts`, `vectors/menu-words.json`), and NSWP-02's text. Its
-second part is the carriers, the client drawing, and the trials. NSWP builder,
+(`packages/core/src/menu.ts`, `vectors/menu-words.json`), and NSWP-02's text. Of
+its second part, the world's end is built (`portAbove`, in the reference worlds;
+`trials/menu-above.mjs`); the client's end, the client drawing and the engine
+script are still to come. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
