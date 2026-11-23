@@ -345,6 +345,14 @@ const STANDARD: UiSection[] = [
   { id: "help", label: "Help", icon: "help" },
 ];
 
+/** The tabs every place has, by id, in the order they are shown. */
+export const STANDARD_TABS: readonly string[] = STANDARD.map((s) => s.id);
+/** What one of them is called, and its icon: the menu's own words for it, whoever fills it. Null for any other tab. */
+export const standardTab = (id: string): { label: string; icon: IconName | null } | null => {
+  const s = STANDARD.find((x) => x.id === id);
+  return s ? { label: s.label, icon: s.icon ?? null } : null;
+};
+
 /**
  * The order of the things every place has, wherever in a world's code they
  * were added. So the taskbar reads the same in every world, and the same
