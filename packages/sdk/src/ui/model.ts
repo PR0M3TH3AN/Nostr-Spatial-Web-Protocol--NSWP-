@@ -97,6 +97,12 @@ export interface UiCard {
   text: string;
   /** Where their picture is (for `loadPicture`), or "". */
   picture: string;
+  /**
+   * Their picture itself, already in hand, where there is no address to fetch it from: a card a framed world
+   * described, whose picture crossed to the client's page as a bitmap. A client never fetches an address a world
+   * names (protocol/02-doors.md, "The client has the menu").
+   */
+  face?: CanvasImageSource;
   /** A colour that stands for them where there is no picture, as CSS. */
   color: string;
   /** What is so about them now: recording, sharing their screen. */

@@ -183,6 +183,51 @@ try {
   check("and the client's row says so", await until(() => hud.getByRole("button", { name: /Profile pictures: off/ }).isVisible()));
   await page.screenshot({ path: join(SHOTS, "menu-client-4-switches.png") });
 
+  // ---- "Load people's files from anywhere" is the world's own row, pressed through the client. The place keeps it;
+  // the client never holds it and never says it, on or off.
+  await world().evaluate(() => {
+    window.__down = [];
+    addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.settings) window.__down.push(JSON.stringify(e.data.settings)); });
+  });
+  const anywhereInWorld = () => world().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "people")?.items.find((i) => i.id === "files-anywhere")?.on);
+  check("loading files from anywhere starts off in the world", (await anywhereInWorld()) === false, await anywhereInWorld());
+  const anywhere = hud.getByRole("button", { name: /Load people's files from anywhere: off/ });
+  await until(() => anywhere.isVisible());
+  check("its row in the client's menu is the world's own, not the client's", (await client(() => window.__client.below.port.view().sections.find((s) => s.id === "people")?.items.map((i) => i.id))).includes("world:files-anywhere"));
+  await press(anywhere);
+  check("pressed through the client, it is on in the world", await until(async () => (await anywhereInWorld()) === true));
+  check("and the client's menu shows the world's word for it", await until(() => hud.getByRole("button", { name: /Load people's files from anywhere: on/ }).isVisible()));
+  // The client then says another setting down. The switch stays as the visitor set it, and was never in any word.
+  await client(() => window.__client.controls.setTheme({ scale: 1.1 }, true));
+  await until(() => world().evaluate(() => window.__nswpTest.controls.theme.scale === 1.1));
+  check("it stays on when the client says its settings again", (await anywhereInWorld()) === true);
+  const down = await world().evaluate(() => window.__down);
+  check("and the client never said it, on or off", down.length > 0 && !down.some((w) => w.includes("filesAnywhere")), down);
+
+  // ---- A picture of the world's crosses as a bitmap, and the client draws it.
+  await world().evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 512;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#c02010";
+    g.fillRect(0, 0, 512, 512);
+    window.__nswpTest.controls.add({ id: "trial-tile", section: "camera", kind: "tile", label: "A photo (trial)", picture: () => canvas, act: () => {} });
+  });
+  await client(() => window.__client.menu.setOpen(true, "camera"));
+  const tileAbove = () => client(() => {
+    const picture = window.__client.below.port.view().sections.find((s) => s.id === "camera")?.items.find((i) => i.id === "world:trial-tile")?.picture?.();
+    return picture instanceof ImageBitmap ? [picture.width, picture.height] : null;
+  });
+  const sizeAbove = await until(tileAbove);
+  check("a tile's picture crosses to the client as a bitmap, no bigger than the limit", JSON.stringify(sizeAbove) === "[256,256]", sizeAbove);
+  check("and the client's menu draws it", await until(() => client(() => {
+    const canvas = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".tile")].find((t) => t.getAttribute("aria-label") === "A photo (trial)")?.querySelector("canvas");
+    if (!canvas) return false;
+    const [r, g, b] = canvas.getContext("2d").getImageData(96, 96, 1, 1).data;
+    return r > 150 && g < 80 && b < 80;
+  })));
+  await page.screenshot({ path: join(SHOTS, "menu-client-5-picture.png") });
+
   // ---- The menu goes: the world is told, and has the keys.
   await page.keyboard.press("Escape");
   check("Escape puts the client's menu away", await until(() => client(() => window.__client.menu.open === false)));

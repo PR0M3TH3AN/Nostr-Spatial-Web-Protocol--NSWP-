@@ -15,6 +15,7 @@
  */
 import { LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
 import { framed, hearClientMenu, sayToClient, sinceHere, speakMenu } from "./client-frame.js";
+import { loadPicture } from "./picture.js";
 import { changeSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
 import { VISITOR_SWITCHES } from "./visitor-switches.js";
@@ -48,6 +49,32 @@ export interface MenuAboveOptions {
   above?: { framed(): boolean; sinceHere(): number | null; say(word: Record<string, unknown>): void; hear(fn: ((word: unknown) => void) | null): void };
   /** For tests: where the visitor's keys are heard. By default this page's window. */
   keys?: Pick<Window, "addEventListener" | "removeEventListener">;
+  /**
+   * For tests: how a picture is made ready to cross to the page above, from what the world's own menu would have
+   * drawn (a canvas, an image) or from the address of someone's picture. By default a bitmap of at most
+   * `MENU_LIMITS.picture` a side; the address is fetched by the kit's own `loadPicture`, in this page.
+   */
+  picture?: (from: CanvasImageSource | string) => Promise<unknown>;
+}
+
+/** Before a tab's id, for the picture of the card at its head: `card:people`. A row's picture goes by the row's own id. */
+export const CARD_PICTURE = "card:";
+
+/** A bitmap of at most the limit a side, keeping its shape. Null where the browser can't make one. */
+async function bitmapOf(from: CanvasImageSource | string): Promise<unknown> {
+  if (typeof createImageBitmap !== "function") return null;
+  const source = typeof from === "string" ? await loadPicture(from) : from;
+  if (!source) return null;
+  const size = source as { videoWidth?: number; videoHeight?: number; naturalWidth?: number; naturalHeight?: number; width?: number | { baseVal: { value: number } }; height?: number | { baseVal: { value: number } } };
+  const w = size.videoWidth || size.naturalWidth || (typeof size.width === "number" ? size.width : 0);
+  const h = size.videoHeight || size.naturalHeight || (typeof size.height === "number" ? size.height : 0);
+  if (!w || !h) return null;
+  const k = Math.min(1, MENU_LIMITS.picture / Math.max(w, h));
+  try {
+    return await createImageBitmap(source as ImageBitmapSource, { resizeWidth: Math.max(1, Math.round(w * k)), resizeHeight: Math.max(1, Math.round(h * k)), resizeQuality: "medium" });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -145,20 +172,49 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     return { ready, has: false, onChange: () => () => {}, menu: { open: false, setOpen: () => {} }, dispose: () => {} };
   }
 
+  // Pictures. A description is text and is said again whenever a word of it changes; a picture is neither, so each
+  // goes up alone as it is made ready: `{ picture, id }`, for a row by its id and for a tab's card by `card:<tab>`.
+  // One is made for each thing that has a picture, from what the world's own menu would have drawn (a tile's
+  // canvas) or from the address of someone's picture, fetched here: the page above is never given an address.
+  // They are made only while the menu is up (nobody sees one otherwise), and afresh each time it comes up.
   let named = new Set<string>();
+  const makePicture = opts.picture ?? bitmapOf;
+  const made = new Map<string, unknown>();
+  const want = (key: string, from: CanvasImageSource | string | null | undefined) => {
+    if (!from || made.get(key) === from) return;
+    made.set(key, from);
+    void makePicture(from).then(
+      (picture) => {
+        if (picture && has && open && made.get(key) === from) above.say({ picture, id: key });
+      },
+      () => {},
+    );
+  };
+  const picturesOf = (view: UiView) => {
+    if (!open) return;
+    for (const s of view.sections) {
+      if (CLIENTS.includes(s.id)) continue;
+      if (s.card?.picture) want(`${CARD_PICTURE}${s.id}`, s.card.picture);
+      for (const i of s.items) if (i.picture && named.has(i.id)) want(i.id, i.picture());
+    }
+  };
   let last = "";
   let lastAt = -Infinity;
   let waiting: ReturnType<typeof setTimeout> | null = null;
   const describe = () => {
     waiting = null;
     if (!has) return;
-    const world = describeWorld(controls.view(), opts.state?.());
+    const view = controls.view();
+    const world = describeWorld(view, opts.state?.());
     const text = JSON.stringify(world);
-    if (text === last) return;
-    last = text;
-    lastAt = performance.now();
-    named = idsOf(world);
-    above.say({ world });
+    if (text !== last) {
+      last = text;
+      lastAt = performance.now();
+      named = idsOf(world);
+      above.say({ world });
+    }
+    // After the words, so that a picture is never for a row the page above hasn't heard of.
+    picturesOf(view);
   };
   const changed = () => {
     if (!has || waiting) return;
@@ -204,7 +260,11 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     if (word.what === "open") {
       if (word.open === open) return;
       open = word.open;
-      return controls.signal(open ? "menuOpen" : "menuClose");
+      made.clear();
+      controls.signal(open ? "menuOpen" : "menuClose");
+      // With the menu up, the pictures in it are wanted: said again, with them, as each is ready.
+      if (open) changed();
+      return;
     }
     if (word.what === "go" && !leaving) {
       opts.home?.();

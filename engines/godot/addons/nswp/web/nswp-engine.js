@@ -53002,6 +53002,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let section = "";
     let chose = false;
     let drawn2 = "";
+    const marks = /* @__PURE__ */ new WeakMap();
+    let marked = 0;
+    const markOf2 = (picture2) => {
+      if (!picture2 || typeof picture2 !== "object") return 0;
+      let n = marks.get(picture2);
+      if (!n) marks.set(picture2, n = ++marked);
+      return n;
+    };
     const press = (item) => controls2.run(item.id);
     const copyRow = (item) => {
       const text2 = item.copy ?? "";
@@ -53074,6 +53082,17 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           tick2();
         };
         requestAnimationFrame(begin);
+      }
+      if (card.face && !paint2) {
+        const from = card.face;
+        const copy = document.createElement("canvas");
+        copy.width = Math.max(1, Math.min(256, Math.round(from.width ?? 128)));
+        copy.height = Math.max(1, Math.min(256, Math.round(from.height ?? 128)));
+        try {
+          copy.getContext("2d")?.drawImage(card.face, 0, 0, copy.width, copy.height);
+          face.replaceChildren(copy);
+        } catch {
+        }
       }
       if (card.picture) {
         void loadPicture(card.picture).then((drawn3) => {
@@ -53370,7 +53389,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       drawChat(view2);
       if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
-      const now = JSON.stringify([view2.hotbar, view2.pins, view2.pinsFull, view2.sections, section, open2, view2.presence]);
+      const inSight = open2 ? view2.sections.find((s) => s.id === section) : void 0;
+      const pictured = inSight ? [inSight.card?.face ? markOf2(inSight.card.face) : 0, ...inSight.items.map((i) => i.picture ? markOf2(i.picture()) : 0)] : [];
+      const now = JSON.stringify([view2.hotbar, view2.pins, view2.pinsFull, view2.sections, section, open2, view2.presence, pictured]);
       if (now === drawn2) return;
       drawn2 = now;
       const here = view2.sections.find((s) => s.id === section);

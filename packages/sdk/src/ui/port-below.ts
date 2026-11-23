@@ -29,7 +29,10 @@ const BAR_MOST = 6;
 
 const iconOf = (name: string | undefined): IconName | null => (name && Object.prototype.hasOwnProperty.call(ICONS, name) ? (name as IconName) : null);
 
-const itemOf = (row: MenuRow): UiItemView => ({
+/** Before a tab's id, for the picture of the card at its head, as a world's end says it (menu-above.ts). */
+const CARD_PICTURE = "card:";
+
+const itemOf = (row: MenuRow, sent?: unknown): UiItemView => ({
   id: `${WORLDS}${row.id}`,
   label: row.label,
   icon: iconOf(row.icon),
@@ -42,10 +45,10 @@ const itemOf = (row: MenuRow): UiItemView => ({
   color: row.color ?? "",
   mark: iconOf(row.mark),
   faint: row.faint === true,
-  ...(row.picture !== undefined ? { picture: () => row.picture as CanvasImageSource } : {}),
+  ...((sent ?? row.picture) !== undefined ? { picture: () => (sent ?? row.picture) as CanvasImageSource } : {}),
 });
 
-const cardOf = (card: MenuCard): UiCard => ({
+const cardOf = (card: MenuCard, sent?: unknown): UiCard => ({
   title: card.title,
   tag: card.tag ?? "",
   // Only ever so for a page of the client's own: the core's reader drops it from any other world.
@@ -57,7 +60,7 @@ const cardOf = (card: MenuCard): UiCard => ({
   picture: "",
   color: card.color ?? "",
   now: card.now ?? [],
-  ...(card.picture !== undefined ? { draw: () => card.picture as CanvasImageSource } : {}),
+  ...((sent ?? card.picture) !== undefined ? { face: (sent ?? card.picture) as CanvasImageSource } : {}),
   ...(card.acts ? { acts: card.acts.map((id) => `${WORLDS}${id}`) } : {}),
 });
 
@@ -71,7 +74,7 @@ const cardOf = (card: MenuCard): UiCard => ({
  * - The bar is the client's keys, then the world's while there is room; the visitor's pinned tabs follow.
  * - The look is the visitor's own. A world's colour doesn't tint the menu.
  */
-export function mergeView(base: UiView, world: MenuWorld | null, from: { address: string; pins: readonly string[] }): UiView {
+export function mergeView(base: UiView, world: MenuWorld | null, from: { address: string; pins: readonly string[]; pictures?: ReadonlyMap<string, unknown> }): UiView {
   if (!world) return base;
   const order = (id: string) => {
     const i = STANDARD_TABS.indexOf(id);
@@ -81,9 +84,9 @@ export function mergeView(base: UiView, world: MenuWorld | null, from: { address
   const own: UiSectionView[] = [];
   const onBar: UiItemView[] = [];
   for (const said of world.sections) {
-    const items = said.rows.map(itemOf);
+    const items = said.rows.map((row) => itemOf(row, from.pictures?.get(row.id)));
     for (const [i, row] of said.rows.entries()) if (row.bar) onBar.push(items[i]!);
-    const card = said.card ? cardOf(said.card) : null;
+    const card = said.card ? cardOf(said.card, from.pictures?.get(`${CARD_PICTURE}${said.id}`)) : null;
     const there = sections.find((s) => s.id === said.id);
     if (there) {
       there.items.push(...items);
@@ -201,6 +204,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   let origin = "";
   let speaks = false;
   let world: MenuWorld | null = null;
+  /** The pictures a world sent, each alone, by the id of the row it is for, or `card:<tab>` for a tab's card. */
+  const pictures = new Map<string, unknown>();
   let menu: { pressKey(key: string): void } | null = null;
   let open = false;
   let saidSettings = "";
@@ -224,6 +229,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     origin = "";
     speaks = false;
     world = null;
+    pictures.clear();
     saidSettings = "";
     if (had) changed();
   };
@@ -254,6 +260,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       if (awaiting) awaiting = false;
       else early = true;
       world = null;
+      pictures.clear();
       origin = typeof e.origin === "string" ? e.origin : "";
       speaks = menuVersionOf(data) > 0 && !!origin && origin !== "null";
       if (speaks) {
@@ -269,6 +276,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     if (!word) return;
     if (word.what === "world") {
       world = word.world;
+      // A picture lasts as long as the thing it is of: gone with a row or a card the world no longer describes.
+      const still = new Set(world.sections.flatMap((s) => [...s.rows.map((r) => r.id), ...(s.card ? [`${CARD_PICTURE}${s.id}`] : [])]));
+      for (const key of [...pictures.keys()]) if (!still.has(key)) pictures.delete(key);
       return changed();
     }
     if (word.what === "key") return void menu?.pressKey(word.key);
@@ -280,8 +290,11 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     }
     // Only while its headset session runs, where only the world can draw the console.
     if (word.what === "settings") return void (world?.state.headset.presenting && opts.onReported?.(word.settings));
+    // Only for a row or a card of the last description: a picture is never kept for something that isn't there.
     if (word.what === "picture" && world) {
-      for (const s of world.sections) for (const row of s.rows) if (row.id === word.id && row.picture !== undefined) row.picture = word.picture;
+      const there = world.sections.some((s) => (s.card && `${CARD_PICTURE}${s.id}` === word.id) || s.rows.some((r) => r.id === word.id));
+      if (!there) return;
+      pictures.set(word.id, word.picture);
       changed();
     }
   };
@@ -315,7 +328,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   };
 
   const port: WorldPort = {
-    view: () => mergeView(controls.view(), speaks ? world : null, { address: host(), pins: controls.pins }),
+    view: () => mergeView(controls.view(), speaks ? world : null, { address: host(), pins: controls.pins, pictures }),
     subscribe(fn) {
       viewers.add(fn);
       return () => void viewers.delete(fn);
