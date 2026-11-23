@@ -22,9 +22,10 @@ client's page with what is taken up there reaching the world. The rest of You
 and the Bag in a real client is BitPortal's, in step 2. The engine script is a
 world's end too (`trials/menu-above-engine.mjs`), the rule for who draws the
 menu is one piece of code for every world (`menu-keeper.ts`), and Moving is a
-tab both fill, like Sound and Help. Still to come in step 1: frame times and
-bytes with the Godot example in a frame, and the trials of the four presses.
-NSWP builder,
+tab both fill, like Sound and Help, and the client asks the one-time question
+on how a visitor moves at a desk. Still to come in step 1: a world saying its
+settings back from a headset, frame times and bytes with the Godot example in a
+frame, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).

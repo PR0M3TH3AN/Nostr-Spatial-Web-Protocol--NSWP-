@@ -52592,7 +52592,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       return null;
     }
   }
-  var CLIENTS = MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages");
+  var CLIENTS = [
+    ...MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages"),
+    // The kit's one-time questions on how a visitor moves (fps.ts, input.ts). At a desk it is asked by whoever draws
+    // the console, which above a world is the client; in a headset the world draws the console, and asks there.
+    "how-you-move-desk",
+    "how-you-move"
+  ];
   var VISITORS_ROWS = ["back", "home", "go-home", "doors", "list"];
   var COLOR = /^#[0-9a-f]{6}$/;
   var EVERY_MS2 = 125;

@@ -847,7 +847,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (presence.pressAt(raycaster)) return;
     // Moving the intense way, a door is gone through by walking into it and no other way.
   };
-  fps = createFps({ dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: context?.moving === "intense" && !context.immersive });
+  // Where this world's client draws the menu, the client asks how they move at a desk, once, and says the answer.
+  fps = createFps({ mayAsk: () => !above.has, dom: renderer.domElement, camera, rig, controls, hud, canStand, presenting: () => renderer.xr.isPresenting, onUse: use, onBlocked: () => sounds.bump(), arrived: context?.moving === "intense" && !context.immersive });
   hooks.fps = fps;
   renderer.domElement.addEventListener("pointerdown", (e) => {
     if (gameControls()) return;

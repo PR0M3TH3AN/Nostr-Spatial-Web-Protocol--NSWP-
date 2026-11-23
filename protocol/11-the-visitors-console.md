@@ -316,6 +316,14 @@ taken for one in a headset, or the other way round. A place reached with
 nothing carried (its address typed in, no client) asks once on that site.
 The kit does all of this (`createFps`, `createXrInput`).
 
+**Whoever draws the console asks.** Where a visitor's client draws it,
+above a world in its frame ([NSWP-02](02-doors.md), "The client has the
+menu"), the question at a desk is the client's to ask, once, on its own
+site: the answer is then the visitor's in every world that client shows,
+said to each as it arrives, and the world doesn't ask (`askDeskMoving`).
+In a headset the world draws the console, so the headset's question stays
+the world's to ask.
+
 ## Who draws it
 
 While a visitor is in a world, only that world's page is running. A web page
