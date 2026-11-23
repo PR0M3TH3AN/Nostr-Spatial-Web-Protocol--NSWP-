@@ -263,6 +263,23 @@ describe("what a world takes from above", () => {
     expect([w.controls.theme.scale, filesAnywhere(), w.signals, w.went()]).toEqual([1, false, [], 0]);
   });
 
+  it("is to sign the visitor out here, done without asking and only from a client that has the menu", () => {
+    let out = 0;
+    const controls = createControls({ title: "The Gallery" });
+    let hear: ((word: unknown) => void) | null = null;
+    portAbove(controls, {
+      above: { framed: () => true, sinceHere: () => 0, say: () => {}, hear: (fn) => (hear = fn) },
+      keys: { addEventListener: (() => {}) as never, removeEventListener: (() => {}) as never },
+      signOut: () => out++,
+    });
+    hear!({ nswp: "menu", sign: "out" });
+    expect(out).toBe(0);
+    hear!(HAS);
+    hear!({ nswp: "menu", sign: "out" });
+    hear!({ nswp: "menu", sign: "in" });
+    expect(out).toBe(1);
+  });
+
   it("is to go home, asked once", () => {
     const w = make();
     w.say(HAS);

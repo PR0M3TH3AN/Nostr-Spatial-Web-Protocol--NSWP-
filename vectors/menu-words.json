@@ -1,5 +1,5 @@
 {
-  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
   "version": 1,
   "limits": {
     "sections": 12,
@@ -60,6 +60,12 @@
     "9"
   ],
   "cardPicture": "card:",
+  "signIn": [
+    "none",
+    "ready",
+    "asking",
+    "unanswered"
+  ],
   "reported": [
     "headset",
     "intense",
@@ -97,6 +103,7 @@
             "presenting": false
           },
           "named": true,
+          "signIn": "ready",
           "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
           "items": "play",
           "hum": true
@@ -175,6 +182,7 @@
             "presenting": false
           },
           "named": true,
+          "signIn": "ready",
           "holding": "37303:abababababababababababababababababababababababababababababababab:lantern",
           "items": "play",
           "hum": true
@@ -260,6 +268,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -381,6 +390,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -437,6 +447,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -508,6 +519,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -592,6 +604,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -651,6 +664,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -713,6 +727,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -785,6 +800,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -860,6 +876,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -982,6 +999,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1043,6 +1061,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1105,6 +1124,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1182,6 +1202,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1255,6 +1276,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1276,7 +1298,7 @@
     },
     {
       "name": "state_as_it_can_be",
-      "why": "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none.",
+      "why": "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none; and where signing in stands is one of four words, never a world's own sentence.",
       "world": {
         "level": "loud",
         "corner": "middle",
@@ -1292,6 +1314,7 @@
             "presenting": true
           },
           "named": "yes",
+          "signIn": "Sign in at evil.example",
           "holding": 5,
           "items": "everything"
         },
@@ -1320,6 +1343,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "none",
           "hum": false
@@ -1366,6 +1390,7 @@
             "presenting": false
           },
           "named": false,
+          "signIn": "none",
           "holding": "",
           "items": "allowed",
           "hum": false
@@ -1398,7 +1423,7 @@
         "rows": [
           60
         ],
-        "bytes": 3075
+        "bytes": 3091
       }
     },
     {
@@ -1427,7 +1452,7 @@
           0,
           0
         ],
-        "bytes": 11501
+        "bytes": 11517
       }
     },
     {
@@ -1456,7 +1481,7 @@
           0,
           0
         ],
-        "bytes": 488
+        "bytes": 504
       }
     },
     {
@@ -1674,6 +1699,37 @@
       "expect": null
     },
     {
+      "name": "sign_out",
+      "word": {
+        "nswp": "menu",
+        "sign": "out"
+      },
+      "expect": {
+        "what": "sign",
+        "sign": "out"
+      }
+    },
+    {
+      "name": "sign_in_is_no_word",
+      "word": {
+        "nswp": "menu",
+        "sign": "in"
+      },
+      "expect": null
+    },
+    {
+      "name": "sign_out_carries_nothing",
+      "word": {
+        "nswp": "menu",
+        "sign": "out",
+        "as": "npub1ana"
+      },
+      "expect": {
+        "what": "sign",
+        "sign": "out"
+      }
+    },
+    {
       "name": "another_topic",
       "word": {
         "nswp": "screen",
@@ -1726,6 +1782,7 @@
               "presenting": false
             },
             "named": false,
+            "signIn": "none",
             "holding": "",
             "items": "allowed",
             "hum": false

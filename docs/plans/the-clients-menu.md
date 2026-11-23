@@ -15,9 +15,13 @@ rows typed into and rows that copy. A world that steps aside keeps the chat's
 pane, the rows that change a travelling setting are the client's own, a world's
 pictures go up as bitmaps, "Enter VR" above is "Launch" in the world, the world
 says the state of its room, the visitor's name, what is in hand and its rule for
-items, and Sound and Help are tabs both fill, the client's part first. Still to
-come in step 1: You and the Bag in the client, the engine script, frame times
-and bytes, and the trials of the four presses. NSWP builder,
+items, Sound and Help are tabs both fill, the client's part first, and the kit's
+half of You and the Bag is done: a word for signing out, a fact for where
+signing in stands, the menu's own sign-in rows, and the kit's Bag run in a
+client's page with what is taken up there reaching the world. The rest of You
+and the Bag in a real client is BitPortal's, in step 2. Still to come in step
+1: the engine script as a world's end, frame times and bytes, and the trials of
+the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).

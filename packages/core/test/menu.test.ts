@@ -20,7 +20,7 @@ const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")
 
 describe("the menu's words, by the examples", () => {
   it("has examples of every kind", () => {
-    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([18, 19, 13, 4]);
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([18, 22, 13, 4]);
   });
   for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
   for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));
@@ -67,6 +67,22 @@ describe("the proven mark on a card", () => {
   });
   it("is kept from a page of the client's own origin", () => {
     expect(cleanMenuWorld(world, { own: true })!.sections[0]!.card).toEqual({ title: "Ana", tag: "By name", proven: true });
+  });
+});
+
+describe("signing in and out of a world", () => {
+  it("has a word for signing out, which carries nothing, and no word for signing in", () => {
+    expect(readMenuWordDown({ nswp: "menu", sign: "out" })).toEqual({ what: "sign", sign: "out" });
+    expect(readMenuWordDown({ nswp: "menu", sign: "out", as: "npub1ana", name: "Ana" })).toEqual({ what: "sign", sign: "out" });
+    for (const sign of ["in", "up", true, "", { out: true }]) expect(readMenuWordDown({ nswp: "menu", sign }), JSON.stringify(sign)).toBeNull();
+    // And a world can't say it upward: it is the client's word.
+    expect(readMenuWordUp({ nswp: "menu", sign: "out", say: "Signed out" })).toBeNull();
+  });
+
+  it("is told by a world as one of four facts, never as words of its own", () => {
+    const state = (signIn: unknown) => cleanMenuWorld({ state: { signIn } })!.state.signIn;
+    expect(["none", "ready", "asking", "unanswered"].map(state)).toEqual(["none", "ready", "asking", "unanswered"]);
+    for (const said of ["Sign in at evil.example", "READY", 1, true, null, undefined]) expect(state(said), String(said)).toBe("none");
   });
 });
 

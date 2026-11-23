@@ -265,7 +265,16 @@ declare global {
      * a gate, never open one. `looks` has a world draw people's own models for the trial, as its manifest's
      * `avatar` would.
      */
-    __nswpTrial?: { gate?: boolean; looks?: { formats: string[]; height?: [number, number]; dress?: "own" } };
+    __nswpTrial?: {
+      gate?: boolean;
+      looks?: { formats: string[]; height?: [number, number]; dress?: "own" };
+      /**
+       * For a trial on this machine only: the visitor is someone made up, whose bag holds these items, with nobody
+       * signed in and no relay asked. So that what a client says is in hand can be tried against a world that has
+       * a bag to check it by (trials/menu-client.mjs).
+       */
+      has?: string[];
+    };
   }
 }
 
@@ -355,16 +364,21 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // is a file of this build's own, fetched only then, so a world whose client draws it never fetches it.
   // What this world says of the things every place has and only it can run (the description's `state`). Each is
   // filled in further down, as the part that runs it starts: asked before then, it isn't so.
-  const facts: { room?: () => MenuState["room"]; named?: () => boolean; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
+  const facts: { room?: () => MenuState["room"]; named?: () => boolean; signIn?: () => MenuState["signIn"]; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
   const above = portAbove(controls, {
     state: () => ({
       headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting },
       ...(facts.room ? { room: facts.room() } : {}),
       named: facts.named?.() ?? false,
+      signIn: facts.signIn?.() ?? "none",
       holding: facts.holding?.() ?? "",
       ...(facts.items ? { items: facts.items } : {}),
       hum: facts.hum?.() ?? false,
     }),
+    // The client's own "Sign out here" was pressed: what signs for them here is locked, and they are a guest again.
+    signOut: () => {
+      if (signerNamed()) worldSigner().lock();
+    },
     // What this world says of itself in Help. How to move is the client's own to say there.
     help: () => cfg.purpose,
     home: () => void goHome(),
@@ -492,6 +506,12 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const signedInHere = () => signerNamed() && worldSigner().state === "unlocked";
   // Whether this world has the visitor's name: something signs for them here, and has said who they are.
   facts.named = signedInHere;
+  // Where this world's own way of signing in stands, as a fact: the client words its own row from it.
+  facts.signIn = () => {
+    if (!signerNamed()) return "none";
+    const signer = worldSigner();
+    return signer.asking ? "asking" : signer.unanswered ? "unanswered" : signer.state === "none" ? "none" : "ready";
+  };
   const scores: Scores | null = cfg.boards?.length
     ? createScores({
         world: `${WORLD_KIND}:${sites.publisher}:${places[cfg.site]?.d ?? ""}`,
@@ -1147,11 +1167,17 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     const now = travelling();
     return { has: true, joined: now.joined, mic: now.joined ? now.mic : null, count: presence.session ? presence.people().length : 0 };
   };
-  const bag = createBag({ me: () => (signedInHere() ? worldSigner().pubkey : null) });
+  // A made-up visitor's bag, for a trial on this machine and nowhere else (`__nswpTrial.has`, above).
+  const trialHas = isLocalHost(location.hostname) && Array.isArray(window.__nswpTrial?.has) ? window.__nswpTrial.has.filter((i): i is string => typeof i === "string") : null;
+  const visitor = () => (trialHas ? "e".repeat(64) : signedInHere() ? worldSigner().pubkey : null);
+  const refuse = async () => ({ ok: false, said: "This bag is a stand-in: it can't be changed." });
+  const bag: ReturnType<typeof createBag> = trialHas
+    ? { items: () => [...trialHas], load: async () => [...trialHas], canChange: () => false, add: refuse, remove: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} }
+    : createBag({ me: visitor });
   const bagging = addBagControls(controls, {
     bag,
     items,
-    me: () => (signedInHere() ? worldSigner().pubkey : null),
+    me: visitor,
     rule: () => itemsRule,
     place: () => cfg.title,
     holding: () => presence.holding,
