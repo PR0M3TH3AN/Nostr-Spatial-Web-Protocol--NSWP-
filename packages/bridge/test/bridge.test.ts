@@ -345,7 +345,14 @@ describe("anyone else", () => {
 
   it("learns nothing from the relay but two keys talking", () => {
     const text = JSON.stringify(relay.events);
-    for (const secret of ["made-42", "stty", "nswp:bridge", "nswp:session", "a=candidate", "the test computer"]) expect(text, secret).not.toContain(secret);
+    // What a relay holds is mostly sealed text, which is letters and digits at random: a short word of letters turns
+    // up in it by chance (this test looked for "stty", four letters, and failed a gate run on 2026-11-23). So
+    // each thing looked for has a character that sealed text and keys never have.
+    const secrets = ["made-42", "stty size", "nswp:bridge", "nswp:session", "a=candidate", "the test computer"];
+    for (const secret of secrets) {
+      expect(secret, `"${secret}" could turn up by chance`).toMatch(/[^A-Za-z0-9+/]/);
+      expect(text, secret).not.toContain(secret);
+    }
     expect(relay.events.every((e) => e.kind === 27301)).toBe(true);
   });
 });

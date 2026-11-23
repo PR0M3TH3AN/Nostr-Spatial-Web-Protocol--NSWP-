@@ -36,11 +36,17 @@ describe("a save", () => {
   });
 
   it("says nothing on its face about the world or what is in it", () => {
-    const e = keep(ARCADE, "main", "the lantern is in the well");
+    const e = keep(ARCADE, "main-slot", "the lantern is in the well");
+    // The sealed part is letters and digits at random, where a short word of letters can turn up by chance. So what
+    // is looked for in the whole of it has a character that sealed text and keys never have.
     const all = JSON.stringify(e);
-    expect(all).not.toContain("arcade");
-    expect(all).not.toContain("lantern");
-    expect(all).not.toContain("main");
+    for (const secret of ["arcade.example", "main-slot", "the lantern"]) {
+      expect(secret).toMatch(/[^A-Za-z0-9+/]/);
+      expect(all, secret).not.toContain(secret);
+    }
+    // And the bare words in everything that is plain: the tags, and the keys (which have no "r", "l" or "m").
+    const plain = JSON.stringify({ ...e, content: "" });
+    for (const word of ["arcade", "lantern", "main"]) expect(plain, word).not.toContain(word);
     expect(e.tags.map((t) => t[0])).toEqual(["d", "alt"]);
   });
 

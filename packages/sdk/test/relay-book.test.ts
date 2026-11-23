@@ -208,6 +208,29 @@ describe("a backup from relay monitors (NIP-66)", () => {
     expect(Date.now() - began).toBeLessThan(15000);
   });
 
+  it("asks no real relay where to go, for a caller that handed in the sending and not the asking", async () => {
+    // A test's own way to send, and nothing to ask with: the question "where else?" must not go to real relays. Every
+    // socket this page would open is refused and listed.
+    const real = globalThis.WebSocket;
+    const opened: string[] = [];
+    (globalThis as { WebSocket: unknown }).WebSocket = class {
+      constructor(url: string) {
+        opened.push(String(url));
+        throw new Error("no sockets in this test");
+      }
+    };
+    try {
+      const n = net([...OWN, ...USUAL]);
+      expect((await sendWell(note, { own: OWN, usual: USUAL, publish: n.publish, now: () => NOW })).took).toBe(0);
+      const sent = await publishBacked(OWN, note, { publish: n.publish, now: () => NOW });
+      expect(Object.keys(sent.relays)).toEqual(OWN);
+      expect(opened).toEqual([]);
+      expect(n.kept).toEqual([]);
+    } finally {
+      globalThis.WebSocket = real;
+    }
+  });
+
   it("can be turned off, and changes nothing where there are no monitors to ask", async () => {
     const n = net([...OWN, ...USUAL]);
     relayBackup(false);
