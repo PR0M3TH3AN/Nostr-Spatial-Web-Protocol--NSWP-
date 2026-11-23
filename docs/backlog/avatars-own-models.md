@@ -9,7 +9,22 @@
   Thats two different things there."
 - **Who:** not briefed. The kit and the protocol (NSWP-05); BitPortal for
   the screen where a look is made and chosen.
-- **State:** building (the core reader first: `look-model.ts`; then the kit drawing it, the engines, and BitPortal, each its own pull request)
+- **State:** building, and parked (the orchestrator, 2026-11-23: the
+  client's menu comes first). Merged: step 1, the model tier and its reader
+  (920747f), and step 2, the kit drawing people's own models standing still
+  (a516ab1). Still to come: step 3 (walking a VRM, a model's own clips),
+  step 4 (engines and Godot), and BitPortal's half.
+- **Owed first when this un-parks, before anything else on it** (the
+  orchestrator, 2026-11-23):
+  1. **The plan's trials 3 and 5.** A world's word (no `formats`; `dress:
+     "own"`) and the limit of 8 models at once are in presence
+     (`packages/sdk/src/presence.ts`) with no test of their own. Each needs
+     a browser trial beside `trials/own-models-two.mjs`.
+  2. **A limit on how often a member's `avatar` message is taken.** Each new
+     text is kept and its signature checked at the next redraw
+     (`packages/sdk/src/room.ts`), so a member can make everyone check
+     signatures as fast as they can send. Take at most one every few seconds
+     from each member.
 
 ## What exists today
 
