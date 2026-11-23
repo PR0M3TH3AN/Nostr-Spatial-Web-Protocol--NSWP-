@@ -59,7 +59,8 @@ try {
       if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : url.pathname === "/home.html" ? route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("home") }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
       if (url.origin === STUCK) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a world that is stuck") });
       if (url.origin === PLAIN) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a page that doesn't speak the words") });
-      if (url.origin === WORLD) {
+      // "The next world", where a visit needs one: the same build under another site's name.
+      if (url.origin === WORLD || url.origin === "https://grove.test") {
         fetched.push(url.pathname);
         const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
         if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
@@ -390,6 +391,8 @@ try {
   {
     const IWER = readFileSync(join(NSWP, "node_modules", "iwer", "build", "iwer.min.js"), "utf8");
     const ctx2 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+    // In the next world, what its client first says to it is kept by the page, to be read here.
+    await ctx2.addInitScript(`if (location.origin === "https://grove.test") addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.has === true) window.__has = e.data.settings; });`);
     await ctx2.addInitScript(`if (location.origin === ${JSON.stringify(WORLD)}) { ${IWER}; new IWER.XRDevice(IWER.metaQuest3, { stereoEnabled: false }).installRuntime({ forceInstall: true }); }`);
     await serve(ctx2);
     const page2 = await ctx2.newPage();
@@ -430,6 +433,27 @@ try {
     check("launch/a press on the world's view starts the session", await until2(() => world2().evaluate(() => window.__nswpTest.state.xr === "presenting"), 20000), await world2().evaluate(() => window.__nswpTest.state.xr));
     check("launch/and the world says so upward", await until2(() => page2.evaluate(() => window.__client.below.world?.state.headset.presenting === true), 10000));
     check("launch/its screen has gone", (await world2().evaluate(() => !document.getElementById("nswp-enter"))) === true);
+
+    // ---- What they change in the headset is theirs afterwards, and in the next world. Inside a headset only the
+    // world can draw the console, so it is there that they change how they move. The world says a change back,
+    // by name, and the client keeps it. The made-up headset has no hands to press with, so the row is pressed
+    // through the world's own controls, as its in-headset console does.
+    const before = await page2.evaluate(() => window.__client.settings());
+    const rowsInHeadset = await world2().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "moving")?.items.map((i) => i.id) ?? []);
+    results["headset/the world's own rows for how they move, while in the headset"] = rowsInHeadset;
+    check("headset/the client had no word on the fade before", before.fade === undefined, before);
+    await world2().evaluate(() => window.__nswpTest.controls.run("move-fade"));
+    const after = await until2(async () => { const now = await page2.evaluate(() => window.__client.settings()); return typeof now.fade === "boolean" ? now : null; }, 15000);
+    check("headset/a change made in the headset is the client's afterwards", typeof after?.fade === "boolean", after);
+    results["headset/the client's settings afterwards"] = after;
+    // A world's report can never turn a privacy switch on, or say what they hold: tried with a forged one.
+    await world2().evaluate(() => parent.postMessage({ nswp: "menu", settings: { filesAnywhere: true, holding: { item: "37303:" + "ab".repeat(32) + ":x" }, full: true, turn: 90 } }, "*"));
+    const forged = await until2(async () => { const now = await page2.evaluate(() => window.__client.settings()); return now.turn === 90 ? now : null; }, 10000);
+    check("headset/a report takes only comfort and layout: never a privacy switch, what is held, or the screen", !!forged && forged.filesAnywhere === undefined && forged.holding === undefined && forged.full === undefined, forged);
+    // The next world: what its client first says to it carries the change.
+    await page2.evaluate(() => (document.getElementById("view").src = "https://grove.test/"));
+    const told = await until2(() => page2.frames().find((f) => f.url().startsWith("https://grove.test"))?.evaluate(() => window.__has ?? null), 60000);
+    check("headset/and it reaches the next world, with the client's first word to it", !!told && told.fade === after?.fade && told.turn === 90 && told.filesAnywhere === undefined, told);
     await ctx2.close();
   }
 

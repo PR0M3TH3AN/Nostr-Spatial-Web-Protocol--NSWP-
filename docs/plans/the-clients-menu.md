@@ -23,9 +23,9 @@ and the Bag in a real client is BitPortal's, in step 2. The engine script is a
 world's end too (`trials/menu-above-engine.mjs`), the rule for who draws the
 menu is one piece of code for every world (`menu-keeper.ts`), and Moving is a
 tab both fill, like Sound and Help, and the client asks the one-time question
-on how a visitor moves at a desk. Still to come in step 1: a world saying its
-settings back from a headset, frame times and bytes with the Godot example in a
-frame, and the trials of the four presses. NSWP builder,
+on how a visitor moves at a desk, and a world says back what a visitor changed
+in its headset session. Still to come in step 1: frame times and bytes with the
+Godot example in a frame, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -792,6 +792,7 @@ here is known to work until a person has done it. Kept as one list so none is lo
 | Bag: take up a thing that does things of its own (the dart blaster) | The client's Bag asks first, "Let it run, and hold…"; the second press holds it, and it works in the world | Tried with a made-up visitor and a made-up bag only |
 | Moving: switch to the intense way in the client's menu, close it, and press on the view | The mouse looks round at once, and W, A, S, D walk: the way the world moves you changed with the switch | A scripted browser can't hold the pointer; the trial reads the world's own switch, not the moving |
 | On a phone, or a Quest's flat page: "Jump" in the client's menu, under the world's name in Moving | You jump. It is the only way to jump with no keyboard | No touch screen was tried |
+| In the Quest, change how you move in the world's console (the fade, the turn), then take the headset off | The client's menu has what you changed, and the next world moves you that way | The made-up headset has no hands: the trial presses the row through the world's own controls |
 | On a phone, the client's menu over a world | Step 5: the frame on a phone is its own step | |
 
 **Parked while this is built:** seated mode step 2 (the seat). The fade from step 1 of

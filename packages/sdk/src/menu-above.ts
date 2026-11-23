@@ -13,10 +13,10 @@
  *
  * This file is not the menu and doesn't load it. It is small, and is what lets a framed world never fetch the menu.
  */
-import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
+import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
 import { framed, hearClientMenu, sayToClient, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
-import { changeSettings } from "./settings.js";
+import { changeSettings, currentSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
 import { VISITOR_SWITCHES } from "./visitor-switches.js";
 
@@ -237,12 +237,48 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     }
     // After the words, so that a picture is never for a row the page above hasn't heard of.
     picturesOf(view);
+    reportBack();
   };
   const changed = () => {
     if (!has || waiting) return;
     const wait = EVERY_MS - (performance.now() - lastAt);
     if (wait <= 0) describe();
     else waiting = setTimeout(describe, wait);
+  };
+  // What the visitor changes in a headset goes back up. Inside a headset only this page can draw the console, so
+  // it is here that they change how they move and turn, the volumes, the size of text. While the session runs, a
+  // change to one of those is said upward, so that it is theirs on the flat screen afterwards and in the next
+  // world. Only comfort and layout, by name (the core's `MENU_REPORTED`): never a switch that guards their privacy,
+  // who they are, or what they hold. And only a change: what they had as the session began, and what the page
+  // above said down, are not said back.
+  let presenting = false;
+  let reported = "";
+  let taking = false;
+  const comfortNow = () => JSON.stringify(reportedSettings(currentSettings()));
+  const reportBack = () => {
+    // Asked in the middle of taking settings from above (each part that takes one says it has changed): not now.
+    if (taking) return;
+    const now = opts.state?.().headset?.presenting === true;
+    if (now !== presenting) {
+      presenting = now;
+      reported = comfortNow();
+      return;
+    }
+    if (!has || !presenting) return;
+    const comfort = comfortNow();
+    if (comfort === reported) return;
+    reported = comfort;
+    above.say({ settings: JSON.parse(comfort) as Record<string, unknown> });
+  };
+  /** Settings taken from the page above are the page above's already: not to be said back as a change made here. */
+  const takeSettings = (settings: unknown) => {
+    taking = true;
+    try {
+      changeSettings(settings);
+    } finally {
+      taking = false;
+    }
+    reported = comfortNow();
   };
   const stopView = controls.subscribe(changed);
   // Some of what is said is worked out afresh each time it is asked for, and nothing says when it changed: a row's
@@ -275,12 +311,12 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     const word = readMenuWordDown(data);
     if (!word) return;
     if (word.what === "has") {
-      if (word.has) changeSettings(word.settings);
+      if (word.has) takeSettings(word.settings);
       return setHas(word.has);
     }
     // Nothing else is taken from a page that hasn't said it has the menu.
     if (!has) return;
-    if (word.what === "settings") return void changeSettings(word.settings);
+    if (word.what === "settings") return void takeSettings(word.settings);
     // Only for something this world last described: a press is by id, and nothing else can be pressed from above.
     if (word.what === "press") return void (named.has(word.press) && controls.run(word.press, word.field));
     if (word.what === "open") {
