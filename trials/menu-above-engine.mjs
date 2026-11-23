@@ -104,7 +104,7 @@ try {
     const described = await v.until(async () => (await heard(v)).filter((h) => h.word.nswp === "menu" && h.word.world).map((h) => h.word.world).findLast((w) => w.title === "The Bare Hall, at last" && w.sections.some((s) => s.id === "help")));
     check("has/asked for its menu, it still draws none, and describes itself under its own name", !!described && (await menus(v)) === 0, described?.title);
     const tabs = described?.sections.map((s) => s.id) ?? [];
-    const own = ["you", "figure", "bag", "wallet", "files", "moving", "look"];
+    const own = ["you", "figure", "bag", "wallet", "files", "look"];
     check("has/nothing of the visitor's own tabs is said upward", !tabs.some((t) => own.includes(t)), tabs);
     results["has/what it described"] = { title: described?.title, tabs: described?.sections.map((s) => `${s.id} (${s.rows.length})`) };
     const help = described?.sections.find((s) => s.id === "help");

@@ -4,7 +4,7 @@
 // shell. It is not a client anyone uses: it has no sign-in, no bag and no room of its own, only a way home.
 //
 // Bundled and served by the trial that uses it (trials/menu-client.mjs). `?home=` is where its Home goes.
-import { addDeskControls, addSoundControls, chatSwitch, createSounds, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
+import { addDeskControls, addSoundControls, chatSwitch, createSounds, deskMovingSwitch, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
 import { parseItem } from "../../packages/core/src/index.js";
 import { addBagControls } from "../../packages/sdk/src/bagging.js";
 import { mayHold, scriptAllowed } from "../../packages/sdk/src/play.js";
@@ -32,6 +32,9 @@ controls.add({ id: "home", section: "travel", icon: "home", label: "Home", hotba
 // shown only where the world fills that tab: there is nobody's picture to see in a place with no people.
 const worldFills = (tab: string) => !!below.world?.sections.some((s) => s.id === tab);
 addDeskControls(controls, { presenting: () => !!below.world?.state.headset.presenting });
+// Moving is a tab both fill. How they move at a desk is the client's own switch; the world moves them that way, and
+// adds what it does for them (a jump) below, under its name.
+controls.add(deskMovingSwitch(controls, { presenting: () => !!below.world?.state.headset.presenting }));
 controls.add(
   { ...picturesSwitch(controls), hidden: () => !worldFills("people") },
   { ...modelsSwitch(controls), hidden: () => !worldFills("people") },

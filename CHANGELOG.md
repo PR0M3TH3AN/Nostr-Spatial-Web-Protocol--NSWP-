@@ -4,6 +4,14 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Moving is a tab both fill, the client's part first** (core `MENU_VISITOR_TABS`, `MENU_WORLD_TABS`; SDK `visitor-switches.ts`: `deskMovingSwitch`, `VISITOR_SWITCHES`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes: where a world draws its own menu, Moving is as it was.
+  - Before this, a world could say nothing in Moving, so a client's menu had no "Jump": the only way to jump on a touch screen. And the switch for how a visitor moves at a desk was drawn only by a world, so a client's menu couldn't change it.
+  - **The client's own switches come first:** how they move at a desk (casual or intense: `deskMovingSwitch`, the same row and words a world draws) and how fast they look round. The world in the frame takes the change at once and moves them that way. In a headset, how they move and turn, which hand, the narrowing and the fade are theirs too, and a world leaves all of those out of what it describes.
+  - **The world's part is what it does for them:** "Jump", below the client's own, under the world's name. Nothing typed goes to a world from Moving.
+  - A vector for a world filling Moving, with a `field` row there left out.
+  - Tried in the stand-in client (`trials/menu-client.mjs`): switched to intense in the client's menu, the world moves them the intense way at once.
+- The plan no longer says the engine script's version goes up for the client's menu: nothing an engine can see changed (the orchestrator, 2026-11-23).
+
 - **A world made with another engine steps its menu aside too; and one piece of code keeps to who draws the menu** (SDK `packages/sdk/src/menu-keeper.ts`: `keepMenu`; `engine-menu.ts`; the engine script and the Godot add-on's copy; `sites/shared/world.ts`; `trials/menu-above-engine.mjs`; NSWP-02). Nothing a visitor can see changes yet: no real client has the menu.
   - **The engine script speaks the menu's words.** A world on it, or on the Godot add-on, says so in its `here`. Where its client has the menu it draws none, from the first moment, and says upward what the engine added: its name, its tabs, its own words for Help (`menu()`'s `help`, where that is at most 400 characters), whether it can start a headset session, whether the place has a hum. Presses, the menu coming and going, the visitor's settings and the summons work as in a Three.js world. With no answer in 300 ms it draws its own menu, as before.
   - **`keepMenu(controls, above, mount)`** is the rule of who draws the menu, in one place: the world's own where nobody above has it; none, but for the chat's pane, where its client has; the other when the answer changes; and asked again each time the world's own menu arrives. The reference worlds and the engine script both use it, where the reference worlds had their own copy. It has unit tests for each case.

@@ -6961,7 +6961,7 @@ ${roomName}`)));
   };
   var MENU_WAIT_MS = 300;
   var LEAVE_MS = 1e3;
-  var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "moving", "look"];
+  var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "look"];
   var MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
   var MENU_CARD_PICTURE = "card:";
   var UNSEEN_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
@@ -52408,7 +52408,18 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     "juke-add",
     "juke-play",
     "juke-next",
-    "juke-remove"
+    "juke-remove",
+    // In Moving, which both fill: how they move at a desk, how fast they look round, and how they move in a headset
+    // (fps.ts, desk.ts, input.ts) are the visitor's, each a setting that travels. What is the world's there is what
+    // it does for them: a jump.
+    "fps",
+    "look-speed",
+    "move-style",
+    "move-mode",
+    "turn-mode",
+    "move-hand",
+    "move-narrow",
+    "move-fade"
   ];
   var picturesSwitch = (controls2) => ({
     id: "people-pictures",

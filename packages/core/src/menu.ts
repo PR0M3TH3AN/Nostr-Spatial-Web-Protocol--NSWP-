@@ -56,15 +56,16 @@ export const LEAVE_MS = 1000;
  * The visitor's own tabs. A world never fills, reads or presses them, and is never told what is in them.
  * (`figure` is "Your look" and `look` is "Display": the names are the kit's, and travel as pins already.)
  */
-export const MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "moving", "look"] as const;
+export const MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "look"] as const;
 /**
  * The tabs every place has that a world fills: its room and people, its own doors under Travel, its keeper's list.
  * Several are filled by both: the client's own rows come first in them, and the world's stand below, under the
- * world's name. Sound and Help are of that kind. The volumes and the visitor's own music are the client's, and a
- * world adds what is its own (the piece it is playing); the client's help comes first, and a world's words about
- * itself are a note after it. Nothing typed goes to a world from either: a `field` row there is left out.
+ * world's name. Sound, Help and Moving are of that kind. The volumes and the visitor's own music are the client's,
+ * and a world adds what is its own (the piece it is playing); the client's help comes first, and a world's words
+ * about itself are a note after it; how the visitor moves is the client's to switch, and a world adds what it does
+ * for them (a jump). Nothing typed goes to a world from any of the three: a `field` row there is left out.
  */
-export const MENU_WORLD_TABS = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests", "sound", "help"] as const;
+export const MENU_WORLD_TABS = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests", "sound", "help", "moving"] as const;
 
 /** The few keys that are the visitor's, which a world forwards while it has the keyboard. Never any other. */
 export const MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;

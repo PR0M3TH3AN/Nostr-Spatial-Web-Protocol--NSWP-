@@ -38,7 +38,7 @@ const make = (o: { framed?: boolean; since?: number | null; before?: unknown[]; 
   controls.add({ id: "room-link", section: "room", label: "Copy the room's link", kind: "copy", copy: "https://gallery.example/#room", act: act("room-link") });
   controls.add({ id: "guests-key", section: "guests", label: "Add someone by key", kind: "field", act: act("guests-key") });
   controls.add({ id: "bag-item", section: "bag", label: "A lantern", act: act("bag-item") });
-  controls.add({ id: "fast", section: "moving", label: "Faster", act: act("fast") });
+  controls.add({ id: "big", section: "look", label: "Bigger", act: act("big") });
   controls.add({ id: "follow-ana", section: "following", label: "Ana", act: act("follow-ana") });
   const sent: Record<string, unknown>[] = [];
   let hear: ((word: unknown) => void) | null = null;
@@ -126,7 +126,7 @@ describe("what a world says of itself", () => {
     const world = w.worlds()[0]!;
     const sections = world.sections as { id: string; rows: { id: string }[] }[];
     expect(sections.map((s) => [s.id, s.rows.map((r) => r.id)])).toEqual([["travel", ["door-grove"]], ["room", ["room-join", "room-link"]], ["following", ["follow-ana"]], ["guests", ["guests-key"]]]);
-    expect(JSON.stringify(w.sent)).not.toMatch(/lantern|Faster|bag|moving/);
+    expect(JSON.stringify(w.sent)).not.toMatch(/lantern|Bigger|bag|"look"/);
   });
 
   it("is what a client keeps whole: it is within every limit as it leaves", () => {
@@ -224,7 +224,7 @@ describe("what a world takes from above", () => {
     w.say({ nswp: "menu", press: "room-join" });
     expect(w.pressed).toEqual([]);
     w.say(HAS);
-    for (const id of ["room-join", "home", "bag-item", "fast", "nothing"]) w.say({ nswp: "menu", press: id });
+    for (const id of ["room-join", "home", "bag-item", "big", "nothing"]) w.say({ nswp: "menu", press: id });
     return vi.advanceTimersByTimeAsync(50).then(() => expect(w.pressed).toEqual([["room-join", undefined]]));
   });
 
