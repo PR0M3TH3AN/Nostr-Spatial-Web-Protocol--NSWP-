@@ -1,4 +1,4 @@
-# A guest is a generated account, which signing up keeps
+# One identity across BitPortal: a guest is a generated account, and an account is known in every world
 
 - **Asked:** 2026-11-23. The owner, straight after `items-for-guests`: "can a
   guest be a generated and is the user decideds to sign up they can import
@@ -7,7 +7,7 @@
   with less friction."
 - **Who:** a written design first, by the BitLogin session (it holds
   accounts and keys) with the kit's half by the NSWP builder. Not briefed.
-- **State:** asked; the owner decided on 2026-11-23 that it is made automatically. After the client's menu; it comes before
+- **State:** asked; the owner decided on 2026-11-23 that it is made automatically, and that an account too is known in every world. After the client's menu; it comes before
   `items-for-guests`, which it largely replaces.
 
 ## What is true today
@@ -60,13 +60,30 @@ everything they did as a guest still theirs.
 
 ## For the design to settle
 
-- **Guests and accounts side by side.** A signed-in visitor is asked at each
-  world whether to be known there. A guest, by the owner's decision, is known
-  everywhere without being asked. The design says whether that question stays
-  for accounts (the orchestrator's view: it stays unless the owner says
-  otherwise, since an account carries a real name, follows and a wallet), and
-  how the menu shows the difference so that securing an account doesn't feel
-  like gaining a prompt.
+- **Accounts too** (the owner's decision, 2026-11-23, asked whether
+  signed-in accounts should also be known in every world without being
+  asked: "one account and known as the same user across all worlds", and
+  "like i said. BitPortal is one place"). So a signed-in visitor is not asked
+  at each world whether to be known there. They sign in once, and are
+  themselves in every world they reach through BitPortal, as a guest is the
+  same guest. The orchestrator had recommended keeping the question for
+  accounts; this replaces it.
+- **What "known" covers, for the design to hold to.** Being known is who
+  they are: their key, name, look and bag, as a pass says today. It is not
+  leave for a world to act as them. Anything a world would do in their name
+  (sign a note, send a message, pay, read what is private) is still asked at
+  its first use, on the sign-in address's own page, as now. One place means
+  one identity, not one permission.
+- **What this changes that is already written or built:**
+  NSWP-10 and NSWP-03 ("once for here, and once at each world you choose to
+  be known in"; "go as yourself, or go plain" at each trip); BitLogin's
+  per-world question; the kit's You rows for signing in to one world
+  (`signInRows`, NSWP 381), which stay for clients that do ask and for a
+  world opened by its own address; and what a keeper's "by invitation" and
+  block lists can rely on. Whether a visitor can still choose to go plain,
+  as a setting and never as a prompt, is for the design to propose.
+- **Said plainly to visitors:** every world you enter through BitPortal
+  knows it is you. The You tab says so, and so does signing in.
 - Whether "known everywhere" means every world reached through BitPortal's
   doors only, or a world opened by its own address too (which depends on
   where the key can be kept).
