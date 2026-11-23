@@ -149,6 +149,11 @@ export interface MenuBelowOptions {
   onReported?: (settings: TravelSettings) => void;
   /** Whether something a world sent as a picture may be kept. By default a bitmap within the limit on its size. */
   picture?: (value: unknown) => boolean;
+  /**
+   * The frame's first page had already finished loading when this was made. Say so if it may have: a `here` is
+   * told apart from the next page's by whether a load is still waiting for one (below).
+   */
+  loaded?: boolean;
   /** For tests: where words from the frame are heard. By default this page's window. */
   hear?: { addEventListener(type: "message", fn: (e: MessageEvent) => void): void; removeEventListener(type: "message", fn: (e: MessageEvent) => void): void };
   /** For tests: this page's own origin. */
@@ -216,10 +221,21 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     saidSettings = "";
     if (had) changed();
   };
-  // At every load of the frame: one world's name and tabs never stand over the next page, or over one that says nothing.
+  // A page says `here` as its script starts, which is usually before the frame's own load is told, and sometimes
+  // after. So a `here` belongs to the load that is waiting for one, if one is; and otherwise to the load about to
+  // come, which then keeps it. Every other load drops what was there: one world's name and tabs never stand over the
+  // next page, or over a page that says nothing.
+  let awaiting = opts.loaded === true;
+  let early = false;
   const onLoad = () => {
     if (leaving) clearTimeout(leaving);
     leaving = null;
+    if (early) {
+      early = false;
+      awaiting = false;
+      return;
+    }
+    awaiting = true;
     drop();
   };
   frame.addEventListener("load", onLoad);
@@ -228,7 +244,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     if (e.source !== frame.contentWindow || !e.data || typeof e.data !== "object") return;
     const data = e.data as { nswp?: unknown };
     if (data.nswp === "here") {
-      // A new page is up in the frame (its `here` can come before the frame's own load is told).
+      // A new page is up in the frame. Said after its load, it is that load's; said before, it is the next one's.
+      if (awaiting) awaiting = false;
+      else early = true;
       world = null;
       origin = typeof e.origin === "string" ? e.origin : "";
       speaks = menuVersionOf(data) > 0 && !!origin && origin !== "null";
@@ -297,6 +315,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       return () => void viewers.delete(fn);
     },
     run(id, typed) {
+      // A press on anything of this page's takes the keys from the frame, and the world stops hearing them: walking
+      // stops. So with the menu down they are given back once the press has been taken, whatever it did.
+      if (!open) setTimeout(() => !open && frame.focus(), 0);
       if (!id.startsWith(WORLDS)) return controls.run(id, typed);
       const row = rowOf(id);
       // Only for something in the world's last description, and something that can be pressed.
