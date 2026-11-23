@@ -8078,6 +8078,101 @@ postMessage({ t: "started" });
     };
   }
 
+  // packages/sdk/src/client-frame.ts
+  var framed = () => {
+    try {
+      return typeof window !== "undefined" && window.parent !== window;
+    } catch {
+      return false;
+    }
+  };
+  var copiedRefused = (copy, inFrame = framed()) => inFrame ? `What you copied can't be read in a world shown inside another page. Open this world by its own address, ${copy.charAt(0).toLowerCase()}${copy.slice(1)}, and press again.` : `What you copied couldn't be read here. ${copy}, allow this site to read what you copy, and press again.`;
+  var holds = false;
+  var filled = false;
+  var met = false;
+  var watchers = /* @__PURE__ */ new Set();
+  var signInAt = null;
+  var panelOpen = false;
+  var panelFailed = false;
+  var panelWatchers = /* @__PURE__ */ new Set();
+  var menuPlace = null;
+  function setMenuPlace(fn) {
+    menuPlace = fn;
+  }
+  var clientHoldsScreen = () => holds;
+  var clientScreenFilled = () => holds && filled;
+  function onClientScreen(fn) {
+    watchers.add(fn);
+    return () => void watchers.delete(fn);
+  }
+  var say = (words2) => {
+    try {
+      window.parent.postMessage({ nswp: words2.nswp, ...words2 }, "*");
+    } catch {
+    }
+  };
+  function askClientForScreen(fill) {
+    if (framed()) say({ nswp: "screen", fill });
+  }
+  var clientSignsInAt = () => signInAt;
+  function onClientSignIn(fn) {
+    panelWatchers.add(fn);
+    return () => void panelWatchers.delete(fn);
+  }
+  function askClientForSignIn(mode = "ask") {
+    if (!framed() || !signInAt) return false;
+    let menu2 = null;
+    try {
+      menu2 = menuPlace?.() ?? null;
+    } catch {
+    }
+    say({ nswp: "sign-in", mode, ...menu2 ? { menu: menu2 } : {} });
+    return true;
+  }
+  var secureOrigin = (address) => {
+    if (typeof address !== "string" || address.length > 200) return null;
+    try {
+      const u = new URL(address);
+      return u.protocol === "https:" && u.origin === address.replace(/\/$/, "") ? u.origin : null;
+    } catch {
+      return null;
+    }
+  };
+  function meetClient() {
+    if (met || !framed()) return;
+    met = true;
+    addEventListener("message", (e) => {
+      if (e.source !== window.parent) return;
+      const said2 = e.data;
+      if (!said2 || typeof said2 !== "object") return;
+      if (said2.nswp === "sign-in" && typeof said2.open === "boolean") {
+        const failed2 = !said2.open && said2.failed === true;
+        if (failed2) {
+          panelFailed = true;
+          signInAt = null;
+        }
+        if (panelOpen === said2.open && !failed2) return;
+        panelOpen = said2.open;
+        for (const fn of panelWatchers) fn(panelOpen, failed2, !said2.open && said2.allowed === true);
+        if (failed2) for (const fn of watchers) fn();
+        return;
+      }
+      if (said2.nswp !== "screen" || typeof said2.holds !== "boolean") return;
+      const was = `${holds}${filled}${signInAt}`;
+      holds = said2.holds;
+      filled = said2.filled === true;
+      if (said2.signIn !== void 0 && !panelFailed) signInAt = secureOrigin(said2.signIn);
+      if (was !== `${holds}${filled}${signInAt}`) for (const fn of watchers) fn();
+    });
+    let at = "/";
+    try {
+      at = `${location.pathname}${location.search}`.slice(0, 300);
+    } catch {
+    }
+    say({ nswp: "here", at });
+  }
+  meetClient();
+
   // packages/sdk/src/settings.ts
   var arrived = {};
   var parts = /* @__PURE__ */ new Map();
@@ -8110,7 +8205,7 @@ postMessage({ t: "started" });
   var PICTURES_KEY = "nswp:pictures";
   var PICTURE_LIMITS = { bytes: 3e6, size: 128, waitMs: 9e3 };
   var shown = null;
-  var watchers = /* @__PURE__ */ new Set();
+  var watchers2 = /* @__PURE__ */ new Set();
   function showsPictures() {
     if (shown !== null) return shown;
     const came = arrivedSettings().pictures;
@@ -8135,11 +8230,11 @@ postMessage({ t: "started" });
     showsPictures();
     shown = on3;
     keep(on3);
-    for (const w of watchers) w();
+    for (const w of watchers2) w();
   }
   function onPicturesChange(cb) {
-    watchers.add(cb);
-    return () => void watchers.delete(cb);
+    watchers2.add(cb);
+    return () => void watchers2.delete(cb);
   }
   function badge(image, width, height) {
     const size = PICTURE_LIMITS.size;
@@ -8439,7 +8534,7 @@ postMessage({ t: "started" });
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
         } catch {
-          return say3("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
+          return say3(copiedRefused("Copy their key (it starts npub1)"));
         }
       }
       const key = keyIn(text2);
@@ -9232,7 +9327,7 @@ postMessage({ t: "started" });
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
         } catch {
-          return controls2.say("What you copied couldn't be read here. Copy someone's key (npub1\u2026), allow this site to read what you copy, and press again.");
+          return controls2.say(copiedRefused("Copy someone's key (npub1\u2026)"));
         }
         const key = keyIn(text2);
         if (!key) return controls2.say("That isn't someone's key. Copy their npub1\u2026 and press again.");
@@ -9394,7 +9489,7 @@ postMessage({ t: "started" });
   var clampLook = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(LOOK_RANGE[1], Math.max(LOOK_RANGE[0], v2)) * 100) / 100 : 1;
   var clampFov = (v2) => typeof v2 === "number" && Number.isFinite(v2) ? Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], v2))) : null;
   var prefs = null;
-  var watchers2 = /* @__PURE__ */ new Set();
+  var watchers3 = /* @__PURE__ */ new Set();
   var keep2 = (p) => {
     try {
       localStorage.setItem(DESK_PREFS_KEY, JSON.stringify(p));
@@ -9417,7 +9512,7 @@ postMessage({ t: "started" });
   var change = (next) => {
     prefs = next;
     keep2(next);
-    for (const w of watchers2) w();
+    for (const w of watchers3) w();
   };
   var lookScale = () => load().look;
   var aimScaleNow = 1;
@@ -9426,8 +9521,8 @@ postMessage({ t: "started" });
   var visitorFov = () => currentForm() === "desk" ? load().fov : null;
   var setVisitorFov = (v2) => change({ ...load(), fov: v2 === null ? null : clampFov(v2) });
   function onDeskChange(cb) {
-    watchers2.add(cb);
-    return () => void watchers2.delete(cb);
+    watchers3.add(cb);
+    return () => void watchers3.delete(cb);
   }
   var after = (steps, at) => steps[(at + 1) % steps.length];
   function addDeskControls(controls2, o) {
@@ -9518,100 +9613,6 @@ postMessage({ t: "started" });
   var PORTAL_SIGN_HEIGHT = PORTAL_HEIGHT + 0.72;
   var DOOR_REACH = 3.05;
   var DOOR_SPACING = 2.5;
-
-  // packages/sdk/src/client-frame.ts
-  var framed = () => {
-    try {
-      return typeof window !== "undefined" && window.parent !== window;
-    } catch {
-      return false;
-    }
-  };
-  var holds = false;
-  var filled = false;
-  var met = false;
-  var watchers3 = /* @__PURE__ */ new Set();
-  var signInAt = null;
-  var panelOpen = false;
-  var panelFailed = false;
-  var panelWatchers = /* @__PURE__ */ new Set();
-  var menuPlace = null;
-  function setMenuPlace(fn) {
-    menuPlace = fn;
-  }
-  var clientHoldsScreen = () => holds;
-  var clientScreenFilled = () => holds && filled;
-  function onClientScreen(fn) {
-    watchers3.add(fn);
-    return () => void watchers3.delete(fn);
-  }
-  var say = (words2) => {
-    try {
-      window.parent.postMessage({ nswp: words2.nswp, ...words2 }, "*");
-    } catch {
-    }
-  };
-  function askClientForScreen(fill) {
-    if (framed()) say({ nswp: "screen", fill });
-  }
-  var clientSignsInAt = () => signInAt;
-  function onClientSignIn(fn) {
-    panelWatchers.add(fn);
-    return () => void panelWatchers.delete(fn);
-  }
-  function askClientForSignIn(mode = "ask") {
-    if (!framed() || !signInAt) return false;
-    let menu2 = null;
-    try {
-      menu2 = menuPlace?.() ?? null;
-    } catch {
-    }
-    say({ nswp: "sign-in", mode, ...menu2 ? { menu: menu2 } : {} });
-    return true;
-  }
-  var secureOrigin = (address) => {
-    if (typeof address !== "string" || address.length > 200) return null;
-    try {
-      const u = new URL(address);
-      return u.protocol === "https:" && u.origin === address.replace(/\/$/, "") ? u.origin : null;
-    } catch {
-      return null;
-    }
-  };
-  function meetClient() {
-    if (met || !framed()) return;
-    met = true;
-    addEventListener("message", (e) => {
-      if (e.source !== window.parent) return;
-      const said2 = e.data;
-      if (!said2 || typeof said2 !== "object") return;
-      if (said2.nswp === "sign-in" && typeof said2.open === "boolean") {
-        const failed2 = !said2.open && said2.failed === true;
-        if (failed2) {
-          panelFailed = true;
-          signInAt = null;
-        }
-        if (panelOpen === said2.open && !failed2) return;
-        panelOpen = said2.open;
-        for (const fn of panelWatchers) fn(panelOpen, failed2, !said2.open && said2.allowed === true);
-        if (failed2) for (const fn of watchers3) fn();
-        return;
-      }
-      if (said2.nswp !== "screen" || typeof said2.holds !== "boolean") return;
-      const was = `${holds}${filled}${signInAt}`;
-      holds = said2.holds;
-      filled = said2.filled === true;
-      if (said2.signIn !== void 0 && !panelFailed) signInAt = secureOrigin(said2.signIn);
-      if (was !== `${holds}${filled}${signInAt}`) for (const fn of watchers3) fn();
-    });
-    let at = "/";
-    try {
-      at = `${location.pathname}${location.search}`.slice(0, 300);
-    } catch {
-    }
-    say({ nswp: "here", at });
-  }
-  meetClient();
 
   // packages/sdk/src/ui/fullscreen.ts
   var resumed = false;
@@ -54657,7 +54658,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
         } catch {
-          return say3("What you copied couldn't be read here. Copy an item's address, allow this site to read what you copy, and press again.");
+          return say3(copiedRefused("Copy an item's address"));
         }
       }
       const item = itemIn(text2);

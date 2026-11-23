@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A row that reads what you copied says why when it can't, in a world shown inside another page** (`packages/sdk/src/client-frame.ts`, `bagging.ts`, `front-room.ts`, `following.ts`; the engine script; `docs/plans/the-clients-menu-presses.md`).
+  - "Put in the item I copied", "Someone whose key I copied" and following someone by a copied key can't work in a world shown in a client's frame: the page above doesn't let a framed world read what was copied, whatever is pressed or allowed. They used to say "allow this site to read what you copy", which there is a switch that doesn't exist. They now say the world is shown inside another page, and to open it by its own address.
+  - Nothing changes in a world opened by its own address.
+  - This is a known fault for a framed world and not a fix for it. The frame is never allowed to read the clipboard; the fix is the client's own menu, where the visitor pastes into a row of their client's (`docs/plans/the-clients-menu.md`, section 8).
+- **The press trial, second part: windows, and a pointer the world holds** (`trials/presses-from-above.mjs`; `docs/plans/the-clients-menu-presses.md`). No feature.
+  - A framed world can't open a window from a press on the page above it. Tried in a second Chrome with its window blocker on, since the scripted one starts with it off.
+  - A world that holds the pointer lets it go when told the menu is up, and Chrome lets it take the pointer again as the menu goes, with no new press.
+  - Not tried, because a scripted browser can't: Escape with the pointer held, and where a press goes while it is held. Both need a person's keyboard and mouse.
+- **How a trial about presses is written** (`trials/README.md`, under Rules; `docs/fleet.md`, "What a bigger fleet taught us"): a scripted call into a page counts there as the visitor's own press, so such a trial runs nothing inside the page it asks about.
 - **The menu takes a world's port, and nothing else** (`nswp-sdk/menu`: `mountMenu`, `WorldPort`, `portHere`; `docs/plans/the-clients-menu.md`, step 0; names from the orchestrator). The first step towards the menu being the client's. Nothing a visitor can see changes.
   - The flat-screen menu used to be handed a world's controls whole. It is now handed a port: what to draw as data, a press back by its id, and a few signals. `portHere(controls)` is the one carrier so far, the world's own controls, direct; the next step adds words from a page above.
   - `mountHud(controls)` still works and is `mountMenu(portHere(controls))`.

@@ -15,6 +15,7 @@
  */
 import { cleanSettings, decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE, type HeldThrough } from "@nswp/core";
 import type { Bag } from "./bag.js";
+import { copiedRefused } from "./client-frame.js";
 import { createItemPreviews, type ItemPreviews } from "./item-preview.js";
 import { onItemsChange, setShowsItems, showsItems, type ItemStore } from "./item-store.js";
 import type { Items } from "./items.js";
@@ -141,7 +142,7 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
       try {
         text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
       } catch {
-        return say("What you copied couldn't be read here. Copy an item's address, allow this site to read what you copy, and press again.");
+        return say(copiedRefused("Copy an item's address"));
       }
     }
     const item = itemIn(text);

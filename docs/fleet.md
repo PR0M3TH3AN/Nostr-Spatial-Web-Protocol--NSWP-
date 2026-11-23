@@ -131,6 +131,13 @@ the orchestrator to ask its dispatcher what had gone wrong there
   seen to go red once on something wrong.
 - **"Passed every check" is not "works".** Both of today's real faults were
   found by trying the thing end to end, not by a check.
+- **A trial can press without meaning to.** In a scripted browser, a call
+  into a page counts there as the visitor's own press, and so does a tool
+  finding a button to click. A trial of what needs a press, or of who has the
+  keys, then passes wrongly (2026-11-23: two runs said a framed world could
+  start a headset session from a press above it). Such trials press with a
+  mouse at a place on the screen and read only the console:
+  `trials/README.md`, under Rules.
 - **Memory holds lessons, never the state of things.** What is live, what is
   waiting and who is doing what go stale in hours. They are read from the
   board, the repository and the live sites each time. A rule is read again

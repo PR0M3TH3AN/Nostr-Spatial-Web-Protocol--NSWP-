@@ -53,9 +53,29 @@ Node's own requests need this machine's certificate: run a trial with
 | `xr-test-look.mjs` | The headset test page loads and sends nothing by itself |
 | `xr-test-guided.mjs` | A whole guided run of the headset test with a made-up headset and made-up relays: each step lands, asks, and is sent; the notes are signed and whole. Needs only `npm run build`, nothing running. `LIVE_SHELL=1` also takes the two steps inside BitPortal's page, through the live one, read only |
 | `live.mjs` | After a deploy, read-only: every public site is on this kit, the shell is the way in, the real panel opens |
+| `presses-from-above.mjs` | Which things a framed world can do from a press on the page above it, and which need a press in its own page: a headset session, the pointer, the microphone, sound, copying and reading what was copied, filling the screen, a window (in a second Chrome with its window blocker on), and a pointer the world holds as the menu comes up and goes. Two made-up sites served by the script; needs nothing running. The result is `docs/plans/the-clients-menu-presses.md` |
 
 ## Rules
 
+- **A trial about presses or keys never runs anything inside the page it is
+  asking about.** A scripted call into a page counts there as the visitor's own
+  press, and so does the call a scripting tool makes to find a button
+  (Playwright's `evaluate`, and every `locator` action or wait). Such a trial
+  then passes wrongly: everything looks allowed. Learnt on 2026-11-23, when the
+  first two runs of `presses-from-above.mjs` said a framed world could start a
+  headset session from a press above it. So:
+  - press with a mouse at a place on the screen (`page.mouse.click(x, y)`) and
+    with keys (`page.keyboard`), as a person does;
+  - have each page read what to try from its own address, and say what
+    happened on its console; read only that (`page.on("console")`);
+  - have the page say whether the browser counts it as pressed
+    (`navigator.userActivation.hasBeenActive`) before anything is pressed, and
+    fail the run if it already does;
+  - know what a scripted browser can't show at all: its window blocker is off
+    unless turned back on (`ignoreDefaultArgs: ["--disable-popup-blocking"]`),
+    a scripted Escape doesn't reach the browser's own handling (leaving
+    fullscreen, ending a held pointer), and a scripted mouse goes to a place on
+    the screen whatever holds the pointer. Those need a person.
 - A trial that would make an account, type a password, or publish anything
   says so in its first lines, and is not run without the owner's word.
 - A trial found failing is fixed or deleted, not left: a folder of scripts

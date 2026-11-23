@@ -28,6 +28,7 @@
  */
 import { ACCESS_MOST, accessFor, cleanAccess, cleanListing, DEFAULT_RELAYS, isHex64, LIST_KIND, listD, LISTING_KIND, listingSeller, OWNER_LIST_LIMITS, parseManifest, priceWords, publishEvent, readListing, readReceipt, isOwnerListAsked, resolveOwnerList, scopeOfChange, shortNpub, worldSubject, WORLD_KIND, type OwnerListChange, type Filter, type Listing, type ListingRefusal, type NostrEvent, type QueryResult, type Receipt } from "@nswp/core";
 import { keyIn } from "./following.js";
+import { copiedRefused } from "./client-frame.js";
 import { createProfiles, type Profiles } from "./profiles.js";
 import { askWell, sendWell } from "./relay-book.js";
 import type { WorldSigner } from "./signer.js";
@@ -972,7 +973,7 @@ function addOwnersScreen(controls: Controls, gate: PaidGate, opts: { presenting?
       try {
         text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
       } catch {
-        return controls.say("What you copied couldn't be read here. Copy someone's key (npub1…), allow this site to read what you copy, and press again.");
+        return controls.say(copiedRefused("Copy someone's key (npub1…)"));
       }
       const key = keyIn(text);
       if (!key) return controls.say("That isn't someone's key. Copy their npub1… and press again.");

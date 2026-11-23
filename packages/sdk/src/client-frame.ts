@@ -41,6 +41,19 @@ export const framed = (): boolean => {
   }
 };
 
+/**
+ * The words for a row that reads what the visitor copied, when the browser refused the read. `copy` says what to
+ * copy ("Copy an item's address").
+ *
+ * A world shown inside another site's page is not let read it whatever the visitor presses or allows: the page
+ * above doesn't hand that down, and must not (docs/plans/the-clients-menu-presses.md). So there the words say why,
+ * and what does work, where "allow this site" would send them looking for a switch that isn't there.
+ */
+export const copiedRefused = (copy: string, inFrame: boolean = framed()): string =>
+  inFrame
+    ? `What you copied can't be read in a world shown inside another page. Open this world by its own address, ${copy.charAt(0).toLowerCase()}${copy.slice(1)}, and press again.`
+    : `What you copied couldn't be read here. ${copy}, allow this site to read what you copy, and press again.`;
+
 let holds = false;
 let filled = false;
 let met = false;
