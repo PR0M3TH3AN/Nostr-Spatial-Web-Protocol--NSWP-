@@ -307,6 +307,25 @@ place, above the world, and a world's drawing can never be above it.
   stands. One menu at any moment, never two. This is not rare: on a development
   server the shell asks the network whether a place may be shown before it answers,
   so `has: true` can come after `MENU_WAIT_MS`. It is one of step 1's trial cases.
+- **Whoever wires a menu asks again who has it, each time its own menu's file
+  arrives** (the orchestrator, 2026-11-23, after a fault found that day). A world's
+  own menu is a file fetched when it is needed, and a client can answer while it is
+  on its way. A world that only asked before fetching then drew its menu when the
+  file came, though the client now had one: two menus. So the rule for every place
+  that wires a menu: when its own menu's file arrives, ask who has the menu now; a
+  menu that arrives for a page whose client has one is put away before it is seen;
+  and a change of who has it is listened for from before the fetch, not after.
+  - *The reference worlds* (`sites/shared/world.ts`) do this since PR 372, and
+    `trials/menu-above.mjs` has the case ("during").
+  - *The engine script* can't have this fault today, for two reasons: it doesn't
+    speak the menu's words, so no client ever has its menu; and its menu is in the
+    one file, mounted as that file runs, so there is no fetch for an answer to
+    land in. When it comes to speak the words, the second still holds, and it
+    needs only the other half of the rule: put its own menu away when a client
+    says it has one, however late.
+  - *BitPortal's room* (`/walk/`) mounts its menu as its page starts, from its
+    own bundle, and doesn't speak the words yet. When it does, as a page of the
+    client's own, the same rule is its to keep. BitPortal's session has been told.
 - **A new page in the frame:** the client drops the last description at the frame's
   load and shows only its own tabs and Home until the new page says `here` and
   describes itself (section 4).
