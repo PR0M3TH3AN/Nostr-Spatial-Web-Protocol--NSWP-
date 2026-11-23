@@ -96,12 +96,18 @@ world stays where a visitor left it. NSWP-17 has no placed things.
     to follow, as for worlds and people.
   A blocked book on a shelf is drawn as a plain closed book that says it is
   blocked, so a shelf's places don't shift.
-- **A book is rated** (the owner, next message: "And raited"). Two readings,
-  and the owner is asked which: what is in it, as a world says how intense it
-  is and what a visitor should know before going in (`rating.ts`), said by
-  whoever binds it and shown before it is opened; or readers' own marks for
-  how good it is. The first goes with blocking and banning; the second is a
-  thing of its own.
+- **A book is rated, both ways** (the owner, 2026-11-23: "And raited", and,
+  asked whether that meant what is in it or readers' own marks: "both"):
+  - **What is in it:** said by whoever binds the book, in the words a world
+    uses for how intense it is and what a visitor should know first
+    (`rating.ts`), and shown before the book is opened. A world's keeper can
+    refuse books above a rating; a reader can choose not to be shown them.
+    It is the binder's own word, as a world's rating is the world's.
+  - **How good readers found it:** a reader's own mark for a book, signed by
+    them, counted by whoever shows it. For the design: whose marks are
+    counted (everyone's, or people the reader follows), so that a count
+    can't be run up with keys made for the purpose; and that a mark is for
+    one version or for the book whatever its version.
 - **A book's words are a stranger's words:** shown as text and pictures,
   nothing run, no markup taken as more than headings, emphasis, lists and
   quotes, and a link is shown and never followed by itself.
