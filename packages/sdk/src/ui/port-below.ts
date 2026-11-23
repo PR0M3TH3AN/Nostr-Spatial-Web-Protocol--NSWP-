@@ -18,11 +18,14 @@
 import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, MENU_LIMITS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
 import { currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
-import { STANDARD_TABS, standardTab, type Controls, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
+import { STANDARD_TABS, standardTab, type Controls, type UiAction, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
 import type { WorldPort } from "./port.js";
 
 /** Before the id of everything that is the world's, in what the menu draws: so a world's id can never be one of the client's own. */
 export const WORLDS = "world:";
+
+/** How long a world is given to say that what the visitor took up is in their hand, before it is taken not to be. */
+const HOLD_MS = 4000;
 
 /** The most keys on the bar: the client's own come first, then the world's while there is room. */
 const BAR_MOST = 6;
@@ -181,6 +184,21 @@ export interface MenuBelow {
   attach(menu: { pressKey(key: string): void } | null): void;
   /** The visitor's own Home was pressed: the world is told, and they are taken home within `LEAVE_MS` whatever it does. */
   leave(): void;
+  /**
+   * The visitor's own "Sign out here" was pressed: the world is told to sign them out. It can only take away, and
+   * the world does it without asking. Whether it did is read from `world.state.named`.
+   */
+  signOut(): void;
+  /**
+   * The visitor took something up in this menu's Bag, or put what they held away (`""`): the world is told. It
+   * takes a thing in hand only if it is in their own bag as they signed it, and where it lets things be carried,
+   * so this waits for the world to say what is in hand (`world.state.holding`) and resolves whether it is this.
+   *
+   * `script` is the mark of the item's own logic (its SHA-256), said only where the visitor has let that logic run,
+   * in this menu: a thing that does things of its own is asked about before it is first held, and that asking is
+   * the Bag's own, here. A world lets a thing's logic run unasked only for the very script named.
+   */
+  hold(item: string, how?: { tints?: Record<string, string>; script?: string }): Promise<boolean>;
   dispose(): void;
 }
 
@@ -197,8 +215,11 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   // "Load people's files from anywhere" is never said down, on or off: it is for one place, the visitor's own press
   // on that place's own row, and that place keeps it. A client that said "off" with everything else would turn it
   // off in every world it showed.
+  // What is in hand is not said with the rest either: this page knows it only from the world, and saying it back
+  // would be the world's own word returned to it. It is said when the visitor takes something up or puts it away
+  // in this menu (`hold`, below), and at no other time.
   const settingsNow = (): MenuSettings => {
-    const { filesAnywhere: _notSaid, ...rest } = cleanMenuSettings(opts.settings ? opts.settings() : currentSettings());
+    const { filesAnywhere: _notSaid, holding: _saidAtAPress, ...rest } = cleanMenuSettings(opts.settings ? opts.settings() : currentSettings());
     return rest;
   };
   const watchers = new Set<() => void>();
@@ -416,6 +437,25 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         if (origin === from) opts.home?.(true);
       }, LEAVE_MS);
     },
+    signOut() {
+      say({ sign: "out" });
+    },
+    hold(item, how = {}) {
+      if (!speaks) return Promise.resolve(false);
+      say({ settings: { holding: item ? { item, ...(how.tints && Object.keys(how.tints).length ? { tints: how.tints } : {}), ...(how.script ? { script: how.script } : {}) } : "" } });
+      const held = () => (world?.state.holding ?? "") === item;
+      if (held()) return Promise.resolve(true);
+      return new Promise<boolean>((resolve) => {
+        const done = (ok: boolean) => {
+          clearTimeout(giveUp);
+          watchers.delete(look);
+          resolve(ok);
+        };
+        const look = () => void (held() && done(true));
+        const giveUp = setTimeout(() => done(held()), HOLD_MS);
+        watchers.add(look);
+      });
+    },
     dispose() {
       if (leaving) clearTimeout(leaving);
       frame.removeEventListener("load", onLoad);
@@ -427,4 +467,41 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       menu = null;
     },
   };
+}
+
+/**
+ * The client's own rows, under You, for signing in to the world in the frame and out of it. You is the visitor's
+ * own tab, and a world never puts a row in it: a sign-in row under a world's name, naming a host, is exactly what a
+ * visitor should never be taught to trust. So the world says only facts (`state.named`, `state.signIn`), and these
+ * words are the menu's own, the same in every client.
+ *
+ * - Signing in opens the sign-in address's own panel for the world in the frame, which is the client's to do
+ *   (`ask`): a world's word can't open it.
+ * - Signing out tells the world, which does it without asking (`below.signOut`).
+ * - Where the world names nothing that signs for a visitor, neither row is shown.
+ */
+export function signInRows(below: Pick<MenuBelow, "world" | "signOut">, opts: { ask(): void }): UiAction[] {
+  const state = () => below.world?.state;
+  const where = () => below.world?.title || "this world";
+  return [
+    {
+      id: "world-sign-in",
+      section: "you",
+      icon: "key",
+      hidden: () => !state() || state()!.named || state()!.signIn === "none",
+      label: () => (state()?.signIn === "asking" ? "Asking your sign-in address…" : state()?.signIn === "unanswered" ? "Your sign-in address didn't answer. Press to ask again" : `Sign in to ${where()}`),
+      short: "Sign in",
+      act: () => opts.ask(),
+    },
+    {
+      id: "world-sign-out",
+      section: "you",
+      icon: "key",
+      on: () => true,
+      hidden: () => !state()?.named,
+      label: () => `Signed in to ${where()}. Sign out here`,
+      short: "Sign out",
+      act: () => below.signOut(),
+    },
+  ];
 }

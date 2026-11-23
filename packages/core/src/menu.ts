@@ -137,12 +137,26 @@ export interface MenuSection {
   rows: MenuRow[];
 }
 
+/**
+ * Where a world's own way of signing in stands, as a fact. The client words its own row from it ("Sign in",
+ * "Asking again…", "It didn't answer"): a world never supplies those words, and never puts a row in You.
+ *
+ * - `none`: this world names nothing that signs for a visitor. There is no signing in here.
+ * - `ready`: it can be asked, or has answered.
+ * - `asking`: asked, and waiting on the visitor's sign-in address.
+ * - `unanswered`: the sign-in address didn't answer.
+ */
+export const MENU_SIGN_IN = ["none", "ready", "asking", "unanswered"] as const;
+export type MenuSignIn = (typeof MENU_SIGN_IN)[number];
+
 /** The things every place has and only the world can run. */
 export interface MenuState {
   room: { has: boolean; joined: boolean; mic: boolean | null; count: number };
   headset: { supported: boolean; presenting: boolean };
   /** Whether this world has the visitor's name. */
   named: boolean;
+  /** Where the world's own way of signing in stands (`MENU_SIGN_IN`). */
+  signIn: MenuSignIn;
   /** The address of what is in their hand, or "". */
   holding: string;
   /** The world's rule for items. */
@@ -287,6 +301,7 @@ function readState(raw: unknown): MenuState {
     room: { has, joined: has && room.joined === true, mic: has && typeof room.mic === "boolean" ? room.mic : null, count: has ? n : 0 },
     headset: { supported: headset.supported === true, presenting: headset.supported === true && headset.presenting === true },
     named: s.named === true,
+    signIn: (MENU_SIGN_IN as readonly unknown[]).includes(s.signIn) ? (s.signIn as MenuSignIn) : "none",
     holding: id(s.holding) ?? "",
     items: cleanItemsRule(s.items),
     hum: s.hum === true,
@@ -422,7 +437,8 @@ export type MenuWordDown =
   | { what: "settings"; settings: MenuSettings }
   | { what: "press"; press: string; field?: string }
   | { what: "open"; open: boolean }
-  | { what: "go"; go: "home" };
+  | { what: "go"; go: "home" }
+  | { what: "sign"; sign: "out" };
 
 /** What a world may say to a client. */
 export type MenuWordUp =
@@ -434,13 +450,13 @@ export type MenuWordUp =
 
 const isMenu = (data: unknown): data is Record<string, unknown> => isObject(data) && data.nswp === "menu";
 /** Only `settings` is said both ways. A word with anything of the other side's in it is not this side's to read. */
-const DOWN_ONLY = ["has", "v", "press", "field", "open", "go"] as const;
+const DOWN_ONLY = ["has", "v", "press", "field", "open", "go", "sign"] as const;
 const UP_ONLY = ["world", "key", "say", "picture", "id"] as const;
 const hasAny = (data: Record<string, unknown>, names: readonly string[]): boolean => names.some((n) => data[n] !== undefined);
 
 /**
  * A word from the page above, as a world reads it, or null if it is none of these words. One word says one thing:
- * the first of `has`, `settings`, `press`, `open`, `go` that is there. A word with anything in it that only a world
+ * the first of `has`, `settings`, `press`, `open`, `go`, `sign` that is there. A word with anything in it that only a world
  * says is not read at all. Never throws.
  *
  * A `press` is given whatever its id: only the world knows what it last described, and it checks.
@@ -463,6 +479,9 @@ export function readMenuWordDown(data: unknown): MenuWordDown | null {
   }
   if (typeof data.open === "boolean") return { what: "open", open: data.open };
   if (data.go === "home") return { what: "go", go: "home" };
+  // Signing out of this world, at the visitor's press on their client's own row. It can only take away: the word
+  // carries nothing, there is no word for signing in, and a world acts on it without asking.
+  if (data.sign === "out") return { what: "sign", sign: "out" };
   return null;
 }
 

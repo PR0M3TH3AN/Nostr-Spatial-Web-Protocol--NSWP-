@@ -4,7 +4,11 @@
 // shell. It is not a client anyone uses: it has no sign-in, no bag and no room of its own, only a way home.
 //
 // Bundled and served by the trial that uses it (trials/menu-client.mjs). `?home=` is where its Home goes.
-import { addDeskControls, addSoundControls, chatSwitch, createSounds, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow } from "nswp-sdk/menu";
+import { addDeskControls, addSoundControls, chatSwitch, createSounds, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
+import { parseItem } from "../../packages/core/src/index.js";
+import { addBagControls } from "../../packages/sdk/src/bagging.js";
+import { mayHold, scriptAllowed } from "../../packages/sdk/src/play.js";
+import BLASTER from "../../sites/items/dart-blaster.event.json";
 import { createControls } from "nswp-sdk/ui";
 
 const frame = document.getElementById("view") as HTMLIFrameElement;
@@ -44,6 +48,41 @@ addSoundControls(controls, sounds, { hasHum: () => below.world?.state.hum === tr
 // after, under the world's name.
 controls.addSection({ id: "help", label: "Help", icon: "help", note: helpWords("client") });
 
+// You is the client's own. The rows for signing in to the world in the frame, and out of it, are the menu's own
+// words, made from the facts the world says. A real client opens its sign-in address's panel; this one only notes
+// that it was asked.
+const asked: string[] = [];
+controls.add(...signInRows(below, { ask: () => void asked.push("ask") }));
+
+// The Bag is the client's own tab, drawn by the kit's own code in this page, which isn't a world. With `?bag=1`
+// the visitor is someone made up whose bag holds one real item (the dart blaster, by its own signed description).
+// What is in hand is the world's to say; taking something up here tells the world, and waits for it to say so.
+// A thing that does things of its own is asked about here, by the kit's own rule, before it is first held (the
+// second press on Hold is the visitor's yes): the Bag is this page's, so the asking is too. The world is then told
+// which script they let run, and runs that one and no other unasked.
+if (new URL(location.href).searchParams.get("bag")) {
+  const blaster = parseItem(BLASTER as never)!;
+  const has = [blaster.id];
+  const askedAbout = { sha: "" };
+  const refuse = async () => ({ ok: false, said: "This bag is a stand-in: it can't be changed." });
+  const bagging = addBagControls(controls, {
+    bag: { items: () => [...has], load: async () => [...has], canChange: () => false, add: refuse, remove: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} } as never,
+    items: { known: (c: string) => (c === blaster.id ? blaster : null), describe: async (c: string) => (c === blaster.id ? blaster : null) } as never,
+    me: () => "e".repeat(64),
+    rule: () => below.world?.state.items ?? "allowed",
+    place: () => below.world?.title || "this place",
+    holding: () => below.world?.state.holding ?? "",
+    hold: async (item, tints) => {
+      if (!item) return (await below.hold("")) ? { ok: true, said: "Put away." } : { ok: false, said: "This place still has it in your hand." };
+      const may = mayHold(blaster, { rule: below.world?.state.items ?? "allowed", scripts: true, asked: askedAbout });
+      if (!may.ok) return may;
+      const script = blaster.script?.sha256;
+      return (await below.hold(item, { ...(tints ? { tints } : {}), ...(script && scriptAllowed(script) ? { script } : {}) })) ? { ok: true, said: "In your hand." } : { ok: false, said: "This place didn't take it in hand." };
+    },
+  });
+  below.onChange(() => bagging.refresh());
+}
+
 const menu = mountMenu(below.port);
 below.attach(menu);
 // A client draws no menu over a page that doesn't speak the words: such a page draws its own. Before any page has
@@ -54,4 +93,4 @@ show();
 // Whenever a page comes into the frame it is given the keys, as a client does.
 frame.addEventListener("load", () => frame.focus());
 
-(window as unknown as { __client: unknown }).__client = { below, menu, controls, sounds };
+(window as unknown as { __client: unknown }).__client = { below, menu, controls, sounds, asked };

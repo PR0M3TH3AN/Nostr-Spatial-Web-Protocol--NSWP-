@@ -51,6 +51,11 @@ export interface MenuAboveOptions {
    * Left out, or over the limit on a note, a world says nothing in Help.
    */
   help?: () => string;
+  /**
+   * Sign the visitor out of this world: lock whatever signs for them here and forget their name. Their client's own
+   * row was pressed. It is done without asking, and it can only take away: there is no word for signing in.
+   */
+  signOut?: () => void;
   /** Leave for home, carrying what the visitor carries: the client's Home was pressed. */
   home?: () => void;
   /** For tests and other carriers: the page above. By default the one this page is framed by (client-frame.ts). */
@@ -280,6 +285,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       if (open) changed();
       return;
     }
+    if (word.what === "sign") return void opts.signOut?.();
     if (word.what === "go" && !leaving) {
       opts.home?.();
       // Asked once. The client takes them home itself within `LEAVE_MS` if this page hasn't gone.

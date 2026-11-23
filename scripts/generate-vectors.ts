@@ -17,7 +17,7 @@ import { readShares, splitPrice, type Share } from "../packages/core/src/shares.
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_SIGN_IN, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
 import { accessFor } from "../packages/core/src/manifest.js";
 import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
@@ -1545,7 +1545,7 @@ const files: Record<string, unknown> = {
 
 // ---- The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
 {
-  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, holding: "", items: "allowed", hum: false };
+  const STATE = { room: { has: false, joined: false, mic: null, count: 0 }, headset: { supported: false, presenting: false }, named: false, signIn: "none", holding: "", items: "allowed", hum: false };
   const bare = (over: Record<string, unknown> = {}) => ({ title: "", level: "full", keys: true, state: STATE, target: [], loading: null, sections: [], ...over });
   const row = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, ...more });
   const kept = (id: string, more: Record<string, unknown> = {}) => ({ id, label: `Row ${id}`, kind: "button", ...more });
@@ -1559,7 +1559,7 @@ const files: Record<string, unknown> = {
         level: "quiet",
         corner: "top-right",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1571,7 +1571,7 @@ const files: Record<string, unknown> = {
         title: "The Gallery",
         level: "quiet",
         keys: true,
-        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
+        state: { room: { has: true, joined: true, mic: false, count: 3 }, headset: { supported: true, presenting: false }, named: true, signIn: "ready", holding: "37303:" + "ab".repeat(32) + ":lantern", items: "play", hum: true },
         target: ["A painting", "Oil on board, 1911"],
         loading: { fraction: 0.4, words: "The east wing" },
         sections: [
@@ -1691,8 +1691,8 @@ const files: Record<string, unknown> = {
     },
     {
       name: "state_as_it_can_be",
-      why: "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none.",
-      world: { level: "loud", corner: "middle", keys: false, state: { room: { has: false, joined: true, mic: true, count: 4 }, headset: { presenting: true }, named: "yes", holding: 5, items: "everything" }, loading: { fraction: 7, words: 3 }, target: [5, "about nothing"] },
+      why: "What isn't said is not so. With no room nobody is joined; with no headset no session runs; a rule for items this doesn't know is none; and where signing in stands is one of four words, never a world's own sentence.",
+      world: { level: "loud", corner: "middle", keys: false, state: { room: { has: false, joined: true, mic: true, count: 4 }, headset: { presenting: true }, named: "yes", signIn: "Sign in at evil.example", holding: 5, items: "everything" }, loading: { fraction: 7, words: 3 }, target: [5, "about nothing"] },
       expect: bare({ keys: false, state: { ...STATE, items: "none" }, loading: { fraction: 1, words: "" } }),
     },
     {
@@ -1738,6 +1738,9 @@ const files: Record<string, unknown> = {
     { name: "closed", word: { nswp: "menu", open: false }, expect: { what: "open", open: false } },
     { name: "go_home", word: { nswp: "menu", go: "home" }, expect: { what: "go", go: "home" } },
     { name: "go_elsewhere", word: { nswp: "menu", go: "https://elsewhere.example/" }, expect: null },
+    { name: "sign_out", word: { nswp: "menu", sign: "out" }, expect: { what: "sign", sign: "out" } },
+    { name: "sign_in_is_no_word", word: { nswp: "menu", sign: "in" }, expect: null },
+    { name: "sign_out_carries_nothing", word: { nswp: "menu", sign: "out", as: "npub1ana" }, expect: { what: "sign", sign: "out" } },
     { name: "another_topic", word: { nswp: "screen", holds: true, filled: false }, expect: null },
     { name: "not_a_word", word: "menu", expect: null },
     { name: "a_worlds_word", word: { nswp: "menu", settings: { turn: 90 }, say: "Hello" }, expect: null },
@@ -1777,13 +1780,14 @@ const files: Record<string, unknown> = {
 
   files["menu-words.json"] = {
     description:
-      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
     waits: { MENU_WAIT_MS, LEAVE_MS },
     tabs: { visitor: MENU_VISITOR_TABS, world: MENU_WORLD_TABS },
     keys: MENU_KEYS,
     cardPicture: MENU_CARD_PICTURE,
+    signIn: MENU_SIGN_IN,
     reported: MENU_REPORTED,
     describing,
     counting,

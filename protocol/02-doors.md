@@ -482,6 +482,13 @@ pages, and a world takes them only from the page directly above it.
   takes them home within a second. Where the world didn't go itself, what
   was in the visitor's hand doesn't come with them: only the world knew
   it. A client says so as it takes them.
+- the client, as the visitor signs out of this world by their client's own
+  row: `{ nswp: "menu", sign: "out" }`. It carries nothing and can only
+  take away: the world locks whatever signs for them there and forgets
+  their name, without asking, and then says `state.named: false`. There
+  is no word for signing in. A client signs a visitor in by showing their
+  sign-in address's own panel for the world in its frame, which is the
+  client's to do ("A client that keeps the screen", above).
 - the world, with words to show for a moment: `{ nswp: "menu", say }`, at
   most 200 characters of plain text, shown under the world's name.
 
@@ -501,6 +508,8 @@ Plain data. Nothing in it is run, and every word is shown as text.
 - `state`: the things every place has and only the world can run.
   `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`,
   `presenting`), `named` (whether this world has the visitor's name),
+  `signIn` (where the world's own way of signing in stands: `none`,
+  `ready`, `asking` or `unanswered`),
   `holding` (the address of what is in their hand), `items` (the
   world's rule for items) and `hum` (whether the place has a hum under
   its music).
@@ -531,6 +540,23 @@ client, not the world. A world never fills, reads or presses the visitor's
 own tabs (`you`, `figure`, `bag`, `wallet`, `files`, `following`,
 `messages`, `moving`, `look`), and is never told what is in them or which
 is open.
+
+**You is the client's alone.** A world never puts a row there: a sign-in
+row under a world's name, naming a host, is exactly what a visitor should
+never be taught to trust. The world says facts (`state.named`,
+`state.signIn`), and the client words its own rows from them: "Sign in to
+<the world>", "Asking your sign-in address…", "Your sign-in address
+didn't answer", "Signed in. Sign out here". A world never supplies those
+words.
+
+**The Bag is the client's alone too.** What is in the visitor's hand is
+the world's to say (`state.holding`), with its rule for what is carried
+(`state.items`). When they take something up or put it away in the
+client's Bag, the client says so with `settings` (`holding`), and the
+world acts on it as it acts on a link's word and no further: only for a
+thing in their own bag as they signed it, and its own logic runs unasked
+only for the very script named. A thing that does things of its own is
+asked about by whoever draws the Bag, before it is first held.
 
 **A world's part of a tab is always visibly the world's.** Several of
 those tabs are filled by both: the client has rows of its own in them (the

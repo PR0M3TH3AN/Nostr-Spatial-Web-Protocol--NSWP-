@@ -256,6 +256,23 @@ try {
   check("a press on a world's row is heard once, from the client's page", cues.client.filter((c) => c === "press").length === 1 && !cues.world.includes("press"), cues);
   check("and the menu coming up is heard from the client's page, not the world's", !cues.world.some((c) => c === "menuOpen" || c === "menuClose"), cues);
 
+  // ---- You is the client's own: the world says where signing in stands as a fact, and the words are the menu's.
+  const signing = await client(() => {
+    const row = window.__client.below.port.view().sections.find((s) => s.id === "you")?.items.find((i) => i.id === "world-sign-in");
+    return { fact: window.__client.below.world.state.signIn, named: window.__client.below.world.state.named, row: row ? [row.label, row.from ?? null] : null, worldsRowsInYou: (window.__client.below.world.sections.find((s) => s.id === "you")?.rows ?? []).length };
+  });
+  results["signing in, as the world says it and the client words it"] = signing;
+  const WORDS = { ready: "Sign in to The Gallery", asking: "Asking your sign-in address…", unanswered: "Your sign-in address didn't answer. Press to ask again" };
+  check("the world says where signing in stands as one of four facts, and puts no row in You", ["none", "ready", "asking", "unanswered"].includes(signing.fact) && signing.worldsRowsInYou === 0, signing);
+  check("the client words its own row from that fact", signing.fact === "none" ? signing.row === null : signing.row?.[0] === WORDS[signing.fact] && signing.row[1] === null, signing);
+  if (signing.fact !== "none") {
+    await client(() => window.__client.menu.setOpen(true, "you"));
+    const signIn = hud.getByRole("button", { name: WORDS[signing.fact] });
+    await until(() => signIn.isVisible());
+    await press(signIn);
+    check("pressing it asks the client to open its sign-in, and says nothing to the world", await until(() => client(() => window.__client.asked.length === 1)));
+  }
+
   // ---- A picture of the world's crosses as a bitmap, and the client draws it.
   await world().evaluate(() => {
     const canvas = document.createElement("canvas");
@@ -394,6 +411,103 @@ try {
     check("launch/and the world says so upward", await until2(() => page2.evaluate(() => window.__client.below.world?.state.headset.presenting === true), 10000));
     check("launch/its screen has gone", (await world2().evaluate(() => !document.getElementById("nswp-enter"))) === true);
     await ctx2.close();
+  }
+
+  // ---- The kit's own Bag, run in the client's page, which isn't a world; and what is taken up there reaching the
+  // framed world (the orchestrator, 2026-11-23, to take the risk out of step 2). A fresh visit. The visitor is
+  // someone made up whose bag holds one real item, the dart blaster, by its own signed description: the client's
+  // page has a stand-in bag (`?bag=1`), and so has the world (`__nswpTrial.has`, which a world takes only on this
+  // machine: so the world is served here under a name that is this machine's). No relay is asked: the script
+  // answers the request for the blaster's description with it. Its files are served from the Grove's own build.
+  {
+    const WORLD3 = "https://gallery.localhost";
+    const ITEMS = "https://grove.bitblocks.network";
+    const GROVE = join(NSWP, "sites", "grove", "dist");
+    const BLASTER = JSON.parse(readFileSync(join(NSWP, "sites", "items", "dart-blaster.event.json"), "utf8"));
+    const COORD = `${BLASTER.kind}:${BLASTER.pubkey}:${BLASTER.tags.find((t) => t[0] === "d")[1]}`;
+    const ctx3 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+    await ctx3.addInitScript(`if (location.origin === ${JSON.stringify(WORLD3)}) window.__nswpTrial = { has: [${JSON.stringify(COORD)}] };`);
+    const refused3 = new Set();
+    const serveFrom = (route, root, pathname) => {
+      const on = normalize(join(root, pathname.endsWith("/") ? `${pathname}index.html` : pathname));
+      if (!on.startsWith(root) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+      return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", headers: { "access-control-allow-origin": "*" }, body: readFileSync(on) });
+    };
+    await ctx3.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage.replace(`${WORLD}/`, `${WORLD3}/`) });
+      if (url.origin === WORLD3) return serveFrom(route, DIST, url.pathname);
+      if (url.origin === ITEMS && url.pathname.startsWith("/items/")) return serveFrom(route, GROVE, url.pathname);
+      refused3.add(url.origin);
+      return route.abort();
+    });
+    await ctx3.routeWebSocket(/^wss?:\/\//, (ws) => {
+      ws.onMessage((m) => {
+        let msg;
+        try { msg = JSON.parse(String(m)); } catch { return; }
+        if (msg[0] !== "REQ") return;
+        const [, sub, ...filters] = msg;
+        if (filters.some((f) => f.kinds?.includes(BLASTER.kind) && f.authors?.includes(BLASTER.pubkey))) ws.send(JSON.stringify(["EVENT", sub, BLASTER]));
+        ws.send(JSON.stringify(["EOSE", sub]));
+      });
+    });
+    const page3 = await ctx3.newPage();
+    const until3 = async (ask, ms = 30000) => {
+      const end = Date.now() + ms;
+      for (;;) {
+        const got = await ask().catch(() => null);
+        if (got || Date.now() > end) return got;
+        await page3.waitForTimeout(150);
+      }
+    };
+    await page3.goto(`${CLIENT}/?bag=1`, { timeout: 60000 });
+    const world3 = () => page3.frames().find((f) => f.url().startsWith(WORLD3));
+    const hud3 = page3.locator("nswp-hud");
+    await until3(() => world3()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+    await until3(() => page3.evaluate(() => window.__client.below.world?.sections.length > 0));
+    const bagTab = () => page3.evaluate(() => window.__client.below.port.view().sections.find((s) => s.id === "bag")?.items.map((i) => [i.id, i.label, i.from ?? null]) ?? null);
+    const rows0 = await until3(async () => { const r = await bagTab(); return r && r.length ? r : null; });
+    check("bag/the kit's own Bag runs in the client's page, with the visitor's item in it", !!rows0 && rows0.some(([, label]) => /blaster/i.test(label)) && rows0.every(([, , from]) => from === null), rows0);
+    check("bag/the world says nothing of the Bag: it is the client's alone", (await page3.evaluate(() => window.__client.below.world.sections.some((s) => s.id === "bag"))) === false);
+    check("bag/nothing is in hand to begin with, by the world's word", (await page3.evaluate(() => window.__client.below.world.state.holding)) === "");
+    // Chosen, then taken up, with a real mouse in the client's menu.
+    await page3.evaluate(() => window.__client.menu.setOpen(true, "bag"));
+    // Pressed with a real mouse where the thing is, and pressed again if the menu was being laid out afresh at that
+    // moment and the press found nothing (the Bag's rows are drawn again whenever the world says anything).
+    const pressUntil = async (target, shows) => {
+      for (let i = 0; i < 4; i++) {
+        const at = await target.boundingBox({ timeout: 8000 }).catch(() => null);
+        if (at) await page3.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+        if (await until3(() => shows(), 6000)) return true;
+      }
+      return false;
+    };
+    const tile = hud3.getByRole("button", { name: /blaster/i }).first();
+    await until3(() => tile.isVisible());
+    const hold = hud3.getByRole("button", { name: /^Hold/ }).first();
+    await pressUntil(tile, () => hold.isVisible());
+    let box;
+    results["bag/the client's Bag rows once the item is chosen"] = (await bagTab()).map(([, label]) => label);
+    // The blaster does things of its own: the first press says so, in the client's menu, and holds nothing.
+    const letIt = hud3.getByRole("button", { name: /^Let it run, and hold/ }).first();
+    const askedFirst = await pressUntil(hold, () => letIt.isVisible());
+    check("bag/a thing with logic of its own is asked about first, by the client's own Bag", askedFirst && (await page3.evaluate(() => window.__client.below.world.state.holding)) === "", (await bagTab()).map(([, label]) => label));
+    await pressUntil(letIt, () => page3.evaluate((c) => window.__client.below.world.state.holding === c, COORD));
+    check("bag/taken up in the client's Bag, the world says it is in hand", await until3(() => page3.evaluate((c) => window.__client.below.world.state.holding === c, COORD), 30000), await page3.evaluate(() => window.__client.below.world.state.holding));
+    // Read in the world's own page: its own controls, which it draws for nobody here, now offer to put the thing away.
+    const worldsBag = () => world3().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "bag")?.items.map((i) => i.label) ?? []);
+    check("bag/and it is in hand in the world itself", await until3(async () => (await worldsBag()).some((l) => /^Put .* away/i.test(l)), 10000), await worldsBag());
+    await page3.screenshot({ path: join(SHOTS, "menu-client-8-bag.png") });
+    // Put away again from the client's Bag.
+    const away = hud3.getByRole("button", { name: /Put .*away|Put it away/i }).first();
+    if (await until3(() => away.isVisible(), 8000)) {
+      box = await away.boundingBox();
+      await page3.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      check("bag/put away in the client's Bag, it is out of hand in the world", await until3(() => page3.evaluate(() => window.__client.below.world.state.holding === ""), 15000));
+    } else check("bag/the client's Bag offers to put it away", false, (await bagTab()).map(([, label]) => label));
+    results["bag/refused, as everything but these sites is"] = [...refused3];
+    await ctx3.close();
   }
 } finally {
   await browser.close();

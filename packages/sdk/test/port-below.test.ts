@@ -362,6 +362,63 @@ describe("loading people's files from anywhere", () => {
   });
 });
 
+describe("signing out of a world, and what is in hand", () => {
+  const LANTERN = `37303:${"ab".repeat(32)}:brass-lantern`;
+  const holding = (item: string) => ({ nswp: "menu", world: { title: "The Gallery", state: { holding: item }, sections: [] } });
+
+  it("tells the world to sign the visitor out, in a word that carries nothing", () => {
+    const c = make();
+    c.below.signOut();
+    c.here();
+    c.sent.length = 0;
+    c.below.signOut();
+    expect(c.words()).toEqual([{ nswp: "menu", sign: "out" }]);
+  });
+
+  it("says what the visitor took up, and it is in their hand once the world says so", async () => {
+    const c = make();
+    c.here();
+    c.from(holding(""));
+    c.sent.length = 0;
+    const took = c.below.hold(LANTERN, { tints: { accent: "#8b5cf6" }, script: "c".repeat(64) });
+    expect(c.words()).toEqual([{ nswp: "menu", settings: { holding: { item: LANTERN, tints: { accent: "#8b5cf6" }, script: "c".repeat(64) } } }]);
+    c.from(holding(LANTERN));
+    await expect(took).resolves.toBe(true);
+  });
+
+  it("is not in their hand where the world never says it is: it wasn't in their bag there, or nothing is carried", async () => {
+    const c = make();
+    c.here();
+    c.from(holding(""));
+    const took = c.below.hold(LANTERN);
+    await vi.advanceTimersByTimeAsync(4000);
+    await expect(took).resolves.toBe(false);
+  });
+
+  it("says they put it away, and never says what is in hand with their other settings", async () => {
+    const c = make();
+    const { reportSettings } = await import("../src/settings.js");
+    // A part of this page says what is held, as the kit's own Bag does: it is the world's word, not to be said back.
+    reportSettings("holding", () => ({ holding: { item: LANTERN } }));
+    c.here();
+    c.from(holding(LANTERN));
+    c.controls.setTheme({ scale: 1.2 }, true);
+    expect(JSON.stringify(c.words())).not.toMatch(/holding/);
+    c.sent.length = 0;
+    const put = c.below.hold("");
+    expect(c.words()).toEqual([{ nswp: "menu", settings: { holding: "" } }]);
+    c.from(holding(""));
+    await expect(put).resolves.toBe(true);
+  });
+
+  it("says nothing to a page that doesn't speak the words", async () => {
+    const c = make();
+    c.here(0);
+    await expect(c.below.hold(LANTERN)).resolves.toBe(false);
+    expect(c.sent).toEqual([]);
+  });
+});
+
 describe("the way home", () => {
   it("is asked of the world first, and taken by the client when the world hasn't gone in time", async () => {
     const went: boolean[] = [];

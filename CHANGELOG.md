@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **You and the Bag in a client's menu: the kit's half** (core `MENU_SIGN_IN`, `MenuState.signIn`, the word `sign: "out"`; SDK `ui/port-below.ts`: `signInRows`, `below.signOut`, `below.hold`; `menu-above.ts`; `sites/shared/world.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes yet: no real client has the menu.
+  - **You stays the client's alone.** A world never puts a row there. It says where its own way of signing in stands as one of four facts (`state.signIn`: `none`, `ready`, `asking`, `unanswered`) beside `state.named`, and the menu words its own rows from them (`signInRows`).
+  - **Signing out of a world is one word,** client to world: `{ nswp: "menu", sign: "out" }`. It carries nothing and can only take away. The reference worlds lock what signs for the visitor there, without asking. There is no word for signing in: a client opens its sign-in address's panel itself.
+  - **Taking something up in a client's Bag** (`below.hold`): the client says what the visitor took up, with the mark of its own logic only where they let that logic run, and waits for the world to say it is in hand. What is in hand is no longer said with the visitor's other settings: the client knows it only from the world.
+  - **A thing that does things of its own is asked about by whoever draws the Bag.** In a client's page that is the kit's own rule, run there (`mayHold`): the first press says so, the second is the visitor's yes, and the world is told which script they let run.
+  - **The kit's own Bag runs in a page that isn't a world.** Tried in the stand-in client (`trials/menu-client.mjs`, 74 checks, twice): a made-up visitor whose bag holds the dart blaster takes it up in the client's Bag, is asked about its logic there, and it is in hand in the framed world; put away there, it is out of hand.
+  - For that trial only, a reference world on this machine takes a made-up visitor's bag from the page (`__nswpTrial.has`), as it already takes a made-up gate. Nowhere else.
+  - Three vectors for the sign-out word, and the sign-in fact in the state's examples.
+
 - **A world takes what is in the visitor's hand from their client, at once** (SDK `packages/sdk/src/bagging.ts`; `docs/plans/the-clients-menu.md`, step 1). Nothing a visitor can see changes yet: no real client has the menu.
   - Where a client draws the menu, the Bag is the client's own tab. When the visitor takes something up or puts it away there, the client says so with their settings (`holding`), and the world acts on it there and then.
   - It is held to the rule a link's word is held to, and no further: taken in hand only if it is in their own bag as they signed it, where the place lets things be carried, and its own logic runs unasked only if it is the very script named. Putting away is always done. What was in hand is put away first.
