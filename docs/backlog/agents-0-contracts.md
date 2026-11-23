@@ -3,7 +3,9 @@
 - **Asked:** 2026-11-23. The owner handed over a design pack ("NSWP Agent
   Platform, Modular Design Pack", 0.3 draft) and said of it: "This is not a
   priority. Id like for each to be added to the backlog."
-- **State:** asked. Not a priority (the owner, 2026-11-23). Not briefed.
+- **State:** started 2026-11-23 in `nswp-agents`, by that repository's own
+  session, on the owner's word to it ("Start M0"). It needs no note kinds and
+  changes nothing outside that repository. The other pieces are not started.
 - **The whole of it:** `ai-keys-and-agents`. The pack is the owner's own, for
   the private repository `PR0M3TH3AN/nswp-agents` (kept there under
   `docs/plans/agent-platform/` by the session that has that repository, since
