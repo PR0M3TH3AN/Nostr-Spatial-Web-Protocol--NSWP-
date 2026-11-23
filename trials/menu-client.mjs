@@ -262,7 +262,7 @@ try {
     return { fact: window.__client.below.world.state.signIn, named: window.__client.below.world.state.named, row: row ? [row.label, row.from ?? null] : null, worldsRowsInYou: (window.__client.below.world.sections.find((s) => s.id === "you")?.rows ?? []).length };
   });
   results["signing in, as the world says it and the client words it"] = signing;
-  const WORDS = { ready: "Sign in to The Gallery", asking: "Asking your sign-in address…", unanswered: "Your sign-in address didn't answer. Press to ask again" };
+  const WORDS = { ready: "Sign in to The Gallery", asking: "Asking your sign-in address…", unanswered: "Your sign-in address didn't answer. Press to try again." };
   check("the world says where signing in stands as one of four facts, and puts no row in You", ["none", "ready", "asking", "unanswered"].includes(signing.fact) && signing.worldsRowsInYou === 0, signing);
   check("the client words its own row from that fact", signing.fact === "none" ? signing.row === null : signing.row?.[0] === WORDS[signing.fact] && signing.row[1] === null, signing);
   if (signing.fact !== "none") {
