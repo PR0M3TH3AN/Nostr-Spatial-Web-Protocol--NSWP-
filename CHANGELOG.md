@@ -4,6 +4,16 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The client has the menu: the client's end, and both ends tried together** (SDK `nswp-sdk/menu`: `portBelow`, `mergeView`; `packages/sdk/src/ui/port-below.ts`; the menu's `pressKey`; `trials/stand-in-client/`, `trials/menu-client.mjs`; NSWP-02, "The client has the menu"). Still nothing a visitor can see: no real client uses it yet. BitPortal's shell is step 2.
+  - **`portBelow(frame, { controls, home })`** is what a client mounts the menu on: its own controls (the visitor's own tabs, the way home) with the tabs a framed world describes laid in among them. `mountMenu(below.port)` draws it, the same menu a world draws for itself.
+  - It answers a world's `here` at once, to that world's origin only, with the visitor's settings; reads everything a world says with the core's reader before the menu sees any of it; and drops a description at the load of the next page.
+  - A tab every place has keeps the menu's own name and icon, the client's rows first. A world's own tab stands last and carries the world's name. The bar is the client's keys, then the world's. The look is the visitor's: a world's colour doesn't tint the menu.
+  - A press on a world's row goes down as a word, by the world's own id; a row typed into carries what was typed, at the press; a row that copies is copied by the client's page. With the menu down, the frame is given the keys again after every press, so the world goes on hearing them.
+  - The keys a world forwards act on the menu (`pressKey`). As the menu comes up the world is told and the client has the keys; as it goes, the frame has them.
+  - **Home as a guarantee:** `below.leave()` asks the world, and takes the visitor home itself after a second if the frame hasn't loaded another page, saying what was in hand was left behind.
+  - A client draws no menu over a page that doesn't say it speaks the words.
+  - Tried in a real Chrome with a real mouse and keyboard (`trials/menu-client.mjs`, 28 checks): a stand-in client over this checkout's Gallery.
+
 - **The menu draws a row you type into, and a row that copies** (`packages/sdk/src/ui/hud.ts`, `ui/model.ts`; `following.ts`, `front-room.ts`; `trials/menu-rows.mjs`; `docs/plans/the-clients-menu.md`, step 1; NSWP-02, "Two kinds of row the client does itself").
   - **A row of the kind `field`** is a box and a button with the row's words. What is typed is given to the row only at the press, the box is never filled in by the menu or the browser, it takes 500 characters, and under it the menu says where what is typed goes. What is half typed stays while the menu is drawn again, and is gone at the press or when the menu is put away.
   - **A row of the kind `copy`** copies its text at the press, in the page that draws the menu, and says so.

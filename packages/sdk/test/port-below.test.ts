@@ -88,17 +88,30 @@ describe("meeting the page in the frame", () => {
     expect(c.below.world?.title).toBe("The Gallery");
   });
 
-  it("drops a world's description at every load of the frame, and at the next here", () => {
+  it("drops a world's description at the load of the next page, and at the next here", () => {
     const c = make();
+    // The first page: it says here as its script starts, and then the frame's load is told. Nothing is dropped.
     c.here();
+    c.load();
     c.from({ nswp: "menu", world: described() });
+    expect([c.below.world?.title, c.below.speaks, c.below.origin]).toEqual(["The Gallery", true, WORLD]);
+    // Another page loads and says nothing: the Gallery's name and tabs are gone.
     c.load();
     expect([c.below.world, c.below.speaks, c.below.origin]).toEqual([null, false, ""]);
     expect(c.below.port.view().title).toBe("The client");
+    // It says here late, after its load: that is this page's, and the load after it drops it again.
+    c.here();
+    c.from({ nswp: "menu", world: described() });
+    expect(c.below.world?.title).toBe("The Gallery");
+    c.load();
+    expect([c.below.world, c.below.speaks]).toEqual([null, false]);
+    // A page that says here before its load, over one that had a description: the old one is gone at the here.
     c.here();
     c.from({ nswp: "menu", world: described() });
     c.here(0, "https://plain.example");
     expect([c.below.world, c.below.speaks, c.below.origin]).toEqual([null, false, "https://plain.example"]);
+    c.load();
+    expect(c.below.origin).toBe("https://plain.example");
   });
 });
 
@@ -251,6 +264,7 @@ describe("the way home", () => {
     const went: boolean[] = [];
     const c = make({ home: (left) => void went.push(left) });
     c.here();
+    c.load();
     c.below.leave();
     c.load();
     await vi.advanceTimersByTimeAsync(LEAVE_MS * 2);

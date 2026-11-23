@@ -53569,6 +53569,24 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (!controls2.setPinned(here.id, !here.pinned)) return controls2.say("Your bar is full. Take a tab off it to keep another on it.");
       controls2.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
     });
+    const pressKey = (key) => {
+      if (host.hidden) return;
+      if (key === "summon") return setOpen(!open2);
+      if (key === "escape") {
+        const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
+        if (does === "close-menu") return setOpen(false);
+        if (does === "open-menu") return setOpen(true);
+        if (does === "leave-fullscreen") return void leaveFullscreen();
+        return;
+      }
+      const view2 = controls2.view();
+      if (key === "menu") return void (view2.keys.menu && view2.presence !== "hidden" && setOpen(!open2));
+      if (!/^[1-9]$/.test(key) || !view2.keys.hotbar || view2.presence !== "full") return;
+      const item = view2.hotbar.find((i) => i.key === key);
+      if (item) return void press(item);
+      const pin = view2.pins.find((p) => p.key && p.key === key);
+      if (pin) openPin(pin.id);
+    };
     const onKey = (e) => {
       if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
@@ -53684,6 +53702,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const high = id.getBoundingClientRect();
         return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
       },
+      pressKey,
       setHidden(hidden2) {
         host.hidden = hidden2;
         if (hidden2) {
@@ -53820,6 +53839,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
     { id: "help", label: "Help", icon: "help" }
   ];
+  var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
+  var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
   var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
   var rank = (id) => {
     const i = STANDARD_ORDER.indexOf(id);
