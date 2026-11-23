@@ -664,7 +664,10 @@ it, and never widens one on a world's word.
 
 **What a world may say back.** While its headset session runs, where only
 it can draw the console, a world may report the settings the visitor
-changed there: `{ nswp: "menu", settings }`. A client takes from it only
+changed there: `{ nswp: "menu", settings }`. It says them when one
+changes, not what they had as the session began, and not what the client
+itself said down. A client takes a report only while the world says its
+session is running (`state.headset.presenting`). A client takes from it only
 comfort and layout, by name: how they move and turn (`headset`, `intense`,
 `turn`, `hand`, `narrow`, `fade`, `look`, `fov`, `wrist`), the volumes
 (`sound`), whether things move (`motion`), the size of text (`text`), and

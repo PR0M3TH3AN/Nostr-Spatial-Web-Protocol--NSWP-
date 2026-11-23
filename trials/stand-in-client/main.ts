@@ -7,6 +7,7 @@
 import { addDeskControls, addSoundControls, askDeskMoving, chatSwitch, createSounds, deskMovingSwitch, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
 import { parseItem } from "../../packages/core/src/index.js";
 import { addBagControls } from "../../packages/sdk/src/bagging.js";
+import { currentSettings } from "../../packages/sdk/src/settings.js";
 import { mayHold, scriptAllowed } from "../../packages/sdk/src/play.js";
 import BLASTER from "../../sites/items/dart-blaster.event.json";
 import { createControls } from "nswp-sdk/ui";
@@ -99,4 +100,4 @@ show();
 // Whenever a page comes into the frame it is given the keys, as a client does.
 frame.addEventListener("load", () => frame.focus());
 
-(window as unknown as { __client: unknown }).__client = { below, menu, controls, sounds, asked };
+(window as unknown as { __client: unknown }).__client = { below, menu, controls, sounds, asked, settings: () => currentSettings() };

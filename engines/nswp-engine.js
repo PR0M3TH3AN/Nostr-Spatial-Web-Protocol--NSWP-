@@ -6976,6 +6976,15 @@ ${roomName}`)));
   function cleanMenuSettings(input) {
     return cleanSettings(input);
   }
+  var MENU_REPORTED = ["headset", "intense", "turn", "hand", "narrow", "fade", "look", "fov", "wrist", "sound", "motion", "text", "tabs", "pins"];
+  function reportedSettings(input) {
+    const clean3 = cleanSettings(input);
+    const out = {};
+    for (const name of MENU_REPORTED)
+      if (clean3[name] !== void 0)
+        out[name] = clean3[name];
+    return out;
+  }
   var isMenu = (data) => isObject(data) && data.nswp === "menu";
   var UP_ONLY = ["world", "key", "say", "picture", "id"];
   var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
@@ -52711,12 +52720,40 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         above2.say({ world: world2 });
       }
       picturesOf(view2);
+      reportBack();
     };
     const changed = () => {
       if (!has || waiting3) return;
       const wait = EVERY_MS2 - (performance.now() - lastAt);
       if (wait <= 0) describe();
       else waiting3 = setTimeout(describe, wait);
+    };
+    let presenting = false;
+    let reported = "";
+    let taking = false;
+    const comfortNow = () => JSON.stringify(reportedSettings(currentSettings()));
+    const reportBack = () => {
+      if (taking) return;
+      const now = opts.state?.().headset?.presenting === true;
+      if (now !== presenting) {
+        presenting = now;
+        reported = comfortNow();
+        return;
+      }
+      if (!has || !presenting) return;
+      const comfort = comfortNow();
+      if (comfort === reported) return;
+      reported = comfort;
+      above2.say({ settings: JSON.parse(comfort) });
+    };
+    const takeSettings = (settings) => {
+      taking = true;
+      try {
+        changeSettings(settings);
+      } finally {
+        taking = false;
+      }
+      reported = comfortNow();
     };
     const stopView = controls2.subscribe(changed);
     const tick = setInterval(changed, 400);
@@ -52743,11 +52780,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       const word = readMenuWordDown(data);
       if (!word) return;
       if (word.what === "has") {
-        if (word.has) changeSettings(word.settings);
+        if (word.has) takeSettings(word.settings);
         return setHas(word.has);
       }
       if (!has) return;
-      if (word.what === "settings") return void changeSettings(word.settings);
+      if (word.what === "settings") return void takeSettings(word.settings);
       if (word.what === "press") return void (named2.has(word.press) && controls2.run(word.press, word.field));
       if (word.what === "open") {
         if (word.open === open2) return;

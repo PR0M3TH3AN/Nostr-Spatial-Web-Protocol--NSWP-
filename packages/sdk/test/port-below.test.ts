@@ -419,6 +419,60 @@ describe("signing out of a world, and what is in hand", () => {
   });
 });
 
+describe("what a visitor changed in a world's headset session", () => {
+  const presenting = (on: boolean) => ({ nswp: "menu", world: { title: "The Gallery", state: { headset: { supported: true, presenting: on } }, sections: [] } });
+
+  it("is taken as theirs while the world says its session runs, and said to the next world", async () => {
+    const { currentSettings } = await import("../src/settings.js");
+    const c = make();
+    c.here();
+    c.from(presenting(true));
+    c.from({ nswp: "menu", settings: { turn: 90, hand: "left", text: 1.3 } });
+    expect(currentSettings()).toMatchObject({ turn: 90, hand: "left", text: 1.3 });
+    expect(c.controls.theme.scale).toBe(1.3);
+    // The next world: its first word from the client carries what they changed in the last one's headset.
+    c.sent.length = 0;
+    c.here(1, "https://grove.example");
+    expect(c.sent[0]).toMatchObject({ to: "https://grove.example", word: { has: true, settings: { turn: 90, hand: "left", text: 1.3 } } });
+  });
+
+  it("is not taken where the world says no session is running: there the menu is the client's, and so are the settings", async () => {
+    const { currentSettings } = await import("../src/settings.js");
+    const c = make();
+    c.here();
+    c.from(presenting(false));
+    c.from({ nswp: "menu", settings: { turn: 90, text: 1.4 } });
+    expect(currentSettings()).toEqual({});
+  });
+
+  it("can never turn a privacy switch on, change what they hold, or say who they are", async () => {
+    const { currentSettings } = await import("../src/settings.js");
+    const { showsPictures, setShowsPictures, resetPictures } = await import("../src/picture.js");
+    setShowsPictures(false);
+    const c = make();
+    c.here();
+    c.from(presenting(true));
+    c.from({ nswp: "menu", settings: { filesAnywhere: true, pictures: true, models: true, chat: true, items: true, holding: { item: `37303:${"ab".repeat(32)}:x` }, full: true, turn: 45 } });
+    expect(showsPictures()).toBe(false);
+    expect(currentSettings()).toEqual({ pictures: false, turn: 45 });
+    resetPictures();
+  });
+
+  it("goes to the client's own keeper of settings where it has one", async () => {
+    const taken: unknown[] = [];
+    const controls = createControls({ title: "The client" });
+    const win = { postMessage: () => {} };
+    const frame = { contentWindow: win, addEventListener: () => {}, removeEventListener: () => {}, focus: () => {} } as unknown as HTMLIFrameElement;
+    let onMessage: (e: MessageEvent) => void = () => {};
+    portBelow(frame, { controls, origin: CLIENT, onReported: (s) => taken.push(s), hear: { addEventListener: (_t, fn) => void (onMessage = fn), removeEventListener: () => {} } });
+    const from = (data: unknown) => onMessage({ data, origin: WORLD, source: win } as MessageEvent);
+    from({ nswp: "here", at: "/", menu: 1 });
+    from(presenting(true));
+    from({ nswp: "menu", settings: { fade: false, pictures: true } });
+    expect(taken).toEqual([{ fade: false }]);
+  });
+});
+
 describe("the way home", () => {
   it("is asked of the world first, and taken by the client when the world hasn't gone in time", async () => {
     const went: boolean[] = [];

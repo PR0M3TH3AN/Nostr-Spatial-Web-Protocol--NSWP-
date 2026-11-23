@@ -218,6 +218,73 @@ describe("what a world says of the things only it can run", () => {
   });
 });
 
+describe("what a visitor changes in a headset, said back to their client", () => {
+  /** A world in a frame whose client has the menu, with a headset session that can be started and ended. */
+  const inHeadset = () => {
+    let presenting = false;
+    const w = make({ state: () => ({ headset: { supported: true, presenting } }) });
+    w.say(HAS);
+    const said = () => w.sent.filter((s) => s.settings).map((s) => s.settings);
+    const tick = () => vi.advanceTimersByTimeAsync(600);
+    return { ...w, said, tick, enter: () => (presenting = true), leave: () => (presenting = false) };
+  };
+
+  it("is said upward while the session runs, by name: comfort and layout", async () => {
+    const w = inHeadset();
+    w.enter();
+    await w.tick();
+    expect(w.said()).toEqual([]);
+    w.controls.setTheme({ scale: 1.3 }, true);
+    await w.tick();
+    expect(w.said()).toEqual([{ text: 1.3 }]);
+  });
+
+  it("is never a switch that guards their privacy, though they changed it there", async () => {
+    const { setShowsPictures, resetPictures } = await import("../src/picture.js");
+    const w = inHeadset();
+    w.enter();
+    await w.tick();
+    setShowsPictures(false);
+    w.controls.setTheme({ motion: false }, true);
+    await w.tick();
+    expect(w.said()).toEqual([{ motion: false }]);
+    expect(JSON.stringify(w.sent)).not.toMatch(/pictures|filesAnywhere|holding/);
+    resetPictures();
+  });
+
+  it("is not said outside a headset: there the client draws the menu, and holds the settings itself", async () => {
+    const w = inHeadset();
+    w.controls.setTheme({ scale: 1.3 }, true);
+    await w.tick();
+    expect(w.said()).toEqual([]);
+    // Nor is what they had as the session began: only a change made in it.
+    w.enter();
+    await w.tick();
+    expect(w.said()).toEqual([]);
+  });
+
+  it("is not what the client itself said down: that is the client's already", async () => {
+    const w = inHeadset();
+    w.enter();
+    await w.tick();
+    w.say({ nswp: "menu", settings: { text: 1.2 } });
+    await w.tick();
+    expect(w.controls.theme.scale).toBe(1.2);
+    expect(w.said()).toEqual([]);
+  });
+
+  it("stops when the session ends", async () => {
+    const w = inHeadset();
+    w.enter();
+    await w.tick();
+    w.leave();
+    await w.tick();
+    w.controls.setTheme({ scale: 1.1 }, true);
+    await w.tick();
+    expect(w.said()).toEqual([]);
+  });
+});
+
 describe("what a world takes from above", () => {
   it("is a press on something it described, and on nothing else", () => {
     const w = make();

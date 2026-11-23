@@ -16,7 +16,7 @@
  * Nothing of the visitor's own tabs is ever said down: only their settings, and their presses on the world's rows.
  */
 import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, MENU_LIMITS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
-import { currentSettings } from "../settings.js";
+import { changeSettings, currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
 import { STANDARD_TABS, standardTab, type Controls, type UiAction, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
 import type { WorldPort } from "./port.js";
@@ -154,7 +154,12 @@ export interface MenuBelowOptions {
    * didn't go by itself in time, so what was in the visitor's hand is not carried.
    */
   home?: (left: boolean) => void;
-  /** A world reported settings the visitor changed in its headset session: comfort and layout only, already cleaned. */
+  /**
+   * A world reported settings the visitor changed in its headset session: comfort and layout only, already cleaned
+   * (the core's `MENU_REPORTED`), and taken only while the world says its session is running. Left out, they become
+   * the visitor's settings in this page (`changeSettings`), and so are said to the next world. A client that keeps
+   * the visitor's settings somewhere of its own takes them here.
+   */
   onReported?: (settings: TravelSettings) => void;
   /** Whether something a world sent as a picture may be kept. By default a bitmap within the limit on its size. */
   picture?: (value: unknown) => boolean;
@@ -313,7 +318,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       return;
     }
     // Only while its headset session runs, where only the world can draw the console.
-    if (word.what === "settings") return void (world?.state.headset.presenting && opts.onReported?.(word.settings));
+    // Taken as the visitor's own, in this page, unless the client says what to do with them: each part here that
+    // holds one takes it, and it is said to the next world with the rest.
+    if (word.what === "settings") return void (world?.state.headset.presenting && (opts.onReported ?? changeSettings)(word.settings));
     // Only for a row or a card of the last description: a picture is never kept for something that isn't there.
     if (word.what === "picture" && world) {
       const there = world.sections.some((s) => (s.card && `${MENU_CARD_PICTURE}${s.id}` === word.id) || s.rows.some((r) => r.id === word.id));
