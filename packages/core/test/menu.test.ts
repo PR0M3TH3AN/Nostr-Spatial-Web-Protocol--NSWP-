@@ -20,7 +20,7 @@ const v = JSON.parse(readFileSync(join(root, "vectors/menu-words.json"), "utf8")
 
 describe("the menu's words, by the examples", () => {
   it("has examples of every kind", () => {
-    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([15, 17, 13, 4]);
+    expect([v.describing.length, v.down.length, v.up.length, v.here.length]).toEqual([16, 17, 13, 4]);
   });
   for (const c of v.describing) it(`a description: ${c.name}`, () => expect(cleanMenuWorld(c.world, c.opts)).toEqual(c.expect));
   for (const c of v.down) it(`a word from the page above: ${c.name}`, () => expect(readMenuWordDown(c.word)).toEqual(c.expect));
@@ -51,6 +51,19 @@ describe("the limits and the lists", () => {
     expect(cleanMenuSettings({ filesAnywhere: true, text: 1.1 })).toEqual({ filesAnywhere: true, text: 1.1 });
     expect(cleanMenuSettings({ filesAnywhere: false })).toEqual({ filesAnywhere: false });
     expect(cleanMenuSettings("on")).toEqual({});
+  });
+});
+
+describe("the proven mark on a card", () => {
+  const world = { sections: [{ id: "people", card: { title: "Ana", tag: "By name", proven: true }, rows: [] }] };
+  it("is never kept from a world: the client would be vouching for a world's say-so", () => {
+    expect(cleanMenuWorld(world)!.sections[0]!.card).toEqual({ title: "Ana", tag: "By name" });
+    expect(cleanMenuWorld(world, { also: ["following", "messages"] })!.sections[0]!.card!.proven).toBeUndefined();
+    expect(readMenuWordUp({ nswp: "menu", world })).toMatchObject({ what: "world" });
+    expect(JSON.stringify(readMenuWordUp({ nswp: "menu", world }))).not.toMatch(/proven/);
+  });
+  it("is kept from a page of the client's own origin", () => {
+    expect(cleanMenuWorld(world, { own: true })!.sections[0]!.card).toEqual({ title: "Ana", tag: "By name", proven: true });
   });
 });
 

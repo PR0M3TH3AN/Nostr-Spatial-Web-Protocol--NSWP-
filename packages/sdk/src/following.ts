@@ -93,13 +93,18 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
     say(f.ask(() => void now()));
   };
 
-  /** Follow whoever's key they copied, or typed on the headset's keyboard. */
-  const byKey = async () => {
+  /**
+   * Follow whoever's key they typed or pasted into the row (`typed`), or, where the menu has no box to type in (a
+   * headset's console), typed on the headset's keyboard or copied.
+   */
+  const byKey = async (typed?: string) => {
     const me = f.pubkey();
     if (!me) return say("Sign in to follow people: it is under You.");
-    let text = "";
+    let text = typed ?? "";
     const keyboard = opts.presenting?.() ? (opts.keyboard?.() ?? null) : null;
-    if (keyboard) text = (await keyboard.ask({ title: "Their key: npub1… Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null)) ?? "";
+    if (typed !== undefined) {
+      /* what they typed is all there is to read */
+    } else if (keyboard) text = (await keyboard.ask({ title: "Their key: npub1… Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null)) ?? "";
     else {
       try {
         text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
@@ -194,7 +199,9 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       }
       return;
     }
-    add({ id: "following-key", icon: "key", label: () => (opts.presenting?.() && opts.keyboard?.() ? "Follow someone by their key" : "Follow the key I copied"), short: "By key", act: () => void byKey() });
+    // A row typed into: the key is pasted or typed in the menu's own box and followed at the press. So it works in a
+    // world shown in its client's frame, which a browser never lets read what was copied.
+    add({ id: "following-key", icon: "key", kind: "field", label: "Follow by key (npub1…)", short: "By key", act: (typed) => void byKey(typed) });
     if (chosen) {
       const them = chosen;
       const following = follows.includes(them);

@@ -1660,9 +1660,16 @@ const files: Record<string, unknown> = {
     },
     {
       name: "a_card",
-      why: "A card's words are text; the rows it names are that tab's own.",
+      why: "A card's words are text; the rows it names are that tab's own. Its `proven` mark is dropped: a world's say-so is not the client's to vouch for.",
       world: { sections: [{ id: "people", card: { title: "Ana", tag: "By name", proven: true, sub: "npub1ana…", copy: "npub1ana", text: "Keeper of clocks.", color: "#336699", now: ["Recording", 5], acts: ["mute", "elsewhere"] }, rows: [row("mute")] }, { id: "room", card: { tag: "no title" }, rows: [] }] },
-      expect: bare({ sections: [{ id: "people", rows: [kept("mute")], card: { title: "Ana", tag: "By name", proven: true, sub: "npub1ana…", copy: "npub1ana", text: "Keeper of clocks.", color: "#336699", now: ["Recording"], acts: ["mute"] } }, { id: "room", rows: [] }] }),
+      expect: bare({ sections: [{ id: "people", rows: [kept("mute")], card: { title: "Ana", tag: "By name", sub: "npub1ana…", copy: "npub1ana", text: "Keeper of clocks.", color: "#336699", now: ["Recording"], acts: ["mute"] } }, { id: "room", rows: [] }] }),
+    },
+    {
+      name: "a_card_from_the_clients_own_page",
+      why: "The proven mark is kept only from a page of the client's own origin, which checked the name itself.",
+      opts: { own: true },
+      world: { sections: [{ id: "people", card: { title: "Ana", tag: "By name", proven: true }, rows: [] }] },
+      expect: bare({ sections: [{ id: "people", rows: [], card: { title: "Ana", tag: "By name", proven: true } }] }),
     },
     {
       name: "state_as_it_can_be",

@@ -1001,7 +1001,7 @@
     },
     {
       "name": "a_card",
-      "why": "A card's words are text; the rows it names are that tab's own.",
+      "why": "A card's words are text; the rows it names are that tab's own. Its `proven` mark is dropped: a world's say-so is not the client's to vouch for.",
       "world": {
         "sections": [
           {
@@ -1073,7 +1073,6 @@
             "card": {
               "title": "Ana",
               "tag": "By name",
-              "proven": true,
               "sub": "npub1ana\u2026",
               "copy": "npub1ana",
               "text": "Keeper of clocks.",
@@ -1089,6 +1088,59 @@
           {
             "id": "room",
             "rows": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "a_card_from_the_clients_own_page",
+      "why": "The proven mark is kept only from a page of the client's own origin, which checked the name itself.",
+      "opts": {
+        "own": true
+      },
+      "world": {
+        "sections": [
+          {
+            "id": "people",
+            "card": {
+              "title": "Ana",
+              "tag": "By name",
+              "proven": true
+            },
+            "rows": []
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "holding": "",
+          "items": "allowed"
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "people",
+            "rows": [],
+            "card": {
+              "title": "Ana",
+              "tag": "By name",
+              "proven": true
+            }
           }
         ]
       }

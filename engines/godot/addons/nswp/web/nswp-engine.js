@@ -6931,6 +6931,34 @@ ${roomName}`)));
     return null;
   }
 
+  // packages/core/dist/menu.js
+  var MENU_LIMITS = {
+    /** Tabs in one description. */
+    sections: 12,
+    /** Rows in one tab. */
+    rows: 60,
+    /** Rows in all. */
+    allRows: 200,
+    /** Characters in a row's label, and in any other short line. */
+    label: 120,
+    /** Pixels a side, for a picture. */
+    picture: 256,
+    /** Bytes of description, as JSON, without its pictures. */
+    bytes: 65536,
+    /** Tabs of its own a world may add. */
+    ownTabs: 2,
+    /** Characters in words shown for a moment. */
+    say: 200,
+    /** Characters of text a `copy` row carries. */
+    copy: 2e3,
+    /** Characters typed into a `field` row. */
+    field: 500,
+    /** Characters in the world's name. */
+    title: 80,
+    /** Characters in a tab's note, and in what a card says at length. */
+    note: 400
+  };
+
   // packages/core/dist/item.js
   var ITEM_LIMITS = {
     title: 60,
@@ -8543,12 +8571,13 @@ postMessage({ t: "started" });
       if (f.allowed()) return void now();
       say3(f.ask(() => void now()));
     };
-    const byKey = async () => {
+    const byKey = async (typed) => {
       const me = f.pubkey();
       if (!me) return say3("Sign in to follow people: it is under You.");
-      let text2 = "";
+      let text2 = typed ?? "";
       const keyboard2 = opts.presenting?.() ? opts.keyboard?.() ?? null : null;
-      if (keyboard2) text2 = await keyboard2.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
+      if (typed !== void 0) {
+      } else if (keyboard2) text2 = await keyboard2.ask({ title: "Their key: npub1\u2026 Paste it, or type it. Done follows them.", maxLength: 80 }).catch(() => null) ?? "";
       else {
         try {
           text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
@@ -8630,7 +8659,7 @@ postMessage({ t: "started" });
         }
         return;
       }
-      add({ id: "following-key", icon: "key", label: () => opts.presenting?.() && opts.keyboard?.() ? "Follow someone by their key" : "Follow the key I copied", short: "By key", act: () => void byKey() });
+      add({ id: "following-key", icon: "key", kind: "field", label: "Follow by key (npub1\u2026)", short: "By key", act: (typed) => void byKey(typed) });
       if (chosen) {
         const them = chosen;
         const following = follows.includes(them);
@@ -9339,14 +9368,20 @@ postMessage({ t: "started" });
       section: "guests",
       icon: "you",
       hidden: () => !gate2.keeper,
-      label: "Someone whose key I copied",
+      // A row typed into: the key is pasted or typed in the menu's own box and taken at the press. So it works in a
+      // world shown in its client's frame, which a browser never lets read what was copied. Where the menu has no box
+      // (a headset's console draws the row as a button), what was copied is read, as before.
+      kind: "field",
+      label: "Add someone by key (npub1\u2026)",
       short: "By key",
-      act: async () => {
-        let text2 = "";
-        try {
-          text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
-        } catch {
-          return controls2.say(copiedRefused("Copy someone's key (npub1\u2026)"));
+      act: async (given) => {
+        let text2 = given ?? "";
+        if (given === void 0) {
+          try {
+            text2 = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+          } catch {
+            return controls2.say(copiedRefused("Copy someone's key (npub1\u2026)"));
+          }
         }
         const key = keyIn(text2);
         if (!key) return controls2.say("That isn't someone's key. Copy their npub1\u2026 and press again.");
@@ -52687,6 +52722,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .line.on { color: rgb(var(--ink)); }
 .line.on svg { opacity: 1; color: rgb(var(--accent)); }
 .row .grow { flex: 1; min-width: 0; }
+/* A row typed into: a box and its button, and under them where what is typed goes. */
+.field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin: 0; padding: 8px 12px; border-radius: 10px;
+  border: 1px solid rgba(var(--ink), .12); background: rgba(var(--ink), .03); }
+.field input { min-width: 0; min-height: 40px; padding: 6px 10px; border-radius: 8px; font: inherit; color: inherit;
+  border: 1px solid rgba(var(--ink), .25); background: rgba(var(--glass), .6); }
+.field input:focus-visible { outline: 2px solid rgb(var(--ink)); outline-offset: 2px; }
+.field button { min-height: 40px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(var(--accent), .7); background: rgba(var(--accent), .13); }
+.field .to { grid-column: 1 / -1; margin: 0; font-size: .86em; color: rgba(var(--ink), .6); }
 .row .state { font-size: .86em; color: rgba(var(--ink), .6); }
 .row[aria-pressed="true"] { border-color: rgba(var(--accent), .8); }
 .row[aria-pressed="true"] .state { color: rgb(var(--accent)); }
@@ -52952,6 +52995,46 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let chose = false;
     let drawn2 = "";
     const press = (item) => controls2.run(item.id);
+    const copyRow = (item) => {
+      const text2 = item.copy ?? "";
+      void (text2 && navigator.clipboard ? navigator.clipboard.writeText(text2) : Promise.reject(new Error("nothing to copy with"))).then(
+        () => controls2.say("Copied."),
+        () => controls2.say(text2 ? `It couldn't be copied here. It is: ${text2}`.slice(0, 200) : "There is nothing to copy.")
+      );
+      press(item);
+    };
+    const fields = /* @__PURE__ */ new Map();
+    const typingNow = () => {
+      let at = document.activeElement;
+      while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
+      return [...fields.values()].find((f) => f.input === at);
+    };
+    const drawField = (item, whose) => {
+      let f = fields.get(item.id);
+      if (!f) {
+        const input = el("input", { type: "text", maxlength: String(MENU_LIMITS.field), autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false", enterkeyhint: "done" });
+        const button = el("button", { type: "submit" });
+        const to = el("p", { class: "to" });
+        const form = el("form", { class: "field" }, input, button, to);
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const text2 = input.value;
+          if (!text2.trim()) return;
+          input.value = "";
+          controls2.run(item.id, text2);
+        });
+        f = { form, input, button, to };
+        fields.set(item.id, f);
+      }
+      f.input.setAttribute("aria-label", item.label);
+      f.button.textContent = item.label;
+      f.to.textContent = whose ? `What you type here goes to ${whose}.` : "";
+      return f.form;
+    };
+    const clearFields = () => {
+      for (const f of fields.values()) f.input.value = "";
+      fields.clear();
+    };
     const openPin = (id2) => {
       controls2.signal("press");
       if (open2 && section === id2) setOpen(false);
@@ -53389,7 +53472,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           item.on !== null && el("span", { class: "state" }, item.on ? "On" : "Off"),
           item.key ? el("kbd", { class: "mono" }, item.key) : null
         );
-        b.addEventListener("click", () => press(item));
+        b.addEventListener("click", () => item.kind === "copy" ? copyRow(item) : press(item));
         return b;
       };
       const drawLine = (item) => el("p", { class: `line ${item.on ? "on" : "off"}` }, icon(item.icon), el("span", {}, item.label));
@@ -53397,9 +53480,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const laid2 = [];
         let run2 = null;
         for (const item of items2) {
-          if (item.kind === "button" || item.kind === "line") {
+          if (item.kind === "button" || item.kind === "line" || item.kind === "copy" || item.kind === "field") {
             run2 = null;
-            laid2.push(item.kind === "line" ? drawLine(item) : drawRow(item));
+            laid2.push(item.kind === "line" ? drawLine(item) : item.kind === "field" ? drawField(item, view2.title) : drawRow(item));
             continue;
           }
           if (run2?.kind !== item.kind) {
@@ -53416,7 +53499,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const about = current?.card ? `${section}:${current.card.title}` : "";
       const fresh = about !== cardShown;
       cardShown = about;
+      const typingIn = typingNow();
+      const at = typingIn ? [typingIn.input.selectionStart, typingIn.input.selectionEnd] : null;
       rows.replaceChildren(current?.card ? drawCard(current.card, beside) : "", ...laid);
+      if (typingIn?.form.isConnected) {
+        typingIn.input.focus();
+        if (at && at[0] !== null && at[1] !== null) typingIn.input.setSelectionRange(at[0], at[1]);
+      }
+      const still = new Set(view2.sections.flatMap((s) => s.items.filter((i) => i.kind === "field").map((i) => i.id)));
+      for (const id2 of [...fields.keys()]) if (!still.has(id2)) fields.delete(id2);
       if (fresh && about) rows.scrollTop = 0;
       rows.hidden = !current?.items.length && !current?.card;
       note.textContent = current?.note ?? "";
@@ -53443,6 +53534,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!chose) section = "";
       }
       open2 = next;
+      if (!open2) clearFields();
       controls2.signal(open2 ? "menuOpen" : "menuClose");
       draw();
       if (open2) return void tabs.querySelector('[aria-selected="true"]')?.focus();
@@ -53883,7 +53975,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const a = actions.find((x) => x.id === id);
         if (!a || a.hidden?.() || a.kind === "line") return false;
         for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.act(a.kind === "field" ? typed ?? "" : void 0)).catch(() => {
+        void Promise.resolve().then(() => a.act(a.kind === "field" ? typed : void 0)).catch(() => {
         }).finally(changed);
         return true;
       },

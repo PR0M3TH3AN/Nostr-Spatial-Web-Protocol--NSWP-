@@ -966,14 +966,20 @@ function addOwnersScreen(controls: Controls, gate: PaidGate, opts: { presenting?
     section: "guests",
     icon: "you",
     hidden: () => !gate.keeper,
-    label: "Someone whose key I copied",
+    // A row typed into: the key is pasted or typed in the menu's own box and taken at the press. So it works in a
+    // world shown in its client's frame, which a browser never lets read what was copied. Where the menu has no box
+    // (a headset's console draws the row as a button), what was copied is read, as before.
+    kind: "field",
+    label: "Add someone by key (npub1…)",
     short: "By key",
-    act: async () => {
-      let text = "";
-      try {
-        text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
-      } catch {
-        return controls.say(copiedRefused("Copy someone's key (npub1…)"));
+    act: async (given) => {
+      let text = given ?? "";
+      if (given === undefined) {
+        try {
+          text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
+        } catch {
+          return controls.say(copiedRefused("Copy someone's key (npub1…)"));
+        }
       }
       const key = keyIn(text);
       if (!key) return controls.say("That isn't someone's key. Copy their npub1… and press again.");

@@ -184,11 +184,12 @@ try {
   const k = await visitor("keeper");
   const s0 = await k.until(async () => { const s = await k.section(); return s && s.note.startsWith("Anyone") ? s : null; }, 30000);
   want("4 the keeper's console has 'Who comes in', saying anyone can read the list", s0 && [s0.label, s0.note], ["Who comes in", "Anyone can read this list. 1 person invited, 0 people kept out."]);
-  // Ben's key, copied, then pressed in: the way a keeper names someone who isn't here.
-  await k.page.evaluate((npub) => navigator.clipboard.writeText(npub), encodeNpub(pub.ben));
+  // Ben's key, typed into the row and pressed in: the way a keeper names someone who isn't here. (Before, the
+  // row read what was copied, which a browser never allows in a world shown in its client's frame.)
   await k.page.evaluate(() => window.__nswpTest.hud.setOpen(true, "guests"));
   await k.page.waitForTimeout(400);
-  await k.hud().getByRole("button", { name: "Someone whose key I copied" }).click();
+  await k.hud().getByRole("textbox", { name: "Add someone by key (npub1…)" }).fill(encodeNpub(pub.ben));
+  await k.hud().getByRole("button", { name: "Add someone by key (npub1…)" }).click();
   const letIn = k.hud().getByRole("button", { name: /^Let Ben Test in$/ });
   const named = await k.until(() => letIn.isVisible(), 20000);
   want("5 Ben is offered by his own name, from his key", !!named, true);
