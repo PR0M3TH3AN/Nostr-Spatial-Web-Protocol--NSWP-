@@ -13,6 +13,7 @@ const key = (n: number) => sha256(utf8ToBytes(`nswp room avatar test key ${n}`))
 const SHA = "d".repeat(64);
 type Member = import("../src/room.js").Member;
 let RoomSession: typeof import("../src/room.js").RoomSession;
+let AVATAR_EVERY_MS: number;
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
   vi.stubGlobal("location", { origin: "https://world.example", pathname: "/" });
@@ -22,7 +23,7 @@ beforeEach(async () => {
     close() {}
     getTransceivers() { return []; }
   });
-  ({ RoomSession } = await import("../src/room.js"));
+  ({ RoomSession, AVATAR_EVERY_MS } = await import("../src/room.js"));
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -70,13 +71,49 @@ describe("a member's own model, in a room", () => {
     cara.pass(3);
     cara.avatar(4);
     expect(cara.member.model).toBeUndefined();
+    // Each of these is a new note, taken a few seconds after the last (a member is heard no oftener).
+    const later = () => vi.advanceTimersByTime(AVATAR_EVERY_MS + 100);
+    later();
     const forged = { ...note(3), tags: [["d", "default"], ["model", "https://files.example/x.vrm", "vrm", "e".repeat(64)]] };
     cara.say(`avatar:${JSON.stringify(forged)}`);
     expect(cara.member.model).toBeUndefined();
+    later();
     cara.say(`avatar:${JSON.stringify(note(3, [["alt", "x".repeat(LOOK_NOTE_LIMIT)]]))}`);
     expect(cara.member.model).toBeUndefined();
+    later();
     cara.say("avatar:not json");
     expect(cara.member.model).toBeUndefined();
+    // And their own, after all that, is taken: nothing before it was a reason to stop listening.
+    later();
+    cara.avatar(3);
+    expect(cara.member.model?.sha256).toBe(SHA);
+  });
+
+  it("takes a new note from one member no oftener than every few seconds, however fast they send", () => {
+    const r = room();
+    const dan = r.arrive(7);
+    dan.pass(7);
+    const other = "e".repeat(64);
+    const second = finalizeEvent({ kind: AVATAR_KIND, created_at: 1_800_000_001, tags: [["d", "default"], ["model", `https://files.example/${other}.vrm`, "vrm", other]], content: "" }, key(7));
+    dan.avatar(7);
+    expect(dan.member.model?.sha256).toBe(SHA);
+    const looksBefore = r.looks.length;
+    // A burst of new notes straight after: none is taken, and nobody is drawn again for them.
+    for (let i = 0; i < 50; i++) dan.say(`avatar:${JSON.stringify(second)}`);
+    expect(dan.member.model?.sha256).toBe(SHA);
+    expect(r.looks.length).toBe(looksBefore);
+    // The same note said again (as it is, a few times, when a channel opens) costs nothing and changes nothing.
+    dan.avatar(7);
+    expect(r.looks.length).toBe(looksBefore);
+    // A few seconds on, a new one is taken.
+    vi.advanceTimersByTime(AVATAR_EVERY_MS + 100);
+    dan.say(`avatar:${JSON.stringify(second)}`);
+    expect(dan.member.model?.sha256).toBe(other);
+    // Someone else's burst is counted apart: one member can't use up another's turn.
+    const eve = r.arrive(8);
+    eve.pass(8);
+    eve.avatar(8);
+    expect(eve.member.model?.sha256).toBe(SHA);
   });
 
   it("is handed to each member only by someone who came by name, with a note of their own", () => {

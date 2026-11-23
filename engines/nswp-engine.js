@@ -9883,6 +9883,7 @@ postMessage({ t: "started" });
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
     return Uint8Array.from(hex.match(/../g).map((b) => parseInt(b, 16)));
   };
+  var AVATAR_EVERY_MS = 3e3;
   function modelOf(note, author) {
     if (!verifyEvent(note) || note.kind !== AVATAR_KIND || note.pubkey !== author) return void 0;
     return readLookModel(note) ?? void 0;
@@ -10261,8 +10262,10 @@ postMessage({ t: "started" });
         if (typeof e.data === "string") {
           if (e.data.startsWith("avatar:")) {
             const text2 = e.data.slice(7);
-            if (text2.length <= LOOK_NOTE_LIMIT && text2 !== peer.avatar) {
+            const now = Date.now();
+            if (text2.length <= LOOK_NOTE_LIMIT && text2 !== peer.avatar && now - (peer.avatarAt ?? -AVATAR_EVERY_MS) >= AVATAR_EVERY_MS) {
               peer.avatar = text2;
+              peer.avatarAt = now;
               this.redraw(peer);
             }
           } else if (e.data.startsWith("look:")) {
@@ -10301,7 +10304,11 @@ postMessage({ t: "started" });
     /** Draw a member again if what is known about them changes how they look. */
     redraw(peer) {
       const look = seenLook(peer.member, peer.said);
-      const model2 = peer.member.identity && peer.avatar ? modelFrom(peer.avatar, peer.member.identity) : void 0;
+      let model2;
+      if (peer.member.identity && peer.avatar) {
+        if (peer.avatarRead?.text !== peer.avatar || peer.avatarRead.author !== peer.member.identity) peer.avatarRead = { text: peer.avatar, author: peer.member.identity, model: modelFrom(peer.avatar, peer.member.identity) };
+        model2 = peer.avatarRead.model;
+      }
       if (JSON.stringify(look) === JSON.stringify(peer.member.look) && JSON.stringify(model2) === JSON.stringify(peer.member.model)) return;
       peer.member.look = look;
       if (model2) peer.member.model = model2;
@@ -50977,6 +50984,24 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     modelWatchers.add(fn);
     return () => void modelWatchers.delete(fn);
   }
+  function worldDrawsModels(world2) {
+    return !!world2 && world2.dress !== "own" && (world2.formats.includes("vrm") || world2.formats.includes("glb"));
+  }
+  function chooseLooks(people2, world2, shows, most = LOOK_MODELS_AT_ONCE) {
+    const out = /* @__PURE__ */ new Map();
+    const draws = worldDrawsModels(world2);
+    const may = [];
+    for (const p of people2) {
+      if (!p.format) out.set(p.key, "none");
+      else if (!draws || !world2.formats.includes(p.format)) out.set(p.key, "world");
+      else if (!shows) out.set(p.key, "off");
+      else if (p.simple) out.set(p.key, "person");
+      else may.push({ key: p.key, metres: Number.isFinite(p.metres) ? p.metres : Infinity });
+    }
+    may.sort((a, b) => a.metres - b.metres);
+    may.forEach((p, i) => out.set(p.key, i < Math.max(0, most) ? "draw" : "crowd"));
+    return out;
+  }
 
   // packages/sdk/src/presence.ts
   var ARRIVING_SECONDS = 6;
@@ -51366,19 +51391,20 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const simpleKeys = /* @__PURE__ */ new Set();
     let sinceModels = 1;
     const worldLooks = () => d.looks?.() ?? null;
-    const drawsModels = () => {
-      const w = worldLooks();
-      return !!w && w.dress !== "own" && (w.formats.includes("vrm") || w.formats.includes("glb"));
+    const drawsModels = () => worldDrawsModels(worldLooks());
+    const chosenLooks = () => {
+      d.camera.getWorldPosition(headAt);
+      return chooseLooks(
+        [...avatars.values()].map((a) => ({ key: a, format: a.target ? a.member.model?.format ?? null : null, metres: a.head.position.distanceTo(headAt), simple: simpleKeys.has(a.member.pubkey) })),
+        worldLooks(),
+        showsModels()
+      );
     };
     const whyNot = (a) => {
       const m = a.member.model;
       if (!m) return "none";
-      const w = worldLooks();
-      if (!drawsModels() || !w?.formats.includes(m.format)) return "world";
-      if (!showsModels()) return "off";
-      if (simpleKeys.has(a.member.pubkey)) return "person";
-      if (a.wantModel === void 0) return "crowd";
-      return lookModels.why(m) ?? "loading";
+      const why = chosenLooks().get(a) ?? "none";
+      return why === "draw" ? lookModels.why(m) ?? "loading" : why;
     };
     const dropModel = (a) => {
       a.model?.removeFromParent();
@@ -51416,17 +51442,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (sinceModels < 0.5) return;
       sinceModels = 0;
       const w = worldLooks();
-      d.camera.getWorldPosition(headAt);
-      const may = [...avatars.values()].filter((a) => {
-        const m = a.member.model;
-        return m && a.target && drawsModels() && w?.formats.includes(m.format) && showsModels() && !simpleKeys.has(a.member.pubkey);
-      });
-      may.sort((x, y) => x.head.position.distanceTo(headAt) - y.head.position.distanceTo(headAt));
-      const chosen = new Set(may.slice(0, LOOK_MODELS_AT_ONCE));
+      const chosen = chosenLooks();
       const budget = lookBudget(w);
       for (const a of avatars.values()) {
         const m = a.member.model;
-        if (!m || !chosen.has(a)) {
+        if (!m || chosen.get(a) !== "draw") {
           delete a.wantModel;
           if (a.model) dropModel(a);
           continue;

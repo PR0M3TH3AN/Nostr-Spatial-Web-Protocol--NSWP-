@@ -14,17 +14,18 @@
   (920747f), and step 2, the kit drawing people's own models standing still
   (a516ab1). Still to come: step 3 (walking a VRM, a model's own clips),
   step 4 (engines and Godot), and BitPortal's half.
-- **Owed first when this un-parks, before anything else on it** (the
-  orchestrator, 2026-11-23):
-  1. **The plan's trials 3 and 5.** A world's word (no `formats`; `dress:
-     "own"`) and the limit of 8 models at once are in presence
-     (`packages/sdk/src/presence.ts`) with no test of their own. Each needs
-     a browser trial beside `trials/own-models-two.mjs`.
-  2. **A limit on how often a member's `avatar` message is taken.** Each new
-     text is kept and its signature checked at the next redraw
-     (`packages/sdk/src/room.ts`), so a member can make everyone check
-     signatures as fast as they can send. Take at most one every few seconds
-     from each member.
+- **What was owed first is done** (asked by the orchestrator, 2026-11-23, and
+  built the same day, ahead of un-parking):
+  1. The plan's trials 3 and 5. Who is drawn as their own model is one rule,
+     `chooseLooks` (`packages/sdk/src/look-models.ts`), which presence draws
+     by and its tests hold: a world that names no format or dresses everyone
+     itself, a format the world doesn't draw, a viewer's two switches, and
+     at most 8 at once, the nearest. A world's word is also tried in a
+     browser: `MODE=none` and `MODE=own` of `trials/own-models-two.mjs`.
+     Nine people at once in a browser has not been tried.
+  2. A new `avatar` note is taken from one member no oftener than every 3
+     seconds (`AVATAR_EVERY_MS`), and a note's signature is checked once, not
+     at every redraw (`packages/sdk/src/room.ts`).
 
 ## What exists today
 

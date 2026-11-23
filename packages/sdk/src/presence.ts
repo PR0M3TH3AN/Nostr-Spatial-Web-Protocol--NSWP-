@@ -20,8 +20,8 @@ import { applyTints, showsItems, type Items } from "./items.js";
 import { createPlay, mayHold, type Play, type PlayOptions } from "./play.js";
 import type { ItemBoxOptions } from "./item-box.js";
 import { byName, onPageRules, pageRules } from "./ui/identity.js";
-import { createLookModels, lookBudget, onModelsChange, ownLookNote, showsModels, type LookModels, type LookRefusal } from "./look-models.js";
-import { LOOK_HEIGHT, LOOK_MODELS_AT_ONCE, lookHeight, markGrid, type NostrEvent } from "@nswp/core";
+import { chooseLooks, createLookModels, lookBudget, worldDrawsModels, onModelsChange, ownLookNote, showsModels, type LookModels, type LookRefusal } from "./look-models.js";
+import { LOOK_HEIGHT, lookHeight, markGrid, type NostrEvent } from "@nswp/core";
 
 
 /** How long after joining a visitor counts as arriving: within this, someone found inside them moves them aside. */
@@ -872,20 +872,22 @@ export function createPresence(d: PresenceOptions): Presence {
   const simpleKeys = new Set<string>();
   let sinceModels = 1;
   const worldLooks = () => d.looks?.() ?? null;
-  const drawsModels = (): boolean => {
-    const w = worldLooks();
-    return !!w && w.dress !== "own" && (w.formats.includes("vrm") || w.formats.includes("glb"));
+  const drawsModels = (): boolean => worldDrawsModels(worldLooks());
+  /** Who is drawn as their own model now, and why each of the others isn't (`chooseLooks`), by where they stand. */
+  const chosenLooks = () => {
+    d.camera.getWorldPosition(headAt);
+    return chooseLooks(
+      [...avatars.values()].map((a) => ({ key: a, format: a.target ? (a.member.model?.format ?? null) : null, metres: a.head.position.distanceTo(headAt), simple: simpleKeys.has(a.member.pubkey) })),
+      worldLooks(),
+      showsModels(),
+    );
   };
   /** Why a member who isn't drawn as their own model isn't. */
   const whyNot = (a: Avatar): LookInfo["why"] => {
     const m = a.member.model;
     if (!m) return "none";
-    const w = worldLooks();
-    if (!drawsModels() || !w?.formats.includes(m.format)) return "world";
-    if (!showsModels()) return "off";
-    if (simpleKeys.has(a.member.pubkey)) return "person";
-    if (a.wantModel === undefined) return "crowd";
-    return lookModels.why(m) ?? "loading";
+    const why = chosenLooks().get(a) ?? "none";
+    return why === "draw" ? (lookModels.why(m) ?? "loading") : why;
   };
   const dropModel = (a: Avatar) => {
     a.model?.removeFromParent();
@@ -925,17 +927,11 @@ export function createPresence(d: PresenceOptions): Presence {
     if (sinceModels < 0.5) return;
     sinceModels = 0;
     const w = worldLooks();
-    d.camera.getWorldPosition(headAt);
-    const may = [...avatars.values()].filter((a) => {
-      const m = a.member.model;
-      return m && a.target && drawsModels() && w?.formats.includes(m.format) && showsModels() && !simpleKeys.has(a.member.pubkey);
-    });
-    may.sort((x, y) => x.head.position.distanceTo(headAt) - y.head.position.distanceTo(headAt));
-    const chosen = new Set(may.slice(0, LOOK_MODELS_AT_ONCE));
+    const chosen = chosenLooks();
     const budget = lookBudget(w);
     for (const a of avatars.values()) {
       const m = a.member.model;
-      if (!m || !chosen.has(a)) {
+      if (!m || chosen.get(a) !== "draw") {
         delete a.wantModel;
         if (a.model) dropModel(a);
         continue;

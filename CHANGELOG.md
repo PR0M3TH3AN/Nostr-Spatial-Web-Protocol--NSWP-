@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **People's own models: the rule for who is drawn, tested; and a limit on look notes in a room** (SDK `chooseLooks`, `worldDrawsModels`, the `WorldLooks` type, `AVATAR_EVERY_MS`; NSWP-06). No change to what a visitor sees.
+  - Who is drawn as their own model is now one function, which presence draws by: nobody in a world that names no format or dresses everyone itself, only the formats a world draws, nobody for a viewer who turned models off, not a person they chose to see simple, and at most 8 at once, the nearest. It has tests for each.
+  - `trials/own-models-two.mjs` takes `MODE=none` and `MODE=own`: in a world that draws no models, a named visitor's note isn't sent, nothing is fetched and no row offers models.
+  - A room takes a new `avatar` note from one member no oftener than every 3 seconds, and checks a note's signature once, not at every redraw. Before, a member could have everyone in a room check signatures as fast as they could send.
+
 - **`npm run release:prepare`: everything of a release up to the deploy** (`scripts/release-prepare.mjs`; `packages/core/test/release-prepare.test.ts`; names from the orchestrator; `docs/backlog/one-command-release.md`). It never deploys: `release:all -- --go` stays a separate command, on the owner's word.
   - It makes the version pull request (the number under `## Next`, `KIT_VERSION`, the build, the engine script), runs the full gate and merges it. It then builds NSWP's main folder at that merge, vendors the kit into BitPortal and the world template (each gated, each merged the same way), fast-forwards the two main folders the deploy reads, and ends on what `release:all` would deploy.
   - Every step is tested by its exit code, and nothing runs after one that failed. A pull request is merged only at the commit that was gated (`--match-head-commit`), and read back merged.

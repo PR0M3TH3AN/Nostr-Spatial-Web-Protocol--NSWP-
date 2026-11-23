@@ -6,6 +6,10 @@
 // network. The world is told to draw models by the trial switch (`__nswpTrial.looks`), on a local address only.
 // What should happen: Ben sees Ada as her own model at her height, fetched once by its hash; with "Show people's own
 // models" off she is her simple look; on again, her model. A picture of Ben's view goes to .shots/.
+//
+// Trial 3, a world's word, is the same two visitors with MODE set:
+//   MODE=none   the world names no format: everyone is drawn simple, nothing is fetched, and no row offers models.
+//   MODE=own    the world dresses everyone itself (`dress: "own"`): the same.
 import { createServer } from "node:https";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync } from "node:fs";
@@ -20,6 +24,8 @@ execFileSync(join(K, "node_modules", ".bin", "esbuild"), [join(K, "packages/sdk/
 const { tinyVrm } = await import(join(work, "tiny-vrm.mjs"));
 const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
 const PORT = Number(process.env.PORT ?? 4378);
+const MODE = process.env.MODE ?? "draw";
+const LOOKS = MODE === "none" ? null : MODE === "own" ? { formats: ["vrm", "glb"], dress: "own" } : { formats: ["vrm", "glb"] };
 const SITE = `https://${HOST}:${PORT}`;
 const tls = join(homedir(), ".config/nswp/dev-https");
 const types = { ".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css", ".json": "application/json", ".webp": "image/webp", ".ogg": "audio/ogg", ".glb": "model/gltf-binary", ".svg": "image/svg+xml" };
@@ -56,7 +62,7 @@ const visitor = async (name, arrival) => {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(`${name}: ${String(e).slice(0, 160)}`));
-  await page.addInitScript(() => { window.__nswpTrial = { looks: { formats: ["vrm", "glb"] } }; });
+  await page.addInitScript((looks) => { window.__nswpTrial = looks ? { looks } : {}; }, LOOKS);
   await page.goto(core.buildArrivalUrl(`${SITE}/`, { entry: "main-entrance", ...arrival }));
   for (let i = 0; i < 120; i++) { if (await page.evaluate(() => window.__nswpTest?.crossing?.() === "none").catch(() => false)) break; await page.waitForTimeout(300); }
   await page.waitForTimeout(800);
@@ -71,7 +77,7 @@ await ada.page.waitForTimeout(2500);
 const ben = await visitor("Ben", {});
 await ben.join();
 const r = {};
-for (let i = 0; i < 20; i++) { await ben.page.waitForTimeout(700); if ((await ben.looks()).some((x) => x.drawn === "model")) break; }
+for (let i = 0; i < (MODE === "draw" ? 20 : 8); i++) { await ben.page.waitForTimeout(700); if ((await ben.looks()).some((x) => x.drawn === "model")) break; }
 r.benSees = (await ben.looks()).map(({ drawn, why, height, model }) => ({ drawn, why, height, model: model?.slice(0, 10) ?? null }));
 r.adaProvenForBen = (await ben.ev(() => window.__nswpTest.roomInfo())).map((p) => !p.guest);
 const adaAt = await ben.ev(() => window.__nswpTest.roomInfo()[0]?.head);
@@ -79,19 +85,24 @@ const adaAt = await ben.ev(() => window.__nswpTest.roomInfo()[0]?.head);
 await ben.ev(([x, z]) => window.__nswpTest.teleport(x, z + 2.8), [adaAt[0], adaAt[2]]);
 await ben.page.waitForTimeout(1200);
 mkdirSync(SHOTS, { recursive: true });
-await ben.page.screenshot({ path: join(SHOTS, "own-models-ben.png") });
+await ben.page.screenshot({ path: join(SHOTS, `own-models-ben${MODE === "draw" ? "" : `-${MODE}`}.png`) });
 r.rows = await ben.ev(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "people")?.items.map((i) => i.id) ?? null);
-await ben.ev(() => window.__nswpTest.controls.run("people-models"));
-await ben.page.waitForTimeout(1500);
-r.modelsOff = (await ben.looks()).map((x) => [x.drawn, x.why]);
-await ben.page.screenshot({ path: join(SHOTS, "own-models-ben-off.png") });
-await ben.ev(() => window.__nswpTest.controls.run("people-models"));
-await ben.page.waitForTimeout(1500);
-r.modelsOnAgain = (await ben.looks()).map((x) => x.drawn);
+if (MODE === "draw") {
+  await ben.ev(() => window.__nswpTest.controls.run("people-models"));
+  await ben.page.waitForTimeout(1500);
+  r.modelsOff = (await ben.looks()).map((x) => [x.drawn, x.why]);
+  await ben.page.screenshot({ path: join(SHOTS, "own-models-ben-off.png") });
+  await ben.ev(() => window.__nswpTest.controls.run("people-models"));
+  await ben.page.waitForTimeout(1500);
+  r.modelsOnAgain = (await ben.looks()).map((x) => x.drawn);
+}
 r.fileHits = fileHits;
 r.errors = [...ada.errors, ...ben.errors];
 console.log(JSON.stringify(r, null, 1));
 await browser.close();
 server.close();
-const ok = r.benSees[0]?.drawn === "model" && r.benSees[0]?.height === 2.1 && r.adaProvenForBen[0] === true && r.modelsOff[0]?.[1] === "off" && r.modelsOnAgain[0] === "model" && fileHits.filter((h) => h.startsWith("Ben:")).length === 1 && r.errors.length === 0;
+const benFetched = fileHits.filter((h) => h.startsWith("Ben:")).length;
+// A world that draws no models: Ada is there by name, drawn simple, nothing of hers is fetched, and no row offers models.
+const okPlain = r.benSees[0]?.drawn === "simple" && r.adaProvenForBen[0] === true && fileHits.length === 0 && !r.rows.includes("people-models") && r.errors.length === 0;
+const ok = MODE !== "draw" ? okPlain : r.benSees[0]?.drawn === "model" && r.benSees[0]?.height === 2.1 && r.adaProvenForBen[0] === true && r.modelsOff[0]?.[1] === "off" && r.modelsOnAgain[0] === "model" && fileHits.filter((h) => h.startsWith("Ben:")).length === 1 && r.errors.length === 0;
 if (!ok) { console.error("own-models-two: not as expected"); process.exit(1); }

@@ -10,7 +10,7 @@
  * What is drawn is fitted: its top at the height its wearer chose, its feet on the floor, its middle under its
  * wearer, facing -z like every figure the kit draws.
  */
-import { AVATAR_KIND, decodeNaddr, DEFAULT_RELAYS, glbJson, LOOK_BUDGET, LOOK_NOTE_LIMIT, queryRelays, verifyEvent, type NostrEvent, lookFacing, readGlb, withoutRequired, type GlbCount, type LookModel, type ModelBudget } from "@nswp/core";
+import { AVATAR_KIND, decodeNaddr, DEFAULT_RELAYS, glbJson, LOOK_BUDGET, LOOK_MODELS_AT_ONCE, LOOK_NOTE_LIMIT, queryRelays, verifyEvent, type NostrEvent, lookFacing, readGlb, withoutRequired, type GlbCount, type LookModel, type ModelBudget } from "@nswp/core";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
@@ -234,4 +234,43 @@ export function onModelsChange(fn: () => void): () => void {
 /** For tests: forget the switch, so it is read afresh. */
 export function forgetModelsSwitch(): void {
   showing = null;
+}
+
+/** What a world says of people's own models: its manifest's `avatar`, as far as choosing who is drawn needs it. */
+export interface WorldLooks {
+  formats: readonly string[];
+  dress?: "own";
+}
+
+/** Whether a world draws people's own models at all: it names a format, and doesn't dress everyone itself. */
+export function worldDrawsModels(world: WorldLooks | null | undefined): boolean {
+  return !!world && world.dress !== "own" && (world.formats.includes("vrm") || world.formats.includes("glb"));
+}
+
+/**
+ * Who is drawn as their own model, and why each of the others isn't (protocol/05-looks.md, "A model of your own").
+ * In this order: someone who wears none (`none`); a world that draws none, dresses everyone itself, or doesn't draw
+ * that format (`world`); a viewer who turned models off (`off`); a viewer who chose that person's simple look
+ * (`person`); and beyond the nearest `most`, everyone else (`crowd`). Whoever is left is drawn (`draw`), if their
+ * file then passes. The nearest come first; two as near as each other keep the order they were given in.
+ */
+export function chooseLooks<K>(
+  people: readonly { key: K; format?: string | null; metres: number; simple?: boolean }[],
+  world: WorldLooks | null | undefined,
+  shows: boolean,
+  most: number = LOOK_MODELS_AT_ONCE,
+): Map<K, "draw" | "none" | "world" | "off" | "person" | "crowd"> {
+  const out = new Map<K, "draw" | "none" | "world" | "off" | "person" | "crowd">();
+  const draws = worldDrawsModels(world);
+  const may: { key: K; metres: number }[] = [];
+  for (const p of people) {
+    if (!p.format) out.set(p.key, "none");
+    else if (!draws || !world!.formats.includes(p.format)) out.set(p.key, "world");
+    else if (!shows) out.set(p.key, "off");
+    else if (p.simple) out.set(p.key, "person");
+    else may.push({ key: p.key, metres: Number.isFinite(p.metres) ? p.metres : Infinity });
+  }
+  may.sort((a, b) => a.metres - b.metres);
+  may.forEach((p, i) => out.set(p.key, i < Math.max(0, most) ? "draw" : "crowd"));
+  return out;
 }
