@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **One menu, never two: a client that answers while the world's own menu is on its way** (`sites/shared/world.ts`; `trials/menu-above.mjs`). A fault in the reference worlds' wiring, found by a trial on a busy machine. No visitor met it: no real client says it has the menu yet.
+  - A framed world that hears nothing from its client in 300 ms fetches its own menu, which is a file of its own. If the client's answer came while that file was on its way, the world drew its menu when the file arrived, though the client now had one: two menus.
+  - Who has the menu is now asked again each time the world's own menu's file arrives, and a menu that arrives for a world whose client has one is put away before it is seen.
+  - The trial has the case: a client that answers 600 ms after `here` while the menu's file is held back for two seconds. Seen to fail without the fix, and to pass with it.
+
 - **Nothing above a world can turn "Load people's files from anywhere" on** (core `cleanMenuSettings`, `MenuSettings`; SDK `file-hosts.ts`, `ui/port-below.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). No change for a visitor: no client has said it yet.
   - The switch is for the one place the visitor is in, and that place keeps it. Where a client draws the menu the row is still the world's, pressed through the client, so a client has no need to say it.
   - `filesAnywhere: true` in a client's settings is now dropped, as a link's always was. `false` is still taken, as from a link. Two examples in the vectors say so.

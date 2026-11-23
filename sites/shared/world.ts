@@ -397,20 +397,33 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   controls.onSignal((name) => {
     if ((name === "chatOpen" || name === "feedOpen") && above.has && above.menu.open) above.menu.setOpen(false);
   });
-  if (!(await above.ready)) own = await ownMenu();
-  else chatIfNeeded();
-  // A client that answered late has the menu from then on, and this world's own is put away: one menu, never two.
-  above.onChange((has) => {
-    if (has) {
+  // One menu, never two: whoever has it now is what stands, however the answer and this page's own loading fell.
+  // This world's own menu is a file fetched when it is needed, and a client can answer while it is on its way (it
+  // answers late on a busy machine, or a development server): so who has the menu is asked again each time that
+  // file arrives, and a menu that arrives for a world whose client now has one is put away before it is seen.
+  let ownComing: Promise<void> | null = null;
+  const settle = (): Promise<void> => {
+    if (above.has) {
       own?.remove();
       own = null;
       chatIfNeeded();
-    } else {
-      chatPane?.remove();
-      chatPane = null;
-      if (!own) void ownMenu().then((menu) => (above.has ? menu.remove() : (own = menu)));
+      return Promise.resolve();
     }
-  });
+    chatPane?.remove();
+    chatPane = null;
+    if (own) return Promise.resolve();
+    ownComing ??= ownMenu().then((menu) => {
+      ownComing = null;
+      if (above.has || own) menu.remove();
+      else own = menu;
+      return settle();
+    });
+    return ownComing;
+  };
+  above.onChange(() => void settle());
+  await above.ready;
+  // As before for a world with no client above: its own menu is up before anything else is set going.
+  await settle();
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
