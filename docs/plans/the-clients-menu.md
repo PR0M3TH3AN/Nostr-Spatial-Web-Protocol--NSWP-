@@ -24,8 +24,10 @@ world's end too (`trials/menu-above-engine.mjs`), the rule for who draws the
 menu is one piece of code for every world (`menu-keeper.ts`), and Moving is a
 tab both fill, like Sound and Help, and the client asks the one-time question
 on how a visitor moves at a desk, and a world says back what a visitor changed
-in its headset session. Still to come in step 1: frame times and bytes with the
-Godot example in a frame, and the trials of the four presses. NSWP builder,
+in its headset session. What it costs is measured, with the Godot example in a
+frame (`docs/plans/the-clients-menu-cost.md`): no difference in frames, 18 KB
+fewer for a reference world. Still to come in step 1: the trials of the four
+presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -522,6 +524,14 @@ description at most eight times a second, a setting when the visitor changes one
 press when they press. The client's bar and marks are a small layer over the frame.
 Step 1 measures frame times in a framed world with the menu down and up, against the
 same world drawing its own, and the bytes a framed world no longer downloads.
+
+**Measured** (2026-11-23, `trials/menu-cost.mjs`; the whole result is
+`docs/plans/the-clients-menu-cost.md`): the Gallery, the Grove and the Godot example
+drew as many frames with a client drawing the menu as with their own, menu down or
+up; the page above was busy about 10 ms a second more; a reference world fetched
+67 KB less (18 KB as a host sends it) and a world made with another engine the same;
+and no word crossed while nothing changed. One laptop, loaded, in a scripted Chrome:
+not a headset, not a phone.
 
 ## 11. The same words for a browser of our own
 

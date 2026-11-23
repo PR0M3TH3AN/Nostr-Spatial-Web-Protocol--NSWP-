@@ -4,6 +4,15 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **What the client's menu costs, measured: nothing in frames, and 18 KB fewer for a reference world** (`trials/menu-cost.mjs`, new; `docs/plans/the-clients-menu-cost.md`, new). Step 1 of the client's menu owed frame times and bytes.
+  - The Gallery, the Grove and the Godot example, each in a frame of a page that says nothing (the world draws its own menu) and of the stand-in client (the client draws it), with the menu down and up. Four runs, two at a screen's 60 frames a second and two with Chrome drawing as many as it can, each world visited own, client, client, own.
+  - **Frames:** every world drew as many with the client drawing the menu as with its own. The two ways overlap in every row. The page above was busy about 10 ms a second more as the stand-in client.
+  - **Bytes:** a reference world doesn't fetch its menu, 67 KB on disk and 18 KB as a host sends it, of 3.3 MB. A world made with another engine fetches the same either way: the engine script is one file.
+  - **Words:** four to eight upward in a visit, 4 to 9 KB in all, the biggest 3.2 KB of the 64 KB a description may be. None while nothing changes.
+  - **The menu is there** about a third of a second after the page is asked for, where a world's own takes most of a second.
+  - **The Godot example in a client's frame** was not tried before this. It comes up both ways, unchanged.
+  - Taken on one laptop with a Chromium build running beside it (a load of 13 to 30 on eight threads), in a scripted Chrome drawing with the laptop's own graphics card. It says nothing about a headset, where the world draws the console itself, or a phone.
+
 - **What a visitor changes in a headset is theirs afterwards, and in the next world** (SDK `menu-above.ts`, `ui/port-below.ts`; the engine script; `trials/menu-client.mjs`; NSWP-02, "What a world may say back"). Nothing a visitor can see changes yet: no real client has the menu.
   - Inside a headset only the world can draw the console, so it is there that a visitor changes how they move and turn, the volumes, the size of text. Where the world's client has the menu on the flat screen, the client holds their settings, and until now it never heard of a change made in the headset: the next world got the old value.
   - **A world whose client has the menu now says such a change upward while its headset session runs,** limited by name to comfort and layout (the core's `MENU_REPORTED`). Only a change: not what they had as the session began, and not what the client itself said down. Worlds on the engine script do the same, by the same code.
