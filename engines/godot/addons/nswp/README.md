@@ -133,12 +133,29 @@ func _ready() -> void:
   as a file of your own beside the page. A session that can't start is said
   in the menu, and `NswpVisitor.headset_failed` says why.
 
-  In a session the visitor stands where they are: moving about in a headset
-  isn't in this addon yet. **The way out is the menu button:** B on the right
-  hand or Y on the left, the button every world's console comes up on. It ends
-  the session and brings the page's menu up, with Home on it. Until the console
-  is drawn in a headset here, that is how a visitor leaves without taking the
-  headset off.
+  **In a session they move as in every other world,** by their own settings,
+  which are theirs to change in the menu's Moving tab. The casual way: a stick
+  held forward shows a ring on the floor where that hand points, and letting
+  go steps there with a short fade; a stick pulled back steps back a metre;
+  the other stick turns a notch at a time. The intense way: one stick walks,
+  the other turns, smoothly. What a stick means is the kit's to say
+  (`Nswp.hands`), so it is the same here as anywhere. Your world's own floors
+  and walls say where a visitor may stand: a step lands only on something
+  they could stand on, with room for them, and a walk stops at a wall.
+  Pointing a hand at a door within reach lights it, and the trigger goes
+  through.
+
+  **The way out is the menu button:** B on the right hand or Y on the left,
+  the button every world's console comes up on. It ends the session and
+  brings the page's menu up, with Home on it. Until the console is drawn in a
+  headset here, that is how a visitor reaches it without taking the headset
+  off.
+
+  **Not tried in a real headset.** It is tried on a flat page with made-up
+  hands, which shows everything but a real controller: its names for its
+  stick and buttons, and which way its stick reads as forward
+  (`STICK_FORWARD` in `nswp_visitor.gd`, the one number to flip if a visitor
+  steps back when they push forward).
 - **The form they are in.** `Nswp.arrival.form` is `"touch"` or `"desk"`:
   how they were using the last world, where this device can do the same.
   Lay your own interface out by it. It goes on with them through a door.
@@ -376,8 +393,9 @@ screen, a real purchase.
 
 - **A screen someone shares** in a room: it is watched on one of the kit's
   panels, and there are none of those here yet.
-- **Moving in a headset**, and the menu there. The page's menu can't be seen
-  in a session, so the menu button (B or Y) leaves the session to reach it.
+- **The menu in a headset.** The page's menu can't be seen in a session, so
+  the menu button (B or Y) leaves the session to reach it. And what is in a
+  visitor's hand (`NswpItems`) is not held or used in a headset yet.
 - **The view through a door** of where it leads: a doorway here shows its
   field of light.
 - **A room of its own shape to cross in.** The crossing's room is there, at

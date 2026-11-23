@@ -60,7 +60,7 @@ describe("what another engine takes from the kit", () => {
     // The script hands it on, and says it changed what its functions give.
     const engine = await import("../src/engine.js");
     expect(typeof engine.gate).toBe("function");
-    expect(engine.VERSION).toBe(17);
+    expect(engine.VERSION).toBe(18);
   });
 
   it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
@@ -179,7 +179,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(17);
+    expect(engine.VERSION).toBe(18);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");

@@ -42,6 +42,7 @@ var NSWP = (() => {
     frame: () => frame,
     gate: () => gate,
     go: () => go,
+    hands: () => hands,
     headset: () => headset,
     home: () => home,
     itemSecond: () => itemSecond,
@@ -673,8 +674,8 @@ var NSWP = (() => {
       throw new RangeError(prefix + "expected safe integer, got " + value);
     }
   }
-  function numberToHexUnpadded(num4) {
-    const hex = abignumber(num4).toString(16);
+  function numberToHexUnpadded(num5) {
+    const hex = abignumber(num5).toString(16);
     return hex.length & 1 ? "0" + hex : hex;
   }
   function hexToNumber(hex) {
@@ -827,7 +828,7 @@ var NSWP = (() => {
     const result = a % b;
     return result >= _0n2 ? result : b + result;
   }
-  function pow(num4, power, modulo) {
+  function pow(num5, power, modulo) {
     if (modulo <= _1n2)
       throw new Error("pow: expected modulus > 1, got " + modulo);
     if (typeof power !== "bigint")
@@ -837,8 +838,8 @@ var NSWP = (() => {
     if (power === _0n2)
       return _1n2;
     if (power === _1n2)
-      return num4;
-    let d = num4 % modulo;
+      return num5;
+    let d = num5 % modulo;
     if (d < _0n2)
       d += modulo;
     if (power < POW_WINDOWED_MIN) {
@@ -1065,18 +1066,18 @@ var NSWP = (() => {
     abool(passZero, "passZero");
     const F = Fp;
     const inverted = new Array(nums.length).fill(passZero ? F.ZERO : void 0);
-    const multipliedAcc = nums.reduce((acc, num4, i) => {
-      if (F.is0(num4))
+    const multipliedAcc = nums.reduce((acc, num5, i) => {
+      if (F.is0(num5))
         return acc;
       inverted[i] = acc;
-      return F.mul(acc, num4);
+      return F.mul(acc, num5);
     }, F.ONE);
     const invertedAcc = F.inv(multipliedAcc);
-    nums.reduceRight((acc, num4, i) => {
-      if (F.is0(num4))
+    nums.reduceRight((acc, num5, i) => {
+      if (F.is0(num5))
         return acc;
       inverted[i] = F.mul(acc, inverted[i]);
-      return F.mul(acc, num4);
+      return F.mul(acc, num5);
     }, invertedAcc);
     return inverted;
   }
@@ -1142,32 +1143,32 @@ var NSWP = (() => {
       this.BYTES = nByteLength;
       Object.freeze(this);
     }
-    create(num4) {
-      return mod(num4, this.ORDER);
+    create(num5) {
+      return mod(num5, this.ORDER);
     }
-    isValid(num4) {
-      if (typeof num4 !== "bigint")
-        throw new TypeError("invalid field element: expected bigint, got " + typeof num4);
-      return _0n2 <= num4 && num4 < this.ORDER;
+    isValid(num5) {
+      if (typeof num5 !== "bigint")
+        throw new TypeError("invalid field element: expected bigint, got " + typeof num5);
+      return _0n2 <= num5 && num5 < this.ORDER;
     }
-    is0(num4) {
-      return num4 === _0n2;
+    is0(num5) {
+      return num5 === _0n2;
     }
     // is valid and invertible
-    isValidNot0(num4) {
-      return !this.is0(num4) && this.isValid(num4);
+    isValidNot0(num5) {
+      return !this.is0(num5) && this.isValid(num5);
     }
-    isOdd(num4) {
-      return (num4 & _1n2) === _1n2;
+    isOdd(num5) {
+      return (num5 & _1n2) === _1n2;
     }
-    neg(num4) {
-      return mod(-num4, this.ORDER);
+    neg(num5) {
+      return mod(-num5, this.ORDER);
     }
     eql(lhs, rhs) {
       return lhs === rhs;
     }
-    sqr(num4) {
-      return mod(num4 * num4, this.ORDER);
+    sqr(num5) {
+      return mod(num5 * num5, this.ORDER);
     }
     add(lhs, rhs) {
       return mod(lhs + rhs, this.ORDER);
@@ -1178,15 +1179,15 @@ var NSWP = (() => {
     mul(lhs, rhs) {
       return mod(lhs * rhs, this.ORDER);
     }
-    pow(num4, power) {
-      return pow(num4, power, this.ORDER);
+    pow(num5, power) {
+      return pow(num5, power, this.ORDER);
     }
     div(lhs, rhs) {
       return mod(lhs * invert(rhs, this.ORDER), this.ORDER);
     }
     // Same as above, but doesn't normalize
-    sqrN(num4) {
-      return num4 * num4;
+    sqrN(num5) {
+      return num5 * num5;
     }
     addN(lhs, rhs) {
       return lhs + rhs;
@@ -1197,17 +1198,17 @@ var NSWP = (() => {
     mulN(lhs, rhs) {
       return lhs * rhs;
     }
-    inv(num4) {
-      return invert(num4, this.ORDER);
+    inv(num5) {
+      return invert(num5, this.ORDER);
     }
-    sqrt(num4) {
+    sqrt(num5) {
       let sqrt = FIELD_SQRT.get(this);
       if (!sqrt)
         FIELD_SQRT.set(this, sqrt = FpSqrt(this.ORDER));
-      return sqrt(this, num4);
+      return sqrt(this, num5);
     }
-    toBytes(num4) {
-      return this.isLE ? numberToBytesLE(num4, this.BYTES) : numberToBytesBE(num4, this.BYTES);
+    toBytes(num5) {
+      return this.isLE ? numberToBytesLE(num5, this.BYTES) : numberToBytesBE(num5, this.BYTES);
     }
     fromBytes(bytes, skipValidation = false) {
       abytes2(bytes);
@@ -1265,8 +1266,8 @@ var NSWP = (() => {
     const minLen = Math.max(getMinHashLength(fieldOrder), 16);
     if (len < minLen || len > 1024)
       throw new Error("expected " + minLen + "-1024 bytes of input, got " + len);
-    const num4 = isLE2 ? bytesToNumberLE(key) : bytesToNumberBE(key);
-    const reduced = mod(num4, fieldOrder - _1n2) + _1n2;
+    const num5 = isLE2 ? bytesToNumberLE(key) : bytesToNumberBE(key);
+    const reduced = mod(num5, fieldOrder - _1n2) + _1n2;
     return isLE2 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
   }
 
@@ -1806,12 +1807,12 @@ var NSWP = (() => {
     // - add zero byte if exists
     // - if next byte doesn't have a flag, leading zero is not allowed (minimal encoding)
     _int: {
-      encode(num4) {
+      encode(num5) {
         const { Err: E } = _DER;
-        abignumber(num4);
-        if (num4 < _0n4)
+        abignumber(num5);
+        if (num5 < _0n4)
           throw new E("integer: negative integers are not allowed");
-        let hex = numberToHexUnpadded(num4);
+        let hex = numberToHexUnpadded(num5);
         if (Number.parseInt(hex[0], 16) & 8)
           hex = "00" + hex;
         if (hex.length & 1)
@@ -1865,7 +1866,7 @@ var NSWP = (() => {
 
   // node_modules/@noble/curves/abstract/weierstrass.js
   /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-  var divNearest = (num4, den) => (num4 + (num4 >= 0 ? den : -den) / _2n2) / den;
+  var divNearest = (num5, den) => (num5 + (num5 >= 0 ? den : -den) / _2n2) / den;
   function _splitEndoScalar(k, basis, n) {
     aInRange("scalar", k, _0n5, n);
     const [[a1, b1], [a2, b2]] = basis;
@@ -2371,8 +2372,8 @@ var NSWP = (() => {
     });
     function isValidSecretKey(secretKey) {
       try {
-        const num4 = Fn.fromBytes(secretKey);
-        return Fn.isValidNot0(num4);
+        const num5 = Fn.fromBytes(secretKey);
+        return Fn.isValidNot0(num5);
       } catch (error2) {
         return false;
       }
@@ -2460,10 +2461,10 @@ var NSWP = (() => {
       const HALF = CURVE_ORDER >> _1n4;
       return number > HALF;
     }
-    function validateRS(title, num4) {
-      if (!Fn.isValidNot0(num4))
+    function validateRS(title, num5) {
+      if (!Fn.isValidNot0(num5))
         throw new Error(`invalid signature ${title}: out of range 1..Point.Fn.ORDER`);
-      return num4;
+      return num5;
     }
     function assertFieldSignIsSupported() {
       if (!Fp.isOdd)
@@ -2575,17 +2576,17 @@ var NSWP = (() => {
     const bits2int = opts.bits2int === void 0 ? function bits2int_def(bytes) {
       if (bytes.length > 8192)
         throw new Error("input is too large");
-      const num4 = bytesToNumberBE(bytes);
+      const num5 = bytesToNumberBE(bytes);
       const delta = bytes.length * 8 - fnBits;
-      return delta > 0 ? num4 >> BigInt(delta) : num4;
+      return delta > 0 ? num5 >> BigInt(delta) : num5;
     } : opts.bits2int;
     const bits2int_modN = opts.bits2int_modN === void 0 ? function bits2int_modN_def(bytes) {
       return Fn.create(bits2int(bytes));
     } : opts.bits2int_modN;
     const ORDER_MASK = bitMask(fnBits);
-    function int2octets(num4) {
-      aInRange("num < 2^" + fnBits, num4, _0n5, ORDER_MASK);
-      return Fn.toBytes(num4);
+    function int2octets(num5) {
+      aInRange("num < 2^" + fnBits, num5, _0n5, ORDER_MASK);
+      return Fn.toBytes(num5);
     }
     function validateMsgAndHash(message, prehash) {
       abytes2(message, void 0, "message");
@@ -9794,6 +9795,16 @@ postMessage({ t: "started" });
     onDeskChange(() => controls2.setTarget(""));
   }
 
+  // packages/sdk/src/ask-once.ts
+  function mayAskHowTheyMove() {
+    try {
+      if (new URLSearchParams(globalThis.location?.search ?? "").get("ask") === "moving") return true;
+      return !globalThis.navigator?.webdriver;
+    } catch {
+      return false;
+    }
+  }
+
   // packages/sdk/src/stroll.ts
   var WALK_SPEED = 2.4;
   var RUN = 1.75;
@@ -9805,6 +9816,26 @@ postMessage({ t: "started" });
   var DRAG_LOOK = 5e-3;
   var TILT_LIMIT = 60 * Math.PI / 180;
   var LEVEL_RATE = 1.6;
+  function createStepPace(o = {}) {
+    const speed = o.speed && o.speed > 0 ? o.speed : TOP_SPEED;
+    const now = o.now ?? (() => performance.now());
+    let readyAt = -Infinity;
+    return {
+      take(metres) {
+        const t = now();
+        if (t < readyAt) return false;
+        const far = Number.isFinite(metres) ? Math.max(0, metres) : 0;
+        readyAt = t + far / speed * 1e3;
+        return true;
+      },
+      get ready() {
+        return now() >= readyAt;
+      },
+      get wait() {
+        return Math.max(0, (readyAt - now()) / 1e3);
+      }
+    };
+  }
 
   // packages/sdk/src/fps.ts
   var LOOK_SPEED = 22e-4;
@@ -12823,6 +12854,363 @@ postMessage({ t: "started" });
       },
       failed: failed2
     };
+  }
+
+  // packages/sdk/src/ui/summon.ts
+  var SUMMON_KEY = "Backquote";
+  var SUMMON_HOLD = 600;
+  var SUMMON_SLOP = 18;
+  function createHoldWatch(o) {
+    const hold = o.hold ?? SUMMON_HOLD;
+    const slop = o.slop ?? SUMMON_SLOP;
+    let from = null;
+    let timer = null;
+    const cancel = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      from = null;
+    };
+    return {
+      touches(points) {
+        if (points.length !== 2) return cancel();
+        if (!from) {
+          from = points.map((p) => ({ x: p.x, y: p.y }));
+          timer = setTimeout(() => {
+            cancel();
+            o.onHeld();
+          }, hold);
+          return;
+        }
+        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
+      },
+      cancel
+    };
+  }
+  function createHeldButton(hold = SUMMON_HOLD) {
+    let held2 = 0;
+    let fired = false;
+    return (down, dt) => {
+      if (!down) {
+        held2 = 0;
+        fired = false;
+        return false;
+      }
+      held2 += Math.max(0, dt) * 1e3;
+      if (fired || held2 < hold) return false;
+      fired = true;
+      return true;
+    };
+  }
+
+  // packages/sdk/src/actions.ts
+  function deadzone(x, y, inner = 0.2) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return [0, 0];
+    const far = Math.hypot(x, y);
+    if (far <= inner) return [0, 0];
+    const scale = Math.min(1, (far - inner) / (1 - inner)) / far;
+    return [x * scale, y * scale];
+  }
+  var DEFAULT_COMFORT = { move: "steps", turn: "steps", turnStep: 30, narrow: true, fade: true, moveHand: "left" };
+  var CASUAL_COMFORT = { move: "steps", turn: "steps", narrow: true, fade: true };
+  var INTENSE_COMFORT = { move: "smooth", turn: "smooth", narrow: false, fade: false };
+  var isIntense = (comfort) => comfort.move === "smooth" && comfort.turn === "smooth";
+  function cleanComfort(input) {
+    const out = {};
+    if (!input || typeof input !== "object") return out;
+    const c = input;
+    if (c.move === "steps" || c.move === "smooth") out.move = c.move;
+    if (c.turn === "steps" || c.turn === "smooth") out.turn = c.turn;
+    if (c.turnStep === 30 || c.turnStep === 45 || c.turnStep === 90) out.turnStep = c.turnStep;
+    if (typeof c.narrow === "boolean") out.narrow = c.narrow;
+    if (typeof c.fade === "boolean") out.fade = c.fade;
+    if (c.moveHand === "left" || c.moveHand === "right") out.moveHand = c.moveHand;
+    return out;
+  }
+  var KEY4 = "nswp:comfort";
+  function loadComfort() {
+    try {
+      return { ...DEFAULT_COMFORT, ...cleanComfort(JSON.parse(globalThis.localStorage?.getItem(KEY4) ?? "{}")) };
+    } catch {
+      return { ...DEFAULT_COMFORT };
+    }
+  }
+  function hasComfort() {
+    try {
+      return globalThis.localStorage?.getItem(KEY4) !== null && globalThis.localStorage?.getItem(KEY4) !== void 0;
+    } catch {
+      return false;
+    }
+  }
+  function saveComfort(comfort) {
+    try {
+      globalThis.localStorage?.setItem(KEY4, JSON.stringify(cleanComfort(comfort)));
+    } catch {
+    }
+  }
+  var WALK_SPEED2 = 1.8;
+  var RUN_FACTOR = RUN;
+  var TURN_SPEED = 110;
+  var BACK_STEP = 1;
+  var FADE_S = 0.12;
+  var STEP_REACH = 5;
+  var PUSH = 0.6;
+  var LET_GO = 0.3;
+  function stickRoles(pads, moveHand) {
+    const sticks = pads.filter((p) => p.pad.from !== "none");
+    const roles = /* @__PURE__ */ new Map();
+    if (sticks.length === 1) roles.set(sticks[0].index, "both");
+    else if (sticks.length >= 2) {
+      const mover = sticks.find((p) => p.hand === moveHand) ?? sticks[0];
+      for (const p of sticks) roles.set(p.index, p === mover ? "move" : "turn");
+    }
+    return roles;
+  }
+  var Locomotion = class {
+    constructor() {
+      __publicField(this, "turned", /* @__PURE__ */ new Set());
+      __publicField(this, "forward", /* @__PURE__ */ new Set());
+      __publicField(this, "backward", /* @__PURE__ */ new Set());
+      __publicField(this, "menuDown", false);
+      __publicField(this, "jumpDown", false);
+      __publicField(this, "heldMenu", createHeldButton());
+      /** Running, once the moving stick is pressed in, until that stick comes back to rest. */
+      __publicField(this, "running", false);
+    }
+    frame(dt, pads, comfort) {
+      const intent = { turn: 0, walk: [0, 0], stepFrom: [], aiming: [], menu: false, jump: false, summon: false, running: false, narrow: 0 };
+      let pushed = false;
+      const roles = stickRoles(pads, comfort.moveHand);
+      const seen = /* @__PURE__ */ new Set();
+      let sliding = false;
+      for (const p of pads) {
+        seen.add(p.index);
+        const role = roles.get(p.index);
+        if (!role) continue;
+        const [x, y] = p.pad.stick;
+        if (role !== "move") {
+          if (comfort.turn === "smooth") {
+            if (x !== 0) {
+              intent.turn -= x * TURN_SPEED * dt;
+              sliding = true;
+            }
+          } else if (Math.abs(x) >= PUSH && Math.abs(x) > Math.abs(y)) {
+            if (!this.turned.has(p.index)) {
+              this.turned.add(p.index);
+              intent.turn += x > 0 ? -comfort.turnStep : comfort.turnStep;
+            }
+          } else if (Math.abs(x) < LET_GO) this.turned.delete(p.index);
+        }
+        if (comfort.move === "smooth" && role !== "turn") {
+          const strafe = role === "both" ? 0 : x;
+          if (strafe !== 0 || y !== 0) {
+            pushed = true;
+            if (p.pad.press) this.running = true;
+            const pace2 = WALK_SPEED2 * (this.running ? RUN_FACTOR : 1) * dt / Math.max(1, Math.hypot(strafe, y));
+            intent.walk[0] += strafe * pace2;
+            intent.walk[1] += y * pace2;
+            sliding = true;
+          }
+        } else if (comfort.move === "steps") {
+          if (y >= PUSH && Math.abs(y) >= Math.abs(x)) this.forward.add(p.index);
+          else if (y < LET_GO && this.forward.delete(p.index)) intent.stepFrom.push(p.index);
+          if (this.forward.has(p.index)) intent.aiming.push(p.index);
+          if (y <= -PUSH && Math.abs(y) > Math.abs(x)) {
+            if (!this.backward.has(p.index)) {
+              this.backward.add(p.index);
+              intent.walk[1] -= BACK_STEP;
+            }
+          } else if (y > -LET_GO) this.backward.delete(p.index);
+        }
+      }
+      for (const set of [this.turned, this.forward, this.backward]) for (const i of set) if (!seen.has(i) || !roles.has(i)) set.delete(i);
+      if (!pushed) this.running = false;
+      intent.running = this.running;
+      const menu2 = pads.some((p) => p.pad.secondary);
+      intent.menu = menu2 && !this.menuDown;
+      this.menuDown = menu2;
+      intent.summon = this.heldMenu(menu2, dt);
+      const jump = pads.some((p) => p.pad.primary);
+      intent.jump = jump && !this.jumpDown;
+      this.jumpDown = jump;
+      intent.narrow = sliding && comfort.narrow ? 1 : 0;
+      return intent;
+    }
+  };
+
+  // packages/sdk/src/comfort-controls.ts
+  var MOVE_QUESTION = {
+    casual: "Casual: point to step, turn in notches",
+    intense: "Intense: walk and turn smoothly with the sticks"
+  };
+  function keepComfort(o) {
+    const came = arrivedSettings();
+    let answered = came.headset !== void 0 || hasComfort() || o.arrivedIntense === true;
+    let comfort = { ...loadComfort(), ...came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}, ...came.turn !== void 0 ? { turnStep: came.turn } : {}, ...came.hand !== void 0 ? { moveHand: came.hand } : {}, ...came.narrow !== void 0 ? { narrow: came.narrow } : {}, ...came.fade !== void 0 ? { fade: came.fade } : {} };
+    if (came.turn !== void 0 || came.hand !== void 0 || came.narrow !== void 0 || came.fade !== void 0 || came.headset !== void 0) saveComfort(comfort);
+    reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, fade: comfort.fade, ...answered ? { headset: isIntense(comfort) ? "intense" : "casual" } : {} }), (now) => {
+      const patch = { ...now.headset === "intense" ? INTENSE_COMFORT : now.headset === "casual" ? CASUAL_COMFORT : {}, ...now.turn !== void 0 ? { turnStep: now.turn } : {}, ...now.hand !== void 0 ? { moveHand: now.hand } : {}, ...now.narrow !== void 0 ? { narrow: now.narrow } : {}, ...now.fade !== void 0 ? { fade: now.fade } : {} };
+      if (now.headset !== void 0) answered = true;
+      if (Object.keys(patch).length) setComfort(patch, true);
+    });
+    const stops = [];
+    const setComfort = (patch, keep6 = false) => {
+      comfort = { ...comfort, ...cleanComfort(patch) };
+      if (keep6) {
+        saveComfort(comfort);
+        answered = true;
+      }
+    };
+    if (o.arrivedIntense && !isIntense(comfort)) setComfort(INTENSE_COMFORT, true);
+    if (o.controls) {
+      const controls2 = o.controls;
+      let headset2 = false;
+      void navigator.xr?.isSessionSupported("immersive-vr").then((ok) => {
+        headset2 = ok;
+        controls2.addSection({ id: "moving", label: "Moving", icon: "step", note });
+      }).catch(() => {
+      });
+      const hidden2 = () => !headset2;
+      const note = () => comfort.move === "steps" ? "With a controller: push a stick forward, point at the floor and let go to step there. Flick the other stick to turn. Squeeze the grip to pick things up. Pointing and selecting does everything too." : "With a controller: one stick walks, the other turns. If it makes you feel unwell, go back to stepping: it is the comfortable way.";
+      controls2.addSection({ id: "moving", label: "Moving", icon: "step", note });
+      const change2 = (patch) => {
+        setComfort(patch, true);
+        controls2.addSection({ id: "moving", label: "Moving", icon: "step", note });
+      };
+      controls2.add(
+        {
+          // One switch for the two ways of moving in a headset. The settings under it are what it sets, and can
+          // each be changed afterwards.
+          id: "move-style",
+          section: "moving",
+          icon: "motion",
+          hidden: hidden2,
+          on: () => isIntense(comfort),
+          label: () => `${o.presenting() ? "How you move" : "In a headset"}: ${isIntense(comfort) ? "intense" : "casual"}`,
+          short: "Style",
+          act: () => {
+            const intense = !isIntense(comfort);
+            change2(intense ? INTENSE_COMFORT : CASUAL_COMFORT);
+            controls2.say(
+              intense ? "Intense: one stick walks, the other turns, smoothly, with the whole view. If it makes you feel unwell, go back to casual." : "Casual: point at the floor to step there, and turn a notch at a time. The comfortable way."
+            );
+          }
+        },
+        { id: "move-mode", section: "moving", icon: "step", hidden: hidden2, on: () => comfort.move === "smooth", label: () => comfort.move === "steps" ? "Moving in steps. Walk smoothly instead" : "Walking smoothly. Move in steps instead", short: "Walk", act: () => change2({ move: comfort.move === "steps" ? "smooth" : "steps" }) },
+        {
+          id: "turn-mode",
+          section: "moving",
+          icon: "turn",
+          hidden: hidden2,
+          on: () => comfort.turn === "smooth",
+          label: () => comfort.turn === "smooth" ? "Turning smoothly. Turn in steps instead" : `Turning ${comfort.turnStep}\xB0 at a time. Change`,
+          short: "Turn",
+          // In steps of 30, then 45, then 90, then smoothly, and round again.
+          act: () => change2(comfort.turn === "smooth" ? { turn: "steps", turnStep: 30 } : comfort.turnStep === 30 ? { turnStep: 45 } : comfort.turnStep === 45 ? { turnStep: 90 } : { turn: "smooth" })
+        },
+        { id: "move-hand", section: "moving", icon: "motion", hidden: hidden2, label: () => `The ${comfort.moveHand} stick moves you. Swap hands`, short: "Hands", act: () => change2({ moveHand: comfort.moveHand === "left" ? "right" : "left" }) },
+        {
+          id: "move-narrow",
+          section: "moving",
+          icon: "look",
+          hidden: () => hidden2() || comfort.move === "steps" && comfort.turn === "steps",
+          on: () => comfort.narrow,
+          label: () => comfort.narrow ? "The view narrows while you move. Turn that off" : "Narrow the view while you move",
+          short: "Narrow",
+          act: () => change2({ narrow: !comfort.narrow })
+        },
+        {
+          // A jump the kit makes (a step, being stepped aside) fades to black and back: casual's default, intense's not.
+          id: "move-fade",
+          section: "moving",
+          icon: "look",
+          hidden: hidden2,
+          on: () => comfort.fade,
+          label: () => comfort.fade ? "The view fades when you step. Turn that off" : "Fade the view when you step",
+          short: "Fade",
+          act: () => change2({ fade: !comfort.fade })
+        }
+      );
+      let asking = false;
+      const answer = (intense) => {
+        asking = false;
+        setComfort(intense ? INTENSE_COMFORT : CASUAL_COMFORT, true);
+        controls2.say(intense ? "Intense: one stick walks, the other turns, smoothly. You can change it in Moving." : "Casual: point at the floor to step there, and turn a notch at a time. You can change it in Moving.");
+      };
+      controls2.addSection({ id: "how-you-move", label: "How you move", icon: "step", note: () => asking ? "You can change this whenever you like, in Moving." : "" });
+      controls2.add(
+        { id: "how-casual", section: "how-you-move", icon: "step", hidden: () => !asking, label: MOVE_QUESTION.casual, act: () => answer(false) },
+        { id: "how-intense", section: "how-you-move", icon: "motion", hidden: () => !asking, label: MOVE_QUESTION.intense, act: () => answer(true) }
+      );
+      let askedAt = 0;
+      const stopAsking = controls2.onSignal((name) => {
+        if (name === "menuClose" && asking && o.presenting() && performance.now() - askedAt > 1500) answer(false);
+      });
+      const ask = () => {
+        if (answered || asking || !mayAskHowTheyMove()) return;
+        asking = true;
+        askedAt = performance.now();
+        controls2.signal("show:how-you-move");
+      };
+      const stopStart = o.onSessionStart?.(ask);
+      stops.push(() => {
+        stopStart?.();
+        stopAsking();
+      });
+    }
+    return {
+      get comfort() {
+        return comfort;
+      },
+      setComfort,
+      dispose() {
+        for (const stop of stops.splice(0)) stop();
+      }
+    };
+  }
+
+  // packages/sdk/src/engine-hands.ts
+  var keeper = null;
+  var loco = new Locomotion();
+  var pace = createStepPace();
+  var inSession = false;
+  function meetHands(controls2, arrivedIntense = false) {
+    keeper?.dispose();
+    keeper = keepComfort({ ...controls2 ? { controls: controls2 } : {}, ...arrivedIntense ? { arrivedIntense: true } : {}, presenting: () => inSession });
+  }
+  function handsPresenting(on3) {
+    if (on3 === inSession) return;
+    inSession = on3;
+    loco = new Locomotion();
+  }
+  var num3 = (v2, least, most) => typeof v2 === "number" && Number.isFinite(v2) ? Math.min(most, Math.max(least, v2)) : 0;
+  function readPads(input) {
+    const out = [];
+    for (const raw of Array.isArray(input) ? input.slice(0, 4) : []) {
+      if (!raw || typeof raw !== "object") continue;
+      const p = raw;
+      const index = p.index === 0 || p.index === 1 ? p.index : null;
+      if (index === null || out.some((x) => x.index === index)) continue;
+      const hand = p.hand === "left" || p.hand === "right" ? p.hand : "none";
+      const at = Array.isArray(p.stick) ? p.stick : [];
+      const stick = deadzone(num3(at[0], -1, 1), num3(at[1], -1, 1));
+      out.push({ index, hand, pad: { stick, from: "thumbstick", trigger: num3(p.trigger, 0, 1), squeeze: num3(p.squeeze, 0, 1), primary: p.primary === true, secondary: p.secondary === true, press: p.press === true } });
+    }
+    return out;
+  }
+  function hands(input) {
+    let o = {};
+    try {
+      const v2 = JSON.parse(input);
+      if (v2 && typeof v2 === "object" && !Array.isArray(v2)) o = v2;
+    } catch {
+    }
+    const comfort = (keeper ?? (keeper = keepComfort({ presenting: () => inSession }))).comfort;
+    const stepped = num3(o.stepped, 0, 100);
+    if (stepped > 0) pace.take(stepped);
+    const intent = loco.frame(num3(o.dt, 0, 0.25), readPads(o.pads), comfort);
+    if (comfort.move === "steps" && (intent.walk[0] !== 0 || intent.walk[1] !== 0) && !pace.take(Math.hypot(intent.walk[0], intent.walk[1]))) intent.walk = [0, 0];
+    const answer = { ...intent, fade: comfort.fade, mayStep: pace.ready, intense: isIntense(comfort), stepping: comfort.move === "steps" };
+    return JSON.stringify(answer);
   }
 
   // node_modules/three/build/three.core.js
@@ -45584,7 +45972,7 @@ void main() {
     }
   };
   var three = (v2) => Array.isArray(v2) && v2.length === 3 && v2.every((x) => typeof x === "number" && Number.isFinite(x)) ? v2 : null;
-  var num3 = (v2, otherwise) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : otherwise;
+  var num4 = (v2, otherwise) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : otherwise;
   function base642(bytes) {
     let text2 = "";
     for (let at = 0; at < bytes.length; at += 32768) text2 += String.fromCharCode(...bytes.subarray(at, at + 32768));
@@ -45617,17 +46005,17 @@ void main() {
     const turn = Array.isArray(i.turn) && i.turn.length === 4 && i.turn.every((x) => typeof x === "number" && Number.isFinite(x)) ? i.turn : null;
     if (head) {
       w.camera.position.fromArray(head);
-      w.rig.position.set(head[0], num3(i.floor, head[1] - 1.6), head[2]);
+      w.rig.position.set(head[0], num4(i.floor, head[1] - 1.6), head[2]);
       w.set = { x: head[0], z: head[2] };
     }
     if (turn) w.camera.quaternion.fromArray(turn).normalize();
-    w.camera.fov = Math.min(140, Math.max(10, num3(i.fov, w.camera.fov)));
-    w.camera.aspect = Math.min(8, Math.max(0.1, num3(i.aspect, w.camera.aspect)));
+    w.camera.fov = Math.min(140, Math.max(10, num4(i.fov, w.camera.fov)));
+    w.camera.aspect = Math.min(8, Math.max(0.1, num4(i.aspect, w.camera.aspect)));
     w.presenting = i.presenting === true;
     w.sighting = i.sighting === true;
     w.moving = i.moving === true;
     w.scene.updateMatrixWorld(true);
-    const dt = Math.min(0.5, Math.max(0, num3(i.dt, 0.016)));
+    const dt = Math.min(0.5, Math.max(0, num4(i.dt, 0.016)));
     const out = {};
     for (const start2 of starts) start2(i);
     for (const part of parts2) Object.assign(out, part(i, dt));
@@ -49117,16 +49505,16 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     head.add(new Mesh(geometries[0], metal));
     const torso = new Mesh(geometries[1], metal);
     torso.position.y = -0.45;
-    const hands = [new Mesh(geometries[2], metal), new Mesh(geometries[2], metal)];
-    hands[0].position.set(-0.28, -0.5, -0.12);
-    hands[1].position.set(0.28, -0.5, -0.12);
+    const hands2 = [new Mesh(geometries[2], metal), new Mesh(geometries[2], metal)];
+    hands2[0].position.set(-0.28, -0.5, -0.12);
+    hands2[1].position.set(0.28, -0.5, -0.12);
     const group = new Group();
-    group.add(head, torso, ...hands);
+    group.add(head, torso, ...hands2);
     return {
       group,
       head,
       torso,
-      hands,
+      hands: hands2,
       metal,
       look: wearing,
       tick(t) {
@@ -49141,7 +49529,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
 
   // packages/sdk/src/blocks.ts
   var BLOCK_LIMIT = 500;
-  var KEY4 = "nswp:blocked";
+  var KEY5 = "nswp:blocked";
   var HEX4 = /^[0-9a-f]{64}$/;
   function cleanBlocked(input) {
     if (!Array.isArray(input)) return [];
@@ -49174,15 +49562,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   };
   function loadBlocked(storage = local()) {
     try {
-      return cleanBlocked(JSON.parse(storage?.getItem(KEY4) ?? "[]"));
+      return cleanBlocked(JSON.parse(storage?.getItem(KEY5) ?? "[]"));
     } catch {
       return [];
     }
   }
   function storeBlocked(list, storage = local()) {
     try {
-      if (list.length) storage?.setItem(KEY4, JSON.stringify(cleanBlocked(list)));
-      else storage?.removeItem(KEY4);
+      if (list.length) storage?.setItem(KEY5, JSON.stringify(cleanBlocked(list)));
+      else storage?.removeItem(KEY5);
     } catch {
     }
   }
@@ -52471,8 +52859,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             a.model.rotation.set(0, euler.y, 0);
             a.model.visible = near > 0.5;
           }
-          const hands = [a.target.left, a.target.right];
-          hands.forEach((t, i) => {
+          const hands2 = [a.target.left, a.target.right];
+          hands2.forEach((t, i) => {
             const mesh = a.hands[i];
             if (t) {
               apply(mesh, t, mesh.visible ? k : 1);
@@ -52786,37 +53174,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         own2 = null;
         chatPane = null;
       }
-    };
-  }
-
-  // packages/sdk/src/ui/summon.ts
-  var SUMMON_KEY = "Backquote";
-  var SUMMON_HOLD = 600;
-  var SUMMON_SLOP = 18;
-  function createHoldWatch(o) {
-    const hold = o.hold ?? SUMMON_HOLD;
-    const slop = o.slop ?? SUMMON_SLOP;
-    let from = null;
-    let timer = null;
-    const cancel = () => {
-      if (timer !== null) clearTimeout(timer);
-      timer = null;
-      from = null;
-    };
-    return {
-      touches(points) {
-        if (points.length !== 2) return cancel();
-        if (!from) {
-          from = points.map((p) => ({ x: p.x, y: p.y }));
-          timer = setTimeout(() => {
-            cancel();
-            o.onHeld();
-          }, hold);
-          return;
-        }
-        if (points.some((p, i) => Math.hypot(p.x - from[i].x, p.y - from[i].y) > slop)) cancel();
-      },
-      cancel
     };
   }
 
@@ -55091,6 +55448,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       doubleTap: DOUBLE_TAP,
       pathMost: PATH_MOST,
       faceRate: FACE_RATE,
+      // In a headset: how long the view takes to go dark for a jump the kit makes, and as long again to come back; how
+      // far one step reaches; how far a step back goes. Whether this visitor fades at all is in what `hands()` answers.
+      fadeSeconds: FADE_S,
+      stepReach: STEP_REACH,
+      backStep: BACK_STEP,
       jumpHeight: JUMP_HEIGHT,
       jumpGravity: JUMP_GRAVITY,
       gateWidth: PORTAL_WIDTH,
@@ -55268,6 +55630,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       fullscreenAction(c, () => vr.presenting)
     );
     addDeskControls(c, { presenting: () => vr.presenting });
+    meetHands(c, context?.moving === "intense" && !!context?.immersive);
     document.addEventListener("fullscreenchange", () => c.setTarget(""));
     c.addSection({
       id: "help",
@@ -55385,6 +55748,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const s = read4(state);
     vr.supported = s.supported === true;
     vr.presenting = s.presenting === true;
+    handsPresenting(vr.presenting);
     hud?.setHidden(vr.presenting);
     controls?.setTarget("");
     const put = () => {
@@ -56456,10 +56820,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     if (!state) return;
     for (const m of Array.isArray(i.met) ? i.met.slice(0, 64) : []) {
       const at = three(m?.at);
-      if (at && typeof m.key === "string") state.play.met(m.key, num3(m.step, -1), num3(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
+      if (at && typeof m.key === "string") state.play.met(m.key, num4(m.step, -1), num4(m.f, 0), at, typeof m.ref === "string" ? m.ref : "");
     }
     for (const f of Array.isArray(i.floors) ? i.floors.slice(0, 64) : []) {
-      if (typeof f?.key === "string") state.play.floored(f.key, num3(f.y, NaN));
+      if (typeof f?.key === "string") state.play.floored(f.key, num4(f.y, NaN));
     }
   }
   function itemsFrame() {
@@ -56493,7 +56857,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const from = three(p.from);
     const dir = three(p.dir);
     if (!on || !from || !dir) return false;
-    return on.presses.tap({ origin: new Vector3().fromArray(from), direction: new Vector3().fromArray(dir).normalize() }, num3(p.heldMs, 0));
+    return on.presses.tap({ origin: new Vector3().fromArray(from), direction: new Vector3().fromArray(dir).normalize() }, num4(p.heldMs, 0));
   }
   function itemUse(toward) {
     if (!on?.play.does?.use) return false;
@@ -58318,7 +58682,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
 
   // packages/sdk/src/engine.ts
-  var VERSION = 17;
+  var VERSION = 18;
   var KIT = KIT_VERSION;
   var read5 = (text2) => {
     try {

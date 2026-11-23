@@ -215,6 +215,13 @@ export const RUN_FACTOR = RUN;
 export const TURN_SPEED = 110;
 /** One stick pulled back, in step mode: a step backwards of this many metres. */
 export const BACK_STEP = 1;
+/**
+ * A jump the kit makes for someone whose `fade` is on: how long the view takes to go dark, and as long again to come
+ * back, in seconds. Long enough that nothing is seen to move, short enough not to feel like waiting.
+ */
+export const FADE_S = 0.12;
+/** How far one step reaches in a headset, in metres: further than a tap at a desk, since a step there lands at once. */
+export const STEP_REACH = 5;
 
 const PUSH = 0.6; // how far a stick must go to count as pushed
 const LET_GO = 0.3; // and how far back before it counts as let go

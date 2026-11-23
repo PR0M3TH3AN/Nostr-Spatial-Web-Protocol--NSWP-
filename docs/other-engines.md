@@ -214,7 +214,8 @@ draws its own) sees the early console go as they open. A page with no room
 | `NSWP.open(on)` | Bring the console up, or put it away, from a button of the engine's own. |
 | `NSWP.presence(level)` | How much of the screen the controls take: `full`, `quiet` or `hidden`. For an engine with an interface of its own. |
 | `NSWP.claim(on)` | Take every key for the game, or give them back. |
-| `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway. |
+| `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway; and for a headset, how long a fade takes each way (`fadeSeconds`), how far one step reaches (`stepReach`) and how far a step back goes (`backStep`). |
+| `NSWP.hands(input)` | What the visitor's hands mean in a headset this frame, as JSON, from JSON. The engine reads its controllers and hands them over: `dt` (seconds), `pads` (each as `{ index, hand, stick: [x, y], trigger, squeeze, primary, secondary, press }`, the stick with x to the right and y forward) and `stepped` (metres, where a step was just made). The kit answers by the visitor's own settings, as for every world: `turn` (degrees, positive to the left), `walk` (`[right, ahead]` in metres, as the head faces), `aiming` and `stepFrom` (which hands are choosing where to step, and which let go), `menu`, `summon`, `jump`, `narrow` (0 to 1), and `fade`, `mayStep`, `stepping`, `intense`. An engine decides none of it. The rows that change those settings are in the menu's Moving tab already. Since version 18. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
 | `NSWP.offers(world)` | What a world offers, for the tiles beside its door: thirteen lines in a set order, each lit or dark with a sentence for it, and a drawing for the eight a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
 | `NSWP.gate(options)` | A paid world's gate: what the visitor holds, what is for sale, and `gate-buy` in the menu. Returns JSON (`state`, `open`, `reason`, `why`, `offers`, `until`); a `gate` event with the same fields comes when it changes. `{"paid":false}` makes nothing. See "A paid world's gate" |
@@ -517,9 +518,14 @@ one holding the dart blaster.
 Not tried there: a real microphone and two real people, more than two
 people, a picture over a name, pressing a person, a phone.
 
-**Not in the Godot addon:** moving in a headset (a session starts, and the
-visitor stands where they are), the view through a door, posting from a
-world, and a screen someone shares. The crossing's room is the page's picture of it:
+**In the Godot addon since version 18, and not yet tried in a headset:**
+moving in one, the same as in every world (steps with the fade, a step back,
+notch turns, or walking and turning smoothly). Tried on a flat page with
+made-up hands (`trials/godot-hands.mjs`).
+
+**Not in the Godot addon:** the console in a headset (a controller's menu
+button leaves the session to reach the page's), the view through a door,
+posting from a world, and a screen someone shares. The crossing's room is the page's picture of it:
 it can't be looked round in, as a Three.js world's can.
 
 A Godot export is large (about 40 MB, nearly all the engine), which is what

@@ -21,10 +21,21 @@ extends CharacterBody3D
 ## is walked into. From further off a door does nothing, so nobody leaves by a stray click.
 ##
 ## It carries two cameras: an ordinary one, and an `XRCamera3D` for a headset, which it
-## starts when the visitor asks for it in the menu. In a session the button every world's
-## console comes up on (B on the right hand, Y on the left) leaves it, with the page's menu
-## up and Home on it: moving about in a headset, and the console there, are not in this
-## add-on yet, and until they are that button is the way out.
+## starts when the visitor asks for it in the menu.
+##
+## **In a headset** they move as in every other world, by their own settings. The casual way:
+## a stick held forward shows a ring on the floor where the hand points, and letting go steps
+## there, with a short fade; a stick pulled back steps back a metre; the other stick turns a
+## notch at a time. The intense way: one stick walks, the other turns, smoothly, with the
+## edge of the view darkened while they move if they chose that. What a stick means is not
+## decided here: each frame the two hands are handed to the kit (`Nswp.hands`), and this does
+## what comes back. Walls and floors stop them as they do at a desk: a step lands only where
+## they could stand, and a walk slides along a wall. Pointing a hand at a door within reach
+## lights it, and the trigger goes through.
+##
+## The button every world's console comes up on (B on the right hand, Y on the left) leaves
+## the session, with the page's menu up and Home on it: the console is not drawn in a headset
+## here yet, and until it is that button is the way to it.
 ##
 ## It is a default. Anything that is in the group `visitor` and tells `Nswp.moved()` how far
 ## it walked will do as well.
@@ -90,6 +101,52 @@ var _hands: Array[XRController3D] = []
 ## The button under the thumb that the console comes up on in every world: B on the right
 ## hand, Y on the left (the kit's `Intent.menu`), by the name Godot gives it.
 const MENU_BUTTON := "by_button"
+## Which way is forward on a stick, as Godot gives it for a headset in a browser: 1.0 if
+## pushing it away from you reads as positive, -1.0 if it reads as negative. The kit wants
+## forward to be positive. If a visitor steps back when they push forward, it is this.
+const STICK_FORWARD := 1.0
+
+## A small shape where each hand is, so the visitor sees them. Drawn here: nothing is downloaded.
+var _hand_marks: Array[MeshInstance3D] = []
+## A thin line from the hand that is choosing where to step.
+var _hand_lines: Array[MeshInstance3D] = []
+## The fade and the narrowing in a headset: one flat piece just in front of the eyes, drawn
+## over everything. Black all over for a fade, a dark ring at the edge for narrowing.
+var _shade: MeshInstance3D
+var _shade_paint: ShaderMaterial
+## How dark the view is for a jump just now, 0 to 1, and which way it is going: 1 darker,
+## 2 lighter, 0 neither.
+var _dark: float = 0.0
+var _fading: int = 0
+## What is to be done once the view is dark: a step, a step back.
+var _jumps: Array[Callable] = []
+## How much the edge of the view is darkened while they walk smoothly, 0 to 1.
+var _narrow: float = 0.0
+## How far a step that was just made went, in metres: said to the kit with the next frame, so
+## that the next step is paced as in every world.
+var _stepped: float = 0.0
+## Where the hand that is choosing a step points on the floor, or null; and whether a step
+## there may be taken now.
+var _step_spot: Variant = null
+var _step_ready: bool = true
+## Each hand's trigger as it was last frame, so that a press is told from a hold.
+var _trigger_was: Array[bool] = [false, false]
+## For tests, on a flat page: hands made up by the test, in place of controllers.
+var _pretend: Variant = null
+## What the kit last said the hands mean. For tests.
+var _meant: Dictionary = {}
+
+const SHADE := """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled, cull_disabled, shadows_disabled, fog_disabled;
+uniform float dark = 0.0;
+uniform float narrow = 0.0;
+void fragment() {
+	float far = length(UV * 2.0 - 1.0);
+	ALBEDO = vec3(0.0);
+	ALPHA = max(dark, smoothstep(0.24, 0.42, far) * narrow);
+}
+"""
 
 
 func _init() -> void:
@@ -115,12 +172,29 @@ func _init() -> void:
 		hand.tracker = tracker
 		origin.add_child(hand)
 		_hands.append(hand)
+	# The fade and the narrowing: just in front of the eyes, wider than the view.
+	_shade = MeshInstance3D.new()
+	_shade.name = "Shade"
+	var sheet := QuadMesh.new()
+	sheet.size = Vector2(2.0, 2.0)
+	_shade.mesh = sheet
+	_shade_paint = ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = SHADE
+	_shade_paint.shader = shader
+	_shade_paint.render_priority = 100
+	_shade.material_override = _shade_paint
+	_shade.position = Vector3(0.0, 0.0, -0.5)
+	_shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_shade.visible = false
+	headset_camera.add_child(_shade)
 	add_child(origin)
 
 
 func _ready() -> void:
 	flat_camera.position.y = eye_height
 	_make_marks()
+	_make_hands()
 	_show_pointer()
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
@@ -414,6 +488,34 @@ func _make_marks() -> void:
 	_knots.global_transform = Transform3D.IDENTITY
 
 
+## A small shape at each hand, and a thin line from it for choosing where to step.
+func _make_hands() -> void:
+	var paint := StandardMaterial3D.new()
+	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	paint.albedo_color = accent
+	var ball := SphereMesh.new()
+	ball.radius = 0.035
+	ball.height = 0.07
+	var line := BoxMesh.new()
+	line.size = Vector3(0.004, 0.004, 3.0)
+	for hand in _hands:
+		var mark := MeshInstance3D.new()
+		mark.mesh = ball
+		mark.material_override = paint
+		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mark.visible = false
+		hand.add_child(mark)
+		_hand_marks.append(mark)
+		var ray := MeshInstance3D.new()
+		ray.mesh = line
+		ray.material_override = paint
+		ray.position = Vector3(0.0, 0.0, -1.5)
+		ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ray.visible = false
+		hand.add_child(ray)
+		_hand_lines.append(ray)
+
+
 func _mark(mesh: Mesh, paint: Material) -> MeshInstance3D:
 	var mark := MeshInstance3D.new()
 	mark.mesh = mesh
@@ -428,8 +530,16 @@ func _mark(mesh: Mesh, paint: Material) -> MeshInstance3D:
 func _draw_marks() -> void:
 	var casual := not intense() and not _presenting and not Nswp.menu_open
 	var floor_y := global_position.y + 0.02
-	_ring.visible = casual and _hover != null and not _pressed
-	if _ring.visible:
+	if _step_spot != null:
+		# In a headset: where the hand that is choosing a step points. Small until a step may be taken.
+		var spot: Vector3 = _step_spot
+		_ring.visible = true
+		_ring.global_position = spot + Vector3(0.0, 0.02, 0.0)
+		_ring.scale = Vector3.ONE * (1.0 if _step_ready else 0.55)
+	else:
+		_ring.scale = Vector3.ONE
+		_ring.visible = casual and _hover != null and not _pressed
+	if _ring.visible and _step_spot == null:
 		var ring_at: Vector2 = _hover
 		_ring.global_position = Vector3(ring_at.x, floor_y, ring_at.y)
 	_dot.visible = casual and not _path.is_empty()
@@ -519,6 +629,10 @@ func _physics_process(delta: float) -> void:
 	if intense() and not Nswp.menu_open:
 		_point(_under(get_viewport().get_visible_rect().size / 2.0))
 
+	# In a headset the hands move them: the kit says what they mean, and a smooth walk comes back as a wish.
+	if _presenting or _pretend != null:
+		wish = _hands_frame(delta)
+
 	velocity.x = wish.x
 	velocity.z = wish.z
 	# On the floor they stay on it, unless they have just jumped. In the air they are pulled back down.
@@ -573,6 +687,232 @@ func _show_pointer() -> void:
 
 
 # ------------------------------------------------------------------------ a headset
+
+# ------------------------------------------------------------------------ moving in a headset
+
+## Each controller as it is now, in the shape the kit reads (`Nswp.hands`).
+func _read_hands() -> Array:
+	if _pretend != null:
+		return _pretend as Array
+	var pads: Array = []
+	for i in _hands.size():
+		var hand := _hands[i]
+		if not hand.get_is_active():
+			continue
+		var stick := hand.get_vector2("thumbstick")
+		pads.append({
+			"index": i,
+			"hand": "left" if hand.tracker == &"left_hand" else "right",
+			"stick": [stick.x, stick.y * STICK_FORWARD],
+			"trigger": 1.0 if hand.is_button_pressed("trigger_click") else 0.0,
+			"squeeze": 1.0 if hand.is_button_pressed("grip_click") else 0.0,
+			"primary": hand.is_button_pressed("ax_button"),
+			"secondary": hand.is_button_pressed(MENU_BUTTON),
+			"press": hand.is_button_pressed("thumbstick_click"),
+		})
+	return pads
+
+
+## Where the visitor's head is, and the way it faces along the floor.
+func _head() -> Vector3:
+	return headset_camera.global_position if _presenting else flat_camera.global_position
+
+
+func _ahead() -> Vector3:
+	var eyes: Node3D = headset_camera if _presenting else flat_camera
+	var ahead := -eyes.global_transform.basis.z
+	ahead.y = 0.0
+	return ahead.normalized() if ahead.length() > 0.001 else -global_transform.basis.z
+
+
+## Where a hand is, and the way it points. A test's made-up hand says both.
+func _hand_ray(slot: int, pads: Array) -> Array:
+	for pad: Variant in pads:
+		if typeof(pad) == TYPE_DICTIONARY and int(pad.get("index", -1)) == slot and pad.has("from") and pad.has("towards"):
+			var from: Array = pad.from
+			var towards: Array = pad.towards
+			return [Vector3(from[0], from[1], from[2]), Vector3(towards[0], towards[1], towards[2]).normalized()]
+	if slot < 0 or slot >= _hands.size():
+		return []
+	var hand := _hands[slot]
+	return [hand.global_position, -hand.global_transform.basis.z]
+
+
+## What a hand points at: a physics hit, or nothing.
+func _hand_hit(slot: int, pads: Array) -> Dictionary:
+	var ray := _hand_ray(slot, pads)
+	if ray.is_empty():
+		return {}
+	var from: Vector3 = ray[0]
+	var towards: Vector3 = ray[1]
+	var query := PhysicsRayQueryParameters3D.create(from, from + towards * 30.0)
+	query.collide_with_areas = true
+	query.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(query)
+
+
+## Where a step from this hand would land, or null: on something they could stand on, no
+## further than one step reaches, with room for a body there and nothing between.
+func _step_from(slot: int, pads: Array) -> Variant:
+	var hit := _hand_hit(slot, pads)
+	if hit.is_empty() or hit.collider is NswpPortal or hit.normal.y < 0.6:
+		return null
+	var head := _head()
+	var spot: Vector3 = hit.position
+	var away := Vector2(spot.x - head.x, spot.z - head.z)
+	if away.length() < 0.3:
+		return null
+	var most := float(Nswp.kit.get("stepReach", 5.0))
+	var space := get_world_3d().direct_space_state
+	if away.length() > most:
+		# Further than a step reaches: as far that way as one goes, on whatever floor is there.
+		away = away.normalized() * most
+		var above := Vector3(head.x + away.x, head.y + 0.5, head.z + away.y)
+		var down := PhysicsRayQueryParameters3D.create(above, above + Vector3.DOWN * 6.0)
+		down.exclude = [get_rid()]
+		var under := space.intersect_ray(down)
+		if under.is_empty() or under.normal.y < 0.6:
+			return null
+		spot = under.position
+	# Nothing between their head and where it would be.
+	var sight := PhysicsRayQueryParameters3D.create(head, Vector3(spot.x, head.y, spot.z))
+	sight.exclude = [get_rid()]
+	if not space.intersect_ray(sight).is_empty():
+		return null
+	# Room for a body there: the body goes where the head's place on the floor is.
+	var body := global_position + Vector3(spot.x - head.x, spot.y - global_position.y, spot.z - head.z)
+	if test_move(Transform3D(global_transform.basis, body + Vector3(0.0, 0.05, 0.0)), Vector3.ZERO):
+		return null
+	return spot
+
+
+## Turn on the spot, about the head: the head stays where it is.
+func _turn_about_head(degrees: float) -> void:
+	var angle := deg_to_rad(degrees)
+	var head := _head()
+	var pivot := Vector3(head.x, global_position.y, head.z)
+	global_position = pivot + (global_position - pivot).rotated(Vector3.UP, angle)
+	rotate_y(angle)
+
+
+## A jump the kit makes: a step, a step back. Faded for someone who fades: made once the view
+## is dark, and the view then comes back. Otherwise made now.
+func _jump_to(made: Callable, fade: bool) -> void:
+	if not fade or not _presenting:
+		made.call()
+		return
+	_jumps.append(made)
+	# Coming back in from one already: it goes dark again from where it is.
+	_fading = 1
+
+
+func _tend_shade(delta: float) -> void:
+	var each := maxf(float(Nswp.kit.get("fadeSeconds", 0.12)), 0.01)
+	if _fading == 1:
+		_dark = minf(1.0, _dark + delta / each)
+		if _dark >= 1.0:
+			for made in _jumps:
+				made.call()
+			_jumps.clear()
+			_fading = 2
+	elif _fading == 2:
+		_dark = maxf(0.0, _dark - delta / each)
+		if _dark <= 0.0:
+			_fading = 0
+	_shade_paint.set_shader_parameter("dark", _dark)
+	_shade_paint.set_shader_parameter("narrow", _narrow * 0.85)
+	_shade.visible = _presenting and (_dark > 0.0 or _narrow > 0.01)
+
+
+## One frame of a headset session: read the hands, ask the kit what they mean, and do it.
+## Comes back with how they wish to walk this frame, smoothly, as a speed along the floor.
+func _hands_frame(delta: float) -> Vector3:
+	var pads := _read_hands()
+	var meant := Nswp.hands(pads, delta, _stepped)
+	_stepped = 0.0
+	_meant = meant
+	_step_spot = null
+	if meant.is_empty():
+		_tend_shade(delta)
+		return Vector3.ZERO
+	var fade := bool(meant.get("fade", true))
+	_step_ready = bool(meant.get("mayStep", true))
+	var turn := float(meant.get("turn", 0.0))
+	if turn != 0.0:
+		_turn_about_head(turn)
+	var wish := Vector3.ZERO
+	var walk: Array = meant.get("walk", [0.0, 0.0])
+	var across := float(walk[0])
+	var along := float(walk[1])
+	if across != 0.0 or along != 0.0:
+		var ahead := _ahead()
+		var by := ahead * along + ahead.cross(Vector3.UP) * across
+		if bool(meant.get("stepping", true)):
+			# One step, landing at once: a jump. It stops at whatever is in the way.
+			var back := func() -> void:
+				move_and_collide(by)
+			_jump_to(back, fade)
+		else:
+			wish = by / maxf(delta, 0.001)
+	# A hand choosing where to step: a ring where it points.
+	var aiming: Array = meant.get("aiming", [])
+	if not aiming.is_empty():
+		_step_spot = _step_from(int(aiming[0]), pads)
+	# A hand that let go: the step, where one may be taken.
+	for slot: Variant in meant.get("stepFrom", []):
+		var spot: Variant = _step_from(int(slot), pads)
+		if spot == null or not _step_ready:
+			continue
+		var to: Vector3 = spot
+		var head := _head()
+		_stepped = Vector2(to.x - head.x, to.z - head.z).length()
+		_step_ready = false
+		var body := global_position + Vector3(to.x - head.x, to.y - global_position.y, to.z - head.z)
+		var went := _stepped
+		var land := func() -> void:
+			global_position = body
+			velocity = Vector3.ZERO
+			# Heard as the kit hears any move of that length: a long way at once lands.
+			Nswp.moved(went)
+		_jump_to(land, fade)
+	# Close in fast and open slowly: it is the closing that helps.
+	var narrow := float(meant.get("narrow", 0.0))
+	_narrow += (narrow - _narrow) * minf(1.0, delta * (12.0 if narrow > _narrow else 3.0))
+	_tend_shade(delta)
+	# Doors: a hand pointed at one within reach lights it, and its trigger goes through. Walking
+	# the intense way, a doorway is walked into, as at a desk.
+	var pointed: Object = null
+	for pad: Variant in pads:
+		if typeof(pad) != TYPE_DICTIONARY:
+			continue
+		var slot := int(pad.get("index", 0))
+		var hit := _hand_hit(slot, pads)
+		var what: Object = null if hit.is_empty() else hit.collider
+		if what is NswpPortal and _in_reach(what as Node3D):
+			pointed = what
+			var pressed := float(pad.get("trigger", 0.0)) > 0.5
+			if pressed and not _trigger_was[clampi(slot, 0, 1)] and not bool(meant.get("intense", false)):
+				(what as NswpPortal).enter()
+		_trigger_was[clampi(slot, 0, 1)] = float(pad.get("trigger", 0.0)) > 0.5
+	_point(pointed)
+	# The hands, where they are; and a line from the one choosing a step.
+	for i in _hand_marks.size():
+		_hand_marks[i].visible = _presenting and _hands[i].get_is_active()
+		_hand_lines[i].visible = _hand_marks[i].visible and aiming.has(float(i))
+	return wish
+
+
+## For tests, on a flat page: move as if in a headset, with hands the test makes up, in place
+## of controllers. Each is as `Nswp.hands` takes it, and may say where it is and the way it
+## points (`from`, `towards`, three numbers each). An empty list ends it.
+func pretend_hands(pads: Array) -> void:
+	_pretend = null if pads.is_empty() else pads
+
+
+## What the kit last said the hands mean, and what was done about it. For tests.
+func hands_report() -> Dictionary:
+	return {"meant": _meant, "spot": null if _step_spot == null else [snappedf((_step_spot as Vector3).x, 0.01), snappedf((_step_spot as Vector3).z, 0.01)], "ready": _step_ready, "dark": snappedf(_dark, 0.01), "narrow": snappedf(_narrow, 0.01), "shade": _shade.visible, "pretending": _pretend != null}
+
 
 func _setup_headset() -> void:
 	_xr = XRServer.find_interface("WebXR")
@@ -633,6 +973,19 @@ func _on_session_started() -> void:
 
 func _on_session_ended() -> void:
 	_presenting = false
+	# Out of the headset: a jump waiting for the dark is made now, and nothing stays dark.
+	for made in _jumps:
+		made.call()
+	_jumps.clear()
+	_fading = 0
+	_dark = 0.0
+	_narrow = 0.0
+	_step_spot = null
+	_shade.visible = false
+	for mark in _hand_marks:
+		mark.visible = false
+	for line in _hand_lines:
+		line.visible = false
 	get_viewport().use_xr = false
 	flat_camera.current = true
 	Nswp.headset(true, false)

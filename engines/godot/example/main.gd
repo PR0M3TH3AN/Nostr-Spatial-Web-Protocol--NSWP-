@@ -284,4 +284,17 @@ func _report() -> void:
 		"info": Nswp.people_info(),
 		"gate": Nswp.gate_now,
 		"veil": _veil.visible,
+		"gate_at": [snappedf(_gate.global_position.x, 0.01), snappedf(_gate.global_position.y, 0.01), snappedf(_gate.global_position.z, 0.01)],
+		"hands": _visitor.hands_report(),
 	})
+	# Hands a test makes up, in place of a headset's controllers, so that moving in a headset can be
+	# tried on a flat page: `window.nswpPretendHands`, as JSON, each as `Nswp.hands` takes it and
+	# saying where it is and the way it points. "[]" ends it. Taken only when it changes.
+	var pretend := str(window.nswpPretendHands)
+	if pretend != _pretended:
+		_pretended = pretend
+		var hands: Variant = JSON.parse_string(pretend)
+		_visitor.pretend_hands(hands if typeof(hands) == TYPE_ARRAY else [])
+
+
+var _pretended := "null"

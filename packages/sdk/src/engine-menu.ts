@@ -36,6 +36,8 @@ import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
 import { addDeskControls, lookScale, visitorFov } from "./desk.js";
+import { BACK_STEP, FADE_S, STEP_REACH } from "./actions.js";
+import { handsPresenting, meetHands } from "./engine-hands.js";
 import { reportSettings } from "./settings.js";
 import { enginePresence } from "./engine-presence.js";
 import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldPeople, worldSaves } from "./ui/identity.js";
@@ -133,6 +135,11 @@ export function kit(): string {
     doubleTap: DOUBLE_TAP,
     pathMost: PATH_MOST,
     faceRate: FACE_RATE,
+    // In a headset: how long the view takes to go dark for a jump the kit makes, and as long again to come back; how
+    // far one step reaches; how far a step back goes. Whether this visitor fades at all is in what `hands()` answers.
+    fadeSeconds: FADE_S,
+    stepReach: STEP_REACH,
+    backStep: BACK_STEP,
     jumpHeight: JUMP_HEIGHT,
     jumpGravity: JUMP_GRAVITY,
     gateWidth: PORTAL_WIDTH,
@@ -383,6 +390,9 @@ export function menu(options?: string): string {
   );
   // How fast the view turns and how wide they see: the engine reads both from `kit()` when a `changed` event comes.
   addDeskControls(c, { presenting: () => vr.presenting });
+  // How they move in a headset: the same rows in Moving as every world's, and the one question the first time. What
+  // the hands then mean is asked each frame (`hands()`), so an engine decides nothing of it.
+  meetHands(c, context?.moving === "intense" && !!context?.immersive);
   document.addEventListener("fullscreenchange", () => c.setTarget(""));
   c.addSection({
     id: "help",
@@ -596,6 +606,7 @@ export function headset(state: string): void {
   const s = read(state);
   vr.supported = s.supported === true;
   vr.presenting = s.presenting === true;
+  handsPresenting(vr.presenting);
   hud?.setHidden(vr.presenting);
   controls?.setTarget("");
   const put = () => {

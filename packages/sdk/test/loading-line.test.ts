@@ -63,6 +63,6 @@ describe("the engine script's loading, once the visitor is in", () => {
     engine.loading(0.9);
     engine.loading(1);
     expect(line).toHaveBeenLastCalledWith(null);
-    expect(engine.VERSION).toBe(17);
+    expect(engine.VERSION).toBe(18);
   });
 });

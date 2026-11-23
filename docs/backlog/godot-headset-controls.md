@@ -9,7 +9,8 @@
   (f74cb9a, NSWP 419): a controller's menu button, B or Y, leaves VR, with the
   page's menu and Home. It has not been seen working in a headset: a made-up one
   can't start a session in Godot, so it is the owner's to press on the Quest.
-  Not live. **Next:** moving, then the console. The owner is right: confirmed in the code and already
+  Not live. **Moving is built** (the NSWP builder, 2026-11-23): tried on a flat
+  page with made-up hands, not in a headset. **Next:** the console. The owner is right: confirmed in the code and already
   noted in `docs/plans/seated-mode.md` ("The Godot visitor
   (`nswp_visitor.gd`) has no controller movement in a headset at all: it
   shows the view and nothing moves it"). Next for the builder once the

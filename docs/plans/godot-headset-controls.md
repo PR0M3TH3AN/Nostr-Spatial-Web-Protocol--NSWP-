@@ -150,6 +150,51 @@ If B or Y does nothing, say so: it means the Quest's browser names that
 button to Godot otherwise than Godot's own web export does, and I need the
 name it gives.
 
+## Moving, built second (2026-11-23)
+
+**What is built:** `NSWP.hands` in the engine script (version 18), with the
+kit's own `Locomotion` answering and the same Moving rows in an engine
+world's menu as in every world; and in the add-on's visitor, the two hands
+read each frame, notch turns about the head, a step to where a hand points
+with the fade, a step back, walking and turning smoothly, the edge darkened
+while walking for someone who chose that, a ring on the floor while a hand
+is choosing, and a door lit by a hand and gone through at the trigger.
+
+**How it was tried, since no scripted browser can be in a headset in a
+Godot world:** on the flat page, with hands the trial makes up
+(`trials/godot-hands.mjs`, 26 checks). The example is told where each stick
+is, where the hand is and the way it points; from there on it is the same
+code as in a headset. Shown: a notch each flick and back again; the ring two
+metres ahead where the hand points; the step on letting go; no ring and no
+step when pointing at the sky or level; a step back of a metre, once; a ring
+no further than a step reaches, the step there, a second at once refused and
+a moment later taken; a door lit from within reach; and, the intense way, a
+walk ahead at about a brisk walk and a smooth turn.
+
+**Not shown, and the owner's to try:** a real controller's names for its
+stick and buttons, which way a real stick reads as forward, the fade (made
+only in a session), the hands and the line drawn, the edge darkening, and
+how any of it feels.
+
+**For the owner, on the Quest 3S, once The Foundry with this add-on is where
+the headset can open it.** The six presses of the stopgap, above, and then:
+
+| Do this | It should |
+|---|---|
+| In VR, look at your hands | Show a small ball where each controller is |
+| Push the **left** stick forward and hold it, pointing that hand at the floor a few steps away | Show a ring on the floor where you point, and a thin line from your hand |
+| Let the stick go | Fade to black and back in a blink, and you are standing on the ring |
+| Do it again, pointing at a wall, at the sky, or past the edge of the floor | Show no ring, and not move you |
+| Pull the left stick back | Fade, and step you back about a metre |
+| Flick the **right** stick right, then left | Turn you a notch each time, to that side |
+| Point a hand at the door from close by | Light the door. Press the trigger: you go through, to your Airlock |
+| Leave VR (B), open the menu, Moving, and press "In a headset: casual" so it says intense. "Enter VR" again | Walk smoothly ahead with the left stick, turn smoothly with the right, and stop at walls |
+
+**If pushing the stick forward steps you back, or nothing happens when you
+push it:** say which. The first is one number in the add-on
+(`STICK_FORWARD`); the second means the Quest's browser names the stick to
+Godot otherwise than its web export does.
+
 ## How it will be checked, and what can't be
 
 - **By me:** unit tests of `NSWP.hands()` against the kit's own `Locomotion`, so
