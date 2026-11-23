@@ -7,6 +7,13 @@
  *
  * The menu is given a world's port and nothing else of the world. A world's own build loads this as a file of its
  * own, so that a world whose client draws the menu need never fetch it.
+ *
+ *   import { mountMenu, portBelow } from "nswp-sdk/menu";
+ *   const below = portBelow(frame, { controls });  // a client above a framed world: its own controls, and the
+ *   below.attach(mountMenu(below.port));           // world's tabs laid in among them, by words between the pages
+ *
+ * The world's end of that is not here: `nswp-sdk/menu-above` is small, and is what a world loads in the menu's place.
  */
 export { mountMenu, type Hud as Menu } from "./ui/hud.js";
 export { portHere, type WorldPort } from "./ui/port.js";
+export { mergeView, portBelow, type MenuBelow, type MenuBelowOptions } from "./ui/port-below.js";
