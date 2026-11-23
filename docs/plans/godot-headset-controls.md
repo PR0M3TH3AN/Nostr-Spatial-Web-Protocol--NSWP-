@@ -118,13 +118,46 @@ a trigger presses it (`NSWP.run`, as now).
 2. **The console in a headset** (one pull request, after the first is tried):
    the engine script's drawing handed over, the quad, the pointer.
 
+## The stopgap, built first (2026-11-23)
+
+**What it is:** in a session, B on the right hand or Y on the left leaves VR,
+and the page's menu comes up with Home on it. That is the button every world's
+console comes up on, so when the console is drawn here it takes the same
+button and this stops being a way out.
+
+**What a made-up headset could not show.** Godot starts a session only where
+the browser has WebXR Layers. The made-up headset the other trials use (iwer
+2.8.0) has none: its session starts, and Godot refuses it by name. So no
+scripted browser here can be in a headset in a Godot world, and **the button
+has not been seen to work.** What was checked: the script's own text (two
+hands, Godot's name for that button, what the press does), that the example
+exports and still comes up, and that it asks the headset for a session
+(`trials/godot-leave-vr.mjs`).
+
+**For the owner, on the Quest 3S, once The Foundry with this add-on is where
+the headset can open it.** Six presses:
+
+| Do this | It should |
+|---|---|
+| Open The Foundry, open the menu, press "Enter VR" | Put you in the world in the headset. No hands are drawn yet |
+| Press A, then X, then each trigger and each grip, and push each stick | Do nothing at all. You stay in VR |
+| Press **B** (the upper round button on the right controller) | End VR. You see the browser's flat page with The Foundry's menu open, Home in it, and the words "You left VR. Home is in this menu." |
+| Press "Enter VR" again | Put you back in |
+| Press **Y** (the upper round button on the left controller) | End VR, the same |
+| Press Home | Take you home |
+
+If B or Y does nothing, say so: it means the Quest's browser names that
+button to Godot otherwise than Godot's own web export does, and I need the
+name it gives.
+
 ## How it will be checked, and what can't be
 
 - **By me:** unit tests of `NSWP.hands()` against the kit's own `Locomotion`, so
   the engine script and a Three.js world give the same answer to the same
-  controllers. `npm run build:godot` exports the example. Whether a made-up
-  headset can drive Godot's WebXR in a scripted browser is not known; I try it
-  first, and say.
+  controllers. `npm run build:godot` exports the example. A made-up headset
+  can't drive Godot's WebXR in a scripted browser (tried on 2026-11-23: Godot
+  needs WebXR Layers, which the emulator lacks), so nothing in a Godot session
+  can be shown by a trial here.
 - **Not by me:** anything held in a real hand. A made-up headset has no
   controllers to hold.
 

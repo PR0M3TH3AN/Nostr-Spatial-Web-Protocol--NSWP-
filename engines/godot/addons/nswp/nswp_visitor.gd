@@ -21,7 +21,10 @@ extends CharacterBody3D
 ## is walked into. From further off a door does nothing, so nobody leaves by a stray click.
 ##
 ## It carries two cameras: an ordinary one, and an `XRCamera3D` for a headset, which it
-## starts when the visitor asks for it in the menu.
+## starts when the visitor asks for it in the menu. In a session the button every world's
+## console comes up on (B on the right hand, Y on the left) leaves it, with the page's menu
+## up and Home on it: moving about in a headset, and the console there, are not in this
+## add-on yet, and until they are that button is the way out.
 ##
 ## It is a default. Anything that is in the group `visitor` and tells `Nswp.moved()` how far
 ## it walked will do as well.
@@ -81,6 +84,12 @@ var _was_on_floor: bool = true
 var _aimed: Object = null
 var _xr: XRInterface = null
 var _presenting: bool = false
+## The visitor's two hands in a headset.
+var _hands: Array[XRController3D] = []
+
+## The button under the thumb that the console comes up on in every world: B on the right
+## hand, Y on the left (the kit's `Intent.menu`), by the name Godot gives it.
+const MENU_BUTTON := "by_button"
 
 
 func _init() -> void:
@@ -100,6 +109,12 @@ func _init() -> void:
 	origin.name = "Headset"
 	headset_camera = XRCamera3D.new()
 	origin.add_child(headset_camera)
+	for tracker in ["left_hand", "right_hand"]:
+		var hand := XRController3D.new()
+		hand.name = "LeftHand" if tracker == "left_hand" else "RightHand"
+		hand.tracker = tracker
+		origin.add_child(hand)
+		_hands.append(hand)
 	add_child(origin)
 
 
@@ -568,7 +583,21 @@ func _setup_headset() -> void:
 	_xr.session_ended.connect(_on_session_ended)
 	_xr.session_failed.connect(_on_session_failed)
 	Nswp.vr_pressed.connect(_on_vr_pressed)
+	for hand in _hands:
+		hand.button_pressed.connect(_on_hand_button)
 	_xr.is_session_supported("immersive-vr")
+
+
+## A button on either hand went down. The menu button leaves the session and brings the
+## page's menu up, with Home on it. In a session nothing of the page can be seen, and this
+## add-on draws no console there yet (docs/plans/godot-headset-controls.md): before this, the
+## only way out of a headset here was to take it off.
+func _on_hand_button(button: String) -> void:
+	if button != MENU_BUTTON or not _presenting:
+		return
+	_on_vr_pressed(false)
+	Nswp.open_console(true)
+	Nswp.say("You left VR. Home is in this menu.")
 
 
 func _on_session_supported(mode: String, supported: bool) -> void:

@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A way out of a headset in a Godot world** (the Godot add-on's `nswp_visitor.gd`; `trials/godot-leave-vr.mjs`, new; `docs/plans/godot-headset-controls.md`). A fault that is live in The Foundry: in a headset a visitor there can't move, can't open the console and can't go home, so the only way out was to take the headset off. This is the stopgap; moving and the console follow.
+  - **The menu button leaves the session:** B on the right hand, Y on the left, the button every world's console comes up on (the kit's `Intent.menu`). The page's menu comes up with Home on it, and says "You left VR. Home is in this menu."
+  - The visitor node now has two hands (`XRController3D`), which it had none of. They are not drawn yet, and nothing else is read from them.
+  - A world made with the add-on gets it by updating the add-on. The engine script is not changed, and nor is its version.
+  - **Not shown working, and said so:** a made-up headset can't start a session in Godot, which needs WebXR Layers that the emulator (iwer 2.8.0) doesn't have. The trial shows the example still comes up, is offered "Enter VR" and asks the headset for a session, then says what it could not show. A test checks the script's own text: two hands, Godot's name for that button, and what the press does. The button itself is the owner's to press on a Quest; the steps are in the plan.
+
 - **A client's page can run the Bag, and draw the menu, without loading the renderer** (SDK `bag-entry.ts`, `hold.ts`, `file-store.ts`, `bag-pictures.ts`, all new; `bagging.ts`, `play.ts`, `library.ts`, `sound.ts`, `menu.ts`, `three.ts`; `trials/stand-in-client/main.ts`). Found by BitPortal building its shell on kit 0.84.0. The engine script is rebuilt; its version is not changed.
   - **A new entry, `nswp-sdk/bag`:** `createBag`, `addBagControls`, `mayHold`, `scriptAllowed` (and `allowScript`, `itemIn`), with no Three.js anywhere it reaches. Before, the Bag's parts could be had only from `nswp-sdk/three`. It is 177 KB, 62 KB as brotli, of which 101 KB is the list of public suffixes the kit shows a site's name by.
   - `mayHold`, `scriptAllowed` and `allowScript` are moved word for word out of `play.ts`, which draws, into `hold.ts`, which doesn't. `play.ts` and `nswp-sdk/three` hand them on as before.

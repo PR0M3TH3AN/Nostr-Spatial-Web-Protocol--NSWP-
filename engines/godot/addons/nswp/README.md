@@ -134,7 +134,11 @@ func _ready() -> void:
   in the menu, and `NswpVisitor.headset_failed` says why.
 
   In a session the visitor stands where they are: moving about in a headset
-  isn't in this addon yet.
+  isn't in this addon yet. **The way out is the menu button:** B on the right
+  hand or Y on the left, the button every world's console comes up on. It ends
+  the session and brings the page's menu up, with Home on it. Until the console
+  is drawn in a headset here, that is how a visitor leaves without taking the
+  headset off.
 - **The form they are in.** `Nswp.arrival.form` is `"touch"` or `"desk"`:
   how they were using the last world, where this device can do the same.
   Lay your own interface out by it. It goes on with them through a door.
@@ -373,7 +377,7 @@ screen, a real purchase.
 - **A screen someone shares** in a room: it is watched on one of the kit's
   panels, and there are none of those here yet.
 - **Moving in a headset**, and the menu there. The page's menu can't be seen
-  in a session.
+  in a session, so the menu button (B or Y) leaves the session to reach it.
 - **The view through a door** of where it leads: a doorway here shows its
   field of light.
 - **A room of its own shape to cross in.** The crossing's room is there, at
