@@ -53,6 +53,12 @@ export interface Hud {
   bounds(): { x: number; y: number; width: number; height: number }[];
   /** Hide it all (in a headset session, where the page can't be seen anyway) or show it again. */
   setHidden(hidden: boolean): void;
+  /**
+   * Do what one of the visitor's few keys does, by its name: "summon", "escape", "menu" or a digit "1" to "9". For a
+   * client's menu, drawn above a framed world: while the world has the keyboard this page hears no key, and the
+   * world says the key's name (protocol/02-doors.md, "The client has the menu").
+   */
+  pressKey(key: string): void;
   remove(): void;
 }
 
@@ -1266,6 +1272,25 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
     controls.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
   });
 
+  /** One of the visitor's few keys, by name, said by a framed world that heard it. */
+  const pressKey = (key: string): void => {
+    if (host.hidden) return;
+    if (key === "summon") return setOpen(!open);
+    if (key === "escape") {
+      const does = escapeDoes({ menuOpen: open, held: escapeHeld() });
+      if (does === "close-menu") return setOpen(false);
+      if (does === "open-menu") return setOpen(true);
+      if (does === "leave-fullscreen") return void leaveFullscreen();
+      return;
+    }
+    const view = controls.view();
+    if (key === "menu") return void (view.keys.menu && view.presence !== "hidden" && setOpen(!open));
+    if (!/^[1-9]$/.test(key) || !view.keys.hotbar || view.presence !== "full") return;
+    const item = view.hotbar.find((i) => i.key === key);
+    if (item) return void press(item);
+    const pin = view.pins.find((p) => p.key && p.key === key);
+    if (pin) openPin(pin.id);
+  };
   const onKey = (e: KeyboardEvent) => {
     if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
     const at = e.composedPath()[0] as HTMLElement | undefined;
@@ -1406,6 +1431,7 @@ export function mountMenu(port: WorldPort, opts: { parent?: HTMLElement } = {}):
       // page that moves its picture clear of what is covered would move it every time something was pointed at.
       return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
     },
+    pressKey,
     setHidden(hidden) {
       host.hidden = hidden;
       if (hidden) {
