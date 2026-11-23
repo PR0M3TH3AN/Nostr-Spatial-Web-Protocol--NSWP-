@@ -665,6 +665,17 @@ closes it. The mark stays a named control for a screen reader.
 **With a held pointer** (point 8) no press reaches the shell at all, so this table is
 not reached: the world lets the pointer go at `open: true`.
 
+**How these are tried.** With real presses and real keys, at places on the screen, in
+the page that should get them: never a scripted call into a page, and never a tool
+finding a button and clicking it. Either counts in that page as the visitor's own
+press, so a trial of who has the keys, or of what needs a press, passes wrongly
+(`docs/plans/the-clients-menu-presses.md`).
+
+**Not a fix for anything here:** the frame's `allow` never gains `clipboard-read`. A
+framed world can't read the clipboard today, and must not: it would read the
+visitor's clipboard under the client's name. What a visitor pastes goes into the
+menu's own `field` row, in the client's page.
+
 **Done, for this point, when a trial shows:**
 
 1. With a key for walking held in a world, a press on a bar key acts, and the world
