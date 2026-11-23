@@ -22,7 +22,7 @@
  */
 import * as THREE from "three";
 import { createBag } from "./bag.js";
-import { addBagControls } from "./bagging.js";
+import { addBagControls } from "./bag-pictures.js";
 import { engineParts } from "./engine-menu.js";
 import { enginePresence, engineAllowsItems, engineItemStore, onEnginePresence } from "./engine-presence.js";
 import { addFramePart, addFrameStart, base64, engineWorld, num, read, three, type EngineWorld } from "./engine-world.js";

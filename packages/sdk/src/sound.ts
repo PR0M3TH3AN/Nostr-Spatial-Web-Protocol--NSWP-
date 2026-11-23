@@ -26,7 +26,7 @@
  * Browsers hold all sound back until the visitor touches the page, so
  * nothing here is heard before their first tap or key.
  */
-import { fileStore } from "./library.js";
+import { fileStore } from "./file-store.js";
 import {
   ambiencePlan,
   CUES,

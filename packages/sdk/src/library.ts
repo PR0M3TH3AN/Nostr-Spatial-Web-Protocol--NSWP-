@@ -11,30 +11,10 @@
  * Nothing in it is sent anywhere. It is kept for this site, in this browser.
  */
 import * as THREE from "three";
+import { fileStore } from "./file-store.js";
 import { cleanLibrary, LIBRARY_LIMITS, libraryPage, newId, PANEL_LIMITS, type LibraryItem } from "./panel-store.js";
 
-const DB = "nswp-panels";
-function files(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const open = indexedDB.open(DB, 1);
-    open.onupgradeneeded = () => open.result.createObjectStore("files");
-    open.onsuccess = () => resolve(open.result);
-    open.onerror = () => reject(open.error);
-  });
-}
-/** Do one thing to the kept files. Returns undefined where this browser keeps nothing. */
-export async function fileStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T | undefined> {
-  try {
-    const db = await files();
-    return await new Promise<T>((resolve, reject) => {
-      const request = run(db.transaction("files", mode).objectStore("files"));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return undefined;
-  }
-}
+export { fileStore };
 
 /** A small picture of a file, to recognise it by. "" when none can be made. */
 async function thumbnail(file: Blob, kind: "picture" | "video"): Promise<string> {

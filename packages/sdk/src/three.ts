@@ -337,7 +337,9 @@ export { createScores, type ScoreHand, type Scores, type ScoresOptions } from ".
 export { addScoreControls, type Scoring, type ScoringOptions } from "./scoring.js";
 export { createItems, fitToSize, ITEM_BUDGET, onItemsChange, setShowsItems, showsItems, withinBudget, type Items, type ItemsOptions } from "./items.js";
 export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } from "./bag.js";
-export { addBagControls, itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
+export { itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
+// The Bag with each thing drawn as itself: this entry has the renderer. Without one, `nswp-sdk/bag`.
+export { addBagControls } from "./bag-pictures.js";
 export { allowScript, createPlay, mayHold, paintHealth, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson, type PlaySnapshot } from "./play.js";
 export { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
 export { addItemControls, TAP_MS, type ItemControls, type ItemControlsOptions } from "./item-controls.js";

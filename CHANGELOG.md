@@ -4,6 +4,18 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A client's page can run the Bag, and draw the menu, without loading the renderer** (SDK `bag-entry.ts`, `hold.ts`, `file-store.ts`, `bag-pictures.ts`, all new; `bagging.ts`, `play.ts`, `library.ts`, `sound.ts`, `menu.ts`, `three.ts`; `trials/stand-in-client/main.ts`). Found by BitPortal building its shell on kit 0.84.0. The engine script is rebuilt; its version is not changed.
+  - **A new entry, `nswp-sdk/bag`:** `createBag`, `addBagControls`, `mayHold`, `scriptAllowed` (and `allowScript`, `itemIn`), with no Three.js anywhere it reaches. Before, the Bag's parts could be had only from `nswp-sdk/three`. It is 177 KB, 62 KB as brotli, of which 101 KB is the list of public suffixes the kit shows a site's name by.
+  - `mayHold`, `scriptAllowed` and `allowScript` are moved word for word out of `play.ts`, which draws, into `hold.ts`, which doesn't. `play.ts` and `nswp-sdk/three` hand them on as before.
+  - **The Bag's own code no longer loads the renderer.** Drawing a thing from its model needs one, so that is now done by `addBagControls` as `nswp-sdk/three` hands it on (`bag-pictures.ts`): a world gets each thing drawn as itself exactly as before. From `nswp-sdk/bag` the things are shown by their first letters unless the page passes `previews` of its own.
+  - **`nswp-sdk/menu` named the renderer** through one small function: `sound.ts` took `fileStore` from `library.ts`, which draws. A page that loads the kit's files as they are loaded all of Three.js to keep a song. `fileStore` is moved word for word into `file-store.ts`; `library.ts` hands it on as before. The menu entry is 232 KB, 76 KB as brotli.
+  - **`nswp-sdk/menu` hands on what a client's page needs beside the menu:** `arriveWith`, `currentSettings`, `changeSettings` (to keep a headset's report across a reload of its page), and `watchEscape`, `fullscreenAction` (to hold Escape while its page fills the screen).
+  - **The stand-in client loads the kit only by its entries,** never by a path into it. It reached four things by path, which is how a real client came to find they could be had from no entry. It is now 267 KB (87 KB as brotli) where it was 804 KB with the renderer in it.
+  - **A test keeps it so** (`packages/sdk/test/entries.test.ts`): for `nswp-sdk`, `/ui`, `/menu`, `/menu-above`, `/bag` and the stand-in client, no file reached imports Three.js, used or not. It checks that it can see one, too: `nswp-sdk/three` does.
+
+## 0.84.0
+
+
 - **Playback controls for a visitor's own music** (SDK `sound.ts`, `sound-store.ts`, `ui/hud.ts`, `ui/model.ts`, `ui/icons.ts`, `console.ts`, `menu-above.ts`, `visitor-switches.ts`; the engine script; `trials/menu-client.mjs`; `docs/backlog/own-music-everywhere.md`, the owner's ask of 2026-11-23). The names are proposed, for the orchestrator to give. The engine script's version is not changed.
   - The jukebox could play, pause and go to the next song. It now also goes to the song before, moves within a song, and says how far in it is and how long the song is.
   - **In Sound, the menu's own rows,** the same in a client's page and in a world's own menu: what is playing with a bar to move along and the time ("1:23 of 3:45"), "Previous song", play and pause, "Next song", "Back 15 seconds" and "Forward 15 seconds", then adding, taking out, and the songs.
