@@ -31,6 +31,16 @@ const browser = await pw.chromium.launch({ channel: "chrome", headless: true });
 try {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: WORLD });
+  const sockets = new Set();
+  // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
+  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
+    sockets.add(new URL(ws.url()).host);
+    ws.onMessage((m) => {
+      let msg;
+      try { msg = JSON.parse(String(m)); } catch { return; }
+      if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+    });
+  });
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
@@ -97,6 +107,7 @@ try {
   await hud.getByRole("button", { name: "Copy the room's key" }).click();
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
+  results["relays asked for, and answered here with nothing"] = [...sockets];
   await ctx.close();
 } finally {
   await browser.close();
@@ -107,4 +118,4 @@ if (fail.length) {
   console.error(`\nFAILED: ${fail.length} of ${Object.keys(results).length}\n- ${fail.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`\nall ${Object.keys(results).length} checks passed`);
+console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed`);

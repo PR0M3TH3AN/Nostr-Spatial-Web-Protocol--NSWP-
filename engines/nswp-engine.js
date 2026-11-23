@@ -52721,6 +52721,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .line svg { flex: none; margin-top: 1px; opacity: .55; }
 .line.on { color: rgb(var(--ink)); }
 .line.on svg { opacity: 1; color: rgb(var(--accent)); }
+/* The chat's pane and nothing else, for a world whose client has the menu. */
+:host(.chat-only) :is(.corner, .id, .menu, .quiet, .as, .full, .says, .sheet, .low) { display: none !important; }
 .row .grow { flex: 1; min-width: 0; }
 /* A row typed into: a box and its button, and under them where what is typed goes. */
 .field { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin: 0; padding: 8px 12px; border-radius: 10px;
@@ -52863,6 +52865,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   function mountMenu(port, opts = {}) {
     const controls2 = port;
     const host = document.createElement("nswp-hud");
+    const chatOnly = opts.only === "chat";
+    if (chatOnly) host.classList.add("chat-only");
     const root = host.attachShadow({ mode: "open" });
     let style = "";
     try {
@@ -53522,6 +53526,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     let cameFrom = null;
     const setOpen = (next, at) => {
+      if (chatOnly) return;
       if (next && at) {
         section = at;
         chose = true;
@@ -53570,7 +53575,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       controls2.say(here.pinned ? `${here.label} is off your bar.` : `${here.label} is on your bar, here and in every world that has it.`);
     });
     const pressKey = (key) => {
-      if (host.hidden) return;
+      if (host.hidden || chatOnly) return;
       if (key === "summon") return setOpen(!open2);
       if (key === "escape") {
         const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
@@ -53591,7 +53596,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
       if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !chatOnly) {
         const does = escapeDoes({ menuOpen: open2, held: escapeHeld() });
         if (does !== "nothing") e.preventDefault();
         if (does === "close-menu") return setOpen(false);
@@ -53599,12 +53604,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (does === "leave-fullscreen") return void leaveFullscreen();
       }
       const view2 = controls2.view();
-      if (view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
+      if (!chatOnly && view2.keys.menu && e.key.toLowerCase() === view2.keys.menu && view2.presence !== "hidden") return setOpen(!open2);
       if (view2.keys.chat && view2.chat.ready && view2.presence !== "hidden" && !open2 && !e.repeat && (e.key.toLowerCase() === view2.keys.chat || e.key === "Enter" && at?.tagName !== "BUTTON" && at?.tagName !== "A")) {
         e.preventDefault();
         return setChatOpen(true);
       }
-      if (!view2.keys.hotbar || view2.presence !== "full") return;
+      if (chatOnly || !view2.keys.hotbar || view2.presence !== "full") return;
       const item = view2.hotbar.find((i) => i.key === e.key);
       if (item) return press(item);
       const pin = view2.pins.find((p) => p.key && p.key === e.key);
@@ -53640,7 +53645,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     addEventListener("keydown", onTabKey, true);
     const onSummonKey = (e) => {
-      if (e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (chatOnly || e.code !== SUMMON_KEY || host.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
       const at = e.composedPath()[0];
       if (at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable)) return;
       e.preventDefault();
@@ -53648,7 +53653,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (!e.repeat) setOpen(!open2);
     };
     const swallow = (e) => {
-      if (e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
+      if (!chatOnly && e.code === SUMMON_KEY && !host.hidden && !e.ctrlKey && !e.metaKey && !e.altKey) e.stopImmediatePropagation();
     };
     const hold = createHoldWatch({
       onHeld: () => {
@@ -53669,6 +53674,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       setTimeout(() => line2.remove(), 4200);
     });
     const stop = controls2.subscribe(draw);
+    const onPageFocus = () => {
+      if (chatState === "open" && !host.hidden && (document.activeElement === document.body || document.activeElement === null)) chatField.focus({ preventScroll: true });
+    };
+    addEventListener("focus", onPageFocus);
     const stopAsking = controls2.onSignal((name) => {
       if (name.startsWith("show:") && !host.hidden) setOpen(true, name.slice(5));
       if (name === "toggle:chat" && !host.hidden) setChatOpen(!(chatState === "open" && dockTab === "room"), "room");
@@ -53722,6 +53731,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         vv?.removeEventListener("scroll", onViewport);
         stop();
         stopAsking();
+        removeEventListener("focus", onPageFocus);
         stopSay();
         removeEventListener("keydown", onKey);
         stopLeft();

@@ -71,6 +71,16 @@ async function visit(mode) {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
   const fetched = [];
   const refused = new Set();
+  const sockets = new Set();
+  // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
+  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
+    sockets.add(new URL(ws.url()).host);
+    ws.onMessage((m) => {
+      let msg;
+      try { msg = JSON.parse(String(m)); } catch { return; }
+      if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+    });
+  });
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
@@ -103,7 +113,7 @@ async function visit(mode) {
     menuAbove: window.__nswpTest?.menuAbove?.() ?? null,
     scale: window.__nswpTest?.controls?.theme?.scale ?? null,
   }));
-  return { ctx, page, world, heard, inWorld, fetchedMenu: fetched.some((p) => /\/chunks\/menu-.*\.js$/.test(p)), refused: [...refused] };
+  return { ctx, page, world, heard, inWorld, fetchedMenu: fetched.some((p) => /\/chunks\/menu-.*\.js$/.test(p)), refused: [...refused], sockets: [...sockets] };
 }
 
 try {
@@ -151,6 +161,7 @@ try {
     check("has/when the client stops, the world's own menu comes up", await until(v.page, () => v.world().evaluate(() => document.querySelectorAll("nswp-hud").length === 1)), null);
     // The Gallery reaches for its sign-in address, as it does anywhere. Refused here, like everything but the two sites.
     results["has/refused, as everything but the two sites is"] = v.refused;
+    results["has/relays asked for, and answered here with nothing"] = v.sockets;
     await v.ctx.close();
   }
 
@@ -179,4 +190,4 @@ if (fail.length) {
   console.error(`\nFAILED: ${fail.length} of ${Object.keys(results).length}\n- ${fail.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`\nall ${Object.keys(results).length - 2} checks passed`);
+console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed`);

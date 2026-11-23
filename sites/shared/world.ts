@@ -219,6 +219,8 @@ type TestHooks = {
   hud?: { readonly open: boolean; setOpen(open: boolean): void };
   /** Whether the page above this one draws the visitor's menu, so that this page draws none. */
   menuAbove?: () => boolean;
+  /** Whether this page is drawing the chat's pane by itself, its client having the rest of the menu. */
+  chatPane?: () => boolean;
   /** Where a named thing is on the page, in pixels, or null if it is behind the visitor. */
   screenOf?: (name: string) => number[] | null;
   /** Where a crossing stands: arriving in the chamber, its doors opening, leaving, or none. */
@@ -370,20 +372,50 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     },
     setHidden(hidden: boolean) {
       own?.setHidden(hidden);
+      chatPane?.setHidden(hidden);
     },
   };
+  // The chat's pane, kept by this world while its client has the menu (docs/plans/the-clients-menu.md, section 15,
+  // "The chat's pane, for steps 1 to 3"): the room's chat, messages and posts are not yet words between the two
+  // pages, so until a client runs them itself they are drawn here, in this frame, and nothing else of the menu is.
+  // It is the menu's own file, mounted to draw that one pane, and fetched only once there is something to write to.
+  let chatPane: Awaited<ReturnType<typeof ownMenu>> | null = null;
+  let chatComing = false;
+  const chatIfNeeded = () => {
+    if (!above.has || own || chatPane || chatComing) return;
+    const now = controls.view();
+    if (!now.chat.ready && !now.feed.ready && !now.letters.ready) return;
+    chatComing = true;
+    void import("nswp-sdk/menu").then(({ mountMenu, portHere }) => {
+      chatComing = false;
+      if (above.has && !own && !chatPane) chatPane = mountMenu(portHere(controls), { only: "chat" });
+    });
+  };
+  controls.subscribe(chatIfNeeded);
+  // One thing at a time over the world: as the chat comes up here, the client's menu is asked to go, which also
+  // gives this frame the keys to write with.
+  controls.onSignal((name) => {
+    if ((name === "chatOpen" || name === "feedOpen") && above.has && above.menu.open) above.menu.setOpen(false);
+  });
   if (!(await above.ready)) own = await ownMenu();
+  else chatIfNeeded();
   // A client that answered late has the menu from then on, and this world's own is put away: one menu, never two.
   above.onChange((has) => {
     if (has) {
       own?.remove();
       own = null;
-    } else if (!own) void ownMenu().then((menu) => (above.has ? menu.remove() : (own = menu)));
+      chatIfNeeded();
+    } else {
+      chatPane?.remove();
+      chatPane = null;
+      if (!own) void ownMenu().then((menu) => (above.has ? menu.remove() : (own = menu)));
+    }
   });
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;
   hooks.menuAbove = () => above.has;
+  hooks.chatPane = () => !!chatPane;
   // The gate of a paid world, where this world is one. None here is: `on` is false in every world.json's reading,
   // so no gate is made and nothing of this runs. What it is entered by is read from the world's own manifest.
   const gate: PaidGate | null = cfg.gate && (cfg.gate.on || (isLocalHost(location.hostname) && window.__nswpTrial?.gate === true)) ? worldGate() : null;
