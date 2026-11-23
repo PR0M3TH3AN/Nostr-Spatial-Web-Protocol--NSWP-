@@ -528,6 +528,14 @@ world never fills, reads or presses the visitor's own tabs (`you`,
 `sound`, `look`, `help`), and is never told what is in them or which is
 open.
 
+**A row that changes one of the visitor's travelling settings is the
+client's own, wherever it stands.** Whether they see people's pictures and
+people's own models, whether they see what people write, how wide they
+see: the client holds these and says them to each world. A world leaves
+such rows out of the tabs it describes, and the client draws them itself
+inside those tabs. A world that changed one itself would leave the
+client, and so the next world, with the old value.
+
 *As built so far:* until a client runs Room's chat, Following and Messages
 itself, it still takes `following` and `messages` from a world, as a
 world draws them today, and the world keeps its chat's pane in its own

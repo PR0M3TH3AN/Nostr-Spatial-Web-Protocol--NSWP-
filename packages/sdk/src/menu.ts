@@ -17,3 +17,8 @@
 export { mountMenu, type Hud as Menu } from "./ui/hud.js";
 export { portHere, type WorldPort } from "./ui/port.js";
 export { mergeView, portBelow, type MenuBelow, type MenuBelowOptions } from "./ui/port-below.js";
+// The visitor's own rows that stand in tabs a world fills. A client adds them to its own controls, and a world
+// leaves them out of what it describes: look speed and how wide they see, and the switches for people's pictures,
+// people's own models and what people write.
+export { addDeskControls } from "./desk.js";
+export { chatSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "./visitor-switches.js";

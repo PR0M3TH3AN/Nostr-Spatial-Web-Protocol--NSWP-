@@ -11,8 +11,9 @@ built: the words, their limits and the reading of them, in the kit's core
 (`packages/core/src/menu.ts`, `vectors/menu-words.json`), and NSWP-02's text. Of
 its second part, both ends of the port are built (`portAbove`, in the reference worlds;
 `portBelow`, in a stand-in client: `trials/menu-client.mjs`) and the menu draws
-rows typed into and rows that copy. Still to come in step 1: the rest of the
-visitor's own tabs in the client, the chat's pane kept by the world, pictures,
+rows typed into and rows that copy. A world that steps aside keeps the chat's
+pane, and the rows that change a travelling setting are the client's own. Still
+to come in step 1: the rest of the visitor's own tabs in the client, pictures,
 "Launch", the engine script, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal

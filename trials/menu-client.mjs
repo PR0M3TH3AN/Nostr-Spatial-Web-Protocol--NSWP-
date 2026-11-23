@@ -51,6 +51,7 @@ try {
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: CLIENT });
   const fetched = [];
   const refused = new Set();
+  const sockets = new Set();
   await ctx.route("**/*", (route) => {
     const url = new URL(route.request().url());
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
@@ -65,6 +66,15 @@ try {
     }
     refused.add(url.origin);
     return route.abort();
+  });
+  // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
+  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
+    sockets.add(new URL(ws.url()).host);
+    ws.onMessage((m) => {
+      let msg;
+      try { msg = JSON.parse(String(m)); } catch { return; }
+      if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+    });
   });
   const page = await ctx.newPage();
   const until = async (ask, ms = 15000) => {
@@ -157,6 +167,22 @@ try {
   await client(() => window.__client.controls.setTheme({ scale: 1.3 }, true));
   check("a setting changed in the client's menu is the world's at once", await until(() => world().evaluate(() => window.__nswpTest.controls.theme.scale === 1.3)));
 
+  // ---- The rows that change a setting the visitor carries are the client's own, inside the tabs the world fills.
+  const SWITCHES = ["people-pictures", "people-models", "room-chat-show", "fov"];
+  const worldSays = await client(() => window.__client.below.world.sections.flatMap((s) => s.rows.map((r) => r.id)));
+  check("the world leaves the visitor's switches out of what it describes", !worldSays.some((id) => SWITCHES.includes(id)), worldSays);
+  const inTabs = await client(() => Object.fromEntries(window.__client.below.port.view().sections.map((s) => [s.id, s.items.map((i) => i.id)])));
+  check("the client draws them itself, first in the world's People and Room", inTabs.people?.[0] === "people-pictures" && inTabs.room?.[0] === "room-chat-show", { people: inTabs.people, room: inTabs.room });
+  results["the client's own rows in the world's tabs"] = Object.fromEntries(Object.entries(inTabs).map(([tab, ids]) => [tab, ids.filter((id) => !id.startsWith("world:"))]).filter(([, ids]) => ids.length));
+  await client(() => window.__client.menu.setOpen(true, "people"));
+  const pictures = hud.getByRole("button", { name: /Profile pictures: on/ });
+  await until(() => pictures.isVisible());
+  await press(pictures);
+  const offInWorld = () => world().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "people")?.items.find((i) => i.id === "people-pictures")?.on === false);
+  check("people's pictures turned off in the client's menu are off in the world at once", await until(offInWorld));
+  check("and the client's row says so", await until(() => hud.getByRole("button", { name: /Profile pictures: off/ }).isVisible()));
+  await page.screenshot({ path: join(SHOTS, "menu-client-4-switches.png") });
+
   // ---- The menu goes: the world is told, and has the keys.
   await page.keyboard.press("Escape");
   check("Escape puts the client's menu away", await until(() => client(() => window.__client.menu.open === false)));
@@ -165,6 +191,38 @@ try {
 
   // ---- Nothing of the visitor's own tabs was ever said down.
   results["refused, as everything but these sites is"] = [...refused];
+  results["relays asked for, and answered here with nothing"] = [...sockets];
+
+  // ---- The chat's pane: the world's own until a client runs chat itself (section 15, "The chat's pane").
+  check("a world with nothing to write to draws nothing at all, and still hasn't fetched the menu", (await world().evaluate(() => document.querySelectorAll("nswp-hud").length)) === 0 && !fetched.some((p) => /\/chunks\/menu-.*\.js$/.test(p)));
+  // A stand-in for joining a room: somewhere to write, and a row of the world's that opens the chat.
+  await world().evaluate(() => {
+    window.__chatSent = [];
+    const c = window.__nswpTest.controls;
+    c.chat.attach((text) => void window.__chatSent.push(text), { title: "Room chat" });
+    c.add({ id: "trial-chat", section: "room", label: "Chat (trial)", act: () => c.signal("toggle:chat") });
+  });
+  check("once there is a room to write to, the world draws the chat's pane itself", await until(() => world().evaluate(() => window.__nswpTest.chatPane() === true && document.querySelectorAll("nswp-hud.chat-only").length === 1)));
+  const shownInWorld = await world().evaluate(() => {
+    const root = document.querySelector("nswp-hud").shadowRoot;
+    return [".low", ".menu", ".quiet", ".sheet", ".id", ".says", ".full"].filter((sel) => { const el = root.querySelector(sel); return el && getComputedStyle(el).display !== "none"; });
+  });
+  check("and nothing else of a menu: no bar, no mark, no sheet", shownInWorld.length === 0, shownInWorld);
+  check("there is still one menu, the client's", (await client(() => document.querySelectorAll("nswp-hud:not(.chat-only)").length)) === 1);
+  // Opened from the row the world described, pressed in the client's menu while it is up.
+  await client(() => window.__client.menu.setOpen(true, "room"));
+  await until(() => hud.getByRole("button", { name: "Chat (trial)" }).isVisible());
+  await press(hud.getByRole("button", { name: "Chat (trial)" }));
+  check("the row the world described opens the chat's pane in the world", await until(() => world().evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".chat")?.getAttribute("data-state") === "open")));
+  check("the client's menu goes as the chat comes up: one thing at a time", await until(() => client(() => window.__client.menu.open === false)));
+  check("and the frame has the keys, to write with", await until(() => client(() => document.activeElement?.tagName === "IFRAME")));
+  await page.waitForTimeout(300);
+  await page.keyboard.type("hello room", { delay: 30 });
+  await page.keyboard.press("Enter");
+  check("what is written in the pane is said by the world, to its room", await until(() => world().evaluate(() => JSON.stringify(window.__chatSent) === JSON.stringify(["hello room"]))), await world().evaluate(() => window.__chatSent));
+  await page.screenshot({ path: join(SHOTS, "menu-client-3-chat.png") });
+  await page.keyboard.press("Escape");
+  check("Escape puts the chat's pane away", await until(() => world().evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".chat")?.getAttribute("data-state") !== "open")));
 
   // ---- A page that doesn't speak the words: the client draws no menu over it, and the Gallery's tabs are gone.
   await client((to) => (document.getElementById("view").src = to), `${PLAIN}/`);
@@ -174,7 +232,9 @@ try {
   // ---- Home as a guarantee: a world that says it speaks the words and then answers nothing.
   await client((to) => (document.getElementById("view").src = to), `${STUCK}/`);
   await until(() => client(() => window.__client.below.speaks === true));
-  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
+  // Its own tabs, and none of a world's: the switches for people's pictures and for chat stand only where a world
+  // fills People and Room.
+  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look", "moving", "view"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
   const saidHome = [];
   await client(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); });
   const startedAt = Date.now();

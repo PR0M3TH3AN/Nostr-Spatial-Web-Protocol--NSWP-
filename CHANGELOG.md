@@ -4,6 +4,19 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The rows that change a setting the visitor carries are the client's own, where a client has the menu** (SDK `packages/sdk/src/visitor-switches.ts`: `picturesSwitch`, `modelsSwitch`, `chatSwitch`, `VISITOR_SWITCHES`; `models-switch.ts`; `menu-above.ts`; from `nswp-sdk/menu`, with `addDeskControls`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes: where a world draws its own menu the rows are where they were, with the same words.
+  - "Profile pictures", "Show people's own models" (People), "Written chat" (Room) and "Field of view" (View) each change a setting the client now holds and says to every world. A world whose client has the menu leaves them out of what it describes, and the client draws them itself inside those tabs. A world that changed one itself would have left the client, and so the next world, with the old value. The first two guard the visitor's privacy.
+  - The three switches are rows a client can add without carrying anything that draws a world: the models switch moved out of `look-models.ts` into `models-switch.ts`, and `look-models.ts` hands it on under the names it had.
+  - "Load people's files from anywhere" stays the world's row. It is for the one place the visitor is in, and that place keeps it.
+  - Tried in the stand-in client (`trials/menu-client.mjs`, 41 checks): pictures turned off in the client's menu are off in the world at once.
+
+- **A world that steps its menu aside keeps the chat's pane** (`packages/sdk/src/ui/hud.ts`: `mountMenu(port, { only: "chat" })`; `sites/shared/world.ts`; `trials/menu-client.mjs`; `docs/plans/the-clients-menu.md`, section 15, "The chat's pane, for steps 1 to 3"). Nothing a visitor can see changes yet: no real client has the menu.
+  - Until a client runs the room's chat, messages and posts itself (step 3), a world whose client has the menu draws that one pane in its own frame, and nothing else of a menu: no bar, no mark, no sheet, and no key but the chat's own. It is in the world's colour; the client's menu is in the visitor's.
+  - The reference worlds fetch the menu's file for it only once there is something to write to (a room joined, or a visitor signed in). A world with neither still never fetches it.
+  - It is opened from the row the world describes ("Chat"). As it comes up the client's menu is asked to go, which gives the frame the keys, and the box to write in takes them.
+  - The menu now puts the keys in the chat's box when its page is given them with the chat open and nothing holding them. A page in a frame can't take the keys for itself.
+- `trials/menu-above.mjs`, `menu-rows.mjs` and `menu-client.mjs` answer every relay socket themselves, and list which were asked for. None was: the Gallery opens no relay for a guest.
+
 - **The client has the menu: the client's end, and both ends tried together** (SDK `nswp-sdk/menu`: `portBelow`, `mergeView`; `packages/sdk/src/ui/port-below.ts`; the menu's `pressKey`; `trials/stand-in-client/`, `trials/menu-client.mjs`; NSWP-02, "The client has the menu"). Still nothing a visitor can see: no real client uses it yet. BitPortal's shell is step 2.
   - **`portBelow(frame, { controls, home })`** is what a client mounts the menu on: its own controls (the visitor's own tabs, the way home) with the tabs a framed world describes laid in among them. `mountMenu(below.port)` draws it, the same menu a world draws for itself.
   - It answers a world's `here` at once, to that world's origin only, with the visitor's settings; reads everything a world says with the core's reader before the menu sees any of it; and drops a description at the load of the next page.

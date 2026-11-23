@@ -10,9 +10,9 @@ import { type Member, type RoomSession } from "./room.js";
 
 import type { Controls } from "./ui/model.js";
 import { filesAnywhere, setFilesAnywhere } from "./file-hosts.js";
-import { setShowsModels, showsModels } from "./look-models.js";
-import { setShowsPictures, showsPictures } from "./picture.js";
-import { onChatChange, setShowsChat, showsChat, wrapWords } from "./ui/chat.js";
+import { chatSwitch, modelsSwitch, picturesSwitch } from "./visitor-switches.js";
+import { showsPictures } from "./picture.js";
+import { onChatChange, showsChat, wrapWords } from "./ui/chat.js";
 import { ago, FEED_LIMITS, type FeedSource } from "./ui/feed.js";
 import { rgb } from "./ui/theme.js";
 import { addFollowingControls, type Following, type FollowingHand } from "./following.js";
@@ -452,32 +452,10 @@ export function addRoomControls(
     controls.signal("show:people");
   });
   // Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world.
-  controls.add({
-    id: "people-pictures",
-    section: "people",
-    icon: "selfie",
-    on: () => showsPictures(),
-    label: () => (showsPictures() ? "Profile pictures: on" : "Profile pictures: off"),
-    short: "Pictures",
-    act: () => {
-      setShowsPictures(!showsPictures());
-      controls.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
-    },
-  });
+  controls.add(picturesSwitch(controls));
   // Whether this visitor sees people's own models, where this world draws them (protocol/05-looks.md). Theirs, and it travels.
   if (presence.drawsModels())
-    controls.add({
-      id: "people-models",
-      section: "people",
-      icon: "people",
-      on: () => showsModels(),
-      label: () => (showsModels() ? "Show people's own models: on" : "Show people's own models: off"),
-      short: "Models",
-      act: () => {
-        setShowsModels(!showsModels());
-        controls.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
-      },
-    });
+    controls.add(modelsSwitch(controls));
   // Where other people's files may be fetched from (protocol/17-items.md, "Where a file is fetched from"). Off, only
   // from the file hosts on the visitor's own list. Theirs, and it goes with them.
   controls.add({
@@ -1199,17 +1177,7 @@ export function addRoomControls(
         );
       },
     },
-    {
-      id: "room-chat-show",
-      section: "room",
-      icon: "chat",
-      label: () => (showsChat() ? "Written chat: on" : "Written chat: off"),
-      on: () => showsChat(),
-      act: () => {
-        setShowsChat(!showsChat());
-        tell(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
-      },
-    },
+    chatSwitch(tell),
     {
       id: "room-join",
       section: "room",
