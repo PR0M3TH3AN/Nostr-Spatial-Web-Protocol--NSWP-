@@ -26,8 +26,11 @@ tab both fill, like Sound and Help, and the client asks the one-time question
 on how a visitor moves at a desk, and a world says back what a visitor changed
 in its headset session. What it costs is measured, with the Godot example in a
 frame (`docs/plans/the-clients-menu-cost.md`): no difference in frames, 18 KB
-fewer for a reference world. Still to come in step 1: the trials of the four
-presses. NSWP builder,
+fewer for a reference world. The four presses are tried
+(`docs/plans/the-clients-menu-handed-over.md`): a file can be handed down and a
+picture up, music is the client's own, and sharing the screen is a question put
+to the orchestrator. Still to come in step 1: the words for a file and a picture,
+once given, and whatever is decided for the screen. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -777,9 +780,19 @@ over,** so that it stays one press. Each is tried in the trial with step 1.
 | The visitor's own music | Sound | Sound is the client's tab: the client's page chooses the files and plays them itself. The music then doesn't stop at a door | None needed |
 | Sharing the screen | Room | Not tried: the stream has to start in the page that uses it | A second press on the world's view: "Share your screen" |
 
-The words for a file going down and a picture going up, with their limits, are
-proposed once the trial shows they work. Copying the room's link (Room) is a `copy`
-row.
+**Tried** (2026-11-23, `trials/presses-handed-over.mjs` and `trials/menu-client.mjs`;
+the whole result is `docs/plans/the-clients-menu-handed-over.md`):
+
+| What | What Chrome said | So |
+|---|---|---|
+| Choosing a file | The frame can't open the chooser from a press above. The page above can, and the file it hands down arrives as it is: 64 MB in 3 ms or less | **Handed down, one press** (the orchestrator, 2026-11-23) |
+| Saving a photo | The frame hands the picture up and the page above saves it, even seven seconds after the press | **Handed up, one press** (the orchestrator, 2026-11-23) |
+| The visitor's own music | The stand-in client opens the chooser, keeps the file and plays it, through a door, and neither world is told | **The client's own. Nothing new is needed** |
+| Sharing the screen | In the shell's frame Chrome refuses it whatever is pressed: the frame is not allowed `display-capture`. A second press would be refused too. Allowed it, the chooser comes up with no press at all and names the client, not the world. The page above can share and hand the picture down over a connection | **A question for the orchestrator,** with three ways laid out |
+
+The words for a file going down (`file`) and a picture going up (`save`), with their
+limits, are proposed in that page and are not used until given. Copying the room's
+link (Room) is a `copy` row.
 
 **For the owner to try by hand, once step 2 is up** (BitPortal's shell with the menu).
 Each of these a scripted browser can't show, or a made-up headset can't, so nothing
@@ -793,7 +806,10 @@ here is known to work until a person has done it. Kept as one list so none is lo
 | In fullscreen, press Escape, then Escape again | The first brings the menu, the second leaves fullscreen | A scripted Escape doesn't leave fullscreen |
 | On the Quest: "Enter VR" in the client's menu | The world shows "Launch" across its view. A press there starts the session. Two presses, and they read as intended | The made-up headset starts a session whenever asked |
 | Press things in the menu with sound on | Each press is heard once, not twice | The trial counts which page was asked to play, and doesn't listen |
-| Sound: add a piece of your own music from a file, and go through a door | It plays, and doesn't stop at the door | Choosing a file needs a person, and nobody listened |
+| Sound: add a piece of your own music from a file, and go through a door | It plays, and doesn't stop at the door | The trial chooses the file and reads that the client's page says it is playing. Nobody listened |
+| In your own Chrome, with nothing pressed: does a world in a frame save a file to your device? | Whichever it is, write it down: handing the picture up to the client is the way regardless | The scripted Chrome let it, pressed or not, and may be more willing than yours |
+| Camera, once it is built: after a headset session, "Save 3 pictures" in the client's menu | All three are saved, and Chrome doesn't stop to ask about "multiple files" | The scripted Chrome saved two from one press without asking |
+| Only if the frame is ever allowed `display-capture`: does your Chrome want a press before its "Choose what to share" comes up? | Whichever it is, write it down | The scripted Chrome brought it up with nothing pressed, twice |
 | Sound: turn "The room's hum" off in a place that has one | The hum stops, and stays off in the next place | Not tried end to end |
 | People, in a room with someone who has a picture: choose them | Their face is on the card in the client's menu | Needs a room and a person with a picture |
 | In a headset, a row typed into (a keeper's "Add someone by key") | It asks its own way there, as before | Not looked at in a made-up headset |

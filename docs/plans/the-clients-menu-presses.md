@@ -4,7 +4,9 @@
 0b). NSWP builder, 2026-11-23, in two parts: the first list, and then windows and a
 pointer the world holds. Tried in Chrome 157, scripted, with
 `trials/presses-from-above.mjs`. Not tried: Firefox, Safari, Meta's browser on a Quest,
-a real headset, or anything only a person's keyboard can show (below).
+a real headset, or anything only a person's keyboard can show (below). Four more
+presses, found later, are in `docs/plans/the-clients-menu-handed-over.md`: choosing
+a file, saving a picture, the visitor's own music and sharing the screen.
 
 ## The question
 

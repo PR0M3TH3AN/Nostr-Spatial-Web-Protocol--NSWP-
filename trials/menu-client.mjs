@@ -7,14 +7,15 @@
 // is a stand-in: the client (trials/stand-in-client/main.ts: no sign-in, no bag, a way home and Display), the names
 // of every site, the Gallery's own rules about who may frame it (left off so this page may), a world that never
 // answers (a page that says `here` and nothing else), a page that doesn't speak the words, and "home". Three rows
-// are added to the Gallery through its test hook, since nothing in it for a guest is typed into or copies. Nothing
-// is fetched from anywhere else; the Gallery reaching for its sign-in address is refused.
+// are added to the Gallery through its test hook, since nothing in it for a guest is typed into or copies. For the
+// visitor's own music the file is a minute of one note, made here and removed, and this script chooses it at the
+// browser's chooser. Nothing is fetched from anywhere else; the Gallery reaching for its sign-in address is refused.
 //
 // Presses and keys here are a mouse and a keyboard at places on the screen: where a thing is, is read from the page
 // (reading moves no keys), and then the mouse is sent there. Nothing is clicked by asking the page to click it.
 //
 //   npm run build && node trials/menu-client.mjs
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { ROOT as NSWP, SHOTS } from "./lib.mjs";
 const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
@@ -622,6 +623,83 @@ try {
     check("question/and the next world moves them the intense way from the start", await until4(async () => (await worldsWay4(NEXT)) === "Desk controls: intense", 15000), await worldsWay4(NEXT));
     results["question/refused, as everything but these sites is"] = [...refused4];
     await ctx4.close();
+  }
+
+  // ---- The visitor's own music (section 15, "Four more presses"): Sound is a tab the client fills, so the client's
+  // page opens the chooser at the press on its own row, keeps the file on its own site, and plays it itself. The
+  // world is told nothing of it, and it doesn't stop at a door. The file is a minute of one note, made here and
+  // removed; this script chooses it at the browser's chooser, as a person would. Nobody listens: what is checked is
+  // that the client's page says it is playing.
+  {
+    const NEXT = "https://grove.test";
+    const tune = join(SHOTS, "menu-client-a-tune.wav");
+    {
+      const rate = 8000, n = rate * 60, head = Buffer.alloc(44);
+      head.write("RIFF", 0); head.writeUInt32LE(36 + n, 4); head.write("WAVEfmt ", 8); head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(1, 22);
+      head.writeUInt32LE(rate, 24); head.writeUInt32LE(rate, 28); head.writeUInt16LE(1, 32); head.writeUInt16LE(8, 34); head.write("data", 36); head.writeUInt32LE(n, 40);
+      writeFileSync(tune, Buffer.concat([head, Buffer.from(Array.from({ length: n }, (_, i) => 128 + Math.round(20 * Math.sin((i * 2 * Math.PI * 220) / rate))))]));
+    }
+    const ctx5 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+    const refused5 = new Set();
+    await ctx5.routeWebSocket(/^wss?:\/\//, (ws) => ws.onMessage((m) => { let msg; try { msg = JSON.parse(String(m)); } catch { return; } if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]])); }));
+    await ctx5.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
+      if (url.origin === WORLD || url.origin === NEXT) {
+        const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
+        if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+        return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      }
+      refused5.add(url.origin);
+      return route.abort();
+    });
+    // Every word that reaches a world, kept in that world's page from its first moment.
+    await ctx5.addInitScript(() => { if (window === window.top) return; window.__told = []; addEventListener("message", (e) => { try { window.__told.push(JSON.stringify(e.data)); } catch { /* not words */ } }); });
+    const page5 = await ctx5.newPage();
+    const until5 = async (ask, ms = 30000) => {
+      const end = Date.now() + ms;
+      for (;;) {
+        const got = await Promise.resolve().then(ask).catch(() => null);
+        if (got || Date.now() > end) return got;
+        await page5.waitForTimeout(150);
+      }
+    };
+    const choosers = [];
+    page5.on("filechooser", (c) => { choosers.push(c.page() === page5 && c.element() ? "opened" : "opened elsewhere"); void c.setFiles(tune); });
+    const hud5 = page5.locator("nswp-hud");
+    const frameAt5 = (origin) => page5.frames().find((f) => f.url().startsWith(origin));
+    const worldUp5 = (origin) => until5(() => frameAt5(origin)?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+    const press5 = async (name) => { const at = await hud5.getByRole("button", { name }).first().boundingBox(); if (!at) return false; await page5.mouse.click(at.x + at.width / 2, at.y + at.height / 2); return true; };
+    const juke = () => page5.evaluate(() => { const j = window.__client.sounds.jukebox; return { songs: j.list().map((x) => x.title), playing: j.playing, current: j.current?.title ?? null, page: window.__sameSince }; });
+    try {
+      await page5.goto(`${CLIENT}/`, { timeout: 60000 });
+      await worldUp5(WORLD);
+      await page5.evaluate(() => { window.__sameSince = Math.random(); window.__client.menu.setOpen(true, "sound"); });
+      const first = (await juke()).page;
+      check("music/the client's own row opens the browser's chooser, at a press on the client's page", (await press5("Add music from this device")) && (await until5(() => choosers.length > 0, 8000)) && choosers[0] === "opened", choosers);
+      check("music/the chosen file is kept by the client's page", await until5(async () => (await juke()).songs.length === 1, 10000), await juke());
+      const title = (await juke()).songs[0];
+      await until5(() => hud5.getByRole("button", { name: "Play your music" }).first().boundingBox(), 5000);
+      await press5("Play your music");
+      check("music/and played by it", await until5(async () => (await juke()).playing === true, 10000), await juke());
+      const told = await frameAt5(WORLD).evaluate(() => window.__told ?? []);
+      check("music/the world is told nothing of it", told.length > 0 && !told.some((w) => w.includes(title) || /song-|juke/.test(w)), told.filter((w) => w.includes(title) || /song-|juke/.test(w)).map((w) => w.slice(0, 200)));
+      check("music/and keeps none of it", (await frameAt5(WORLD).evaluate(() => window.__nswpTest.sounds.jukebox.list().length)) === 0);
+      await page5.screenshot({ path: join(SHOTS, "menu-client-10-music.png") });
+
+      // Through a door: the next world comes into the frame, and the client's page stays.
+      await page5.evaluate((to) => (document.getElementById("view").src = to), `${NEXT}/`);
+      await worldUp5(NEXT);
+      await page5.waitForTimeout(2000);
+      const after = await juke();
+      check("music/it doesn't stop at a door: the client's page is the same one, still playing the same song", after.playing === true && after.current === title && after.page === first, after);
+      check("music/and the next world is told nothing of it either", !(await frameAt5(NEXT).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
+      results["music/refused, as everything but these sites is"] = [...refused5];
+    } finally {
+      rmSync(tune, { force: true });
+      await ctx5.close();
+    }
   }
 } finally {
   await browser.close();
