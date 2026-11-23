@@ -335,7 +335,7 @@ await addViewControls(controls, { renderer, rig, camera, hud,
 
 - **Arriving,** a visitor who came through an Airlock starts inside the
   chamber. Its doors open when `ready` settles, and then it sinks away.
-- **From a headset,** they are first shown one large **Enter VR**, focused,
+- **From a headset,** they are first shown one large **Launch**, focused,
   with a quiet "Look around on this screen" under it. The whole page is
   that button: a press anywhere but on the quiet link, with anything,
   starts the session (`ui/headset.ts`). The doors wait for their answer,
@@ -344,6 +344,11 @@ await addViewControls(controls, { renderer, rig, camera, hud,
   and the page goes on to their Airlock about half a second later.
 - **Where a browser carries the session over** (`sessiongranted`), the offer
   is answered for them.
+- **Asked for from a menu above the world,** the same screen comes up, saying
+  **Launch**. Where a visitor's client draws the menu above a world in its frame,
+  their press on **Enter VR** is a press in the client's page, and a browser
+  starts a headset session only at a press in the world's own. So the world asks
+  for one: two presses, each with its own name (the owner, 2026-11-23).
 - It is scenery: it asks nothing, claims nothing and has nothing to press.
   [NSWP-02](../protocol/02-doors.md) says why.
 

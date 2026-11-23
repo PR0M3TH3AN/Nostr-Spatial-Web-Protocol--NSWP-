@@ -222,6 +222,10 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     else waiting = setTimeout(describe, wait);
   };
   const stopView = controls.subscribe(changed);
+  // Some of what is said is worked out afresh each time it is asked for, and nothing says when it changed: a row's
+  // words that follow a headset session or a room, the state of the things only the world runs. So it is looked at
+  // again on a slow tick, as the world's own menu does, and said only if it differs.
+  const tick = setInterval(changed, 400);
   // What the world says for a moment goes up, to be shown under its name.
   const stopSay = controls.onSay((text) => {
     if (has && text) above.say({ say: text.slice(0, MENU_LIMITS.say) });
@@ -327,6 +331,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     dispose() {
       if (giveUp) clearTimeout(giveUp);
       if (waiting) clearTimeout(waiting);
+      clearInterval(tick);
       if (leaving) clearTimeout(leaving);
       stopView();
       stopSay();

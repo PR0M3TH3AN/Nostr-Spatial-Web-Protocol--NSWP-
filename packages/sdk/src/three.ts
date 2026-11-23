@@ -218,6 +218,16 @@ export async function addViewControls(
     });
     answered();
   };
+  // This page's own press across its view, "Launch", for a visitor who pressed "Enter VR" somewhere a browser
+  // doesn't count as this page: the menu their client draws above it (protocol/02-doors.md, "The client has the
+  // menu"). The same screen a visitor who left a headset to come here is shown.
+  const launch = () => {
+    if (offer || presenting() || !supported) return;
+    offer = offerHeadset(controls.view().title, () => void enter(), answered, { asked: true });
+    d.onOffer?.(true);
+  };
+  /** Whether a press just made counts as a press in this page. Where a browser can't say, it is taken to. */
+  const pressedHere = (): boolean => (navigator as { userActivation?: { isActive: boolean } }).userActivation?.isActive !== false;
   let entering = false;
   const enter = async () => {
     if (presenting() || entering) return;
@@ -226,8 +236,10 @@ export async function addViewControls(
       await begin(await xr!.requestSession("immersive-vr", init));
     } catch (err) {
       d.onState?.(`error: ${err instanceof Error ? err.message : String(err)}`);
-      // The offer says so itself, and takes the next press. Anywhere else, they are told.
+      // The offer says so itself, and takes the next press. A browser that refused for want of a press in this
+      // page (the press was on a menu drawn above it) is asked again at one: "Launch". Anywhere else, they are told.
       if (offer) offer.failed();
+      else if (err instanceof Error && err.name === "SecurityError") launch();
       else controls.say("Couldn't start VR on this device.");
     } finally {
       entering = false;
@@ -268,6 +280,8 @@ export async function addViewControls(
       short: "VR",
       act: async () => {
         if (presenting()) return void (await d.renderer.xr.getSession()?.end());
+        // Pressed in a menu drawn by the page above: it takes one more press, in this page.
+        if (!pressedHere()) return launch();
         await enter();
       },
     },

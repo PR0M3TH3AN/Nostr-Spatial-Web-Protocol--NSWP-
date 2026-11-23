@@ -465,7 +465,10 @@ pages, and a world takes them only from the page directly above it.
   `{ nswp: "menu", press: id }`. Only for an `id` in the world's last
   description. **The word is not the visitor's press:** a browser doesn't
   count it as one in the world's page. So a world never copies, opens a
-  window, takes the pointer or starts a headset session on it.
+  window, takes the pointer or starts a headset session on it. Asked to
+  start a headset session this way ("Enter VR", in the client's menu), a
+  world asks for a press of its own, across its view, under another name
+  ("Launch"): two presses, and the visitor can tell them apart.
 - the world, for the few keys that are the visitor's and are pressed while
   it has the keyboard: `{ nswp: "menu", key }`, where `key` is `"summon"`,
   `"escape"`, `"menu"` or a digit `"1"` to `"9"`. Never any other key, and

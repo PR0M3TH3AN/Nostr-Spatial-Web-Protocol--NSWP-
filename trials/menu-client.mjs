@@ -52,30 +52,33 @@ try {
   const fetched = [];
   const refused = new Set();
   const sockets = new Set();
-  await ctx.route("**/*", (route) => {
-    const url = new URL(route.request().url());
-    if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
-    if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : url.pathname === "/home.html" ? route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("home") }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
-    if (url.origin === STUCK) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a world that is stuck") });
-    if (url.origin === PLAIN) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a page that doesn't speak the words") });
-    if (url.origin === WORLD) {
-      fetched.push(url.pathname);
-      const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
-      if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
-      return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
-    }
-    refused.add(url.origin);
-    return route.abort();
-  });
-  // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
-  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
-    sockets.add(new URL(ws.url()).host);
-    ws.onMessage((m) => {
-      let msg;
-      try { msg = JSON.parse(String(m)); } catch { return; }
-      if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+  const serve = async (ctx) => {
+    await ctx.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : url.pathname === "/home.html" ? route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("home") }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
+      if (url.origin === STUCK) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a world that is stuck") });
+      if (url.origin === PLAIN) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a page that doesn't speak the words") });
+      if (url.origin === WORLD) {
+        fetched.push(url.pathname);
+        const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
+        if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+        return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      }
+      refused.add(url.origin);
+      return route.abort();
     });
-  });
+    // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
+    await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
+      sockets.add(new URL(ws.url()).host);
+      ws.onMessage((m) => {
+        let msg;
+        try { msg = JSON.parse(String(m)); } catch { return; }
+        if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+      });
+    });
+  };
+  await serve(ctx);
   const page = await ctx.newPage();
   const until = async (ask, ms = 15000) => {
     const end = Date.now() + ms;
@@ -292,6 +295,57 @@ try {
   check("and says what was in hand was left behind", (await client(() => window.__said)).some((t) => /left behind/.test(t)), await client(() => window.__said));
   void saidHome;
   await ctx.close();
+
+  // ---- "Enter VR" in the client's menu, then "Launch" in the world (the owner, 2026-11-23: two presses, each with
+  // its own name). A fresh visit, with a made-up headset in the world's page (iwer): it starts a session whenever
+  // asked, so what is tried is the kit's own rule, which asks the browser whether the press was in this page.
+  // Nothing is run inside the world's page before the press on the client's menu: a scripted call into a page
+  // counts there as a press (trials/README.md), and this is about exactly that.
+  {
+    const IWER = readFileSync(join(NSWP, "node_modules", "iwer", "build", "iwer.min.js"), "utf8");
+    const ctx2 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+    await ctx2.addInitScript(`if (location.origin === ${JSON.stringify(WORLD)}) { ${IWER}; new IWER.XRDevice(IWER.metaQuest3, { stereoEnabled: false }).installRuntime({ forceInstall: true }); }`);
+    await serve(ctx2);
+    const page2 = await ctx2.newPage();
+    const until2 = async (ask, ms = 30000) => {
+      const end = Date.now() + ms;
+      for (;;) {
+        const got = await ask().catch(() => null);
+        if (got || Date.now() > end) return got;
+        await page2.waitForTimeout(100);
+      }
+    };
+    await page2.goto(`${CLIENT}/?home=${encodeURIComponent(`${CLIENT}/home.html`)}`, { timeout: 60000 });
+    const hud2 = page2.locator("nswp-hud");
+    // Read from the client's page only: the world says it can start a headset session, and describes the row.
+    const described = await until2(() => page2.evaluate(() => {
+      const w = window.__client.below.world;
+      const row = w?.sections.find((s) => s.id === "view")?.rows.find((r) => r.id === "vr");
+      return row && w.state.headset.supported ? { label: row.label, bar: row.bar === true, presenting: w.state.headset.presenting } : null;
+    }), 60000);
+    check("launch/the world says it can start a headset session, and its row says Enter VR", described?.label === "Enter VR" && described.presenting === false, described);
+    // Left a while with nothing pressed anywhere, so that no earlier press could count for the world.
+    await page2.waitForTimeout(6000);
+    const key = hud2.getByRole("button", { name: /Enter VR/ }).first();
+    const box = await key.boundingBox();
+    await page2.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const world2 = () => page2.frames().find((f) => f.url().startsWith(WORLD));
+    const launchShown = await until2(() => world2().evaluate(() => {
+      const scrim = document.getElementById("nswp-enter");
+      return scrim ? { button: document.getElementById("nswp-enter-vr")?.textContent, hint: document.getElementById("nswp-enter-hint")?.textContent, label: scrim.getAttribute("aria-label") } : null;
+    }), 15000);
+    check("launch/a press on Enter VR above brings the world's own press up, and it says Launch", launchShown?.button === "Launch", launchShown);
+    results["launch/the world's screen, as shown"] = launchShown;
+    check("launch/no session started from the press above", (await world2().evaluate(() => window.__nswpTest.state.xr)) !== "presenting", await world2().evaluate(() => window.__nswpTest.state.xr));
+    await page2.screenshot({ path: join(SHOTS, "menu-client-6-launch.png") });
+    // The second press, in the world's own page, with a real mouse on its view (clear of the client's bar and marks,
+    // which are over the world at the bottom and the top).
+    await page2.mouse.click(550, 320);
+    check("launch/a press on the world's view starts the session", await until2(() => world2().evaluate(() => window.__nswpTest.state.xr === "presenting"), 20000), await world2().evaluate(() => window.__nswpTest.state.xr));
+    check("launch/and the world says so upward", await until2(() => page2.evaluate(() => window.__client.below.world?.state.headset.presenting === true), 10000));
+    check("launch/its screen has gone", (await world2().evaluate(() => !document.getElementById("nswp-enter"))) === true);
+    await ctx2.close();
+  }
 } finally {
   await browser.close();
 }

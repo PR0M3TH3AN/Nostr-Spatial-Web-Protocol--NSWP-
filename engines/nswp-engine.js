@@ -45191,11 +45191,12 @@ void main() {
   var NOT_A_PRESS = /* @__PURE__ */ new Set(["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock", "ContextMenu"]);
   var TRYING_MS = 2e3;
   var GIVE_UP_MS = 12e3;
-  function offerHeadset(title, enter, stay) {
+  function offerHeadset(title, enter, stay, opts = {}) {
+    const asked = opts.asked === true;
     const scrim = document.createElement("div");
     scrim.id = "nswp-enter";
     scrim.setAttribute("role", "dialog");
-    scrim.setAttribute("aria-label", `You've arrived at ${title}`);
+    scrim.setAttribute("aria-label", asked ? `Launch VR in ${title}` : `You've arrived at ${title}`);
     Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center", cursor: "pointer" });
     const heading = document.createElement("p");
     heading.textContent = title;
@@ -45203,12 +45204,12 @@ void main() {
     const go2 = document.createElement("button");
     go2.type = "button";
     go2.id = "nswp-enter-vr";
-    go2.textContent = "Enter VR";
+    go2.textContent = "Launch";
     Object.assign(go2.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
     const hint2 = document.createElement("p");
     hint2.id = "nswp-enter-hint";
     hint2.setAttribute("aria-live", "polite");
-    hint2.textContent = "Press anywhere, with anything, to go back in.";
+    hint2.textContent = asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
     Object.assign(hint2.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
     const flat = document.createElement("button");
     flat.type = "button";
