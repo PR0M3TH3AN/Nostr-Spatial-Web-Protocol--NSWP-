@@ -218,7 +218,7 @@ export function showsModels(): boolean {
   }
   showing = came ?? kept !== "off";
   if (came !== undefined) keepModels(showing);
-  reportSettings("models", () => ({ models: showsModels() }));
+  reportSettings("models", () => ({ models: showsModels() }), (now) => void (now.models !== undefined && now.models !== showing && setShowsModels(now.models)));
   return showing;
 }
 export function setShowsModels(on: boolean): void {

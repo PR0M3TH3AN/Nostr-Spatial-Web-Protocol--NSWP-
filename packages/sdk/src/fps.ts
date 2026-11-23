@@ -187,7 +187,8 @@ export function createFps(o: FpsOptions): Fps {
     // What they arrived preferring is kept here too, and what they prefer now goes on with them. Where there is
     // no mouse nothing is said, so the preference passes through a phone untouched.
     if (typeof arrivedSettings().intense === "boolean" || o.arrived) keepIntense(enabled, key);
-    reportSettings("moving", () => (answered ? { intense: enabled } : {}));
+    // Their client's menu changed how they move at a desk (settings.ts, `changeSettings`).
+    reportSettings("moving", () => (answered ? { intense: enabled } : {}), (now) => void (typeof now.intense === "boolean" && setEnabled(now.intense)));
   }
   const held: Held = {};
   let pitch = 0;

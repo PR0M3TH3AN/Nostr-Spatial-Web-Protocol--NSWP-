@@ -183,7 +183,12 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   let answered = came.headset !== undefined || hasComfort() || opts.arrivedIntense === true;
   let comfort: Comfort = { ...loadComfort(), ...(came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}), ...(came.fade !== undefined ? { fade: came.fade } : {}) };
   if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined || came.fade !== undefined || came.headset !== undefined) saveComfort(comfort);
-  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, fade: comfort.fade, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }));
+  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, fade: comfort.fade, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }), (now) => {
+    // Their client's menu changed how they move in a headset (settings.ts, `changeSettings`).
+    const patch: Partial<Comfort> = { ...(now.headset === "intense" ? INTENSE_COMFORT : now.headset === "casual" ? CASUAL_COMFORT : {}), ...(now.turn !== undefined ? { turnStep: now.turn } : {}), ...(now.hand !== undefined ? { moveHand: now.hand } : {}), ...(now.narrow !== undefined ? { narrow: now.narrow } : {}), ...(now.fade !== undefined ? { fade: now.fade } : {}) };
+    if (now.headset !== undefined) answered = true;
+    if (Object.keys(patch).length) setComfort(patch, true);
+  });
   const loco = new Locomotion();
   /** What to undo when this is put away. */
   const stops: (() => void)[] = [];

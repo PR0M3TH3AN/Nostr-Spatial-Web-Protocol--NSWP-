@@ -42,6 +42,26 @@ const make = async () => {
   return { input: createXrInput({ renderer: renderer(), scene, rig, camera, models: false }), rig };
 };
 
+describe("how they move in a headset, changed in their client's menu", () => {
+  it("is taken at once, as their own hand on it here would be, and goes on with them", async () => {
+    const { changeSettings, currentSettings, resetSettings } = await import("../src/settings.js");
+    const { input } = await make();
+    expect(input.comfort).toMatchObject(DEFAULT_COMFORT);
+    changeSettings({ turn: 90, hand: "left", narrow: false, fade: false });
+    expect(input.comfort).toMatchObject({ turnStep: 90, moveHand: "left", narrow: false, fade: false });
+    changeSettings({ headset: "intense" });
+    expect(input.comfort).toMatchObject(INTENSE_COMFORT);
+    expect(currentSettings()).toMatchObject({ headset: "intense" });
+    // Something that isn't about a headset changes nothing here.
+    const before = { ...input.comfort };
+    changeSettings({ text: 1.2 });
+    expect(input.comfort).toEqual(before);
+    // What was said is forgotten again, so the next test starts as a visitor who arrived with nothing.
+    resetSettings();
+    kept.clear();
+  });
+});
+
 describe("the fade for a jump", () => {
   it("is casual's, and not intense's: each kept with the other comfort settings", () => {
     expect([DEFAULT_COMFORT.fade, CASUAL_COMFORT.fade, INTENSE_COMFORT.fade]).toEqual([true, true, false]);

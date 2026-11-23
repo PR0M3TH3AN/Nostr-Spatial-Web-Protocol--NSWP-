@@ -36,7 +36,7 @@ export function showsPictures(): boolean {
   }
   shown = came ?? kept !== "0";
   if (came !== undefined) keep(shown);
-  reportSettings("pictures", () => ({ pictures: showsPictures() }));
+  reportSettings("pictures", () => ({ pictures: showsPictures() }), (now) => void (now.pictures !== undefined && now.pictures !== shown && setShowsPictures(now.pictures)));
   return shown;
 }
 const keep = (on: boolean): void => {

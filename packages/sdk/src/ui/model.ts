@@ -399,14 +399,35 @@ export function createControls(opts: ControlsOptions): Controls {
     saveVisitorTheme(visitor);
   }
   // Only what they chose themselves goes on with them. A world's own setting, or a device's, is not theirs to carry.
-  reportSettings("look", () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }));
+  reportSettings(
+    "look",
+    () => ({ ...(visitor.scale !== undefined ? { text: visitor.scale } : {}), ...(visitor.motion !== undefined ? { motion: visitor.motion } : {}), ...(visitor.wrist !== undefined ? { wrist: visitor.wrist } : {}) }),
+    // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
+    (now) => {
+      const patch: Partial<UiTheme> = { ...(now.text !== undefined ? { scale: now.text } : {}), ...(now.motion !== undefined ? { motion: now.motion } : {}), ...(now.wrist !== undefined ? { wrist: now.wrist } : {}) };
+      if (!Object.keys(patch).length) return;
+      visitor = { ...visitor, ...patch };
+      saveVisitorTheme(visitor);
+      theme = resolveTheme(opts.theme, visitor);
+      changed();
+    },
+  );
   // The tabs they keep on their bar. Null until they have chosen: then nothing is said of it to the next world.
   let pins: string[] | null = loadPins();
   if (came.pins !== undefined) {
     pins = [...came.pins];
     savePins(pins);
   }
-  reportSettings("pins", () => (pins ? { pins } : {}));
+  reportSettings(
+    "pins",
+    () => (pins ? { pins } : {}),
+    (now) => {
+      if (now.pins === undefined) return;
+      pins = [...now.pins];
+      savePins(pins);
+      changed();
+    },
+  );
   let theme = resolveTheme(opts.theme, visitor);
   let target = "";
   let detail: string[] = [];

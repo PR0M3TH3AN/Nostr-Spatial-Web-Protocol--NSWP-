@@ -12,12 +12,17 @@
  * What may travel, and why it is only ever a preference, is in the core
  * (`settings.ts`) and in protocol/11-the-visitors-console.md.
  */
-import { cleanSettings, type TravelSettings } from "@nswp/core";
+import { cleanMenuSettings, cleanSettings, type MenuSettings, type TravelSettings } from "@nswp/core";
 
-export type { TravelSettings } from "@nswp/core";
+export type { MenuSettings, TravelSettings } from "@nswp/core";
 
-let arrived: TravelSettings = {};
+/**
+ * What they arrived with, and over it whatever their client has said since. `filesAnywhere: true` can only have come
+ * from a client above (`changeSettings`): a link's settings drop it as they are read.
+ */
+let arrived: MenuSettings = {};
 const parts = new Map<string, () => TravelSettings>();
+const takers = new Map<string, (changed: MenuSettings) => void>();
 
 /** Say what the visitor arrived with (`arrival.read()` does). A client's own page says it for itself. */
 export function arriveWith(settings: unknown): void {
@@ -25,19 +30,47 @@ export function arriveWith(settings: unknown): void {
 }
 
 /** What they arrived with: for a part of the kit to begin from. */
-export function arrivedSettings(): TravelSettings {
+export function arrivedSettings(): MenuSettings {
   return arrived;
 }
 
 /**
  * Say what the visitor has now, for one part of what travels. `now` is asked
  * whenever they leave. Returns how to stop being asked.
+ *
+ * `take` is the other way: it is given whatever the visitor's own client says has changed while they are here
+ * (`changeSettings`), and sets this part's share of it as the visitor's own hand on its control would.
  */
-export function reportSettings(part: string, now: () => TravelSettings): () => void {
+export function reportSettings(part: string, now: () => TravelSettings, take?: (changed: MenuSettings) => void): () => void {
   parts.set(part, now);
+  if (take) takers.set(part, take);
+  else takers.delete(part);
   return () => {
-    if (parts.get(part) === now) parts.delete(part);
+    if (parts.get(part) !== now) return;
+    parts.delete(part);
+    takers.delete(part);
   };
+}
+
+/**
+ * The visitor's own client says what they have now, while they are in this world: the client draws their menu, and
+ * they changed something in it (protocol/02-doors.md, "The client has the menu"). Each part of the kit that holds
+ * one of these settings takes it at once. A part that hasn't started yet begins from it when it does.
+ *
+ * Only for words from the page directly above, read with `readMenuWordDown`: this is the one way
+ * `filesAnywhere: true` is ever taken, and a link must never reach it.
+ */
+export function changeSettings(settings: unknown): MenuSettings {
+  const changed = cleanMenuSettings(settings);
+  arrived = { ...arrived, ...changed, ...(changed.sound || arrived.sound ? { sound: { ...arrived.sound, ...changed.sound } } : {}) };
+  for (const take of [...takers.values()]) {
+    try {
+      take(changed);
+    } catch {
+      /* one part that can't take its share doesn't stop the others */
+    }
+  }
+  return changed;
 }
 
 /**
@@ -47,7 +80,8 @@ export function reportSettings(part: string, now: () => TravelSettings): () => v
  * to the next world untouched.
  */
 export function currentSettings(): TravelSettings {
-  let out: TravelSettings = { ...arrived };
+  // What goes on is what a link may carry: a "load from anywhere" their client turned on here stays here.
+  let out: TravelSettings = cleanSettings(arrived);
   for (const now of parts.values()) {
     let said: TravelSettings = {};
     try {
@@ -64,4 +98,5 @@ export function currentSettings(): TravelSettings {
 export function resetSettings(): void {
   arrived = {};
   parts.clear();
+  takers.clear();
 }
