@@ -122,6 +122,11 @@ export interface WorldConfig {
    */
   items?: ItemsRule;
   /**
+   * What this world draws of people's own models (protocol/05-looks.md, "A model of your own"), as its manifest's
+   * `avatar` says it. Left out, everyone is drawn as their simple look, as in every world here for now.
+   */
+  avatar?: { formats: string[]; height?: [number, number]; dress?: "own" };
+  /**
    * What this world marks, if it marks anything (protocol/16-achievements.md). Optional: left out, there is no
    * Achievements tab and nothing about achievements anywhere.
    */
@@ -175,6 +180,8 @@ type TestHooks = {
   /** Kept for older scripts: go through the first door. */
   goThroughPortal(): Promise<void>;
   roomInfo?: () => unknown;
+  /** How each person in the room is drawn: their own model or their simple look, and why (presence.lookInfo). */
+  lookInfo?: () => unknown;
   /**
    * This page's own signer, or null where it names none: what any script of the world's already has. For a test
    * to ask what no control here asks yet (a purchase, whether something is held). Nothing is signed, paid or
@@ -249,9 +256,10 @@ declare global {
      * For a trial on the maker's own network, set by a script before the page starts: `gate: true` has a world that
      * can have a gate use it, with what it is entered by read from its own manifest as ever. It is looked at only
      * on a local address, so no link and no script can change what a published world is; and all it can do is shut
-     * a gate, never open one.
+     * a gate, never open one. `looks` has a world draw people's own models for the trial, as its manifest's
+     * `avatar` would.
      */
-    __nswpTrial?: { gate?: boolean };
+    __nswpTrial?: { gate?: boolean; looks?: { formats: string[]; height?: [number, number]; dress?: "own" } };
   }
 }
 
@@ -985,7 +993,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     }
     return dragging || stroll.going || ["KeyW", "KeyS", "KeyA", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].some((k) => keys.has(k));
   };
-  const presence = createPresence({ scene, camera, rig, renderer, controllers, arrival: () => ({ places: arrivalPlaces, canStand, moving: stillMoving, jump: (fn) => (input ? input.jump(fn) : fn()) }), items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), onChange: () => (refreshRoom(), itemControls?.refresh()) });
+  const presence = createPresence({ scene, camera, rig, renderer, controllers, arrival: () => ({ places: arrivalPlaces, canStand, moving: stillMoving, jump: (fn) => (input ? input.jump(fn) : fn()) }), items, itemsRule: () => itemsRule, itemScripts: itemsRule !== "none", sounds, theme: () => ({ accent: controls.theme.accent, motion: controls.theme.motion }), labelColor: cfg.palette.text, look: () => arrival.look(), identity: () => arrival.identity(), looks: () => cfg.avatar ?? (isLocalHost(location.hostname) ? (window.__nswpTrial?.looks ?? null) : null), onChange: () => (refreshRoom(), itemControls?.refresh()) });
   // What someone has done here goes on their card, where this world keeps score or marks anything.
   const about = scores || achievements ? worldPersonLines({ scores, achievements }) : null;
   about?.onChange(() => refreshRoom());
@@ -1066,6 +1074,7 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
     if (signerNamed()) worldSigner().onChange(() => achieving.refresh());
   }
   hooks.roomInfo = () => presence.info();
+  hooks.lookInfo = () => presence.lookInfo();
   // How loud other people are is the visitor's to set, with the rest of their volumes.
   sounds.onChange((levels) => presence.setVolume(levels.off ? 0 : levels.voices));
   // A camera of the visitor's own: pictures, selfies and clips, saved to their device.

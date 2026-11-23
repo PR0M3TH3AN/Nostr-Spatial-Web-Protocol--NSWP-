@@ -42,6 +42,11 @@ import {
   type VerifiedPass,
   createRate,
   itemCoordinate,
+  AVATAR_KIND,
+  LOOK_NOTE_LIMIT,
+  readLookModel,
+  verifyEvent,
+  type LookModel,
 } from "@nswp/core";
 
 export interface Member {
@@ -60,6 +65,12 @@ export interface Member {
   color: number;
   /** How they look (spec §4.2). What their session key generates, until they say otherwise. */
   look: Look;
+  /**
+   * The model of their own they wear (protocol/05-looks.md, "A model of your own"), from the look note they handed
+   * the room: only once their pass has checked out, and only if that note is really signed by the key the pass
+   * names. Left out for a guest, and for someone who wears none.
+   */
+  model?: LookModel;
   /** They have said they are recording what they see (spec §9). */
   recording: boolean;
   /** The item they say they are holding, by its coordinate (protocol/17-items.md). Left out when they hold nothing. */
@@ -96,6 +107,12 @@ export interface JoinOptions {
    * checked here, and shown to each member directly, never to a relay.
    */
   identity?: { pass: NostrEvent; sessionKey: string };
+  /**
+   * Your look note (kind 37301), signed by your own key, where it names a model of your own: handed to each member
+   * directly, never to a relay, so nobody has to ask one for it (NSWP-06, the `avatar` message). Only sent when you
+   * came by name, and only if it is signed by the key your pass names. At most `LOOK_NOTE_LIMIT` bytes.
+   */
+  avatar?: NostrEvent | null;
   /**
    * Keys this visitor has blocked: the identity keys of people who came by
    * name, or session keys from this visit. Nobody on it is connected to.
@@ -181,6 +198,8 @@ interface Peer {
   tuned?: boolean;
   /** What they last said about how they look, as it was read. */
   said?: { look: Look; seed: string };
+  /** The look note they last handed the room, word for word: believed only once their pass names its author. */
+  avatar?: string;
   /** The last pass they showed, word for word, so the same one isn't checked twice. */
   shown?: string;
   /** How many passes of theirs have failed. Past a few, they are not checked any more. */
@@ -227,6 +246,19 @@ const hexToBytes = (hex: string): Uint8Array => {
  * whose seed is a key is a claim to it, and without a pass the claim isn't
  * honoured: the mark is the session key's.
  */
+/** The model a look note names, if it is really a look note signed by `author`. */
+function modelOf(note: unknown, author: string): LookModel | undefined {
+  if (!verifyEvent(note) || note.kind !== AVATAR_KIND || note.pubkey !== author) return undefined;
+  return readLookModel(note) ?? undefined;
+}
+function modelFrom(text: string, author: string): LookModel | undefined {
+  try {
+    return modelOf(JSON.parse(text), author);
+  } catch {
+    return undefined;
+  }
+}
+
 function seenLook(member: Pick<Member, "pubkey" | "identity">, said?: { look: Look; seed: string }): Look {
   const look = said?.look ?? generatedLook(member.pubkey);
   if (member.identity) return { ...look, mark: markFor(member.identity) };
@@ -285,6 +317,8 @@ export class RoomSession {
   private readonly origin: string;
   /** This visitor's own pass, as it is said to the others, and when it stops. */
   private pass: string | null = null;
+  /** This visitor's own look note, as it is handed to each member: only where it is their pass's key's. */
+  private avatar: string | null = null;
   /** The item this visitor says they are holding, by its coordinate, or "". */
   private held = "";
   /** The colours this visitor chose for what they hold, as they are said ("tint:…"), or "". */
@@ -340,6 +374,15 @@ export class RoomSession {
     this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
     if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...(proven.picture ? { picture: proven.picture } : {}), ...(proven.about ? { about: proven.about } : {}) });
     this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
+    // A model of their own goes only with a name: a guest has no key it could be tied to.
+    if (proven && opts.avatar) {
+      const text = JSON.stringify(opts.avatar);
+      const model = text.length <= LOOK_NOTE_LIMIT ? modelOf(opts.avatar, proven.pubkey) : undefined;
+      if (model) {
+        this.avatar = text;
+        this.self.model = model;
+      }
+    }
     this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
     this.topic = roomTopic(world, this.name);
     this.relays = opts.relays ?? DEFAULT_RELAYS;
@@ -624,7 +667,14 @@ export class RoomSession {
         return;
       }
       if (typeof e.data === "string") {
-        if (e.data.startsWith("look:")) {
+        if (e.data.startsWith("avatar:")) {
+          // Their look note, kept as it came: it counts only once their pass names the key that signed it.
+          const text = e.data.slice(7);
+          if (text.length <= LOOK_NOTE_LIMIT && text !== peer.avatar) {
+            peer.avatar = text;
+            this.redraw(peer);
+          }
+        } else if (e.data.startsWith("look:")) {
           // How this member looks. Anything unreadable is ignored.
           const said = decodeLook(e.data.slice(5));
           if (said.ok) {
@@ -670,8 +720,11 @@ export class RoomSession {
   /** Draw a member again if what is known about them changes how they look. */
   private redraw(peer: Peer): void {
     const look = seenLook(peer.member, peer.said);
-    if (JSON.stringify(look) === JSON.stringify(peer.member.look)) return;
+    const model = peer.member.identity && peer.avatar ? modelFrom(peer.avatar, peer.member.identity) : undefined;
+    if (JSON.stringify(look) === JSON.stringify(peer.member.look) && JSON.stringify(model) === JSON.stringify(peer.member.model)) return;
     peer.member.look = look;
+    if (model) peer.member.model = model;
+    else delete peer.member.model;
     this.emit("look", peer.member, look);
   }
 
@@ -749,6 +802,8 @@ export class RoomSession {
       delete this.self.identity;
       delete this.self.picture;
       delete this.self.about;
+      delete this.self.model;
+      this.avatar = null;
       Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
       const mine = this.look ? decodeLook(this.look) : null;
       this.self.look = seenLook(this.self, mine?.ok ? mine.value : undefined);
@@ -763,12 +818,14 @@ export class RoomSession {
    */
   private introduce(ch: RTCDataChannel): void {
     if (!this.look && !this.pass && !this.held) return;
+    const avatar = this.pass ? this.avatar : null;
     let left = 4;
     const say = () => {
       if (this.closed || ch.readyState !== "open") return;
       try {
         if (this.look) ch.send(`look:${this.look}`);
         if (this.pass) ch.send(`id:${this.pass}`);
+        if (avatar) ch.send(`avatar:${avatar}`);
         if (this.held) ch.send(`hold:${this.held}`);
         // And the colours they chose for it, which go with it.
         if (this.held && this.tints) ch.send(this.tints);

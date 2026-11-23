@@ -49,6 +49,7 @@ const RETURN_KEY = "nswp:return-airlock";
 /** Where the visitor's client said their signer is, kept for the tab like the way back. */
 const SIGNER_KEY = "nswp:signer";
 const LOOK_KEY = "nswp:look";
+const AVATAR_KEY = "nswp:avatar";
 const PASS_KEY = "nswp:pass";
 const HOME_KEY = "nswp:at-home";
 
@@ -147,6 +148,9 @@ export const arrival = {
       try {
         if (cached.context.look) session()?.setItem(LOOK_KEY, cached.context.look);
         else session()?.removeItem(LOOK_KEY);
+        // And their look note, where they came as themselves with one: going plain sends none, and so leaves any model behind.
+        if (cached.context.avatar) session()?.setItem(AVATAR_KEY, cached.context.avatar);
+        else session()?.removeItem(AVATAR_KEY);
         // And whether by name. A pass made for another site, or one that has run out, is not kept.
         const { pass, sessionKey } = cached.context;
         if (pass && sessionKey && verifyRoomPass(pass, { origin: location.origin }).ok) session()?.setItem(PASS_KEY, JSON.stringify({ pass, sessionKey }));
@@ -166,6 +170,19 @@ export const arrival = {
   look(): string | undefined {
     try {
       return session()?.getItem(LOOK_KEY) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  },
+
+  /**
+   * Their look note (kind 37301), as the arrival named it (an `naddr`), where they came as themselves with one: it
+   * may name a model of their own (protocol/05-looks.md). Undefined if they came plain or have none. Kept for this
+   * tab's session only. It counts only if its author is the key their pass names: `ownLookNote` checks that.
+   */
+  avatar(): string | undefined {
+    try {
+      return session()?.getItem(AVATAR_KEY) ?? undefined;
     } catch {
       return undefined;
     }

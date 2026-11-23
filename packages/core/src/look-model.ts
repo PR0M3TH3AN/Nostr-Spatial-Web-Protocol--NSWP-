@@ -112,3 +112,52 @@ export function readLookModel(note: Pick<NostrEvent, "kind" | "tags">): LookMode
   if (thumbUrl && typeof t?.[2] === "string" && HEX64.test(t[2])) out.thumb = { url: thumbUrl, sha256: t[2] };
   return out;
 }
+
+const u32 = (b: Uint8Array, at: number): number => (b[at]! | (b[at + 1]! << 8) | (b[at + 2]! << 16) | (b[at + 3]! << 24)) >>> 0;
+
+/** The JSON part of a GLB, as it was written, or null for anything that isn't one. Only for a file `readGlb` passed. */
+export function glbJson(bytes: Uint8Array): Record<string, unknown> | null {
+  if (bytes.length < 20 || u32(bytes, 0) !== 0x46546c67 || u32(bytes, 16) !== 0x4e4f534a) return null;
+  const n = u32(bytes, 12);
+  if (20 + n > bytes.length) return null;
+  try {
+    const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + n))) as unknown;
+    return json && typeof json === "object" && !Array.isArray(json) ? (json as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A look's file as an engine's own reader is handed it, once `readGlb` has passed it against `LOOK_BUDGET`: the
+ * same file with its `extensionsRequired` emptied. An engine's reader refuses a file that requires what it doesn't
+ * know, and VRM's own extensions are ones the kit has already read for what it uses of them; the rest of each is
+ * left for the engine to ignore. Anything else is unchanged, byte for byte. Null for a file that isn't a GLB.
+ */
+export function withoutRequired(bytes: Uint8Array): Uint8Array | null {
+  const json = glbJson(bytes);
+  if (!json) return null;
+  if (!Array.isArray(json.extensionsRequired) || json.extensionsRequired.length === 0) return bytes;
+  delete json.extensionsRequired;
+  const text = new TextEncoder().encode(JSON.stringify(json));
+  const padded = new Uint8Array(text.length + ((4 - (text.length % 4)) % 4)).fill(0x20);
+  padded.set(text);
+  const rest = bytes.subarray(20 + u32(bytes, 12));
+  const out = new Uint8Array(20 + padded.length + rest.length);
+  out.set(bytes.subarray(0, 20));
+  out.set(padded, 20);
+  out.set(rest, 20 + padded.length);
+  const v = new DataView(out.buffer);
+  v.setUint32(8, out.length, true);
+  v.setUint32(12, padded.length, true);
+  return out;
+}
+
+/**
+ * Which way a look's model faces as its file is written: `+z` for a glTF and a VRM 1.0 (glTF's own forward),
+ * `-z` for a VRM 0.x (its own extension, `VRM`, faces the other way). The kit draws everyone facing -z.
+ */
+export function lookFacing(json: Record<string, unknown>): "+z" | "-z" {
+  const ext = json.extensions as Record<string, unknown> | undefined;
+  return ext && typeof ext === "object" && "VRM" in ext && !("VRMC_vrm" in ext) ? "-z" : "+z";
+}

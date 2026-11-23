@@ -78,6 +78,7 @@ var NSWP = (() => {
 
   // packages/core/dist/constants.js
   var WORLD_KIND = 37300;
+  var AVATAR_KIND = 37301;
   var SCHEMAS = {
     manifest: "nswp/manifest/0.3",
     portal: "nswp/portal/0.3",
@@ -5191,6 +5192,8 @@ var NSWP = (() => {
       out.fov = Math.round(Math.min(FOV_RANGE[1], Math.max(FOV_RANGE[0], s.fov)));
     if (typeof s.pictures === "boolean")
       out.pictures = s.pictures;
+    if (typeof s.models === "boolean")
+      out.models = s.models;
     if (typeof s.chat === "boolean")
       out.chat = s.chat;
     if (typeof s.items === "boolean")
@@ -7567,6 +7570,111 @@ postMessage({ t: "started" });
     return within2 ? { ok: true, count: count2 } : { ok: false, why: "over-budget" };
   }
 
+  // packages/core/dist/look-model.js
+  var LOOK_BUDGET = {
+    /** The most a look's file may weigh, in bytes. */
+    bytes: 1e6,
+    triangles: 12e3,
+    meshes: 24,
+    materials: 8,
+    /** The longest side of any picture its surfaces use, in pixels. */
+    texture: 1024,
+    /** The most joints its skeleton may have. */
+    joints: 128,
+    /** The most morph targets (its faces' shapes) any one of its meshes may have. */
+    morphs: 64,
+    /**
+     * VRM's own extensions, which a VRM may say it requires: read for its skeleton and expressions only, its
+     * materials drawn as the kit's standard material in their base colour. Anything else it requires refuses it.
+     * Spring bones (`VRMC_springBone`) are not among them: hair and cloth that swing are physics the kit would run
+     * for a stranger's file, and are left out in this first round (decided by the owner, 2026-11-22).
+     */
+    extensions: ["VRMC_vrm", "VRMC_materials_mtoon", "KHR_materials_unlit"]
+  };
+  var LOOK_HEIGHT = { least: 0.85, standard: 1.7, most: 2.55 };
+  var LOOK_MODELS_AT_ONCE = 8;
+  var LOOK_NOTE_LIMIT = 8e3;
+  var HEX642 = /^[0-9a-f]{64}$/;
+  var URL_MOST = 500;
+  function cleanUrl(input) {
+    if (typeof input !== "string" || input.length > URL_MOST)
+      return null;
+    try {
+      const u = new URL(input);
+      return u.protocol === "https:" && !u.username && !u.password ? u.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function lookHeight(asked, world2) {
+    let least = LOOK_HEIGHT.least;
+    let most = LOOK_HEIGHT.most;
+    if (world2 && Number.isFinite(world2[0]) && Number.isFinite(world2[1])) {
+      const a = Math.max(least, world2[0]);
+      const b = Math.min(most, world2[1]);
+      if (a <= b)
+        [least, most] = [a, b];
+    }
+    const n = typeof asked === "string" ? Number(asked) : asked;
+    const h = typeof n === "number" && Number.isFinite(n) && n > 0 ? n : LOOK_HEIGHT.standard;
+    return Math.round(Math.min(most, Math.max(least, h)) * 1e3) / 1e3;
+  }
+  function readLookModel(note) {
+    if (!note || note.kind !== AVATAR_KIND || !Array.isArray(note.tags))
+      return null;
+    const tag2 = (name) => note.tags.find((t2) => Array.isArray(t2) && t2[0] === name);
+    const m = tag2("model");
+    const url = cleanUrl(m?.[1]);
+    const format = m?.[2];
+    const sha2562 = m?.[3];
+    if (!url || format !== "vrm" && format !== "glb" || typeof sha2562 !== "string" || !HEX642.test(sha2562))
+      return null;
+    const out = { url, format, sha256: sha2562, height: lookHeight(tag2("height")?.[1]) };
+    const t = tag2("thumb");
+    const thumbUrl = cleanUrl(t?.[1]);
+    if (thumbUrl && typeof t?.[2] === "string" && HEX642.test(t[2]))
+      out.thumb = { url: thumbUrl, sha256: t[2] };
+    return out;
+  }
+  var u323 = (b, at) => (b[at] | b[at + 1] << 8 | b[at + 2] << 16 | b[at + 3] << 24) >>> 0;
+  function glbJson(bytes) {
+    if (bytes.length < 20 || u323(bytes, 0) !== 1179937895 || u323(bytes, 16) !== 1313821514)
+      return null;
+    const n = u323(bytes, 12);
+    if (20 + n > bytes.length)
+      return null;
+    try {
+      const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + n)));
+      return json && typeof json === "object" && !Array.isArray(json) ? json : null;
+    } catch {
+      return null;
+    }
+  }
+  function withoutRequired(bytes) {
+    const json = glbJson(bytes);
+    if (!json)
+      return null;
+    if (!Array.isArray(json.extensionsRequired) || json.extensionsRequired.length === 0)
+      return bytes;
+    delete json.extensionsRequired;
+    const text2 = new TextEncoder().encode(JSON.stringify(json));
+    const padded = new Uint8Array(text2.length + (4 - text2.length % 4) % 4).fill(32);
+    padded.set(text2);
+    const rest = bytes.subarray(20 + u323(bytes, 12));
+    const out = new Uint8Array(20 + padded.length + rest.length);
+    out.set(bytes.subarray(0, 20));
+    out.set(padded, 20);
+    out.set(rest, 20 + padded.length);
+    const v2 = new DataView(out.buffer);
+    v2.setUint32(8, out.length, true);
+    v2.setUint32(12, padded.length, true);
+    return out;
+  }
+  function lookFacing(json) {
+    const ext = json.extensions;
+    return ext && typeof ext === "object" && "VRM" in ext && !("VRMC_vrm" in ext) ? "-z" : "+z";
+  }
+
   // packages/core/dist/people.js
   var FOLLOWS_KIND = 3;
   function followsIn(event) {
@@ -9016,7 +9124,7 @@ postMessage({ t: "started" });
         else controls2.say("That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.");
       });
     };
-    const showing = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked" && gate2.reason !== "not-invited";
+    const showing2 = () => (gate2.state === "shut" || gate2.state === "ending") && gate2.reason !== "no-manifest" && gate2.reason !== "not-own" && gate2.reason !== "no-signer" && gate2.reason !== "blocked" && gate2.reason !== "not-invited";
     for (let i = 0; i < ACCESS_MOST; i++) {
       const offer = () => gate2.offers[i];
       controls2.add({
@@ -9033,14 +9141,14 @@ postMessage({ t: "started" });
           if (gate2.byInvitation && !gate2.signedIn) return "Sign in, to show you are invited";
           return gate2.signedIn ? "Ask again what this costs" : "Sign in, to show what you hold";
         },
-        hidden: () => !showing() || !offer() && (i > 0 || gate2.offers.length > 0),
+        hidden: () => !showing2() || !offer() && (i > 0 || gate2.offers.length > 0),
         act: () => press(offer()?.listing)
       });
     }
     const refresh = () => {
       const closed = gate2.state === "shut" || gate2.state === "ending";
       if (!closed) saidFor = "";
-      else if (saidFor !== gate2.state && (gate2.state === "ending" || gate2.read || !showing())) {
+      else if (saidFor !== gate2.state && (gate2.state === "ending" || gate2.read || !showing2())) {
         saidFor = gate2.state;
         controls2.say(gate2.why);
       }
@@ -9775,6 +9883,17 @@ postMessage({ t: "started" });
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error("not a key");
     return Uint8Array.from(hex.match(/../g).map((b) => parseInt(b, 16)));
   };
+  function modelOf(note, author) {
+    if (!verifyEvent(note) || note.kind !== AVATAR_KIND || note.pubkey !== author) return void 0;
+    return readLookModel(note) ?? void 0;
+  }
+  function modelFrom(text2, author) {
+    try {
+      return modelOf(JSON.parse(text2), author);
+    } catch {
+      return void 0;
+    }
+  }
   function seenLook(member, said2) {
     const look = said2?.look ?? generatedLook(member.pubkey);
     if (member.identity) return { ...look, mark: markFor(member.identity) };
@@ -9830,6 +9949,8 @@ postMessage({ t: "started" });
       __publicField(this, "origin");
       /** This visitor's own pass, as it is said to the others, and when it stops. */
       __publicField(this, "pass", null);
+      /** This visitor's own look note, as it is handed to each member: only where it is their pass's key's. */
+      __publicField(this, "avatar", null);
       /** The item this visitor says they are holding, by its coordinate, or "". */
       __publicField(this, "held", "");
       /** The colours this visitor chose for what they hold, as they are said ("tint:…"), or "". */
@@ -9882,6 +10003,14 @@ postMessage({ t: "started" });
       this.self = { pubkey, guest: true, name: guestName(pubkey), color: guestColor(pubkey), look: generatedLook(pubkey), recording: false };
       if (proven) Object.assign(this.self, { guest: false, identity: proven.pubkey, name: proven.name || shortNpub(proven.pubkey), ...proven.picture ? { picture: proven.picture } : {}, ...proven.about ? { about: proven.about } : {} });
       this.self.look = seenLook(this.self, mine?.ok ? mine.value : void 0);
+      if (proven && opts.avatar) {
+        const text2 = JSON.stringify(opts.avatar);
+        const model2 = text2.length <= LOOK_NOTE_LIMIT ? modelOf(opts.avatar, proven.pubkey) : void 0;
+        if (model2) {
+          this.avatar = text2;
+          this.self.model = model2;
+        }
+      }
       this.name = (opts.name ?? "lobby").slice(0, ROOM_LIMITS.maxNameChars);
       this.topic = roomTopic(world2, this.name);
       this.relays = opts.relays ?? DEFAULT_RELAYS;
@@ -10130,7 +10259,13 @@ postMessage({ t: "started" });
           return;
         }
         if (typeof e.data === "string") {
-          if (e.data.startsWith("look:")) {
+          if (e.data.startsWith("avatar:")) {
+            const text2 = e.data.slice(7);
+            if (text2.length <= LOOK_NOTE_LIMIT && text2 !== peer.avatar) {
+              peer.avatar = text2;
+              this.redraw(peer);
+            }
+          } else if (e.data.startsWith("look:")) {
             const said2 = decodeLook(e.data.slice(5));
             if (said2.ok) {
               peer.said = said2.value;
@@ -10166,8 +10301,11 @@ postMessage({ t: "started" });
     /** Draw a member again if what is known about them changes how they look. */
     redraw(peer) {
       const look = seenLook(peer.member, peer.said);
-      if (JSON.stringify(look) === JSON.stringify(peer.member.look)) return;
+      const model2 = peer.member.identity && peer.avatar ? modelFrom(peer.avatar, peer.member.identity) : void 0;
+      if (JSON.stringify(look) === JSON.stringify(peer.member.look) && JSON.stringify(model2) === JSON.stringify(peer.member.model)) return;
       peer.member.look = look;
+      if (model2) peer.member.model = model2;
+      else delete peer.member.model;
       this.emit("look", peer.member, look);
     }
     /**
@@ -10237,6 +10375,8 @@ postMessage({ t: "started" });
         delete this.self.identity;
         delete this.self.picture;
         delete this.self.about;
+        delete this.self.model;
+        this.avatar = null;
         Object.assign(this.self, { guest: true, name: guestName(this.self.pubkey) });
         const mine = this.look ? decodeLook(this.look) : null;
         this.self.look = seenLook(this.self, mine?.ok ? mine.value : void 0);
@@ -10250,12 +10390,14 @@ postMessage({ t: "started" });
      */
     introduce(ch) {
       if (!this.look && !this.pass && !this.held) return;
+      const avatar = this.pass ? this.avatar : null;
       let left = 4;
       const say3 = () => {
         if (this.closed || ch.readyState !== "open") return;
         try {
           if (this.look) ch.send(`look:${this.look}`);
           if (this.pass) ch.send(`id:${this.pass}`);
+          if (avatar) ch.send(`avatar:${avatar}`);
           if (this.held) ch.send(`hold:${this.held}`);
           if (this.held && this.tints) ch.send(this.tints);
         } catch {
@@ -10637,6 +10779,7 @@ postMessage({ t: "started" });
   var RETURN_KEY = "nswp:return-airlock";
   var SIGNER_KEY = "nswp:signer";
   var LOOK_KEY = "nswp:look";
+  var AVATAR_KEY = "nswp:avatar";
   var PASS_KEY = "nswp:pass";
   var HOME_KEY = "nswp:at-home";
   var defaultAirlock;
@@ -10710,6 +10853,8 @@ postMessage({ t: "started" });
         try {
           if (cached.context.look) session()?.setItem(LOOK_KEY, cached.context.look);
           else session()?.removeItem(LOOK_KEY);
+          if (cached.context.avatar) session()?.setItem(AVATAR_KEY, cached.context.avatar);
+          else session()?.removeItem(AVATAR_KEY);
           const { pass, sessionKey } = cached.context;
           if (pass && sessionKey && verifyRoomPass(pass, { origin: location.origin }).ok) session()?.setItem(PASS_KEY, JSON.stringify({ pass, sessionKey }));
           else session()?.removeItem(PASS_KEY);
@@ -10726,6 +10871,18 @@ postMessage({ t: "started" });
     look() {
       try {
         return session()?.getItem(LOOK_KEY) ?? void 0;
+      } catch {
+        return void 0;
+      }
+    },
+    /**
+     * Their look note (kind 37301), as the arrival named it (an `naddr`), where they came as themselves with one: it
+     * may name a model of their own (protocol/05-looks.md). Undefined if they came plain or have none. Kept for this
+     * tab's session only. It counts only if its author is the key their pass names: `ownLookNote` checks that.
+     */
+    avatar() {
+      try {
+        return session()?.getItem(AVATAR_KEY) ?? void 0;
       } catch {
         return void 0;
       }
@@ -50650,8 +50807,196 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
   }
 
+  // packages/sdk/src/look-models.ts
+  function lookBudget(world2) {
+    const mb = world2?.maxFileSizeMb;
+    const tris = world2?.maxTriangles;
+    return {
+      ...LOOK_BUDGET,
+      bytes: typeof mb === "number" && Number.isFinite(mb) && mb >= 0 ? Math.min(LOOK_BUDGET.bytes, Math.floor(mb * 1e6)) : LOOK_BUDGET.bytes,
+      triangles: typeof tris === "number" && Number.isFinite(tris) && tris >= 0 ? Math.min(LOOK_BUDGET.triangles, Math.floor(tris)) : LOOK_BUDGET.triangles
+    };
+  }
+  var AGAIN_MS2 = 4e3;
+  function createLookModels(opts = {}) {
+    const viewer = opts.viewer ?? (() => arrival.identity()?.pubkey ?? null);
+    const hosts = { ...opts.relays ? { relays: opts.relays } : {}, ...opts.query ? { query: opts.query } : {}, ...opts.now ? { now: opts.now } : {} };
+    const files2 = /* @__PURE__ */ new Map();
+    const scenes = /* @__PURE__ */ new Map();
+    const refusals = /* @__PURE__ */ new Map();
+    onFileHostsChange(() => {
+      for (const [sha, why] of refusals)
+        if (why === "elsewhere") {
+          refusals.delete(sha);
+          for (const key of [...files2.keys()]) if (key.startsWith(sha)) files2.delete(key);
+          for (const key of [...scenes.keys()]) if (key.startsWith(sha)) scenes.delete(key);
+        }
+    });
+    const keyOf = (model2, budget) => `${model2.sha256}:${budget.bytes}:${budget.triangles}`;
+    const forgetSoon = (kept2, key, asked) => setTimeout(() => {
+      if (kept2.get(key) === asked) kept2.delete(key);
+    }, AGAIN_MS2);
+    const bytes = (model2, budget = LOOK_BUDGET) => {
+      const key = keyOf(model2, budget);
+      let got = files2.get(key);
+      if (!got) {
+        const asking = fetchByHashSaying(model2.sha256, model2.url, { most: budget.bytes, viewer: viewer(), hosts, ...opts.fetchBytes ? { fetchBytes: opts.fetchBytes } : {} }).then(({ bytes: b, wrong }) => {
+          if (!b) {
+            if (keptElsewhere(model2.url)) refusals.set(model2.sha256, "elsewhere");
+            else {
+              refusals.set(model2.sha256, wrong ? "refused" : "missing");
+              if (!wrong) forgetSoon(files2, key, asking);
+            }
+            return null;
+          }
+          const read6 = readGlb(b, budget);
+          if (!read6.ok) {
+            refusals.set(model2.sha256, "refused");
+            return null;
+          }
+          refusals.delete(model2.sha256);
+          return { bytes: b, count: read6.count };
+        });
+        got = asking;
+        files2.set(key, got);
+      }
+      return got;
+    };
+    const scene = (model2, budget) => {
+      const key = keyOf(model2, budget);
+      let got = scenes.get(key);
+      if (!got) {
+        got = bytes(model2, budget).then(async (checked) => {
+          if (!checked) {
+            scenes.delete(key);
+            return null;
+          }
+          const plain = withoutRequired(checked.bytes);
+          const json = glbJson(checked.bytes);
+          if (!plain || !json) return null;
+          try {
+            const read6 = await new GLTFLoader().parseAsync(plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength), "");
+            const root = read6.scene;
+            if (lookFacing(json) === "+z") root.rotation.y = Math.PI;
+            root.traverse((o) => {
+              const mesh = o;
+              if (!mesh.isMesh) return;
+              for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+                const std = m;
+                if (!std.isMeshStandardMaterial) continue;
+                std.metalness = 0;
+                std.metalnessMap = null;
+                std.roughness = Math.max(std.roughness, 0.6);
+                std.needsUpdate = true;
+              }
+            });
+            root.userData.lookClips = read6.animations;
+            return root;
+          } catch {
+            refusals.set(model2.sha256, "unreadable");
+            return null;
+          }
+        });
+        scenes.set(key, got);
+      }
+      return got;
+    };
+    return {
+      bytes,
+      async object(model2, budget = LOOK_BUDGET) {
+        const root = await scene(model2, budget);
+        if (!root) return null;
+        const copy = clone(root);
+        copy.updateMatrixWorld(true);
+        const box = new Box3().setFromObject(copy);
+        const tall = box.max.y - box.min.y;
+        const holder = new Group();
+        if (!(tall > 0) || !Number.isFinite(tall)) return null;
+        const scale = model2.height / tall;
+        copy.scale.multiplyScalar(scale);
+        copy.updateMatrixWorld(true);
+        const fitted = new Box3().setFromObject(copy);
+        const centre = fitted.getCenter(new Vector3());
+        copy.position.x -= centre.x;
+        copy.position.z -= centre.z;
+        copy.position.y -= fitted.min.y;
+        holder.add(copy);
+        holder.userData.lookClips = root.userData.lookClips ?? [];
+        holder.userData.lookHeight = model2.height;
+        return holder;
+      },
+      why: (model2) => refusals.get(model2.sha256) ?? null
+    };
+  }
+  async function ownLookNote(opts = {}) {
+    const naddr = opts.naddr === void 0 ? arrival.avatar() : opts.naddr;
+    const author = opts.author === void 0 ? arrival.identity()?.pubkey ?? null : opts.author;
+    if (!naddr || !author) return null;
+    let at;
+    try {
+      at = decodeNaddr(naddr);
+    } catch {
+      return null;
+    }
+    if (at.kind !== AVATAR_KIND || at.pubkey !== author) return null;
+    const relays = [.../* @__PURE__ */ new Set([...(at.relays ?? []).filter((r) => r.startsWith("wss://")).slice(0, 3), ...opts.relays ?? DEFAULT_RELAYS])];
+    const got = await askWell({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, { own: [], usual: relays, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).catch(() => null);
+    const newest = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
+    return newest && JSON.stringify(newest).length <= LOOK_NOTE_LIMIT ? newest : null;
+  }
+  var MODELS_KEY = "nswp:models";
+  var showing = null;
+  var modelWatchers = /* @__PURE__ */ new Set();
+  var keepModels = (on3) => {
+    try {
+      if (on3) globalThis.localStorage?.removeItem(MODELS_KEY);
+      else globalThis.localStorage?.setItem(MODELS_KEY, "off");
+    } catch {
+    }
+  };
+  function showsModels() {
+    if (showing !== null) return showing;
+    const came = arrivedSettings().models;
+    let kept2 = null;
+    try {
+      kept2 = globalThis.localStorage?.getItem(MODELS_KEY) ?? null;
+    } catch {
+    }
+    showing = came ?? kept2 !== "off";
+    if (came !== void 0) keepModels(showing);
+    reportSettings("models", () => ({ models: showsModels() }));
+    return showing;
+  }
+  function setShowsModels(on3) {
+    showsModels();
+    showing = on3;
+    keepModels(on3);
+    for (const fn of modelWatchers) fn();
+  }
+  function onModelsChange(fn) {
+    modelWatchers.add(fn);
+    return () => void modelWatchers.delete(fn);
+  }
+
   // packages/sdk/src/presence.ts
   var ARRIVING_SECONDS = 6;
+  var STANDING_EYES = 1.6;
+  function markSprite(mark) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "rgba(10,15,21,0.85)";
+    g.beginPath();
+    g.roundRect(2, 2, 60, 60, 12);
+    g.fill();
+    g.fillStyle = "#ffffff";
+    markGrid(mark).forEach((row, y) => row.forEach((on3, x) => on3 && g.fillRect(9 + x * 9.5, 9 + y * 9.5, 8, 8)));
+    const map = new CanvasTexture(canvas);
+    map.colorSpace = SRGBColorSpace;
+    const sprite = new Sprite(new SpriteMaterial({ map, depthWrite: false }));
+    sprite.scale.set(0.11, 0.11, 1);
+    return sprite;
+  }
   var SEND_EVERY_MS = 66;
   var FADE_START = 0.9;
   var FADE_END = 0.45;
@@ -50952,10 +51297,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (a.beam) figure2.head.add(a.beam);
       if (a.bubble) figure2.head.add(a.bubble);
       a.root.add(figure2.group);
+      if (a.model) figure2.metal.visible = false;
+      if (a.mark) figure2.head.add(a.mark);
       a.figure = figure2;
       a.head = figure2.head;
       a.torso = figure2.torso;
       a.hands = figure2.hands;
+      placeOverHead(a);
       a.materials = [figure2.metal, a.label.material, ...a.picture ? [a.picture.material] : []].map((material) => {
         const opacity = material === a.label.material || material === a.picture?.material ? 1 : material.opacity;
         material.transparent = true;
@@ -51013,6 +51361,90 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       for (const a of avatars.values()) showPicture(a);
     });
     let onPerson = () => {
+    };
+    const lookModels = d.lookModels ?? createLookModels();
+    const simpleKeys = /* @__PURE__ */ new Set();
+    let sinceModels = 1;
+    const worldLooks = () => d.looks?.() ?? null;
+    const drawsModels = () => {
+      const w = worldLooks();
+      return !!w && w.dress !== "own" && (w.formats.includes("vrm") || w.formats.includes("glb"));
+    };
+    const whyNot = (a) => {
+      const m = a.member.model;
+      if (!m) return "none";
+      const w = worldLooks();
+      if (!drawsModels() || !w?.formats.includes(m.format)) return "world";
+      if (!showsModels()) return "off";
+      if (simpleKeys.has(a.member.pubkey)) return "person";
+      if (a.wantModel === void 0) return "crowd";
+      return lookModels.why(m) ?? "loading";
+    };
+    const dropModel = (a) => {
+      a.model?.removeFromParent();
+      a.mark?.removeFromParent();
+      a.mark?.material.map?.dispose();
+      a.mark?.material.dispose();
+      delete a.model;
+      delete a.modelFor;
+      delete a.mark;
+      a.lift = 0;
+      a.figure.metal.visible = true;
+      placeOverHead(a);
+    };
+    const placeOverHead = (a) => {
+      const lift = a.lift ?? 0;
+      a.label.position.y = 0.42 + lift;
+      if (a.picture) a.picture.position.y = 0.63 + lift;
+      if (a.mark) a.mark.position.y = 0.3 + lift;
+    };
+    const wearModel = (a, key, model2, mark) => {
+      dropModel(a);
+      a.model = model2;
+      a.modelFor = key;
+      a.root.add(model2);
+      a.figure.metal.visible = false;
+      a.mark = markSprite(mark);
+      a.figure.head.add(a.mark);
+      a.lift = (model2.userData.lookHeight ?? LOOK_HEIGHT.standard) - LOOK_HEIGHT.standard;
+      placeOverHead(a);
+      changed();
+    };
+    onModelsChange(() => sinceModels = 1);
+    const tendModels = (dt) => {
+      sinceModels += dt;
+      if (sinceModels < 0.5) return;
+      sinceModels = 0;
+      const w = worldLooks();
+      d.camera.getWorldPosition(headAt);
+      const may = [...avatars.values()].filter((a) => {
+        const m = a.member.model;
+        return m && a.target && drawsModels() && w?.formats.includes(m.format) && showsModels() && !simpleKeys.has(a.member.pubkey);
+      });
+      may.sort((x, y) => x.head.position.distanceTo(headAt) - y.head.position.distanceTo(headAt));
+      const chosen = new Set(may.slice(0, LOOK_MODELS_AT_ONCE));
+      const budget = lookBudget(w);
+      for (const a of avatars.values()) {
+        const m = a.member.model;
+        if (!m || !chosen.has(a)) {
+          delete a.wantModel;
+          if (a.model) dropModel(a);
+          continue;
+        }
+        const height = lookHeight(m.height, w?.height);
+        const key = `${m.sha256}:${height}`;
+        if (a.modelFor === key || a.wantModel === key) continue;
+        a.wantModel = key;
+        void lookModels.object({ ...m, height }, budget).then((model2) => {
+          if (!avatars.has(a.member.pubkey) || a.wantModel !== key) return;
+          if (!model2) {
+            if (a.model) dropModel(a);
+            changed();
+            return;
+          }
+          wearModel(a, key, model2, a.member.look.mark);
+        });
+      }
     };
     const makeAvatar = (member) => {
       const root = new Group();
@@ -51143,6 +51575,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       d.scene.remove(a.root);
       dropPicture(a);
       dropBubble(a);
+      dropModel(a);
       a.figure.dispose();
     };
     const v2 = new Vector3();
@@ -51208,7 +51641,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (rules.namedOnly && !identity) throw new Error("this world's rooms show only people who are signed in. Sign in, then join.");
       if (identity && rules.blocked.includes(identity.pass.pubkey)) throw new Error("the owner of this world has asked you not to come in.");
       if (identity && invitedOnly && !invitedOnly.includes(identity.pass.pubkey)) throw new Error("this world is by invitation, and its owner hasn't invited you.");
-      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
+      const avatar = identity ? await (typeof d.avatar === "function" ? d.avatar() : d.avatar !== void 0 ? d.avatar : drawsModels() ? ownLookNote() : null) : null;
+      const s = await room.join({ ...name ? { name } : {}, ...look ? { look } : {}, ...identity ? { identity } : {}, ...avatar ? { avatar } : {}, blocked: blockedKeys(), ownerBlocked: rules.blocked, namedOnly: rules.namedOnly, invited: invitedOnly });
       session2 = s;
       if (!offsetApplied) {
         offsetApplied = true;
@@ -51239,6 +51673,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       s.on("look", (m, look2) => {
         const a = avatars.get(m.pubkey);
         if (a) dress(a, look2);
+        sinceModels = 1;
         changed();
       });
       s.on("identity", (m) => {
@@ -51527,6 +51962,23 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       isMuted(pubkey) {
         return mutedKeys.has(pubkey);
       },
+      showSimple(pubkey, on3) {
+        if (on3) simpleKeys.add(pubkey);
+        else simpleKeys.delete(pubkey);
+        sinceModels = 1;
+        changed();
+      },
+      isSimple(pubkey) {
+        return simpleKeys.has(pubkey);
+      },
+      drawsModels: () => drawsModels(),
+      lookInfo() {
+        return [...avatars.values()].map((a) => {
+          const m = a.member.model;
+          const drawn2 = !!a.model;
+          return { pubkey: a.member.pubkey, model: m?.sha256 ?? null, drawn: drawn2 ? "model" : "simple", why: drawn2 ? null : whyNot(a), height: drawn2 ? a.model?.userData.lookHeight ?? null : null };
+        });
+      },
       block(pubkey) {
         const gone = session2?.block(pubkey);
         if (!gone) return null;
@@ -51591,7 +52043,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             if (t > (a.bubbleUntil ?? 0)) dropBubble(a);
             else {
               a.bubble.material.opacity = near * Math.min(1, (t - (a.bubbleFrom ?? t)) / 160, ((a.bubbleUntil ?? t) - t) / 600);
-              a.bubble.position.y = a.picture ? 0.78 : 0.5;
+              a.bubble.position.y = (a.picture ? 0.78 : 0.5) + (a.lift ?? 0);
             }
           }
           const snap = a.placed ? k : 1;
@@ -51601,6 +52053,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
           euler.setFromQuaternion(a.head.quaternion, "YXZ");
           a.torso.position.set(a.head.position.x, a.head.position.y - 0.45, a.head.position.z);
           a.torso.rotation.set(0, euler.y, 0);
+          if (a.model) {
+            a.model.position.set(a.head.position.x, a.head.position.y - STANDING_EYES, a.head.position.z);
+            a.model.rotation.set(0, euler.y, 0);
+            a.model.visible = near > 0.5;
+          }
           const hands = [a.target.left, a.target.right];
           hands.forEach((t, i) => {
             const mesh = a.hands[i];
@@ -51610,6 +52067,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
             } else mesh.visible = false;
           });
         }
+        tendModels(dt);
         play2?.update(dt);
       },
       drawn() {
@@ -52500,33 +52958,33 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const newest = c.lines[c.lines.length - 1]?.key ?? "";
       if (c.ready && newest && newest !== chatNewest && chatState !== "open" && !c.lines[c.lines.length - 1].mine) setChatState("peek");
       chatNewest = newest;
-      const showing = chatState === "open" ? dockTab : "room";
-      const now = JSON.stringify([chatState, showing, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
+      const showing2 = chatState === "open" ? dockTab : "room";
+      const now = JSON.stringify([chatState, showing2, c.version, c.ready, f.version, f.ready, l.version, l.ready, showing2 === "feed" ? [Math.floor(Date.now() / 6e4), f.lead] : showing2 === "letters" ? [Math.floor(Date.now() / 6e4), l.title] : 0]);
       if (now === chatDrawn) return;
       chatDrawn = now;
       chat.dataset.state = chatState;
-      chat.dataset.tab = showing;
-      chat.setAttribute("aria-label", showing === "feed" ? f.title : showing === "letters" ? l.title : "Room chat");
+      chat.dataset.tab = showing2;
+      chat.setAttribute("aria-label", showing2 === "feed" ? f.title : showing2 === "letters" ? l.title : "Room chat");
       const both = [c.ready, f.ready, l.ready].filter(Boolean).length > 1;
       chatTabs.hidden = !both;
       chatTitle.hidden = both;
-      chatTitle.textContent = showing === "feed" ? f.title : showing === "letters" ? l.title : c.title;
+      chatTitle.textContent = showing2 === "feed" ? f.title : showing2 === "letters" ? l.title : c.title;
       tabRoom.hidden = !c.ready;
       tabFeed.hidden = !f.ready;
       tabLetters.hidden = !l.ready;
       tabLetters.textContent = l.title;
-      tabLetters.setAttribute("aria-selected", String(showing === "letters"));
-      tabRoom.textContent = c.unread && showing !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
-      tabRoom.setAttribute("aria-selected", String(showing === "room"));
-      tabFeed.setAttribute("aria-selected", String(showing === "feed"));
-      feedLead.hidden = showing === "room";
-      feedSaid.hidden = showing === "room";
-      chatField.maxLength = showing === "feed" ? f.limit : showing === "letters" ? l.limit : c.limit;
-      const words2 = showing === "feed" ? "Write a post" : showing === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
+      tabLetters.setAttribute("aria-selected", String(showing2 === "letters"));
+      tabRoom.textContent = c.unread && showing2 !== "room" ? `Room chat: ${c.unread} new` : "Room chat";
+      tabRoom.setAttribute("aria-selected", String(showing2 === "room"));
+      tabFeed.setAttribute("aria-selected", String(showing2 === "feed"));
+      feedLead.hidden = showing2 === "room";
+      feedSaid.hidden = showing2 === "room";
+      chatField.maxLength = showing2 === "feed" ? f.limit : showing2 === "letters" ? l.limit : c.limit;
+      const words2 = showing2 === "feed" ? "Write a post" : showing2 === "letters" ? `Write to ${l.with}, privately` : "Write to the room";
       chatField.placeholder = words2;
       chatField.setAttribute("aria-label", words2);
-      chatSend.textContent = showing === "feed" ? "Send out a post" : "Send";
-      if (showing === "feed") {
+      chatSend.textContent = showing2 === "feed" ? "Send out a post" : "Send";
+      if (showing2 === "feed") {
         feedLead.textContent = f.lead;
         feedSaid.textContent = f.said;
         const nowSec = Math.floor(Date.now() / 1e3);
@@ -52549,7 +53007,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         chatLines.hidden = f.posts.length === 0;
         return;
       }
-      if (showing === "letters") {
+      if (showing2 === "letters") {
         feedLead.textContent = l.lead;
         feedSaid.textContent = l.said;
         const nowSec = Math.floor(Date.now() / 1e3);
@@ -52789,9 +53247,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           return b;
         })
       );
-      const showing = open2 ? section : "";
-      const bring = showing !== tabsShowing;
-      tabsShowing = showing;
+      const showing2 = open2 ? section : "";
+      const bring = showing2 !== tabsShowing;
+      tabsShowing = showing2;
       requestAnimationFrame(() => {
         const chosen = tabs.querySelector('[aria-selected="true"]');
         if (bring && open2 && chosen) {
@@ -53336,16 +53794,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return true;
       },
       view() {
-        const showing = inOrder(actions.filter((a) => !a.hidden?.()));
-        const pressable = showing.filter((a) => a.kind !== "line");
+        const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
+        const pressable = showing2.filter((a) => a.kind !== "line");
         const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
         const item = (a) => {
           const slot = bar.indexOf(a);
           return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
         };
         const known = new Set(sections.map((s) => s.id));
-        const extra = [...new Set(showing.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
-        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
+        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id) => !known.has(id)))].map((id) => ({ id, label: id }));
+        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
         return {
           title: opts.title,
           address: opts.address ?? "",
@@ -54054,7 +54512,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       );
       return null;
     };
-    const AGAIN_MS2 = 6e3;
+    const AGAIN_MS3 = 6e3;
     const tries = /* @__PURE__ */ new Map();
     function again(key) {
       const n = (tries.get(key) ?? 0) + 1;
@@ -54064,7 +54522,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (ready2.get(key) !== null) return;
         ready2.delete(key);
         for (const fn of watchers8) fn();
-      }, AGAIN_MS2 * n);
+      }, AGAIN_MS3 * n);
     }
     return {
       still(item, tints) {
@@ -54524,13 +54982,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     press(first, () => o.use());
     press(second, () => o.second());
-    let showing = { side: "" };
+    let showing2 = { side: "" };
     let attached = false;
     return {
       show(does, side, theme) {
         if (!does || !does.use && !does.second) {
           host.style.display = "none";
-          showing = { side: "" };
+          showing2 = { side: "" };
           return;
         }
         if (!attached) {
@@ -54550,7 +55008,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         second.setAttribute("aria-label", does.second);
         sightEl.hidden = !does.use;
         host.style.display = "block";
-        showing = { side };
+        showing2 = { side };
       },
       info() {
         if (host.style.display === "none") return { sight: false, side: "", buttons: [] };
@@ -54558,7 +55016,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           const r = b.getBoundingClientRect();
           return { label: b.textContent ?? "", x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
         };
-        return { sight: !sightEl.hidden, side: showing.side, buttons: [first, second].filter((b) => !b.hidden).map(box) };
+        return { sight: !sightEl.hidden, side: showing2.side, buttons: [first, second].filter((b) => !b.hidden).map(box) };
       },
       dispose() {
         host.remove();
@@ -55582,6 +56040,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
       }
     });
+    if (presence3.drawsModels())
+      controls2.add({
+        id: "people-models",
+        section: "people",
+        icon: "people",
+        on: () => showsModels(),
+        label: () => showsModels() ? "Show people's own models: on" : "Show people's own models: off",
+        short: "Models",
+        act: () => {
+          setShowsModels(!showsModels());
+          controls2.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
+        }
+      });
     controls2.add({
       id: "files-anywhere",
       section: "people",
@@ -55694,6 +56165,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       if (who2) {
         extras.push("person-mute", "person-music", "person-block");
+        if (who2.model && presence3.drawsModels()) {
+          extras.push("person-simple");
+          controls2.add({
+            id: "person-simple",
+            section: "people",
+            icon: "look",
+            on: () => presence3.isSimple(who2.pubkey),
+            label: () => presence3.isSimple(who2.pubkey) ? `Show ${who2.name}'s own model` : `Show ${who2.name} as their simple look`,
+            act: () => {
+              const now = !presence3.isSimple(who2.pubkey);
+              presence3.showSimple(who2.pubkey, now);
+              controls2.say(now ? `${who2.name} is drawn as their simple look for you. They aren't told.` : `${who2.name} is drawn as their own model again.`);
+            }
+          });
+        }
         controls2.add(
           {
             id: "person-mute",
