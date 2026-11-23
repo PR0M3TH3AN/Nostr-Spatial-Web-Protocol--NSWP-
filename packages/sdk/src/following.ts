@@ -9,6 +9,7 @@
  * then the tab has one control, which asks them.
  */
 import { decodeNpub, encodeNpub, shortNpub } from "@nswp/core";
+import { copiedRefused } from "./client-frame.js";
 import type { Keyboard } from "./keyboard.js";
 import type { People } from "./people.js";
 import type { PersonLines } from "./person-lines.js";
@@ -103,7 +104,7 @@ export function addFollowingControls(controls: Controls, opts: FollowingOptions)
       try {
         text = await (opts.copied ? opts.copied() : navigator.clipboard.readText());
       } catch {
-        return say("What you copied couldn't be read here. Copy their key (it starts npub1), allow this site to read what you copy, and press again.");
+        return say(copiedRefused("Copy their key (it starts npub1)"));
       }
     }
     const key = keyIn(text);

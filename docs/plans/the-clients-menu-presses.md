@@ -1,9 +1,10 @@
 # Which presses must land in the world's own page: what Chrome said
 
 **Status:** a trial's result, for step 1 of `docs/plans/the-clients-menu.md` (its step
-0b). NSWP builder, 2026-11-23. Tried in Chrome 157, scripted, with
+0b). NSWP builder, 2026-11-23, in two parts: the first list, and then windows and a
+pointer the world holds. Tried in Chrome 157, scripted, with
 `trials/presses-from-above.mjs`. Not tried: Firefox, Safari, Meta's browser on a Quest,
-or a real headset.
+a real headset, or anything only a person's keyboard can show (below).
 
 ## The question
 
@@ -42,7 +43,7 @@ checks that the frame says "never pressed" before anything is pressed.
 | Write to what the visitor copies ("Copy key") | refused | **refused** | written | Needs the frame to have the keys, which it doesn't after a press above |
 | Read what the visitor copied | refused | refused | **refused** | Refused to a framed world whatever is pressed: the shell doesn't allow it. The page above can (it read it, at a press) |
 | Fill the screen | refused | refused | refused | As designed: the client holds the screen |
-| Open a window | not shown here | not shown here | not shown here | The scripted Chrome has its window blocker off, so this said nothing. A window needs a press in the page that opens it, by every browser's own account |
+| Open a window | blocked | **blocked** | opened | **Needs a press in the world's own page.** Tried in a second Chrome with its window blocker on: the scripted one starts with it off, and there every window opens |
 
 And three more things:
 
@@ -55,13 +56,47 @@ And three more things:
   for a few named things. Chrome named none of the two that matter: asked to hand down
   a headset or the pointer, it said it doesn't know them.
 
+## A pointer the world holds, as the client's menu comes up and goes
+
+The second part. A world moving the intense way holds the pointer. The frame took it at
+a press on its own view, and was then told in words, with nothing pressed, that the
+menu came up (`open: true`) and went (`open: false`).
+
+| What was tried | What Chrome said |
+|---|---|
+| The frame lets the pointer go when told the menu is up | It let go |
+| A press on the page above, once let go | The page above got it |
+| The frame takes the pointer again as the menu goes, about a second after its last press | Taken. The browser still counted the frame as pressed |
+| The same, six and a half seconds after its last press | **Taken, though the browser no longer counted the frame as pressed** |
+
+So Chrome lets a page that let the pointer go by itself take it again without a new
+press. That is its rule for a page that gave the pointer up by its own call. It is
+not its rule after the visitor's own Escape: there a new press is needed, which the
+kit already knows ("a click on the view").
+
+## What a scripted browser can't show
+
+Each of these needs a person at a keyboard, and is on step 1's list for the owner:
+
+- **Escape with the pointer held.** It is the browser's own key there. A scripted
+  Escape doesn't reach the browser's handling (as one doesn't leave fullscreen), so
+  the trial doesn't press it. Still to see: that the world hears no key, only that
+  its hold ended, and that taking the pointer again then needs a press.
+- **Where a press goes while the pointer is held.** A scripted mouse is sent to a
+  place on the screen whatever holds the pointer, so the page above "got" a press
+  that a person's mouse could never have given it. That line of the trial's output
+  says nothing, and is marked so.
+- **Escape in fullscreen,** for the same reason as the first.
+
 ## What follows for the design
 
 1. **Entering a headset from the client's menu takes one more press, in the world.**
-   The client's row tells the world; the world shows its own "press to enter" across
-   its view, as it already does for a visitor who left a headset to come here. That is
-   one press more than today, and there is no way round it short of a browser of our
-   own. The plan's section 8 said this was likely; it is now measured.
+   The client's row tells the world; the world shows its own press across its view,
+   as it already does for a visitor who left a headset to come here. That is one
+   press more than today, and there is no way round it short of a browser of our
+   own. **Decided (the owner, 2026-11-23): two presses, each with its own name. The
+   client's row is "Enter VR"; the world's press across its view is "Launch",**
+   wherever the world shows that screen.
 2. **The pointer for the intense way is unchanged.** It is taken at a press on the
    view, which is the world's page. But after the client's menu goes, the next press
    on the view takes it, not the menu's own Close: a visitor moving the intense way
@@ -69,29 +104,42 @@ And three more things:
    view" where a browser refuses it after Escape, so the words exist.
 3. **The world must let go of the pointer when told the menu is up** (`open: true`).
    The client can't do it for it. A world built some other way that doesn't is left
-   to the browser's own Escape, which always lets go.
-4. **Copying is the client's to do.** A row a world describes that copies something
-   (a key, an address) can't be done by the world at a press above. So a described row
-   or card may carry the text to copy, and the client copies it at the press. This
-   needs one small word, a row's `copy` (a name to ask for).
-5. **Reading what the visitor copied is the client's too, and is broken in the frame
-   today.** "Put in the item I copied" (the Bag) and "Someone whose key I copied" (Who
-   comes in) can't work in a world shown in BitPortal's frame, now, before any of this
-   design: the shell doesn't allow a framed page to read what was copied. That follows
-   from the same `allow` the shell uses; it wasn't tried in the shell itself. With the
-   client's menu, the Bag's row is the client's own and works. The keeper's "by key"
-   row is a world's row: it needs either a field in the client's menu to type or paste
-   into, whose text goes down to the world (a second small word, a row's `ask`), or
-   the shell allowing `clipboard-read` to the frame. The first is better: the visitor
-   sees what is handed over.
-6. **Sound and the microphone need nothing.**
+   to the browser's own Escape, which always lets go. When the menu goes, the plan
+   has the pointer taken again at a press on the view; Chrome would also let the
+   world take it at once (above), which is a question put to the orchestrator.
+4. **Copying is the client's to do.** A `press` reaches the world as words, with no
+   press in its page, so a world's row that copies fails, and fails quietly: nothing
+   tells the visitor. So a described row may be of the kind `copy`, carrying its
+   text, and the client copies it at the press (the name was given on 2026-11-23).
+5. **Opening a window is the client's to do, for the same reason.** A world can't
+   open one from a press on the client's menu: the browser blocks it, and says
+   nothing to the visitor. The windows the menu needs are the sign-in address's
+   pages, which the client shows in its own panel.
+6. **Reading what the visitor copied is a known fault for a framed world, and gets
+   no quick fix.** "Put in the item I copied" (the Bag), "Someone whose key I copied"
+   (Who comes in) and following someone by a copied key can't work in a world shown
+   in BitPortal's frame, now, before any of this design: the shell doesn't allow a
+   framed page to read what was copied. That follows from the same `allow` the shell
+   uses; it wasn't tried in the shell itself.
+   - **`clipboard-read` is not added to the frame's `allow`** (the orchestrator,
+     2026-11-23). A world would then read the visitor's clipboard under the client's
+     name.
+   - **The fix is step 1's.** The Bag's and Following's rows become the client's own.
+     The keeper's "by key" row is a world's: it becomes a row of the kind `field`
+     (the name given, in place of `ask`), which the visitor types or pastes into and
+     whose text goes to the world only at their press. The visitor sees what is
+     handed over.
+   - **Until then the three rows say why.** In a frame they no longer ask the visitor
+     to "allow this site", which there is a switch that doesn't exist. They say the
+     world is shown inside another page, and to open it by its own address.
+7. **Sound and the microphone need nothing.**
 
-## Questions this raises
+## Questions this raised, and their answers
 
-- For the orchestrator: the two small words, a row's `copy` and a row's `ask` (names to
-  give), and whether the present fault (item 5) wants a fix before step 1: the shell
-  could allow `clipboard-read` to the worlds it frames, which is BitPortal's to decide.
-- For the owner, with step 1's questions: "Enter VR" in BitPortal's menu will take two
-  presses in a framed world (one on the menu, one on the world). The other way is to
-  keep that one button drawn by the world itself, inside its frame, which breaks "one
-  menu, the client's". *Recommend the two presses.*
+- **The two small words:** given by the orchestrator on 2026-11-23 as `copy` and
+  `field`.
+- **A quick fix for the clipboard fault:** none (item 6).
+- **"Enter VR" as two presses in a framed world:** yes, the owner, 2026-11-23, with
+  the names "Enter VR" and "Launch" (item 1).
+- **Still open, for the orchestrator:** whether a world tries to take the pointer
+  again as the menu goes, before waiting for a press on the view (item 3).
