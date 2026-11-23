@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.85.0
+
 - **The keys stay with the world when a client's menu closes; a press outside the menu closes it; a client's own page may describe every tab** (SDK `ui/hud.ts`, `menu-above.ts`; the engine script; `trials/menu-client.mjs`, `trials/menu-rows.mjs`; NSWP-02, NSWP-11). Three things BitPortal's real shell turned up on kit 0.84.0. The engine script is rebuilt; its version is not changed.
   - **A fault: closing a client's sheet stranded the world's keys.** Brought up from the menu's own mark, the menu gave the keys to the world's frame as it closed (the client's port does that) and then took them back to its mark two milliseconds later. W, A, S, D were dead until a press on the view. Now, where whoever is told the menu went has given the keys away, the menu leaves them there. A world's own menu closes as before.
   - **The trial was passing wrongly, and now isn't.** It brought the menu up by script, with the frame holding the keys, so they went back to the frame. It now brings it up by a press on the mark, closes it three ways (Escape, its Close, its mark), looks a moment later and presses a key. With the fix taken out all three fail, with the keys at the menu.
