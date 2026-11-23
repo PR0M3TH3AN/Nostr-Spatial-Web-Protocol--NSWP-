@@ -16,7 +16,6 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { fetchByHashSaying, keptElsewhere, onFileHostsChange, type FileHostsOptions } from "./file-hosts.js";
 import { arrival } from "./index.js";
-import { arrivedSettings, reportSettings } from "./settings.js";
 import { askWell } from "./relay-book.js";
 
 /** What a world lets a look's model be, from its manifest's `avatar`: never more than `LOOK_BUDGET`. */
@@ -195,46 +194,9 @@ export async function ownLookNote(opts: { relays?: string[]; query?: typeof quer
   return newest && JSON.stringify(newest).length <= LOOK_NOTE_LIMIT ? newest : null;
 }
 
-const MODELS_KEY = "nswp:models";
-let showing: boolean | null = null;
-const modelWatchers = new Set<() => void>();
-const keepModels = (on: boolean): void => {
-  try {
-    if (on) globalThis.localStorage?.removeItem(MODELS_KEY);
-    else globalThis.localStorage?.setItem(MODELS_KEY, "off");
-  } catch {
-    /* for this page only */
-  }
-};
-/** Whether this visitor sees people's own models. On, unless they turned it off here or where they came from: it travels. */
-export function showsModels(): boolean {
-  if (showing !== null) return showing;
-  const came = arrivedSettings().models;
-  let kept: string | null = null;
-  try {
-    kept = globalThis.localStorage?.getItem(MODELS_KEY) ?? null;
-  } catch {
-    /* nothing kept */
-  }
-  showing = came ?? kept !== "off";
-  if (came !== undefined) keepModels(showing);
-  reportSettings("models", () => ({ models: showsModels() }), (now) => void (now.models !== undefined && now.models !== showing && setShowsModels(now.models)));
-  return showing;
-}
-export function setShowsModels(on: boolean): void {
-  showsModels();
-  showing = on;
-  keepModels(on);
-  for (const fn of modelWatchers) fn();
-}
-export function onModelsChange(fn: () => void): () => void {
-  modelWatchers.add(fn);
-  return () => void modelWatchers.delete(fn);
-}
-/** For tests: forget the switch, so it is read afresh. */
-export function forgetModelsSwitch(): void {
-  showing = null;
-}
+// The switch itself is in a file of its own (models-switch.ts), so that a page that draws no models (a client's own
+// page, drawing the visitor's menu above a world) can hold the switch without carrying what draws them.
+export { forgetModelsSwitch, onModelsChange, setShowsModels, showsModels } from "./models-switch.js";
 
 /** What a world says of people's own models: its manifest's `avatar`, as far as choosing who is drawn needs it. */
 export interface WorldLooks {

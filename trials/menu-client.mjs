@@ -167,6 +167,22 @@ try {
   await client(() => window.__client.controls.setTheme({ scale: 1.3 }, true));
   check("a setting changed in the client's menu is the world's at once", await until(() => world().evaluate(() => window.__nswpTest.controls.theme.scale === 1.3)));
 
+  // ---- The rows that change a setting the visitor carries are the client's own, inside the tabs the world fills.
+  const SWITCHES = ["people-pictures", "people-models", "room-chat-show", "fov"];
+  const worldSays = await client(() => window.__client.below.world.sections.flatMap((s) => s.rows.map((r) => r.id)));
+  check("the world leaves the visitor's switches out of what it describes", !worldSays.some((id) => SWITCHES.includes(id)), worldSays);
+  const inTabs = await client(() => Object.fromEntries(window.__client.below.port.view().sections.map((s) => [s.id, s.items.map((i) => i.id)])));
+  check("the client draws them itself, first in the world's People and Room", inTabs.people?.[0] === "people-pictures" && inTabs.room?.[0] === "room-chat-show", { people: inTabs.people, room: inTabs.room });
+  results["the client's own rows in the world's tabs"] = Object.fromEntries(Object.entries(inTabs).map(([tab, ids]) => [tab, ids.filter((id) => !id.startsWith("world:"))]).filter(([, ids]) => ids.length));
+  await client(() => window.__client.menu.setOpen(true, "people"));
+  const pictures = hud.getByRole("button", { name: /Profile pictures: on/ });
+  await until(() => pictures.isVisible());
+  await press(pictures);
+  const offInWorld = () => world().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "people")?.items.find((i) => i.id === "people-pictures")?.on === false);
+  check("people's pictures turned off in the client's menu are off in the world at once", await until(offInWorld));
+  check("and the client's row says so", await until(() => hud.getByRole("button", { name: /Profile pictures: off/ }).isVisible()));
+  await page.screenshot({ path: join(SHOTS, "menu-client-4-switches.png") });
+
   // ---- The menu goes: the world is told, and has the keys.
   await page.keyboard.press("Escape");
   check("Escape puts the client's menu away", await until(() => client(() => window.__client.menu.open === false)));
@@ -216,7 +232,9 @@ try {
   // ---- Home as a guarantee: a world that says it speaks the words and then answers nothing.
   await client((to) => (document.getElementById("view").src = to), `${STUCK}/`);
   await until(() => client(() => window.__client.below.speaks === true));
-  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
+  // Its own tabs, and none of a world's: the switches for people's pictures and for chat stand only where a world
+  // fills People and Room.
+  check("the menu is back over a page that speaks the words, with only the client's own tabs", await client(() => document.querySelector("nswp-hud").hidden === false && window.__client.below.port.view().sections.every((s) => ["travel", "look", "moving", "view"].includes(s.id))), await client(() => window.__client.below.port.view().sections.map((s) => s.id)));
   const saidHome = [];
   await client(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); });
   const startedAt = Date.now();

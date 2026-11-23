@@ -12,9 +12,9 @@ built: the words, their limits and the reading of them, in the kit's core
 its second part, both ends of the port are built (`portAbove`, in the reference worlds;
 `portBelow`, in a stand-in client: `trials/menu-client.mjs`) and the menu draws
 rows typed into and rows that copy. A world that steps aside keeps the chat's
-pane. Still to come in step 1: the rest of the visitor's own tabs in the client,
-the settings rows that become the client's own, pictures, "Launch", the engine
-script, and the trials of the four presses. NSWP builder,
+pane, and the rows that change a travelling setting are the client's own. Still
+to come in step 1: the rest of the visitor's own tabs in the client, pictures,
+"Launch", the engine script, and the trials of the four presses. NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).

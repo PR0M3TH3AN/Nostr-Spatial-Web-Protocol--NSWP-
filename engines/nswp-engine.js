@@ -50892,6 +50892,41 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     };
   }
 
+  // packages/sdk/src/models-switch.ts
+  var MODELS_KEY = "nswp:models";
+  var showing = null;
+  var modelWatchers = /* @__PURE__ */ new Set();
+  var keepModels = (on3) => {
+    try {
+      if (on3) globalThis.localStorage?.removeItem(MODELS_KEY);
+      else globalThis.localStorage?.setItem(MODELS_KEY, "off");
+    } catch {
+    }
+  };
+  function showsModels() {
+    if (showing !== null) return showing;
+    const came = arrivedSettings().models;
+    let kept2 = null;
+    try {
+      kept2 = globalThis.localStorage?.getItem(MODELS_KEY) ?? null;
+    } catch {
+    }
+    showing = came ?? kept2 !== "off";
+    if (came !== void 0) keepModels(showing);
+    reportSettings("models", () => ({ models: showsModels() }), (now) => void (now.models !== void 0 && now.models !== showing && setShowsModels(now.models)));
+    return showing;
+  }
+  function setShowsModels(on3) {
+    showsModels();
+    showing = on3;
+    keepModels(on3);
+    for (const fn of modelWatchers) fn();
+  }
+  function onModelsChange(fn) {
+    modelWatchers.add(fn);
+    return () => void modelWatchers.delete(fn);
+  }
+
   // packages/sdk/src/look-models.ts
   function lookBudget(world2) {
     const mb = world2?.maxFileSizeMb;
@@ -51028,39 +51063,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     const got = await askWell({ kinds: [AVATAR_KIND], authors: [author], "#d": [at.identifier], limit: 4 }, { own: [], usual: relays, ...opts.query ? { query: opts.query } : {}, timeoutMs: 4e3, ...opts.now ? { now: opts.now } : {} }).catch(() => null);
     const newest = (got?.events ?? []).filter((e) => e.kind === AVATAR_KIND && e.pubkey === author && verifyEvent(e) && e.tags.some((t) => t[0] === "d" && t[1] === at.identifier)).sort((a, b) => b.created_at - a.created_at)[0];
     return newest && JSON.stringify(newest).length <= LOOK_NOTE_LIMIT ? newest : null;
-  }
-  var MODELS_KEY = "nswp:models";
-  var showing = null;
-  var modelWatchers = /* @__PURE__ */ new Set();
-  var keepModels = (on3) => {
-    try {
-      if (on3) globalThis.localStorage?.removeItem(MODELS_KEY);
-      else globalThis.localStorage?.setItem(MODELS_KEY, "off");
-    } catch {
-    }
-  };
-  function showsModels() {
-    if (showing !== null) return showing;
-    const came = arrivedSettings().models;
-    let kept2 = null;
-    try {
-      kept2 = globalThis.localStorage?.getItem(MODELS_KEY) ?? null;
-    } catch {
-    }
-    showing = came ?? kept2 !== "off";
-    if (came !== void 0) keepModels(showing);
-    reportSettings("models", () => ({ models: showsModels() }), (now) => void (now.models !== void 0 && now.models !== showing && setShowsModels(now.models)));
-    return showing;
-  }
-  function setShowsModels(on3) {
-    showsModels();
-    showing = on3;
-    keepModels(on3);
-    for (const fn of modelWatchers) fn();
-  }
-  function onModelsChange(fn) {
-    modelWatchers.add(fn);
-    return () => void modelWatchers.delete(fn);
   }
   function worldDrawsModels(world2) {
     return !!world2 && world2.dress !== "own" && (world2.formats.includes("vrm") || world2.formats.includes("glb"));
@@ -55535,6 +55537,43 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return true;
   }
 
+  // packages/sdk/src/visitor-switches.ts
+  var picturesSwitch = (controls2) => ({
+    id: "people-pictures",
+    section: "people",
+    icon: "selfie",
+    on: () => showsPictures(),
+    label: () => showsPictures() ? "Profile pictures: on" : "Profile pictures: off",
+    short: "Pictures",
+    act: () => {
+      setShowsPictures(!showsPictures());
+      controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
+    }
+  });
+  var modelsSwitch = (controls2) => ({
+    id: "people-models",
+    section: "people",
+    icon: "people",
+    on: () => showsModels(),
+    label: () => showsModels() ? "Show people's own models: on" : "Show people's own models: off",
+    short: "Models",
+    act: () => {
+      setShowsModels(!showsModels());
+      controls2.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
+    }
+  });
+  var chatSwitch = (tell2) => ({
+    id: "room-chat-show",
+    section: "room",
+    icon: "chat",
+    label: () => showsChat() ? "Written chat: on" : "Written chat: off",
+    on: () => showsChat(),
+    act: () => {
+      setShowsChat(!showsChat());
+      tell2(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
+    }
+  });
+
   // packages/sdk/src/messages.ts
   var MOST2 = 300;
   var FRESH_MS4 = 45e3;
@@ -56265,31 +56304,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       choose(m);
       controls2.signal("show:people");
     });
-    controls2.add({
-      id: "people-pictures",
-      section: "people",
-      icon: "selfie",
-      on: () => showsPictures(),
-      label: () => showsPictures() ? "Profile pictures: on" : "Profile pictures: off",
-      short: "Pictures",
-      act: () => {
-        setShowsPictures(!showsPictures());
-        controls2.say(showsPictures() ? "People's own pictures are shown over their names. Each is fetched from wherever its owner keeps it, which tells that place your address." : "No pictures are fetched or shown, here or in the next world.");
-      }
-    });
+    controls2.add(picturesSwitch(controls2));
     if (presence3.drawsModels())
-      controls2.add({
-        id: "people-models",
-        section: "people",
-        icon: "people",
-        on: () => showsModels(),
-        label: () => showsModels() ? "Show people's own models: on" : "Show people's own models: off",
-        short: "Models",
-        act: () => {
-          setShowsModels(!showsModels());
-          controls2.say(showsModels() ? "People who wear a model of their own are drawn as it here, and in the next world that draws them." : "Everyone is drawn as their simple look, here and in the next world.");
-        }
-      });
+      controls2.add(modelsSwitch(controls2));
     controls2.add({
       id: "files-anywhere",
       section: "people",
@@ -56914,17 +56931,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           );
         }
       },
-      {
-        id: "room-chat-show",
-        section: "room",
-        icon: "chat",
-        label: () => showsChat() ? "Written chat: on" : "Written chat: off",
-        on: () => showsChat(),
-        act: () => {
-          setShowsChat(!showsChat());
-          tell2(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
-        }
-      },
+      chatSwitch(tell2),
       {
         id: "room-join",
         section: "room",

@@ -17,6 +17,7 @@ import { LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_VERSION, MENU_VISITOR_TABS, MENU
 import { framed, hearClientMenu, sayToClient, sinceHere, speakMenu } from "./client-frame.js";
 import { changeSettings } from "./settings.js";
 import type { Controls, UiCard, UiItemView, UiView } from "./ui/model.js";
+import { VISITOR_SWITCHES } from "./visitor-switches.js";
 import { SUMMON_KEY } from "./ui/summon.js";
 
 speakMenu(MENU_VERSION);
@@ -110,7 +111,9 @@ export function describeWorld(view: UiView, state: Partial<MenuState> = {}): Rec
         ...(s.icon ? { icon: s.icon } : {}),
         ...(s.note ? { note: s.note } : {}),
         ...(s.card ? { card: cardOf(s.card) } : {}),
-        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id))).map((i) => rowOf(i, onBar.has(i.id))),
+        // Not the way home, and not a switch that changes one of the visitor's travelling settings: those are the
+        // client's own rows, which it draws itself inside this tab.
+        rows: s.items.filter((i) => !(s.id === "travel" && VISITORS_ROWS.includes(i.id)) && !VISITOR_SWITCHES.includes(i.id)).map((i) => rowOf(i, onBar.has(i.id))),
       }))
       .filter((s) => s.rows.length > 0 || s.card),
   };

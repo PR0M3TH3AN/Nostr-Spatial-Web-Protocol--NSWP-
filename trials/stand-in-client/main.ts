@@ -4,7 +4,7 @@
 // shell. It is not a client anyone uses: it has no sign-in, no bag and no room of its own, only a way home.
 //
 // Bundled and served by the trial that uses it (trials/menu-client.mjs). `?home=` is where its Home goes.
-import { mountMenu, portBelow } from "nswp-sdk/menu";
+import { addDeskControls, chatSwitch, modelsSwitch, mountMenu, picturesSwitch, portBelow } from "nswp-sdk/menu";
 import { createControls } from "nswp-sdk/ui";
 
 const frame = document.getElementById("view") as HTMLIFrameElement;
@@ -22,6 +22,17 @@ const below = portBelow(frame, {
   },
 });
 controls.add({ id: "home", section: "travel", icon: "home", label: "Home", hotbar: true, act: () => below.leave() });
+// The rows that change a setting the visitor carries from world to world are the client's own, wherever they stand:
+// look speed (Moving) and how wide they see (View), and the switches for people's pictures, people's own models
+// (People) and what people write (Room). The world leaves these out of what it describes. The three switches are
+// shown only where the world fills that tab: there is nobody's picture to see in a place with no people.
+const worldFills = (tab: string) => !!below.world?.sections.some((s) => s.id === tab);
+addDeskControls(controls, { presenting: () => !!below.world?.state.headset.presenting });
+controls.add(
+  { ...picturesSwitch(controls), hidden: () => !worldFills("people") },
+  { ...modelsSwitch(controls), hidden: () => !worldFills("people") },
+  { ...chatSwitch((text) => controls.say(text)), hidden: () => !worldFills("room") },
+);
 
 const menu = mountMenu(below.port);
 below.attach(menu);
