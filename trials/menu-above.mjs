@@ -12,6 +12,10 @@
 //   "has":   answers `here` at once with `has: true`.
 //   "never": says nothing. A client that doesn't know the words, or isn't one.
 //   "late":  answers with `has: true` 900 ms after `here`, long after the world stopped waiting (300 ms).
+//   "during": answers 600 ms after `here`, while the world's own menu is still on its way: the menu's file is held
+//            back for two seconds by this script. The world gave up waiting, asked for its menu, and the client
+//            answered before it came. (Found on 2026-11-23 on a machine at a load of 41: the world drew its menu
+//            anyway, and the visitor had two.)
 //
 // This is not a trial about presses: the words a client says down are words, not presses, so the script reads the
 // world's page directly. A press on the page above reaching a world is trials/presses-from-above.mjs.
@@ -45,6 +49,7 @@ addEventListener("message", (e) => {
   const answer = () => say({ has: true, v: 1, settings: { text: 1.3 } });
   if (mode === "has") answer();
   if (mode === "late") setTimeout(answer, 900);
+  if (mode === "during") setTimeout(answer, 600);
 });
 </script>`;
 
@@ -89,7 +94,10 @@ async function visit(mode) {
       fetched.push(url.pathname);
       const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
       if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
-      return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      const send = () => route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      // The menu's own file, held back where the trial wants the client's answer to come while it is on its way.
+      if (mode === "during" && /\/chunks\/menu-.*\.js$/.test(url.pathname)) return void setTimeout(send, 2000);
+      return send();
     }
     refused.add(url.origin);
     return route.abort();
@@ -105,7 +113,7 @@ async function visit(mode) {
     await page.waitForTimeout(250);
   }
   // Long enough for a late answer (900 ms after `here`) to have come, and for the world to have acted on whatever it heard.
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(mode === "during" ? 3500 : 1500);
   await until(page, () => world().evaluate((want) => (window.__nswpTest?.menuAbove?.() === true ? document.querySelectorAll("nswp-hud").length === 0 : document.querySelectorAll("nswp-hud").length === 1), mode));
   const heard = await page.evaluate(() => window.heard);
   const inWorld = await world().evaluate(() => ({
@@ -179,6 +187,15 @@ try {
     const v = await visit("late");
     check("late/the world's own menu is put away: one menu, never two", v.inWorld.menus === 0 && v.inWorld.menuAbove === true, v.inWorld);
     check("late/and it describes itself from then on", v.heard.some((h) => h.word.nswp === "menu" && h.word.world), null);
+    await v.ctx.close();
+  }
+
+  // ---- A client that answers while the world's own menu is on its way.
+  {
+    const v = await visit("during");
+    check("during/the world asked for its own menu, having heard nothing in time", v.fetchedMenu === true, v.fetchedMenu);
+    check("during/and put it away unseen when it came: one menu, never two", v.inWorld.menus === 0 && v.inWorld.menuAbove === true, v.inWorld);
+    check("during/it describes itself to the client", v.heard.some((h) => h.word.nswp === "menu" && h.word.world), null);
     await v.ctx.close();
   }
 } finally {
