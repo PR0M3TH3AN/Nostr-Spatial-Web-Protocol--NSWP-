@@ -4,11 +4,11 @@
 // shell. It is not a client anyone uses: it has no sign-in, no bag and no room of its own, only a way home.
 //
 // Bundled and served by the trial that uses it (trials/menu-client.mjs). `?home=` is where its Home goes.
-import { addDeskControls, addSoundControls, askDeskMoving, chatSwitch, createSounds, deskMovingSwitch, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
-import { parseItem } from "../../packages/core/src/index.js";
-import { addBagControls } from "../../packages/sdk/src/bagging.js";
-import { currentSettings } from "../../packages/sdk/src/settings.js";
-import { mayHold, scriptAllowed } from "../../packages/sdk/src/play.js";
+// Only the kit's entries, as a client with a copy of the kit would load them: never a path into the kit's own files.
+// (It used to reach four things by path, and a real client then found they could not be had from an entry at all.)
+import { addDeskControls, addSoundControls, askDeskMoving, chatSwitch, createSounds, currentSettings, deskMovingSwitch, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
+import { addBagControls, mayHold, scriptAllowed } from "nswp-sdk/bag";
+import { parseItem } from "@nswp/core";
 import BLASTER from "../../sites/items/dart-blaster.event.json";
 import { createControls } from "nswp-sdk/ui";
 

@@ -26,3 +26,9 @@ export { addDeskControls } from "./desk.js";
 export { addSoundControls, createSounds, type SoundControlsOptions, type Sounds } from "./sound.js";
 export { helpWords } from "./ui/help.js";
 export { askDeskMoving, chatSwitch, deskMovingSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "./visitor-switches.js";
+// The visitor's settings, in a client's page: what they are now, taking a change (a world's report from its headset
+// session, or what the client kept), and starting from what the client kept across a reload of its own page.
+export { arriveWith, changeSettings, currentSettings, type TravelSettings } from "./settings.js";
+// A client that fills the screen with its own page holds Escape as a world's page does: `watchEscape` once, and
+// the menu's own row for filling the screen.
+export { fullscreenAction, watchEscape } from "./ui/fullscreen.js";

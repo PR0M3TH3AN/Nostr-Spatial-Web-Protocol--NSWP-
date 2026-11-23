@@ -11373,6 +11373,1458 @@ postMessage({ t: "started" });
     go2.focus();
   }
 
+  // packages/sdk/src/file-store.ts
+  var DB = "nswp-panels";
+  function files() {
+    return new Promise((resolve, reject) => {
+      const open2 = indexedDB.open(DB, 1);
+      open2.onupgradeneeded = () => open2.result.createObjectStore("files");
+      open2.onsuccess = () => resolve(open2.result);
+      open2.onerror = () => reject(open2.error);
+    });
+  }
+  async function fileStore(mode, run2) {
+    try {
+      const db = await files();
+      return await new Promise((resolve, reject) => {
+        const request = run2(db.transaction("files", mode).objectStore("files"));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return void 0;
+    }
+  }
+
+  // packages/sdk/src/sound-store.ts
+  var CUES = [
+    "step",
+    // a footstep, walking
+    "land",
+    // arriving at the end of a jump: a step in a headset, or one taken at once
+    "bump",
+    // walking into something that can't be walked through
+    "grab",
+    "drop",
+    "hover",
+    "press",
+    "menuOpen",
+    "menuClose",
+    "cross",
+    // leaving through a door
+    "arrive",
+    // coming out of one
+    "join",
+    // someone is in the room who wasn't: the visitor, or another person
+    "leave",
+    "micOn",
+    "micOff",
+    "notice",
+    // the kit has something to say
+    "chat",
+    // someone in the room wrote something: heard from where they stand
+    "error"
+  ];
+  var tone = (from, to, at, dur, gain, wave = "sine") => ({
+    kind: "tone",
+    wave,
+    from,
+    ...to === void 0 ? {} : { to },
+    at,
+    dur,
+    gain
+  });
+  var noise = (band, at, dur, gain) => ({ kind: "noise", band, at, dur, gain });
+  var RECIPES = {
+    step: [noise(850, 0, 0.06, 0.2), tone(120, 70, 0, 0.07, 0.16)],
+    land: [tone(190, 62, 0, 0.16, 0.3), noise(480, 0, 0.11, 0.2)],
+    bump: [tone(96, 58, 0, 0.12, 0.28, "triangle"), noise(260, 0, 0.05, 0.14)],
+    grab: [tone(520, 780, 0, 0.07, 0.16, "triangle")],
+    drop: [tone(700, 420, 0, 0.08, 0.16, "triangle")],
+    hover: [tone(1400, void 0, 0, 0.025, 0.05)],
+    press: [tone(880, 1320, 0, 0.05, 0.15, "triangle")],
+    menuOpen: [tone(660, void 0, 0, 0.05, 0.12), tone(990, void 0, 0.05, 0.07, 0.12)],
+    menuClose: [tone(990, void 0, 0, 0.05, 0.12), tone(660, void 0, 0.05, 0.07, 0.12)],
+    cross: [tone(196, 784, 0, 0.5, 0.22), noise(1400, 0.05, 0.45, 0.07), tone(392, 1568, 0.1, 0.4, 0.08)],
+    arrive: [tone(784, 392, 0, 0.42, 0.2), tone(1176, 588, 0.04, 0.38, 0.08), noise(900, 0, 0.2, 0.05)],
+    join: [tone(523.25, void 0, 0, 0.09, 0.14), tone(783.99, void 0, 0.09, 0.14, 0.14)],
+    leave: [tone(783.99, void 0, 0, 0.09, 0.12), tone(523.25, void 0, 0.09, 0.14, 0.12)],
+    micOn: [tone(600, 900, 0, 0.08, 0.14)],
+    micOff: [tone(900, 600, 0, 0.08, 0.14)],
+    notice: [tone(1046.5, void 0, 0, 0.08, 0.09), tone(1318.5, void 0, 0.08, 0.12, 0.08)],
+    // Two soft syllables, low and falling at the end, with a breath in front: somebody said something. It is two
+    // octaves under the kit's own notice, which is high, clean and rises, so the two are never taken for each other.
+    chat: [noise(1900, 0, 0.03, 0.06), tone(360, 440, 5e-3, 0.07, 0.15, "triangle"), tone(330, 262, 0.1, 0.11, 0.13, "triangle")],
+    error: [tone(220, void 0, 0, 0.11, 0.13, "square"), tone(185, void 0, 0.14, 0.14, 0.13, "square")]
+  };
+  function cueRecipe(cue) {
+    return RECIPES[cue];
+  }
+  var SOUND_LIMITS = {
+    /** A world's own cue: a file this size at most, this long at most. Longer ones aren't sounds for something that happened. */
+    cueBytes: 512 * 1024,
+    cueSeconds: 3,
+    /** Kinds of file a world may name. */
+    extensions: ["ogg", "oga", "opus", "mp3", "m4a", "aac", "wav", "webm", "flac"],
+    /** Files for one cue: one is chosen each time, so a sound heard often isn't the same sound every time. */
+    variants: 6,
+    /** Pieces of music for one place: they play in turn. */
+    tracks: 8,
+    /** The visitor's own songs: this many, each this size at most. */
+    songs: 60,
+    songBytes: 40 * 1024 * 1024,
+    titleChars: 80
+  };
+  function ownSound(address, base) {
+    if (typeof address !== "string" || address.length > 2e3) return null;
+    let u;
+    let b;
+    try {
+      b = new URL(base);
+      u = new URL(address, b);
+    } catch {
+      return null;
+    }
+    if (u.origin !== b.origin || u.protocol !== "https:" && u.protocol !== "http:") return null;
+    const ext = u.pathname.split(".").pop()?.toLowerCase() ?? "";
+    if (!SOUND_LIMITS.extensions.includes(ext)) return null;
+    u.hash = "";
+    return u.href;
+  }
+  function ownSounds(value, base, limit) {
+    const out = [];
+    for (const v2 of Array.isArray(value) ? value : [value]) {
+      const address = ownSound(v2, base);
+      if (address && !out.includes(address)) out.push(address);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+  function cleanTheme2(input, base) {
+    const out = { cues: {} };
+    if (!input || typeof input !== "object") return out;
+    const { cues, music, hum } = input;
+    if (cues && typeof cues === "object") {
+      for (const cue of CUES) {
+        const v2 = cues[cue];
+        if (v2 === null) out.cues[cue] = null;
+        else if (v2 !== void 0) {
+          const files2 = ownSounds(v2, base, SOUND_LIMITS.variants);
+          if (files2.length) out.cues[cue] = files2;
+        }
+      }
+    }
+    if (music === null) out.music = null;
+    else if (music !== void 0) {
+      const tracks = ownSounds(music, base, SOUND_LIMITS.tracks);
+      if (tracks.length) out.music = tracks;
+    }
+    if (hum === null) out.hum = null;
+    else if (hum !== void 0) {
+      const address = ownSound(hum, base);
+      if (address) out.hum = address;
+    }
+    return out;
+  }
+  function cleanKit(input, folder, playsOgg) {
+    const out = { cues: {} };
+    if (!input || typeof input !== "object") return out;
+    const pick = (entry) => {
+      if (!entry || typeof entry !== "object") return entry;
+      const { ogg, mp3 } = entry;
+      return playsOgg ? ogg ?? mp3 : mp3 ?? ogg;
+    };
+    const many = (value, limit) => ownSounds((Array.isArray(value) ? value : [value]).map(pick), folder, limit);
+    const { cues, music, hum } = input;
+    if (cues && typeof cues === "object") {
+      for (const cue of CUES) {
+        const files2 = many(cues[cue], SOUND_LIMITS.variants);
+        if (files2.length) out.cues[cue] = files2;
+      }
+    }
+    const tracks = many(music, SOUND_LIMITS.tracks);
+    if (tracks.length) out.music = tracks;
+    const h = ownSound(pick(hum), folder);
+    if (h) out.hum = h;
+    return out;
+  }
+  function pieceName(address) {
+    let name = address;
+    try {
+      name = decodeURIComponent(new URL(address, "https://x.invalid/").pathname.split("/").pop() ?? "");
+    } catch {
+      name = address.split(/[/?#]/).filter(Boolean).pop() ?? "";
+    }
+    name = name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[\u0000-\u001f]/g, "").trim();
+    return name.slice(0, 60) || "a piece with no name";
+  }
+  var STEP_LEVEL = 0.45;
+  var JUMP_STEPS = { louder: 1.35, gap: 0.09 };
+  var STRIDE = 0.75;
+  var HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 };
+  function heardFrom(place) {
+    const d = Number.isFinite(place.distance) ? Math.max(0, place.distance) : HEARD.far;
+    const beyond = Math.max(0, d - HEARD.near);
+    const gain = Math.max(HEARD.floor, 1 / (1 + (beyond / HEARD.fall) ** 2));
+    const along = Math.min(1, beyond / (HEARD.far - HEARD.near));
+    const cutoff = Math.round(7e3 * (1100 / 7e3) ** along);
+    const side = Number.isFinite(place.pan) ? Math.max(-1, Math.min(1, place.pan)) : 0;
+    return { gain: Math.round(gain * 1e3) / 1e3, cutoff, pan: Math.round(side * 0.8 * 100) / 100, rate: 1 };
+  }
+  function stepShape(foot, random = Math.random) {
+    const right = Math.abs(Math.trunc(foot)) % 2 === 1;
+    const side = right ? 1 : -1;
+    return {
+      // Between a little over half and all of the step's level: a light tread now and then.
+      gain: STEP_LEVEL * (0.6 + 0.4 * random()),
+      // One foot falls a touch lower than the other, and each step is up to a semitone and a half either way.
+      rate: (1 + side * 0.025) * Math.pow(2, (random() * 2 - 1) * (1.5 / 12)),
+      cutoff: 1600 + random() * 3400,
+      pan: side * (0.08 + random() * 0.1)
+    };
+  }
+  function nextVariant(count3, last, random = Math.random) {
+    if (count3 <= 1) return 0;
+    if (last < 0 || last >= count3) return Math.min(count3 - 1, Math.floor(random() * count3));
+    const i = Math.floor(random() * (count3 - 1));
+    return i >= last ? i + 1 : i;
+  }
+  var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
+  var LEVEL_STEPS = [0, 0.35, 0.7, 1];
+  var LEVEL_WORDS = ["off", "low", "medium", "high"];
+  var unit = (v2, fallback) => typeof v2 === "number" && Number.isFinite(v2) ? Math.min(1, Math.max(0, v2)) : fallback;
+  function cleanLevels(input) {
+    const i = input && typeof input === "object" ? input : {};
+    return {
+      off: i.off === true,
+      effects: unit(i.effects, DEFAULT_LEVELS.effects),
+      music: unit(i.music, DEFAULT_LEVELS.music),
+      voices: unit(i.voices, DEFAULT_LEVELS.voices),
+      hearShared: i.hearShared === true,
+      shared: unit(i.shared, DEFAULT_LEVELS.shared),
+      hum: i.hum !== false
+    };
+  }
+  function levelStep(v2) {
+    let best = 0;
+    LEVEL_STEPS.forEach((s, i) => {
+      if (Math.abs(s - v2) < Math.abs(LEVEL_STEPS[best] - v2)) best = i;
+    });
+    return best;
+  }
+  function nextLevel(v2) {
+    return LEVEL_STEPS[(levelStep(v2) + 1) % LEVEL_STEPS.length];
+  }
+  var MUSIC_RANGE = 12;
+  var MUSIC_SOURCES = 2;
+  var MUSIC_DUCK = 0.35;
+  function musicToHear(sharing, hear) {
+    if (!hear) return [];
+    return sharing.filter((s) => !s.refused && Number.isFinite(s.metres) && s.metres <= MUSIC_RANGE).sort((a, b) => a.metres - b.metres || a.pubkey.localeCompare(b.pubkey)).slice(0, MUSIC_SOURCES).map((s) => s.pubkey);
+  }
+  function musicFade(metres) {
+    if (!(metres >= 0)) return 0;
+    const near = 2;
+    if (metres <= near) return 1;
+    if (metres >= MUSIC_RANGE) return 0;
+    const t = (metres - near) / (MUSIC_RANGE - near);
+    return (1 - t) * (1 - t);
+  }
+  function seeded(seed) {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    let a = h >>> 0;
+    return () => {
+      a = a + 1831565813 >>> 0;
+      let t = a;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var ROOTS = [98, 110, 116.54, 130.81, 146.83, 155.56];
+  var SCALES = [
+    [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3],
+    // major pentatonic: open, bright
+    [1, 6 / 5, 4 / 3, 3 / 2, 9 / 5],
+    // minor pentatonic: darker
+    [1, 9 / 8, 4 / 3, 3 / 2, 16 / 9],
+    // suspended: unresolved, still
+    [1, 5 / 4, 3 / 2, 15 / 8, 9 / 4]
+    // major seventh: warm
+  ];
+  function ambiencePlan(seed) {
+    const r = seeded(`ambience:${seed}`);
+    const root = ROOTS[Math.floor(r() * ROOTS.length)];
+    const scale = SCALES[Math.floor(r() * SCALES.length)];
+    const fifth = scale.includes(3 / 2) ? 3 / 2 : scale[3];
+    const drones = [1, fifth, 2, scale[2] * 2].map((m) => ({ hz: root * m, detune: (r() - 0.5) * 14, swell: 11 + r() * 18 }));
+    const least = 3.5 + r() * 3;
+    return { root, scale, drones, colour: 500 + r() * 900, gap: [least, least + 3 + r() * 4] };
+  }
+  function songTitle(fileName) {
+    const raw = typeof fileName === "string" ? fileName : "";
+    const cleaned = raw.split(/[\\/]/).pop().replace(/\.[a-z0-9]{1,5}$/i, "").normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ").replace(/[_\s]+/g, " ").trim();
+    return [...cleaned].slice(0, SOUND_LIMITS.titleChars).join("").trim() || "A song";
+  }
+  function cleanSongs(input) {
+    if (!Array.isArray(input)) return [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const s of input) {
+      if (!s || typeof s !== "object") continue;
+      const { id: id2, title, size, at } = s;
+      if (typeof id2 !== "string" || !/^[a-z0-9-]{4,40}$/.test(id2) || seen.has(id2)) continue;
+      seen.add(id2);
+      out.push({ id: id2, title: songTitle(title), size: typeof size === "number" && size > 0 ? Math.floor(size) : 0, at: typeof at === "number" && at > 0 ? Math.floor(at) : 0 });
+      if (out.length >= SOUND_LIMITS.songs) break;
+    }
+    return out;
+  }
+  var JUKE_REPEATS = ["off", "all", "one"];
+  var DEFAULT_HOW = { shuffle: false, repeat: "all", bar: false };
+  var SKIP_SECONDS = 15;
+  var RESTART_AFTER = 3;
+  function cleanHow(input) {
+    const h = input && typeof input === "object" ? input : {};
+    return { shuffle: h.shuffle === true, repeat: JUKE_REPEATS.includes(h.repeat) ? h.repeat : DEFAULT_HOW.repeat, bar: h.bar === true };
+  }
+  function songClock(seconds) {
+    const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+    const two = (n) => String(n).padStart(2, "0");
+    const [h, m, sec] = [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60];
+    return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+  }
+  function shuffledSongs(ids, first, random = Math.random) {
+    const rest = ids.filter((id2) => id2 !== first);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    return first !== null && ids.includes(first) ? [first, ...rest] : rest;
+  }
+  function songBeside(order, current, step, round2) {
+    if (order.length === 0) return null;
+    const at = current === null ? -1 : order.indexOf(current);
+    if (at === -1) return order[0];
+    const to = at + step;
+    if (to >= 0 && to < order.length) return order[to];
+    return round2 ? order[(to + order.length) % order.length] : null;
+  }
+  function songRefusal(file, have) {
+    const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+    const isSound = (file.type ?? "").startsWith("audio/") || SOUND_LIMITS.extensions.includes(ext);
+    if (!isSound) return "That isn't a sound file.";
+    if (!file.size) return "That file is empty.";
+    if (file.size > SOUND_LIMITS.songBytes) return `That file is over ${Math.round(SOUND_LIMITS.songBytes / 1024 / 1024)} MB, which is more than is kept here.`;
+    if (have >= SOUND_LIMITS.songs) return `${SOUND_LIMITS.songs} songs are kept here at most. Take one out first.`;
+    return null;
+  }
+
+  // packages/sdk/src/sound.ts
+  var FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 };
+  var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
+  var JUMP = 1.2;
+  function createSounds(o = {}) {
+    const ctx = o.context ?? new AudioContext();
+    const base = o.base ?? location.href;
+    const theme = cleanTheme2(o.theme, base);
+    const levelsKey = o.keep?.levels ?? "nswp:sound";
+    const songsKey = o.keep?.songs ?? "nswp:jukebox";
+    const howKey = o.keep?.how ?? "nswp:jukebox:how";
+    const read6 = (key) => {
+      try {
+        return JSON.parse(localStorage.getItem(key) ?? "null");
+      } catch {
+        return null;
+      }
+    };
+    const write = (key, value) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+      }
+    };
+    const came = arrivedSettings().sound;
+    let levels = cleanLevels({ ...read6(levelsKey), ...came });
+    let songs = cleanSongs(read6(songsKey));
+    let how = cleanHow(read6(howKey));
+    let disposed = false;
+    if (came) write(levelsKey, levels);
+    const stopReporting = reportSettings(
+      "sound",
+      () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }),
+      // Their client's menu changed a volume (settings.ts, `changeSettings`): as their own hand on it here would.
+      (now) => {
+        if (!now.sound || disposed) return;
+        levels = cleanLevels({ ...levels, ...now.sound });
+        write(levelsKey, levels);
+        apply();
+        changed();
+      }
+    );
+    const master = ctx.createGain();
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -14;
+    limiter.knee.value = 10;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 3e-3;
+    limiter.release.value = 0.25;
+    const meter = ctx.createAnalyser();
+    meter.fftSize = 1024;
+    master.connect(limiter);
+    limiter.connect(meter);
+    limiter.connect(ctx.destination);
+    const effects = ctx.createGain();
+    const placeMusic = ctx.createGain();
+    const ownMusic = ctx.createGain();
+    for (const g of [effects, placeMusic, ownMusic]) g.connect(master);
+    const humGain = ctx.createGain();
+    humGain.connect(placeMusic);
+    const listeners = /* @__PURE__ */ new Set();
+    const changed = () => {
+      for (const fn of listeners) {
+        try {
+          fn(levels);
+        } catch (err) {
+          console.error("nswp-sdk sound listener failed", err);
+        }
+      }
+    };
+    const juke = { audio: null, url: "", current: null, playing: false, tap: null };
+    const apply = () => {
+      const t = ctx.currentTime;
+      master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
+      effects.gain.setTargetAtTime(levels.effects, t, 0.05);
+      placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
+      ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
+      humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
+    };
+    apply();
+    let noiseBuffer = null;
+    const noise2 = () => {
+      if (noiseBuffer) return noiseBuffer;
+      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      return noiseBuffer;
+    };
+    const playPart = (p, when, to = effects, rate = 1) => {
+      const start2 = when + p.at;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, start2);
+      gain.gain.linearRampToValueAtTime(p.gain, start2 + Math.min(6e-3, p.dur / 3));
+      gain.gain.exponentialRampToValueAtTime(8e-4, start2 + p.dur);
+      gain.connect(to);
+      if (p.kind === "tone") {
+        const osc = ctx.createOscillator();
+        osc.type = p.wave;
+        osc.frequency.setValueAtTime(p.from * rate, start2);
+        if (p.to !== void 0) osc.frequency.exponentialRampToValueAtTime(p.to * rate, start2 + p.dur);
+        osc.connect(gain);
+        osc.start(start2);
+        osc.stop(start2 + p.dur + 0.02);
+      } else {
+        const src = ctx.createBufferSource();
+        src.buffer = noise2();
+        const band = ctx.createBiquadFilter();
+        band.type = "bandpass";
+        band.frequency.value = p.band * rate;
+        band.Q.value = 1.1;
+        src.connect(band);
+        band.connect(gain);
+        src.start(start2, Math.random() * 0.5);
+        src.stop(start2 + p.dur + 0.02);
+      }
+    };
+    const CUE_LOUDNESS = 0.14;
+    const loudnessOf = (buffer) => {
+      let sum = 0;
+      let n = 0;
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const data = buffer.getChannelData(c);
+        for (let i = 0; i < data.length; i += 4) {
+          sum += data[i] * data[i];
+          n++;
+        }
+      }
+      return n ? Math.sqrt(sum / n) : 0;
+    };
+    const loadCue = async (address) => {
+      try {
+        const res = await fetch(address);
+        if (!res.ok) return null;
+        const bytes = await res.arrayBuffer();
+        if (bytes.byteLength > SOUND_LIMITS.cueBytes) return null;
+        const buffer = await ctx.decodeAudioData(bytes);
+        if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return null;
+        const loud = loudnessOf(buffer);
+        return { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 };
+      } catch {
+        return null;
+      }
+    };
+    const own2 = /* @__PURE__ */ new Map();
+    const fromKit = /* @__PURE__ */ new Map();
+    const loadInto = (into, files2) => {
+      for (const [cue, addresses] of Object.entries(files2)) {
+        for (const address of addresses ?? []) {
+          void loadCue(address).then((loaded3) => {
+            if (loaded3) into.set(cue, [...into.get(cue) ?? [], loaded3]);
+          });
+        }
+      }
+    };
+    let kit2 = { cues: {} };
+    const kitReady = o.kit ? (async () => {
+      try {
+        const folder = new URL(o.kit.endsWith("/") ? o.kit : `${o.kit}/`, base).href;
+        const res = await fetch(new URL("sounds.json", folder).href);
+        if (!res.ok) return;
+        const playsOgg = new Audio().canPlayType('audio/ogg; codecs="opus"') !== "";
+        kit2 = cleanKit(await res.json(), folder, playsOgg);
+      } catch {
+      }
+    })() : Promise.resolve();
+    let cuesAsked = false;
+    const loadCues = () => {
+      if (cuesAsked || disposed) return;
+      cuesAsked = true;
+      loadInto(own2, theme.cues);
+      void kitReady.then(() => {
+        const rest = Object.fromEntries(Object.entries(kit2.cues).filter(([cue]) => theme.cues[cue] === void 0));
+        loadInto(fromKit, rest);
+      });
+    };
+    const last = /* @__PURE__ */ new Map();
+    const lastVariant = /* @__PURE__ */ new Map();
+    let foot = 0;
+    const shaped2 = (shape) => {
+      const soft = ctx.createBiquadFilter();
+      soft.type = "lowpass";
+      soft.frequency.value = shape.cutoff;
+      soft.Q.value = 0.5;
+      const level2 = ctx.createGain();
+      level2.gain.value = shape.gain;
+      soft.connect(level2);
+      if (typeof ctx.createStereoPanner === "function") {
+        const side = ctx.createStereoPanner();
+        side.pan.value = shape.pan;
+        level2.connect(side);
+        side.connect(effects);
+      } else level2.connect(effects);
+      return soft;
+    };
+    let foreignPlayed = 0;
+    const play2 = (cue, from) => {
+      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+      if (theme.cues[cue] === null) return;
+      const now = ctx.currentTime;
+      if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
+      last.set(cue, now);
+      sound(cue, now, from);
+    };
+    const sound = (cue, at, from, louder = 1) => {
+      const now = at;
+      const stepped = cue === "step" ? stepShape(foot++) : null;
+      const shape = stepped ? { ...stepped, gain: stepped.gain * louder } : from ? heardFrom(from) : null;
+      const out = shape ? shaped2(shape) : effects;
+      const files2 = own2.get(cue) ?? fromKit.get(cue);
+      if (files2?.length) {
+        const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
+        lastVariant.set(cue, which);
+        const src = ctx.createBufferSource();
+        src.buffer = files2[which].buffer;
+        if (shape) src.playbackRate.value = shape.rate;
+        const level2 = ctx.createGain();
+        level2.gain.value = files2[which].gain;
+        src.connect(level2);
+        level2.connect(out);
+        src.start(now);
+        return;
+      }
+      for (const part of cueRecipe(cue)) playPart(part, now + 5e-3, out, shape?.rate ?? 1);
+    };
+    const jumped2 = () => {
+      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+      if (theme.cues.step === null) return;
+      const now = ctx.currentTime;
+      sound("step", now, void 0, JUMP_STEPS.louder);
+      sound("step", now + JUMP_STEPS.gap, void 0, JUMP_STEPS.louder);
+      last.set("step", now + JUMP_STEPS.gap);
+    };
+    let walked = 0;
+    const moved2 = (metres) => {
+      if (!(metres > 5e-4)) return;
+      if (metres > JUMP) {
+        walked = 0;
+        return play2("land");
+      }
+      walked += metres;
+      if (walked >= STRIDE) {
+        walked = 0;
+        play2("step");
+      }
+    };
+    const loopPlayer = (tracks, into, opts = {}) => {
+      const fade = opts.fade ?? 2;
+      const out = ctx.createGain();
+      out.gain.value = opts.gain ?? 1;
+      out.connect(into);
+      const deck = () => {
+        const audio = new Audio();
+        audio.preload = "auto";
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        ctx.createMediaElementSource(audio).connect(gain);
+        gain.connect(out);
+        return { audio, gain };
+      };
+      const decks = [deck(), deck()];
+      let active = 0;
+      let index = 0;
+      let heard = 0;
+      let turning = false;
+      let stopped = false;
+      const curve = (rising) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(k / 31 * Math.PI / 2));
+      const turn = () => {
+        if (turning || stopped) return;
+        turning = true;
+        const from = decks[active];
+        const to = decks[1 - active];
+        index = (index + 1) % tracks.length;
+        to.audio.src = tracks[index];
+        to.audio.currentTime = 0;
+        void to.audio.play().then(
+          () => {
+            const t = ctx.currentTime + 0.02;
+            from.gain.gain.cancelScheduledValues(t);
+            to.gain.gain.cancelScheduledValues(t);
+            from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
+            to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
+            active = 1 - active;
+            heard = index;
+            opts.onTurn?.();
+            setTimeout(() => {
+              from.audio.pause();
+              turning = false;
+            }, (fade + 0.1) * 1e3);
+          },
+          () => {
+            turning = false;
+          }
+        );
+      };
+      for (const d of decks) {
+        d.audio.addEventListener("timeupdate", () => {
+          if (d !== decks[active] || !Number.isFinite(d.audio.duration)) return;
+          if (d.audio.duration - d.audio.currentTime <= fade + 0.35) turn();
+        });
+        d.audio.addEventListener("ended", () => {
+          if (d === decks[active]) turn();
+        });
+        d.audio.addEventListener("error", () => {
+          if (stopped || d !== decks[active] || turning) return;
+          stopped = true;
+          opts.onFail?.();
+        });
+      }
+      const first = decks[0];
+      first.audio.src = tracks[0];
+      void first.audio.play().then(
+        () => first.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.8),
+        () => {
+        }
+      );
+      return {
+        stop() {
+          stopped = true;
+          for (const d of decks) {
+            d.audio.pause();
+            d.audio.removeAttribute("src");
+          }
+          out.disconnect();
+        },
+        /** How many times one piece has handed on to the next. For tests. */
+        get index() {
+          return index;
+        },
+        /** Where the piece that is heard now is kept. */
+        get now() {
+          return tracks[heard];
+        },
+        get count() {
+          return tracks.length;
+        },
+        /** Hand on to the next piece now. */
+        next() {
+          if (tracks.length < 2 || turning || stopped) return false;
+          turn();
+          return true;
+        }
+      };
+    };
+    let kind = theme.music === null ? "none" : theme.music ? "world" : "made";
+    let stopMusic = null;
+    let pieces = null;
+    let stopHum = null;
+    let humAddress = null;
+    let musicAsked = false;
+    const startMusic = () => {
+      if (musicAsked || disposed) return;
+      musicAsked = true;
+      loadCues();
+      void kitReady.then(() => {
+        if (disposed) return;
+        humAddress = theme.hum === null ? null : theme.hum ?? kit2.hum ?? null;
+        if (humAddress) stopHum = loopPlayer([humAddress], humGain, { gain: 0.55 }).stop;
+        const tracks = theme.music === null ? null : theme.music ?? kit2.music ?? null;
+        if (theme.music === void 0 && kit2.music) kind = "kit";
+        changed();
+        if (theme.music === null) return;
+        if (tracks) {
+          const player2 = loopPlayer(tracks, placeMusic, {
+            gain: 0.6,
+            onTurn: () => changed(),
+            onFail: () => {
+              stopMusic?.();
+              pieces = null;
+              kind = "made";
+              stopMusic = madeMusic();
+              changed();
+            }
+          });
+          pieces = player2;
+          stopMusic = player2.stop;
+          changed();
+          return;
+        }
+        stopMusic = madeMusic();
+      });
+    };
+    const madeMusic = () => {
+      const plan = ambiencePlan(o.seed ?? location.host);
+      const bed = ctx.createGain();
+      bed.gain.value = 0.12;
+      const colour = ctx.createBiquadFilter();
+      colour.type = "lowpass";
+      colour.frequency.value = plan.colour;
+      colour.connect(bed);
+      bed.connect(placeMusic);
+      const running = [];
+      plan.drones.forEach((d, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = i < 2 ? "sine" : "triangle";
+        osc.frequency.value = d.hz;
+        osc.detune.value = d.detune;
+        const swell = ctx.createGain();
+        swell.gain.value = i < 2 ? 0.3 : 0.14;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 1 / d.swell;
+        const depth = ctx.createGain();
+        depth.gain.value = swell.gain.value * 0.8;
+        lfo.connect(depth);
+        depth.connect(swell.gain);
+        osc.connect(swell);
+        swell.connect(colour);
+        osc.start();
+        lfo.start();
+        running.push(osc, lfo);
+      });
+      const random = seeded(`notes:${o.seed ?? location.host}`);
+      let timer;
+      const note = () => {
+        if (disposed) return;
+        if (ctx.state === "running" && !levels.off && levels.music > 0) {
+          const hz = plan.root * plan.scale[Math.floor(random() * plan.scale.length)] * (random() < 0.5 ? 2 : 4);
+          const t = ctx.currentTime + 0.05;
+          const osc = ctx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.value = hz;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.11, t + 0.5);
+          g.gain.exponentialRampToValueAtTime(8e-4, t + 4.5);
+          osc.connect(g);
+          g.connect(bed);
+          osc.start(t);
+          osc.stop(t + 4.6);
+        }
+        timer = setTimeout(note, (plan.gap[0] + random() * (plan.gap[1] - plan.gap[0])) * 1e3);
+      };
+      timer = setTimeout(note, 1500);
+      return () => {
+        clearTimeout(timer);
+        for (const n of running) {
+          try {
+            n.stop();
+          } catch {
+          }
+        }
+        bed.disconnect();
+      };
+    };
+    const wake = () => {
+      void ctx.resume().then(startMusic, () => {
+      });
+      if (ctx.state === "running") startMusic();
+    };
+    const onTouch = () => wake();
+    addEventListener("pointerdown", onTouch, true);
+    addEventListener("keydown", onTouch, true);
+    if (ctx.state === "running") startMusic();
+    const keepSongs = () => write(songsKey, songs);
+    const stopOwn = () => {
+      juke.audio?.pause();
+      juke.playing = false;
+      apply();
+      changed();
+    };
+    const player = () => {
+      if (!juke.audio || !juke.tap) {
+        juke.audio = new Audio();
+        const source = ctx.createMediaElementSource(juke.audio);
+        source.connect(ownMusic);
+        juke.tap = ctx.createMediaStreamDestination();
+        source.connect(juke.tap);
+        juke.audio.addEventListener("ended", () => {
+          if (how.repeat === "one") return void jukebox.play(juke.current?.id);
+          const after2 = songBeside(order(), juke.current?.id ?? null, 1, how.repeat === "all");
+          if (after2) return void jukebox.play(after2);
+          juke.audio.currentTime = 0;
+          stopOwn();
+        });
+        juke.audio.addEventListener("durationchange", () => changed());
+      }
+      return { audio: juke.audio, tap: juke.tap };
+    };
+    let chance = [];
+    const order = () => {
+      const ids = songs.map((s) => s.id);
+      if (!how.shuffle) return ids;
+      if (chance.length !== ids.length || ids.some((id2) => !chance.includes(id2))) chance = shuffledSongs(ids, juke.current?.id ?? null);
+      return chance;
+    };
+    const jukebox = {
+      list: () => [...songs],
+      async add(file) {
+        const refusal = songRefusal({ type: file.type, size: file.size, ...file.name ? { name: file.name } : {} }, songs.length);
+        if (refusal) return refusal;
+        const id2 = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const kept2 = await fileStore("readwrite", (s) => s.put(file, `song:${id2}`));
+        if (kept2 === void 0) return "This browser couldn't keep that file.";
+        songs = cleanSongs([...songs, { id: id2, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
+        keepSongs();
+        changed();
+        return null;
+      },
+      async remove(id2) {
+        if (juke.current?.id === id2) {
+          stopOwn();
+          juke.current = null;
+        }
+        songs = songs.filter((s) => s.id !== id2);
+        keepSongs();
+        await fileStore("readwrite", (s) => s.delete(`song:${id2}`));
+        changed();
+      },
+      async play(id2) {
+        const song = id2 ? songs.find((s) => s.id === id2) : juke.current ?? songs[0];
+        if (!song || disposed) return false;
+        player();
+        if (juke.current?.id !== song.id || !juke.url) {
+          const file = await fileStore("readonly", (s) => s.get(`song:${song.id}`));
+          if (!file) return false;
+          if (juke.url) URL.revokeObjectURL(juke.url);
+          juke.url = URL.createObjectURL(file);
+          juke.audio.src = juke.url;
+          juke.current = song;
+        }
+        try {
+          await ctx.resume();
+          await juke.audio.play();
+        } catch {
+          juke.playing = false;
+          apply();
+          changed();
+          return false;
+        }
+        juke.playing = true;
+        apply();
+        changed();
+        return true;
+      },
+      pause: stopOwn,
+      // Asked for by a press, both go round: the last song's "next" is the first, whatever happens at a song's own end.
+      async next() {
+        const to = songBeside(order(), juke.current?.id ?? null, 1, true);
+        return to ? jukebox.play(to) : false;
+      },
+      async previous() {
+        if (juke.current && (juke.audio?.currentTime ?? 0) >= RESTART_AFTER) {
+          jukebox.seek(0);
+          return juke.playing ? true : jukebox.play();
+        }
+        const to = songBeside(order(), juke.current?.id ?? null, -1, true);
+        return to ? jukebox.play(to) : false;
+      },
+      seek(seconds) {
+        if (!juke.audio || !juke.current || !Number.isFinite(seconds)) return;
+        const most = Number.isFinite(juke.audio.duration) ? juke.audio.duration : seconds;
+        juke.audio.currentTime = Math.max(0, Math.min(seconds, most));
+        changed();
+      },
+      get playing() {
+        return juke.playing;
+      },
+      get current() {
+        return juke.current;
+      },
+      get position() {
+        return juke.current ? juke.audio?.currentTime ?? 0 : 0;
+      },
+      get duration() {
+        const d = juke.current ? juke.audio?.duration ?? 0 : 0;
+        return Number.isFinite(d) && d > 0 ? d : 0;
+      },
+      get how() {
+        return how;
+      },
+      setHow(patch) {
+        const was = how.shuffle;
+        how = cleanHow({ ...how, ...patch });
+        if (how.shuffle && !was) chance = [];
+        write(howKey, how);
+        changed();
+      },
+      output: () => player().tap.stream.getAudioTracks()[0]
+    };
+    const samples = new Float32Array(meter.fftSize);
+    return {
+      play: play2,
+      moved: moved2,
+      bump: () => play2("bump"),
+      jumped: jumped2,
+      get levels() {
+        return levels;
+      },
+      setLevels(patch) {
+        levels = cleanLevels({ ...levels, ...patch });
+        write(levelsKey, levels);
+        apply();
+        changed();
+      },
+      jukebox,
+      onChange(fn) {
+        listeners.add(fn);
+        fn(levels);
+        return () => listeners.delete(fn);
+      },
+      get music() {
+        return kind;
+      },
+      get piece() {
+        return pieces ? { name: pieceName(pieces.now), of: pieces.count } : null;
+      },
+      nextPiece() {
+        return pieces?.next() ?? false;
+      },
+      get hasHum() {
+        return !!humAddress;
+      },
+      async decode(bytes) {
+        try {
+          const buffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          if (!(buffer.duration > 0) || buffer.duration > FOREIGN_SOUND.seconds) return null;
+          let peak = 0;
+          for (let c = 0; c < buffer.numberOfChannels; c++) for (const x of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
+          return { buffer, gain: peak > 0 ? Math.min(1, FOREIGN_SOUND.peak / peak) : 1 };
+        } catch {
+          return null;
+        }
+      },
+      playForeign(sound2, from) {
+        if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
+        const far = from && Number.isFinite(from.distance) ? Math.max(0, from.distance) : 0;
+        const reach = far <= FOREIGN_SOUND.fades ? 1 : Math.max(0, 1 - (far - FOREIGN_SOUND.fades) / (FOREIGN_SOUND.gone - FOREIGN_SOUND.fades));
+        if (reach <= 0) return;
+        const src = ctx.createBufferSource();
+        src.buffer = sound2.buffer;
+        const level2 = ctx.createGain();
+        level2.gain.value = sound2.gain * reach;
+        src.connect(level2);
+        level2.connect(from ? shaped2(heardFrom(from)) : effects);
+        src.start();
+        foreignPlayed++;
+      },
+      get foreignPlayed() {
+        return foreignPlayed;
+      },
+      loudness() {
+        meter.getFloatTimeDomainData(samples);
+        return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
+      },
+      dispose() {
+        stopReporting();
+        disposed = true;
+        removeEventListener("pointerdown", onTouch, true);
+        removeEventListener("keydown", onTouch, true);
+        stopMusic?.();
+        stopHum?.();
+        juke.audio?.pause();
+        if (juke.url) URL.revokeObjectURL(juke.url);
+        master.disconnect();
+      }
+    };
+  }
+  function addSoundControls(controls2, sounds2, opts = {}) {
+    const word = (v2) => LEVEL_WORDS[levelStep(v2)];
+    let listed = [];
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "audio/*";
+    picker.multiple = true;
+    picker.hidden = true;
+    document.body.append(picker);
+    picker.addEventListener("change", async () => {
+      let added = 0;
+      let refused = "";
+      for (const file of [...picker.files ?? []]) {
+        const no4 = await sounds2.jukebox.add(file);
+        if (no4) refused = no4;
+        else added++;
+      }
+      picker.value = "";
+      controls2.say(added ? `${added === 1 ? "1 song" : `${added} songs`} added. Only you hear your music.${refused ? ` ${refused}` : ""}` : refused || "Nothing was added.");
+      refresh();
+    });
+    const juke = sounds2.jukebox;
+    const clock = () => juke.duration ? `${songClock(juke.position)} of ${songClock(juke.duration)}` : songClock(juke.position);
+    const REPEAT_WORDS = { off: "Repeat: off", all: "Repeat: all your songs", one: "Repeat: this song" };
+    const playRow = () => ({
+      id: "juke-play",
+      section: "sound",
+      icon: () => juke.playing ? "pause" : "play",
+      on: () => juke.playing,
+      hidden: () => juke.list().length === 0,
+      hotbar: juke.how.bar && juke.list().length > 0,
+      label: () => juke.playing ? "Pause your music" : "Play your music",
+      short: () => juke.current?.title ?? "Your music",
+      act: async () => {
+        if (juke.playing) return juke.pause();
+        if (!await juke.play()) controls2.say("Your music couldn't be played.");
+      }
+    });
+    let barWas = juke.how.bar && juke.list().length > 0;
+    const refresh = () => {
+      const bar = juke.how.bar && juke.list().length > 0;
+      if (bar !== barWas) {
+        barWas = bar;
+        controls2.add(playRow());
+      }
+      for (const id2 of listed) controls2.remove(id2);
+      const songs = sounds2.jukebox.list();
+      listed = songs.map((s) => `song-${s.id}`);
+      controls2.addSection({
+        id: "sound",
+        label: "Sound",
+        icon: "sound",
+        note: () => `${sounds2.levels.off ? "All sound is off. " : ""}${sounds2.music === "none" ? "This place has no music of its own." : sounds2.music === "world" ? "This place plays its own music." : sounds2.music === "kit" ? "This place plays the music every world starts with." : "This place's music is made by your browser, from its name."} Your own music is kept in this browser, for this site, and only you hear it.`
+      });
+      songs.forEach(
+        (s, i) => controls2.add({
+          id: listed[i],
+          section: "sound",
+          icon: "note",
+          on: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id,
+          label: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id ? `Playing: ${s.title}` : s.title,
+          act: async () => {
+            if (sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id) sounds2.jukebox.pause();
+            else if (!await sounds2.jukebox.play(s.id)) controls2.say(`${s.title} couldn't be played.`);
+          }
+        })
+      );
+    };
+    const level2 = (id2, name, key) => ({
+      id: id2,
+      section: "sound",
+      label: () => `${name}: ${word(sounds2.levels[key])}`,
+      on: () => sounds2.levels[key] > 0,
+      act: () => sounds2.setLevels({ [key]: nextLevel(sounds2.levels[key]) })
+    });
+    controls2.addSection({ id: "sound", label: "Sound", icon: "sound" });
+    controls2.add(
+      {
+        id: "sound-all",
+        section: "sound",
+        icon: () => sounds2.levels.off ? "soundOff" : "sound",
+        on: () => !sounds2.levels.off,
+        label: () => sounds2.levels.off ? "All sound: off" : "All sound: on",
+        act: () => sounds2.setLevels({ off: !sounds2.levels.off })
+      },
+      level2("sound-effects", "Effects", "effects"),
+      level2("sound-music", "Music", "music"),
+      {
+        // What the place is playing, by name, so a visitor can say which piece they mean. Pressing goes on to the next.
+        id: "sound-piece",
+        section: "sound",
+        icon: "note",
+        hidden: () => sounds2.music === "none" || sounds2.music === "made" || !sounds2.piece,
+        label: () => {
+          const p = sounds2.piece;
+          if (!p) return "This place's music";
+          return `Playing here: ${p.name}${p.of > 1 ? `. Next of ${p.of}` : ""}`;
+        },
+        act: () => {
+          const p = sounds2.piece;
+          if (!p) return;
+          if (sounds2.nextPiece()) controls2.say(`Going on from ${p.name} to this place's next piece.`);
+          else controls2.say(`${p.name} is the only piece this place has. Music: off, above, silences it.`);
+        }
+      },
+      level2("sound-voices", "Voices", "voices"),
+      {
+        id: "sound-hum",
+        section: "sound",
+        icon: "sound",
+        on: () => sounds2.levels.hum,
+        hidden: () => !(opts.hasHum ? opts.hasHum() : sounds2.hasHum),
+        label: () => sounds2.levels.hum ? "The room's hum: on" : "The room's hum: off",
+        act: () => sounds2.setLevels({ hum: !sounds2.levels.hum })
+      },
+      // ---- The visitor's own music. What is playing and where in it, with a bar to move along; the song before, play
+      // and pause, the song after; a little way back and on, for a menu that draws no bar (a headset's console); how it
+      // goes; then adding, taking out, and the songs themselves. The same rows wherever this is drawn.
+      {
+        id: "juke-place",
+        section: "sound",
+        icon: "music",
+        kind: "slider",
+        hidden: () => !juke.current,
+        on: () => juke.playing,
+        // "Your music", since the place may be playing a piece of its own, named in the row above.
+        label: () => `${juke.playing ? "Your music" : "Your music, paused"}: ${juke.current?.title ?? ""}`,
+        slider: { value: () => juke.position, max: () => juke.duration, text: clock },
+        act: (to) => juke.seek(Number(to))
+      },
+      {
+        id: "juke-previous",
+        section: "sound",
+        icon: "previous",
+        hidden: () => !juke.current,
+        label: "Previous song",
+        short: "Previous",
+        act: async () => void await juke.previous()
+      },
+      playRow(),
+      {
+        id: "juke-next",
+        section: "sound",
+        icon: "next",
+        hidden: () => juke.list().length < 2,
+        label: "Next song",
+        short: "Next",
+        act: () => void juke.next()
+      },
+      {
+        id: "juke-back",
+        section: "sound",
+        icon: "rewind",
+        hidden: () => !juke.current,
+        label: `Back ${SKIP_SECONDS} seconds`,
+        act: () => juke.seek(juke.position - SKIP_SECONDS)
+      },
+      {
+        id: "juke-forward",
+        section: "sound",
+        icon: "forward",
+        hidden: () => !juke.current,
+        label: `Forward ${SKIP_SECONDS} seconds`,
+        act: () => juke.seek(juke.position + SKIP_SECONDS)
+      },
+      {
+        id: "juke-shuffle",
+        section: "sound",
+        icon: "shuffle",
+        on: () => juke.how.shuffle,
+        hidden: () => juke.list().length < 2,
+        label: () => juke.how.shuffle ? "Shuffle: on" : "Shuffle: off",
+        act: () => juke.setHow({ shuffle: !juke.how.shuffle })
+      },
+      {
+        id: "juke-repeat",
+        section: "sound",
+        icon: "repeat",
+        on: () => juke.how.repeat !== "off",
+        hidden: () => juke.list().length === 0,
+        label: () => REPEAT_WORDS[juke.how.repeat],
+        act: () => juke.setHow({ repeat: JUKE_REPEATS[(JUKE_REPEATS.indexOf(juke.how.repeat) + 1) % JUKE_REPEATS.length] })
+      },
+      {
+        id: "juke-bar",
+        section: "sound",
+        icon: "pin",
+        on: () => juke.how.bar,
+        hidden: () => juke.list().length === 0,
+        label: () => juke.how.bar ? "Play and pause on your bar: on" : "Play and pause on your bar: off",
+        act: () => juke.setHow({ bar: !juke.how.bar })
+      },
+      {
+        id: "juke-add",
+        section: "sound",
+        icon: "save",
+        label: "Add music from this device",
+        act: () => picker.click()
+      },
+      {
+        id: "juke-remove",
+        section: "sound",
+        icon: "exit",
+        hidden: () => !sounds2.jukebox.current,
+        label: () => `Take out ${sounds2.jukebox.current?.title ?? "this song"}`,
+        act: async () => {
+          const song = sounds2.jukebox.current;
+          if (!song) return;
+          await sounds2.jukebox.remove(song.id);
+          controls2.say(`${song.title} was taken out of this browser.`);
+          refresh();
+        }
+      }
+    );
+    refresh();
+    controls2.onSignal((name) => {
+      if (CUES.includes(name) && !opts.quiet?.(name)) sounds2.play(name);
+    });
+    controls2.onSay(() => void (opts.quiet?.("notice") || sounds2.play("notice")));
+    sounds2.onChange(() => refresh());
+    return { refresh };
+  }
+
+  // packages/sdk/src/jump.ts
+  var JUMP_HEIGHT = 0.45;
+  var JUMP_GRAVITY = 9.8;
+  var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
+
+  // packages/sdk/src/fresh.ts
+  function reloadAfresh() {
+    let gone = false;
+    const go2 = () => {
+      if (gone) return;
+      gone = true;
+      location.reload();
+    };
+    try {
+      void fetch(location.href, { cache: "reload", credentials: "same-origin" }).then(go2, go2);
+      setTimeout(go2, 4e3);
+    } catch {
+      go2();
+    }
+  }
+  var LEAST_MS = 3e4;
+  var EVERY_MS = 10 * 6e4;
+  async function markOf(url) {
+    try {
+      const res = await fetch(url, { method: "HEAD", cache: "no-store", credentials: "same-origin" });
+      if (!res.ok) return null;
+      const mark = res.headers.get("etag") ?? res.headers.get("last-modified");
+      return mark ? `${mark}` : null;
+    } catch {
+      return null;
+    }
+  }
+  async function pageStamp() {
+    const page = `${location.origin}${location.pathname}`;
+    const script = document.querySelector('script[type="module"][src], script[src]')?.src ?? "";
+    const marks = await Promise.all([markOf(page), script && new URL(script).origin === location.origin ? markOf(script) : null]);
+    return marks.every((m) => m !== null) || !script && marks[0] ? marks.join("|") : null;
+  }
+  function watchFresh(o = {}) {
+    const stamp = o.stamp ?? pageStamp;
+    const now = o.now ?? (() => Date.now());
+    const reload = o.reload ?? reloadAfresh;
+    let first;
+    let stale = false;
+    let told = false;
+    let asked = -Infinity;
+    let asking = null;
+    let stopped = false;
+    const check2 = (returning = false) => {
+      if (stopped) return Promise.resolve(stale);
+      if (stale) {
+        if (returning && !o.busy?.()) reload();
+        return Promise.resolve(true);
+      }
+      if (asking) return asking;
+      if (now() - asked < LEAST_MS && first !== void 0) return Promise.resolve(false);
+      asked = now();
+      asking = stamp().catch(() => null).then((mark) => {
+        asking = null;
+        if (stopped) return stale;
+        if (first === void 0) {
+          first = mark;
+          return false;
+        }
+        if (first === null || mark === null || mark === first) return false;
+        stale = true;
+        if (returning && !o.busy?.()) reload();
+        else if (!told) {
+          told = true;
+          o.onStale?.();
+        }
+        return true;
+      });
+      return asking;
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check2(true);
+    };
+    const onShow = (e) => {
+      if (e.persisted) void check2(true);
+    };
+    let timer;
+    if (!o.manual && typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisible);
+      addEventListener("pageshow", onShow);
+      timer = setInterval(() => {
+        if (document.visibilityState === "visible") void check2(false);
+      }, EVERY_MS);
+      void check2(false);
+    }
+    return {
+      get stale() {
+        return stale;
+      },
+      check: check2,
+      reload,
+      stop() {
+        stopped = true;
+        clearInterval(timer);
+        if (typeof document !== "undefined") {
+          document.removeEventListener("visibilitychange", onVisible);
+          removeEventListener("pageshow", onShow);
+        }
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/fresh.ts
+  var writing = () => {
+    const at = typeof document !== "undefined" ? document.activeElement : null;
+    return !!at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable === true);
+  };
+  function freshAction(controls2, opts = {}) {
+    const fresh = opts.fresh ?? watchFresh({
+      busy: () => controls2.view().chat.ready || writing() || opts.busy?.() === true,
+      onStale: () => {
+        controls2.say("This place has been updated since you opened it. Reload for the latest: it is on your bar, and under Help.");
+        controls2.signal("fresh");
+      }
+    });
+    return {
+      id: "fresh",
+      section: "help",
+      icon: "turn",
+      hotbar: true,
+      tone: "primary",
+      label: "This place has been updated. Reload for the latest",
+      short: "Reload",
+      hidden: () => !fresh.stale,
+      act: () => fresh.reload()
+    };
+  }
+
+  // packages/sdk/src/ui/headset.ts
+  var granted = false;
+  var waitingForGrant = /* @__PURE__ */ new Set();
+  try {
+    if (typeof navigator !== "undefined" && navigator.xr && !/WebXRViewer\//i.test(navigator.userAgent)) {
+      navigator.xr.addEventListener("sessiongranted", () => {
+        granted = true;
+        for (const fn of [...waitingForGrant]) fn();
+        waitingForGrant.clear();
+      });
+    }
+  } catch {
+  }
+  var NOT_A_PRESS = /* @__PURE__ */ new Set(["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock", "ContextMenu"]);
+  var TRYING_MS = 2e3;
+  var GIVE_UP_MS = 12e3;
+  function offerHeadset(title, enter, stay, opts = {}) {
+    const asked = opts.asked === true;
+    const scrim = document.createElement("div");
+    scrim.id = "nswp-enter";
+    scrim.setAttribute("role", "dialog");
+    scrim.setAttribute("aria-label", asked ? `Launch VR in ${title}` : `You've arrived at ${title}`);
+    Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center", cursor: "pointer" });
+    const heading = document.createElement("p");
+    heading.textContent = title;
+    Object.assign(heading.style, { margin: "0", font: "700 clamp(28px, 6vw, 56px)/1.1 system-ui, sans-serif", color: "#eef5fb" });
+    const go2 = document.createElement("button");
+    go2.type = "button";
+    go2.id = "nswp-enter-vr";
+    go2.textContent = "Launch";
+    Object.assign(go2.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
+    const hint2 = document.createElement("p");
+    hint2.id = "nswp-enter-hint";
+    hint2.setAttribute("aria-live", "polite");
+    hint2.textContent = asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
+    Object.assign(hint2.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
+    const flat = document.createElement("button");
+    flat.type = "button";
+    flat.id = "nswp-enter-flat";
+    flat.textContent = "Look around on this screen";
+    Object.assign(flat.style, { font: "500 18px/1 system-ui, sans-serif", padding: "14px 20px", border: "0", background: "none", color: "#eef5fb", textDecoration: "underline", cursor: "pointer" });
+    scrim.append(heading, go2, hint2, flat);
+    let tried = -Infinity;
+    let up = true;
+    let gaveUp;
+    const presses = ["pointerup", "touchend", "keydown"];
+    const onPress = (e) => {
+      if (!up) return;
+      const key = e.key;
+      if (e.type === "keydown") {
+        if (key === "Escape") return void stay();
+        if (NOT_A_PRESS.has(key) || e.repeat) return;
+      }
+      const at = e.target instanceof Element ? e.target : null;
+      const onStay = !!at && flat.contains(at);
+      if (onStay && (e.type !== "keydown" || key === "Enter" || key === " ")) return;
+      if (at && !scrim.contains(at) && at !== document.body && at !== document.documentElement && !(at instanceof HTMLCanvasElement)) return;
+      const now = performance.now();
+      if (now - tried < TRYING_MS) return;
+      tried = now;
+      hint2.textContent = "Starting VR\u2026";
+      clearTimeout(gaveUp);
+      gaveUp = setTimeout(failed2, GIVE_UP_MS);
+      enter();
+    };
+    const failed2 = () => {
+      clearTimeout(gaveUp);
+      if (!up) return;
+      tried = -Infinity;
+      hint2.textContent = "That press didn't start VR. Press again, anywhere.";
+    };
+    flat.addEventListener("click", stay);
+    for (const type of presses) addEventListener(type, onPress, true);
+    holdFullscreen(true);
+    document.body.append(scrim);
+    go2.focus();
+    return {
+      remove() {
+        if (!up) return;
+        up = false;
+        clearTimeout(gaveUp);
+        for (const type of presses) removeEventListener(type, onPress, true);
+        holdFullscreen(false);
+        scrim.remove();
+      },
+      failed: failed2
+    };
+  }
+
   // node_modules/three/build/three.core.js
   /**
    * @license
@@ -44122,1472 +45574,6 @@ void main() {
     }
   };
 
-  // packages/sdk/src/panel-store.ts
-  var PANEL_LIMITS = {
-    count: 24,
-    titleChars: 80,
-    noteChars: 4e3,
-    srcChars: 2048,
-    minWidth: 0.3,
-    maxWidth: 3,
-    /** A panel is never kept further from the middle of a world than this, in metres. */
-    reach: 500,
-    /** The largest file of the visitor's own that is kept, in bytes. */
-    fileBytes: 64 * 1024 * 1024
-  };
-
-  // packages/sdk/src/library.ts
-  var DB = "nswp-panels";
-  function files() {
-    return new Promise((resolve, reject) => {
-      const open2 = indexedDB.open(DB, 1);
-      open2.onupgradeneeded = () => open2.result.createObjectStore("files");
-      open2.onsuccess = () => resolve(open2.result);
-      open2.onerror = () => reject(open2.error);
-    });
-  }
-  async function fileStore(mode, run2) {
-    try {
-      const db = await files();
-      return await new Promise((resolve, reject) => {
-        const request = run2(db.transaction("files", mode).objectStore("files"));
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return void 0;
-    }
-  }
-
-  // packages/sdk/src/sound-store.ts
-  var CUES = [
-    "step",
-    // a footstep, walking
-    "land",
-    // arriving at the end of a jump: a step in a headset, or one taken at once
-    "bump",
-    // walking into something that can't be walked through
-    "grab",
-    "drop",
-    "hover",
-    "press",
-    "menuOpen",
-    "menuClose",
-    "cross",
-    // leaving through a door
-    "arrive",
-    // coming out of one
-    "join",
-    // someone is in the room who wasn't: the visitor, or another person
-    "leave",
-    "micOn",
-    "micOff",
-    "notice",
-    // the kit has something to say
-    "chat",
-    // someone in the room wrote something: heard from where they stand
-    "error"
-  ];
-  var tone = (from, to, at, dur, gain, wave = "sine") => ({
-    kind: "tone",
-    wave,
-    from,
-    ...to === void 0 ? {} : { to },
-    at,
-    dur,
-    gain
-  });
-  var noise = (band, at, dur, gain) => ({ kind: "noise", band, at, dur, gain });
-  var RECIPES = {
-    step: [noise(850, 0, 0.06, 0.2), tone(120, 70, 0, 0.07, 0.16)],
-    land: [tone(190, 62, 0, 0.16, 0.3), noise(480, 0, 0.11, 0.2)],
-    bump: [tone(96, 58, 0, 0.12, 0.28, "triangle"), noise(260, 0, 0.05, 0.14)],
-    grab: [tone(520, 780, 0, 0.07, 0.16, "triangle")],
-    drop: [tone(700, 420, 0, 0.08, 0.16, "triangle")],
-    hover: [tone(1400, void 0, 0, 0.025, 0.05)],
-    press: [tone(880, 1320, 0, 0.05, 0.15, "triangle")],
-    menuOpen: [tone(660, void 0, 0, 0.05, 0.12), tone(990, void 0, 0.05, 0.07, 0.12)],
-    menuClose: [tone(990, void 0, 0, 0.05, 0.12), tone(660, void 0, 0.05, 0.07, 0.12)],
-    cross: [tone(196, 784, 0, 0.5, 0.22), noise(1400, 0.05, 0.45, 0.07), tone(392, 1568, 0.1, 0.4, 0.08)],
-    arrive: [tone(784, 392, 0, 0.42, 0.2), tone(1176, 588, 0.04, 0.38, 0.08), noise(900, 0, 0.2, 0.05)],
-    join: [tone(523.25, void 0, 0, 0.09, 0.14), tone(783.99, void 0, 0.09, 0.14, 0.14)],
-    leave: [tone(783.99, void 0, 0, 0.09, 0.12), tone(523.25, void 0, 0.09, 0.14, 0.12)],
-    micOn: [tone(600, 900, 0, 0.08, 0.14)],
-    micOff: [tone(900, 600, 0, 0.08, 0.14)],
-    notice: [tone(1046.5, void 0, 0, 0.08, 0.09), tone(1318.5, void 0, 0.08, 0.12, 0.08)],
-    // Two soft syllables, low and falling at the end, with a breath in front: somebody said something. It is two
-    // octaves under the kit's own notice, which is high, clean and rises, so the two are never taken for each other.
-    chat: [noise(1900, 0, 0.03, 0.06), tone(360, 440, 5e-3, 0.07, 0.15, "triangle"), tone(330, 262, 0.1, 0.11, 0.13, "triangle")],
-    error: [tone(220, void 0, 0, 0.11, 0.13, "square"), tone(185, void 0, 0.14, 0.14, 0.13, "square")]
-  };
-  function cueRecipe(cue) {
-    return RECIPES[cue];
-  }
-  var SOUND_LIMITS = {
-    /** A world's own cue: a file this size at most, this long at most. Longer ones aren't sounds for something that happened. */
-    cueBytes: 512 * 1024,
-    cueSeconds: 3,
-    /** Kinds of file a world may name. */
-    extensions: ["ogg", "oga", "opus", "mp3", "m4a", "aac", "wav", "webm", "flac"],
-    /** Files for one cue: one is chosen each time, so a sound heard often isn't the same sound every time. */
-    variants: 6,
-    /** Pieces of music for one place: they play in turn. */
-    tracks: 8,
-    /** The visitor's own songs: this many, each this size at most. */
-    songs: 60,
-    songBytes: 40 * 1024 * 1024,
-    titleChars: 80
-  };
-  function ownSound(address, base) {
-    if (typeof address !== "string" || address.length > 2e3) return null;
-    let u;
-    let b;
-    try {
-      b = new URL(base);
-      u = new URL(address, b);
-    } catch {
-      return null;
-    }
-    if (u.origin !== b.origin || u.protocol !== "https:" && u.protocol !== "http:") return null;
-    const ext = u.pathname.split(".").pop()?.toLowerCase() ?? "";
-    if (!SOUND_LIMITS.extensions.includes(ext)) return null;
-    u.hash = "";
-    return u.href;
-  }
-  function ownSounds(value, base, limit) {
-    const out = [];
-    for (const v2 of Array.isArray(value) ? value : [value]) {
-      const address = ownSound(v2, base);
-      if (address && !out.includes(address)) out.push(address);
-      if (out.length >= limit) break;
-    }
-    return out;
-  }
-  function cleanTheme2(input, base) {
-    const out = { cues: {} };
-    if (!input || typeof input !== "object") return out;
-    const { cues, music, hum } = input;
-    if (cues && typeof cues === "object") {
-      for (const cue of CUES) {
-        const v2 = cues[cue];
-        if (v2 === null) out.cues[cue] = null;
-        else if (v2 !== void 0) {
-          const files2 = ownSounds(v2, base, SOUND_LIMITS.variants);
-          if (files2.length) out.cues[cue] = files2;
-        }
-      }
-    }
-    if (music === null) out.music = null;
-    else if (music !== void 0) {
-      const tracks = ownSounds(music, base, SOUND_LIMITS.tracks);
-      if (tracks.length) out.music = tracks;
-    }
-    if (hum === null) out.hum = null;
-    else if (hum !== void 0) {
-      const address = ownSound(hum, base);
-      if (address) out.hum = address;
-    }
-    return out;
-  }
-  function cleanKit(input, folder, playsOgg) {
-    const out = { cues: {} };
-    if (!input || typeof input !== "object") return out;
-    const pick = (entry) => {
-      if (!entry || typeof entry !== "object") return entry;
-      const { ogg, mp3 } = entry;
-      return playsOgg ? ogg ?? mp3 : mp3 ?? ogg;
-    };
-    const many = (value, limit) => ownSounds((Array.isArray(value) ? value : [value]).map(pick), folder, limit);
-    const { cues, music, hum } = input;
-    if (cues && typeof cues === "object") {
-      for (const cue of CUES) {
-        const files2 = many(cues[cue], SOUND_LIMITS.variants);
-        if (files2.length) out.cues[cue] = files2;
-      }
-    }
-    const tracks = many(music, SOUND_LIMITS.tracks);
-    if (tracks.length) out.music = tracks;
-    const h = ownSound(pick(hum), folder);
-    if (h) out.hum = h;
-    return out;
-  }
-  function pieceName(address) {
-    let name = address;
-    try {
-      name = decodeURIComponent(new URL(address, "https://x.invalid/").pathname.split("/").pop() ?? "");
-    } catch {
-      name = address.split(/[/?#]/).filter(Boolean).pop() ?? "";
-    }
-    name = name.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[\u0000-\u001f]/g, "").trim();
-    return name.slice(0, 60) || "a piece with no name";
-  }
-  var STEP_LEVEL = 0.45;
-  var JUMP_STEPS = { louder: 1.35, gap: 0.09 };
-  var STRIDE = 0.75;
-  var HEARD = { near: 2, far: 25, floor: 0.14, fall: 6 };
-  function heardFrom(place) {
-    const d = Number.isFinite(place.distance) ? Math.max(0, place.distance) : HEARD.far;
-    const beyond = Math.max(0, d - HEARD.near);
-    const gain = Math.max(HEARD.floor, 1 / (1 + (beyond / HEARD.fall) ** 2));
-    const along = Math.min(1, beyond / (HEARD.far - HEARD.near));
-    const cutoff = Math.round(7e3 * (1100 / 7e3) ** along);
-    const side = Number.isFinite(place.pan) ? Math.max(-1, Math.min(1, place.pan)) : 0;
-    return { gain: Math.round(gain * 1e3) / 1e3, cutoff, pan: Math.round(side * 0.8 * 100) / 100, rate: 1 };
-  }
-  function stepShape(foot, random = Math.random) {
-    const right = Math.abs(Math.trunc(foot)) % 2 === 1;
-    const side = right ? 1 : -1;
-    return {
-      // Between a little over half and all of the step's level: a light tread now and then.
-      gain: STEP_LEVEL * (0.6 + 0.4 * random()),
-      // One foot falls a touch lower than the other, and each step is up to a semitone and a half either way.
-      rate: (1 + side * 0.025) * Math.pow(2, (random() * 2 - 1) * (1.5 / 12)),
-      cutoff: 1600 + random() * 3400,
-      pan: side * (0.08 + random() * 0.1)
-    };
-  }
-  function nextVariant(count3, last, random = Math.random) {
-    if (count3 <= 1) return 0;
-    if (last < 0 || last >= count3) return Math.min(count3 - 1, Math.floor(random() * count3));
-    const i = Math.floor(random() * (count3 - 1));
-    return i >= last ? i + 1 : i;
-  }
-  var DEFAULT_LEVELS = { off: false, effects: 0.7, music: 0.45, voices: 1, hearShared: false, shared: 0.7, hum: true };
-  var LEVEL_STEPS = [0, 0.35, 0.7, 1];
-  var LEVEL_WORDS = ["off", "low", "medium", "high"];
-  var unit = (v2, fallback) => typeof v2 === "number" && Number.isFinite(v2) ? Math.min(1, Math.max(0, v2)) : fallback;
-  function cleanLevels(input) {
-    const i = input && typeof input === "object" ? input : {};
-    return {
-      off: i.off === true,
-      effects: unit(i.effects, DEFAULT_LEVELS.effects),
-      music: unit(i.music, DEFAULT_LEVELS.music),
-      voices: unit(i.voices, DEFAULT_LEVELS.voices),
-      hearShared: i.hearShared === true,
-      shared: unit(i.shared, DEFAULT_LEVELS.shared),
-      hum: i.hum !== false
-    };
-  }
-  function levelStep(v2) {
-    let best = 0;
-    LEVEL_STEPS.forEach((s, i) => {
-      if (Math.abs(s - v2) < Math.abs(LEVEL_STEPS[best] - v2)) best = i;
-    });
-    return best;
-  }
-  function nextLevel(v2) {
-    return LEVEL_STEPS[(levelStep(v2) + 1) % LEVEL_STEPS.length];
-  }
-  var MUSIC_RANGE = 12;
-  var MUSIC_SOURCES = 2;
-  var MUSIC_DUCK = 0.35;
-  function musicToHear(sharing, hear) {
-    if (!hear) return [];
-    return sharing.filter((s) => !s.refused && Number.isFinite(s.metres) && s.metres <= MUSIC_RANGE).sort((a, b) => a.metres - b.metres || a.pubkey.localeCompare(b.pubkey)).slice(0, MUSIC_SOURCES).map((s) => s.pubkey);
-  }
-  function musicFade(metres) {
-    if (!(metres >= 0)) return 0;
-    const near = 2;
-    if (metres <= near) return 1;
-    if (metres >= MUSIC_RANGE) return 0;
-    const t = (metres - near) / (MUSIC_RANGE - near);
-    return (1 - t) * (1 - t);
-  }
-  function seeded(seed) {
-    let h = 2166136261;
-    for (let i = 0; i < seed.length; i++) {
-      h ^= seed.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    let a = h >>> 0;
-    return () => {
-      a = a + 1831565813 >>> 0;
-      let t = a;
-      t = Math.imul(t ^ t >>> 15, t | 1);
-      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-  }
-  var ROOTS = [98, 110, 116.54, 130.81, 146.83, 155.56];
-  var SCALES = [
-    [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3],
-    // major pentatonic: open, bright
-    [1, 6 / 5, 4 / 3, 3 / 2, 9 / 5],
-    // minor pentatonic: darker
-    [1, 9 / 8, 4 / 3, 3 / 2, 16 / 9],
-    // suspended: unresolved, still
-    [1, 5 / 4, 3 / 2, 15 / 8, 9 / 4]
-    // major seventh: warm
-  ];
-  function ambiencePlan(seed) {
-    const r = seeded(`ambience:${seed}`);
-    const root = ROOTS[Math.floor(r() * ROOTS.length)];
-    const scale = SCALES[Math.floor(r() * SCALES.length)];
-    const fifth = scale.includes(3 / 2) ? 3 / 2 : scale[3];
-    const drones = [1, fifth, 2, scale[2] * 2].map((m) => ({ hz: root * m, detune: (r() - 0.5) * 14, swell: 11 + r() * 18 }));
-    const least = 3.5 + r() * 3;
-    return { root, scale, drones, colour: 500 + r() * 900, gap: [least, least + 3 + r() * 4] };
-  }
-  function songTitle(fileName) {
-    const raw = typeof fileName === "string" ? fileName : "";
-    const cleaned = raw.split(/[\\/]/).pop().replace(/\.[a-z0-9]{1,5}$/i, "").normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]/g, " ").replace(/[_\s]+/g, " ").trim();
-    return [...cleaned].slice(0, SOUND_LIMITS.titleChars).join("").trim() || "A song";
-  }
-  function cleanSongs(input) {
-    if (!Array.isArray(input)) return [];
-    const out = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const s of input) {
-      if (!s || typeof s !== "object") continue;
-      const { id: id2, title, size, at } = s;
-      if (typeof id2 !== "string" || !/^[a-z0-9-]{4,40}$/.test(id2) || seen.has(id2)) continue;
-      seen.add(id2);
-      out.push({ id: id2, title: songTitle(title), size: typeof size === "number" && size > 0 ? Math.floor(size) : 0, at: typeof at === "number" && at > 0 ? Math.floor(at) : 0 });
-      if (out.length >= SOUND_LIMITS.songs) break;
-    }
-    return out;
-  }
-  var JUKE_REPEATS = ["off", "all", "one"];
-  var DEFAULT_HOW = { shuffle: false, repeat: "all", bar: false };
-  var SKIP_SECONDS = 15;
-  var RESTART_AFTER = 3;
-  function cleanHow(input) {
-    const h = input && typeof input === "object" ? input : {};
-    return { shuffle: h.shuffle === true, repeat: JUKE_REPEATS.includes(h.repeat) ? h.repeat : DEFAULT_HOW.repeat, bar: h.bar === true };
-  }
-  function songClock(seconds) {
-    const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
-    const two = (n) => String(n).padStart(2, "0");
-    const [h, m, sec] = [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60];
-    return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
-  }
-  function shuffledSongs(ids, first, random = Math.random) {
-    const rest = ids.filter((id2) => id2 !== first);
-    for (let i = rest.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [rest[i], rest[j]] = [rest[j], rest[i]];
-    }
-    return first !== null && ids.includes(first) ? [first, ...rest] : rest;
-  }
-  function songBeside(order, current, step, round2) {
-    if (order.length === 0) return null;
-    const at = current === null ? -1 : order.indexOf(current);
-    if (at === -1) return order[0];
-    const to = at + step;
-    if (to >= 0 && to < order.length) return order[to];
-    return round2 ? order[(to + order.length) % order.length] : null;
-  }
-  function songRefusal(file, have) {
-    const ext = (file.name ?? "").split(".").pop()?.toLowerCase() ?? "";
-    const isSound = (file.type ?? "").startsWith("audio/") || SOUND_LIMITS.extensions.includes(ext);
-    if (!isSound) return "That isn't a sound file.";
-    if (!file.size) return "That file is empty.";
-    if (file.size > SOUND_LIMITS.songBytes) return `That file is over ${Math.round(SOUND_LIMITS.songBytes / 1024 / 1024)} MB, which is more than is kept here.`;
-    if (have >= SOUND_LIMITS.songs) return `${SOUND_LIMITS.songs} songs are kept here at most. Take one out first.`;
-    return null;
-  }
-
-  // packages/sdk/src/sound.ts
-  var FOREIGN_SOUND = { seconds: 4, peak: 0.7, fades: 25, gone: 45 };
-  var GAP = { step: 0.14, hover: 0.08, bump: 0.5, land: 0.2, notice: 0.25, chat: 0.3 };
-  var JUMP = 1.2;
-  function createSounds(o = {}) {
-    const ctx = o.context ?? new AudioContext();
-    const base = o.base ?? location.href;
-    const theme = cleanTheme2(o.theme, base);
-    const levelsKey = o.keep?.levels ?? "nswp:sound";
-    const songsKey = o.keep?.songs ?? "nswp:jukebox";
-    const howKey = o.keep?.how ?? "nswp:jukebox:how";
-    const read6 = (key) => {
-      try {
-        return JSON.parse(localStorage.getItem(key) ?? "null");
-      } catch {
-        return null;
-      }
-    };
-    const write = (key, value) => {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch {
-      }
-    };
-    const came = arrivedSettings().sound;
-    let levels = cleanLevels({ ...read6(levelsKey), ...came });
-    let songs = cleanSongs(read6(songsKey));
-    let how = cleanHow(read6(howKey));
-    let disposed = false;
-    if (came) write(levelsKey, levels);
-    const stopReporting = reportSettings(
-      "sound",
-      () => ({ sound: { off: levels.off, effects: levels.effects, music: levels.music, voices: levels.voices, hum: levels.hum } }),
-      // Their client's menu changed a volume (settings.ts, `changeSettings`): as their own hand on it here would.
-      (now) => {
-        if (!now.sound || disposed) return;
-        levels = cleanLevels({ ...levels, ...now.sound });
-        write(levelsKey, levels);
-        apply();
-        changed();
-      }
-    );
-    const master = ctx.createGain();
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -14;
-    limiter.knee.value = 10;
-    limiter.ratio.value = 12;
-    limiter.attack.value = 3e-3;
-    limiter.release.value = 0.25;
-    const meter = ctx.createAnalyser();
-    meter.fftSize = 1024;
-    master.connect(limiter);
-    limiter.connect(meter);
-    limiter.connect(ctx.destination);
-    const effects = ctx.createGain();
-    const placeMusic = ctx.createGain();
-    const ownMusic = ctx.createGain();
-    for (const g of [effects, placeMusic, ownMusic]) g.connect(master);
-    const humGain = ctx.createGain();
-    humGain.connect(placeMusic);
-    const listeners = /* @__PURE__ */ new Set();
-    const changed = () => {
-      for (const fn of listeners) {
-        try {
-          fn(levels);
-        } catch (err) {
-          console.error("nswp-sdk sound listener failed", err);
-        }
-      }
-    };
-    const juke = { audio: null, url: "", current: null, playing: false, tap: null };
-    const apply = () => {
-      const t = ctx.currentTime;
-      master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
-      effects.gain.setTargetAtTime(levels.effects, t, 0.05);
-      placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
-      ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
-      humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
-    };
-    apply();
-    let noiseBuffer = null;
-    const noise2 = () => {
-      if (noiseBuffer) return noiseBuffer;
-      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      return noiseBuffer;
-    };
-    const playPart = (p, when, to = effects, rate = 1) => {
-      const start2 = when + p.at;
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0, start2);
-      gain.gain.linearRampToValueAtTime(p.gain, start2 + Math.min(6e-3, p.dur / 3));
-      gain.gain.exponentialRampToValueAtTime(8e-4, start2 + p.dur);
-      gain.connect(to);
-      if (p.kind === "tone") {
-        const osc = ctx.createOscillator();
-        osc.type = p.wave;
-        osc.frequency.setValueAtTime(p.from * rate, start2);
-        if (p.to !== void 0) osc.frequency.exponentialRampToValueAtTime(p.to * rate, start2 + p.dur);
-        osc.connect(gain);
-        osc.start(start2);
-        osc.stop(start2 + p.dur + 0.02);
-      } else {
-        const src = ctx.createBufferSource();
-        src.buffer = noise2();
-        const band = ctx.createBiquadFilter();
-        band.type = "bandpass";
-        band.frequency.value = p.band * rate;
-        band.Q.value = 1.1;
-        src.connect(band);
-        band.connect(gain);
-        src.start(start2, Math.random() * 0.5);
-        src.stop(start2 + p.dur + 0.02);
-      }
-    };
-    const CUE_LOUDNESS = 0.14;
-    const loudnessOf = (buffer) => {
-      let sum = 0;
-      let n = 0;
-      for (let c = 0; c < buffer.numberOfChannels; c++) {
-        const data = buffer.getChannelData(c);
-        for (let i = 0; i < data.length; i += 4) {
-          sum += data[i] * data[i];
-          n++;
-        }
-      }
-      return n ? Math.sqrt(sum / n) : 0;
-    };
-    const loadCue = async (address) => {
-      try {
-        const res = await fetch(address);
-        if (!res.ok) return null;
-        const bytes = await res.arrayBuffer();
-        if (bytes.byteLength > SOUND_LIMITS.cueBytes) return null;
-        const buffer = await ctx.decodeAudioData(bytes);
-        if (buffer.duration > SOUND_LIMITS.cueSeconds || disposed) return null;
-        const loud = loudnessOf(buffer);
-        return { buffer, gain: loud > CUE_LOUDNESS ? CUE_LOUDNESS / loud : 1 };
-      } catch {
-        return null;
-      }
-    };
-    const own2 = /* @__PURE__ */ new Map();
-    const fromKit = /* @__PURE__ */ new Map();
-    const loadInto = (into, files2) => {
-      for (const [cue, addresses] of Object.entries(files2)) {
-        for (const address of addresses ?? []) {
-          void loadCue(address).then((loaded3) => {
-            if (loaded3) into.set(cue, [...into.get(cue) ?? [], loaded3]);
-          });
-        }
-      }
-    };
-    let kit2 = { cues: {} };
-    const kitReady = o.kit ? (async () => {
-      try {
-        const folder = new URL(o.kit.endsWith("/") ? o.kit : `${o.kit}/`, base).href;
-        const res = await fetch(new URL("sounds.json", folder).href);
-        if (!res.ok) return;
-        const playsOgg = new Audio().canPlayType('audio/ogg; codecs="opus"') !== "";
-        kit2 = cleanKit(await res.json(), folder, playsOgg);
-      } catch {
-      }
-    })() : Promise.resolve();
-    let cuesAsked = false;
-    const loadCues = () => {
-      if (cuesAsked || disposed) return;
-      cuesAsked = true;
-      loadInto(own2, theme.cues);
-      void kitReady.then(() => {
-        const rest = Object.fromEntries(Object.entries(kit2.cues).filter(([cue]) => theme.cues[cue] === void 0));
-        loadInto(fromKit, rest);
-      });
-    };
-    const last = /* @__PURE__ */ new Map();
-    const lastVariant = /* @__PURE__ */ new Map();
-    let foot = 0;
-    const shaped2 = (shape) => {
-      const soft = ctx.createBiquadFilter();
-      soft.type = "lowpass";
-      soft.frequency.value = shape.cutoff;
-      soft.Q.value = 0.5;
-      const level2 = ctx.createGain();
-      level2.gain.value = shape.gain;
-      soft.connect(level2);
-      if (typeof ctx.createStereoPanner === "function") {
-        const side = ctx.createStereoPanner();
-        side.pan.value = shape.pan;
-        level2.connect(side);
-        side.connect(effects);
-      } else level2.connect(effects);
-      return soft;
-    };
-    let foreignPlayed = 0;
-    const play2 = (cue, from) => {
-      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
-      if (theme.cues[cue] === null) return;
-      const now = ctx.currentTime;
-      if (now - (last.get(cue) ?? -1) < (GAP[cue] ?? 0.03)) return;
-      last.set(cue, now);
-      sound(cue, now, from);
-    };
-    const sound = (cue, at, from, louder = 1) => {
-      const now = at;
-      const stepped = cue === "step" ? stepShape(foot++) : null;
-      const shape = stepped ? { ...stepped, gain: stepped.gain * louder } : from ? heardFrom(from) : null;
-      const out = shape ? shaped2(shape) : effects;
-      const files2 = own2.get(cue) ?? fromKit.get(cue);
-      if (files2?.length) {
-        const which = nextVariant(files2.length, lastVariant.get(cue) ?? -1);
-        lastVariant.set(cue, which);
-        const src = ctx.createBufferSource();
-        src.buffer = files2[which].buffer;
-        if (shape) src.playbackRate.value = shape.rate;
-        const level2 = ctx.createGain();
-        level2.gain.value = files2[which].gain;
-        src.connect(level2);
-        level2.connect(out);
-        src.start(now);
-        return;
-      }
-      for (const part of cueRecipe(cue)) playPart(part, now + 5e-3, out, shape?.rate ?? 1);
-    };
-    const jumped2 = () => {
-      if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
-      if (theme.cues.step === null) return;
-      const now = ctx.currentTime;
-      sound("step", now, void 0, JUMP_STEPS.louder);
-      sound("step", now + JUMP_STEPS.gap, void 0, JUMP_STEPS.louder);
-      last.set("step", now + JUMP_STEPS.gap);
-    };
-    let walked = 0;
-    const moved2 = (metres) => {
-      if (!(metres > 5e-4)) return;
-      if (metres > JUMP) {
-        walked = 0;
-        return play2("land");
-      }
-      walked += metres;
-      if (walked >= STRIDE) {
-        walked = 0;
-        play2("step");
-      }
-    };
-    const loopPlayer = (tracks, into, opts = {}) => {
-      const fade = opts.fade ?? 2;
-      const out = ctx.createGain();
-      out.gain.value = opts.gain ?? 1;
-      out.connect(into);
-      const deck = () => {
-        const audio = new Audio();
-        audio.preload = "auto";
-        const gain = ctx.createGain();
-        gain.gain.value = 0;
-        ctx.createMediaElementSource(audio).connect(gain);
-        gain.connect(out);
-        return { audio, gain };
-      };
-      const decks = [deck(), deck()];
-      let active = 0;
-      let index = 0;
-      let heard = 0;
-      let turning = false;
-      let stopped = false;
-      const curve = (rising) => Float32Array.from({ length: 32 }, (_, k) => (rising ? Math.sin : Math.cos)(k / 31 * Math.PI / 2));
-      const turn = () => {
-        if (turning || stopped) return;
-        turning = true;
-        const from = decks[active];
-        const to = decks[1 - active];
-        index = (index + 1) % tracks.length;
-        to.audio.src = tracks[index];
-        to.audio.currentTime = 0;
-        void to.audio.play().then(
-          () => {
-            const t = ctx.currentTime + 0.02;
-            from.gain.gain.cancelScheduledValues(t);
-            to.gain.gain.cancelScheduledValues(t);
-            from.gain.gain.setValueCurveAtTime(curve(false), t, fade);
-            to.gain.gain.setValueCurveAtTime(curve(true), t, fade);
-            active = 1 - active;
-            heard = index;
-            opts.onTurn?.();
-            setTimeout(() => {
-              from.audio.pause();
-              turning = false;
-            }, (fade + 0.1) * 1e3);
-          },
-          () => {
-            turning = false;
-          }
-        );
-      };
-      for (const d of decks) {
-        d.audio.addEventListener("timeupdate", () => {
-          if (d !== decks[active] || !Number.isFinite(d.audio.duration)) return;
-          if (d.audio.duration - d.audio.currentTime <= fade + 0.35) turn();
-        });
-        d.audio.addEventListener("ended", () => {
-          if (d === decks[active]) turn();
-        });
-        d.audio.addEventListener("error", () => {
-          if (stopped || d !== decks[active] || turning) return;
-          stopped = true;
-          opts.onFail?.();
-        });
-      }
-      const first = decks[0];
-      first.audio.src = tracks[0];
-      void first.audio.play().then(
-        () => first.gain.gain.setTargetAtTime(1, ctx.currentTime, 0.8),
-        () => {
-        }
-      );
-      return {
-        stop() {
-          stopped = true;
-          for (const d of decks) {
-            d.audio.pause();
-            d.audio.removeAttribute("src");
-          }
-          out.disconnect();
-        },
-        /** How many times one piece has handed on to the next. For tests. */
-        get index() {
-          return index;
-        },
-        /** Where the piece that is heard now is kept. */
-        get now() {
-          return tracks[heard];
-        },
-        get count() {
-          return tracks.length;
-        },
-        /** Hand on to the next piece now. */
-        next() {
-          if (tracks.length < 2 || turning || stopped) return false;
-          turn();
-          return true;
-        }
-      };
-    };
-    let kind = theme.music === null ? "none" : theme.music ? "world" : "made";
-    let stopMusic = null;
-    let pieces = null;
-    let stopHum = null;
-    let humAddress = null;
-    let musicAsked = false;
-    const startMusic = () => {
-      if (musicAsked || disposed) return;
-      musicAsked = true;
-      loadCues();
-      void kitReady.then(() => {
-        if (disposed) return;
-        humAddress = theme.hum === null ? null : theme.hum ?? kit2.hum ?? null;
-        if (humAddress) stopHum = loopPlayer([humAddress], humGain, { gain: 0.55 }).stop;
-        const tracks = theme.music === null ? null : theme.music ?? kit2.music ?? null;
-        if (theme.music === void 0 && kit2.music) kind = "kit";
-        changed();
-        if (theme.music === null) return;
-        if (tracks) {
-          const player2 = loopPlayer(tracks, placeMusic, {
-            gain: 0.6,
-            onTurn: () => changed(),
-            onFail: () => {
-              stopMusic?.();
-              pieces = null;
-              kind = "made";
-              stopMusic = madeMusic();
-              changed();
-            }
-          });
-          pieces = player2;
-          stopMusic = player2.stop;
-          changed();
-          return;
-        }
-        stopMusic = madeMusic();
-      });
-    };
-    const madeMusic = () => {
-      const plan = ambiencePlan(o.seed ?? location.host);
-      const bed = ctx.createGain();
-      bed.gain.value = 0.12;
-      const colour = ctx.createBiquadFilter();
-      colour.type = "lowpass";
-      colour.frequency.value = plan.colour;
-      colour.connect(bed);
-      bed.connect(placeMusic);
-      const running = [];
-      plan.drones.forEach((d, i) => {
-        const osc = ctx.createOscillator();
-        osc.type = i < 2 ? "sine" : "triangle";
-        osc.frequency.value = d.hz;
-        osc.detune.value = d.detune;
-        const swell = ctx.createGain();
-        swell.gain.value = i < 2 ? 0.3 : 0.14;
-        const lfo = ctx.createOscillator();
-        lfo.frequency.value = 1 / d.swell;
-        const depth = ctx.createGain();
-        depth.gain.value = swell.gain.value * 0.8;
-        lfo.connect(depth);
-        depth.connect(swell.gain);
-        osc.connect(swell);
-        swell.connect(colour);
-        osc.start();
-        lfo.start();
-        running.push(osc, lfo);
-      });
-      const random = seeded(`notes:${o.seed ?? location.host}`);
-      let timer;
-      const note = () => {
-        if (disposed) return;
-        if (ctx.state === "running" && !levels.off && levels.music > 0) {
-          const hz = plan.root * plan.scale[Math.floor(random() * plan.scale.length)] * (random() < 0.5 ? 2 : 4);
-          const t = ctx.currentTime + 0.05;
-          const osc = ctx.createOscillator();
-          osc.type = "sine";
-          osc.frequency.value = hz;
-          const g = ctx.createGain();
-          g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.11, t + 0.5);
-          g.gain.exponentialRampToValueAtTime(8e-4, t + 4.5);
-          osc.connect(g);
-          g.connect(bed);
-          osc.start(t);
-          osc.stop(t + 4.6);
-        }
-        timer = setTimeout(note, (plan.gap[0] + random() * (plan.gap[1] - plan.gap[0])) * 1e3);
-      };
-      timer = setTimeout(note, 1500);
-      return () => {
-        clearTimeout(timer);
-        for (const n of running) {
-          try {
-            n.stop();
-          } catch {
-          }
-        }
-        bed.disconnect();
-      };
-    };
-    const wake = () => {
-      void ctx.resume().then(startMusic, () => {
-      });
-      if (ctx.state === "running") startMusic();
-    };
-    const onTouch = () => wake();
-    addEventListener("pointerdown", onTouch, true);
-    addEventListener("keydown", onTouch, true);
-    if (ctx.state === "running") startMusic();
-    const keepSongs = () => write(songsKey, songs);
-    const stopOwn = () => {
-      juke.audio?.pause();
-      juke.playing = false;
-      apply();
-      changed();
-    };
-    const player = () => {
-      if (!juke.audio || !juke.tap) {
-        juke.audio = new Audio();
-        const source = ctx.createMediaElementSource(juke.audio);
-        source.connect(ownMusic);
-        juke.tap = ctx.createMediaStreamDestination();
-        source.connect(juke.tap);
-        juke.audio.addEventListener("ended", () => {
-          if (how.repeat === "one") return void jukebox.play(juke.current?.id);
-          const after2 = songBeside(order(), juke.current?.id ?? null, 1, how.repeat === "all");
-          if (after2) return void jukebox.play(after2);
-          juke.audio.currentTime = 0;
-          stopOwn();
-        });
-        juke.audio.addEventListener("durationchange", () => changed());
-      }
-      return { audio: juke.audio, tap: juke.tap };
-    };
-    let chance = [];
-    const order = () => {
-      const ids = songs.map((s) => s.id);
-      if (!how.shuffle) return ids;
-      if (chance.length !== ids.length || ids.some((id2) => !chance.includes(id2))) chance = shuffledSongs(ids, juke.current?.id ?? null);
-      return chance;
-    };
-    const jukebox = {
-      list: () => [...songs],
-      async add(file) {
-        const refusal = songRefusal({ type: file.type, size: file.size, ...file.name ? { name: file.name } : {} }, songs.length);
-        if (refusal) return refusal;
-        const id2 = `song-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-        const kept2 = await fileStore("readwrite", (s) => s.put(file, `song:${id2}`));
-        if (kept2 === void 0) return "This browser couldn't keep that file.";
-        songs = cleanSongs([...songs, { id: id2, title: songTitle(file.name ?? ""), size: file.size, at: Math.floor(Date.now() / 1e3) }]);
-        keepSongs();
-        changed();
-        return null;
-      },
-      async remove(id2) {
-        if (juke.current?.id === id2) {
-          stopOwn();
-          juke.current = null;
-        }
-        songs = songs.filter((s) => s.id !== id2);
-        keepSongs();
-        await fileStore("readwrite", (s) => s.delete(`song:${id2}`));
-        changed();
-      },
-      async play(id2) {
-        const song = id2 ? songs.find((s) => s.id === id2) : juke.current ?? songs[0];
-        if (!song || disposed) return false;
-        player();
-        if (juke.current?.id !== song.id || !juke.url) {
-          const file = await fileStore("readonly", (s) => s.get(`song:${song.id}`));
-          if (!file) return false;
-          if (juke.url) URL.revokeObjectURL(juke.url);
-          juke.url = URL.createObjectURL(file);
-          juke.audio.src = juke.url;
-          juke.current = song;
-        }
-        try {
-          await ctx.resume();
-          await juke.audio.play();
-        } catch {
-          juke.playing = false;
-          apply();
-          changed();
-          return false;
-        }
-        juke.playing = true;
-        apply();
-        changed();
-        return true;
-      },
-      pause: stopOwn,
-      // Asked for by a press, both go round: the last song's "next" is the first, whatever happens at a song's own end.
-      async next() {
-        const to = songBeside(order(), juke.current?.id ?? null, 1, true);
-        return to ? jukebox.play(to) : false;
-      },
-      async previous() {
-        if (juke.current && (juke.audio?.currentTime ?? 0) >= RESTART_AFTER) {
-          jukebox.seek(0);
-          return juke.playing ? true : jukebox.play();
-        }
-        const to = songBeside(order(), juke.current?.id ?? null, -1, true);
-        return to ? jukebox.play(to) : false;
-      },
-      seek(seconds) {
-        if (!juke.audio || !juke.current || !Number.isFinite(seconds)) return;
-        const most = Number.isFinite(juke.audio.duration) ? juke.audio.duration : seconds;
-        juke.audio.currentTime = Math.max(0, Math.min(seconds, most));
-        changed();
-      },
-      get playing() {
-        return juke.playing;
-      },
-      get current() {
-        return juke.current;
-      },
-      get position() {
-        return juke.current ? juke.audio?.currentTime ?? 0 : 0;
-      },
-      get duration() {
-        const d = juke.current ? juke.audio?.duration ?? 0 : 0;
-        return Number.isFinite(d) && d > 0 ? d : 0;
-      },
-      get how() {
-        return how;
-      },
-      setHow(patch) {
-        const was = how.shuffle;
-        how = cleanHow({ ...how, ...patch });
-        if (how.shuffle && !was) chance = [];
-        write(howKey, how);
-        changed();
-      },
-      output: () => player().tap.stream.getAudioTracks()[0]
-    };
-    const samples = new Float32Array(meter.fftSize);
-    return {
-      play: play2,
-      moved: moved2,
-      bump: () => play2("bump"),
-      jumped: jumped2,
-      get levels() {
-        return levels;
-      },
-      setLevels(patch) {
-        levels = cleanLevels({ ...levels, ...patch });
-        write(levelsKey, levels);
-        apply();
-        changed();
-      },
-      jukebox,
-      onChange(fn) {
-        listeners.add(fn);
-        fn(levels);
-        return () => listeners.delete(fn);
-      },
-      get music() {
-        return kind;
-      },
-      get piece() {
-        return pieces ? { name: pieceName(pieces.now), of: pieces.count } : null;
-      },
-      nextPiece() {
-        return pieces?.next() ?? false;
-      },
-      get hasHum() {
-        return !!humAddress;
-      },
-      async decode(bytes) {
-        try {
-          const buffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-          if (!(buffer.duration > 0) || buffer.duration > FOREIGN_SOUND.seconds) return null;
-          let peak = 0;
-          for (let c = 0; c < buffer.numberOfChannels; c++) for (const x of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
-          return { buffer, gain: peak > 0 ? Math.min(1, FOREIGN_SOUND.peak / peak) : 1 };
-        } catch {
-          return null;
-        }
-      },
-      playForeign(sound2, from) {
-        if (disposed || levels.off || levels.effects <= 0 || ctx.state !== "running") return;
-        const far = from && Number.isFinite(from.distance) ? Math.max(0, from.distance) : 0;
-        const reach = far <= FOREIGN_SOUND.fades ? 1 : Math.max(0, 1 - (far - FOREIGN_SOUND.fades) / (FOREIGN_SOUND.gone - FOREIGN_SOUND.fades));
-        if (reach <= 0) return;
-        const src = ctx.createBufferSource();
-        src.buffer = sound2.buffer;
-        const level2 = ctx.createGain();
-        level2.gain.value = sound2.gain * reach;
-        src.connect(level2);
-        level2.connect(from ? shaped2(heardFrom(from)) : effects);
-        src.start();
-        foreignPlayed++;
-      },
-      get foreignPlayed() {
-        return foreignPlayed;
-      },
-      loudness() {
-        meter.getFloatTimeDomainData(samples);
-        return Math.sqrt(samples.reduce((s, x) => s + x * x, 0) / samples.length);
-      },
-      dispose() {
-        stopReporting();
-        disposed = true;
-        removeEventListener("pointerdown", onTouch, true);
-        removeEventListener("keydown", onTouch, true);
-        stopMusic?.();
-        stopHum?.();
-        juke.audio?.pause();
-        if (juke.url) URL.revokeObjectURL(juke.url);
-        master.disconnect();
-      }
-    };
-  }
-  function addSoundControls(controls2, sounds2, opts = {}) {
-    const word = (v2) => LEVEL_WORDS[levelStep(v2)];
-    let listed = [];
-    const picker = document.createElement("input");
-    picker.type = "file";
-    picker.accept = "audio/*";
-    picker.multiple = true;
-    picker.hidden = true;
-    document.body.append(picker);
-    picker.addEventListener("change", async () => {
-      let added = 0;
-      let refused = "";
-      for (const file of [...picker.files ?? []]) {
-        const no4 = await sounds2.jukebox.add(file);
-        if (no4) refused = no4;
-        else added++;
-      }
-      picker.value = "";
-      controls2.say(added ? `${added === 1 ? "1 song" : `${added} songs`} added. Only you hear your music.${refused ? ` ${refused}` : ""}` : refused || "Nothing was added.");
-      refresh();
-    });
-    const juke = sounds2.jukebox;
-    const clock = () => juke.duration ? `${songClock(juke.position)} of ${songClock(juke.duration)}` : songClock(juke.position);
-    const REPEAT_WORDS = { off: "Repeat: off", all: "Repeat: all your songs", one: "Repeat: this song" };
-    const playRow = () => ({
-      id: "juke-play",
-      section: "sound",
-      icon: () => juke.playing ? "pause" : "play",
-      on: () => juke.playing,
-      hidden: () => juke.list().length === 0,
-      hotbar: juke.how.bar && juke.list().length > 0,
-      label: () => juke.playing ? "Pause your music" : "Play your music",
-      short: () => juke.current?.title ?? "Your music",
-      act: async () => {
-        if (juke.playing) return juke.pause();
-        if (!await juke.play()) controls2.say("Your music couldn't be played.");
-      }
-    });
-    let barWas = juke.how.bar && juke.list().length > 0;
-    const refresh = () => {
-      const bar = juke.how.bar && juke.list().length > 0;
-      if (bar !== barWas) {
-        barWas = bar;
-        controls2.add(playRow());
-      }
-      for (const id2 of listed) controls2.remove(id2);
-      const songs = sounds2.jukebox.list();
-      listed = songs.map((s) => `song-${s.id}`);
-      controls2.addSection({
-        id: "sound",
-        label: "Sound",
-        icon: "sound",
-        note: () => `${sounds2.levels.off ? "All sound is off. " : ""}${sounds2.music === "none" ? "This place has no music of its own." : sounds2.music === "world" ? "This place plays its own music." : sounds2.music === "kit" ? "This place plays the music every world starts with." : "This place's music is made by your browser, from its name."} Your own music is kept in this browser, for this site, and only you hear it.`
-      });
-      songs.forEach(
-        (s, i) => controls2.add({
-          id: listed[i],
-          section: "sound",
-          icon: "note",
-          on: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id,
-          label: () => sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id ? `Playing: ${s.title}` : s.title,
-          act: async () => {
-            if (sounds2.jukebox.playing && sounds2.jukebox.current?.id === s.id) sounds2.jukebox.pause();
-            else if (!await sounds2.jukebox.play(s.id)) controls2.say(`${s.title} couldn't be played.`);
-          }
-        })
-      );
-    };
-    const level2 = (id2, name, key) => ({
-      id: id2,
-      section: "sound",
-      label: () => `${name}: ${word(sounds2.levels[key])}`,
-      on: () => sounds2.levels[key] > 0,
-      act: () => sounds2.setLevels({ [key]: nextLevel(sounds2.levels[key]) })
-    });
-    controls2.addSection({ id: "sound", label: "Sound", icon: "sound" });
-    controls2.add(
-      {
-        id: "sound-all",
-        section: "sound",
-        icon: () => sounds2.levels.off ? "soundOff" : "sound",
-        on: () => !sounds2.levels.off,
-        label: () => sounds2.levels.off ? "All sound: off" : "All sound: on",
-        act: () => sounds2.setLevels({ off: !sounds2.levels.off })
-      },
-      level2("sound-effects", "Effects", "effects"),
-      level2("sound-music", "Music", "music"),
-      {
-        // What the place is playing, by name, so a visitor can say which piece they mean. Pressing goes on to the next.
-        id: "sound-piece",
-        section: "sound",
-        icon: "note",
-        hidden: () => sounds2.music === "none" || sounds2.music === "made" || !sounds2.piece,
-        label: () => {
-          const p = sounds2.piece;
-          if (!p) return "This place's music";
-          return `Playing here: ${p.name}${p.of > 1 ? `. Next of ${p.of}` : ""}`;
-        },
-        act: () => {
-          const p = sounds2.piece;
-          if (!p) return;
-          if (sounds2.nextPiece()) controls2.say(`Going on from ${p.name} to this place's next piece.`);
-          else controls2.say(`${p.name} is the only piece this place has. Music: off, above, silences it.`);
-        }
-      },
-      level2("sound-voices", "Voices", "voices"),
-      {
-        id: "sound-hum",
-        section: "sound",
-        icon: "sound",
-        on: () => sounds2.levels.hum,
-        hidden: () => !(opts.hasHum ? opts.hasHum() : sounds2.hasHum),
-        label: () => sounds2.levels.hum ? "The room's hum: on" : "The room's hum: off",
-        act: () => sounds2.setLevels({ hum: !sounds2.levels.hum })
-      },
-      // ---- The visitor's own music. What is playing and where in it, with a bar to move along; the song before, play
-      // and pause, the song after; a little way back and on, for a menu that draws no bar (a headset's console); how it
-      // goes; then adding, taking out, and the songs themselves. The same rows wherever this is drawn.
-      {
-        id: "juke-place",
-        section: "sound",
-        icon: "music",
-        kind: "slider",
-        hidden: () => !juke.current,
-        on: () => juke.playing,
-        // "Your music", since the place may be playing a piece of its own, named in the row above.
-        label: () => `${juke.playing ? "Your music" : "Your music, paused"}: ${juke.current?.title ?? ""}`,
-        slider: { value: () => juke.position, max: () => juke.duration, text: clock },
-        act: (to) => juke.seek(Number(to))
-      },
-      {
-        id: "juke-previous",
-        section: "sound",
-        icon: "previous",
-        hidden: () => !juke.current,
-        label: "Previous song",
-        short: "Previous",
-        act: async () => void await juke.previous()
-      },
-      playRow(),
-      {
-        id: "juke-next",
-        section: "sound",
-        icon: "next",
-        hidden: () => juke.list().length < 2,
-        label: "Next song",
-        short: "Next",
-        act: () => void juke.next()
-      },
-      {
-        id: "juke-back",
-        section: "sound",
-        icon: "rewind",
-        hidden: () => !juke.current,
-        label: `Back ${SKIP_SECONDS} seconds`,
-        act: () => juke.seek(juke.position - SKIP_SECONDS)
-      },
-      {
-        id: "juke-forward",
-        section: "sound",
-        icon: "forward",
-        hidden: () => !juke.current,
-        label: `Forward ${SKIP_SECONDS} seconds`,
-        act: () => juke.seek(juke.position + SKIP_SECONDS)
-      },
-      {
-        id: "juke-shuffle",
-        section: "sound",
-        icon: "shuffle",
-        on: () => juke.how.shuffle,
-        hidden: () => juke.list().length < 2,
-        label: () => juke.how.shuffle ? "Shuffle: on" : "Shuffle: off",
-        act: () => juke.setHow({ shuffle: !juke.how.shuffle })
-      },
-      {
-        id: "juke-repeat",
-        section: "sound",
-        icon: "repeat",
-        on: () => juke.how.repeat !== "off",
-        hidden: () => juke.list().length === 0,
-        label: () => REPEAT_WORDS[juke.how.repeat],
-        act: () => juke.setHow({ repeat: JUKE_REPEATS[(JUKE_REPEATS.indexOf(juke.how.repeat) + 1) % JUKE_REPEATS.length] })
-      },
-      {
-        id: "juke-bar",
-        section: "sound",
-        icon: "pin",
-        on: () => juke.how.bar,
-        hidden: () => juke.list().length === 0,
-        label: () => juke.how.bar ? "Play and pause on your bar: on" : "Play and pause on your bar: off",
-        act: () => juke.setHow({ bar: !juke.how.bar })
-      },
-      {
-        id: "juke-add",
-        section: "sound",
-        icon: "save",
-        label: "Add music from this device",
-        act: () => picker.click()
-      },
-      {
-        id: "juke-remove",
-        section: "sound",
-        icon: "exit",
-        hidden: () => !sounds2.jukebox.current,
-        label: () => `Take out ${sounds2.jukebox.current?.title ?? "this song"}`,
-        act: async () => {
-          const song = sounds2.jukebox.current;
-          if (!song) return;
-          await sounds2.jukebox.remove(song.id);
-          controls2.say(`${song.title} was taken out of this browser.`);
-          refresh();
-        }
-      }
-    );
-    refresh();
-    controls2.onSignal((name) => {
-      if (CUES.includes(name) && !opts.quiet?.(name)) sounds2.play(name);
-    });
-    controls2.onSay(() => void (opts.quiet?.("notice") || sounds2.play("notice")));
-    sounds2.onChange(() => refresh());
-    return { refresh };
-  }
-
-  // packages/sdk/src/jump.ts
-  var JUMP_HEIGHT = 0.45;
-  var JUMP_GRAVITY = 9.8;
-  var JUMP_SPEED = Math.sqrt(2 * JUMP_GRAVITY * JUMP_HEIGHT);
-
-  // packages/sdk/src/fresh.ts
-  function reloadAfresh() {
-    let gone = false;
-    const go2 = () => {
-      if (gone) return;
-      gone = true;
-      location.reload();
-    };
-    try {
-      void fetch(location.href, { cache: "reload", credentials: "same-origin" }).then(go2, go2);
-      setTimeout(go2, 4e3);
-    } catch {
-      go2();
-    }
-  }
-  var LEAST_MS = 3e4;
-  var EVERY_MS = 10 * 6e4;
-  async function markOf(url) {
-    try {
-      const res = await fetch(url, { method: "HEAD", cache: "no-store", credentials: "same-origin" });
-      if (!res.ok) return null;
-      const mark = res.headers.get("etag") ?? res.headers.get("last-modified");
-      return mark ? `${mark}` : null;
-    } catch {
-      return null;
-    }
-  }
-  async function pageStamp() {
-    const page = `${location.origin}${location.pathname}`;
-    const script = document.querySelector('script[type="module"][src], script[src]')?.src ?? "";
-    const marks = await Promise.all([markOf(page), script && new URL(script).origin === location.origin ? markOf(script) : null]);
-    return marks.every((m) => m !== null) || !script && marks[0] ? marks.join("|") : null;
-  }
-  function watchFresh(o = {}) {
-    const stamp = o.stamp ?? pageStamp;
-    const now = o.now ?? (() => Date.now());
-    const reload = o.reload ?? reloadAfresh;
-    let first;
-    let stale = false;
-    let told = false;
-    let asked = -Infinity;
-    let asking = null;
-    let stopped = false;
-    const check2 = (returning = false) => {
-      if (stopped) return Promise.resolve(stale);
-      if (stale) {
-        if (returning && !o.busy?.()) reload();
-        return Promise.resolve(true);
-      }
-      if (asking) return asking;
-      if (now() - asked < LEAST_MS && first !== void 0) return Promise.resolve(false);
-      asked = now();
-      asking = stamp().catch(() => null).then((mark) => {
-        asking = null;
-        if (stopped) return stale;
-        if (first === void 0) {
-          first = mark;
-          return false;
-        }
-        if (first === null || mark === null || mark === first) return false;
-        stale = true;
-        if (returning && !o.busy?.()) reload();
-        else if (!told) {
-          told = true;
-          o.onStale?.();
-        }
-        return true;
-      });
-      return asking;
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void check2(true);
-    };
-    const onShow = (e) => {
-      if (e.persisted) void check2(true);
-    };
-    let timer;
-    if (!o.manual && typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", onVisible);
-      addEventListener("pageshow", onShow);
-      timer = setInterval(() => {
-        if (document.visibilityState === "visible") void check2(false);
-      }, EVERY_MS);
-      void check2(false);
-    }
-    return {
-      get stale() {
-        return stale;
-      },
-      check: check2,
-      reload,
-      stop() {
-        stopped = true;
-        clearInterval(timer);
-        if (typeof document !== "undefined") {
-          document.removeEventListener("visibilitychange", onVisible);
-          removeEventListener("pageshow", onShow);
-        }
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/fresh.ts
-  var writing = () => {
-    const at = typeof document !== "undefined" ? document.activeElement : null;
-    return !!at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA" || at.isContentEditable === true);
-  };
-  function freshAction(controls2, opts = {}) {
-    const fresh = opts.fresh ?? watchFresh({
-      busy: () => controls2.view().chat.ready || writing() || opts.busy?.() === true,
-      onStale: () => {
-        controls2.say("This place has been updated since you opened it. Reload for the latest: it is on your bar, and under Help.");
-        controls2.signal("fresh");
-      }
-    });
-    return {
-      id: "fresh",
-      section: "help",
-      icon: "turn",
-      hotbar: true,
-      tone: "primary",
-      label: "This place has been updated. Reload for the latest",
-      short: "Reload",
-      hidden: () => !fresh.stale,
-      act: () => fresh.reload()
-    };
-  }
-
-  // packages/sdk/src/ui/headset.ts
-  var granted = false;
-  var waitingForGrant = /* @__PURE__ */ new Set();
-  try {
-    if (typeof navigator !== "undefined" && navigator.xr && !/WebXRViewer\//i.test(navigator.userAgent)) {
-      navigator.xr.addEventListener("sessiongranted", () => {
-        granted = true;
-        for (const fn of [...waitingForGrant]) fn();
-        waitingForGrant.clear();
-      });
-    }
-  } catch {
-  }
-  var NOT_A_PRESS = /* @__PURE__ */ new Set(["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock", "ContextMenu"]);
-  var TRYING_MS = 2e3;
-  var GIVE_UP_MS = 12e3;
-  function offerHeadset(title, enter, stay, opts = {}) {
-    const asked = opts.asked === true;
-    const scrim = document.createElement("div");
-    scrim.id = "nswp-enter";
-    scrim.setAttribute("role", "dialog");
-    scrim.setAttribute("aria-label", asked ? `Launch VR in ${title}` : `You've arrived at ${title}`);
-    Object.assign(scrim.style, { position: "fixed", inset: "0", zIndex: "50", display: "grid", placeContent: "center", justifyItems: "center", gap: "18px", padding: "24px", background: "rgba(4, 7, 11, 0.62)", textAlign: "center", cursor: "pointer" });
-    const heading = document.createElement("p");
-    heading.textContent = title;
-    Object.assign(heading.style, { margin: "0", font: "700 clamp(28px, 6vw, 56px)/1.1 system-ui, sans-serif", color: "#eef5fb" });
-    const go2 = document.createElement("button");
-    go2.type = "button";
-    go2.id = "nswp-enter-vr";
-    go2.textContent = "Launch";
-    Object.assign(go2.style, { font: "700 clamp(24px, 5vw, 40px)/1 system-ui, sans-serif", minWidth: "min(78vw, 520px)", minHeight: "120px", padding: "0 32px", border: "0", borderRadius: "18px", background: "#eef5fb", color: "#04070b", cursor: "pointer" });
-    const hint2 = document.createElement("p");
-    hint2.id = "nswp-enter-hint";
-    hint2.setAttribute("aria-live", "polite");
-    hint2.textContent = asked ? "Press anywhere, with anything, to start VR." : "Press anywhere, with anything, to go back in.";
-    Object.assign(hint2.style, { margin: "0", font: "500 clamp(18px, 3vw, 24px)/1.3 system-ui, sans-serif", color: "#eef5fb" });
-    const flat = document.createElement("button");
-    flat.type = "button";
-    flat.id = "nswp-enter-flat";
-    flat.textContent = "Look around on this screen";
-    Object.assign(flat.style, { font: "500 18px/1 system-ui, sans-serif", padding: "14px 20px", border: "0", background: "none", color: "#eef5fb", textDecoration: "underline", cursor: "pointer" });
-    scrim.append(heading, go2, hint2, flat);
-    let tried = -Infinity;
-    let up = true;
-    let gaveUp;
-    const presses = ["pointerup", "touchend", "keydown"];
-    const onPress = (e) => {
-      if (!up) return;
-      const key = e.key;
-      if (e.type === "keydown") {
-        if (key === "Escape") return void stay();
-        if (NOT_A_PRESS.has(key) || e.repeat) return;
-      }
-      const at = e.target instanceof Element ? e.target : null;
-      const onStay = !!at && flat.contains(at);
-      if (onStay && (e.type !== "keydown" || key === "Enter" || key === " ")) return;
-      if (at && !scrim.contains(at) && at !== document.body && at !== document.documentElement && !(at instanceof HTMLCanvasElement)) return;
-      const now = performance.now();
-      if (now - tried < TRYING_MS) return;
-      tried = now;
-      hint2.textContent = "Starting VR\u2026";
-      clearTimeout(gaveUp);
-      gaveUp = setTimeout(failed2, GIVE_UP_MS);
-      enter();
-    };
-    const failed2 = () => {
-      clearTimeout(gaveUp);
-      if (!up) return;
-      tried = -Infinity;
-      hint2.textContent = "That press didn't start VR. Press again, anywhere.";
-    };
-    flat.addEventListener("click", stay);
-    for (const type of presses) addEventListener(type, onPress, true);
-    holdFullscreen(true);
-    document.body.append(scrim);
-    go2.focus();
-    return {
-      remove() {
-        if (!up) return;
-        up = false;
-        clearTimeout(gaveUp);
-        for (const type of presses) removeEventListener(type, onPress, true);
-        holdFullscreen(false);
-        scrim.remove();
-      },
-      failed: failed2
-    };
-  }
-
   // packages/sdk/src/engine-world.ts
   var read2 = (text2) => {
     try {
@@ -49325,6 +49311,38 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return kept2;
   }
 
+  // packages/sdk/src/hold.ts
+  var SCRIPT_KEPT = "nswp:item-scripts";
+  function scriptAllowed(sha2562) {
+    try {
+      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
+    } catch {
+      return false;
+    }
+  }
+  function allowScript(sha2562) {
+    try {
+      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
+      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
+    } catch {
+    }
+  }
+  function mayHold(described, o) {
+    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
+    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
+    if (!described) return { ok: false, said: "That item's description couldn't be found." };
+    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
+    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
+    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
+      if (o.asked.sha !== described.script.sha256) {
+        o.asked.sha = described.script.sha256;
+        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
+      }
+      allowScript(described.script.sha256);
+    }
+    return { ok: true };
+  }
+
   // packages/sdk/src/item-box.ts
   function runInBox(script, on3, opts = {}) {
     if (typeof document === "undefined") return Promise.resolve(null);
@@ -49387,36 +49405,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
 
   // packages/sdk/src/play.ts
-  var SCRIPT_KEPT = "nswp:item-scripts";
-  function scriptAllowed(sha2562) {
-    try {
-      return JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").includes(sha2562);
-    } catch {
-      return false;
-    }
-  }
-  function allowScript(sha2562) {
-    try {
-      const kept2 = JSON.parse(globalThis.localStorage?.getItem(SCRIPT_KEPT) ?? "[]").filter((x) => typeof x === "string" && x !== sha2562);
-      globalThis.localStorage?.setItem(SCRIPT_KEPT, JSON.stringify([...kept2, sha2562].slice(-64)));
-    } catch {
-    }
-  }
-  function mayHold(described, o) {
-    if (cleanItemsRule(o.rule) === "none") return { ok: false, said: "Nothing carried is drawn or works in this place." };
-    if (!showsItems()) return { ok: false, said: "You have items turned off. Turn them on to hold one." };
-    if (!described) return { ok: false, said: "That item's description couldn't be found." };
-    if (!(described.behaviors.includes("holdable") || described.fits.includes("hand-right") || described.fits.includes("hand-left"))) return { ok: false, said: `${described.title} isn't something to hold.` };
-    if (described.use === "granted") return { ok: false, said: `${described.title} has to be granted by its maker, which can't be checked here yet.` };
-    if (described.script && o.scripts && !scriptAllowed(described.script.sha256)) {
-      if (o.asked.sha !== described.script.sha256) {
-        o.asked.sha = described.script.sha256;
-        return { ok: false, said: `${described.title} does things of its own, with code written by its maker (${described.maker.slice(0, 8)}\u2026). It runs shut away on your device: it can't reach the network, your account or anything of this world. Press Hold again to let it.` };
-      }
-      allowScript(described.script.sha256);
-    }
-    return { ok: true };
-  }
   function drawn(width, height, paint2) {
     if (typeof document === "undefined") {
       const blank = new Sprite(new SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false }));
@@ -55603,122 +55591,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
   }
 
-  // packages/sdk/src/item-preview.ts
-  var KEPT = 36;
-  function createItemPreviews(o) {
-    const size = o.size ?? 256;
-    const watchers8 = /* @__PURE__ */ new Set();
-    const ready2 = /* @__PURE__ */ new Map();
-    let stage;
-    const keyOf = (item, tints) => `${item.id}|${item.model.sha256}|${JSON.stringify(tints ?? {})}`;
-    const stageNow = () => {
-      if (stage !== void 0) return stage;
-      if (typeof document === "undefined") return stage = null;
-      try {
-        const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
-        renderer.setPixelRatio(1);
-        renderer.setSize(size, size, false);
-        renderer.setClearColor(0, 0);
-        const scene = new Scene();
-        scene.add(new HemisphereLight(16777215, 2699837, 1.7));
-        const key = new DirectionalLight(16777215, 2.4);
-        key.position.set(1.6, 2.6, 2.2);
-        const rim = new DirectionalLight(12572927, 1.3);
-        rim.position.set(-2, 1.2, -2.4);
-        const pivot = new Group();
-        scene.add(key, rim, pivot);
-        const camera = new PerspectiveCamera(28, 1, 0.01, 50);
-        return stage = { renderer, scene, camera, pivot };
-      } catch {
-        return stage = null;
-      }
-    };
-    const draw = (made, angle, onto) => {
-      const s = stageNow();
-      if (!s) return null;
-      s.pivot.clear();
-      s.pivot.add(made.object);
-      made.object.position.copy(made.middle).multiplyScalar(-1);
-      s.pivot.rotation.set(0, angle, 0);
-      const away = made.radius / Math.sin(MathUtils.degToRad(s.camera.fov / 2)) * 1.08;
-      s.camera.position.set(0, away * 0.3, away * 0.95);
-      s.camera.lookAt(0, 0, 0);
-      s.camera.near = Math.max(5e-3, away - made.radius * 2);
-      s.camera.far = away + made.radius * 2;
-      s.camera.updateProjectionMatrix();
-      s.renderer.render(s.scene, s.camera);
-      s.pivot.clear();
-      const canvas = onto ?? document.createElement("canvas");
-      if (!onto) canvas.width = canvas.height = size;
-      const g = canvas.getContext("2d");
-      if (!g) return null;
-      g.clearRect(0, 0, size, size);
-      g.drawImage(s.renderer.domElement, 0, 0, size, size);
-      return canvas;
-    };
-    const want2 = (item, tints) => {
-      const key = keyOf(item, tints);
-      const had = ready2.get(key);
-      if (had !== void 0) return had;
-      if (!stageNow()) return null;
-      ready2.set(key, null);
-      for (const old of ready2.keys()) {
-        if (ready2.size <= KEPT) break;
-        if (old !== key) ready2.delete(old);
-      }
-      void o.model(item, tints).then(
-        (object) => {
-          if (!ready2.has(key)) return;
-          let frames = 0;
-          let solids = 0;
-          object.traverse((part) => {
-            const mesh = part;
-            if (!mesh.isMesh) return;
-            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-            if (materials.every((m) => m.wireframe === true)) frames++;
-            else solids++;
-          });
-          if (frames > 0 && solids === 0) return void again(key);
-          const box = new Box3().setFromObject(object);
-          const ball = box.getBoundingSphere(new Sphere());
-          if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
-          ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
-          for (const fn of watchers8) fn();
-        },
-        () => void again(key)
-      );
-      return null;
-    };
-    const AGAIN_MS3 = 6e3;
-    const tries = /* @__PURE__ */ new Map();
-    function again(key) {
-      const n = (tries.get(key) ?? 0) + 1;
-      tries.set(key, n);
-      if (n > 5) return;
-      setTimeout(() => {
-        if (ready2.get(key) !== null) return;
-        ready2.delete(key);
-        for (const fn of watchers8) fn();
-      }, AGAIN_MS3 * n);
-    }
-    return {
-      still(item, tints) {
-        const made = want2(item, tints);
-        if (!made) return null;
-        return made.still ?? (made.still = draw(made, -0.62, null));
-      },
-      turning(item, tints, moving2 = true) {
-        const made = want2(item, tints);
-        if (!made) return null;
-        const angle = moving2 ? (typeof performance === "undefined" ? 0 : performance.now()) / 1e3 * 0.7 : -0.62;
-        return made.live = draw(made, angle, made.live);
-      },
-      onChange(fn) {
-        watchers8.add(fn);
-      }
-    };
-  }
-
   // packages/sdk/src/bagging.ts
   var HELD_KEY = "nswp:holding";
   function keptHolding() {
@@ -55759,8 +55631,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let asking = "";
     let taking = "";
     const say3 = (text2) => controls2.say(text2);
-    const model2 = items2.model;
-    const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
+    const previews = opts.previews ?? null;
     const still = (item) => () => {
       const described = items2.known(item);
       return described && previews && showsItems() ? previews.still(described, bag.tints(item)) : null;
@@ -56110,6 +55981,129 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return { refresh };
   }
 
+  // packages/sdk/src/item-preview.ts
+  var KEPT = 36;
+  function createItemPreviews(o) {
+    const size = o.size ?? 256;
+    const watchers8 = /* @__PURE__ */ new Set();
+    const ready2 = /* @__PURE__ */ new Map();
+    let stage;
+    const keyOf = (item, tints) => `${item.id}|${item.model.sha256}|${JSON.stringify(tints ?? {})}`;
+    const stageNow = () => {
+      if (stage !== void 0) return stage;
+      if (typeof document === "undefined") return stage = null;
+      try {
+        const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
+        renderer.setPixelRatio(1);
+        renderer.setSize(size, size, false);
+        renderer.setClearColor(0, 0);
+        const scene = new Scene();
+        scene.add(new HemisphereLight(16777215, 2699837, 1.7));
+        const key = new DirectionalLight(16777215, 2.4);
+        key.position.set(1.6, 2.6, 2.2);
+        const rim = new DirectionalLight(12572927, 1.3);
+        rim.position.set(-2, 1.2, -2.4);
+        const pivot = new Group();
+        scene.add(key, rim, pivot);
+        const camera = new PerspectiveCamera(28, 1, 0.01, 50);
+        return stage = { renderer, scene, camera, pivot };
+      } catch {
+        return stage = null;
+      }
+    };
+    const draw = (made, angle, onto) => {
+      const s = stageNow();
+      if (!s) return null;
+      s.pivot.clear();
+      s.pivot.add(made.object);
+      made.object.position.copy(made.middle).multiplyScalar(-1);
+      s.pivot.rotation.set(0, angle, 0);
+      const away = made.radius / Math.sin(MathUtils.degToRad(s.camera.fov / 2)) * 1.08;
+      s.camera.position.set(0, away * 0.3, away * 0.95);
+      s.camera.lookAt(0, 0, 0);
+      s.camera.near = Math.max(5e-3, away - made.radius * 2);
+      s.camera.far = away + made.radius * 2;
+      s.camera.updateProjectionMatrix();
+      s.renderer.render(s.scene, s.camera);
+      s.pivot.clear();
+      const canvas = onto ?? document.createElement("canvas");
+      if (!onto) canvas.width = canvas.height = size;
+      const g = canvas.getContext("2d");
+      if (!g) return null;
+      g.clearRect(0, 0, size, size);
+      g.drawImage(s.renderer.domElement, 0, 0, size, size);
+      return canvas;
+    };
+    const want2 = (item, tints) => {
+      const key = keyOf(item, tints);
+      const had = ready2.get(key);
+      if (had !== void 0) return had;
+      if (!stageNow()) return null;
+      ready2.set(key, null);
+      for (const old of ready2.keys()) {
+        if (ready2.size <= KEPT) break;
+        if (old !== key) ready2.delete(old);
+      }
+      void o.model(item, tints).then(
+        (object) => {
+          if (!ready2.has(key)) return;
+          let frames = 0;
+          let solids = 0;
+          object.traverse((part) => {
+            const mesh = part;
+            if (!mesh.isMesh) return;
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            if (materials.every((m) => m.wireframe === true)) frames++;
+            else solids++;
+          });
+          if (frames > 0 && solids === 0) return void again(key);
+          const box = new Box3().setFromObject(object);
+          const ball = box.getBoundingSphere(new Sphere());
+          if (!Number.isFinite(ball.radius) || ball.radius <= 0) return void ready2.delete(key);
+          ready2.set(key, { object, middle: ball.center.clone(), radius: ball.radius, still: null, live: null });
+          for (const fn of watchers8) fn();
+        },
+        () => void again(key)
+      );
+      return null;
+    };
+    const AGAIN_MS3 = 6e3;
+    const tries = /* @__PURE__ */ new Map();
+    function again(key) {
+      const n = (tries.get(key) ?? 0) + 1;
+      tries.set(key, n);
+      if (n > 5) return;
+      setTimeout(() => {
+        if (ready2.get(key) !== null) return;
+        ready2.delete(key);
+        for (const fn of watchers8) fn();
+      }, AGAIN_MS3 * n);
+    }
+    return {
+      still(item, tints) {
+        const made = want2(item, tints);
+        if (!made) return null;
+        return made.still ?? (made.still = draw(made, -0.62, null));
+      },
+      turning(item, tints, moving2 = true) {
+        const made = want2(item, tints);
+        if (!made) return null;
+        const angle = moving2 ? (typeof performance === "undefined" ? 0 : performance.now()) / 1e3 * 0.7 : -0.62;
+        return made.live = draw(made, angle, made.live);
+      },
+      onChange(fn) {
+        watchers8.add(fn);
+      }
+    };
+  }
+
+  // packages/sdk/src/bag-pictures.ts
+  function addBagControls2(controls2, opts) {
+    const model2 = opts.items.model;
+    const previews = opts.previews === void 0 ? model2 ? createItemPreviews({ model: (item, tints) => model2(item, tints) }) : null : opts.previews;
+    return addBagControls(controls2, { ...opts, previews });
+  }
+
   // packages/sdk/src/thumb-presses.ts
   var THUMBS_KEY = "nswp:thumbs";
   var THUMB_FIRST = 78;
@@ -56415,7 +56409,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       presses: null
     };
     const bag = createBag({ me, ...relays?.length ? { relays } : {} });
-    const bagging = addBagControls(controls2, {
+    const bagging = addBagControls2(controls2, {
       bag,
       items: engineItemStore(),
       me,

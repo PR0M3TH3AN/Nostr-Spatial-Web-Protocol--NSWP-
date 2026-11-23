@@ -11,6 +11,7 @@
     "./ui": "./src/ui.ts",
     "./menu": "./src/menu.ts",
     "./menu-above": "./src/menu-above.ts",
+    "./bag": "./src/bag-entry.ts",
     "./terminal": "./src/terminal.ts"
   },
   "peerDependencies": {

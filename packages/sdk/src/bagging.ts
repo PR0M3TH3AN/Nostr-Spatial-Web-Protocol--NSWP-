@@ -16,11 +16,11 @@
 import { cleanSettings, decodeNaddr, ITEM_KIND, itemCoordinate, TINT_PALETTE, type HeldThrough } from "@nswp/core";
 import type { Bag } from "./bag.js";
 import { copiedRefused } from "./client-frame.js";
-import { createItemPreviews, type ItemPreviews } from "./item-preview.js";
+import type { ItemPreviews } from "./item-preview.js";
 import { onItemsChange, setShowsItems, showsItems, type ItemStore } from "./item-store.js";
 import type { Items } from "./items.js";
 import type { Keyboard } from "./keyboard.js";
-import { allowScript, scriptAllowed } from "./play.js";
+import { allowScript, scriptAllowed } from "./hold.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
 import type { Controls, UiAction } from "./ui/model.js";
 
@@ -31,7 +31,12 @@ export interface BaggingOptions {
    * each thing is shown as itself, drawn from that model. Without, each is shown by its first letter.
    */
   items: Pick<ItemStore, "known" | "describe"> & Partial<Pick<Items, "model" | "elsewhere">>;
-  /** What draws each thing's picture. Left out, one is made from `items.model`, where there is one. `null` for none. */
+  /**
+   * What draws each thing's picture. Left out or `null`, each is shown by its first letter, and the Bag works the
+   * same. Drawing a thing from its model needs the renderer, which this file doesn't load: a world gets its
+   * pictures made for it by `addBagControls` from `nswp-sdk/three` (bag-pictures.ts), and a page without the
+   * renderer passes its own here if it wants them.
+   */
   previews?: ItemPreviews | null;
   /** Whether things may move for this visitor: off, the chosen thing is shown still. Left out, as the menu's own setting says. */
   motion?: () => boolean;
@@ -114,8 +119,7 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
   /** The thing being taken in hand just now: fetched and checked, which can take a moment. */
   let taking = "";
   const say = (text: string) => controls.say(text);
-  const model = items.model;
-  const previews = opts.previews === undefined ? (model ? createItemPreviews({ model: (item, tints) => model(item, tints) }) : null) : opts.previews;
+  const previews = opts.previews ?? null;
   const still = (item: string) => (): CanvasImageSource | null => {
     const described = items.known(item);
     return described && previews && showsItems() ? previews.still(described, bag.tints(item)) : null;
