@@ -37,6 +37,8 @@ menus drawn by the client and not by each world, with the kit's menu as the
 fallback. A written design first, then the kit and BitPortal's shell. It
 goes ahead of everything below except a live fault; work already in hand
 (own models step 2, the seat) is finished or parked at a safe point first.
+Its design also covers `menu-tabs-wallet-files-order-pin` (the owner, the
+same day).
 
 1. `room-computers-sign-in-words` (BitPortal): merged 2026-11-22.
 2. `spawn-points` (kit, BitPortal session): merged 2026-11-22 (kit 0.81.0, template 129, BitPortal 194); not live.
@@ -67,6 +69,7 @@ urgent (a live fault), it goes first.
 | [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | live (kit 0.73.0) |
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | live (kit 0.73.0; Godot and a headset look left) |
 | [menus-are-the-clients](menus-are-the-clients.md) | The menus are the client's (BitPortal's), the same in every world; a world may add a tab; the kit's menu is the fallback | design first; then the NSWP builder and BitPortal | asked (first in the order) |
+| [menu-tabs-wallet-files-order-pin](menu-tabs-wallet-files-order-pin.md) | Wallet and Files as their own tabs; tabs the visitor can reorder; one pinned at the far left | with the client's menu design | asked |
 | [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | building (kit, BitPortal's room and the template merged; the engine script's Travel tab left) |
 | [door-and-airlock-skins](door-and-airlock-skins.md) | Doors and Airlock chambers that wear a world's own look, published like an item, with the same information | not briefed (kit first) | asked |
 | [paid-front-room](paid-front-room.md) | The first thing in a world that asks to buy | NSWP builder | live (kit 0.73.0; no world paid) |
