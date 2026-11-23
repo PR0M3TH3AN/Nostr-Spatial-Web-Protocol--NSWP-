@@ -1057,3 +1057,30 @@ menu's own `field` row, in the client's page.
    another key gives them back to the frame.
 4. Nothing typed into the menu's own fields is heard by the world (its count of
    keys heard doesn't rise).
+
+## 18. Step 2 in BitPortal: the pull requests, in order
+
+From the BitPortal session, 2026-11-23, at the orchestrator's go for step 2 (kit 0.84.0
+is vendored in BitPortal). Each is one BitPortal pull request from main, gated, with a
+trial using real presses, handed to the orchestrator; the next is opened only after
+the merge note. Nothing here deploys.
+
+| | What | A visitor sees | Done when |
+|---|---|---|---|
+| **A** | BitPortal takes the kit's `nswp-sdk/menu` and `nswp-sdk/menu-above` into its vendored copy (its own vendor script builds four entries today, and neither of these). The build fails if the shell's policy differs from the words in 17.1 | Nothing | The gate; the built headers byte for byte as before |
+| **B** | The shell mounts the menu over a world that speaks the words: `portBelow`, `has: true` with the visitor's settings, Home as a guarantee, and the visitor's own tabs that need nothing of BitPortal's: Display, Moving (with the one-time question), Sound (with their own music, which then doesn't stop at a door), Help, and the switches in People and Room. You, with `signInRows` opening the sign-in address's panel, and Account, Files and Purchases. `file` and `save` rows. A headset's report kept. Escape held in fullscreen where the browser lets it | One menu over the Grove and The Foundry, the shell's. The room and the Airlock still draw their own, and the shell draws none over them or over a world on an older kit | Every done-condition of 17.1 and 17.2, over a reference world built here at 0.84.0 |
+| **C** | The Bag in the shell: the kit's `addBagControls` in the shell's page, `mayHold` asking at the first press, `below.hold(item, { tints, script })` | Their bag in the menu over a world; a thing taken up is in their hand there | A thing with logic is asked about in the shell's page and then works in the world; one without is held at one press. **Waits on the kit: see below** |
+| **D** | BitPortal's own pages speak the words, as pages of the shell's own origin. The room fills its tabs through them, and asks again who has the menu each time its own menu's file arrives (NSWP 372). At the Airlock the menu shows Home and the visitor's tabs only, and never covers the Airlock's panel | The same menu in the room, at the Airlock and in every world: it never changes | A walk from the room through three worlds and home, with one menu throughout, and music unbroken |
+| **E** | Pictures for the owner before D merges: the menu over the room, over the Grove and over The Foundry, on a desk. The by-hand list of section 15 handed over | | The owner's look |
+
+**Not in these:** rooms and people from facts, Wallet and Files as tabs, tab order and
+pins, a phone, and the playback controls for music.
+
+**What C waits on.** A client's page that isn't a world needs the Bag's parts without
+the renderer. Today `addBagControls`, `createBag`, `mayHold` and `scriptAllowed` are
+handed on only by `nswp-sdk/three`, and `mayHold` lives in `play.ts`, which loads
+Three.js. The stand-in client reaches them by their files' paths inside this
+repository, which a vendored copy can't. So the kit needs to hand them on from an
+entry a client can load without Three.js (the turning picture of an item may still
+load it, when the Bag is opened). Asked of the orchestrator on 2026-11-23; C starts
+when that is in a kit version BitPortal has vendored. B and D don't wait on it.
