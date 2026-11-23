@@ -137,7 +137,7 @@ try {
     check("has/the world describes itself", worlds.length >= 1 && worlds.at(-1).title.length > 0 && worlds.at(-1).sections.length > 0, worlds.at(-1));
     const last = worlds.at(-1) ?? { sections: [] };
     const tabs = last.sections.map((s) => s.id);
-    const own = ["you", "figure", "bag", "wallet", "files", "moving", "look"];
+    const own = ["you", "figure", "bag", "wallet", "files", "look"];
     check("has/nothing of the visitor's own tabs is said upward", !tabs.some((t) => own.includes(t)), tabs);
     // Sound and Help are filled by both: of Sound a world says only what is its own, never a volume or the
     // visitor's own music; of Help, its own sentence about itself and not the words on how to move.

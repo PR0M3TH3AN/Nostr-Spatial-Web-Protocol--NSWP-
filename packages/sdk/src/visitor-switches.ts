@@ -12,8 +12,10 @@
  *
  * Nothing here draws a model or a picture, so a client's own page can carry it.
  */
+import { DESK_WORDS, hasMouse, keepIntense, keptIntense, startsIntense } from "./fps.js";
 import { setShowsModels, showsModels } from "./models-switch.js";
 import { setShowsPictures, showsPictures } from "./picture.js";
+import { arrivedSettings, reportSettings } from "./settings.js";
 import { setShowsChat, showsChat } from "./ui/chat.js";
 import type { Controls, UiAction } from "./ui/model.js";
 
@@ -38,6 +40,17 @@ export const VISITOR_SWITCHES: readonly string[] = [
   "juke-play",
   "juke-next",
   "juke-remove",
+  // In Moving, which both fill: how they move at a desk, how fast they look round, and how they move in a headset
+  // (fps.ts, desk.ts, input.ts) are the visitor's, each a setting that travels. What is the world's there is what
+  // it does for them: a jump.
+  "fps",
+  "look-speed",
+  "move-style",
+  "move-mode",
+  "turn-mode",
+  "move-hand",
+  "move-narrow",
+  "move-fade",
 ];
 
 /** Whether this visitor sees pictures at all. It is theirs, and goes with them from world to world. */
@@ -80,3 +93,40 @@ export const chatSwitch = (tell: (text: string) => void): UiAction => ({
       tell(showsChat() ? "What people write in a room is shown to you, and you can write. It goes only to the people in the room, and is kept nowhere." : "Nothing anyone writes is shown to you, here or in the next world, and nobody is told.");
     },
   });
+
+/**
+ * How they move at a desk, casual or intense, for a page that draws the menu but moves nobody: a client's page,
+ * above a world. It holds the visitor's choice here, kept as a world keeps it, and says it with their other
+ * settings; the world in the frame takes it at once and moves them that way (fps.ts). The same row, by the same
+ * words, as a world draws for itself. Not offered where there is no mouse, or in a headset.
+ */
+export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presenting?: () => boolean } = {}): UiAction {
+  let intense = startsIntense(false);
+  // Whether they have said how they move at a desk: until they have, nothing is said of it to any world.
+  let chosen = typeof arrivedSettings().intense === "boolean" || keptIntense();
+  reportSettings(
+    "moving",
+    () => (chosen ? { intense } : {}),
+    (now) => {
+      if (typeof now.intense !== "boolean") return;
+      intense = now.intense;
+      chosen = true;
+      keepIntense(intense);
+    },
+  );
+  return {
+    id: "fps",
+    section: "moving",
+    icon: "step",
+    on: () => intense,
+    hidden: () => !hasMouse() || o.presenting?.() === true,
+    label: () => (intense ? DESK_WORDS.intense : DESK_WORDS.casual),
+    act: () => {
+      intense = !intense;
+      chosen = true;
+      keepIntense(intense);
+      controls.say(intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+    },
+  };
+}
+

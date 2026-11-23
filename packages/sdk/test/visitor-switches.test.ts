@@ -7,7 +7,7 @@ import { changeSettings, currentSettings, resetSettings } from "../src/settings.
 import { resetChat, showsChat } from "../src/ui/chat.js";
 import { createControls } from "../src/ui/model.js";
 import { mergeView } from "../src/ui/port-below.js";
-import { chatSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "../src/visitor-switches.js";
+import { chatSwitch, deskMovingSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "../src/visitor-switches.js";
 import { cleanMenuWorld } from "@nswp/core";
 
 /**
@@ -94,3 +94,42 @@ describe("the client's menu over that world", () => {
     expect(rows("room")).toEqual(["room-chat-show", "world:room-join"]);
   });
 });
+
+describe("Moving, which both fill", () => {
+  it("a world leaves how the visitor moves out of what it describes, and says what it does for them: a jump", () => {
+    const c = createControls({ title: "The Gallery" });
+    for (const id of ["fps", "look-speed", "move-style", "move-mode", "turn-mode", "move-hand", "move-narrow", "move-fade"]) c.add({ id, section: "moving", label: id, act: () => {} });
+    c.add({ id: "jump", section: "moving", label: "Jump", short: "Jump", act: () => {} });
+    const sent = describeWorld(c.view());
+    expect((sent.sections as { id: string; rows: { id: string }[] }[]).map((s) => [s.id, s.rows.map((r) => r.id)])).toEqual([["moving", ["jump"]]]);
+  });
+
+  it("the client's own switch for how they move at a desk holds their choice, says it, and takes it from elsewhere", async () => {
+    const c = createControls({ title: "A client" });
+    const said: string[] = [];
+    c.onSay((t) => said.push(t));
+    const row = deskMovingSwitch(c);
+    c.add(row);
+    // Nothing is said of it to any world until they have chosen.
+    expect(currentSettings().intense).toBeUndefined();
+    expect([row.on?.(), typeof row.label === "function" ? row.label() : row.label]).toEqual([false, "Desk controls: casual"]);
+    await row.act();
+    expect(currentSettings().intense).toBe(true);
+    expect(said[0]).toMatch(/^Intense: the mouse looks round/);
+    changeSettings({ intense: false });
+    expect([row.on?.(), currentSettings().intense]).toEqual([false, false]);
+  });
+
+  it("the client's menu has its own switches first in Moving, and the world's jump below under the world's name", () => {
+    const world = createControls({ title: "The Gallery" });
+    world.add({ id: "fps", section: "moving", label: "Desk controls: casual", act: () => {} });
+    world.add({ id: "jump", section: "moving", label: "Jump", act: () => {} });
+    const kept = cleanMenuWorld(describeWorld(world.view()))!;
+    const client = createControls({ title: "A client" });
+    client.add({ id: "fps", section: "moving", label: "Desk controls: casual", act: () => {} });
+    client.add({ id: "look-speed", section: "moving", label: "Look speed: normal", act: () => {} });
+    const view = mergeView(client.view(), kept, { address: "gallery.example", pins: [] });
+    expect(view.sections.find((s) => s.id === "moving")!.items.map((i) => [i.id, i.from])).toEqual([["fps", undefined], ["look-speed", undefined], ["world:jump", "The Gallery"]]);
+  });
+});
+

@@ -25,4 +25,4 @@ export { addDeskControls } from "./desk.js";
 // own music, played by the client's page; and the menu's own words on how to move.
 export { addSoundControls, createSounds, type SoundControlsOptions, type Sounds } from "./sound.js";
 export { helpWords } from "./ui/help.js";
-export { chatSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "./visitor-switches.js";
+export { chatSwitch, deskMovingSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "./visitor-switches.js";

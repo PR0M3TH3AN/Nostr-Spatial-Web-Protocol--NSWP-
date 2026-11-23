@@ -20,9 +20,11 @@ half of You and the Bag is done: a word for signing out, a fact for where
 signing in stands, the menu's own sign-in rows, and the kit's Bag run in a
 client's page with what is taken up there reaching the world. The rest of You
 and the Bag in a real client is BitPortal's, in step 2. The engine script is a
-world's end too (`trials/menu-above-engine.mjs`), and the rule for who draws the
-menu is one piece of code for every world (`menu-keeper.ts`). Still to come in
-step 1: frame times and bytes, and the trials of the four presses. NSWP builder,
+world's end too (`trials/menu-above-engine.mjs`), the rule for who draws the
+menu is one piece of code for every world (`menu-keeper.ts`), and Moving is a
+tab both fill, like Sound and Help. Still to come in step 1: frame times and
+bytes with the Godot example in a frame, and the trials of the four presses.
+NSWP builder,
 2026-11-23. From `docs/backlog/menus-are-the-clients.md` and
 `docs/backlog/menu-tabs-wallet-files-order-pin.md`. A name still marked as a proposal
 in section 13 is not used before it is given (rule 11).
@@ -195,11 +197,11 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 >
 > A world may fill only the tabs that are its to fill: Room, People, Camera, Panels,
 > View, Scores, Achievements, its own doors under Travel, its keeper's "Who comes in",
-> its own part of Sound and of Help, and **at most two tabs of its own**. A world's own
+> its own part of Sound, Help and Moving, and **at most two tabs of its own**. A world's own
 > tab is drawn in the client's style, stands after the visitor's tabs, and carries the
 > world's name. A world never fills, reads or presses the visitor's own tabs (You,
-> Your look, Bag, Wallet, Files, Following, Messages, Moving, Display), and is never
-> told what is in them or which is open.
+> Your look, Bag, Wallet, Files, Following, Messages, Display), and is never told
+> what is in them or which is open.
 >
 > **A world's part of a tab is always visibly the world's** (the orchestrator,
 > 2026-11-23, with Sound and Help becoming tabs both fill). Where the client has rows
@@ -209,7 +211,9 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 > switch and the visitor's own music are the client's; the world adds the piece it is
 > playing, and says whether the place has a hum (`state.hum`). In Help the client's
 > own help comes first, and a world's sentence about itself is a note after it, within
-> `MENU_LIMITS.note`. Nothing typed goes to a world from either tab.
+> `MENU_LIMITS.note`. In Moving, how the visitor moves is the client's to switch (at
+> a desk, how fast they look, and in a headset), and the world adds what it does for
+> them: a jump. Nothing typed goes to a world from any of the three.
 >
 > Limits a client holds a world to, whatever it sends: 12 sections, 60 rows in one, 200
 > rows in all, 120 characters in a label, a picture of 256 pixels a side, 64 kilobytes
@@ -480,9 +484,13 @@ the client's menu is not a press in the world. So:
 - **Other engines.** The engine script is a world's part with the fallback, as a
   Three.js world's is. It steps its console aside the same way, describes what the
   engine added with `menu()`, and hands presses back as the events an engine already
-  hears. An engine's own code changes nothing. `view()` gives the world's own tabs and
-  whether the menu is up, and no longer the visitor's own tabs when a client has the
-  menu, so the script's version goes up.
+  hears. An engine's own code changes nothing. **The script's version doesn't go
+  up for this** (the orchestrator, 2026-11-23): nothing an engine calls or hears
+  changed, and `view()` gives what it gave, everything the script's own controls
+  hold, which an engine drawing its own console in a headset needs. The version
+  goes up when something an engine can see changes. (This section first said
+  `view()` would stop giving the visitor's own tabs, and the version would go up.
+  18 is given to seated mode's change, and is not taken here.)
 
 ## 10. Settings, and movement
 
@@ -601,7 +609,7 @@ each saying to sign in (section 14, question 4).
 | The setting for the order of tabs (NSWP-11) | `tabs`: tab names in order, 24 at most, each as a pin's name is |
 | The two new tabs | `wallet`, `files` |
 | The browser's feature name | `nswp.can("menu")` |
-| The engine script's version | the next |
+| The engine script's version | unchanged: nothing an engine can see changed (section 9) |
 | A row the client copies for the world (given 2026-11-23) | a row's `kind: "copy"`, with its text in `copy` |
 | A row the visitor types into (given 2026-11-23, in place of `ask`) | a row's `kind: "field"` |
 | How the typed text goes down (given 2026-11-23) | `field` on the press: `{ nswp: "menu", press: id, field }` |

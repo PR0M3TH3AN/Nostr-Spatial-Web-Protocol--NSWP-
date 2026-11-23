@@ -244,6 +244,26 @@ try {
   })));
   await page.screenshot({ path: join(SHOTS, "menu-client-7-help.png") });
 
+  // ---- Moving is a tab both fill: how the visitor moves is the client's to switch, and the world moves them so.
+  const moving = await client(() => window.__client.below.port.view().sections.find((s) => s.id === "moving")?.items.map((i) => [i.id, i.from ?? null, i.label]) ?? []);
+  results["moving, as the client's menu has it"] = moving;
+  const ownMoving = moving.filter(([, from]) => !from).map(([id]) => id);
+  const worldMoving = moving.filter(([, from]) => from).map(([id]) => id);
+  check("Moving has the client's own switches first: how they move at a desk, and how fast they look", ownMoving.includes("fps") && ownMoving.includes("look-speed") && (worldMoving.length === 0 || moving.findIndex(([, from]) => from) === ownMoving.length), moving);
+  check("and of the world's, only what the world does for them: never how they move", worldMoving.every((id) => id === "world:jump"), worldMoving);
+  const worldsWay = () => world().evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "moving")?.items.find((i) => i.id === "fps")?.label);
+  check("the world moves them the casual way to begin with", (await worldsWay()) === "Desk controls: casual", await worldsWay());
+  await client(() => window.__client.menu.setOpen(true, "moving"));
+  const desk = hud.getByRole("button", { name: "Desk controls: casual" });
+  await until(() => desk.isVisible());
+  await press(desk);
+  check("switched to intense in the client's menu, the world moves them the intense way at once", await until(async () => (await worldsWay()) === "Desk controls: intense"), await worldsWay());
+  // Back to casual, so the rest of this trial is as it was: the intense way takes the pointer at a press on the view.
+  const deskNow = hud.getByRole("button", { name: "Desk controls: intense" });
+  await until(() => deskNow.isVisible());
+  await press(deskNow);
+  check("and back to casual", await until(async () => (await worldsWay()) === "Desk controls: casual"), await worldsWay());
+
   // ---- One sound for one press: the client's page makes the menu's own sounds, and the world doesn't make them too.
   await client(() => { window.__cues = []; const s = window.__client.sounds; const play = s.play.bind(s); s.play = (cue, from) => { window.__cues.push(cue); return play(cue, from); }; });
   await world().evaluate(() => { window.__cues = []; const s = window.__nswpTest.sounds; const play = s.play.bind(s); s.play = (cue, from) => { window.__cues.push(cue); return play(cue, from); }; });

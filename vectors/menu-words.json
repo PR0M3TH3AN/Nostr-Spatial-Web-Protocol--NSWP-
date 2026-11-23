@@ -1,5 +1,5 @@
 {
-  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound and Help among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+  "description": "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound, Help and Moving among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
   "version": 1,
   "limits": {
     "sections": 12,
@@ -28,7 +28,6 @@
       "files",
       "following",
       "messages",
-      "moving",
       "look"
     ],
     "world": [
@@ -42,7 +41,8 @@
       "achievements",
       "guests",
       "sound",
-      "help"
+      "help",
+      "moving"
     ]
   },
   "keys": [
@@ -355,15 +355,6 @@
             ]
           },
           {
-            "id": "moving",
-            "rows": [
-              {
-                "id": "moving-x",
-                "label": "Row moving-x"
-              }
-            ]
-          },
-          {
             "id": "look",
             "rows": [
               {
@@ -627,6 +618,70 @@
             "id": "help",
             "rows": [],
             "note": "Six sculptures, each a few lines of code turned into a shape."
+          }
+        ]
+      }
+    },
+    {
+      "name": "moving",
+      "why": "Moving is filled by both. How the visitor moves is the client's to switch; a world adds what it does for them, such as a jump, which a client draws below its own rows under the world's name. Nothing typed goes to a world from Moving.",
+      "world": {
+        "sections": [
+          {
+            "id": "moving",
+            "rows": [
+              {
+                "id": "jump",
+                "label": "Row jump",
+                "short": "Jump",
+                "icon": "step",
+                "bar": true
+              },
+              {
+                "id": "moving-name",
+                "label": "Row moving-name",
+                "kind": "field"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "title": "",
+        "level": "full",
+        "keys": true,
+        "state": {
+          "room": {
+            "has": false,
+            "joined": false,
+            "mic": null,
+            "count": 0
+          },
+          "headset": {
+            "supported": false,
+            "presenting": false
+          },
+          "named": false,
+          "signIn": "none",
+          "holding": "",
+          "items": "allowed",
+          "hum": false
+        },
+        "target": [],
+        "loading": null,
+        "sections": [
+          {
+            "id": "moving",
+            "rows": [
+              {
+                "id": "jump",
+                "label": "Row jump",
+                "kind": "button",
+                "short": "Jump",
+                "icon": "step",
+                "bar": true
+              }
+            ]
           }
         ]
       }
