@@ -463,3 +463,99 @@ step in the real shell.
 
 **Parked while this is built:** seated mode step 2 (the seat). The fade from step 1 of
 that plan is the world's part and is not touched by this.
+
+## 16. The shell's review, and what was decided
+
+From the BitPortal session, 2026-11-23, as the session that owns `/shell/`: sections 4,
+6, 7, 8, 13 and 15 read against the real shell (BitPortal's `src/shell/main.ts`,
+`panel.ts`, `index.html`, and its policy in `scripts/build.mjs`). The design holds.
+Thirteen points, each with the orchestrator's decision of the same day. Where a point
+changes an earlier section, this section is what stands until that one is rewritten.
+
+**What the design left out**
+
+1. **The room and the Airlock are in the frame too.** The frame holds `/walk/`
+   (BitPortal's own room) and `/go/` (the Airlock), not only worlds. The room fills
+   the visitor's own tabs today: the look editor under You, the bag changed at home,
+   computers, their doors.
+   *Decided:* the shell treats pages of **its own origin, exactly**, as the client's
+   own. The room may fill any tab, still as data through the same words. A later step
+   moves those tabs into the shell's menu. At the Airlock the menu shows Home and the
+   visitor's own tabs only, and nothing of it may cover the Airlock's own panel.
+2. **Tabs with a live picture.** A row's `draw` (the kit's `ui/model.ts`) is a canvas
+   the world's page paints each frame: the turning item in Bag, Camera's view, a
+   watched screen. A description at eight a second can't carry those.
+   *Decided:*
+   - The Bag's turning item is drawn by the client itself: it has the kit's previews
+     and `fetchByHash`.
+   - A picture a world feeds (Camera's view, a watched screen) crosses as that row's
+     bitmap, sent alone and not with a whole description, at most 8 a second and 256
+     pixels a side. Choppy, and no new mechanism.
+   - If the owner finds that too poor once they see step 2, the next thing to try is
+     a rectangle the client leaves clear for the world to draw in, in its own frame.
+     Not before.
+3. **Stale tabs.** The shell drops the world's description at every `load` of the
+   frame, not at the next `here`. Otherwise one world's tabs and name stand over the
+   next while it loads, or over a page that never says `here`. The address shown can
+   only be the origin the browser reports for the last `here`: the shell can't read
+   the frame's address. Until a `here`, none is shown. *Accepted.*
+4. **Presses that need the world's own page.** A `press` arrives in the world with no
+   press of the visitor's in that page. A row that copies (the clipboard needs a
+   press, and the keys, in the page that writes) and anything that opens a window
+   fail quietly. So a row may be of a kind the client does itself: `copy`, with its
+   text. This joins step 0b's list beside the headset, the pointer and sound.
+   *Accepted.*
+5. **Rows the visitor types into.** The description has no field for one. A
+   world-filled tab that has one (an item's address, a keeper's "add by key") needs a
+   kind for it, or that row stays the world's. *Accepted.*
+6. **The panel's other pages.** `panel.ts` has `account` and `library` as well as
+   `wallet` and `files`, and `ask` and `switch` take a `menu` place from the world.
+   *Decided:* Account and Library stay rows under You, opening the panel in the sheet
+   as Wallet and Files do. The shell opens `ask` itself from its You tab, for the
+   origin of the world in the frame. A world's own `sign-in` ask still works, and
+   the shell places it itself, since the world has no menu to point at.
+
+**What is harder than the design says**
+
+7. **Focus.** Any press on the client's bar or mark moves the keys to the shell's
+   page, and the world stops hearing them (walking stops) even with the sheet down.
+   Section 7 covers only "while the menu is up". So the bar doesn't take the keys, or
+   the shell hands them back to the frame after each press, as it does today at a
+   load, a change of fullscreen and the panel closing. The shell also hears the
+   summons keys itself whenever it does have them. *Accepted.*
+8. **A held pointer.** In the intense way the world holds the pointer, so the
+   client's bar can't be pressed. At `open: true` the world lets the pointer go; the
+   words say so. Escape with the pointer held is the browser's: the world sees the
+   hold end, not a key, and says `key: "escape"` for that too. After the menu closes,
+   the pointer is taken again only at a press on the view. *Accepted.*
+9. **Escape in fullscreen.** Nothing holds Escape today, and only the top page can
+   (a frame can't).
+   *Decided:* the shell holds Escape itself when it fills the screen, where the
+   browser lets it. That is the owner's ask in `fullscreen-button-and-escape`:
+   Escape brings the menu, Escape again leaves fullscreen. Elsewhere, as now.
+10. **The panel in the sheet.** The sign-in address's panel must be a frame of the
+    shell's page directly, never inside another frame: it finds the world's signer
+    two frames deep. Inside the menu's own shadow root is fine. It needs a place of
+    its own above the sheet's body, and for Wallet and Files its size no longer
+    comes from a world's `menu` place. *Accepted.*
+11. **The shell's page gets bigger.** Today it "does three things and nothing else",
+    and the sign-in address trusts it by name to frame the panel. Step 2 puts the
+    whole menu into that page, and later steps relays, follows and messages. Its
+    policy today is `style-src 'self'`, `img-src 'self' data: blob:`, `connect-src
+    'self' https: wss:`. **A done-condition of step 2:** the menu runs under that
+    policy unchanged, with constructed stylesheets, no inline styles, and pictures as
+    blobs or bitmaps. *Accepted.*
+12. **`MENU_WAIT_MS` on a development server.** There the shell's "may this place be
+    shown" is asked of the network, so `has: true` can come after 300 ms and the
+    world's own menu shows for a moment. That is the "answers late" case of section
+    6, and it is one of step 1's trial cases. *Accepted.*
+13. **Home as a guarantee.** The shell sends the frame to the room itself after
+    `LEAVE_MS`, through its own watch for whether a place came up.
+    *Decided:* what is in the visitor's hand is lost when the world didn't go
+    itself, and the text says so.
+
+**Fine as written:** who may frame what (worlds already name the shell; the panel's
+rule is the sign-in address's and doesn't change); fullscreen (the shell already
+holds it, the menu's row becomes a call of its own, and the `screen` words stay for
+a first press that lands in the world); a phone going the ordinary way; the
+headset's extra press (step 0b).
