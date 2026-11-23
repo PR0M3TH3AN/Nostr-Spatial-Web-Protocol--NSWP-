@@ -91,7 +91,8 @@ async function screen(width, phone) {
   });
   r[`${name} pinned`] = pinned;
   if (!(await page.evaluate((c) => window.__nswpTest.hold(c), COORD)).ok) await page.evaluate((c) => window.__nswpTest.hold(c), COORD);
-  await until(() => page.locator("nswp-hud").getByRole("button", { name: "Fire", exact: true }).isVisible(), 20000);
+  // Taken in hand: Fire is on the bar at a desk, and under the thumb on a touch screen.
+  await until(() => page.evaluate(() => !!window.__nswpTest.play()?.script && window.__nswpTest.play().script === "running"), 20000);
   await page.waitForTimeout(600);
   const look = () =>
     page.evaluate(() => {
@@ -138,8 +139,10 @@ async function screen(width, phone) {
     const fits = !first.over;
     // The bar is on the screen, whatever its width.
     want(`${name}: the bar within the screen`, first.bar.left >= 0 && first.bar.right <= first.screen, true);
-    // Fire and Reload lead it, at its start.
-    want(`${name}: Fire and Reload lead the bar`, first.keys.slice(0, 2).map((k) => k.name), ["Fire", "Reload"]);
+    // Fire and Reload lead it, at its start, at a desk. On a touch screen they are under the thumb and not on the
+    // bar at all (kit 0.79.0, thumb-presses.ts), so the bar there begins with the place's own keys.
+    if (phone) want(`${name}: on a touch screen, Fire and Reload are not on the bar`, first.keys.some((k) => k.name === "Fire" || k.name === "Reload"), false);
+    else want(`${name}: Fire and Reload lead the bar`, first.keys.slice(0, 2).map((k) => k.name), ["Fire", "Reload"]);
     if (fits) {
       want(`${name}: no arrows when it fits`, [first.arrows.back, first.arrows.on], [false, false]);
     } else {
@@ -177,20 +180,9 @@ async function screen(width, phone) {
       // A swipe isn't tried here: this browser's synthetic touch gestures move neither the bar nor the menu's tab
       // row (which has always slid by touch), so they can't say anything. The bar slides by touch as it always did:
       // the browser's own scrolling, which the kit leaves alone.
-      // Put away and taken up again while slid along: Fire and Reload are brought back into sight.
-      await press(".bar .more.right").catch(() => undefined);
-      await settle();
-      await page.evaluate(() => window.__nswpTest.hold(""));
-      await page.waitForTimeout(400);
-      await press(".bar .more.right").catch(() => undefined);
-      await settle();
-      const slid = (await look()).scroll;
-      await page.evaluate((c) => window.__nswpTest.hold(c), COORD);
-      await until(() => page.locator("nswp-hud").getByRole("button", { name: "Fire", exact: true }).isVisible(), 20000);
-      await settle();
+      // (Taking an item up brings the bar back to its start, so Fire and Reload are in sight: that is a desk's, where
+      // they are on the bar, and no desk here has a bar too wide to slide. Not tried by this trial.)
       const again = await look();
-      r[`${name} taken up again`] = { slidTo: slid, now: again.scroll, first: again.keys[0] };
-      want(`${name}: taken up again, Fire is in sight`, again.keys[0].name === "Fire" && again.keys[0].left >= again.bar.left - 1, true);
       if (width === 390) {
         // A mouse's wheel over a bar too wide moves it along, as over the menu's tabs (here on the phone-wide screen,
         // the one place it is too wide; a mouse on a narrow window is the same).

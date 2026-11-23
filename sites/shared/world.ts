@@ -12,8 +12,7 @@ import * as THREE from "three";
 import { arrival, configure, portal, type PortalDestination } from "nswp-sdk";
 import { checkDestination, checkPreviewBytes, cleanItemsRule, encodeNaddr, isLocalHost, ITEM_RULES, WORLD_KIND, worldOffers, type Achievement, type Board, type ItemsRule, type Offer, ENTRY_PLACES_ROOMS, entryPlaces, type EntryPointSpec } from "@nswp/core";
 import { createAlloy, createEnvironment, createHalo, createPortalGate, MeshBuilder, metalTone, PORTAL_HEIGHT, PORTAL_WIDTH, type Alloy, type EnvironmentOptions, type PortalGate } from "nswp-sdk/home";
-import { addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
-import { addDoorControls, createControls, mountHud, type Controls, type MenuDoor } from "nswp-sdk/ui";
+import { addDoorControls, createControls, type Controls, type MenuDoor, addGateControls, worldGate, type PaidGate, addBagControls, addItemControls, type ItemControls, createBag, createItems, createDoorRatings, worldPersonLines, addAchievementControls, addCameraControls, addPanelControls, addRoomControls, addScoreControls, createAchievements, createScores, type Achievements, signerNamed, worldPeople, worldSigner, type Scores, lookScale, createFps, type Fps, addSoundControls, createSounds, type SoundTheme, addJump, createFloorMarks, createDragLook, createStepPace, createStroll, currentForm, DOOR_REACH, KEY_TURN, reachOf, RUN, TAP_REACH, addViewControls, capturePanorama, createConsole, createCrossing, createFigure, createPanels, createPresence, createStay, createXrInput, type PanelContent, type PanelPlace, type Panels, type GrabOptions, type XrInput, panoramaTexture, textSprite, type Camera, type Figure, type FigureStyle, type XrConsole } from "nswp-sdk/three";
 import previews from "../previews/index.json";
 import sites from "../sites.json";
 
@@ -343,7 +342,11 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
 
   // ------------------------------------------------------------- the controls
   const controls = createControls({ title: cfg.title, address: location.host, theme: { accent: `#${accent.getHexString()}` } });
-  const hud = mountHud(controls);
+  // The visitor's menu, drawn from this world's port (docs/plans/the-clients-menu.md): given the controls' port and
+  // nothing else. It is a file of this build's own, fetched here, so that a world whose client draws the menu need
+  // never fetch it. Today every world does: there is one carrier for the port, this direct one.
+  const { mountMenu, portHere } = await import("nswp-sdk/menu");
+  const hud = mountMenu(portHere(controls));
   hooks.controls = controls;
   hooks.signer = () => (signerNamed() ? worldSigner() : null);
   hooks.hud = hud;

@@ -39,7 +39,8 @@ import { addDeskControls, lookScale, visitorFov } from "./desk.js";
 import { reportSettings } from "./settings.js";
 import { enginePresence } from "./engine-presence.js";
 import { accountAction, filesAction, libraryAction, hereAs, identityHost, identitySection, identityWords, onHereAs, signerAction, signerNamed, worldGate, worldPeople, worldSaves } from "./ui/identity.js";
-import { mountHud, type Hud } from "./ui/hud.js";
+import { mountMenu, type Hud } from "./ui/hud.js";
+import { portHere } from "./ui/port.js";
 import { createControls, type Controls } from "./ui/model.js";
 
 const read = (text: unknown): Record<string, unknown> => {
@@ -182,7 +183,7 @@ export function earlyMenu(o: { title: string; accent?: string; home: () => boole
   const c = (controls = createControls(opts));
   early = { opts, line: !loadingNow };
   c.setLoading(loadingNow ?? EARLY_LINE);
-  hud = mountHud(c);
+  hud = mountMenu(portHere(c));
   const atHome = arrival.atHome();
   c.add({
     id: "home",
@@ -247,7 +248,7 @@ export function menu(options?: string): string {
   } else {
     c = controls = createControls({ title, address: location.host, ...(accent ? { theme: { accent } } : {}) });
     if (loadingNow) c.setLoading(loadingNow);
-    h = hud = mountHud(c);
+    h = hud = mountMenu(portHere(c));
   }
   for (const fn of menuWatchers) fn({ title, ...(accent ? { accent } : {}), hold: o.hold === true });
   const s = (sounds = createSounds({

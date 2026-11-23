@@ -52236,6 +52236,35 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return JSON.stringify({ index, place: places[index] ?? null });
   }
 
+  // packages/sdk/src/ui/port.ts
+  function portHere(controls2) {
+    return {
+      view: () => controls2.view(),
+      subscribe: (fn) => controls2.subscribe(fn),
+      run: (id) => controls2.run(id),
+      say: (text2) => controls2.say(text2),
+      onSay: (fn) => controls2.onSay(fn),
+      signal: (name) => controls2.signal(name),
+      onSignal: (fn) => controls2.onSignal(fn),
+      setPinned: (tab, pinned) => controls2.setPinned(tab, pinned),
+      get presence() {
+        return controls2.presence;
+      },
+      get theme() {
+        return controls2.theme;
+      },
+      get chat() {
+        return controls2.chat;
+      },
+      get feed() {
+        return controls2.feed;
+      },
+      get letters() {
+        return controls2.letters;
+      }
+    };
+  }
+
   // packages/sdk/src/ui/feed.ts
   var FEED_LIMITS = { shown: 420, kept: 30 };
   function createUiFeed(changed, now = () => Date.now()) {
@@ -52745,7 +52774,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     for (const c of children) if (c) e.append(c);
     return e;
   }
-  function mountHud(controls2, opts = {}) {
+  function mountMenu(port, opts = {}) {
+    const controls2 = port;
     const host = document.createElement("nswp-hud");
     const root = host.attachShadow({ mode: "open" });
     let style = "";
@@ -53986,7 +54016,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const c = controls = createControls(opts);
     early = { opts, line: !loadingNow };
     c.setLoading(loadingNow ?? EARLY_LINE);
-    hud = mountHud(c);
+    hud = mountMenu(portHere(c));
     const atHome = arrival.atHome();
     c.add({
       id: "home",
@@ -54029,7 +54059,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     } else {
       c = controls = createControls({ title, address: location.host, ...accent ? { theme: { accent } } : {} });
       if (loadingNow) c.setLoading(loadingNow);
-      h = hud = mountHud(c);
+      h = hud = mountMenu(portHere(c));
     }
     for (const fn of menuWatchers) fn({ title, ...accent ? { accent } : {}, hold: o.hold === true });
     const s = sounds = createSounds({

@@ -248,7 +248,7 @@ export const fullscreenButton = {
     return canFill() && !isFilled() && currentForm() === "desk";
   },
   label: "Full screen",
-  async press(controls?: Controls): Promise<void> {
+  async press(controls?: Pick<Controls, "say">): Promise<void> {
     if (clientHoldsScreen()) {
       keepFull(true);
       askClientForScreen(true);
