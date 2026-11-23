@@ -240,6 +240,24 @@ Notes on the words, not for the protocol:
   protocol text. A later step moves the room's tabs into the shell's menu.
 - **The Bag's turning item is drawn by the client,** from the kit's own previews and
   `fetchByHash`. Only a picture a world feeds crosses as a bitmap.
+- **A row that changes a travelling setting is the client's own, wherever it stands**
+  (the orchestrator, 2026-11-23). The client holds the visitor's settings and says
+  them to each world. If a world changed one itself the client would never hear,
+  and the next world would get the old value. So these rows are drawn by the client
+  inside the tabs a world otherwise fills, and the world leaves them out of what it
+  describes: how wide you see (View), whether you see people's pictures and
+  people's own models (People), and chat on or off (Room). The two People switches
+  guard the visitor's privacy, and were never a world's to hold once a client is
+  above it. In the fallback they are where they are today.
+- **A world's one `here` waits for the page's first files to have run,** so that it
+  can say `menu`. It is still said once: a client takes a second as the next
+  page's. Measured (2026-11-23, twelve loads of the Gallery in a frame, each side):
+  the page above heard `here` 1 ms after the frame's load was told before the
+  change, and 5 ms after it now (medians; 168 ms and 133 ms after the frame was
+  pointed at the world, on a machine less busy for the second). BitPortal's shell
+  waits 4 seconds after a load for a place to say it came up, so its watch doesn't
+  trip. A world that loads the world's end of the port any later than with the
+  page says `here` without `menu`, and draws its own menu: the safe way to fail.
 - **Until step 3 the world still fills Room, People, Following and Messages,** as
   it draws them today, and a client takes them. The protocol's text says the rule as
   it will stand (a world never fills the visitor's own tabs), with its status beside
@@ -320,7 +338,11 @@ A page above a frame doesn't hear keys or touches while the frame has them. So:
   while the world holds the pointer, and the page above can't let go of it. So:
   - at `open: true` the world lets the pointer go;
   - Escape with the pointer held is the browser's. The world hears no key, only that
-    its hold ended without its asking, and says `key: "escape"` for that too;
+    its hold ended without its asking, and asks for the menu by saying
+    `key: "summon"` (the orchestrator, 2026-11-23). Not `key: "escape"`: with the
+    menu down Escape does nothing outside fullscreen, today and in the client's
+    menu, and it is the lost pointer that brings the menu up. Had the world said
+    `escape`, a client would have had to bring the menu up on every Escape;
   - at `open: false` the world tries to take the pointer again at once, and where
     the browser refuses, takes it at the next press on the view (the orchestrator,
     2026-11-23). Chrome allows the first for a world that let go by itself (step
@@ -608,6 +630,16 @@ press across its view). Section 8.
 - **A card's `proven` is taken only from a page of the client's own origin.** From
   any other world it is dropped (section 15, "The one thing knowingly given up").
 
+**Answered by the orchestrator on PR 359 (2026-11-23):**
+
+- Its names are given as listed (`docs/fleet.md`).
+- When the browser takes the pointer back at Escape, the world says `key: "summon"`
+  (section 7).
+- A world's `here` waits for the page's first files, with the delay measured
+  (section 4's notes).
+- A row that changes a travelling setting is the client's own row, drawn by the
+  client inside the tab it stands in (section 4's notes).
+
 ## 15. The build, a pull request a step
 
 Each step is tried with **a stand-in client** this repository carries
@@ -744,7 +776,8 @@ changes an earlier section, this section is what stands until that one is rewrit
 8. **A held pointer.** In the intense way the world holds the pointer, so the
    client's bar can't be pressed. At `open: true` the world lets the pointer go; the
    words say so. Escape with the pointer held is the browser's: the world sees the
-   hold end, not a key, and says `key: "escape"` for that too. After the menu closes,
+   hold end, not a key, and says `key: "summon"` for that (changed from `"escape"`
+   by the orchestrator, 2026-11-23, with step 1's world's end: section 7 has why). After the menu closes,
    the pointer is taken again only at a press on the view. *Accepted.*
 9. **Escape in fullscreen.** Nothing holds Escape today, and only the top page can
    (a frame can't).

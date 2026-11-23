@@ -120,9 +120,16 @@ It reads your manifest, finds your announcement on the relays, and says
 "Verified world" when the two agree. That is the whole of step 2. If you
 change `world.json`, sign and publish again: the new note replaces the old.
 
-### A picture in the doorway (optional)
+### A picture in the doorway (required)
 
-A door can show what is behind it (spec §5.8). Add a still to `world.json`:
+A world must have the picture its doors show ([NSWP-04](../protocol/04-previews.md);
+`nswp sign-world` won't sign without it). A place that can be stood in gives
+a 360° `pano`: equirectangular, twice as wide as tall, at most 4096 × 2048
+and 2 MB, taken from where a visitor arrives at eye height, the middle of the
+image looking along -Z. Take it with `capturePanorama` (`nswp-sdk/three`) or
+with your own renderer; the protocol sets the picture, not the tool. A place
+that is only an ordinary web page gives a `flat` instead, added to
+`world.json` like this:
 
 ```json
 "previews": [{
