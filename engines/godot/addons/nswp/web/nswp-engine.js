@@ -8469,7 +8469,7 @@ postMessage({ t: "started" });
         tried.push(...rest);
       }
     }
-    if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
+    if (took === 0 && maySendBackUp(tried, o) && event.kind !== WRAP_KIND) {
       const more = (await foundRelays({ not: tried, now, ...o.query ? { query: o.query } : {} })).open;
       for (let round2 = 0; round2 < BACKUP_ROUNDS && took === 0; round2++) {
         const batch = more.slice(round2 * BACKUP_AT_ONCE, (round2 + 1) * BACKUP_AT_ONCE);
@@ -8527,13 +8527,14 @@ postMessage({ t: "started" });
   }
   var BACKUP_AT_ONCE = 4;
   var BACKUP_ROUNDS = 3;
-  var mayBackUp = (relays, injected) => backup && relays.length > 0 && (injected || typeof document !== "undefined");
+  var mayAskBackUp = (relays, o) => backup && relays.length > 0 && (!!o.query || typeof document !== "undefined");
+  var maySendBackUp = (relays, o) => backup && relays.length > 0 && (o.publish ? !!o.query : !o.query && typeof document !== "undefined");
   async function queryBacked(relays, filter, timeoutMs = 4e3, o = {}) {
     const query = o.query ?? queryRelays;
     const now = o.now ?? (() => Date.now());
     const got = await query(relays, filter, timeoutMs);
     learnFrom(got.relays, now());
-    if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said2) => said2 === "eose")) return got;
+    if (!mayAskBackUp(relays, o) || Object.values(got.relays).some((said2) => said2 === "eose")) return got;
     const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
     if (!more.length) return got;
     const again = await query(more, filter, timeoutMs).catch(() => null);

@@ -69,7 +69,7 @@ export async function sendWell(event: NostrEvent, o: { own: string[]; usual: str
     }
   }
   // Still nothing: a few relays that monitors have found working (NIP-66), once. Never a private message.
-  if (took === 0 && mayBackUp(tried, !!o.publish) && event.kind !== WRAP_KIND) {
+  if (took === 0 && maySendBackUp(tried, o) && event.kind !== WRAP_KIND) {
     const more = (await foundRelays({ not: tried, now, ...(o.query ? { query: o.query } : {}) })).open;
     for (let round = 0; round < BACKUP_ROUNDS && took === 0; round++) {
       const batch = more.slice(round * BACKUP_AT_ONCE, (round + 1) * BACKUP_AT_ONCE);
@@ -163,8 +163,14 @@ const BACKUP_ROUNDS = 3;
  * - Not outside a browser, unless the caller handed in what does the asking or the sending. A script or a test
  *   that calls this in Node reaches no relay it didn't name. (A test of BitPortal's sent a made-up rating to two
  *   real relays this way on 2026-11-20, in the hour this was first written.)
+ * - Not for sending, where the caller handed in the sending and not the asking. The backup first asks relay
+ *   monitors where to go. A caller that brings its own way to send (a test) and no way to ask would have that
+ *   question go to real relays, and wait on them. (A test here did, until 2026-11-23, and failed a gate run when
+ *   they were slow.) So for sending it is both or neither: both handed in, or neither and a browser.
  */
-const mayBackUp = (relays: readonly string[], injected: boolean): boolean => backup && relays.length > 0 && (injected || typeof document !== "undefined");
+const mayAskBackUp = (relays: readonly string[], o: { query?: unknown }): boolean => backup && relays.length > 0 && (!!o.query || typeof document !== "undefined");
+const maySendBackUp = (relays: readonly string[], o: { publish?: unknown; query?: unknown }): boolean =>
+  backup && relays.length > 0 && (o.publish ? !!o.query : !o.query && typeof document !== "undefined");
 
 /**
  * Ask relays, and where none of them answers, ask a few that monitors have found working. The same call as the
@@ -175,7 +181,7 @@ export async function queryBacked(relays: string[], filter: Filter, timeoutMs = 
   const now = o.now ?? (() => Date.now());
   const got = await query(relays, filter, timeoutMs);
   learnFrom(got.relays, now());
-  if (!mayBackUp(relays, !!o.query) || Object.values(got.relays).some((said) => said === "eose")) return got;
+  if (!mayAskBackUp(relays, o) || Object.values(got.relays).some((said) => said === "eose")) return got;
   const more = (await foundRelays({ not: relays, ...o })).open.slice(0, BACKUP_AT_ONCE);
   if (!more.length) return got;
   const again = await query(more, filter, timeoutMs).catch(() => null);
@@ -197,7 +203,7 @@ export async function publishBacked(relays: string[], event: NostrEvent, o: { pu
   const now = o.now ?? (() => Date.now());
   const sent = await publish(relays, event);
   learnFrom(sent.relays, now());
-  if (!mayBackUp(relays, !!o.publish) || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
+  if (!maySendBackUp(relays, o) || event.kind === WRAP_KIND || Object.values(sent.relays).some((said) => said === "ok")) return sent;
   const more = (await foundRelays({ not: relays, ...(o.query ? { query: o.query } : {}), now })).open;
   const all = { ...sent.relays };
   for (let round = 0; round < BACKUP_ROUNDS; round++) {

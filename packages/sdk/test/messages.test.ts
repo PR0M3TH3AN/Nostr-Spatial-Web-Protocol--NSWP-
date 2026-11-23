@@ -112,7 +112,9 @@ describe("private messages", () => {
     expect(new Set(wraps.map((e) => e.pubkey)).size).toBe(4);
     for (const w of wraps) {
       expect([ann, bo]).not.toContain(w.pubkey);
-      expect(w.content).not.toContain("Arcade");
+      // Sealed text is letters and digits at random, so what is looked for has a space, which it never has.
+      expect(w.content).not.toContain("the Arcade");
+      expect(w.content).not.toContain("By the door");
     }
   });
 

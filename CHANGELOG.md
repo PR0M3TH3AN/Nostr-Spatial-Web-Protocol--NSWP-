@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Four tests that could fail by chance now can't, and one of them was asking real relays** (`packages/sdk/src/relay-book.ts`; tests in `bridge`, `core` and `sdk`). Found from two failed gate runs on 2026-11-23.
+  - **The relay backup, when sending, is now both or neither.** `sendWell` and `publishBacked` first ask relay monitors where else to go. A caller that handed in its own way to send and no way to ask (a test) had that question go to three real relays, and waited on them. Now the backup is used for sending only where both were handed in, or neither and the page is a browser. Nothing changes in a browser. A new test lists every socket opened and finds none; with the old rule it lists the three.
+  - **Three tests looked for a short word of letters in sealed text,** which is letters and digits at random, so the word turns up by chance: "stty" in what the Bridge's relay holds (this failed a run), "main" in a save, "Arcade" in a wrapped message. Each now looks for something with a character sealed text never has, and the Bridge's test checks that of everything it looks for.
+  - Every absence check in the tests was read (60), and every test's time (none but the Bridge's and the release script's takes a second).
+
 - **Four more presses, tried: the client can choose a file and hand it down, and save a picture handed up; sharing the screen can't work in a client's frame today** (`trials/presses-handed-over.mjs`, new; `trials/menu-client.mjs`; `docs/plans/the-clients-menu-handed-over.md`, new). No kit code is changed, and no word is added: two are proposed.
   - **Choosing a file.** A framed world can't open the browser's chooser from a press on the client's menu. The client's page can, and the file it hands down in words arrives as the file it is: 64 MB in 3 ms or less, read whole by the world.
   - **Saving a picture.** The world hands the picture up and the client's page saves it, under a name of the client's own, even seven seconds after the press.
