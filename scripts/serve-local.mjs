@@ -26,6 +26,7 @@
 //
 // What an Airlock checks is still the real site and its real announcement, however these copies are served.
 import { execFileSync } from "node:child_process";
+import { waitForLanAddress } from "./lan-address.mjs";
 import { X509Certificate } from "node:crypto";
 import { createServer } from "node:http";
 import { createServer as createSecureServer } from "node:https";
@@ -100,7 +101,11 @@ function headersOf(dist, written = join(dist, "vercel.json")) {
   }
 }
 
-const address = lan ? Object.values(networkInterfaces()).flat().find((i) => i && i.family === "IPv4" && !i.internal)?.address : null;
+// This machine's address on its own network, chosen with care (scripts/lan-address.mjs): never a VPN's, and waited
+// for a while at start, since a machine brings its VPN up before its Wi-Fi. LOCAL_HOST says it outright.
+const found = !lan ? null : process.env.LOCAL_HOST ? { address: process.env.LOCAL_HOST, fellBack: false } : await waitForLanAddress({ waitMs: Number(process.env.LAN_WAIT_MS ?? 30_000) });
+const address = found?.address ?? null;
+if (found?.fellBack) console.warn(address ? `\nNo address on a network of this machine's own was found. Serving at ${address}, which may be a VPN's: other devices may not reach it. Set LOCAL_HOST to say which.` : "\nThis machine has no network address yet: serving to this machine only.");
 
 /** An address only this machine or its own network can reach: the same rule a page uses (packages/core/src/local.ts). */
 const isPrivate = (a) => /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a);
