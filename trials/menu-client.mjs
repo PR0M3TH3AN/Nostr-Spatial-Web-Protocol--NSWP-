@@ -83,7 +83,7 @@ try {
   const until = async (ask, ms = 15000) => {
     const end = Date.now() + ms;
     for (;;) {
-      const got = await ask().catch(() => null);
+      const got = await Promise.resolve().then(ask).catch(() => null);
       if (got || Date.now() > end) return got;
       await page.waitForTimeout(100);
     }
@@ -396,7 +396,7 @@ try {
     const until2 = async (ask, ms = 30000) => {
       const end = Date.now() + ms;
       for (;;) {
-        const got = await ask().catch(() => null);
+        const got = await Promise.resolve().then(ask).catch(() => null);
         if (got || Date.now() > end) return got;
         await page2.waitForTimeout(100);
       }
@@ -476,7 +476,7 @@ try {
     const until3 = async (ask, ms = 30000) => {
       const end = Date.now() + ms;
       for (;;) {
-        const got = await ask().catch(() => null);
+        const got = await Promise.resolve().then(ask).catch(() => null);
         if (got || Date.now() > end) return got;
         await page3.waitForTimeout(150);
       }
@@ -528,6 +528,76 @@ try {
     } else check("bag/the client's Bag offers to put it away", false, (await bagTab()).map(([, label]) => label));
     results["bag/refused, as everything but these sites is"] = [...refused3];
     await ctx3.close();
+  }
+
+  // ---- The one-time question, "how you move at a desk" (the owner, 2026-11-21): asked by whoever draws the console,
+  // which here is the client. A fresh visit by someone who has never said. A scripted browser is never asked
+  // unless the page's address says so (`?ask=moving`), so the client's address does; and the worlds' addresses say
+  // so too, to show that a world whose client has the menu doesn't ask. "The next world" is the same build of the
+  // Gallery under another name: another site, as the next world is.
+  {
+    const NEXT = "https://grove.test";
+    const ctx4 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+    const refused4 = new Set();
+    await ctx4.routeWebSocket(/^wss?:\/\//, (ws) => ws.onMessage((m) => { let msg; try { msg = JSON.parse(String(m)); } catch { return; } if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]])); }));
+    await ctx4.route("**/*", (route) => {
+      const url = new URL(route.request().url());
+      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage.replace(`${WORLD}/"`, `${WORLD}/?ask=moving"`) });
+      if (url.origin === WORLD || url.origin === NEXT) {
+        const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
+        if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+        return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+      }
+      refused4.add(url.origin);
+      return route.abort();
+    });
+    const page4 = await ctx4.newPage();
+    const until4 = async (ask, ms = 30000) => {
+      const end = Date.now() + ms;
+      for (;;) {
+        const got = await Promise.resolve().then(ask).catch(() => null);
+        if (got || Date.now() > end) return got;
+        await page4.waitForTimeout(150);
+      }
+    };
+    const hud4 = page4.locator("nswp-hud");
+    const frameAt = (origin) => page4.frames().find((f) => f.url().startsWith(origin));
+    const worldUp = (origin) => until4(() => frameAt(origin)?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+    const worldsWay4 = (origin) => frameAt(origin).evaluate(() => window.__nswpTest.controls.view().sections.find((s) => s.id === "moving")?.items.find((i) => i.id === "fps")?.label);
+    const worldAsking = (origin) => frameAt(origin).evaluate(() => (window.__nswpTest.controls.view().sections.find((s) => s.id === "how-you-move-desk")?.items ?? []).length > 0);
+    const clientAsking = () => page4.evaluate(() => ({ open: window.__client.menu.open, rows: window.__client.below.port.view().sections.find((s) => s.id === "how-you-move-desk")?.items.map((i) => i.label) ?? [] }));
+
+    await page4.goto(`${CLIENT}/?ask=moving`, { timeout: 60000 });
+    await worldUp(WORLD);
+    const asked = await until4(async () => { const a = await clientAsking(); return a.open && a.rows.length === 2 ? a : null; }, 15000);
+    check("question/a first-time visitor is asked by the client, with the kit's own words", JSON.stringify(asked?.rows) === JSON.stringify(["Casual: click to walk, drag to look", "Intense: the mouse looks, keys walk"]), await clientAsking());
+    await page4.waitForTimeout(2500);
+    check("question/the world doesn't ask too, though its own address says it may", (await worldAsking(WORLD)) === false && (await frameAt(WORLD).evaluate(() => document.querySelectorAll("nswp-hud").length)) === 0);
+    await page4.screenshot({ path: join(SHOTS, "menu-client-9-question.png") });
+    const intenseRow = hud4.getByRole("button", { name: "Intense: the mouse looks, keys walk" });
+    const at = await intenseRow.boundingBox();
+    await page4.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    check("question/answered intense, the world moves them the intense way", await until4(async () => (await worldsWay4(WORLD)) === "Desk controls: intense", 15000), await worldsWay4(WORLD));
+    check("question/and the question is gone", (await clientAsking()).rows.length === 0, await clientAsking());
+
+    // The client's page loaded again: the answer is kept on the client's own site.
+    await page4.reload({ timeout: 60000 });
+    await worldUp(WORLD);
+    await page4.waitForTimeout(4000);
+    const again = await clientAsking();
+    check("question/never asked again in this world", again.open === false && again.rows.length === 0, again);
+    check("question/which still moves them the intense way, told by the client as it arrives", await until4(async () => (await worldsWay4(WORLD)) === "Desk controls: intense", 15000), await worldsWay4(WORLD));
+
+    // The next world.
+    await page4.evaluate((to) => (document.getElementById("view").src = to), `${NEXT}/?ask=moving`);
+    await worldUp(NEXT);
+    await page4.waitForTimeout(4000);
+    const next = await clientAsking();
+    check("question/nor in the next world, by the client or by that world", next.open === false && next.rows.length === 0 && (await worldAsking(NEXT)) === false, next);
+    check("question/and the next world moves them the intense way from the start", await until4(async () => (await worldsWay4(NEXT)) === "Desk controls: intense", 15000), await worldsWay4(NEXT));
+    results["question/refused, as everything but these sites is"] = [...refused4];
+    await ctx4.close();
   }
 } finally {
   await browser.close();

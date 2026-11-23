@@ -76,7 +76,7 @@ async function visit(mode) {
   const until = async (ask, ms = 15000) => {
     const end = Date.now() + ms;
     for (;;) {
-      const got = await ask().catch(() => null);
+      const got = await Promise.resolve().then(ask).catch(() => null);
       if (got || Date.now() > end) return got;
       await page.waitForTimeout(100);
     }

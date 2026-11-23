@@ -12,7 +12,8 @@
  *
  * Nothing here draws a model or a picture, so a client's own page can carry it.
  */
-import { DESK_WORDS, hasMouse, keepIntense, keptIntense, startsIntense } from "./fps.js";
+import { mayAskHowTheyMove } from "./ask-once.js";
+import { DESK_QUESTION, DESK_WORDS, hasMouse, keepIntense, keptIntense, startsIntense } from "./fps.js";
 import { setShowsModels, showsModels } from "./models-switch.js";
 import { setShowsPictures, showsPictures } from "./picture.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
@@ -94,6 +95,29 @@ export const chatSwitch = (tell: (text: string) => void): UiAction => ({
     },
   });
 
+/** The visitor's choice of how they move at a desk, as this page holds it: one for the page, whoever asks or shows it. */
+let desk: { intense: boolean; chosen: boolean } | null = null;
+const deskChoice = () => {
+  if (desk) return desk;
+  // Whether they have said how they move at a desk: until they have, nothing is said of it to any world.
+  const now = (desk = { intense: startsIntense(false), chosen: typeof arrivedSettings().intense === "boolean" || keptIntense() });
+  reportSettings(
+    "moving",
+    () => (now.chosen ? { intense: now.intense } : {}),
+    (said) => {
+      if (typeof said.intense !== "boolean") return;
+      now.intense = said.intense;
+      now.chosen = true;
+      keepIntense(now.intense);
+    },
+  );
+  return now;
+};
+/** For tests: forget the choice, so it is read afresh. */
+export function forgetDeskMoving(): void {
+  desk = null;
+}
+
 /**
  * How they move at a desk, casual or intense, for a page that draws the menu but moves nobody: a client's page,
  * above a world. It holds the visitor's choice here, kept as a world keeps it, and says it with their other
@@ -101,32 +125,69 @@ export const chatSwitch = (tell: (text: string) => void): UiAction => ({
  * words, as a world draws for itself. Not offered where there is no mouse, or in a headset.
  */
 export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presenting?: () => boolean } = {}): UiAction {
-  let intense = startsIntense(false);
-  // Whether they have said how they move at a desk: until they have, nothing is said of it to any world.
-  let chosen = typeof arrivedSettings().intense === "boolean" || keptIntense();
-  reportSettings(
-    "moving",
-    () => (chosen ? { intense } : {}),
-    (now) => {
-      if (typeof now.intense !== "boolean") return;
-      intense = now.intense;
-      chosen = true;
-      keepIntense(intense);
-    },
-  );
+  const choice = deskChoice();
   return {
     id: "fps",
     section: "moving",
     icon: "step",
-    on: () => intense,
+    on: () => choice.intense,
     hidden: () => !hasMouse() || o.presenting?.() === true,
-    label: () => (intense ? DESK_WORDS.intense : DESK_WORDS.casual),
+    label: () => (choice.intense ? DESK_WORDS.intense : DESK_WORDS.casual),
     act: () => {
-      intense = !intense;
-      chosen = true;
-      keepIntense(intense);
-      controls.say(intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+      choice.intense = !choice.intense;
+      choice.chosen = true;
+      keepIntense(choice.intense);
+      controls.say(choice.intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
     },
   };
 }
 
+/**
+ * The one-time question, "how you move at a desk": casual or intense, asked once and kept (the owner, 2026-11-21:
+ * "the first time someone enters the game in 2D desktop mode. Casual or intense."). Whoever draws the console
+ * asks. Above a world that is the visitor's client, so this is the question in a form a client's page runs: the
+ * same tab, rows and words as a world asks with (fps.ts), with the answer kept here as their travelling setting and
+ * said to every world. A world whose client has the menu doesn't ask.
+ *
+ * Asked a moment after the page is up, the first time a visitor is at a desk with a mouse and has no choice said
+ * or kept. Put away without an answer, it is casual, and that is an answer. Never asked on a phone, in a headset
+ * (the world draws the console there, and asks its own question), or of a browser driven by a script unless the
+ * page's address says `?ask=moving`. Returns how to stop.
+ */
+export function askDeskMoving(controls: Controls, o: { presenting?: () => boolean; after?: number } = {}): () => void {
+  const choice = deskChoice();
+  let asking = false;
+  const answer = (intense: boolean) => {
+    asking = false;
+    choice.intense = intense;
+    choice.chosen = true;
+    keepIntense(intense);
+    controls.say(intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
+    // Told as a change, so that whoever says the visitor's settings onward says this one now.
+    controls.setTheme({});
+  };
+  controls.addSection({ id: "how-you-move-desk", label: "How you move", icon: "step", note: () => (asking ? "You can change this whenever you like, in Moving." : "") });
+  controls.add(
+    { id: "desk-casual", section: "how-you-move-desk", icon: "step", hidden: () => !asking || o.presenting?.() === true, label: DESK_QUESTION.casual, act: () => answer(false) },
+    { id: "desk-intense", section: "how-you-move-desk", icon: "look", hidden: () => !asking || o.presenting?.() === true, label: DESK_QUESTION.intense, act: () => answer(true) },
+  );
+  const stopSignals = controls.onSignal((name) => {
+    if (name === "menuClose" && asking) answer(false);
+  });
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  if (hasMouse() && !choice.chosen && mayAskHowTheyMove()) {
+    // A moment after the page is up, so the question isn't the first thing drawn over a place still arriving.
+    timer = setTimeout(() => {
+      timer = null;
+      if (choice.chosen || o.presenting?.() === true) return;
+      asking = true;
+      controls.signal("show:how-you-move-desk");
+    }, o.after ?? 1200);
+  }
+  return () => {
+    if (timer) clearTimeout(timer);
+    stopSignals();
+    controls.remove("desk-casual");
+    controls.remove("desk-intense");
+  };
+}

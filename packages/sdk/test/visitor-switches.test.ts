@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { addDeskControls, resetDesk } from "../src/desk.js";
 import { describeWorld } from "../src/menu-above.js";
 import { forgetModelsSwitch, showsModels } from "../src/models-switch.js";
@@ -7,7 +7,7 @@ import { changeSettings, currentSettings, resetSettings } from "../src/settings.
 import { resetChat, showsChat } from "../src/ui/chat.js";
 import { createControls } from "../src/ui/model.js";
 import { mergeView } from "../src/ui/port-below.js";
-import { chatSwitch, deskMovingSwitch, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "../src/visitor-switches.js";
+import { askDeskMoving, chatSwitch, deskMovingSwitch, forgetDeskMoving, modelsSwitch, picturesSwitch, VISITOR_SWITCHES } from "../src/visitor-switches.js";
 import { cleanMenuWorld } from "@nswp/core";
 
 /**
@@ -22,6 +22,7 @@ const forgetAll = () => {
   forgetModelsSwitch();
   resetPictures();
   resetChat();
+  forgetDeskMoving();
 };
 beforeEach(() => {
   kept.clear();
@@ -130,6 +131,97 @@ describe("Moving, which both fill", () => {
     client.add({ id: "look-speed", section: "moving", label: "Look speed: normal", act: () => {} });
     const view = mergeView(client.view(), kept, { address: "gallery.example", pins: [] });
     expect(view.sections.find((s) => s.id === "moving")!.items.map((i) => [i.id, i.from])).toEqual([["fps", undefined], ["look-speed", undefined], ["world:jump", "The Gallery"]]);
+  });
+});
+
+describe("the one-time question, how you move at a desk, asked by a client", () => {
+  /** A desk: a device whose pointer is a mouse. */
+  const atADesk = () => vi.stubGlobal("matchMedia", (q: string) => ({ matches: /fine/.test(q) }));
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const client = () => {
+    const c = createControls({ title: "A client" });
+    const asked: string[] = [];
+    const said: string[] = [];
+    c.onSignal((n) => void (n.startsWith("show:") && asked.push(n)));
+    c.onSay((t) => said.push(t));
+    c.add(deskMovingSwitch(c));
+    const stop = askDeskMoving(c);
+    const rows = () => c.view().sections.find((s) => s.id === "how-you-move-desk")?.items.map((i) => i.label) ?? [];
+    return { c, asked, said, rows, stop };
+  };
+
+  it("is asked a moment after the page is up, the first time, with the same words a world asks with", async () => {
+    atADesk();
+    const w = client();
+    expect(w.asked).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(w.asked).toEqual(["show:how-you-move-desk"]);
+    expect(w.rows()).toEqual(["Casual: click to walk, drag to look", "Intense: the mouse looks, keys walk"]);
+  });
+
+  it("keeps the answer as the visitor's travelling setting, and is never asked again", async () => {
+    atADesk();
+    const w = client();
+    await vi.advanceTimersByTimeAsync(1200);
+    w.c.run("desk-intense");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(currentSettings().intense).toBe(true);
+    expect(w.said[0]).toMatch(/^Intense: the mouse looks round/);
+    expect(w.rows()).toEqual([]);
+    // The page is loaded again: the choice is kept on this site, so nothing is asked.
+    forgetDeskMoving();
+    resetSettings();
+    const again = client();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(again.asked).toEqual([]);
+    expect(currentSettings().intense).toBe(true);
+  });
+
+  it("takes the menu put away without an answer as casual, and that is an answer", async () => {
+    atADesk();
+    const w = client();
+    await vi.advanceTimersByTimeAsync(1200);
+    w.c.signal("menuClose");
+    expect(currentSettings().intense).toBe(false);
+    forgetDeskMoving();
+    resetSettings();
+    const again = client();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(again.asked).toEqual([]);
+  });
+
+  it("is not asked of someone who arrived with a choice, on a phone, or in a headset", async () => {
+    atADesk();
+    changeSettings({ intense: false });
+    const chose = client();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(chose.asked).toEqual([]);
+    forgetAll();
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    const phone = client();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(phone.asked).toEqual([]);
+    forgetAll();
+    atADesk();
+    const c = createControls({ title: "A client" });
+    const asked: string[] = [];
+    c.onSignal((n) => void (n.startsWith("show:") && asked.push(n)));
+    askDeskMoving(c, { presenting: () => true });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(asked).toEqual([]);
+  });
+
+  it("is never said upward by a world: its own question's tab is not in what it describes", () => {
+    const world = createControls({ title: "The Gallery" });
+    world.addSection({ id: "how-you-move-desk", label: "How you move" });
+    world.add({ id: "desk-casual", section: "how-you-move-desk", label: "Casual: click to walk, drag to look", act: () => {} });
+    world.addSection({ id: "how-you-move", label: "How you move" });
+    world.add({ id: "how-casual", section: "how-you-move", label: "Casual", act: () => {} });
+    expect(describeWorld(world.view()).sections).toEqual([]);
   });
 });
 

@@ -93,7 +93,13 @@ async function bitmapOf(from: CanvasImageSource | string): Promise<unknown> {
  * The tabs a world doesn't describe, since the client runs them itself. Following and Messages are the visitor's
  * own too, and are still described: until a client runs them, it takes them from the world.
  */
-const CLIENTS: readonly string[] = MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages");
+const CLIENTS: readonly string[] = [
+  ...MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages"),
+  // The kit's one-time questions on how a visitor moves (fps.ts, input.ts). At a desk it is asked by whoever draws
+  // the console, which above a world is the client; in a headset the world draws the console, and asks there.
+  "how-you-move-desk",
+  "how-you-move",
+];
 /** Rows that are the visitor's in a tab the world otherwise fills: the way home and their own doors, under Travel. */
 const VISITORS_ROWS: readonly string[] = ["back", "home", "go-home", "doors", "list"];
 const COLOR = /^#[0-9a-f]{6}$/;
