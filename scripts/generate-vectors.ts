@@ -17,7 +17,7 @@ import { readShares, splitPrice, type Share } from "../packages/core/src/shares.
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
 import { accessFor } from "../packages/core/src/manifest.js";
 import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
@@ -1623,7 +1623,7 @@ const files: Record<string, unknown> = {
     },
     {
       name: "rows_left_out",
-      why: "A row is left out, never mended: with no id or label, a label over the limit, a kind this doesn't know, a `copy` with no text, a swatch with no colour, or an id already said.",
+      why: "A row is left out, never mended: with no id or label, a label over the limit, a kind this doesn't know, a `copy` with no text, a swatch with no colour, an id already said, or an id that begins `card:` (which is how the picture of a tab's card is addressed, and never a row).",
       world: {
         sections: [
           {
@@ -1639,6 +1639,7 @@ const files: Record<string, unknown> = {
               row("swatch-none", { kind: "swatch", color: "red" }),
               row("just"),
               row("an id"),
+              row("card:people"),
               row("fine", { short: "z".repeat(MENU_LIMITS.label + 1), icon: "Not An Icon", tone: "loud", color: "url(x)", on: "yes", faint: 1, bar: "true" }),
             ],
           },
@@ -1759,12 +1760,13 @@ const files: Record<string, unknown> = {
 
   files["menu-words.json"] = {
     description:
-      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
+      "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
     waits: { MENU_WAIT_MS, LEAVE_MS },
     tabs: { visitor: MENU_VISITOR_TABS, world: MENU_WORLD_TABS },
     keys: MENU_KEYS,
+    cardPicture: MENU_CARD_PICTURE,
     reported: MENU_REPORTED,
     describing,
     counting,
