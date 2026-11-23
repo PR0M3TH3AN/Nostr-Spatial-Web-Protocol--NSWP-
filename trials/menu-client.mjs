@@ -233,7 +233,7 @@ try {
   // The piece the place is playing, and the room's own switch for hearing music other people share.
   check("and of the world's, only what is the world's: never a volume or the visitor's music", worldSound.every((id) => ["world:sound-piece", "world:sound-hear"].includes(id)), worldSound);
   check("the switch for the room's hum is the client's, shown where the world says it has one", ownSound.includes("sound-hum") === (both.hum === true), { hum: both.hum, ownSound });
-  check("Help has the client's own words on how to move as its own", /Drag to look around/.test(both.help.note ?? "") && /your own client's/.test(both.help.note ?? ""), both.help.note);
+  check("Help has the client's own words on how to move as its own", /Drag to look around/.test(both.help.note ?? "") && /This menu is the same in every world\. Home always takes you home, whatever a world does\./.test(both.help.note ?? ""), both.help.note);
   check("and the world's sentence about itself after them, under the world's name", both.help.said?.from === "The Gallery" && both.help.said.note.length > 0 && !/Drag to look around/.test(both.help.said.note), both.help.said);
   await client(() => window.__client.menu.setOpen(true, "help"));
   check("the menu draws the world's words apart, with the world's name before them", await until(() => client(() => {

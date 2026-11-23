@@ -55174,10 +55174,37 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const tints = bag.tints(item);
       return { item, ...Object.keys(tints).length ? { tints } : {}, ...script && scriptAllowed(script) ? { script } : {} };
     };
-    reportSettings("holding", () => {
-      const held2 = heldNow();
-      return held2 === void 0 ? {} : { holding: held2 };
-    });
+    reportSettings(
+      "holding",
+      () => {
+        const held2 = heldNow();
+        return held2 === void 0 ? {} : { holding: held2 };
+      },
+      // Their own client says what is in their hand now: they took something up, or put it away, in the menu the
+      // client draws above this world, where the Bag is the client's own tab (settings.ts, `changeSettings`). It is
+      // acted on exactly as a link's word is, and no further: taken in hand only if it is in their own bag as they
+      // signed it, where this place lets things be carried, and with its own logic running unasked only if it is the
+      // very script named. Putting away is always done.
+      (said2) => {
+        const next = said2.holding;
+        if (next === void 0) return;
+        void (async () => {
+          if (next === "") {
+            if (!opts.holding()) return;
+            putAway = true;
+            await opts.hold("").catch(() => {
+            });
+            return refresh();
+          }
+          if (opts.holding() === next.item) return;
+          if (opts.holding()) await opts.hold("").catch(() => {
+          });
+          putAway = false;
+          cameHolding = next;
+          refresh();
+        })();
+      }
+    );
     refresh();
     const watch2 = setInterval(() => {
       if (!taking && opts.holding() !== drawnHolding) refresh();

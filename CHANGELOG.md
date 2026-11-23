@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A world takes what is in the visitor's hand from their client, at once** (SDK `packages/sdk/src/bagging.ts`; `docs/plans/the-clients-menu.md`, step 1). Nothing a visitor can see changes yet: no real client has the menu.
+  - Where a client draws the menu, the Bag is the client's own tab. When the visitor takes something up or puts it away there, the client says so with their settings (`holding`), and the world acts on it there and then.
+  - It is held to the rule a link's word is held to, and no further: taken in hand only if it is in their own bag as they signed it, where the place lets things be carried, and its own logic runs unasked only if it is the very script named. Putting away is always done. What was in hand is put away first.
+  - Not yet: a client that has a Bag to say it from. The stand-in client has no sign-in, so no bag.
+- The client's own help ends "This menu is the same in every world. Home always takes you home, whatever a world does." (the orchestrator's words, 2026-11-23).
+
 - **Sound and Help are tabs both fill, the client's part first; and a world's part of any tab is under the world's name** (core `MENU_VISITOR_TABS`, `MENU_WORLD_TABS`, `MenuState.hum`; SDK `ui/port-below.ts`, `ui/hud.ts`, `menu-above.ts`, `sound.ts`, `ui/help.ts`; `vectors/menu-words.json`; NSWP-02; the orchestrator, 2026-11-23). Nothing a visitor can see changes: where a world draws its own menu, Sound and Help are as they were.
   - **Sound.** In a client's menu the volumes, "All sound", the switch for a place's hum and the visitor's own music are the client's, and the music is played by the client's page. A world adds what is its own: "Playing here", and the way on to its next piece. The world says whether the place has a hum (`state.hum`), and the client shows its switch only where it does.
   - **Help.** The client's own words on how to move come first (`helpWords`). What a world says of itself is a note after them, under the world's name, of at most 400 characters (`portAbove`'s `help`). The reference worlds say their one sentence on what the place is for.
