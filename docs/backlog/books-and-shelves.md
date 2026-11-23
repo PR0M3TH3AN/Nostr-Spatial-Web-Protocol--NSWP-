@@ -56,10 +56,19 @@ world stays where a visitor left it. NSWP-17 has no placed things.
 
 ## For the design to settle
 
-- **What "the same information" is pinned to.** A long-form note can be
-  rewritten by its author. A placed book names the one version it was bound
-  to (by that version's id), so everyone reads the same words whenever they
-  look. Whether it also says "a newer edition exists" is for the owner.
+- **A book follows its author's edits** (the owner's decision, 2026-11-23,
+  asked whether a book already on a shelf should stay as it was when its
+  author edits the article: "Follow the edits"). A placed book names the
+  article, not one version of it, and shows the newest version its author
+  signed. "The same information regardless of who looks" then means: at any
+  moment everyone is shown the same newest version. What follows from it,
+  for the design to say plainly: a book's page numbers can change when its
+  author edits it; two readers can differ for the moment it takes a new
+  version to reach them, so the reader shows when the version it has was
+  signed; an author can change or empty a book that sits on somebody else's
+  shelf; and a deleted article leaves a book that says it is gone. Pictures
+  bound by hash belong to a version, so an edit that changes them needs them
+  bound again.
 - **Pictures in a book** are somebody else's files. They follow the rule for
   every such file (NSWP-17, "Where a file is fetched from"): named by hash,
   fetched only from the reader's own file hosts unless they turned "from
@@ -82,6 +91,7 @@ world stays where a visitor left it. NSWP-17 has no placed things.
 
 ## Must not
 
-- Let a book's content differ by who is looking.
+- Let a book's content differ by who is looking, beyond the moment a new
+  version takes to arrive.
 - Fetch anything on a reader's behalf from a place the book's maker chose.
 - Let a visitor place anything in a world whose keeper hasn't allowed it.
