@@ -47,6 +47,8 @@ the BitLogin session, fixed before the menu's Wallet and Files tabs (step 4).
 session does step 2): `godot-headset-controls`, the same controls in a
 headset in a Godot world as in every other.
 Then `headset-menu-like-the-flat-one`, a design with pictures first.
+Before both, since it is small and is the menu's own: the playback
+controls of `own-music-everywhere`.
 
 **After the menu, asked the same day:** `guest-accounts` (a design first),
 then `items-for-guests`, which it largely replaces. In full: `items-for-guests`, items a visitor
@@ -109,6 +111,7 @@ urgent (a live fault), it goes first.
 | [fullscreen-button-and-escape](fullscreen-button-and-escape.md) | A full-screen button at the top; Escape opens the menu first | NSWP builder | merged (kit 0.78.0; not live) |
 | [jump-sound-two-steps](jump-sound-two-steps.md) | The jump sounds like two footsteps, a little louder | NSWP builder | merged (kit 0.78.0; not live) |
 | [bag-icon-on-items](bag-icon-on-items.md) | Items in your bag show a bag in their corner; the rest are greyed out | NSWP builder | merged (NSWP 331); not live |
+| [own-music-everywhere](own-music-everywhere.md) | Your own music keeps playing across worlds, gets proper playback controls, and can play from your BitLogin files | BitPortal (step 2), NSWP builder (controls), BitLogin (files, step 4) | asked |
 | [godot-headset-controls](godot-headset-controls.md) | A Godot world has no way to move in a headset: the same controls as every other world | NSWP builder | asked (next for the builder after the menu's step 1) |
 | [headset-menu-like-the-flat-one](headset-menu-like-the-flat-one.md) | In a headset, the flat screen's menu: larger, floating, the bar below tilted towards you, things coming forward under the pointer | NSWP builder | asked (after Godot's headset controls; a design with pictures first) |
 | [guest-accounts](guest-accounts.md) | One identity across BitPortal: a guest is a generated account made automatically, and a guest or an account is known in every world without being asked | design first (BitLogin, with the kit's half) | asked |
