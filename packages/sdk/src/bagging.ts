@@ -464,10 +464,36 @@ export function addBagControls(controls: Controls, opts: BaggingOptions): Baggin
     const tints = bag.tints(item);
     return { item, ...(Object.keys(tints).length ? { tints } : {}), ...(script && scriptAllowed(script) ? { script } : {}) };
   };
-  reportSettings("holding", () => {
-    const held = heldNow();
-    return held === undefined ? {} : { holding: held };
-  });
+  reportSettings(
+    "holding",
+    () => {
+      const held = heldNow();
+      return held === undefined ? {} : { holding: held };
+    },
+    // Their own client says what is in their hand now: they took something up, or put it away, in the menu the
+    // client draws above this world, where the Bag is the client's own tab (settings.ts, `changeSettings`). It is
+    // acted on exactly as a link's word is, and no further: taken in hand only if it is in their own bag as they
+    // signed it, where this place lets things be carried, and with its own logic running unasked only if it is the
+    // very script named. Putting away is always done.
+    (said) => {
+      const next = said.holding;
+      if (next === undefined) return;
+      void (async () => {
+        if (next === "") {
+          if (!opts.holding()) return;
+          putAway = true;
+          await opts.hold("").catch(() => {});
+          return refresh();
+        }
+        if (opts.holding() === next.item) return;
+        // One thing in hand at a time: what was there is put away first, as their own press on another does.
+        if (opts.holding()) await opts.hold("").catch(() => {});
+        putAway = false;
+        cameHolding = next;
+        refresh();
+      })();
+    },
+  );
   refresh();
   // What is in their hand can change from elsewhere: the bar, a key, a rule of the place, another press still on
   // its way. The tab follows it, so it never offers to put away what isn't held, or to hold what is.

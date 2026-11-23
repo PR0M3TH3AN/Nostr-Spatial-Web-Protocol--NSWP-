@@ -7,7 +7,7 @@ import { createBag, type BagHand } from "../src/bag.js";
 import { addBagControls, itemIn } from "../src/bagging.js";
 import { createItems, fitToSize, forgetItemsSwitch, ITEM_BUDGET, setShowsItems, showsItems, withinBudget } from "../src/items.js";
 import { scriptAllowed } from "../src/play.js";
-import { arriveWith, currentSettings, resetSettings } from "../src/settings.js";
+import { arriveWith, currentSettings, resetSettings, changeSettings } from "../src/settings.js";
 import { forgetRelays } from "../src/relay-book.js";
 import type { Controls, UiAction } from "../src/ui/model.js";
 
@@ -189,6 +189,51 @@ describe("the Bag tab", () => {
       expect(there.said.join(" ")).toContain("still in your hand");
       expect(there.leaving()).toMatchObject({ item: LANTERN });
       forget();
+    });
+
+    describe("and is taken from their own client, which draws their Bag above the world", () => {
+      it("is in their hand at once when their client says they took it up, in their colours", async () => {
+        const there = await arrive(undefined);
+        expect(there.held()).toBe("");
+        changeSettings({ holding: { item: LANTERN, tints: { accent: "#8b5cf6" } } });
+        await new Promise((ok) => setTimeout(ok, 30));
+        expect(there.held()).toBe(LANTERN);
+        expect(there.tints()).toEqual({ accent: "#8b5cf6" });
+        forget();
+      });
+
+      it("is put away when their client says they put it away", async () => {
+        const there = await arrive({ item: LANTERN });
+        expect(there.held()).toBe(LANTERN);
+        changeSettings({ holding: "" });
+        await new Promise((ok) => setTimeout(ok, 30));
+        expect(there.held()).toBe("");
+        forget();
+      });
+
+      it("is never a thing they don't have, whoever says so: a client's word is held to a link's rule", async () => {
+        const there = await arrive(undefined);
+        changeSettings({ holding: { item: BOOK } });
+        await new Promise((ok) => setTimeout(ok, 30));
+        expect(there.held()).toBe("");
+        forget();
+      });
+
+      it("is never taken where the place lets nothing be carried", async () => {
+        const there = await arrive(undefined, { rule: "none" });
+        changeSettings({ holding: { item: LANTERN } });
+        await new Promise((ok) => setTimeout(ok, 30));
+        expect(there.held()).toBe("");
+        forget();
+      });
+
+      it("is left as it is when their client says something else has changed", async () => {
+        const there = await arrive({ item: LANTERN });
+        changeSettings({ text: 1.2 });
+        await new Promise((ok) => setTimeout(ok, 30));
+        expect(there.held()).toBe(LANTERN);
+        forget();
+      });
     });
 
     it("is not taken in hand for a link that names a thing they don't have: anyone can write a link", async () => {
