@@ -71,7 +71,7 @@ urgent (a live fault), it goes first.
 |---|---|---|---|
 | [doors-01-spacing](doors-01-spacing.md) | A least distance between two doors | BitPortal (kit half and client half) | live (kit 0.73.0) |
 | [doors-02-what-a-world-offers](doors-02-what-a-world-offers.md) | Lit and dark icons on a door for what its world offers, explained in the game on hover | BitPortal (kit half and client half) | live (kit 0.73.0; Godot and a headset look left) |
-| [one-command-release](one-command-release.md) | Everything of a release up to the deploy, in one command; the deploy stays the owner's word | not briefed (NSWP scripts) | asked (second in the order) |
+| [one-command-release](one-command-release.md) | Everything of a release up to the deploy, in one command; the deploy stays the owner's word | BitPortal session (NSWP scripts) | building |
 | [menus-are-the-clients](menus-are-the-clients.md) | The menus are the client's (BitPortal's), the same in every world; a world may add a tab; the kit's menu is the fallback | design first; then the NSWP builder and BitPortal | design drafted (`docs/plans/the-clients-menu.md`); questions with the owner and the orchestrator |
 | [menu-tabs-wallet-files-order-pin](menu-tabs-wallet-files-order-pin.md) | Wallet and Files as their own tabs; tabs the visitor can reorder; one pinned at the far left | with the client's menu design | design drafted (`docs/plans/the-clients-menu.md`); questions with the owner and the orchestrator |
 | [doors-03-details-and-travel](doors-03-details-and-travel.md) | A door's details in the menus, like an item's, with "Travel here" | BitPortal (kit half and client half) | building (kit, BitPortal's room and the template merged; the engine script's Travel tab left) |

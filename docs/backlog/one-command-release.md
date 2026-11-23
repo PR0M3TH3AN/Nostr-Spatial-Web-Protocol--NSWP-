@@ -5,8 +5,10 @@
   into the template, update two checkouts, deploy. A script could do
   everything up to the deploy, leaving that as your word"); the owner: "yes
   do 4 and 5 as well. That is awesome."
-- **Who:** not briefed. NSWP's scripts (`scripts/`), beside `release-all.mjs`.
-- **State:** asked. Second in the order, after the client's menu design.
+- **Who:** the BitPortal session (briefed by the orchestrator, 2026-11-23).
+  NSWP's scripts (`scripts/`), beside `release-all.mjs`.
+- **State:** building (this pull request: the script, its rehearsal and its
+  test; the one real release made with it is still to come).
 
 ## What it does
 
@@ -48,3 +50,24 @@
   and `gh`), and holds it to stopping at the first failing step with a
   non-zero exit.
 - One real release made with it, then the deploy on the owner's word.
+
+## As built
+
+- `scripts/release-prepare.mjs`, `npm run release:prepare`: the next minor
+  by default, `--patch` for the next patch, or a number given; `--dry-run`
+  for a rehearsal.
+- It works in worktrees of its own in a folder it makes and takes away, laid
+  out side by side so the vendoring scripts find NSWP where they look for it.
+  Each is a fresh checkout with its own `npm ci`.
+- A pull request is merged with `gh pr merge --match-head-commit <the gated
+  commit>`, after GitHub shows that commit mergeable, and is read back
+  merged. Another head, a conflict, or five minutes without an answer: it
+  stops, and nothing is merged.
+- A rehearsal cuts, builds and gates the version in its worktree, then only
+  prints what it would push, merge, vendor and pull.
+- `packages/core/test/release-prepare.test.ts` runs it with stand-ins for
+  `git`, `gh` and `npm`: every step in order; a stop with exit 1 at a
+  failing gate, merge or vendoring, with nothing run after; nothing merged
+  on another head or a conflict; nothing touched where a main folder isn't
+  on `main` and clean; a stop where the template's plumbing differs; and a
+  rehearsal that pushes nothing.
