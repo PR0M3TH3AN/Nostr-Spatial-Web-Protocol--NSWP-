@@ -559,3 +559,121 @@ rule is the sign-in address's and doesn't change); fullscreen (the shell already
 holds it, the menu's row becomes a call of its own, and the `screen` words stay for
 a first press that lands in the world); a phone going the ordinary way; the
 headset's extra press (step 0b).
+
+## 17. The shell's half of step 2, as an approach: its policy, and who has the keys
+
+From the BitPortal session, 2026-11-23, at the orchestrator's ask: points 11 and 7 of
+section 16 written out, before any shell code. No shell code is written against
+`nswp-sdk/menu` until step 0 has merged it; what is here names nothing of that
+interface beyond what section 13 gives.
+
+### 17.1 The menu under the shell's policy, unchanged (point 11)
+
+**The policy as it stands** (BitPortal's `scripts/build.mjs`, `cspShell`):
+`default-src 'self'`; `script-src 'self'`; `worker-src 'self'`; `style-src 'self'`;
+`font-src 'self'`; `img-src 'self' data: blob:`; `media-src 'self' blob: mediastream:`;
+`connect-src 'self' https: wss:`; `frame-src` itself, the worlds named in
+`shell-worlds.json` and the sign-in address; `base-uri 'none'`; `form-action 'none'`;
+`frame-ancestors 'none'`. Step 2 changes none of these words.
+
+**Why that should hold.** The kit's menu already runs under the same rules, in
+BitPortal's own room (`/walk/`, whose policy differs only in what it frames and who
+may frame it). What it needs, against the policy:
+
+| The menu needs | How it gets it | The rule it stays inside |
+|---|---|---|
+| Its code | BitPortal's own vendored copy of the kit, as a file of this site | `script-src 'self'` |
+| Its looks | A constructed stylesheet (`adoptedStyleSheets`) and values set through the style object; no `<style>` element, no `style` attribute in markup | `style-src 'self'` |
+| A world's words | Set as text, never as markup. The menu's own code has no `innerHTML` today, and none is added | (not the policy's: a rule of the code) |
+| A picture a world sends | A bitmap the browser copies between the pages; nothing is fetched | `img-src` is not asked |
+| A person's picture (step 3) | Fetched as bytes and drawn from a blob, as the kit's `loadPicture` does | `connect-src https:`, `img-src blob:` |
+| The Bag's items | `fetchByHash`, from the visitor's own file hosts | `connect-src https:` |
+| Its sounds | The kit's cue files, from this site | `media-src 'self'` |
+| Relays (step 3) | Web sockets | `connect-src wss:` |
+| The sign-in address's panel | The frame the shell already shows | `frame-src`, as now |
+
+**What step 2 must not do,** each a reason to stop and ask: add `'unsafe-inline'` or
+`'unsafe-eval'` anywhere; widen `img-src`, `frame-src` or `script-src`; load any code
+from another site; put a world's words into the page as markup.
+
+**Beyond the policy, since the sign-in address trusts this page by name:**
+
+- **Everything a world says is cleaned before the menu sees it,** by the kit's own
+  code for the words and `MENU_LIMITS` (section 4), in the shell's message handler:
+  the one place a world's data enters the page. A description that is over a limit
+  is left out, as section 4 says.
+- **The menu can never cover the panel, or sit over a press in it.** The panel stays
+  a frame of the shell's page directly (point 10), drawn above the sheet. While it is
+  up, the menu draws nothing in its box.
+- **The panel's code stays apart from the menu's** (`panel.ts`): the menu asks for a
+  page of it by name (`ask`, `account`, `wallet`, `files`, `library`) and learns only
+  that it opened and closed.
+- **The world's frame is set going first.** The shell sets the frame's address before
+  it loads the menu's code, so a world is never slower to come up for the menu.
+- **The visitor's settings** are kept where the room keeps them today. The shell and
+  the room are one site, so nothing moves.
+
+**Done, for this point, when:**
+
+1. BitPortal's build fails if `cspShell` differs from the words above (a check beside
+   the ones `scripts/build.mjs` already makes).
+2. A trial opens the shell over a world and over the room, opens every tab of the
+   menu, the panel, and a row with a picture from the world, and the page reports no
+   refusal by its policy (the browser's own `securitypolicyviolation`, counted: 0).
+3. In that trial, with the panel up and the sheet open, the thing at the middle of
+   the panel's box is the panel.
+4. A world that sends markup in a label sees it shown as the letters it sent.
+
+### 17.2 Who has the keys (point 7)
+
+**The rule: while the sheet is down and the panel is down, the frame has the keys.**
+A page above a frame hears no key while the frame has them, and the frame hears none
+while the page above has them. A press on anything of the shell's moves them to the
+shell. So every way the shell can come to have them is closed, or handed back:
+
+| When | What the shell does |
+|---|---|
+| A press on the bar or the mark, with the sheet down | The press doesn't take the keys (the press's default is stopped as it goes down, for a mouse and a pen; the row still acts). And after the row has acted, the frame is given the keys again, whatever happened |
+| The sheet opens (a press, or a summons the world forwarded) | The shell takes the keys, on the open tab, and says `open: true`. Nothing typed reaches the world |
+| The sheet closes | `open: false`, and the frame is given the keys |
+| The panel opens | The keys are the panel's. The menu takes none while it is up |
+| The panel closes | The frame is given the keys, or the sheet if it is open (today: always the frame) |
+| A place comes into the frame, or the screen is filled or given back | The frame is given the keys, as today |
+| The window comes back from another window or tab | The frame is given the keys, if the sheet and the panel are down |
+| A press on a bare part of the shell's page | The same |
+
+**When the shell has the keys and shouldn't** (it can still happen: a browser moves
+them in ways no page is told of), a key pressed is heard by the shell:
+
+- **A summons key** (the key left of 1, M, Escape, a digit for the bar) does what it
+  would have done if the world had forwarded it. The same handler takes both, and
+  only one page ever hears a given press, so nothing is done twice.
+- **Any other key** can't be passed into another site's frame. The shell gives the
+  frame the keys at once, so the next press is the world's. One press is lost, once,
+  and a held key has to be pressed again. This is the cost, said plainly.
+
+**How the shell knows.** The frame has the keys when the page's active element is the
+frame. The shell checks that at each of the moments in the table, and doesn't keep a
+count of its own that could drift.
+
+**The keyboard alone.** With the sheet down, the bar's keys are not stops for Tab
+(`tabindex="-1"`, as the bar's scroll arrows already are): Tab pressed in a world
+stays the world's. The way in for someone using only a keyboard is the summons key
+and the digits, as now. With the sheet open, Tab goes round the sheet and Escape
+closes it. The mark stays a named control for a screen reader.
+
+**With a held pointer** (point 8) no press reaches the shell at all, so this table is
+not reached: the world lets the pointer go at `open: true`.
+
+**Done, for this point, when a trial shows:**
+
+1. With a key for walking held in a world, a press on a bar key acts, and the world
+   goes on hearing keys with no press on the view (its own count of keys heard goes
+   on rising).
+2. After each of: the sheet closed by a key, by a press outside it, and by its own
+   close; the panel closed; a door crossed; the screen filled and given back: the
+   page's active element is the frame.
+3. With the shell given the keys by hand, the summons key opens the menu, and
+   another key gives them back to the frame.
+4. Nothing typed into the menu's own fields is heard by the world (its count of
+   keys heard doesn't rise).
