@@ -152,6 +152,9 @@ var kit: Dictionary = {
 	"doubleTap": 400,
 	"pathMost": 12,
 	"faceRate": 2.8,
+	"fadeSeconds": 0.12,
+	"stepReach": 5.0,
+	"backStep": 1.0,
 	"jumpHeight": 0.45,
 	"jumpGravity": 9.8,
 	"gateWidth": 1.5,
@@ -557,6 +560,23 @@ func say(words: String) -> void:
 func target(name_of_it: String, detail: PackedStringArray = PackedStringArray()) -> void:
 	if _menu:
 		_js.target(name_of_it, JSON.stringify(Array(detail)))
+
+
+## What the visitor's hands mean in a headset this frame, by their own settings (casual or
+## intense, the turn, which hand moves them, the fade): the kit decides, the same as in every
+## world, and an engine only does what comes back. `pads` is each controller as it was read:
+## `{"index": 0, "hand": "left", "stick": [x, y], "trigger": 0.0, "squeeze": 0.0, "primary":
+## false, "secondary": false, "press": false}`, the stick with x to the right and y forward.
+## `stepped` is how many metres a step that was just made covered, so the next is paced.
+## Comes back with `turn` (degrees, positive to the left), `walk` ([right, ahead] in metres, as
+## the head faces), `aiming` and `stepFrom` (which hands are choosing where to step, and which
+## let go), `menu`, `summon`, `jump`, `narrow` (0 to 1), `fade`, `mayStep`, `stepping`,
+## `intense`. Empty where there is no page (the editor).
+func hands(pads: Array, dt: float, stepped: float = 0.0) -> Dictionary:
+	if _js == null:
+		return {}
+	var said: Variant = JSON.parse_string(str(_js.hands(JSON.stringify({"dt": dt, "pads": pads, "stepped": stepped}))))
+	return said if typeof(said) == TYPE_DICTIONARY else {}
 
 
 ## Tell the menu about a headset: whether this browser can start a session (the way in is then

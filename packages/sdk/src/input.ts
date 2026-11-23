@@ -24,12 +24,13 @@
  *   input.grabbable(mesh);
  */
 import * as THREE from "three";
-import { cleanComfort, hasComfort, loadComfort, Locomotion, NO_PAD, readPad, saveComfort, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, CASUAL_COMFORT, INTENSE_COMFORT, isIntense } from "./actions.js";
+import { FADE_S, Locomotion, NO_PAD, readPad, type Comfort, type Handedness, type HeldPad, type PadLike, type PadState, isIntense } from "./actions.js";
 import { createAlloy, type Alloy } from "./alloy.js";
 import { MeshBuilder } from "./mesh.js";
 import { turnVisitor } from "./turn.js";
-import { arrivedSettings, reportSettings } from "./settings.js";
-import { mayAskHowTheyMove } from "./ask-once.js";
+import { keepComfort, MOVE_QUESTION } from "./comfort-controls.js";
+
+export { MOVE_QUESTION };
 import type { Controls } from "./ui/model.js";
 
 export interface GrabOptions {
@@ -166,32 +167,25 @@ function controllerModel(accent: THREE.Color): { group: THREE.Group; metal: Allo
 const VIGNETTE_VERT = `varying float vFar; void main(){ vFar = length(position.xy); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const VIGNETTE_FRAG = `uniform float uAmount; varying float vFar; void main(){ gl_FragColor = vec4(0.0, 0.0, 0.0, smoothstep(0.24, 0.42, vFar) * uAmount); }`;
 
-/** The words of the question asked once, the first time a visitor is in a headset with no choice said or kept. */
-export const MOVE_QUESTION = {
-  casual: "Casual: point to step, turn in notches",
-  intense: "Intense: walk and turn smoothly with the sticks",
-} as const;
 
 export function createXrInput(opts: XrInputOptions): XrInput {
   const { renderer, rig, camera } = opts;
   const accent = new THREE.Color(opts.accent ?? 0xffb65c);
-  // How they had their hands set where they came from, in place of what this site remembered (settings.ts).
-  const came = arrivedSettings();
-  // Whether they have said how they move in a headset: in their settings as they arrived, kept on this site, or
-  // moving the intense way where they came from. Until then nothing is said about it to the next place, and the
-  // first time they are in a headset here they are asked (the owner, 2026-11-21).
-  let answered = came.headset !== undefined || hasComfort() || opts.arrivedIntense === true;
-  let comfort: Comfort = { ...loadComfort(), ...(came.headset === "intense" ? INTENSE_COMFORT : came.headset === "casual" ? CASUAL_COMFORT : {}), ...(came.turn !== undefined ? { turnStep: came.turn } : {}), ...(came.hand !== undefined ? { moveHand: came.hand } : {}), ...(came.narrow !== undefined ? { narrow: came.narrow } : {}), ...(came.fade !== undefined ? { fade: came.fade } : {}) };
-  if (came.turn !== undefined || came.hand !== undefined || came.narrow !== undefined || came.fade !== undefined || came.headset !== undefined) saveComfort(comfort);
-  reportSettings("hands", () => ({ turn: comfort.turnStep, hand: comfort.moveHand, narrow: comfort.narrow, fade: comfort.fade, ...(answered ? { headset: isIntense(comfort) ? ("intense" as const) : ("casual" as const) } : {}) }), (now) => {
-    // Their client's menu changed how they move in a headset (settings.ts, `changeSettings`).
-    const patch: Partial<Comfort> = { ...(now.headset === "intense" ? INTENSE_COMFORT : now.headset === "casual" ? CASUAL_COMFORT : {}), ...(now.turn !== undefined ? { turnStep: now.turn } : {}), ...(now.hand !== undefined ? { moveHand: now.hand } : {}), ...(now.narrow !== undefined ? { narrow: now.narrow } : {}), ...(now.fade !== undefined ? { fade: now.fade } : {}) };
-    if (now.headset !== undefined) answered = true;
-    if (Object.keys(patch).length) setComfort(patch, true);
+  // How they move in a headset: what they chose, kept and carried, and the rows that change it (comfort-controls.ts).
+  const keeper = keepComfort({
+    ...(opts.controls ? { controls: opts.controls } : {}),
+    ...(opts.arrivedIntense ? { arrivedIntense: true } : {}),
+    presenting: () => renderer.xr.isPresenting,
+    onSessionStart: (fn) => {
+      renderer.xr.addEventListener("sessionstart", fn);
+      return () => renderer.xr.removeEventListener("sessionstart", fn);
+    },
   });
+  const setComfort = keeper.setComfort;
   const loco = new Locomotion();
   /** What to undo when this is put away. */
   const stops: (() => void)[] = [];
+  stops.push(() => keeper.dispose());
   const listeners: [THREE.Object3D, string, (e: never) => void][] = [];
   const listen = (target: THREE.Object3D, type: string, fn: (e: never) => void) => {
     target.addEventListener(type as never, fn as never);
@@ -260,7 +254,6 @@ export function createXrInput(opts: XrInputOptions): XrInput {
   // A jump the kit makes, for someone whose `fade` is on: the whole view goes dark, the jump is made while it is,
   // and the view comes back. About a tenth of a second each way: long enough that nothing is seen to move, short
   // enough not to feel like waiting (docs/plans/seated-mode.md, 3.4).
-  const FADE_S = 0.12;
   const sheet = new THREE.Mesh(
     new THREE.PlaneGeometry(4, 4),
     new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
@@ -281,7 +274,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     fn();
   };
   const jump = (fn: () => void): void => {
-    if (!renderer.xr.isPresenting || !comfort.fade) return made(fn);
+    if (!renderer.xr.isPresenting || !keeper.comfort.fade) return made(fn);
     jumps.push(fn);
     // Coming back in from one already: it goes dark again from where it is, and both are made in the dark.
     fading = "out";
@@ -437,126 +430,6 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     }) as never);
   });
 
-  // ----------------------------------------------------------------- choices
-  const setComfort = (patch: Partial<Comfort>, keep = false) => {
-    comfort = { ...comfort, ...cleanComfort(patch) };
-    if (keep) {
-      saveComfort(comfort);
-      // Their own hand on a control is a choice: from now on it goes with them.
-      answered = true;
-    }
-  };
-  // They were moving the intense way in a headset where they came from: the same here, kept as their choice.
-  if (opts.arrivedIntense && !isIntense(comfort)) setComfort(INTENSE_COMFORT, true);
-  if (opts.controls) {
-    const controls = opts.controls;
-    let headset = false;
-    void navigator.xr
-      ?.isSessionSupported("immersive-vr")
-      .then((ok) => {
-        headset = ok;
-        controls.addSection({ id: "moving", label: "Moving", icon: "step", note });
-      })
-      .catch(() => {});
-    const hidden = () => !headset;
-    const note = () =>
-      comfort.move === "steps"
-        ? "With a controller: push a stick forward, point at the floor and let go to step there. Flick the other stick to turn. Squeeze the grip to pick things up. Pointing and selecting does everything too."
-        : "With a controller: one stick walks, the other turns. If it makes you feel unwell, go back to stepping: it is the comfortable way.";
-    controls.addSection({ id: "moving", label: "Moving", icon: "step", note });
-    const change = (patch: Partial<Comfort>) => {
-      setComfort(patch, true);
-      controls.addSection({ id: "moving", label: "Moving", icon: "step", note });
-    };
-    controls.add(
-      {
-        // One switch for the two ways of moving in a headset. The settings under it are what it sets, and can
-        // each be changed afterwards.
-        id: "move-style",
-        section: "moving",
-        icon: "motion",
-        hidden,
-        on: () => isIntense(comfort),
-        label: () => `${renderer.xr.isPresenting ? "How you move" : "In a headset"}: ${isIntense(comfort) ? "intense" : "casual"}`,
-        short: "Style",
-        act: () => {
-          const intense = !isIntense(comfort);
-          change(intense ? INTENSE_COMFORT : CASUAL_COMFORT);
-          controls.say(
-            intense
-              ? "Intense: one stick walks, the other turns, smoothly, with the whole view. If it makes you feel unwell, go back to casual."
-              : "Casual: point at the floor to step there, and turn a notch at a time. The comfortable way.",
-          );
-        },
-      },
-      { id: "move-mode", section: "moving", icon: "step", hidden, on: () => comfort.move === "smooth", label: () => (comfort.move === "steps" ? "Moving in steps. Walk smoothly instead" : "Walking smoothly. Move in steps instead"), short: "Walk", act: () => change({ move: comfort.move === "steps" ? "smooth" : "steps" }) },
-      {
-        id: "turn-mode",
-        section: "moving",
-        icon: "turn",
-        hidden,
-        on: () => comfort.turn === "smooth",
-        label: () => (comfort.turn === "smooth" ? "Turning smoothly. Turn in steps instead" : `Turning ${comfort.turnStep}° at a time. Change`),
-        short: "Turn",
-        // In steps of 30, then 45, then 90, then smoothly, and round again.
-        act: () => change(comfort.turn === "smooth" ? { turn: "steps", turnStep: 30 } : comfort.turnStep === 30 ? { turnStep: 45 } : comfort.turnStep === 45 ? { turnStep: 90 } : { turn: "smooth" }),
-      },
-      { id: "move-hand", section: "moving", icon: "motion", hidden, label: () => `The ${comfort.moveHand} stick moves you. Swap hands`, short: "Hands", act: () => change({ moveHand: comfort.moveHand === "left" ? "right" : "left" }) },
-      {
-        id: "move-narrow",
-        section: "moving",
-        icon: "look",
-        hidden: () => hidden() || (comfort.move === "steps" && comfort.turn === "steps"),
-        on: () => comfort.narrow,
-        label: () => (comfort.narrow ? "The view narrows while you move. Turn that off" : "Narrow the view while you move"),
-        short: "Narrow",
-        act: () => change({ narrow: !comfort.narrow }),
-      },
-      {
-        // A jump the kit makes (a step, being stepped aside) fades to black and back: casual's default, intense's not.
-        id: "move-fade",
-        section: "moving",
-        icon: "look",
-        hidden,
-        on: () => comfort.fade,
-        label: () => (comfort.fade ? "The view fades when you step. Turn that off" : "Fade the view when you step"),
-        short: "Fade",
-        act: () => change({ fade: !comfort.fade }),
-      },
-    );
-    // The first time they are in a headset here, with no choice said or kept: asked once, in the headset, and
-    // remembered. Put away without an answer, it is casual, and not asked again. (The owner, 2026-11-21: "the
-    // first time they enter VR ... ask if they prefer casual or intense mode".)
-    let asking = false;
-    const answer = (intense: boolean) => {
-      asking = false;
-      setComfort(intense ? INTENSE_COMFORT : CASUAL_COMFORT, true);
-      controls.say(intense ? "Intense: one stick walks, the other turns, smoothly. You can change it in Moving." : "Casual: point at the floor to step there, and turn a notch at a time. You can change it in Moving.");
-    };
-    controls.addSection({ id: "how-you-move", label: "How you move", icon: "step", note: () => (asking ? "You can change this whenever you like, in Moving." : "") });
-    controls.add(
-      { id: "how-casual", section: "how-you-move", icon: "step", hidden: () => !asking, label: MOVE_QUESTION.casual, act: () => answer(false) },
-      { id: "how-intense", section: "how-you-move", icon: "motion", hidden: () => !asking, label: MOVE_QUESTION.intense, act: () => answer(true) },
-    );
-    // Put away without an answer is casual: the console closed while they are in the headset, after it came up
-    // with the question. Not the flat menu closing as the session starts, which is no answer of theirs.
-    let askedAt = 0;
-    const stopAsking = controls.onSignal((name) => {
-      if (name === "menuClose" && asking && renderer.xr.isPresenting && performance.now() - askedAt > 1500) answer(false);
-    });
-    const ask = () => {
-      if (answered || asking || !mayAskHowTheyMove()) return;
-      asking = true;
-      askedAt = performance.now();
-      controls.signal("show:how-you-move");
-    };
-    renderer.xr.addEventListener("sessionstart", ask);
-    stops.push(() => {
-      renderer.xr.removeEventListener("sessionstart", ask);
-      stopAsking();
-    });
-  }
-
   // -------------------------------------------------------------- each frame
   let aiming: number[] = [];
   const read = (): HeldPad[] =>
@@ -576,14 +449,14 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       for (const slot of [...held.keys()]) release(slot);
     } else {
       const pads = read();
-      const intent = loco.frame(dt, pads, comfort);
+      const intent = loco.frame(dt, pads, keeper.comfort);
       if (intent.turn !== 0) {
         turnVisitor(rig, camera, intent.turn);
-        if (comfort.turn === "steps") for (const p of pads) if (Math.abs(p.pad.stick[0]) > 0.5) pulse(p.index, 0.2, 12);
+        if (keeper.comfort.turn === "steps") for (const p of pads) if (Math.abs(p.pad.stick[0]) > 0.5) pulse(p.index, 0.2, 12);
       }
       // Stepping, what is walked is one step backwards, landing at once: paced like any other step. Walking smoothly
       // is already no faster than a run.
-      const stepped = comfort.move === "steps";
+      const stepped = keeper.comfort.move === "steps";
       if ((intent.walk[0] !== 0 || intent.walk[1] !== 0) && (!stepped || !opts.pace || opts.pace.take(Math.hypot(intent.walk[0], intent.walk[1])))) {
         // A step back lands at once: a jump, faded for someone who fades. Walking smoothly is never faded.
         const [x, z] = intent.walk;
@@ -636,10 +509,10 @@ export function createXrInput(opts: XrInputOptions): XrInput {
 
   return {
     get comfort() {
-      return comfort;
+      return keeper.comfort;
     },
     get intense() {
-      return isIntense(comfort);
+      return isIntense(keeper.comfort);
     },
     setComfort,
     update,
@@ -656,7 +529,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
     info() {
       const pads = renderer.xr.isPresenting ? read() : [];
       return {
-        comfort,
+        comfort: keeper.comfort,
         slots: slots.map((s, i) => ({ hand: handOf(s), kind: kindOf(s), pad: pads.find((p) => p.index === i)?.pad ?? NO_PAD })),
         aiming,
         holding: [0, 1].map((i) => held.get(i)?.thing.object.name || (held.has(i) ? "(unnamed)" : null)),
