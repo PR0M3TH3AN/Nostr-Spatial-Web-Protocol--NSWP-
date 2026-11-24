@@ -32,6 +32,15 @@
   clear of the bar (`view-clear-of-the-menu`), "Change how you look" opens
   on You (`menu-opens-on-a-tab`), and things in the Bag show by their
   first letters.
+- **And when it goes live:** asked whether BitPortal's menu should go live
+  as it is in the pictures or wait for those three, the owner said,
+  2026-11-24: "Wait for the mends". So the switch stays off on BitPortal's
+  main until all three are mended and merged, and the switch-on change is
+  the last of them. Other mends deploy in the meantime. Names given for
+  them the same day: the word a world says to bring the menu up on a tab,
+  `{ nswp: "menu", show: "<tab id>" }` (a word of its own, not a field on
+  the summons), and `NSWP.cover()` and `NSWP.bounds()` for the engine
+  script.
 
 ## What is true today
 
