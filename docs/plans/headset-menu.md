@@ -92,7 +92,13 @@ visitor's hands and controllers are always seen in front of the menu. Never
 hidden by the sheet, the bar, the wrist's panel or the Menu button, wherever
 the hands are held.
 
-**What is true today, by how the console is made** (`console.ts`; not looked
+**Mended for today's console, 2026-11-24** (`drawnLast`, input.ts, and the
+same in the Godot add-on; `trials/hands-over-menu.mjs`): hands are drawn
+after the console and the Menu button, and over them. The owner, told of the
+fault: "ok lets draw the hands last". What follows is what was true before
+it, and is live in 0.87.0.
+
+**What was true, by how the console is made** (`console.ts`; not looked
 at in a headset by me): the panel and the Menu button are drawn last and
 over everything, with no regard to what is nearer. I take that to have been
 so that a wall couldn't hide the menu. It also means **today's console is
@@ -292,7 +298,9 @@ see, so that it is known before the mend and again after it.
   menu covers none of it.** The same over the wrist's panel with the other
   hand, and over the Menu button when the menu is closed. And say whether
   hands held at rest are in the way of reading it.
-- **A check that can fail,** in the made-up headset, run by the gate. Each
+- **A check that can fail,** in the made-up headset: a trial, run by hand
+  (`trials/hands-over-menu.mjs`, built for today's console), since the gate
+  has no browser. A test the gate does run holds the order of drawing. Each
   hand in turn, as a controller and as a tracked hand, is held at nine
   places across the sheet and three across the bar, at 0.3 m, 0.5 m and
   0.7 m from the eyes, and once reached 0.2 m past the sheet; and over the

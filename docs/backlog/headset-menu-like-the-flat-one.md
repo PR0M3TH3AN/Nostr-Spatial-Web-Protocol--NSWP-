@@ -43,8 +43,9 @@ pinned things, no cards as the flat sheet has them.
 - **Hands are never under the menu** (added 2026-11-24, in the owner's words
   above). A visitor's hands and controllers are always seen in front of the
   sheet, the bar, the wrist's panel and the Menu button, wherever they are
-  held. Today's console breaks this: it is drawn over everything, hands
-  included.
+  held. Today's console broke this: it was drawn over everything, hands
+  included. Mended for today's console on 2026-11-24 (hands are drawn
+  last); the new menu inherits it.
 
 ## For the design to settle
 

@@ -132,6 +132,36 @@ export interface XrInput {
 /** What is drawn of the visitor's own hands is never in the way of what they point at. */
 const unpointable = (root: THREE.Object3D): void => root.traverse((o) => void ((o as THREE.Mesh).raycast = () => {}));
 
+/**
+ * Where the visitor's own hands come in the order of drawing: after the menu a headset shows (`MENU_ORDER`,
+ * console.ts), and so over it.
+ */
+export const HANDS_ORDER = 40;
+
+/**
+ * The visitor's own hands are drawn last, and over the menu, wherever they are held.
+ *
+ * The menu in a headset is drawn over the room with no regard to what is nearer, so that a wall can't hide it. Drawn
+ * the usual way, a hand was painted first and the menu over it: a visitor reaching for a row lost sight of the hand
+ * they were reaching with. The owner, 2026-11-24: "we need to make sure that the menu is not drawn above the hands
+ * in VR", and then "ok lets draw the hands last".
+ *
+ * So everything under `root` is drawn in the last pass, after the menu. It is still hidden by what is really in
+ * front of it in the room (a wall a hand is put through), since it keeps its place in depth; the menu keeps none.
+ * Whatever is drawn of a hand goes through here: the kit's controller and joints today, and a better model or a
+ * world's own when there is one.
+ */
+export function drawnLast(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.renderOrder = HANDS_ORDER;
+    // Only what is drawn in the see-through pass can come after the menu, which is drawn in it. Nothing here is
+    // see-through for being told so: each still covers what is behind it, and still keeps its place in depth.
+    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) if (m) m.transparent = true;
+  });
+}
+
 type Source = { handedness?: string; gamepad?: PadLike | null; hand?: unknown; targetRayMode?: string };
 
 /** A controller, drawn the same for every make: a handle, a lit nose, and a light that answers the trigger. */
@@ -161,6 +191,7 @@ function controllerModel(accent: THREE.Color): { group: THREE.Group; metal: Allo
   squeeze.rotation.x = THREE.MathUtils.degToRad(-52);
   group.add(trigger, squeeze);
   unpointable(group);
+  drawnLast(group);
   return { group, metal, trigger, squeeze };
 }
 
@@ -233,6 +264,7 @@ export function createXrInput(opts: XrInputOptions): XrInput {
       const radius = (joint as unknown as { jointRadius?: number }).jointRadius;
       mesh.scale.setScalar(Math.min(0.02, Math.max(0.005, (radius ?? 0.008) * (tip ? 0.9 : 0.75))));
       unpointable(mesh);
+      drawnLast(mesh);
       joint.add(mesh);
     }
   };
