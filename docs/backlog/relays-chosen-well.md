@@ -32,6 +32,28 @@
 - **Four usual relays, written into the kit** (`DEFAULT_RELAYS`), which
   every world, BitPortal and the template carry.
 
+## What BitLogin does today (its session's report, read from its code at 4310d13, not run)
+
+- **It sends none of what it signs for a site.** A person's notes, world
+  saves, guest-list changes and passes are signed by BitLogin and handed
+  back; the site or the kit sends them. That is the gap behind the bag.
+- **Its own records it sends well:** the wallet, the files index,
+  receipts and the pay limit go to the person's own write relays plus
+  BitLogin's built-in list, at most 16; a record is saved once two
+  relays confirm it; one not yet taken by two is kept in the browser,
+  marked, and sent again at every opening. A read counts only when at
+  least half the relays asked answered to the end: one relay's "that is
+  all" is never "none" there.
+- No ranking of relays; one that refused or never answered is not waited
+  for, for three minutes. No NIP-66. NIP-11 only to check its vault
+  relays' size limits. A relay that asks for a sign-in never counts
+  toward "saved": the wallet's pools answer no such asking.
+- **"Sign this and send it" as one act** would be a new thing for a site
+  to ask for, with words of its own; a queue sealed in the signer's own
+  storage for each site, tried again each time the signer loads; the
+  site told how many relays took it and never which; the limits there
+  are today. Its guess: two to four days with tests. Nothing built.
+
 ## What went wrong, counted on the owner's own bag
 
 One note, sent once to six of 23 relays, kept by one. Nothing sends it
@@ -58,6 +80,14 @@ live):
    a person's newest note on some relays and not on others they write to
    sends it to those (the note is already signed; nothing new is
    signed).
+   Where no relay answered at all, the line is "couldn't be looked
+   for", never "empty": today it is "empty" (BitPortal, run).
+3a. **A person's relay list that came late is not a miss kept.** A world
+   waits two and a half seconds for it and then asks only the usual
+   relays, and keeps that for ten minutes, so "Look again" asks the same
+   wrong relays (BitPortal, run). The list is waited for while the usual
+   relays are asked, used when it comes, kept on the device once known,
+   and a miss is not kept.
 4. **A relay that won't answer a stranger doesn't use up a place.** Told
    from how it answered (it asked for a sign-in, or payment), from
    monitors' notes where there are any (NIP-66 carries it), and from the
@@ -70,6 +100,10 @@ builder's draft, answered by the orchestrator):
    that the kit, BitPortal, BitLogin, BitUnlock and BitGate all take, so
    that all of them choose, send, look and repair the same way. No
    project keeps a list of its own beyond a few to start from.
+5a. With it, one answer to which "usual" relays are meant: BitPortal's
+   home uses the relays a visitor set in its Settings, a world the kit's
+   four, so the two can write and look in different places (BitPortal,
+   read).
 6. Monitors (NIP-66) used for more than the last resort: to order
    relays, to drop ones that are gone, to fill the usual list. Held to
    what the NIP asks: no single monitor believed, nothing needed from

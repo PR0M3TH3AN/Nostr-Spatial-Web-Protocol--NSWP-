@@ -264,9 +264,14 @@ template, a kit piece that hands back its own declaration, orders through
 the chat pane) is in `docs/plans/agents-lessons.md`, as things to design
 later by names given, behind the menu.
 
-Next there: the memory rule's mend (free); then the chat model and JEV in
-the world, which wait on the owner's word on a key server in the
-playground's own session.
+Since, the same day, each on the owner's word in the playground's own
+session: the memory rule mended (D82, free); a key server for the trial
+page built ("Yes, build it": this machine only, that one page's origin
+only, two paths, a cap, off when not in use; D83); and JEV deciding in
+the world through it ("Yes, run it": three orders of four, 8 requests,
+$0.00025; D84). Both servers were stopped after. Next there: the chat
+model as the companion's mind in the world, quoted to him first; an
+order of two steps mended, free; the second body.
 
 ## Must not
 
