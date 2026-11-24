@@ -51,7 +51,10 @@ held items).
   skill is learned, which is his deliberate act; given to the decider with
   the choices they belong to and never to the chat model beside memory and
   personality; never naming a visitor, a key or an address. How large the
-  risk is, is to be measured on the range.
+  risk is, was measured on the range (D60, 2026-11-24): two well-formed
+  sentences took four fifths of the score, and advice against the goal got
+  a friendly target shot once in three, mark and all. So what a world
+  never wants is not offered as a choice, and learning is the gate.
 - **What a world says:** the skills it allows, or calls for, as a pinned
   set it may carry copies of. This could be what a door's details show.
 - **What an item says:** nothing new to name its skill. Shooting finds its
