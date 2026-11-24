@@ -66,8 +66,9 @@ a headset.
 **Say:** whether the menu is drawn over your hands; and whether hands held
 at rest are in the way of reading it.
 
-After the mend is live this is done once more, to see the hands in front.
-The orchestrator will say when. Then also: hold something large from your
+The mend is merged (NSWP PR 485, the kit and the Godot add-on) and not
+live. After it is live this is done once more, to see the hands in front,
+in the Gallery and in the Foundry. The orchestrator will say when. Then also: hold something large from your
 Bag in front of the menu, and say whether it hides too much.
 
 ## 3. The menu in a Godot world (five minutes; live since kit 0.87.0)
