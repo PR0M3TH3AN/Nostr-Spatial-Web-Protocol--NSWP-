@@ -531,10 +531,12 @@ anyone looking for it will look. The kit adds one thing, which is knowing
 which relays are working.
 
 ```ts
-import { askWell, sendWell } from "nswp-sdk/three";
+import { askOwn, askWell, sendWell } from "nswp-sdk/three";
 
 const sent = await sendWell(event, { own: theirWriteRelays, usual: DEFAULT_RELAYS }); // { took, relays, own }
 const got = await askWell(filter, { own: theirWriteRelays, usual: DEFAULT_RELAYS });
+// A person's own note: their relay list found for you, and "none" said only when it is so.
+const mine = await askOwn(filter, theirKey, { usual: DEFAULT_RELAYS, mine: { kept } }); // { events, state, relays, own }
 ```
 
 - **It remembers how each relay answered,** on the device, and puts the ones
@@ -543,7 +545,36 @@ const got = await askWell(filter, { own: theirWriteRelays, usual: DEFAULT_RELAYS
 - **Their own relays are never dropped** for being down. If fewer than three
   of them are up, the best of the usual relays are added, so what is sent is
   kept somewhere that is.
-- **If nothing takes it,** the rest of the usual relays are tried once.
+- **A note is sent once three relays took it** (`RELAY_PICK.took`), counted
+  from what they said. Fewer: the rest of the usual relays are tried once,
+  and `took` says how many have it, so you can tell the visitor and send it
+  again later. The Bag says "Only 1 relay has it so far" and sends it again
+  at the next look.
+- **A person's own note always reaches at least one usual relay too**
+  (`RELAY_PICK.usual`), however many of their own took it: a world that
+  hasn't their relay list yet looks only there, and the list itself is
+  found only there. Never a wrapped private message, which goes only where
+  its reader said.
+- **A relay that refuses for a sign-in or a payment takes no place.** Told
+  from how it said no: CLOSED to a question, or OK false to a note, with
+  "auth-required:" or "restricted:" (NIP-01), or a monitor's finding.
+  Closed to reading and to writing are kept apart: a paid relay that
+  refuses a note still answers a question. A challenge to sign in followed
+  by an answer to the end is an answer like any other.
+- **`askOwn` looks for a person's own note.** Their relay list is asked for
+  while the usual relays are, waited for up to six seconds
+  (`RELAY_PICK.listWaitMs`), and their own relays asked as it comes. With
+  `mine`, the visitor's own note on their own device: where nothing is
+  found, the rest of their relays (up to `RELAY_PICK.listed`, 24) are asked
+  four at a time (`RELAY_PICK.wave`, three seconds each), then any that ran
+  out of time once more for six (`RELAY_PICK.lateMs`); their newest note is
+  put back on up to six relays that answered without it
+  (`RELAY_PICK.mend`), each once a day; their relay list is kept on the
+  device and put back on a usual relay that lacks it. `state` is "none"
+  only once every relay there was to ask was asked and at least half of
+  them, never fewer than three, answered to the end; otherwise
+  "unreached", never "empty". Someone else's note gets the first look only.
+- **If nothing takes it at all,** the rest of the usual relays are tried once.
 - **If still nothing, there is a backup** (NIP-66). Relay monitors publish
   which relays they found working. The kit asks for that only then, takes
   relays that at least two monitors found open to anyone (no proof of who

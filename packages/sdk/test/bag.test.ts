@@ -49,7 +49,7 @@ const set = (o: { had?: NostrEvent; readOnly?: boolean } = {}) => {
   const net = relays();
   if (o.had) net.kept.push(o.had);
   const h = hand();
-  const bag = createBag({ me: () => me, ...(o.readOnly ? {} : { hand: h }), relays: ["wss://one.example"], storage: memory(), now: clock, query: net.query, publish: net.publish });
+  const bag = createBag({ me: () => me, ...(o.readOnly ? {} : { hand: h }), relays: ["wss://one.example", "wss://two.example", "wss://three.example"], storage: memory(), now: clock, query: net.query, publish: net.publish });
   return { bag, net, h };
 };
 

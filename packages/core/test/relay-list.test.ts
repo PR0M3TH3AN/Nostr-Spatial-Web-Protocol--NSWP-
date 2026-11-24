@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanRelayUrl, finalizeEvent, getPublicKey, readRelayList, writeRelaysFor } from "../src/index.js";
+import { cleanRelayUrl, finalizeEvent, getPublicKey, readRelayList, RELAY_PICK, writeRelaysFor } from "../src/index.js";
 
 const KEY = new Uint8Array(32).fill(7);
 const ME = getPublicKey(KEY);
@@ -28,9 +28,10 @@ describe("someone's own relay list (NIP-65)", () => {
     expect(readRelayList([], ME)).toBeNull();
   });
 
-  it("is cut to a few of each", () => {
+  it("is cut to RELAY_PICK.listed of each: enough to find a note on any of a long list's relays", () => {
     const many = list(Array.from({ length: 30 }, (_, i) => ["r", `wss://r${i}.example`]));
-    expect(readRelayList([many], ME)!.write).toHaveLength(8);
+    expect(readRelayList([many], ME)!.write).toHaveLength(RELAY_PICK.listed);
+    expect(RELAY_PICK.listed).toBe(24);
   });
 });
 
