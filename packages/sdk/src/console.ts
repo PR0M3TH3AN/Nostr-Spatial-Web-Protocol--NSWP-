@@ -53,6 +53,11 @@ export interface XrConsole {
 
 const W = CONSOLE_W;
 const H = CONSOLE_H;
+/**
+ * Where the menu a headset shows comes in the order of drawing: over the room, whatever is nearer, and under the
+ * visitor's own hands (`HANDS_ORDER`, input.ts), which are drawn after it.
+ */
+export const MENU_ORDER = 30;
 const FLOAT_W = 0.84; // metres wide when it floats in front of the visitor
 const WRIST_W = 0.36; // and when it sits above a wrist
 const ASPECT = H / W;
@@ -91,7 +96,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
   texture.anisotropy = 4;
   const material = holoMaterial(texture);
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(1, ASPECT), material);
-  panel.renderOrder = 30;
+  panel.renderOrder = MENU_ORDER;
   panel.visible = false;
   group.add(panel);
 
@@ -102,7 +107,7 @@ export function createConsole(controls: Controls, opts: { renderer: THREE.WebGLR
   const openerTexture = new THREE.CanvasTexture(openerCanvas);
   openerTexture.colorSpace = THREE.SRGBColorSpace;
   const opener = new THREE.Mesh(new THREE.PlaneGeometry(0.15, (0.15 * 300) / 256), new THREE.MeshBasicMaterial({ map: openerTexture, transparent: true, depthTest: false }));
-  opener.renderOrder = 30;
+  opener.renderOrder = MENU_ORDER;
   group.add(opener);
 
   // The picture itself, and what is on it: drawn by the same code whatever shows it (console-drawing.ts).

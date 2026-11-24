@@ -105,6 +105,10 @@ const MENU_BUTTON := "by_button"
 ## pushing it away from you reads as positive, -1.0 if it reads as negative. The kit wants
 ## forward to be positive. If a visitor steps back when they push forward, it is this.
 const STICK_FORWARD := 1.0
+## Where the console and the hands come in the order of drawing: the console over the room, a
+## row's light over the console, and the visitor's own hands over both (`_make_hands`).
+const CONSOLE_PRIORITY := 20
+const HANDS_PRIORITY := 30
 
 ## A small shape where each hand is, so the visitor sees them. Drawn here: nothing is downloaded.
 var _hand_marks: Array[MeshInstance3D] = []
@@ -534,10 +538,19 @@ func _make_marks() -> void:
 
 
 ## A small shape at each hand, and a thin line from it for choosing where to step.
+##
+## Drawn last, and so over the console: the console is drawn over the room whatever is nearer
+## (`_make_console`, priority 20 and 21), and drawn the usual way a hand was painted first and
+## the console over it. A priority only orders what is drawn in the see-through pass, so the
+## paint is put in that pass; it is not see-through, and it keeps its place in depth, so a wall
+## still hides a hand. The same as the kit does in a Three.js world (`drawnLast`, input.ts).
 func _make_hands() -> void:
 	var paint := StandardMaterial3D.new()
 	paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	paint.albedo_color = accent
+	paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	paint.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+	paint.render_priority = HANDS_PRIORITY
 	var ball := SphereMesh.new()
 	ball.radius = 0.035
 	ball.height = 0.07
@@ -569,7 +582,7 @@ func _make_console() -> void:
 	_console_paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_console_paint.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_console_paint.no_depth_test = true
-	_console_paint.render_priority = 20
+	_console_paint.render_priority = CONSOLE_PRIORITY
 	_console = MeshInstance3D.new()
 	_console.mesh = QuadMesh.new()
 	_console.material_override = _console_paint
@@ -581,7 +594,7 @@ func _make_console() -> void:
 	shader.code = LIT
 	_console_lit_paint = ShaderMaterial.new()
 	_console_lit_paint.shader = shader
-	_console_lit_paint.render_priority = 21
+	_console_lit_paint.render_priority = CONSOLE_PRIORITY + 1
 	_console_lit = MeshInstance3D.new()
 	_console_lit.mesh = QuadMesh.new()
 	_console_lit.material_override = _console_lit_paint
