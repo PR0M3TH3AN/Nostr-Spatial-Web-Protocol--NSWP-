@@ -53773,10 +53773,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
 .say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
-/* While the menu is up they are in its sheet, above its foot: the sheet lies over where they otherwise stand on all
-   but the widest screens, and a press in the menu is what most of them answer. */
-.sheet .says { position: static; flex: none; max-width: none; padding: 8px 12px; }
-.sheet .says:empty { display: none; }
+/* While the menu is up they are in its sheet, just above its foot: the sheet lies over where they otherwise stand on
+   all but the widest screens, and a press in the menu is what most of them answer. They lie over what is there and
+   take no room, so that nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is
+   where it was. A press where a line lies goes to what is under it. */
+.foot { position: relative; }
+.foot .says { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-width: none; pointer-events: none; }
+/* Lying over rows and words, a line is solid enough that they don't show through it. */
+.foot .say { background: rgba(var(--glass), .96); }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -54836,9 +54840,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       said2.replaceChildren(...current?.said ? [el("b", {}, current.said.from), current.said.note] : []);
       sheet.hidden = !open3;
       outside.hidden = !open3;
-      if (open3 ? says.parentElement !== sheet : says.parentElement === sheet) {
+      if (open3 ? says.parentElement !== foot : says.parentElement === foot) {
         for (const line2 of says.children) line2.classList.remove("coming");
-        if (open3) sheet.insertBefore(says, foot);
+        if (open3) foot.append(says);
         else root.insertBefore(says, chat);
       }
       menu2.setAttribute("aria-expanded", String(open3));

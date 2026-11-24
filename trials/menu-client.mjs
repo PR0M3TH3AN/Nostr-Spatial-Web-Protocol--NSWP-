@@ -1162,20 +1162,51 @@ VISITS.file = async () => {
     const world6 = () => page6.frames().find((f) => f.url().startsWith(WORLD));
     // A press at where the row is once it has stopped moving: the sheet slides up as it opens, and a press sent to
     // where a row was a moment ago misses it.
+    // A press with the mouse where the row is, once it has stopped moving and is what the mouse would land on: its
+    // place is read, read again a moment later, and pressed when the two agree and the row is on top there. It says
+    // whether the press was made: a press that wasn't must never pass for one that did nothing.
     const press6 = async (name) => {
-      const where = () => hud6.getByRole("button", { name }).first().boundingBox();
-      let at = await until6(where, 8000);
-      if (at) await hud6.getByRole("button", { name }).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
-      for (let i = 0; at && i < 20; i++) {
+      const row = hud6.getByRole("button", { name }).first();
+      const look = () =>
+        row
+          .evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
+            const hit = !!top && (top === el || el.contains(top));
+            // A long tab scrolls: a row down the list is brought into sight, as a person would scroll to it.
+            if (!hit) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+            return { x, y, hit };
+          }, null, { timeout: 4000 })
+          .catch(() => null);
+      let last = null;
+      for (const end = Date.now() + 15000; Date.now() < end; ) {
+        const now = await look();
+        if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
+          await page6.mouse.click(now.x, now.y);
+          return Date.now();
+        }
+        last = now;
         await page6.waitForTimeout(150);
-        const now = await where();
-        if (now && now.x === at.x && now.y === at.y) break;
-        at = now;
       }
-      if (!at) return false;
-      await page6.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-      return true;
+      return 0;
     };
+    // A press, and what shows it took. The menu is drawn again whenever the world says anything, and a press that
+    // falls as a row is being replaced presses nothing: so a press with nothing to show for it in ten seconds is
+    // made again, and only then (each of these is a press that does nothing twice if the first did nothing). It
+    // answers when the press that took was made, or 0 where none did.
+    const again6 = [];
+    const pressUntil6 = async (name, took) => {
+      for (let i = 0; i < 3; i++) {
+        const at = await press6(name);
+        if (at && (await until6(took, 10000))) return at;
+        again6.push(`${name}: ${at ? "pressed, and nothing came of it" : "nothing to press"}`);
+      }
+      return 0;
+    };
+    /** How many times the world has been told of a press on this row. */
+    const toldOf = async (id) => (await world6().evaluate(() => window.__told ?? [])).filter((w) => w.includes(`"press":"${id}"`)).length;
     const said6 = () => page6.evaluate(() => window.__said);
     const told6 = () => world6().evaluate(() => window.__told ?? []);
     try {
@@ -1184,24 +1215,26 @@ VISITS.file = async () => {
       await page6.evaluate(() => { window.__said = []; window.__client.below.port.onSay((t) => window.__said.push(t)); window.__client.menu.setOpen(true, "panels"); });
       const row = await until6(() => page6.evaluate(() => { const i = window.__client.below.port.view().sections.find((s) => s.id === "panels")?.items.find((x) => x.id === "world:panel-file"); return i ? { kind: i.kind, accept: i.accept, from: i.from ?? null, label: i.label } : null; }), 15000);
       check("file/the world's row that takes a file is in the client's Panels, under the world's name, with the kinds it takes", row?.kind === "file" && JSON.stringify(row.accept) === '["image","video"]' && row.from === "The Gallery", row);
-      const line = await until6(() => page6.evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".takes .to")?.textContent ?? null), 8000);
+      const line = await until6(() => page6.evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".takes .to")?.textContent ?? null), 30000);
       check("file/and under it the client says which world gets the file", line === "The file you choose goes to The Gallery.", line);
 
       // A file of a kind the row didn't ask for: the chooser offers only pictures and video, but a person can choose
       // anything. The client refuses it, and says why; nothing reaches the world.
-      await press6("Hang a picture or video from this device");
-      check("file/the browser's chooser is opened by the client's page, at the press on the client's menu", (await until6(() => choosers6.length === 1, 8000)) && choosers6[0] === "the client's page", choosers6);
-      check("file/a file of another kind is not handed over, and the client says why", await until6(async () => (await said6()).includes("Only pictures and video can go here."), 8000), await said6());
+      // These wait for a thing to happen, and give it time: on a busy machine drawing without a graphics card the
+      // browser's chooser came up later than the eight seconds it was first given, and three checks failed for it.
+      await pressUntil6("Hang a picture or video from this device", () => choosers6.length >= 1);
+      check("file/the browser's chooser is opened by the client's page, at the press on the client's menu", (await until6(() => choosers6.length === 1, 30000)) && choosers6[0] === "the client's page", choosers6);
+      check("file/a file of another kind is not handed over, and the client says why", await until6(async () => (await said6()).includes("Only pictures and video can go here."), 30000), await said6());
       check("file/and the world heard nothing of it", !(await told6()).some((w) => w.includes("a file:") || w.includes('"press"')), (await told6()).filter((w) => w.includes("press")));
 
       // A picture: handed down as the file it is, with its own name, and hung by the world.
       choose = dot;
       const before = await world6().evaluate(() => window.__nswpTest.panels.list().length);
-      await press6("Hang a picture or video from this device");
-      const word = await until6(async () => (await told6()).find((w) => w.includes("a file:")), 10000);
+      await pressUntil6("Hang a picture or video from this device", () => choosers6.length >= 2);
+      const word = await until6(async () => (await told6()).find((w) => w.includes("a file:")), 30000);
       check("file/a picture goes down with the press, as the file it is and under its own name", word === JSON.stringify({ press: "panel-file", file: "[a file: menu-client-a-dot.png, 70 bytes, image/png]", nswp: "menu" }), word);
       check("file/the world hangs it", await until6(async () => (await world6().evaluate(() => window.__nswpTest.panels.list().length)) === before + 1, 15000), await world6().evaluate(() => window.__nswpTest.panels.list().length));
-      check("file/and says so, under its own name in the client's menu", await until6(async () => (await said6()).includes("The Gallery: Hung in front of you."), 8000), await said6());
+      check("file/and says so, under its own name in the client's menu", await until6(async () => (await said6()).includes("The Gallery: Hung in front of you."), 30000), await said6());
       check("file/the world opened no chooser of its own, either time", (await world6().evaluate(() => window.__choosers)) === 0 && choosers6.every((c) => c === "the client's page") && choosers6.length === 2, { world: await world6().evaluate(() => window.__choosers), choosers6 });
       await page6.screenshot({ path: join(SHOTS, "menu-client-11-file.png") });
 
@@ -1209,7 +1242,7 @@ VISITS.file = async () => {
       await page6.evaluate(() => { window.__said.length = 0; window.__client.menu.setOpen(true, "camera"); });
       const camera = await until6(() => page6.evaluate(() => window.__client.below.port.view().sections.find((s) => s.id === "camera")?.items.filter((x) => x.kind === "save").map((x) => x.id)), 15000);
       check("save/the world's camera rows are rows that save, in the client's menu", JSON.stringify(camera) === '["world:camera-picture","world:camera-selfie","world:camera-clip"]', camera);
-      await press6("Take a picture");
+      await pressUntil6("Take a picture", async () => (await toldOf("camera-picture")) >= 1);
       check("save/the picture is saved, under a name of the client's own making", (await until6(() => saved6.length === 1, 20000)) && /^the-gallery-\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d\.jpg$/.test(saved6[0]), saved6);
       const saves = { client: await page6.evaluate(() => window.__saves), world: await world6().evaluate(() => window.__saves) };
       check("save/by the client's page: the world's own page saved nothing", saves.client.length === 1 && saves.world.length === 0 && saves.client[0] === saved6[0], saves);
@@ -1225,8 +1258,7 @@ VISITS.file = async () => {
       const SLOW = 12000;
       await world6().evaluate((ms) => { window.__slowMs = ms; }, SLOW);
       await page6.evaluate(() => { window.__said.length = 0; window.__making.length = 0; });
-      await press6("Take a picture");
-      const pressedAt = Date.now();
+      const pressedAt = (await pressUntil6("Take a picture", async () => (await toldOf("camera-picture")) >= 2)) || Date.now();
       const MAKING = "The Gallery is making it. It will be saved when it is ready.";
       // Told well within the ten seconds. How soon the word itself goes is timed further down, against the
       // drawing and not against a clock: a busy machine is slow at everything, and that isn't the kit's.
@@ -1258,18 +1290,33 @@ VISITS.file = async () => {
       // slow device, nothing for seconds after the press. Here the drawing is made to take three seconds, and the
       // word is timed against the drawing's end by the clock the two pages share.
       await until6(async () => saved6.length === 2 && (await said6()).length > 0, 5000);
-      await page6.waitForTimeout(4500);
-      await world6().evaluate(() => { window.__slowDrawMs = 3000; window.__drewAt = 0; });
-      await page6.evaluate(() => { window.__said.length = 0; window.__making.length = 0; window.__makingAt = 0; });
-      await press6("Take a picture");
-      const pressed2 = Date.now();
-      await until6(() => saved6.length === 3, 30000);
-      const order = { making: (await page6.evaluate(() => window.__makingAt)) - pressed2, drawn: (await world6().evaluate(() => window.__drewAt)) - pressed2 };
-      results["making/after the press, in ms: when the word reached the client, and when the drawing was done"] = order;
-      check("making/the word reaches the client before the picture is drawn, not after", order.making > -1000 && order.drawn > 2500 && order.making < order.drawn - 2000, order);
-      check("making/and the visitor is told while it is still being drawn, a moment after the press", (await said6()).includes(MAKING), await said6());
+      // Each mark is nothing until it is made: a mark never made says so, and is never a number that reads as a time.
+      await world6().evaluate(() => { window.__slowDrawMs = 3000; window.__drewAt = null; });
+      await page6.evaluate(() => { window.__said.length = 0; window.__making.length = 0; window.__makingAt = null; });
+      const pressed2 = await pressUntil6("Take a picture", async () => (await toldOf("camera-picture")) >= 3);
+      const pressedForIt = pressed2 > 0;
+      // The press is a check of its own, by name: one that was never made, or that the world never heard of, is
+      // that, and not a word that came late.
+      check('making/the press on "Take a picture" was made and reached the world, for the drawing made to take longer', pressedForIt, { told: await toldOf("camera-picture") });
+      const ORDER = "making/the word reaches the client before the picture is drawn, not after";
+      const TOLD = "making/and the visitor is told while it is still being drawn, a moment after the press";
+      if (!pressedForIt) {
+        results[ORDER] = 'not looked at: the press on "Take a picture" was never made';
+        results[TOLD] = 'not looked at: the press on "Take a picture" was never made';
+      } else {
+        await until6(() => saved6.length === 3, 30000);
+        const marks = { making: await page6.evaluate(() => window.__makingAt), drawn: await world6().evaluate(() => window.__drewAt) };
+        const since = (at) => (typeof at === "number" ? at - pressed2 : "never marked");
+        const order = { making: since(marks.making), drawn: since(marks.drawn) };
+        results["making/after the press, in ms: when the word reached the client, and when the drawing was done"] = order;
+        check("making/the world's word was marked as it reached the client, and its drawing as it ended", typeof marks.making === "number" && typeof marks.drawn === "number", order);
+        check(ORDER, typeof order.making === "number" && typeof order.drawn === "number" && order.making > -1000 && order.drawn > 2500 && order.making < order.drawn - 2000, order);
+        check(TOLD, (await said6()).includes(MAKING), await said6());
+      }
       await world6().evaluate(() => { window.__slowDrawMs = 0; });
       results["file/refused, as everything but these sites is"] = [...refused6];
+      // Said, so that a press lost to the menu being drawn again is seen and not only survived.
+      results["file/presses that had to be made again, nothing having come of the first"] = again6;
     } catch (e) {
       check("file/the visit ran to its end", false, String(e).slice(0, 300));
     } finally {
