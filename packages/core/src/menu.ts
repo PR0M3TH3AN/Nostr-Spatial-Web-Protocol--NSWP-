@@ -561,12 +561,13 @@ export type MenuWordUp =
   | { what: "settings"; settings: TravelSettings }
   | { what: "picture"; id: string; picture: unknown }
   | { what: "save"; id: string; save: Blob; type: MenuSaveType }
-  | { what: "making"; id: string };
+  | { what: "making"; id: string }
+  | { what: "show"; show?: string };
 
 const isMenu = (data: unknown): data is Record<string, unknown> => isObject(data) && data.nswp === "menu";
 /** Only `settings` is said both ways. A word with anything of the other side's in it is not this side's to read. */
 const DOWN_ONLY = ["has", "v", "press", "field", "file", "open", "go", "sign", "playing", "covers"] as const;
-const UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"] as const;
+const UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making", "show"] as const;
 const hasAny = (data: Record<string, unknown>, names: readonly string[]): boolean => names.some((n) => data[n] !== undefined);
 
 /**
@@ -621,7 +622,7 @@ export function readMenuWordDown(data: unknown): MenuWordDown | null {
 
 /**
  * A word from the page in the frame, as a client reads it, or null if it is none of these words. One word says one
- * thing: the first of `world`, `key`, `say`, `settings`, `picture`, `save`, `making` that is there. A word with anything in
+ * thing: the first of `world`, `key`, `say`, `settings`, `picture`, `save`, `making`, `show` that is there. A word with anything in
  * it that only a client says is not read at all. Never throws.
  *
  * A `save` is read here for what it is (a picture or a clip, within the limit, for a row by id). Whether it is the
@@ -653,6 +654,14 @@ export function readMenuWordUp(data: unknown, opts: MenuReadOptions = {}): MenuW
   if (data.making !== undefined) {
     const row = id(data.making);
     return row ? { what: "making", id: row } : null;
+  }
+  // The world asks for the menu to come up on a tab: one of its own rows was pressed ("Change how you look"). It
+  // carries the tab's id and nothing else. A `show` that is no id is still the asking, with no tab named: the menu
+  // comes up where it last was. Whether the client has that tab, and whether it honours the asking at all, only the
+  // client knows. It is not the visitor's summons: it never puts a menu away.
+  if (data.show !== undefined) {
+    const tab = id(data.show);
+    return tab ? { what: "show", show: tab } : { what: "show" };
   }
   return null;
 }

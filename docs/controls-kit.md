@@ -442,7 +442,9 @@ if (presence.pressAt(raycaster)) return; // someone's picture: they are chosen, 
 
 `presence.personAt(raycaster)` says whose picture it is without pressing.
 `controls.signal("show:people")` brings the menu up on a section from
-anywhere. The visitor's switch is `people-pictures`; `showsPictures()` reads
+anywhere. (Where a client above your world has the menu, the same signal
+asks the client for that tab, as the word `show` in NSWP-02. The client
+brings its menu up there, and never puts it away for the asking.) The visitor's switch is `people-pictures`; `showsPictures()` reads
 it, and `loadPicture(address)` fetches one the safe way for anything you
 draw yourself.
 

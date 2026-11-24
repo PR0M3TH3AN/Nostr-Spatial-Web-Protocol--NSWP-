@@ -56,6 +56,7 @@ const ABOUT = {
   question: [17, "the one-time question on moving at a desk, asked once by the client and never by the world"],
   music: [20, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
   file: [24, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
+  show: [20, "the menu brought up on a tab at a world's asking: from the view, from a row pressed in the menu, never against the visitor"],
   covers: [13, "the view clear of the menu: the world told what of its view the client's bar, marks and sheet cover, at a desk's width and a phone's"],
 };
 const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -1415,6 +1416,74 @@ VISITS.covers = async () => {
   // And not much crossed at all: two widths, the sheet up and down at each.
   results["covers: how many times the world was told, in the whole visit"] = after;
   check("covers: the world was told a few times in all, and not at every frame", after >= 4 && after <= 16, after);
+  await ctx.close();
+};
+
+// ---- The menu on a tab, at a world's asking (`show`; docs/backlog/menu-opens-on-a-tab.md). A world's row that
+// opened its own menu on a tab asks its client for the same, by the tab's id. It is not the visitor's summons: it
+// never puts the menu away, it moves a menu that is up only in answer to a press of the world's own row, and the
+// visitor's closing wins over it.
+VISITS.show = async () => {
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+  await serve(ctx);
+  const page = await ctx.newPage();
+  const until = async (ask, ms = 15000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const got = await Promise.resolve().then(ask).catch(() => null);
+      if (got || Date.now() > end) return got;
+      await page.waitForTimeout(100);
+    }
+  };
+  await page.goto(`${CLIENT}/?home=${encodeURIComponent(`${CLIENT}/home.html`)}`, { timeout: 60000 });
+  const world = () => page.frames().find((f) => f.url().startsWith(WORLD));
+  const hud = page.locator("nswp-hud");
+  await until(() => world()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+  await until(() => page.evaluate(() => window.__client.below.world?.sections.length > 0));
+  /** The client's menu as it is: whether its sheet is up, and the tab it is on. */
+  const menu = () => page.evaluate(() => { const root = document.querySelector("nswp-hud").shadowRoot; const sheet = root.querySelector("section.sheet"); const on = sheet.querySelector('[role="tab"][aria-selected="true"]'); return { up: window.__client.menu.open && !sheet.hidden, tab: (on?.textContent ?? "").trim() }; });
+  // The sheet's own strip of tabs, and no other (the chat's pane has tabs of its own): by the tab's words, whole.
+  const tabOf = async (name) => (await menu()).tab.toLowerCase() === name;
+  // A row of the world's own, in Room, that asks for the menu on Sound: as "Change how you look" asks for Your look.
+  await world().evaluate(() => { const c = window.__nswpTest.controls; c.add({ id: "trial-to-sound", section: "room", label: "Take me to Sound", act: () => c.signal("show:sound") }); });
+  const sayShow = (tab) => world().evaluate((tab) => window.__nswpTest.hud.setOpen(true, tab), tab);
+
+  check("show: the menu is down, and there is one, the client's", (await menu()).up === false && (await world().evaluate(() => document.querySelectorAll("nswp-hud").length)) === 0, await menu());
+  // 1. From the world's view, with the menu down: it comes up on the tab named.
+  await sayShow("sound");
+  check("show: asked for from the world with the menu down, the client's menu comes up on that tab", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("sound")) ? m : null; }, 5000)), await menu());
+  check("show: and the world is told the menu is up, as at a summons", !!(await until(() => world().evaluate(() => window.__nswpTest.hud.open === true), 3000)));
+  // 2. With the menu up and nothing pressed, a world can't move the visitor about: they go to Room, and it asks for Sound.
+  await page.evaluate(() => window.__client.menu.setOpen(true, "room"));
+  await page.waitForTimeout(1500);
+  check("show: the visitor goes to Room themselves", await tabOf("room"), await menu());
+  for (let i = 0; i < 5; i++) { await sayShow("sound"); await page.waitForTimeout(150); }
+  await page.waitForTimeout(500);
+  check("show: with the menu up and nothing pressed, the world asking five times moves nothing: still Room", (await menu()).up && (await tabOf("room")), await menu());
+  // 3. In answer to a press of the world's own row in the client's menu, it goes to the tab. A real mouse.
+  const row = hud.getByRole("button", { name: /Take me to Sound/ }).first();
+  const pressedAt = await pressWhenOnTop(page, row);
+  check("show: the world's own row is in the client's menu, and is pressed with the mouse", !!pressedAt, null);
+  check("show: at that press the menu goes to the tab the world's row asks for, and stays up", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("sound")) ? m : null; }, 5000)), await menu());
+  // 4. It never puts the menu away: asked for the tab it is on, and for no tab, and for one nobody has.
+  for (const tab of ["sound", "no-such-tab"]) { await sayShow(tab); await page.waitForTimeout(200); }
+  check("show: asking again, and for a tab nobody has, never puts the menu away", (await menu()).up, await menu());
+  // 5. The visitor's closing wins. They put it away; the world asks at once and is not heard; after the rest it is.
+  await page.evaluate(() => window.__client.menu.setOpen(false));
+  await until(async () => !(await menu()).up, 3000);
+  const closedAt = Date.now();
+  for (let i = 0; i < 6; i++) { await sayShow("sound"); await page.waitForTimeout(200); }
+  const stayedDown = !(await menu()).up;
+  check("show: for a while after the visitor puts the menu away, a world asking six times does not bring it back", stayedDown && Date.now() - closedAt < 1900, { up: (await menu()).up, after: Date.now() - closedAt });
+  await page.waitForTimeout(Math.max(0, 2300 - (Date.now() - closedAt)));
+  await sayShow("room");
+  check("show: after two seconds it is heard again, and the menu comes up on the tab named", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("room")) ? m : null; }, 4000)), await menu());
+  // 6. A tab the client hasn't: the menu comes up where it last was.
+  await page.evaluate(() => window.__client.menu.setOpen(false));
+  await until(async () => !(await menu()).up, 3000);
+  await page.waitForTimeout(4500);
+  await sayShow("no-such-tab");
+  check("show: a tab the client doesn't have brings the menu up where it last was", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("room")) ? m : null; }, 4000)), await menu());
   await ctx.close();
 };
 
