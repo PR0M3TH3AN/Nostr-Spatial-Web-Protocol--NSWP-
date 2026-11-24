@@ -507,8 +507,13 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       // menu drawn again is every row made anew: for a world speaking several times a second that was the whole menu
       // replaced each time, whatever it said (found by BitPortal, 2026-11-24, whose trial measured a row and found
       // an identical one in its place a step later). The kit's own world never repeats itself; any other may.
-      const text = JSON.stringify(word.world);
-      if (world && text === worldText) return;
+      // A description with a picture inside it (a row's or a card's: the protocol lets them carry a small one) is
+      // always taken as changed: a picture that crossed between pages is never the same object twice and reads as
+      // `{}` as text, so there is nothing to compare. Such a world is drawn again each time it speaks, as before.
+      // The kit's own world never puts one inside: it sends each picture alone, by id.
+      const pictured = word.world.sections.some((s) => s.card?.picture !== undefined || s.rows.some((r) => r.picture !== undefined));
+      const text = pictured ? "" : JSON.stringify(word.world);
+      if (world && text && text === worldText) return;
       worldText = text;
       world = word.world;
       // A picture lasts as long as the thing it is of: gone with a row or a card the world no longer describes.

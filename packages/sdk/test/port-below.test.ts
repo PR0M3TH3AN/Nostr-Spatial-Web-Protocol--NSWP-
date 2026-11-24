@@ -350,6 +350,20 @@ describe("a world's pictures", () => {
   const A = { bitmap: "a" };
   const B = { bitmap: "b" };
 
+  it("inside a description said again with the same words are drawn each time: a picture is never taken as the same", () => {
+    // Two pictures that read the same as text, as two bitmaps do (`{}`): the second must still be drawn.
+    const pic = (n: string) => Object.defineProperty({}, "which", { value: n, enumerable: false });
+    const P1 = pic("one");
+    const P2 = pic("two");
+    expect(JSON.stringify(P1)).toBe(JSON.stringify(P2));
+    const c = up();
+    const said = (p: object) => ({ nswp: "menu", world: { title: "The Gallery", sections: [{ id: "people", rows: [{ id: "print", label: "A print", kind: "tile", picture: p }] }] } });
+    c.from(said(P1));
+    expect(c.drawn().rows["world:print"]).toBe(P1);
+    c.from(said(P2));
+    expect(c.drawn().rows["world:print"]).toBe(P2);
+  });
+
   it("come each alone, for a row by its id and a card by its tab, and are what the menu draws", () => {
     const c = up();
     c.from(c.world(["print"]));

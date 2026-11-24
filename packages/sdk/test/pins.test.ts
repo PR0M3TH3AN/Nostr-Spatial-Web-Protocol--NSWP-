@@ -115,3 +115,15 @@ describe("a tab whose id a client's menu won't take", () => {
     }
   });
 });
+
+describe("the kit's own question tabs", () => {
+  it("are kept inside the kit: in none of the package's entries", async () => {
+    const pkg = (await import("../package.json", { with: { type: "json" } })).default as { exports: Record<string, string | { import?: string; default?: string }> };
+    const entries = Object.values(pkg.exports).map((e) => (typeof e === "string" ? e : (e.import ?? e.default ?? "")));
+    expect(entries.length).toBeGreaterThan(5);
+    for (const entry of entries) {
+      const mod = (await import(`../${entry.replace(/^\.\//, "")}`)) as Record<string, unknown>;
+      expect(Object.keys(mod), entry).not.toContain("KIT_QUESTION_TABS");
+    }
+  });
+});
