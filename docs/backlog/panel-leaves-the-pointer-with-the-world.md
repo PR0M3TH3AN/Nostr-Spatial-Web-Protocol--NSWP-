@@ -1,0 +1,49 @@
+# BitLogin's panel comes up over a world that still holds the pointer
+
+- **Asked:** 2026-11-24, by the owner, of what is live: "im noticing the
+  bitlogin panels force me to hit escape again to use. The game just playes
+  behind them when im trying to use the menus. But when i hit escape the
+  game exits full screen."
+- **Who:** the NSWP builder (the kit: the mend). BitPortal (making it
+  happen in the real shell with BitLogin's real panel, and a check in its
+  own trial).
+- **State:** a live fault, so it goes first. Read from the kit's code by
+  the builder, not yet made to happen on demand: a world never lets the
+  pointer go when it asks for the sign-in panel. The mend is being built
+  and goes into the next kit version.
+
+## What happens
+
+Looking with the mouse, in full screen, the world holds the pointer. A
+panel of BitLogin's comes up over the world (to sign in, the wallet, a
+question to sign) and the world goes on holding the pointer and reading
+the keys. Nothing in the panel can be pressed until Escape, and the
+browser's own Escape also ends full screen, which no page can prevent.
+
+## Why (read, not run)
+
+The kit lets the pointer go in one place (`fps.ts`), on four things: the
+visitor's Escape; the menu coming up, the kit's own or the client's
+`open: true`; mouse-look being turned off; a headset session. Asking for
+the sign-in address's page (`signer.unlock()`) is none of them, and the
+words between a world and its client have nothing for "a panel of the
+client's is up over you".
+
+## Wanted
+
+- Escape is never needed. As a world asks for a page of the sign-in
+  address to be shown over it, it lets the pointer go, which does not end
+  full screen, and the press that asked does not take it straight back.
+- With the panel away, the next press in the world takes the pointer
+  back, as after the menu.
+- A panel the client brings up by itself, with no sheet up: if that can
+  happen, the client says so to the world, by `open` if that can carry it
+  or by a word given for it (rule 11).
+- A trial with real presses that fails today: the panel up, no Escape
+  pressed, a press at the panel's place lands in the panel, the visitor
+  has not moved or turned, full screen still on.
+
+## Must not
+
+- End full screen.
+- Leave a world reading keys while a panel has the visitor's attention.
