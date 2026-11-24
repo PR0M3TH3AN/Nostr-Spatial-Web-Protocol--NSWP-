@@ -491,6 +491,68 @@ are of 110, 97 and 89 asked.
   67%). It would be in which target it picks; picks were counted but not
   written out by target.
 
+## A house of people with needs: built, and its free baseline run (D63, 2026-11-24)
+
+Built on the owner's word in the playground's session ("Start the house").
+Rules only so far: JEV has not been run in it and nothing was spent.
+
+Four people, five needs each out of 100, eight things that say what they
+offer, one person to a thing, talking that takes two. The house's own
+minutes, nothing drawn, nothing in real time. The people are cast members:
+no keys, nothing published. "Sensible" was fixed in numbers before any
+run: no need reaches nothing; nothing takes over 40% of anyone's time; any
+two people's days differ by at least a tenth.
+
+**One day by plain rules:** 180 decisions (45 a person). No need reached
+nothing. The most one thing took of anyone's time was 37% (sleep). The
+least two days differed was 7%, which fails the third test. So rules keep
+everyone well and make everyone alike. That is the place a decider has to
+earn here: hold the first two tests and win the third, from what the
+sheets say. Asked every quarter of an hour, the very same days took 410
+decisions against 180 when asked only as something moves a person.
+
+- **A thing needs three more fields than the declared room has** (shown:
+  D63): what a function gives back, what it costs, and how long it takes.
+  With those, plain code keeps four people well with no word lists.
+  Amounts and durations were already the format's known gaps. *For a world
+  and an item:* these are what a thing has to say for anything that lives
+  among things.
+- **"Who can use it at once" is the other missing field** (shown: D63). One
+  person to a thing is what makes a choice go stale, and it had to be a
+  rule of the simulation because a thing can't say it.
+- **A world can say how long a choice stays good, as one number** (shown:
+  D63): here 300 seconds of the house's time. A runner counts answers later
+  than that, and answers that find their choice gone, for rules and a
+  decider alike. One field and one comparison. The rules' day had no late
+  answer and five that found their choice gone.
+- **Fix "sensible" in numbers before a run** (shown: D63). Doing it first
+  showed the rules' real weakness, which was not the one expected.
+- **The record and the memories are separate by construction** (shown:
+  D63): the simulation writes the record, a rule reads it to write each
+  person's memories, and nothing writes back. A cast member's sheet then
+  needs no storage beyond the game's.
+- **One sheet in six parts** (built: D63): who, wants, whom they know, what
+  they know, what they remember, what they can do. Depth is a setting from
+  a name and what they can do, to all six. *For the protocol* (reasoned):
+  the same six would serve a lasting agent unchanged. What differs is who
+  holds it (the host, or the agent's own key), how long "remembers" lasts
+  (one game, or months), and who may write "wants" (the game's maker, or
+  the agent's owner).
+- **What a lasting agent would need of BitLogin** (reasoned, described and
+  not designed): a key it can sign with when its owner is not there,
+  limited to its own notes, that its owner can read and take back.
+- **Depth is paid at every decision** (worked out, nothing sent): about 800
+  tokens a decision with a thin sheet and about 1,040 with a deep one, a
+  third more; about 43,000 tokens a day more for four people. A day with
+  JEV: about $0.006 thin, $0.008 deep, $0.011 with needs as scores too,
+  $0.018 asked every quarter of an hour. What depth buys is the third test,
+  if anything: to be measured.
+- **Which memories are shown is a setting, and it matters** (shown by a
+  test: D63): with only the five newest shown, a want told once at the
+  start is pushed out within ten hours. Pinned, it stays.
+- **Not done:** JEV in the house; a person playing one of the people;
+  anything the mystery needs.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
