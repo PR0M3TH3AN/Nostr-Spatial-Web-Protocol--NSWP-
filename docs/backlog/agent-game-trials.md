@@ -122,7 +122,9 @@ sound declared by the place and enforced. Then, the same day: seekers
 with models built and not run (D73); cupboards, and a larger room, which
 make the game tell seekers apart (D74); and sight and hearing moved onto
 the agent, with the place holding the cap and doing the working out
-(D75). No seeker with a model has run. The lessons are in
+(D75). Then the first paid run (D76, on his "Yes, run it": $0.151): the
+seekers with models did worse than the rules, each for a reason that can
+be named and mended. The lessons are in
 `docs/plans/agents-lessons.md`.
 
 ## Must not
