@@ -82,22 +82,47 @@ try {
     await page.evaluate((pads) => { window.nswpPretendHands = JSON.stringify(pads); }, [{ index: 0, hand: "left", ...rest, from, towards: [0, 1, 0] }, { index: 1, hand: "right", ...rest, from, towards, ...right }]);
   };
   const settle = (ms = 400) => page.waitForTimeout(ms);
+  /**
+   * The menu button on the right hand: held down until the world is seen to have taken it, then let go. The visitor
+   * reads its hands as the world is stepped, so a button held for a fixed time is seen only if a step falls within
+   * it, and on a page drawing a few frames a second it may never be. What shows it was taken is the console coming
+   * up or going away, which the example says for itself.
+   */
+  const menuButton = async () => {
+    const was = (await con()).open;
+    await hands({ secondary: true });
+    const taken = await until(async () => (await con()).open !== was, 20000);
+    await hands();
+    if (!taken) throw new Error("the menu button was held for 20 s and the console never came or went: the world never saw it");
+    await settle(200);
+  };
   /** The rows the kit lists, asked of the kit in the page: the one list. */
   const rows = () => page.evaluate(() => JSON.parse(window.NSWP.console("{}")).rows ?? []);
   /** Where a place on the console is in the world, from where the panel is and how it lies. */
   const placeOf = (c, x, y) => c.at.map((v, i) => v + c.right[i] * ((x / 1024 - 0.5) * c.size[0]) + c.up[i] * ((0.5 - y / 640) * c.size[1]));
   const middle = (c, row) => placeOf(c, row.x + row.w / 2, row.y + row.h / 2);
   const point = async (place, right = {}) => { aimAt = place; await hands(right); };
-  const pressAt = async (place) => { await point(place); await settle(250); await point(place, { trigger: 1 }); await settle(250); await point(place); };
+  // A trigger on a place on the console: pointed at until the world is seen pointing there, pulled until the world
+  // is seen to have taken it, then let go. What shows a press was taken is the console's picture changing, or the
+  // console going away: every press here does one or the other. Never for a fixed time.
+  const pressAt = async (place) => {
+    await point(place);
+    const pointed = await until(async () => (await con()).aimed !== "", 10000);
+    if (!pointed) throw new Error("the hand was pointed at a row for 10 s and the world never said it was pointed there");
+    const was = await con();
+    await point(place, { trigger: 1 });
+    const taken = await until(async () => { const now = await con(); return now.open !== was.open || now.stamp !== was.stamp; }, 20000);
+    await point(place);
+    if (!taken) throw new Error("the trigger was held for 20 s on a row and the console never changed: the world never saw it");
+    await settle(200);
+  };
 
   await hands();
   await settle();
   check("with nothing pressed there is no console", (await con())?.open === false && (await con())?.shown === false, await con());
 
   // ---- The menu button brings it up, in front of them.
-  await hands({ secondary: true });
-  await settle(200);
-  await hands();
+  await menuButton();
   const open = await until(async () => { const c = await con(); return c?.open && c.shown && c.stamp > 0 ? c : null; }, 8000);
   check("the menu button on a hand brings the console up, with its picture on it", !!open, await con());
   const s0 = await said();
@@ -179,13 +204,9 @@ try {
   await pressAt(middle(c, (await rows()).find((r) => r.id === "close")));
   check("a trigger on Close puts it away", await until(async () => { const now = await con(); return now.open === false && now.shown === false; }, 6000), await con());
   aimAt = null;
-  await hands({ secondary: true });
-  await settle(200);
-  await hands();
+  await menuButton();
   check("the menu button brings it up again", await until(async () => (await con()).open === true, 6000), await con());
-  await hands({ secondary: true });
-  await settle(200);
-  await hands();
+  await menuButton();
   check("and puts it away", await until(async () => (await con()).open === false, 6000), await con());
   // ---- The owner's way to the real number, on the device itself: the example opened with a mark in its address
   // measures the console's own picture, twenty times, and says it; and again whenever the menu is opened.
