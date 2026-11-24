@@ -53,6 +53,35 @@ Each runs with nothing drawn where it can, as the orders test did, and each
 report ends with what it means for a world, an item, the kit or the
 protocol.
 
+## Sharpened before building (the `nswp-agents` session, agreed by the orchestrator, 2026-11-24)
+
+- **The house: "sensible" is fixed in numbers first,** so it is not judged
+  by eye: no need reaches empty; no one action takes more than about 40% of
+  anyone's day; people's days differ by a stated amount. The needs are
+  asked as scores and the choice of thing as a second question in the same
+  request, which is another reading of the tree: both levels at once.
+- **The mystery is two trials, the cheap one first.** What each person saw,
+  kept as a record of what was in their sight, is plain code and is checked
+  against what happened with no model at all. Whether a chat model keeps a
+  story straight over a game is the separate, costly question. The looking
+  experiment that had no place (can a view stand in for what a world has
+  not declared) goes here: a witness knows what the view showed and no
+  more.
+- **The settlement: JEV chooses the goal, code finds the steps.** If code
+  looks ahead and JEV only presses go, the trial tests the planner. The
+  comparison is JEV choosing goals against the rule that takes the nearest
+  gain, both with the same looking ahead. It can't be written without
+  amounts, and probably not without two conditions at once, which are the
+  format's largest gaps.
+- **Memory is measured in the house and the mystery** (the owner,
+  2026-11-24: "Have we proven our Nostr memory system works?"): whether a
+  reason given at the start still shapes choices much later, which memories
+  are shown when more exist than fit, memories a person writes for itself
+  by rule (in the tab, never published), and whether a witness recalls
+  rightly. No relay is needed for any of it.
+- **Each trial is at least two runs,** with the cost of both said when the
+  owner is asked: the tree test's answer changed on its third.
+
 ## Must not
 
 - Spend on the owner's accounts without his word in that session, with the
