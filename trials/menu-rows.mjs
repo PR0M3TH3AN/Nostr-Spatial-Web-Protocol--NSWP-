@@ -523,6 +523,67 @@ try {
     await page.waitForTimeout(300);
   }
 
+  // ---- A tab asked for before the menu has it (the orchestrator, 2026-11-24). A world may ask for the menu on a
+  // tab of its own a moment before that tab is there. The asking used to be forgotten: the menu came up on its
+  // first tab and stayed there when the tab came. It is kept for two seconds: the menu comes up where it last was
+  // and goes to the tab when it arrives, unless the visitor has chosen a tab meanwhile or put the menu away.
+  {
+    const tabUp = () => page.evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector('section.sheet [role="tab"][aria-selected="true"]')?.textContent.trim() ?? null);
+    const isUp = () => page.evaluate(() => window.__nswpTest.hud.open === true);
+    const ask = (id) => page.evaluate((id) => window.__nswpTest.hud.setOpen(true, id), id);
+    const addTab = (id, label) => page.evaluate(([id, label]) => { const c = window.__nswpTest.controls; c.addSection({ id, label, icon: "save" }); c.add({ id: `${id}-row`, section: id, label: `A row of ${label}`, act: () => {} }); }, [id, label]);
+    const waitFor = (label, ms) => page.waitForFunction((label) => document.querySelector("nswp-hud").shadowRoot.querySelector('section.sheet [role="tab"][aria-selected="true"]')?.textContent.trim() === label, label, { timeout: ms }).then(() => true, () => false);
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "sound"));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await page.waitForTimeout(400);
+    // 1. Asked for, and it comes a third of a second later.
+    await ask("trial-early");
+    await page.waitForTimeout(150);
+    const meanwhile = { up: await isUp(), tab: await tabUp() };
+    check("a tab asked for early: the menu comes up at once, where it last was", meanwhile.up && meanwhile.tab === "Sound", meanwhile);
+    await page.waitForTimeout(180);
+    await addTab("trial-early", "Early");
+    check("a tab asked for early: when the tab arrives a third of a second later, the menu goes to it", await waitFor("Early", 2500), await tabUp());
+    // 2. It comes too late: after two and a half seconds the asking is no longer kept.
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "sound"));
+    await page.waitForTimeout(200);
+    await ask("trial-late");
+    await page.waitForTimeout(2600);
+    await addTab("trial-late", "Late");
+    await page.waitForTimeout(700);
+    check("a tab asked for early: one that arrives after two seconds and a half doesn't move the menu", (await tabUp()) === "Sound" && (await isUp()), await tabUp());
+    // 3. The visitor chooses a tab meanwhile, with the mouse: theirs stands.
+    await ask("trial-chosen");
+    await page.waitForTimeout(200);
+    {
+      const room = hud.getByRole("tab", { name: "Room", exact: true }).first();
+      await room.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
+      await page.waitForTimeout(250);
+      const at = await room.boundingBox();
+      await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    }
+    await page.waitForTimeout(250);
+    await addTab("trial-chosen", "Chosen");
+    await page.waitForTimeout(800);
+    check("a tab asked for early: a tab the visitor chose meanwhile stands, and the one asked for doesn't take it", (await tabUp()) === "Room", await tabUp());
+    // 4. The visitor puts the menu away meanwhile: it stays away.
+    await ask("trial-away");
+    await page.waitForTimeout(200);
+    await page.keyboard.press("m");
+    await page.waitForFunction(() => window.__nswpTest.hud.open === false, null, { timeout: 3000 }).catch(() => undefined);
+    await addTab("trial-away", "Away");
+    await page.waitForTimeout(900);
+    check("a tab asked for early: with the menu put away meanwhile, the tab's coming doesn't bring it back", (await isUp()) === false, await isUp());
+    await page.keyboard.press("m");
+    await page.waitForFunction(() => window.__nswpTest.hud.open === true, null, { timeout: 3000 }).catch(() => undefined);
+    await page.waitForTimeout(400);
+    check("a tab asked for early: and brought up again by the visitor, the menu is where they left it, not there", (await tabUp()) === "Room", await tabUp());
+    // Taken away again, for what comes after.
+    await page.evaluate(() => { const c = window.__nswpTest.controls; for (const id of ["trial-early", "trial-late", "trial-chosen", "trial-away"]) { c.remove?.(`${id}-row`); c.removeSection?.(id); } window.__nswpTest.hud.setOpen(false); });
+    await page.waitForTimeout(400);
+  }
+
   // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
   // coming up on the same thing; drawing the menu again makes every row anew; so a drawing between the two took the
   // row from under the mouse, and the press was never delivered. It happened whenever anything the menu shows

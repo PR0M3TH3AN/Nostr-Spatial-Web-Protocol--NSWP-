@@ -35,7 +35,9 @@ nothing for it.
   fails better than one it obeys wrongly. The only client today vendors
   the kit, and the word is part of version 1 before any other exists. So
   the version of the words stays 1.
-- A tab the client doesn't have is the same as no tab named.
+- A tab the client doesn't have is the same as no tab named. **Added to,
+  2026-11-24 (the orchestrator): one it doesn't have yet is waited for a
+  short while.** See "A tab asked for early" below.
 
 ## As built
 
@@ -50,6 +52,22 @@ nothing for it.
   five minutes, each one put away at once, brings the menu up nine times.
 - A world says it by what it already does: `controls.signal("show:<tab>")`,
   or the kept menu's `setOpen(true, "<tab>")`. No new name in the kit.
+- **A tab asked for early** (found by `trials/menu-client.mjs`, whose
+  `file` visit raced it; decided by the orchestrator, 2026-11-24). A world
+  may ask for a tab of its own a moment before its client has heard of
+  that tab: the asking and the description travel as two words, and the
+  description is said no oftener than eight times a second. The asking
+  used to be forgotten, so the menu came up elsewhere and stayed there
+  when the tab arrived. Now the menu keeps the asking for two seconds
+  (`MENU_SHOW_KEEP_MS`): it comes up at once where it last was, and goes
+  to the tab when it arrives, unless the visitor has chosen a tab meanwhile
+  or put the menu away. Two seconds because a description is said within
+  an eighth of a second of a change and a slow device takes a few times
+  that, so there is room to spare; and it is short enough that a tab
+  arriving later doesn't move a visitor who has settled. The same holds
+  for a world drawing its own menu and calling `setOpen(true, "<tab>")`
+  before it has added the tab. **Not done:** the menu in a headset
+  (`console.ts`), which has no asking for a tab by name.
 - Nothing new is handed to a world made with another engine. Whether such
   a world has a way to make the asking today was not looked at.
 

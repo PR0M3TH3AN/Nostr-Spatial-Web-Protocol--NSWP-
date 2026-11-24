@@ -6973,6 +6973,7 @@ ${roomName}`)));
     covers: 8192
   };
   var MENU_WAIT_MS = 300;
+  var MENU_SHOW_KEEP_MS = 2e3;
   var LEAVE_MS = 1e3;
   var MENU_SAVE_MS = 1e4;
   var MENU_MAKING_MS = 6e4;
@@ -55319,6 +55320,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         else target2.textContent = view2.target;
       }
       drawChat(view2);
+      if (wanted) {
+        if (!open3 || performance.now() > wanted.until) wanted = null;
+        else if (view2.sections.some((s) => s.id === wanted.id)) {
+          section = wanted.id;
+          chose = true;
+          wanted = null;
+        }
+      }
       if (!view2.sections.some((s) => s.id === section)) section = view2.sections[0]?.id ?? "";
       const inSight = open3 ? view2.sections.find((s) => s.id === section) : void 0;
       const pictured = inSight ? [inSight.card?.face ? markOf2(inSight.card.face) : 0, ...inSight.items.map((i) => i.picture ? markOf2(i.picture()) : 0)] : [];
@@ -55379,6 +55388,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         ...view2.sections.map((s) => {
           const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
           b.addEventListener("click", () => {
+            wanted = null;
             section = s.id;
             chose = true;
             draw();
@@ -55510,12 +55520,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       return !!at && at !== document.body && at !== document.documentElement && at !== host && at.getRootNode() !== root;
     };
     let cameFrom = null;
+    let wanted = null;
     const setOpen2 = (next, at) => {
       if (chatOnly) return;
+      if (!next) wanted = null;
       if (next && at) {
-        section = at;
-        chose = true;
-        if (open3) return void draw();
+        if (controls2.view().sections.some((s) => s.id === at)) {
+          wanted = null;
+          section = at;
+          chose = true;
+          if (open3) return void draw();
+        } else {
+          wanted = { id: at, until: performance.now() + MENU_SHOW_KEEP_MS };
+          if (open3) return;
+        }
       }
       if (open3 === next) return;
       if (next) {
@@ -55626,6 +55644,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       e.preventDefault();
       e.stopImmediatePropagation();
       if (to === now) return;
+      wanted = null;
       section = ids[to];
       chose = true;
       draw();

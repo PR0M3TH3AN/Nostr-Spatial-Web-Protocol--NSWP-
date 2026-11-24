@@ -20,7 +20,7 @@
  * small mark in a corner) or hidden, so that it never competes with an
  * interface of the world's own (spec §21.3). See `Presence` in model.ts.
  */
-import { MENU_LIMITS, menuFileKind, type MenuFileKind } from "@nswp/core";
+import { MENU_LIMITS, MENU_SHOW_KEEP_MS, menuFileKind, type MenuFileKind } from "@nswp/core";
 import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
@@ -1534,6 +1534,15 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
 
     drawChat(view);
 
+    // The tab that was asked for a moment ago has come: gone to, once. Too late, or with the menu away, it is let go.
+    if (wanted) {
+      if (!open || performance.now() > wanted.until) wanted = null;
+      else if (view.sections.some((s) => s.id === wanted!.id)) {
+        section = wanted.id;
+        chose = true;
+        wanted = null;
+      }
+    }
     if (!view.sections.some((s) => s.id === section)) section = view.sections[0]?.id ?? "";
     // Rebuilding the buttons would drop the keyboard's place among them, so only do it when something they show has changed.
     // A picture is not text, so a new one is told from the old by which thing it is: where the menu is up, the
@@ -1609,6 +1618,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
         // One stop for the Tab key, on the tab that is up: left and right go along the rest (below).
         const b = el("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(s.id === section), tabindex: s.id === section ? "0" : "-1" }, icon(s.icon), s.label);
         b.addEventListener("click", () => {
+          // The visitor has chosen a tab: whatever was asked for and hasn't come is no longer waited for.
+          wanted = null;
           section = s.id;
           chose = true;
           draw();
@@ -1767,14 +1778,29 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   };
   /** What had the keys when the menu came up: they go back to it when the menu goes away. */
   let cameFrom: HTMLElement | null = null;
+  // A tab asked for that this menu doesn't have yet. A world may ask for a tab of its own a moment before whoever
+  // draws the menu has heard of it (a world's `show`, said before its description of the tab has arrived). The
+  // asking used to be forgotten: the menu came up on its first tab and stayed there when the tab came. It is kept
+  // for a short while (`MENU_SHOW_KEEP_MS`): the menu comes up where it last was, and goes to the tab when it
+  // arrives, unless the visitor has chosen a tab meanwhile or put the menu away.
+  let wanted: { id: string; until: number } | null = null;
   const setOpen = (next: boolean, at?: string) => {
     // With only the chat's pane there is no menu here to bring up: the client above has it.
     if (chatOnly) return;
+    // Put away: nothing asked for is kept past that.
+    if (!next) wanted = null;
     // Asked for by name: that section, whether the menu is up already or not.
     if (next && at) {
-      section = at;
-      chose = true;
-      if (open) return void draw();
+      if (controls.view().sections.some((s) => s.id === at)) {
+        wanted = null;
+        section = at;
+        chose = true;
+        if (open) return void draw();
+      } else {
+        // Not a tab this menu has, yet: where it last was, and kept for a moment in case it comes.
+        wanted = { id: at, until: performance.now() + MENU_SHOW_KEEP_MS };
+        if (open) return;
+      }
     }
     if (open === next) return;
     if (next) {
@@ -1912,6 +1938,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     e.preventDefault();
     e.stopImmediatePropagation();
     if (to === now) return;
+    wanted = null;
     section = ids[to]!;
     chose = true;
     draw();

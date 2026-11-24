@@ -108,12 +108,21 @@ describe("a client honours it, and is never held up by it", () => {
     expect(c.told).toEqual([[true, "figure"]]);
   });
 
-  it("a tab it doesn't have, or a show that is no id, brings the menu up where it last was", () => {
-    for (const tab of ["no-such-tab", "your look", true, undefined]) {
+  it("a show that is no id brings the menu up with no tab named: where it last was", () => {
+    for (const tab of ["your look", true, undefined]) {
       const c = client();
       c.show(tab);
       expect(c.told, String(tab)).toEqual([[true, undefined]]);
     }
+  });
+
+  it("a tab it doesn't have yet is handed on as it was asked for: the menu keeps the asking a short while", () => {
+    // A world may ask for a tab of its own before its description of that tab has arrived. The port doesn't drop
+    // the asking for that; the menu comes up where it last was and goes to the tab if it comes soon (hud.ts,
+    // `MENU_SHOW_KEEP_MS`; trials/menu-rows.mjs and the show visit of trials/menu-client.mjs hold that part).
+    const c = client();
+    c.show("no-such-tab");
+    expect(c.told).toEqual([[true, "no-such-tab"]]);
   });
 
   it("it never puts the menu away", () => {

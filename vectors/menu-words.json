@@ -24,7 +24,8 @@
     "MENU_WAIT_MS": 300,
     "LEAVE_MS": 1000,
     "MENU_SAVE_MS": 10000,
-    "MENU_MAKING_MS": 60000
+    "MENU_MAKING_MS": 60000,
+    "MENU_SHOW_KEEP_MS": 2000
   },
   "fileKinds": [
     "image",
