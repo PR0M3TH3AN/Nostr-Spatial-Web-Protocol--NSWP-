@@ -8,7 +8,7 @@
 // for a guest), and the site's name, served by this script. Nothing is fetched from anywhere else.
 //
 //   npm run build && node trials/menu-rows.mjs
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { ROOT as NSWP, SHOTS } from "./lib.mjs";
 const pw = await import(`${NSWP}/node_modules/playwright-core/index.mjs`);
@@ -19,6 +19,17 @@ const DIST = join(NSWP, "sites", "gallery", "dist");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".glb": "model/gltf-binary", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".woff2": "font/woff2", ".txt": "text/plain" };
 if (!existsSync(join(DIST, "index.html"))) throw new Error("Build the sites first: npm run build");
 mkdirSync(SHOTS, { recursive: true });
+
+// The longest line the kit can say for a moment, found from its code as this runs: every place it says something
+// with words written there. A name put into the words as they are said (a host's) is stood in for by a real one.
+const LONGEST = (() => {
+  const found = [];
+  const walk = (dir) => { for (const e of readdirSync(dir, { withFileTypes: true })) { const p = join(dir, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith(".ts")) for (const m of readFileSync(p, "utf8").matchAll(/(?:\.say|tell|_say)\((`[^`]*`|"[^"]*")/g)) found.push({ from: p.slice(NSWP.length + 1), words: m[1].slice(1, -1) }); } };
+  walk(join(NSWP, "packages", "sdk", "src"));
+  walk(join(NSWP, "sites", "shared"));
+  const said = found.map((f) => ({ from: f.from, words: f.words.replace(/\$\{[^}]*\}/g, "bitlogin.network") })).sort((a, b) => b.words.length - a.words.length);
+  return { ...said[0], of: said.length };
+})();
 
 const results = {};
 const fail = [];
@@ -118,6 +129,8 @@ try {
   // fixed time before a place is read: a line's own coming in, and the sheet's unfolding, are waited for to their
   // end (`settle`), with a limit that fails by name.
   const noLines = () => page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+  /** Put away whatever is said, as a press on it does: where waiting out each line's own time would only be slow. */
+  const putAway = () => page.evaluate(() => { for (const line of [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".say")]) line.click(); });
   /** Say these, wait for what is running to end, and read where everything in the sheet is. */
   const sayAndRead = (words, then) =>
     page.evaluate(async ([words, then]) => {
@@ -141,15 +154,29 @@ try {
       const shown = lines.filter(seen);
       // Everything in the sheet that can be pressed or typed in: rows, tabs, the foot's buttons, a box.
       const pressable = [...sheet.querySelectorAll('button, [role="tab"], input, textarea, a[href]')].filter((e) => seen(e) && !e.closest(".say"));
+      // What of a thing can be seen and pressed: a row scrolled out of the rows' own area is not there to press.
+      const area = box(sheet.querySelector(".rows"));
+      const part = (e) => { const b = box(e); if (!e.closest(".rows")) return b; const c = [Math.max(b[0], area[0]), Math.max(b[1], area[1]), Math.min(b[2], area[2]), Math.min(b[3], area[3])]; return c[2] > c[0] && c[3] > c[1] ? c : null; };
+      // And asked of the browser, at places all over each line: what is on top there, if it is not the line.
+      const under = [];
+      for (const l of shown) {
+        const b = l.getBoundingClientRect();
+        for (let ix = 1; ix < 8; ix++) for (let iy = 1; iy < 6; iy++) {
+          const top = root.elementFromPoint(b.left + (b.width * ix) / 8, b.top + (b.height * iy) / 6);
+          if (top && top !== l && !l.contains(top)) under.push(`${top.tagName} ${(top.textContent || "").trim().slice(0, 24)}`);
+        }
+      }
       const strip = sheet.querySelector(":scope > .says");
       return {
         settled,
         runningOnceMoved,
         open: t.hud.open,
         said: lines.length,
-        shown: shown.map((l) => ({ words: l.textContent, title: l.title, box: box(l), cut: l.scrollWidth > l.clientWidth, fits: Math.floor((l.textContent.length * l.clientWidth) / Math.max(l.clientWidth, l.scrollWidth)) })),
+        shown: shown.map((l) => ({ words: l.textContent, title: l.title, box: box(l), whole: l.scrollHeight <= l.clientHeight + 1 && l.scrollWidth <= l.clientWidth + 1, lines: Math.round((l.clientHeight - parseFloat(getComputedStyle(l).paddingTop) - parseFloat(getComputedStyle(l).paddingBottom)) / parseFloat(getComputedStyle(l).lineHeight)) })),
+        under: [...new Set(under)],
+        rowsArea: area,
         inStrip: shown.every((l) => !!l.closest("section.sheet > .says")),
-        over: shown.flatMap((l) => pressable.filter((p) => meet(box(l), box(p))).map((p) => (p.textContent || p.getAttribute("aria-label") || p.tagName).trim().slice(0, 30))),
+        over: shown.flatMap((l) => pressable.filter((p) => { const seenPart = part(p); return !!seenPart && meet(box(l), seenPart); }).map((p) => (p.textContent || p.getAttribute("aria-label") || p.tagName).trim().slice(0, 30))),
         sheet: sheet.hidden ? null : box(sheet),
         strip: strip ? box(strip) : null,
         rows: [...sheet.querySelectorAll(".rows button")].filter(seen).map(box),
@@ -183,27 +210,59 @@ try {
     const gone = await sayAndRead([]);
     check(`at ${at}, once the lines have gone, everything is still where it was`, placesOf(gone) === placesOf(blank), null);
 
-    // Long words: one line, cut short, with the whole of it in the line's title and in what a reader is given.
-    // What is said here is what the kit says today, word for word, from short to its longest.
-    const KITS = [
-      "Copied.",
-      "Picture saved to this device.",
-      "A picture from The Gallery was saved to this device.",
-      "Your bar is full. Take a tab off it to keep another on it.",
-      "Recording, picture only, for up to 30 seconds. Others in the room can see that you are.",
-      "This place has been updated since you opened it. Reload for the latest: it is on your bar, and under Help.",
-      "That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more.",
-      "Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private.",
+    // Long words are shown whole, on up to four lines. What a visitor most needs to read is often long: that others
+    // can see they are recording, that their whole screen may show, that pressing Buy again charges nothing. The
+    // strip grows for them and the sheet is kept its size, so the room comes from the bottom of the rows' own
+    // scrolling area: no row moves, nothing that can be pressed is under the words, and the last rows are out of
+    // sight while they show. What is said here is what the kit says, word for word; the last is the longest line
+    // the kit can say at all, found from its code as this runs.
+    const LONG = [
+      ["the recording notice", "Recording, picture only, for up to 30 seconds. Others in the room can see that you are."],
+      ["the notice that the way is still shut", "That didn't finish, and the way is still shut. If you did pay, press Buy again: it finds what you paid for and charges nothing more."],
+      ["the notice that a screen is shared", "Your screen is offered to this room. It is sent only to people who choose to watch. Share one window if anything else on your screen is private."],
+      [`the longest line the kit can say (${LONGEST.from})`, LONGEST.words],
     ];
-    const lengths = [];
-    for (const words of KITS) {
-      await noLines();
+    const measured = [];
+    for (const [name, words] of LONG) {
+      await putAway();
       const now = await sayAndRead([words]);
       const line = now.shown[0];
-      lengths.push({ letters: words.length, shows: line?.cut ? `about ${line.fits} letters, then an ellipsis` : "all of it", whole: line?.title === words && line?.words === words, over: now.over.length });
+      measured.push(`${words.length} letters, ${name}: ${line?.whole ? `whole, on ${line.lines} line${line.lines === 1 ? "" : "s"}` : "NOT whole"}`);
+      check(`at ${at}, ${name} is shown whole: every word of it, with no ellipsis`, now.shown.length === 1 && line.words === words && line.whole === true && line.lines <= 4, line);
+      check(`at ${at}, ${name}: nothing that can be pressed is under it, anywhere in its box`, now.under.length === 0 && now.over.length === 0, { under: now.under, over: now.over });
+      check(`at ${at}, ${name}: no row, tab or button has moved, and the sheet is the size it was`, placesOf(now) === placesOf(blank), { blank: [blank.sheet, blank.rows.at(-1)], now: [now.sheet, now.rows.at(-1)] });
+      if (width < 500 && name !== LONG[3][0]) await page.screenshot({ path: join(SHOTS, `menu-rows-long-${LONG.findIndex((l) => l[0] === name) + 1}-${width}.png`) });
     }
-    results[`at ${at}: how much of each line the kit says shows in the strip`] = lengths.map((l) => `${l.letters} letters: ${l.shows}`);
-    check(`at ${at}, a line too long for the strip is cut short on one line, with the whole of it in its title and to a reader`, lengths.every((l) => l.whole && l.over === 0) && lengths.at(-1).shows !== "all of it", lengths);
+    results[`at ${at}: the long lines, as shown`] = measured;
+    // A short line again, and nothing: the strip is back to one line high.
+    await putAway();
+    const short = await sayAndRead(["Copied."]);
+    check(`at ${at}, the strip is one line high again for a line that fits, and with nothing said`, short.strip[3] - short.strip[1] === blank.strip[3] - blank.strip[1] && short.shown[0]?.lines === 1, { short: short.strip, blank: blank.strip });
+    await putAway();
+
+    // A press where a row was a moment ago. With long words up, the last rows are out of sight: a press at a place
+    // that was a row's, and is now below the rows' own area, is not a press on that row.
+    {
+      const before = await sayAndRead([]);
+      const tall = await sayAndRead([LONG[2][1]]);
+      const lineBox = tall.shown[0].box;
+      const lost = before.rows.map((r, i) => ({ i, x: (r[0] + r[2]) / 2, y: r[3] - 4 })).filter((p) => p.y > tall.rowsArea[3] + 2).at(-1) ?? null;
+      results[`at ${at}: a place that was a row's and is now out of sight`] = lost ? { row: lost.i, at: [Math.round(lost.x), Math.round(lost.y)], rowsNowEndAt: tall.rowsArea[3], line: lineBox } : "none: the rows had room to spare, and none went out of sight";
+      if (lost) {
+        await page.evaluate((i) => { const row = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll("section.sheet .rows button")].filter((e) => e.getClientRects().length)[i]; window.__lostRow = 0; row.addEventListener("click", () => window.__lostRow++, true); }, lost.i);
+        await page.mouse.click(lost.x, lost.y);
+        const after = await sayAndRead([]);
+        check(`at ${at}, a press where a row was a moment ago is not a press on that row, and the menu stays up`, (await page.evaluate(() => window.__lostRow)) === 0 && after.open === true, { presses: await page.evaluate(() => window.__lostRow), said: after.said });
+      }
+      // A press on the words themselves puts them away, and everything is as it was with nothing said.
+      const up = await sayAndRead([]);
+      if (up.shown.length) {
+        const b = up.shown[0].box;
+        await page.mouse.click((b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+      }
+      const cleared = await sayAndRead([]);
+      check(`at ${at}, a press on long words puts them away, and the sheet is as it was with nothing said`, cleared.said === 0 && cleared.open === true && placesOf(cleared) === placesOf(blank) && cleared.strip[3] - cleared.strip[1] === blank.strip[3] - blank.strip[1], { said: cleared.said, strip: cleared.strip });
+    }
   }
   await widthOf(1100, 700);
   await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));

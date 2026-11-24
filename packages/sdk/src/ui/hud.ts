@@ -26,7 +26,7 @@ import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
 import { loadPicture } from "../picture.js";
 import { ago } from "./feed.js";
-import type { Controls, UiCard, UiItemView, UiView } from "./model.js";
+import { sayStays, type Controls, type UiCard, type UiItemView, type UiView } from "./model.js";
 import { createHoldWatch, SUMMON_KEY } from "./summon.js";
 import { escapeDoes, escapeHeld, fullscreenButton, leaveFullscreen, onBrowserLeftFullscreen } from "./fullscreen.js";
 import { rgb } from "./theme.js";
@@ -170,11 +170,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* While the menu is up they are in a strip of the sheet's own, between its rows and its foot: the sheet lies over
    where they otherwise stand on all but the widest screens, and a press in the menu is what most of them answer.
    A said line never lies over anything that can be pressed: not a row, not a tab, not the foot's buttons. So the
-   strip is always there while the menu is up, one line high, and blank when nothing is said: nothing in the sheet
-   moves as a line comes or goes. One line shows at a time, the newest; longer words are cut short with the whole
-   of them in the line's title. A press on a line puts it away: there is nothing under it. */
-.sheet > .says { position: static; display: block; flex: none; max-width: none; height: calc(1.35em + 18px); margin: 0 12px 8px; }
-.sheet > .says .say { line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: auto; cursor: pointer; }
+   strip is always there while the menu is up, one line high when nothing is said or what is said fits, and nothing
+   in the sheet moves as a line comes or goes. One line shows at a time, the newest.
+   Words too long for one line are shown whole, on up to four: what a visitor most needs to read is often long (that
+   others can see they are recording, that pressing Buy again charges nothing). The strip grows for them and the
+   sheet is kept the size it was (fitSays, below), so the room comes from the bottom of the rows' own scrolling
+   area: no row moves, and the last of them are out of sight while the words show. A press on a line puts it away. */
+.sheet > .says { position: static; display: block; flex: none; max-width: none; min-height: calc(1.35em + 18px); margin: 0 12px 8px; }
+.sheet > .says.one { height: calc(1.35em + 18px); overflow: hidden; }
+.sheet > .says .say { line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; pointer-events: auto; cursor: pointer; }
 .sheet > .says .say:not(:last-child) { display: none; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
@@ -272,7 +276,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab:hover { color: rgb(var(--ink)); }
 .tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
-.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+/* Each row keeps its own height whatever room the list is given: when long words take room from the list's foot,
+   the rows are scrolled out of sight there, and none is squeezed (a squeezed row moves every row under it). */
+.rows { display: grid; gap: 6px; grid-auto-rows: max-content; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
   scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
 /* A choice of colour is a row of small doorways, each lit in its own. */
 .swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
@@ -1153,6 +1159,22 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
   };
 
+  /**
+   * Keep the sheet the size it is while words too long for one line show in its strip. The sheet is measured with
+   * the strip held to one line, which is its size with nothing said; if the strip then needs more, the sheet is
+   * held at that size, and the rows' own scrolling area gives up the difference from its bottom. Done in one go,
+   * with nothing drawn between, whenever a line comes or goes, the menu comes or goes, or the menu is drawn.
+   */
+  const fitSays = () => {
+    sheet.style.height = "";
+    if (says.parentElement !== sheet || sheet.hidden) return void says.classList.remove("one");
+    says.classList.add("one");
+    const size = sheet.getBoundingClientRect().height;
+    const one = says.getBoundingClientRect().height;
+    says.classList.remove("one");
+    if (says.getBoundingClientRect().height > one + 0.5) sheet.style.height = `${size}px`;
+  };
+
   const draw = () => {
     const view: UiView = controls.view();
     const t = view.theme;
@@ -1402,6 +1424,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       if (open) sheet.insertBefore(says, foot);
       else root.insertBefore(says, chat);
     }
+    // Whatever the sheet now holds, it is the size it would be with nothing said, while long words show in it.
+    fitSays();
     menu.setAttribute("aria-expanded", String(open));
     quiet.setAttribute("aria-expanded", String(open));
   };
@@ -1601,17 +1625,24 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const stopSay = controls.onSay((text) => {
     const line = el("div", { class: "say glass coming" }, text);
     line.addEventListener("animationend", () => line.classList.remove("coming"), { once: true });
-    // In the sheet's strip one line shows, cut short where it is long: the whole of it is its title, and what a
-    // screen reader is given. A press on it puts it away, and is nothing else.
+    // In the sheet's strip one line shows. A press on it puts it away, and is nothing else: where it has grown
+    // over the place a row was a moment ago, that row is out of sight, and is not what is pressed.
     line.title = text;
+    const away = () => {
+      line.remove();
+      fitSays();
+    };
     line.addEventListener("click", (e) => {
       e.stopPropagation();
-      line.remove();
+      away();
     });
     says.append(line);
     while (says.childElementCount > 3) says.firstElementChild?.remove();
-    setTimeout(() => line.classList.add("going"), 3600);
-    setTimeout(() => line.remove(), 4200);
+    fitSays();
+    // Longer words stay longer: four seconds is enough for a short line, and not for a long one.
+    const stays = sayStays(text);
+    setTimeout(() => line.classList.add("going"), stays - 600);
+    setTimeout(away, stays);
   });
   const stop = controls.subscribe(draw);
   // Something in the world asks for the menu on one of its sections: pressing someone's picture asks for People.

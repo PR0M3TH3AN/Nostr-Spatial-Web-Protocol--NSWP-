@@ -181,7 +181,12 @@ const pressWhenOnTop = async (page, thing, ms = 20000) => {
         const y = r.top + r.height / 2;
         const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
         const hit = !!top && (top === el || el.contains(top));
-        const line = !hit && top?.closest?.(".say") ? `"${top.closest(".say").textContent.slice(0, 60)}" over "${el.textContent.trim().slice(0, 40)}"` : "";
+        // A row down a long list may be scrolled out of sight, and its place then falls on whatever is below the
+        // list (the strip a said line is in). That is not a line lying over it: it is a row to scroll to, as a
+        // person would. Only a thing whose middle is within what can be seen of its list can be lain over.
+        const list = el.closest(".rows, .tabs")?.getBoundingClientRect();
+        const inSight = !list || (x > list.left && x < list.right && y > list.top && y < list.bottom);
+        const line = !hit && inSight && top?.closest?.(".say") ? `"${top.closest(".say").textContent.slice(0, 60)}" over "${el.textContent.trim().slice(0, 40)}"` : "";
         if (!hit && !line) el.scrollIntoView({ block: "nearest", inline: "nearest" });
         return { x, y, hit, line };
       }, null, { timeout: 4000 })
