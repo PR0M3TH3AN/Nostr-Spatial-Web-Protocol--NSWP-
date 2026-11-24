@@ -5,8 +5,10 @@
 - **Who:** the NSWP builder, with step 3 of `docs/plans/the-clients-menu.md`.
 - **State:** not built, and no code yet. Written into the plan as a piece of
   step 3 (2026-11-24, section 15, "The view clear of the menu"), with an
-  answer proposed to each thing under "To settle" below. The word's name is
-  the orchestrator's to give.
+  answer proposed to each thing under "To settle" below. **The word's name
+  is given: `covers`** (the orchestrator, 2026-11-24), answered through the
+  two calls a world's own menu has, whoever draws. The plan says what its
+  numbers are measured in and from, and that all four edges are said.
 
 ## What is missing
 

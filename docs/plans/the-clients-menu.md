@@ -129,8 +129,9 @@ screen and for signing in, and to replace NSWP-11's "Who draws it" (section 12).
 > - the world, as it loads: `{ nswp: "here", at, menu: 1 }`. `menu` is the version of
 >   these words it speaks. A world that leaves it out draws its own console, as
 >   before.
-> - the client, in answer: `{ nswp: "menu", has: true, v: 1, settings }`. The client
->   draws the console for this world. `settings` are the visitor's, in the shape of
+> - the client, in answer: `{ nswp: "menu", has: true, v: 1, settings }`. It
+>   answers from its first script, before it loads anything else (section 6).
+>   The client draws the console for this world. `settings` are the visitor's, in the shape of
 >   NSWP-11's "Settings that travel". The world's own console draws nothing from then
 >   on: no bar, no mark, no sheet. The client says `settings` again whenever they
 >   change, and `{ nswp: "menu", has: false }` if it stops, at which the world's own
@@ -336,8 +337,39 @@ place, above the world, and a world's drawing can never be above it.
 - **Framed, and nothing is said within about 300 ms:** the world loads its own menu.
   A client that doesn't know these words (or isn't one) changes nothing.
   **But the world is that much late for every visitor,** measured by BitPortal
-  on 2026-11-24. Proposed that day and not yet decided: 50 ms, not 300, with
-  the times at each wait in `docs/backlog/own-menu-late-when-framed.md`.
+  on 2026-11-24. **Decided that day (the orchestrator): 100 ms, not 300,** and
+  the world still waits: it does not draw its own menu at once and step it
+  aside. Not yet built. The times at each wait, and why not drawing at once,
+  are in `docs/backlog/own-menu-late-when-framed.md`.
+  - *Why 100 and not 50.* BitPortal timed its shell from hearing a place's
+    `here` to the place's page having the answer, 20 loads each, the Grove at
+    kit 0.87.0, 2026-11-24:
+
+    | Milliseconds | `has: false`, middle / worst | `has: true`, middle / worst |
+    |---|---|---|
+    | As the machine is, cold | 1.2 / 1.7 | 5.0 / 15.8 |
+    | As the machine is, warm | 1.0 / 6.2 | 2.9 / 9.3 |
+    | Processor slowed six times, cold | 14.2 / 32.4 | 36.5 / 196.5 |
+    | Processor slowed six times, warm | 7.8 / 34.0 | 25.8 / 65.9 |
+
+    The slowing is the scripted browser's own: a stand-in for a phone, and not
+    one. With the menu on and the processor slowed, 50 would lose now and
+    then; at 100 one load in eighty was late. A world that gives up too soon
+    shows its own menu under the client's for a tenth to half a second, on the
+    portal, which looks broken. 100 leaves a world framed by silence 100 ms
+    late, on a path that is not the main one. **Whoever next wants 50: time a
+    real client on a real phone first.**
+- **A client that has the menu says so from its first script, before it loads
+  anything else** (a requirement on any client: the orchestrator, 2026-11-24).
+  A world waits 100 ms and no longer, so a client that answers only once its
+  menu's file has come is a client whose worlds draw a menu of their own
+  first. The answer needs nothing the menu's file holds: `has: true`, the
+  version, and the visitor's settings. *Why it is written down:* BitPortal's
+  shell, measured that day, said `has: true` only when its menu's file (354 KB
+  with the Bag) had been fetched, and kept a `here` that came first until
+  then. On that machine the file always came first; on a real line a place
+  that starts fast could wait on it. BitPortal mends that before its menu goes
+  on.
 - **The client answers late:** the world's own menu is put away, and the client's
   stands. One menu at any moment, never two. This is not rare: on a development
   server the shell asks the network whether a place may be shown before it answers,
@@ -621,7 +653,7 @@ each saying to sign in (section 14, question 4).
 | The description's fields | `title`, `level`, `corner`, `keys`, `state`, `target`, `loading`, `sections`; a row's `bar` and `picture` |
 | What `state` holds | `room` (`has`, `joined`, `mic`, `count`), `headset` (`supported`, `presenting`), `named`, `holding`, `items` |
 | The limits | `MENU_LIMITS` (`sections` 12, `rows` 60, `allRows` 200, `label` 120, `picture` 256, `bytes` 65536, `ownTabs` 2, `say` 200) |
-| How long a framed world waits for a client | `MENU_WAIT_MS` (300) |
+| How long a framed world waits for a client | `MENU_WAIT_MS` (300 as built; 100 decided 2026-11-24, section 6, to be built) |
 | How long the client waits for a world to leave by itself | `LEAVE_MS` (1000) |
 | The kit's entry for the menu | `nswp-sdk/menu` |
 | The menu, and the port | `mountMenu(port)`, `WorldPort` |
@@ -795,12 +827,24 @@ view the menu covers.
   view shifted by the edges stays still as the sheet comes and goes, and a
   caption or a form of the world's own can still keep out from under the sheet.
   This is what the world's own menu does today.
-- *The word,* its name proposed and the orchestrator's to give: `{ nswp: "menu",
-  covers: { top, bottom, sheet? } }`, with `sheet` as `{ x, y, width, height }`.
-  Whole pixels of the frame's own box, as the world's page counts them (a client
-  that scales its frame divides by the scale). Each number from 0 to 8192; a
-  word that says more of a side than the frame has is read as the whole side.
-  The version of the words stays 1: a world on an older kit ignores the field.
+- *The word,* its name given (the orchestrator, 2026-11-24): `{ nswp: "menu",
+  covers: { top, bottom, left, right, sheet? } }`, with `sheet` as `{ x, y,
+  width, height }`.
+  - *What the numbers are measured in and from:* whole CSS pixels of the
+    world's own view, which is the world's page as its own script measures it
+    (`innerWidth` by `innerHeight`). Each edge is how far the menu reaches in
+    from that edge of the view. A box is from the view's top left. A client
+    that scales its frame divides by the scale, so the world never has to
+    know of it.
+  - *Left and right are said too.* A bar can stand at a side on a wide screen,
+    and the marks need not be at the top. All four are always in the word,
+    0 where nothing is covered. So `cover()` answers `{ top, bottom, left,
+    right }`: for a world's own menu, which has nothing at a side today, the
+    two new ones are 0, and a world that reads only top and bottom is as it
+    was.
+  - Each number from 0 to 8192; a word that says more of a side than the view
+    has is read as the whole side. The version of the words stays 1: a world
+    on an older kit ignores the field.
 - *When.* With the client's answer that it has the menu, then only when a number
   changes, and no oftener than eight times a second, as a description is. A
   sheet that slides is said once, where it comes to rest. In a headset session
@@ -961,7 +1005,8 @@ changes an earlier section, this section is what stands until that one is rewrit
 12. **`MENU_WAIT_MS` on a development server.** There the shell's "may this place be
     shown" is asked of the network, so `has: true` can come after 300 ms and the
     world's own menu shows for a moment. That is the "answers late" case of section
-    6, and it is one of step 1's trial cases. *Accepted.*
+    6, and it is one of step 1's trial cases. *Accepted.* With the wait at 100 ms
+    (decided 2026-11-24) it is seen oftener there, and only there.
 13. **Home as a guarantee.** The shell sends the frame to the room itself after
     `LEAVE_MS`, through its own watch for whether a place came up.
     *Decided:* what is in the visitor's hand is lost when the world didn't go
