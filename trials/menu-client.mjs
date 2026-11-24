@@ -161,6 +161,43 @@ const serve = async (ctx) => {
   });
 };
 
+/**
+ * One press with the mouse on something in a menu, as a person makes it: where the thing is, once it has stopped
+ * moving and is what the mouse would land on. Its place is read, read again a moment later, and pressed when the
+ * two agree. A thing out of sight is scrolled to. **A line said for a moment may be lying over it:** a press there
+ * would only put the line away, so the line is pressed away first, as a person would, and counted. It answers when
+ * the press was made, or 0 where it never could be: a press that wasn't made must never pass for one that did
+ * nothing.
+ */
+const linesPutAway = { count: 0 };
+const pressWhenOnTop = async (page, thing, ms = 20000) => {
+  let last = null;
+  for (const end = Date.now() + ms; Date.now() < end; ) {
+    const now = await thing
+      .evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
+        const hit = !!top && (top === el || el.contains(top));
+        const line = !hit && !!top?.closest?.(".say");
+        if (!hit && !line) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+        return { x, y, hit, line };
+      }, null, { timeout: 4000 })
+      .catch(() => null);
+    if (now?.line) {
+      await page.mouse.click(now.x, now.y);
+      linesPutAway.count++;
+      last = null;
+    } else if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
+      await page.mouse.click(now.x, now.y);
+      return Date.now();
+    } else last = now;
+    await page.waitForTimeout(150);
+  }
+  return 0;
+};
+
 // Each visit is a fresh browser context, and stands alone: it can be run without the others.
 const VISITS = {};
 
@@ -182,20 +219,11 @@ VISITS.main = async () => {
   const world = () => page.frames().find((f) => f.url().startsWith(WORLD));
   const inFrame = () => page.frames().find((f) => f !== page.mainFrame());
   const hud = page.locator("nswp-hud");
-  // A real mouse at the middle of something, found by reading where it is, once it has stopped moving: its place is
-  // read, read again a moment later, and pressed when the two agree. The sheet slides up as it opens, and a press
-  // sent to where a row was a moment ago lands outside the sheet, which closes the menu and presses nothing. (That
-  // happened here, on a busy machine drawing without a graphics card, and three checks after it failed.)
-  // A thing that isn't there for a moment (the menu is drawn again as the world says something) is waited for.
+  // A real mouse at the middle of something (`pressWhenOnTop`, above). The sheet slides up as it opens, and a press
+  // sent to where a row was a moment ago lands outside the sheet, which closes the menu and presses nothing; and a
+  // row may be gone for a moment while the menu is drawn again. Both are waited out.
   const press = async (locator) => {
-    let box = null;
-    for (const end = Date.now() + 20000; Date.now() < end; ) {
-      const now = await locator.boundingBox({ timeout: 2000 }).catch(() => null);
-      if (now && box && now.x === box.x && now.y === box.y) return void (await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2));
-      box = now;
-      await page.waitForTimeout(120);
-    }
-    throw new Error(`nothing still enough to press in 20 s: ${String(locator).slice(0, 120)}`);
+    if (!(await pressWhenOnTop(page, locator))) throw new Error(`nothing there to press in 20 s: ${String(locator).slice(0, 120)}`);
   };
   const client = (fn, arg) => page.evaluate(fn, arg);
 
@@ -702,14 +730,7 @@ VISITS.bag = async () => {
     // the thing was chosen and un-chosen in turn and four checks failed.
     const pressUntil = async (target, shows) => {
       for (let i = 0; i < 3; i++) {
-        let at = null;
-        for (const end = Date.now() + 20000; Date.now() < end; ) {
-          const now = await target.boundingBox({ timeout: 2000 }).catch(() => null);
-          if (now && at && now.x === at.x && now.y === at.y) break;
-          at = now;
-          await page3.waitForTimeout(120);
-        }
-        if (at) await page3.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+        await pressWhenOnTop(page3, target, 20000);
         if (await until3(() => shows(), 25000)) return true;
       }
       return false;
@@ -863,21 +884,7 @@ VISITS.music = async () => {
     const worldUp5 = (origin) => until5(() => frameAt5(origin)?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
     // A press at where the row is once it has stopped moving: the sheet slides up as it opens, and a press sent to
     // where a row was a moment ago misses it.
-    const press5 = async (name) => {
-      const where = () => hud5.getByRole("button", { name }).first().boundingBox({ timeout: 1000 });
-      let at = await until5(where, 8000);
-      // A long tab scrolls: a row down the list is brought into sight first, as a person would scroll to it.
-      if (at) await hud5.getByRole("button", { name }).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
-      for (let i = 0; at && i < 20; i++) {
-        await page5.waitForTimeout(150);
-        const now = await where().catch(() => null);
-        if (now && now.x === at.x && now.y === at.y) break;
-        at = now;
-      }
-      if (!at) return false;
-      await page5.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-      return true;
-    };
+    const press5 = async (name) => !!(await pressWhenOnTop(page5, hud5.getByRole("button", { name }).first(), 12000));
     const juke = () => page5.evaluate(() => { const j = window.__client.sounds.jukebox; return { songs: j.list().map((x) => x.title), playing: j.playing, current: j.current?.title ?? null, page: window.__sameSince }; });
     try {
       await page5.goto(`${CLIENT}/`, { timeout: 60000 });
@@ -1165,33 +1172,7 @@ VISITS.file = async () => {
     // A press with the mouse where the row is, once it has stopped moving and is what the mouse would land on: its
     // place is read, read again a moment later, and pressed when the two agree and the row is on top there. It says
     // whether the press was made: a press that wasn't must never pass for one that did nothing.
-    const press6 = async (name) => {
-      const row = hud6.getByRole("button", { name }).first();
-      const look = () =>
-        row
-          .evaluate((el) => {
-            const r = el.getBoundingClientRect();
-            const x = r.left + r.width / 2;
-            const y = r.top + r.height / 2;
-            const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
-            const hit = !!top && (top === el || el.contains(top));
-            // A long tab scrolls: a row down the list is brought into sight, as a person would scroll to it.
-            if (!hit) el.scrollIntoView({ block: "nearest", inline: "nearest" });
-            return { x, y, hit };
-          }, null, { timeout: 4000 })
-          .catch(() => null);
-      let last = null;
-      for (const end = Date.now() + 15000; Date.now() < end; ) {
-        const now = await look();
-        if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
-          await page6.mouse.click(now.x, now.y);
-          return Date.now();
-        }
-        last = now;
-        await page6.waitForTimeout(150);
-      }
-      return 0;
-    };
+    const press6 = (name) => pressWhenOnTop(page6, hud6.getByRole("button", { name }).first(), 15000);
     // A press, and what shows it took. The menu is drawn again whenever the world says anything, and a press that
     // falls as a row is being replaced presses nothing: so a press with nothing to show for it in ten seconds is
     // made again, and only then (each of these is a press that does nothing twice if the first did nothing). It
@@ -1384,6 +1365,8 @@ closing = true;
 await browser.close();
 
 results["how long each visit took, in seconds"] = Object.fromEntries(ran.map((r) => [r.name, r.seconds]));
+// A press on a said line puts the line away and is not a press on the row under it: how often this trial met one.
+results["said lines pressed away to reach the row under them"] = linesPutAway.count;
 console.log(JSON.stringify(results, null, 2));
 if (fail.length) {
   console.error(`\nFAILED: ${fail.length}\n- ${fail.join("\n- ")}`);

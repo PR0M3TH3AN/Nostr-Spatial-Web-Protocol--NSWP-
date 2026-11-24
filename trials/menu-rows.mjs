@@ -155,9 +155,52 @@ try {
   results["a line said with the menu up, where it is"] = up;
   settledFor("said with the menu up", up);
   check("with the menu up, what is said for a moment is in the sheet, lying just above its foot", !!up && up.words === "Said with the menu up." && up.inSheet && up.line.left >= up.sheet.left && up.line.right <= up.sheet.right && up.line.top >= up.sheet.top && up.line.bottom <= up.foot.top + 1, up);
-  check("it takes no press, and what is under it is the sheet's own", up?.onTop === false && up?.underInSheet === true, up && { onTop: up.onTop, over: up.over, underInSheet: up.underInSheet });
+  check("it is on top where it lies: a press there is a press on the line", up?.onTop === true, up && { onTop: up.onTop, over: up.over });
   check("as it comes, no row in the sheet moves and the sheet doesn't grow", still[0].rows.length > 0 && JSON.stringify(still[0]) === JSON.stringify(still[1]), still);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet.png") });
+
+  // ---- A press on a line. A line lies over rows it hides, so a press on it must never be a press on what is under
+  // it: it puts that line away, and nothing else. Three lines are said, so that one lies over a row; a place is
+  // found that is on a line and over a row; and the mouse is pressed there, twice.
+  await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+  const over = await page.evaluate(() => {
+    const t = window.__nswpTest;
+    for (const words of ["The first of three.", "The second of three.", "The third of three."]) t.controls.say(words);
+    window.__saidAt = performance.now();
+    const root = document.querySelector("nswp-hud").shadowRoot;
+    const box = (e) => e.getBoundingClientRect();
+    for (const line of root.querySelectorAll(".say")) {
+      const l = box(line);
+      for (const row of root.querySelectorAll(".rows button")) {
+        const r = box(row);
+        const x0 = Math.max(l.left, r.left), x1 = Math.min(l.right, r.right), y0 = Math.max(l.top, r.top), y1 = Math.min(l.bottom, r.bottom);
+        if (x1 - x0 < 12 || y1 - y0 < 8) continue;
+        const x = (x0 + x1) / 2, y = (y0 + y1) / 2;
+        if (root.elementFromPoint(x, y) !== line) continue;
+        window.__pressedLine = line;
+        window.__rowUnder = row;
+        window.__rowPresses = 0;
+        row.addEventListener("click", () => window.__rowPresses++, true);
+        return { x, y, line: line.textContent, row: row.textContent.trim().slice(0, 40), lines: root.querySelectorAll(".say").length };
+      }
+    }
+    return null;
+  });
+  check("three lines up, one of them lies over a row, at a place the mouse can press", !!over && over.lines === 3, over);
+  if (over) {
+    await page.mouse.click(over.x, over.y);
+    const first = await page.evaluate(() => ({ lineGone: !window.__pressedLine.isConnected, rowPresses: window.__rowPresses, open: window.__nswpTest.hud.open, lines: document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".say").length, after: Math.round(performance.now() - window.__saidAt) }));
+    // A line goes by itself after four seconds: the press has to have come well before that to be what removed it.
+    check("the press came while the lines were still up by themselves", first.after < 3500, first.after);
+    check("a press on a line puts that line away, and only that one", first.lineGone && first.lines === 2, first);
+    check("and is nothing else: the row under it is not pressed, and the menu stays up", first.rowPresses === 0 && first.open === true, first);
+    results["a press on a line: the line, and the row it lay over"] = [over.line, over.row];
+    await page.mouse.click(over.x, over.y);
+    const second = await page.evaluate(() => ({ rowPresses: window.__rowPresses, under: (() => { const root = document.querySelector("nswp-hud").shadowRoot; return root.querySelector(".rows").contains(window.__rowUnder); })() }));
+    check("a second press at the same place presses the row, which can now be seen", second.rowPresses === 1, second);
+  }
+  await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
+  await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
   // A phone's width, where the sheet is the whole width: the same. The page is given the new width and asked for
   // its next frame, so that what is measured is laid out at that width.
   const widthOf = async (width, height) => {
@@ -167,7 +210,7 @@ try {
   await widthOf(390, 760);
   const narrow = await sayAndLook("Said on a narrow screen.");
   settledFor("said on a narrow screen", narrow);
-  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.underInSheet && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
+  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.onTop && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet-narrow.png") });
   await widthOf(1100, 700);
   // And as the lines go, each after its four seconds, the rows are still where they were before any was said.
@@ -187,7 +230,7 @@ try {
   // And the other way: a line said with the menu down, still up as the menu comes, is in the sheet with the rest.
   const raised = await sayAndLook("Said as the menu comes.", "open");
   settledFor("moved as the menu came", raised);
-  check("nor when the menu comes: nothing is running on it once moved, and it is in the sheet", JSON.stringify(raised?.runningOnceMoved) === "[]" && raised.inSheet && raised.underInSheet, raised);
+  check("nor when the menu comes: nothing is running on it once moved, and it is in the sheet", JSON.stringify(raised?.runningOnceMoved) === "[]" && raised.inSheet && raised.onTop, raised);
   await page.screenshot({ path: join(SHOTS, "menu-rows-said-as-the-menu-comes.png") });
   await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
   // A line lasts its moment and goes, wherever it stands.

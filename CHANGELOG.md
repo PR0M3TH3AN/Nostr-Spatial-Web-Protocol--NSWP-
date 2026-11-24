@@ -4,6 +4,12 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A press on a line said in the menu puts that line away, and never reaches the row under it** (SDK `ui/hud.ts`; the engine script; `trials/menu-rows.mjs`). Asked by the orchestrator, before the kit version that would have shipped it otherwise. A line said with the menu up lies over the bottom of the sheet's rows for four seconds, solid, and a press on it went to the row it hid: a visitor pressing a message to put it away could press Leave, Sign out or a row that saves, unseen.
+  - **Now a press on a line is a press on the line:** it puts that one line away and does nothing else. Not the row under it, and not the page outside the sheet. A second press at the same place presses the row, which can now be seen.
+  - **Only where a line is drawn.** Between two lines, and beside them, the sheet is the sheet's, and its rows are pressed as before.
+  - **With the menu down nothing changes:** a line is at the lower left over the view, hides nothing that can be pressed, and a press there goes to the world as it always has.
+  - **Tried** in `trials/menu-rows.mjs` (35 checks, 30 before): three lines are said so that one lies over a row; a press of the mouse there removes that line and only that one, the row is not pressed and the menu stays up; a second press at the same place presses the row. Those fail on the menu as it was.
+
 - **A line said with the menu up no longer moves the rows under the pointer** (SDK `ui/hud.ts`; the engine script; `trials/menu-rows.mjs`, `trials/menu-client.mjs`). A fault of the change before last, which put said lines inside the menu's sheet: a line took room of its own there, so every row in the sheet went up by the line's height as it came (51 pixels) and came down again four seconds later as it went. A visitor pressing the same row twice ("Take a picture", then again) pressed something else the second time, or nothing.
   - **Now a line lies over the sheet, just above its foot, and takes no room.** Nothing in the sheet moves as it comes or goes, and the sheet doesn't grow. It is solid, so that what it lies on doesn't show through, and it takes no press: a press where a line lies goes to what is under it, which is where it was.
   - **Found by the orchestrator's run of the client's-menu trial,** where a second press on "Take a picture" did nothing and two checks then failed with times that weren't times. A probe measured the row at 386, then 335 with a line up, then 386.

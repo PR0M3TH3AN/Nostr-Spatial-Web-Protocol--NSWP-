@@ -170,11 +170,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* While the menu is up they are in its sheet, just above its foot: the sheet lies over where they otherwise stand on
    all but the widest screens, and a press in the menu is what most of them answer. They lie over what is there and
    take no room, so that nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is
-   where it was. A press where a line lies goes to what is under it. */
+   where it was. */
 .foot { position: relative; }
 .foot .says { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-width: none; pointer-events: none; }
-/* Lying over rows and words, a line is solid enough that they don't show through it. */
-.foot .say { background: rgba(var(--glass), .96); }
+/* Lying over rows and words, a line is solid enough that they don't show through it. And a press on it is a press
+   on it: it puts the line away and reaches nothing under it, since what is under it can't be seen (it might be
+   Leave, or a row that saves). Only where a line is drawn: between two lines, and beside them, the sheet is the
+   sheet's. */
+.foot .say { background: rgba(var(--glass), .96); pointer-events: auto; cursor: pointer; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -1600,6 +1603,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const stopSay = controls.onSay((text) => {
     const line = el("div", { class: "say glass coming" }, text);
     line.addEventListener("animationend", () => line.classList.remove("coming"), { once: true });
+    // In the sheet a line lies over rows it hides. A press on it puts it away, and is nothing else: it is never
+    // a press on what is under it, and never one on the page outside the sheet.
+    line.addEventListener("click", (e) => {
+      e.stopPropagation();
+      line.remove();
+    });
     says.append(line);
     while (says.childElementCount > 3) says.firstElementChild?.remove();
     setTimeout(() => line.classList.add("going"), 3600);
