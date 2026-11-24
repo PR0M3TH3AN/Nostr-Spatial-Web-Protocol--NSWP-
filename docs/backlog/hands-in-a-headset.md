@@ -17,9 +17,12 @@
   two controllers of the Quest's kind drawn as pale see-through shells with
   fine lines over them, each held by a solid, soft blue hand that fades out
   at the wrist, thumbs on the sticks, a finger on each trigger.
-- **State:** the first part is decided and in the builder's queue. The
-  second and third are asked and set out below; nothing of them is built,
-  fetched or briefed.
+- **State:** the first part is built and merged (NSWP PR 485, 2026-11-24,
+  the kit and the Godot add-on; not live, and not yet seen in a headset).
+  The second and third are asked and set out below; nothing of them is
+  built, fetched or briefed. Asked whether the new look should be built
+  after the menu's mends or sooner, the owner said, 2026-11-24: "After the
+  menu".
 
 ## Three parts
 
