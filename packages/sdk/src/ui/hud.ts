@@ -167,17 +167,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
 .say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
-/* While the menu is up they are in its sheet, just above its foot: the sheet lies over where they otherwise stand on
-   all but the widest screens, and a press in the menu is what most of them answer. They lie over what is there and
-   take no room, so that nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is
-   where it was. */
-.foot { position: relative; }
-.foot .says { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-width: none; pointer-events: none; }
-/* Lying over rows and words, a line is solid enough that they don't show through it. And a press on it is a press
-   on it: it puts the line away and reaches nothing under it, since what is under it can't be seen (it might be
-   Leave, or a row that saves). Only where a line is drawn: between two lines, and beside them, the sheet is the
-   sheet's. */
-.foot .say { background: rgba(var(--glass), .96); pointer-events: auto; cursor: pointer; }
+/* While the menu is up they are in a strip of the sheet's own, between its rows and its foot: the sheet lies over
+   where they otherwise stand on all but the widest screens, and a press in the menu is what most of them answer.
+   A said line never lies over anything that can be pressed: not a row, not a tab, not the foot's buttons. So the
+   strip is always there while the menu is up, one line high, and blank when nothing is said: nothing in the sheet
+   moves as a line comes or goes. One line shows at a time, the newest; longer words are cut short with the whole
+   of them in the line's title. A press on a line puts it away: there is nothing under it. */
+.sheet > .says { position: static; display: block; flex: none; max-width: none; height: calc(1.35em + 18px); margin: 0 12px 8px; }
+.sheet > .says .say { line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: auto; cursor: pointer; }
+.sheet > .says .say:not(:last-child) { display: none; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -1395,13 +1393,13 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     said.replaceChildren(...(current?.said ? [el("b", {}, current.said.from), current.said.note] : []));
     sheet.hidden = !open;
     outside.hidden = !open;
-    // Words said for a moment stand where they can be read: in the sheet, lying just above its foot, while the menu
+    // Words said for a moment stand where they can be read: in the sheet's own strip, above its foot, while the menu
     // is up, and at the lower left otherwise. Lines already up move with them, and go when their moment is over.
     // A line put into the page again would come in again, sliding and fading as if newly said: words the visitor
     // was already reading would flicker. So a line that is moved has done its coming in, however far it had got.
-    if (open ? says.parentElement !== foot : says.parentElement === foot) {
+    if (open ? says.parentElement !== sheet : says.parentElement === sheet) {
       for (const line of says.children) line.classList.remove("coming");
-      if (open) foot.append(says);
+      if (open) sheet.insertBefore(says, foot);
       else root.insertBefore(says, chat);
     }
     menu.setAttribute("aria-expanded", String(open));
@@ -1603,8 +1601,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const stopSay = controls.onSay((text) => {
     const line = el("div", { class: "say glass coming" }, text);
     line.addEventListener("animationend", () => line.classList.remove("coming"), { once: true });
-    // In the sheet a line lies over rows it hides. A press on it puts it away, and is nothing else: it is never
-    // a press on what is under it, and never one on the page outside the sheet.
+    // In the sheet's strip one line shows, cut short where it is long: the whole of it is its title, and what a
+    // screen reader is given. A press on it puts it away, and is nothing else.
+    line.title = text;
     line.addEventListener("click", (e) => {
       e.stopPropagation();
       line.remove();

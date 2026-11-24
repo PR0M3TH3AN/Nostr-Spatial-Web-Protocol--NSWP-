@@ -164,12 +164,13 @@ const serve = async (ctx) => {
 /**
  * One press with the mouse on something in a menu, as a person makes it: where the thing is, once it has stopped
  * moving and is what the mouse would land on. Its place is read, read again a moment later, and pressed when the
- * two agree. A thing out of sight is scrolled to. **A line said for a moment may be lying over it:** a press there
- * would only put the line away, so the line is pressed away first, as a person would, and counted. It answers when
- * the press was made, or 0 where it never could be: a press that wasn't made must never pass for one that did
- * nothing.
+ * two agree: pressed once. A thing out of sight is scrolled to. It answers when the press was made, or 0 where it
+ * never could be: a press that wasn't made must never pass for one that did nothing.
+ *
+ * A line said for a moment never lies over anything that can be pressed (it has a strip of the sheet's own). If
+ * one is ever found over the thing this wants, that is counted, and the run fails for it by name at its end.
  */
-const linesPutAway = { count: 0 };
+const linesOver = [];
 const pressWhenOnTop = async (page, thing, ms = 20000) => {
   let last = null;
   for (const end = Date.now() + ms; Date.now() < end; ) {
@@ -180,19 +181,17 @@ const pressWhenOnTop = async (page, thing, ms = 20000) => {
         const y = r.top + r.height / 2;
         const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
         const hit = !!top && (top === el || el.contains(top));
-        const line = !hit && !!top?.closest?.(".say");
+        const line = !hit && top?.closest?.(".say") ? `"${top.closest(".say").textContent.slice(0, 60)}" over "${el.textContent.trim().slice(0, 40)}"` : "";
         if (!hit && !line) el.scrollIntoView({ block: "nearest", inline: "nearest" });
         return { x, y, hit, line };
       }, null, { timeout: 4000 })
       .catch(() => null);
-    if (now?.line) {
-      await page.mouse.click(now.x, now.y);
-      linesPutAway.count++;
-      last = null;
-    } else if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
+    if (now?.line && !linesOver.includes(now.line)) linesOver.push(now.line);
+    if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
       await page.mouse.click(now.x, now.y);
       return Date.now();
-    } else last = now;
+    }
+    last = now;
     await page.waitForTimeout(150);
   }
   return 0;
@@ -587,8 +586,17 @@ VISITS.launch = async () => {
     // In the next world, what its client first says to it is kept by the page, to be read here.
     await ctx2.addInitScript(`if (location.origin === "https://grove.test") addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.has === true) window.__has = e.data.settings; });`);
     await ctx2.addInitScript(`if (location.origin === ${JSON.stringify(WORLD)}) { ${IWER}; new IWER.XRDevice(IWER.metaQuest3, { stereoEnabled: false }).installRuntime({ forceInstall: true }); }`);
+    // The world's page says for itself, as the word reaches it, whether its browser counted it as pressed. It is
+    // said on its console and read from outside, because **nothing may be run inside the world's page until the
+    // world has heard the word**: a scripted call into a page counts there as a press, and a world that has been
+    // pressed starts the session at once. This script used to read the world's page straight after the press above,
+    // and on a busy machine the reading got there before the word: the world then went straight in, and two checks
+    // failed by this script's own hand. (Made to happen on demand, by running something there just before the press.)
+    await ctx2.addInitScript(`if (location.origin === ${JSON.stringify(WORLD)}) addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.press === "vr") console.log("NSWP-TRIAL heard-vr " + JSON.stringify({ pressedHere: navigator.userActivation ? navigator.userActivation.isActive : null })); }, true);`);
     await serve(ctx2);
     const page2 = await ctx2.newPage();
+    const heardVr = [];
+    page2.on("console", (m) => { const t = m.text(); if (t.startsWith("NSWP-TRIAL heard-vr ")) heardVr.push(JSON.parse(t.slice(20))); });
     const until2 = async (ask, ms = 30000) => {
       const end = Date.now() + ms;
       for (;;) {
@@ -609,8 +617,20 @@ VISITS.launch = async () => {
     // Left a while with nothing pressed anywhere, so that no earlier press could count for the world.
     await page2.waitForTimeout(6000);
     const key = hud2.getByRole("button", { name: /Enter VR/ }).first();
-    const box = await key.boundingBox();
+    // Pressed where the key is once it has stopped moving (the bar is laid out again as the world says more), with
+    // nothing run in any page for it: its place is read twice from the client's page, and the mouse sent there.
+    let box = await key.boundingBox();
+    for (let i = 0; box && i < 40; i++) {
+      await page2.waitForTimeout(150);
+      const now = await key.boundingBox();
+      if (now && now.x === box.x && now.y === box.y) break;
+      box = now;
+    }
     await page2.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    // Not a thing is asked of the world's page until it has said, itself, that the word reached it.
+    const heard = await until2(() => heardVr[0] ?? null, 20000);
+    check("launch/the press on Enter VR above reached the world, as a word", !!heard, heardVr);
+    check("launch/and when it did, the world's own page had not been pressed: nothing but the word could start a session", heard?.pressedHere === false, heard);
     const world2 = () => page2.frames().find((f) => f.url().startsWith(WORLD));
     const launchShown = await until2(() => world2().evaluate(() => {
       const scrim = document.getElementById("nswp-enter");
@@ -1365,8 +1385,9 @@ closing = true;
 await browser.close();
 
 results["how long each visit took, in seconds"] = Object.fromEntries(ran.map((r) => [r.name, r.seconds]));
-// A press on a said line puts the line away and is not a press on the row under it: how often this trial met one.
-results["said lines pressed away to reach the row under them"] = linesPutAway.count;
+// A said line has a strip of the sheet's own, and never lies over a thing that can be pressed: across every press
+// this trial made, none was found over the thing it wanted.
+check("no said line lay over anything this trial went to press", linesOver.length === 0, linesOver);
 console.log(JSON.stringify(results, null, 2));
 if (fail.length) {
   console.error(`\nFAILED: ${fail.length}\n- ${fail.join("\n- ")}`);
