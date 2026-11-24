@@ -163,8 +163,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 /* ---- a few words for a moment: bottom left */
 .says { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); display: grid; gap: 6px; max-width: min(80vw, 360px); }
-.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
+.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); }
+/* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
+.say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
+/* While the menu is up they are in its sheet, above its foot: the sheet lies over where they otherwise stand on all
+   but the widest screens, and a press in the menu is what most of them answer. */
+.sheet .says { position: static; flex: none; max-width: none; padding: 8px 12px; }
+.sheet .says:empty { display: none; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -612,7 +618,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   // Keep the tab that is open on the bar, or take it off: the visitor's own doing, and nobody else's.
   const pinWords = el("span");
   const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
-  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, el("div", { class: "foot" }, pinIt, close));
+  const foot = el("div", { class: "foot" }, pinIt, close);
+  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, foot);
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
@@ -1381,6 +1388,15 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     said.replaceChildren(...(current?.said ? [el("b", {}, current.said.from), current.said.note] : []));
     sheet.hidden = !open;
     outside.hidden = !open;
+    // Words said for a moment stand where they can be read: in the sheet, above its foot, while the menu is up,
+    // and at the lower left otherwise. Lines already up move with them, and go when their moment is over.
+    // A line put into the page again would come in again, sliding and fading as if newly said: words the visitor
+    // was already reading would flicker. So a line that is moved has done its coming in, however far it had got.
+    if (open ? says.parentElement !== sheet : says.parentElement === sheet) {
+      for (const line of says.children) line.classList.remove("coming");
+      if (open) sheet.insertBefore(says, foot);
+      else root.insertBefore(says, chat);
+    }
     menu.setAttribute("aria-expanded", String(open));
     quiet.setAttribute("aria-expanded", String(open));
   };
@@ -1578,7 +1594,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"] as const) addEventListener(type, onTouch, watching);
 
   const stopSay = controls.onSay((text) => {
-    const line = el("div", { class: "say glass" }, text);
+    const line = el("div", { class: "say glass coming" }, text);
+    line.addEventListener("animationend", () => line.classList.remove("coming"), { once: true });
     says.append(line);
     while (says.childElementCount > 3) says.firstElementChild?.remove();
     setTimeout(() => line.classList.add("going"), 3600);

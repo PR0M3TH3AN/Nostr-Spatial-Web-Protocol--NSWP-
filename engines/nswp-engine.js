@@ -53754,8 +53754,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 
 /* ---- a few words for a moment: bottom left */
 .says { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 128px * var(--s)); display: grid; gap: 6px; max-width: min(80vw, 360px); }
-.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); animation: say-in .22s ease-out both; }
+.say { padding: 8px 12px; border-radius: 4px 12px 12px 4px; border-left: 2px solid rgb(var(--accent)); }
+/* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
+.say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
+/* While the menu is up they are in its sheet, above its foot: the sheet lies over where they otherwise stand on all
+   but the widest screens, and a press in the menu is what most of them answer. */
+.sheet .says { position: static; flex: none; max-width: none; padding: 8px 12px; }
+.sheet .says:empty { display: none; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -54162,7 +54168,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const close = el("button", { class: "close", type: "button" }, "Close");
     const pinWords = el("span");
     const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, el("div", { class: "foot" }, pinIt, close));
+    const foot = el("div", { class: "foot" }, pinIt, close);
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, foot);
     const chatTitle = el("b");
     const chatWhose = el("p", { class: "whose", hidden: "" });
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
@@ -54814,6 +54821,11 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       said2.replaceChildren(...current?.said ? [el("b", {}, current.said.from), current.said.note] : []);
       sheet.hidden = !open2;
       outside.hidden = !open2;
+      if (open2 ? says.parentElement !== sheet : says.parentElement === sheet) {
+        for (const line2 of says.children) line2.classList.remove("coming");
+        if (open2) sheet.insertBefore(says, foot);
+        else root.insertBefore(says, chat);
+      }
       menu2.setAttribute("aria-expanded", String(open2));
       quiet.setAttribute("aria-expanded", String(open2));
     };
@@ -54972,7 +54984,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     addEventListener("keyup", swallow, listening);
     for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching3);
     const stopSay = controls2.onSay((text2) => {
-      const line2 = el("div", { class: "say glass" }, text2);
+      const line2 = el("div", { class: "say glass coming" }, text2);
+      line2.addEventListener("animationend", () => line2.classList.remove("coming"), { once: true });
       says.append(line2);
       while (says.childElementCount > 3) says.firstElementChild?.remove();
       setTimeout(() => line2.classList.add("going"), 3600);

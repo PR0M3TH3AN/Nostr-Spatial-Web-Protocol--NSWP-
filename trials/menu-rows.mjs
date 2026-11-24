@@ -108,6 +108,78 @@ try {
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
 
+  // Words said for a moment, with the menu up (as "Copied." was, just now): they are where they can be read. The
+  // sheet lies over where they stand with the menu down, on all but the widest screens, so they are in the sheet,
+  // above its foot. A line lasts four seconds, so it is said and looked at in one go, inside the page.
+  //
+  // Nothing here waits a fixed time before measuring. A line comes in with a short slide, and on a page that draws
+  // two frames a second "a moment later" may still be its first frame: the line's own animations are waited for,
+  // each to its end, and a look says whether they ended (`settled`). A line can also be moved first, by the menu
+  // coming or going: then what is asked, at once, is whether anything is still running on it. A line already up
+  // is simply there, and doesn't come in a second time.
+  const sayAndLook = (words, then) =>
+    page.evaluate(async ([words, then]) => {
+      const t = window.__nswpTest;
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      // To the end of everything running on the line, and on the sheet it may be in (the sheet unfolds as it comes
+      // up, and what is still folded away can't be pressed or asked about), or eight seconds, whichever is first.
+      const settle = (line) => Promise.race([Promise.all([...line.getAnimations(), ...root.querySelector("section.sheet").getAnimations()].map((a) => a.finished.catch(() => null))).then(() => true), new Promise((no) => setTimeout(() => no(false), 8000))]);
+      if (words) t.controls.say(words);
+      const line = [...root.querySelectorAll(".say")].at(-1);
+      if (!line) return null;
+      let settled = await settle(line);
+      let runningOnceMoved = null;
+      if (then) {
+        t.hud.setOpen(then === "open", "room");
+        runningOnceMoved = line.getAnimations().map((a) => a.animationName ?? a.transitionProperty ?? "something");
+        settled = (await settle(line)) && settled;
+      }
+      const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+      const at = box(line);
+      const top = root.elementFromPoint((at.left + at.right) / 2, (at.top + at.bottom) / 2);
+      const onTop = top === line || line.contains(top);
+      return { words: line.textContent, settled, runningOnceMoved, line: at, sheet: box(root.querySelector("section.sheet")), foot: box(root.querySelector(".foot")), rows: box(root.querySelector(".rows")), onTop, over: onTop ? null : `${top?.tagName} ${top?.className}`, inSheet: !!line.closest("section.sheet") };
+    }, [words, then ?? ""]);
+  /** A look is a look only if the line had finished coming in: said by name, so that a slow page isn't read as a wrong place. */
+  const settledFor = (what, look) => check(`${what}: the line had finished coming in before its place was read`, look?.settled === true, look && { settled: look.settled });
+  const up = await sayAndLook("Said with the menu up.");
+  results["a line said with the menu up, where it is"] = up;
+  settledFor("said with the menu up", up);
+  check("with the menu up, what is said for a moment is in the sheet, above its foot and below its rows", !!up && up.words === "Said with the menu up." && up.inSheet && up.line.left >= up.sheet.left && up.line.right <= up.sheet.right && up.line.bottom <= up.foot.top + 1 && up.line.top >= up.rows.bottom - 1, up);
+  check("and nothing lies over it", up?.onTop === true, up);
+  await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet.png") });
+  // A phone's width, where the sheet is the whole width: the same. The page is given the new width and asked for
+  // its next frame, so that what is measured is laid out at that width.
+  const widthOf = async (width, height) => {
+    await page.setViewportSize({ width, height });
+    await page.evaluate((w) => new Promise((done) => { const look = () => (innerWidth === w ? requestAnimationFrame(() => done()) : setTimeout(look, 50)); look(); }), width);
+  };
+  await widthOf(390, 760);
+  const narrow = await sayAndLook("Said on a narrow screen.");
+  settledFor("said on a narrow screen", narrow);
+  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.onTop && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
+  await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet-narrow.png") });
+  await widthOf(1100, 700);
+  // With the menu down they are where they were: at the lower left, over the view. A line still up as the menu
+  // goes moves there with it, and is simply there: it doesn't slide and fade in a second time. What is on top
+  // there can't be asked as above: over the view a said line takes no presses, so the browser answers with the
+  // view under it. Its place is what is checked, against a line said with the menu down all along.
+  const down = await sayAndLook("Said as the menu goes.", "close");
+  settledFor("moved as the menu went", down);
+  check("a line already up doesn't come in again when the menu goes: nothing is running on it once moved", JSON.stringify(down?.runningOnceMoved) === "[]", down?.runningOnceMoved);
+  const plain = await sayAndLook("Said with the menu down.");
+  settledFor("said with the menu down", plain);
+  check("with the menu down, it is at the lower left as before, and a line still up went there with it", !!down && down.words === "Said as the menu goes." && !down.inSheet && down.line.left < 40 && down.line.top > 350 && !!plain && !plain.inSheet && plain.line.left === down.line.left, { down, plain });
+  // And the other way: a line said with the menu down, still up as the menu comes, is in the sheet with the rest.
+  const raised = await sayAndLook("Said as the menu comes.", "open");
+  settledFor("moved as the menu came", raised);
+  check("nor when the menu comes: nothing is running on it once moved, and it is in the sheet", JSON.stringify(raised?.runningOnceMoved) === "[]" && raised.inSheet && raised.onTop, raised);
+  await page.screenshot({ path: join(SHOTS, "menu-rows-said-as-the-menu-comes.png") });
+  await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+  // A line lasts its moment and goes, wherever it stands.
+  await page.waitForFunction(() => !document.querySelector("nswp-hud").shadowRoot.querySelector(".say"), null, { timeout: 12000 }).catch(() => {});
+  check("and it goes after its moment", (await sayAndLook("")) === null, await sayAndLook(""));
+
   // A press outside the sheet closes the menu, and is nothing else: in the world's own page, as in a client's. The
   // world's view is under where the press lands, and hears none of it.
   await page.evaluate(() => {
