@@ -71,9 +71,13 @@ be done with it. Nobody writes a list of choices by hand for each area.
 
 ## For the owner
 
-- **The door.** Whether "agents are welcome here" is on the door at all,
-  and where: a line in a door's details (the second list), in place of one
-  of the eight, or a door redrawn to carry nine.
+- **The door: decided, 2026-11-24.** Asked where "agents are welcome here"
+  should show for a world, in a door's details or on the door itself, the
+  owner said: "In door details". So it is a line in a door's details, with
+  tips and looks, and the door keeps its eight. It may move to the door
+  later, which would be the owner's again. The word a world's announcement
+  says for it is not given yet: it is given with the design, and a new word
+  means every announcement signed and published again.
 - **Whose world decides.** Whether a world must say yes before any agent
   comes in, or only says no.
 
