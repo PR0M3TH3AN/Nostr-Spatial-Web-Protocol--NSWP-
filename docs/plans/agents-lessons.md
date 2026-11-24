@@ -1430,6 +1430,80 @@ yes):** 235 requests, $0.042, against about 400 and 15 cents quoted.
   seekers scored the rules' own, because no plan came. With this model
   the question needs a limit on its thinking, or another model.
 
+## Hide and seek on a page, for a person to hide (D80, 2026-11-24; free, played by nobody yet)
+
+The owner chose it before the second body. A page in the playground
+(`/hide.html`): the room from above, the seeker with what it can see
+shaded, and the player, who hides with the keys after the seeker counts
+ten seconds. Four free seekers; the seekers that use a model are not
+offered on the page, so nothing can be spent there.
+
+- **The game a person plays is the game that was counted** (built, free:
+  D80). The game was split into one that plays a step at a time and a loop
+  over it; every earlier test gives the same result. The page moves the
+  player between steps and adds nothing to what the seeker is told.
+- **A seeker that remembers keeps where it found you in that browser
+  only,** room by room (built, not measured: D80). Where an agent's memory
+  of a place is kept is still to settle.
+- **Not done:** the owner playing it, and his games counted the same way.
+
+## The agent in a world built with the kit, as a module (D81, 2026-11-24; free, on this machine only)
+
+On the owner's "Yes, start it". A copy of `nswp-world-template` outside
+every repository (`~/agent-trials/first-world`), served on 127.0.0.1
+only; the playground's agent loaded into it as a module
+(`src/embed/agent.ts`: a world hands it its declared things, its own
+`canStand`, a body to move, where to show what is said and how to show a
+thing change or move; it gives back order, stop, update and dispose).
+The body is the kit's own figure on the playground's legs. On the free
+rules it switched on the lamp it was asked for and nothing else, and
+fetched a box to the visitor. Checked in a headless browser from the
+visitor's view; the page contacted nothing off this machine. The owner
+has not yet tried it. Nothing sent, spent, fetched or installed, and
+nothing of the kit, BitPortal or BitLogin changed.
+
+**Nothing above the typed actions changed. What did not fit was all at
+the join**, and each is a thing for the kit, a world or a figure:
+
+- **A module for worlds must not need its own build tool's features**
+  (shown, free: D81). The playground's code gathered files in a way only
+  its own bundler has; a kit world bundles with another, and the page was
+  blank.
+- **How a module gets the world's three has to be said** (shown): two
+  copies were loaded. Handed in, or a peer it shares. *For the kit.*
+- **A world keeps bodies out of its furniture, so "can it reach the
+  lamp" can't want a clear line to the lamp's centre** (shown). Mended
+  for the trial: a body may reach the last half metre into a thing's own
+  place, never through a wall or a shut door. **A declared place for
+  using a thing** (where to stand to switch on this lamp) is the real
+  answer (reasoned): the anchors held back earlier are needed. No name is
+  given or taken by its being written here.
+- **First person changes distances** (shown). The visitor is the camera:
+  a hand-over from 0.9 m put the figure's face in theirs. A host world
+  says from how far (1.5 m here).
+- **Which way is forward, and where a figure's origin is, need one
+  stated convention** (shown). A kit figure faces -z with its head at its
+  origin; the playground's bodies face +z with feet on the floor.
+- **Telling an agent where the visitor is every frame makes every
+  decision stale** (shown). Now told once they have moved half a metre.
+- **The template reaches live services as it comes** (shown): it framed
+  BitLogin as the signer and the live Airlock, and names four live
+  relays. The copy names none, with an Airlock address where nothing
+  listens. *For the template:* one local setting that does that.
+- **A world's things are said twice** (reasoned): placed with the kit's
+  piece, declared again for the agent, kept in step by hand. A kit piece
+  that hands back its own declaration would end that.
+- **The cut-down list belongs with the module** (shown): without it the
+  rules, asked for the left lamp, switched on both, as in D69.
+- **Typing to an agent must not move the visitor** (shown): keys in the
+  order box reached the world's movement. The kit's chat pane is the
+  place for orders; not yet used.
+- **Not done:** the memory rule's mend; the chat model and JEV in the
+  world (they wait on the owner's word on a key server, put to him in the
+  playground's session); voice, hearing, the chat pane, arms; anyone but
+  the session seeing it; other visitors seeing the agent at all (stage
+  2).
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

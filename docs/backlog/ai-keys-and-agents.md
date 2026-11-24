@@ -250,6 +250,24 @@ BitPortal and BitLogin, whose order of work is unchanged (the menu
 first). In the playground the owner is driving, and this trial is his
 word.
 
+## The first trial ran (the playground's D81, 2026-11-24)
+
+On the free rules, in the copy at `~/agent-trials/first-world` on
+127.0.0.1 only: the kit's own figure on the playground's legs switched on
+the lamp it was asked for and fetched a box to the visitor. The page
+contacted nothing off this machine. The owner has not yet tried it.
+Nothing of the kit, BitPortal or BitLogin changed, and none is asked for
+now. What the trial found for the kit, the template and a figure (how a
+module gets the world's three, a declared place for using a thing, one
+convention for which way a figure faces, a local setting for the
+template, a kit piece that hands back its own declaration, orders through
+the chat pane) is in `docs/plans/agents-lessons.md`, as things to design
+later by names given, behind the menu.
+
+Next there: the memory rule's mend (free); then the chat model and JEV in
+the world, which wait on the owner's word on a key server in the
+playground's own session.
+
 ## Must not
 
 - Put a provider's key anywhere a world, a client, a relay or another
