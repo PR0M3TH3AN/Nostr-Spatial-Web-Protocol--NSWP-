@@ -1118,21 +1118,28 @@ of nothing: 4 of 6.
 - **Not run:** orders by side, and in a place that tells little, with the
   chat model.
 
-## Hide and seek: the free half (D72, 2026-11-24)
+## Hide and seek: the free half (D72, 2026-11-24; rewritten the same day)
 
 Built on the owner's word in the playground's session ("Yes, start it").
 No model and no spend; no seeker with a model is built. Every seeker gives
 one typed action at a time, checked by the place. Every number is against
-a stand-in hider, not a person. Three rooms; 30 games of each.
+a stand-in hider, not a person: one that stays, one that moves when seen
+or approached, and a sly one that creeps unheard to another hiding place.
+Three rooms, three hiders, 30 games each: 270 a seeker (the scripted one
+has two rooms, so 180).
 
-| Seeker | Lines written for it | Caught, of 60, room by room | Seconds to first sight | The chase |
-|---|---|---|---|---|
-| Scripted for the room | 32, and 19 more for two rooms' rounds | 60, 60, cannot play the third | 8.1 and 3.7 | 0.3 to 4.8 s |
-| Rules for no room | 34 | 60, 60, 57 | 6.6 to 16.6 | 0.3 to 4.8 s |
-| Random | none | 55, 56, 59 | | 3.7 to 15.6 s |
+| Seeker | Lines written for it | Caught within 15 s | Caught in the 90 s |
+|---|---|---|---|
+| Scripted for the room | 32, and 19 more for two rooms' rounds | 112 of 180 | nearly all; cannot play the third room |
+| Rules for no room | 34 | 188 of 270 | 270 of 270 |
+| Random | none | 94 of 270 | 256 of 270 |
 
 A seeker with a model would be one sentence. The seeking skill, written
-for no game, is 41 lines.
+for no game, is 41 lines. By room, within 15 s, the rules: hall 80 of 90,
+cellar 69, yard 39; the scripted seeker: hall 38, yard 74. The hand-written
+round wins in the open yard and loses in the hall, and the sly hider tells
+on it and not on the rules (hall, within 15 s: scripted 21 of 30 against a
+still hider and 5 of 30 against the sly one; rules 30 and 25).
 
 - **What an agent is told of another body is a declared sense, with a
   range, a turn and what blocks it, enforced where choices are made and
@@ -1145,24 +1152,33 @@ for no game, is 41 lines.
 - **"A thing that could hide someone" is one declared fact about a
   thing** (shown, free: D72), here how tall it stands. From that one fact
   a skill written for no game gives a seeker its search.
+- **"Looked at" belongs to the body's eyes, not to an action having been
+  done** (shown, free: D72). The skill first offered one side of each
+  thing to look behind, and a still hider in the cellar was never seen in
+  3 of 30. Now a side counts as looked at when the seeker's eyes take it
+  in, in passing or not, and "behind" is a side they have not: 30 of 30,
+  and the skill needed no memory of its own. *For a skill's maker:* a
+  skill that offers only one way to do a thing leaves a hole no decider
+  can choose its way out of.
+- **In a small place with a faster seeker, no hider that only moves can
+  last; a level of intelligence can change only how soon** (shown, free:
+  D72). Even chance catches 256 of 270 in 90 seconds. A game that is to
+  tell levels apart needs a count of how soon, or places where someone
+  can't be seen without being looked for exactly, or more ground than the
+  time allows. *For a world* (reasoned): the second is what a horror game
+  has, and would be a declared thing: a place one can be inside, seen
+  only by one who opens it.
 - **A game's end can be a few declared words in the place** (shown, free:
   D72): how near, seeing them, how long.
 - **An answer that takes time is checked against what was seen when it
   was asked** (shown, free: D72). The place's own version number does it,
   and the refusals are the count of answers too late.
-- **A chat model can't be asked for every move of a chase** (shown, free:
-  D72, by the same rules made to wait). At JEV's 0.2 s the seeker is no
-  worse, for about $0.001 to $0.002 a minute. At a chat model's 3.1 s,
-  first sight comes two to two and a half times later and the chase runs
-  up to 39 s, for about $0.008 to $0.009 a minute. Its place is the plan.
-- **Catching did not tell the seekers apart; searching did** (shown,
-  free: D72). The stand-in hiders are too easy to catch. What differs is
-  time to first sight and, for chance, the chase.
-- **A skill that offers only one way to do a thing leaves a hole no
-  decider can choose its way out of** (reasoned from D72): the rules never
-  saw a still hider in 3 of 30 cellar games, because the skill offers one
-  side of each thing to look behind. *For a skill's maker:* offer the
-  whole of what the body could do.
+- **Waiting costs, even at JEV's speed** (shown, free: D72, by the same
+  rules made to wait). At 0.2 s an answer as many are caught in the 90 s
+  (270 of 270), but within 15 s falls from 188 to 156, most of it in the
+  cellar, from answers that came too late. At a chat model's 3.1 s: 251
+  of 270 caught and 11 within 15 s. A chat model can't be asked for every
+  move of a chase; its place is the plan.
 - **Rules play the same games over** (shown, free: D72): over 30 games the
   rules opened 2 or 3 ways and the scripted seeker 2 to 4; chance, 30.
 - **Not done:** any seeker with JEV or a chat model; memory between games;
