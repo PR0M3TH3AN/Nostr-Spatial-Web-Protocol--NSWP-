@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.87.0
+
 - **A line said with the menu up has a strip of the sheet's own, never lies over anything that can be pressed, and is shown whole however long it is** (SDK `ui/hud.ts`, `ui/model.ts`; the engine script; `packages/sdk/test/say-stays.test.ts`, new; `trials/menu-rows.mjs`, `trials/menu-client.mjs`). Decided by the orchestrator, before the kit version that would otherwise have shipped a line lying over the bottom of the sheet's rows. Lying there, a press on it reached a row the visitor couldn't see (Leave, Sign out, a row that saves); made to take the press itself, it took a visitor's first press on whatever row they wanted next, and at the moment its four seconds ended the press fell through.
   - **The rule: a said line never lies over anything that can be pressed.** Not a row, not a tab, not the foot's own buttons.
   - **The strip is between the rows and the foot, always there while the menu is up, one line high when nothing is said or what is said fits.** Nothing in the sheet moves as a line comes or goes. One line shows at a time, the newest. With the menu down, lines are at the lower left as before, up to three, taking no press.
