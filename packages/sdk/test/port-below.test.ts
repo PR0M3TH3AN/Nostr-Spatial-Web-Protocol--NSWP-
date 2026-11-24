@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LEAVE_MS, MENU_LIMITS, MENU_SAVE_MS } from "@nswp/core";
+import { LEAVE_MS, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS } from "@nswp/core";
 import { describeWorld } from "../src/menu-above.js";
 import { resetSettings } from "../src/settings.js";
 import { createControls } from "../src/ui/model.js";
@@ -616,6 +616,92 @@ describe("a file the visitor chose, and something a world hands up to save", () 
     expect(c.saved).toHaveLength(1);
   });
 
+  it("holds a press open for longer once the world says it is making it, says so, and saves what comes", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.later(2000);
+    c.from({ nswp: "menu", making: "camera-picture" });
+    // Not said at once: most pictures come in a moment. Said when it hasn't.
+    expect(c.said).toEqual([]);
+    vi.advanceTimersByTime(1500);
+    expect(c.said).toEqual(["The Gallery is making it. It will be saved when it is ready."]);
+    // Long past the ten seconds, on a slow device.
+    c.later(MENU_MAKING_MS - 2000);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toHaveLength(1);
+    expect(c.said).toEqual(["The Gallery is making it. It will be saved when it is ready.", "A picture from The Gallery was saved."]);
+    // And nothing more is said when the longer time ends: something came.
+    vi.advanceTimersByTime(MENU_MAKING_MS);
+    expect(c.said).toHaveLength(2);
+  });
+
+  it("says only that it was saved, for a picture that comes in a moment", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", making: "camera-picture" });
+    vi.advanceTimersByTime(400);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    vi.advanceTimersByTime(MENU_MAKING_MS + 1);
+    expect(c.said).toEqual(["A picture from The Gallery was saved."]);
+  });
+
+  it("says so when nothing comes of it, and saves nothing that comes later", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", making: "camera-picture" });
+    vi.advanceTimersByTime(MENU_MAKING_MS - 1);
+    expect(c.said).toHaveLength(1);
+    vi.advanceTimersByTime(2);
+    expect(c.said).toEqual(["The Gallery is making it. It will be saved when it is ready.", "Nothing came from The Gallery to save. Press again to try once more."]);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toEqual([]);
+  });
+
+  it("can't be held open by a world: not unasked, not for another row, not too late, not twice, not once something came", () => {
+    const c = met();
+    // No press at all, and a press on a row that saves nothing.
+    c.from({ nswp: "menu", making: "camera-picture" });
+    c.below.port.run(`${WORLDS}room-join`);
+    c.from({ nswp: "menu", making: "room-join" });
+    // A press on one row, and the word for another; and from another site.
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", making: "camera-clip" });
+    c.from({ nswp: "menu", making: "camera-picture" }, "https://elsewhere.example");
+    // After the first while has gone.
+    c.later(MENU_SAVE_MS + 1);
+    c.from({ nswp: "menu", making: "camera-picture" });
+    c.later(1000);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect([c.saved, c.said]).toEqual([[], []]);
+    // Said again and again, it is counted from the press, once.
+    c.below.port.run(`${WORLDS}camera-picture`);
+    for (let i = 0; i < 12; i++) {
+      c.later(MENU_SAVE_MS - 1);
+      c.from({ nswp: "menu", making: "camera-picture" });
+    }
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toEqual([]);
+    expect(c.said).toEqual([]);
+    // Once something has come for a press, the press is not made longer.
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    c.from({ nswp: "menu", making: "camera-picture" });
+    c.later(MENU_SAVE_MS + 1);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect(c.saved).toHaveLength(1);
+  });
+
+  it("forgets what was being made when another page comes into the frame, and says nothing of it", () => {
+    const c = met();
+    c.below.port.run(`${WORLDS}camera-picture`);
+    c.from({ nswp: "menu", making: "camera-picture" });
+    c.here();
+    c.from({ nswp: "menu", world: world() });
+    vi.advanceTimersByTime(MENU_MAKING_MS + 1);
+    c.from({ nswp: "menu", save: shot(), id: "camera-picture" });
+    expect([c.saved, c.said]).toEqual([[], []]);
+  });
+
   it("takes only so many for one press, and none once another page is in the frame", () => {
     const c = met();
     c.below.port.run(`${WORLDS}camera-picture`);
@@ -707,5 +793,56 @@ describe("a page that says it is its client's own", () => {
     claims.below.port.run("home");
     await vi.advanceTimersByTimeAsync(0);
     expect([claims.pressed, claims.sent.filter((x) => x.word.press !== undefined)]).toEqual([["home"], []]);
+  });
+});
+
+describe("the visitor's own music, said to the world in the frame", () => {
+  const playings = (c: ReturnType<typeof make>) => c.words().filter((w) => w.playing !== undefined);
+
+  it("says nothing while nothing plays, then each change, once", () => {
+    let on = false;
+    const c = make({ more: { playing: () => on } });
+    c.here();
+    c.controls.say("something changed");
+    c.controls.setPinned("travel", true);
+    expect(playings(c)).toEqual([]);
+    on = true;
+    c.controls.setPinned("travel", false);
+    c.controls.setPinned("travel", true);
+    on = false;
+    c.controls.setPinned("travel", false);
+    expect(playings(c)).toEqual([
+      { nswp: "menu", playing: true },
+      { nswp: "menu", playing: false },
+    ]);
+  });
+
+  it("says it once as a world comes up, after saying it has the menu, if something is already playing", () => {
+    const c = make({ more: { playing: () => true } });
+    c.here();
+    expect(c.words().map((w) => Object.keys(w).filter((k) => k !== "nswp" && k !== "v" && k !== "settings")[0])).toEqual(["has", "playing"]);
+    expect(c.words()[1]).toEqual({ nswp: "menu", playing: true });
+    // And to the next world, which has been told nothing.
+    c.sent.length = 0;
+    c.here();
+    expect(playings(c)).toEqual([{ nswp: "menu", playing: true }]);
+    expect(c.sent.every((s) => s.to === WORLD)).toBe(true);
+  });
+
+  it("carries nothing else: not what is playing, nor where it is from", () => {
+    const c = make({ more: { playing: () => true } });
+    c.here();
+    expect(Object.keys(playings(c)[0]!).sort()).toEqual(["nswp", "playing"]);
+  });
+
+  it("says nothing to a page that doesn't speak the words, and nothing where the client names no music", () => {
+    const quiet = make({ more: { playing: () => true } });
+    quiet.here(0);
+    quiet.controls.setPinned("travel", true);
+    expect(quiet.sent).toEqual([]);
+    const none = make();
+    none.here();
+    none.controls.setPinned("travel", true);
+    expect(playings(none)).toEqual([]);
   });
 });

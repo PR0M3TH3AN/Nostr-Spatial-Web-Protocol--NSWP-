@@ -143,6 +143,14 @@ export interface Sounds {
   setLevels(patch: Partial<SoundLevels>): void;
   /** The visitor's own music. */
   readonly jukebox: Jukebox;
+  /**
+   * The visitor's own music is playing somewhere else: in their client's page, above this world. The place's music
+   * steps back to a tenth while it is, as it does for a song of theirs played here, and comes up again at `false`.
+   * Only the place's own music: the hum, and music shared by people nearby, are left as they are.
+   */
+  stepBack(on: boolean): void;
+  /** Whether the place's music is stepped back for music playing elsewhere. For tests. */
+  readonly steppedBack: boolean;
   /** Be told when a volume or the jukebox changed. Called once at the start. */
   onChange(fn: (levels: SoundLevels) => void): () => void;
   /** What the place's music is: the world's own, the kit's recorded default, the one made in the browser, or none. */
@@ -262,13 +270,15 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
       }
     }
   };
+  /** The visitor's own music is playing in another page (`stepBack`). */
+  let elsewhere = false;
   const juke = { audio: null as HTMLAudioElement | null, url: "", current: null as Song | null, playing: false, tap: null as MediaStreamAudioDestinationNode | null };
   const apply = () => {
     const t = ctx.currentTime;
     master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
     effects.gain.setTargetAtTime(levels.effects, t, 0.05);
-    // The place's music steps back while the visitor's own plays.
-    placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
+    // The place's music steps back while the visitor's own plays: here, or in their client's page above.
+    placeMusic.gain.setTargetAtTime(levels.music * (juke.playing || elsewhere ? 0.1 : 1), t, 0.4);
     ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
     humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
   };
@@ -854,6 +864,14 @@ export function createSounds(o: SoundsOptions = {}): Sounds {
     },
     nextPiece() {
       return pieces?.next() ?? false;
+    },
+    stepBack(on) {
+      if (on === elsewhere) return;
+      elsewhere = on;
+      apply();
+    },
+    get steppedBack() {
+      return elsewhere;
     },
     get hasHum() {
       return !!humAddress;

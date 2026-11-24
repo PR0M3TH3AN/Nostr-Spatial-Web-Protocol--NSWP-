@@ -61,6 +61,12 @@ export const MENU_WAIT_MS = 300;
 export const LEAVE_MS = 1000;
 /** How long after a press on a `save` row a client still takes what the world hands up for it. */
 export const MENU_SAVE_MS = 10_000;
+/**
+ * How long that press is held open instead, once the world has answered it with `making`: it heard the press and
+ * is making what was asked for. A slow device takes longer than ten seconds over a picture, and a visitor who
+ * pressed should not get nothing for it. It is still that one press, on that one row.
+ */
+export const MENU_MAKING_MS = 60_000;
 
 /**
  * The visitor's own tabs. A world never fills, reads or presses them, and is never told what is in them.
@@ -510,7 +516,8 @@ export type MenuWordDown =
   | { what: "press"; press: string; file: Blob; kind: MenuFileKind; name?: string; field?: undefined }
   | { what: "open"; open: boolean }
   | { what: "go"; go: "home" }
-  | { what: "sign"; sign: "out" };
+  | { what: "sign"; sign: "out" }
+  | { what: "playing"; playing: boolean };
 
 /** What a world may say to a client. */
 export type MenuWordUp =
@@ -519,17 +526,18 @@ export type MenuWordUp =
   | { what: "say"; say: string }
   | { what: "settings"; settings: TravelSettings }
   | { what: "picture"; id: string; picture: unknown }
-  | { what: "save"; id: string; save: Blob; type: MenuSaveType };
+  | { what: "save"; id: string; save: Blob; type: MenuSaveType }
+  | { what: "making"; id: string };
 
 const isMenu = (data: unknown): data is Record<string, unknown> => isObject(data) && data.nswp === "menu";
 /** Only `settings` is said both ways. A word with anything of the other side's in it is not this side's to read. */
-const DOWN_ONLY = ["has", "v", "press", "field", "file", "open", "go", "sign"] as const;
-const UP_ONLY = ["world", "key", "say", "picture", "save", "id"] as const;
+const DOWN_ONLY = ["has", "v", "press", "field", "file", "open", "go", "sign", "playing"] as const;
+const UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"] as const;
 const hasAny = (data: Record<string, unknown>, names: readonly string[]): boolean => names.some((n) => data[n] !== undefined);
 
 /**
  * A word from the page above, as a world reads it, or null if it is none of these words. One word says one thing:
- * the first of `has`, `settings`, `press`, `open`, `go`, `sign` that is there. A word with anything in it that only a world
+ * the first of `has`, `settings`, `press`, `open`, `go`, `sign`, `playing` that is there. A word with anything in it that only a world
  * says is not read at all. Never throws.
  *
  * A `press` is given whatever its id: only the world knows what it last described, and it checks. A press may
@@ -566,12 +574,15 @@ export function readMenuWordDown(data: unknown): MenuWordDown | null {
   // Signing out of this world, at the visitor's press on their client's own row. It can only take away: the word
   // carries nothing, there is no word for signing in, and a world acts on it without asking.
   if (data.sign === "out") return { what: "sign", sign: "out" };
+  // The visitor's own music is playing in the client's page, or has stopped: so that a world can be quiet under
+  // it. One bit, and nothing else of it: not what is playing, how loud, or where in it. It only goes down.
+  if (typeof data.playing === "boolean") return { what: "playing", playing: data.playing };
   return null;
 }
 
 /**
  * A word from the page in the frame, as a client reads it, or null if it is none of these words. One word says one
- * thing: the first of `world`, `key`, `say`, `settings`, `picture`, `save` that is there. A word with anything in
+ * thing: the first of `world`, `key`, `say`, `settings`, `picture`, `save`, `making` that is there. A word with anything in
  * it that only a client says is not read at all. Never throws.
  *
  * A `save` is read here for what it is (a picture or a clip, within the limit, for a row by id). Whether it is the
@@ -598,6 +609,11 @@ export function readMenuWordUp(data: unknown, opts: MenuReadOptions = {}): MenuW
     const file = fileOf(data.save, MENU_LIMITS.save);
     const type = file && menuSaveType(file.type);
     return row && file && type ? { what: "save", id: row, save: file, type } : null;
+  }
+  // The world heard a press on a row that saves, and is making what was asked for: the row, by its id.
+  if (data.making !== undefined) {
+    const row = id(data.making);
+    return row ? { what: "making", id: row } : null;
   }
   return null;
 }

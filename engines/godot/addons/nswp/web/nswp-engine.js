@@ -6971,6 +6971,7 @@ ${roomName}`)));
   var MENU_WAIT_MS = 300;
   var LEAVE_MS = 1e3;
   var MENU_SAVE_MS = 1e4;
+  var MENU_MAKING_MS = 6e4;
   var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "look"];
   var MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
   var MENU_CARD_PICTURE = "card:";
@@ -7023,7 +7024,7 @@ ${roomName}`)));
     return out;
   }
   var isMenu = (data) => isObject(data) && data.nswp === "menu";
-  var UP_ONLY = ["world", "key", "say", "picture", "save", "id"];
+  var UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"];
   var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
   function readMenuWordDown(data) {
     if (!isMenu(data) || hasAny(data, UP_ONLY))
@@ -7062,6 +7063,8 @@ ${roomName}`)));
       return { what: "go", go: "home" };
     if (data.sign === "out")
       return { what: "sign", sign: "out" };
+    if (typeof data.playing === "boolean")
+      return { what: "playing", playing: data.playing };
     return null;
   }
 
@@ -11825,12 +11828,13 @@ postMessage({ t: "started" });
         }
       }
     };
+    let elsewhere = false;
     const juke = { audio: null, url: "", current: null, playing: false, tap: null };
     const apply = () => {
       const t = ctx.currentTime;
       master.gain.setTargetAtTime(levels.off ? 0 : 1, t, 0.05);
       effects.gain.setTargetAtTime(levels.effects, t, 0.05);
-      placeMusic.gain.setTargetAtTime(levels.music * (juke.playing ? 0.1 : 1), t, 0.4);
+      placeMusic.gain.setTargetAtTime(levels.music * (juke.playing || elsewhere ? 0.1 : 1), t, 0.4);
       ownMusic.gain.setTargetAtTime(levels.music, t, 0.05);
       humGain.gain.setTargetAtTime(levels.hum ? 1 : 0, t, 0.3);
     };
@@ -12362,6 +12366,14 @@ postMessage({ t: "started" });
       },
       nextPiece() {
         return pieces?.next() ?? false;
+      },
+      stepBack(on3) {
+        if (on3 === elsewhere) return;
+        elsewhere = on3;
+        apply();
+      },
+      get steppedBack() {
+        return elsewhere;
       },
       get hasHum() {
         return !!humAddress;
@@ -53369,12 +53381,19 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         waiting3 = null;
         named2 = /* @__PURE__ */ new Map();
         saving = null;
+        hearPlaying(false);
       }
       know();
       for (const fn of [...watchers8]) fn(has);
     };
     let saving = null;
     const awaited = () => !!saving && saving.left > 0 && performance.now() < saving.until;
+    let playing = false;
+    const hearPlaying = (on3) => {
+      if (on3 === playing) return;
+      playing = on3;
+      opts.playing?.(on3);
+    };
     setSaver({
       handUp(file) {
         if (!has || !awaited() || !menuSaveType(file.type) || file.size < 1 || file.size > MENU_LIMITS.save) return false;
@@ -53382,7 +53401,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         above2.say({ save: file, id: saving.id });
         return true;
       },
-      waits: () => has && !awaited()
+      waits: () => has && !awaited(),
+      // What the press asked for is being made, and may take a while: said once for a press, at once, and the press
+      // is then held open for longer, counted from the press itself. Nothing is said for a press that isn't waiting.
+      making() {
+        if (!has || !awaited() || saving.told || saving.left < MENU_LIMITS.saves) return;
+        saving.told = true;
+        saving.until = saving.at + MENU_MAKING_MS;
+        above2.say({ making: saving.id });
+      }
     });
     let leaving2 = null;
     let open2 = false;
@@ -53395,11 +53422,15 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       }
       if (!has) return;
       if (word.what === "settings") return void takeSettings(word.settings);
+      if (word.what === "playing") return void hearPlaying(word.playing);
       if (word.what === "press") {
         const row = named2.get(word.press);
         if (!row) return;
         if (word.file) return void (row.kind === "file" && row.accept.includes(word.kind) && controls2.run(word.press, void 0, word.name ? word.file : nameless(word.file)));
-        if (row.kind === "save") saving = { id: word.press, until: performance.now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
+        if (row.kind === "save") {
+          const at = performance.now();
+          saving = { id: word.press, at, until: at + MENU_SAVE_MS, left: MENU_LIMITS.saves, told: false };
+        }
         return void controls2.run(word.press, word.field);
       }
       if (word.what === "open") {
@@ -53470,6 +53501,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         stopSay();
         above2.hear(null);
         setSaver(null);
+        hearPlaying(false);
         keys?.removeEventListener("keydown", onKey, listening);
         keys?.removeEventListener("keyup", swallow, listening);
         watchers8.clear();
@@ -55411,6 +55443,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   var MENU_CUES = ["press", "menuOpen", "menuClose", "notice"];
   var meet = (c) => {
     above = portAbove(c, {
+      // The visitor's own music, playing in the client's page above: the world's own steps back while it does. It
+      // may be said before the sounds are made, so it is kept until they are.
+      playing: (on3) => {
+        musicAbove = on3;
+        sounds?.stepBack(on3);
+      },
       state: () => ({ headset: { supported: vr.supported, presenting: vr.presenting }, hum: sounds?.hasHum === true }),
       help: () => helpSaid,
       // The engine does the going: it may have a headset session to end first.
@@ -55419,6 +55457,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     return keepMenu(c, above, (only2) => mountMenu(portHere(c), only2 ? { only: only2 } : {}));
   };
   var sounds = null;
+  var musicAbove = false;
   var moving = "casual";
   var vr = { supported: false, presenting: false };
   var named = "";
@@ -55548,6 +55587,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       ...o.sounds && typeof o.sounds === "object" ? { theme: o.sounds } : {}
     });
     addSoundControls(c, s, { quiet: (cue) => above?.has === true && MENU_CUES.includes(cue) });
+    s.stepBack(musicAbove);
     c.add(freshAction(c, { busy: () => vr.presenting }));
     rowsForGate();
     const atHome = arrival.atHome();

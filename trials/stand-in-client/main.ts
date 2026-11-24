@@ -7,9 +7,7 @@
 // Only the kit's entries, as a client with a copy of the kit would load them: never a path into the kit's own files.
 // (It used to reach four things by path, and a real client then found they could not be had from an entry at all.)
 import { addDeskControls, addSoundControls, askDeskMoving, chatSwitch, createSounds, currentSettings, deskMovingSwitch, helpWords, modelsSwitch, mountMenu, picturesSwitch, portBelow, signInRows } from "nswp-sdk/menu";
-import { addBagControls, mayHold, scriptAllowed } from "nswp-sdk/bag";
-import { parseItem } from "@nswp/core";
-import BLASTER from "../../sites/items/dart-blaster.event.json";
+import { addBagControls, createItemStore, mayHold, scriptAllowed } from "nswp-sdk/bag";
 import { createControls } from "nswp-sdk/ui";
 
 const frame = document.getElementById("view") as HTMLIFrameElement;
@@ -17,8 +15,14 @@ const home = new URL(location.href).searchParams.get("home") ?? "/home.html";
 
 // The visitor's own tabs. Display comes with the controls; the way home is this page's own.
 const controls = createControls({ title: "A stand-in client" });
+// The visitor's own music is chosen and played in this page, so it doesn't stop at a door. This page has no music
+// or hum of its own. The menu's own sounds (a press, the menu coming and going) are made here too, and a world
+// whose client has the menu doesn't make them as well.
+const sounds = createSounds({ theme: { music: null, hum: null } });
 const below = portBelow(frame, {
   controls,
+  // A world is told when their own music starts and stops here, so that its own steps back meanwhile.
+  playing: () => sounds.jukebox.playing,
   // Until a client runs Following and Messages itself, it takes them from a world.
   also: ["following", "messages"],
   home: (left) => {
@@ -45,11 +49,8 @@ controls.add(
   { ...chatSwitch((text) => controls.say(text)), hidden: () => !worldFills("room") },
 );
 
-// Sound and Help are tabs both fill. The client's part of Sound: the volumes, the visitor's own music (chosen and
-// played here, so it doesn't stop at a door), and the switch for a place's hum, shown where the world says it has
-// one. This page has no music or hum of its own. The menu's own sounds (a press, the menu coming and going) are made
-// here, and a world whose client has the menu doesn't make them too.
-const sounds = createSounds({ theme: { music: null, hum: null } });
+// Sound and Help are tabs both fill. The client's part of Sound: the volumes, the visitor's own music, and the
+// switch for a place's hum, shown where the world says it has one.
 addSoundControls(controls, sounds, { hasHum: () => below.world?.state.hum === true });
 // The client's part of Help: how to move, and how to bring these controls up. What a world says of itself comes
 // after, under the world's name.
@@ -61,29 +62,35 @@ controls.addSection({ id: "help", label: "Help", icon: "help", note: helpWords("
 const asked: string[] = [];
 controls.add(...signInRows(below, { ask: () => void asked.push("ask") }));
 
-// The Bag is the client's own tab, drawn by the kit's own code in this page, which isn't a world. With `?bag=1`
-// the visitor is someone made up whose bag holds one real item (the dart blaster, by its own signed description).
+// The Bag is the client's own tab, drawn by the kit's own code in this page, which isn't a world. With `?bag=`
+// the visitor is someone made up whose bag holds one real item, by its address (the trial gives the dart
+// blaster's). What the item is, is looked up by the kit's own item store, taken from `nswp-sdk/bag` like the rest:
+// asked of a relay (a stand-in, named here, which the trial answers for), its description checked as really signed
+// by its maker. Nothing about the item is built into this page.
 // What is in hand is the world's to say; taking something up here tells the world, and waits for it to say so.
 // A thing that does things of its own is asked about here, by the kit's own rule, before it is first held (the
 // second press on Hold is the visitor's yes): the Bag is this page's, so the asking is too. The world is then told
 // which script they let run, and runs that one and no other unasked.
-if (new URL(location.href).searchParams.get("bag")) {
-  const blaster = parseItem(BLASTER as never)!;
-  const has = [blaster.id];
+const inBag = new URL(location.href).searchParams.get("bag");
+if (inBag) {
+  const items = createItemStore({ relays: ["wss://relay.stand-in.test"], viewer: () => null });
+  const has = [inBag];
   const askedAbout = { sha: "" };
   const refuse = async () => ({ ok: false, said: "This bag is a stand-in: it can't be changed." });
   const bagging = addBagControls(controls, {
     bag: { items: () => [...has], load: async () => [...has], canChange: () => false, add: refuse, remove: refuse, tints: () => ({}), setTints: () => {}, onChange: () => () => {} } as never,
-    items: { known: (c: string) => (c === blaster.id ? blaster : null), describe: async (c: string) => (c === blaster.id ? blaster : null) } as never,
+    items,
     me: () => "e".repeat(64),
     rule: () => below.world?.state.items ?? "allowed",
     place: () => below.world?.title || "this place",
     holding: () => below.world?.state.holding ?? "",
     hold: async (item, tints) => {
       if (!item) return (await below.hold("")) ? { ok: true, said: "Put away." } : { ok: false, said: "This place still has it in your hand." };
-      const may = mayHold(blaster, { rule: below.world?.state.items ?? "allowed", scripts: true, asked: askedAbout });
+      const described = await items.describe(item);
+      if (!described) return { ok: false, said: "That item's description couldn't be found." };
+      const may = mayHold(described, { rule: below.world?.state.items ?? "allowed", scripts: true, asked: askedAbout });
       if (!may.ok) return may;
-      const script = blaster.script?.sha256;
+      const script = described.script?.sha256;
       return (await below.hold(item, { ...(tints ? { tints } : {}), ...(script && scriptAllowed(script) ? { script } : {}) })) ? { ok: true, said: "In your hand." } : { ok: false, said: "This place didn't take it in hand." };
     },
   });

@@ -13,7 +13,7 @@
  *
  * This file is not the menu and doesn't load it. It is small, and is what lets a framed world never fetch the menu.
  */
-import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_SAVE_MS, menuSaveType, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
+import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuSaveType, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
 import { framed, hearClientMenu, sayToClient, setSaver, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
 import { changeSettings, currentSettings } from "./settings.js";
@@ -66,6 +66,12 @@ export interface MenuAboveOptions {
    * itself, so any other page gains nothing by setting this.
    */
   own?: boolean;
+  /**
+   * The visitor's own music began or stopped in the client's page, which is where it plays while the client has the
+   * menu. A world steps its own music back while it does (`sounds.stepBack`). Told `false` too when the client no
+   * longer has the menu, and when this is put away, if it was last told `true`.
+   */
+  playing?: (on: boolean) => void;
   /** For tests and other carriers: the page above. By default the one this page is framed by (client-frame.ts). */
   above?: { framed(): boolean; sinceHere(): number | null; say(word: Record<string, unknown>): void; hear(fn: ((word: unknown) => void) | null): void };
   /** For tests: where the visitor's keys are heard. By default this page's window. */
@@ -320,6 +326,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       waiting = null;
       named = new Map();
       saving = null;
+      hearPlaying(false);
     }
     know();
     for (const fn of [...watchers]) fn(has);
@@ -328,8 +335,15 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
   // Saving. A press from above on a row that saves is not a press in this page, so what this page would then save
   // (a picture, a clip) is handed up as that press's answer, and the page above saves it: for a while after the
   // press, and only so many. With no such press waiting, what there is to save is kept for one (`savesWait`).
-  let saving: { id: string; until: number; left: number } | null = null;
+  let saving: { id: string; at: number; until: number; left: number; told: boolean } | null = null;
   const awaited = () => !!saving && saving.left > 0 && performance.now() < saving.until;
+  // The visitor's own music, in the page above: the world is told only a change.
+  let playing = false;
+  const hearPlaying = (on: boolean) => {
+    if (on === playing) return;
+    playing = on;
+    opts.playing?.(on);
+  };
   setSaver({
     handUp(file) {
       if (!has || !awaited() || !menuSaveType(file.type) || file.size < 1 || file.size > MENU_LIMITS.save) return false;
@@ -338,6 +352,14 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       return true;
     },
     waits: () => has && !awaited(),
+    // What the press asked for is being made, and may take a while: said once for a press, at once, and the press
+    // is then held open for longer, counted from the press itself. Nothing is said for a press that isn't waiting.
+    making() {
+      if (!has || !awaited() || saving!.told || saving!.left < MENU_LIMITS.saves) return;
+      saving!.told = true;
+      saving!.until = saving!.at + MENU_MAKING_MS;
+      above.say({ making: saving!.id });
+    },
   });
 
   let leaving: ReturnType<typeof setTimeout> | null = null;
@@ -352,6 +374,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     // Nothing else is taken from a page that hasn't said it has the menu.
     if (!has) return;
     if (word.what === "settings") return void takeSettings(word.settings);
+    if (word.what === "playing") return void hearPlaying(word.playing);
     // Only for something this world last described: a press is by id, and nothing else can be pressed from above.
     if (word.what === "press") {
       const row = named.get(word.press);
@@ -359,7 +382,10 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       // A file only for a row that takes one, and only of a kind that row asked for.
       if (word.file) return void (row.kind === "file" && row.accept.includes(word.kind) && controls.run(word.press, undefined, word.name ? word.file : nameless(word.file)));
       // A row that saves: what this page would save, for a while after this press, goes up as its answer.
-      if (row.kind === "save") saving = { id: word.press, until: performance.now() + MENU_SAVE_MS, left: MENU_LIMITS.saves };
+      if (row.kind === "save") {
+        const at = performance.now();
+        saving = { id: word.press, at, until: at + MENU_SAVE_MS, left: MENU_LIMITS.saves, told: false };
+      }
       return void controls.run(word.press, word.field);
     }
     if (word.what === "open") {
@@ -440,6 +466,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       stopSay();
       above.hear(null);
       setSaver(null);
+      hearPlaying(false);
       keys?.removeEventListener("keydown", onKey as EventListener, listening);
       keys?.removeEventListener("keyup", swallow as EventListener, listening);
       watchers.clear();

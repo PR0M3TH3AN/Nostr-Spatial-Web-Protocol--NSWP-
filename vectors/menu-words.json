@@ -22,7 +22,8 @@
   "waits": {
     "MENU_WAIT_MS": 300,
     "LEAVE_MS": 1000,
-    "MENU_SAVE_MS": 10000
+    "MENU_SAVE_MS": 10000,
+    "MENU_MAKING_MS": 60000
   },
   "fileKinds": [
     "image",
@@ -2031,6 +2032,59 @@
       }
     },
     {
+      "name": "own_music_playing",
+      "word": {
+        "nswp": "menu",
+        "playing": true
+      },
+      "expect": {
+        "what": "playing",
+        "playing": true
+      }
+    },
+    {
+      "name": "own_music_stopped",
+      "word": {
+        "nswp": "menu",
+        "playing": false
+      },
+      "expect": {
+        "what": "playing",
+        "playing": false
+      }
+    },
+    {
+      "name": "own_music_carries_nothing_else",
+      "word": {
+        "nswp": "menu",
+        "playing": true,
+        "song": "Night drive",
+        "at": 31,
+        "volume": 0.4
+      },
+      "expect": {
+        "what": "playing",
+        "playing": true
+      }
+    },
+    {
+      "name": "own_music_said_wrongly",
+      "word": {
+        "nswp": "menu",
+        "playing": "Night drive"
+      },
+      "expect": null
+    },
+    {
+      "name": "a_word_with_making_in_it_is_a_worlds",
+      "word": {
+        "nswp": "menu",
+        "playing": true,
+        "making": "camera-picture"
+      },
+      "expect": null
+    },
+    {
       "name": "another_topic",
       "word": {
         "nswp": "screen",
@@ -2255,6 +2309,50 @@
         "save": "a picture",
         "id": "camera-picture",
         "file": "a picture"
+      },
+      "expect": null
+    },
+    {
+      "name": "a_world_that_says_playing",
+      "word": {
+        "nswp": "menu",
+        "playing": true
+      },
+      "expect": null
+    },
+    {
+      "name": "a_world_that_says_playing_beside_its_own_words",
+      "word": {
+        "nswp": "menu",
+        "say": "Hello",
+        "playing": true
+      },
+      "expect": null
+    },
+    {
+      "name": "making_what_was_pressed_for",
+      "word": {
+        "nswp": "menu",
+        "making": "camera-picture"
+      },
+      "expect": {
+        "what": "making",
+        "id": "camera-picture"
+      }
+    },
+    {
+      "name": "making_for_no_row",
+      "word": {
+        "nswp": "menu",
+        "making": ""
+      },
+      "expect": null
+    },
+    {
+      "name": "making_with_a_row_that_is_no_id",
+      "word": {
+        "nswp": "menu",
+        "making": "a row"
       },
       "expect": null
     },

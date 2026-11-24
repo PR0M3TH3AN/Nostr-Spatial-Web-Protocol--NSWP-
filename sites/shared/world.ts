@@ -365,7 +365,15 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   // What this world says of the things every place has and only it can run (the description's `state`). Each is
   // filled in further down, as the part that runs it starts: asked before then, it isn't so.
   const facts: { room?: () => MenuState["room"]; named?: () => boolean; signIn?: () => MenuState["signIn"]; holding?: () => string; items?: ItemsRule; hum?: () => boolean } = {};
+  // The visitor's own music, playing in the client's page above: this world's own steps back while it does. It may
+  // be said before this world's sounds are made, so it is kept until they are.
+  let musicAbove = false;
+  let stepBack: (on: boolean) => void = () => {};
   const above = portAbove(controls, {
+    playing: (on) => {
+      musicAbove = on;
+      stepBack(on);
+    },
     state: () => ({
       headset: { supported: state.vrSupported === true, presenting: renderer.xr.isPresenting },
       ...(facts.room ? { room: facts.room() } : {}),
@@ -413,6 +421,8 @@ export async function startWorld(cfg: WorldConfig): Promise<void> {
   const MENU_CUES: readonly string[] = ["press", "menuOpen", "menuClose", "notice"];
   addSoundControls(controls, sounds, { quiet: (cue) => above.has && MENU_CUES.includes(cue) });
   facts.hum = () => sounds.hasHum;
+  stepBack = (on) => sounds.stepBack(on);
+  stepBack(musicAbove);
   hooks.sounds = sounds;
   if (cfg.quiet) {
     // A game has an interface of its own, and the keyboard is for playing (spec §21.3).

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanMenuWorld, MENU_LIMITS, MENU_SAVE_MS, MENU_WAIT_MS, readMenuWordUp } from "@nswp/core";
-import { handUp, savesWait } from "../src/client-frame.js";
+import { cleanMenuWorld, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, MENU_WAIT_MS, readMenuWordUp } from "@nswp/core";
+import { handUp, making, savesWait } from "../src/client-frame.js";
 import { filesAnywhere, forgetFileHosts } from "../src/file-hosts.js";
 import { describeWorld, portAbove, type MenuAboveOptions } from "../src/menu-above.js";
 import { resetSettings } from "../src/settings.js";
@@ -29,7 +29,7 @@ afterEach(() => {
 const HAS = { nswp: "menu", has: true, v: 1, settings: {} };
 
 /** A world with a few tabs, and the page above it. */
-const make = (o: { framed?: boolean; since?: number | null; before?: unknown[]; state?: MenuAboveOptions["state"] } = {}) => {
+const make = (o: { framed?: boolean; since?: number | null; before?: unknown[]; state?: MenuAboveOptions["state"]; playing?: MenuAboveOptions["playing"] } = {}) => {
   const controls = createControls({ title: "The Gallery" });
   const pressed: [string, string | undefined][] = [];
   const act = (id: string) => (typed?: string) => void pressed.push([id, typed]);
@@ -61,6 +61,7 @@ const make = (o: { framed?: boolean; since?: number | null; before?: unknown[]; 
     keys: { addEventListener: ((type: string, fn: (e: unknown) => void) => void keyFns.set(type, fn)) as never, removeEventListener: ((type: string) => void keyFns.delete(type)) as never },
     home: () => went++,
     ...(o.state ? { state: o.state } : {}),
+    ...(o.playing ? { playing: o.playing } : {}),
   });
   const key = (e: Partial<KeyboardEvent>) => {
     const ev = { key: "", code: "", ctrlKey: false, metaKey: false, altKey: false, repeat: false, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn(), composedPath: () => [], ...e };
@@ -575,6 +576,109 @@ describe("a file handed down, and something to save handed up", () => {
     expect([savesWait(), handUp(shot())]).toEqual([true, false]);
     w.above.dispose();
     expect([savesWait(), handUp(shot())]).toEqual([false, false]);
+  });
+});
+
+describe("a picture that takes a while to make", () => {
+  const shot = () => new Blob([new Uint8Array(2561)], { type: "image/jpeg" });
+  const world = () => {
+    const w = make();
+    w.controls.add({ id: "camera-picture", section: "camera", label: "Take a picture", kind: "save", act: () => {} });
+    w.controls.add({ id: "camera-clip", section: "camera", label: "Record a clip", kind: "save", act: () => {} });
+    w.say(HAS);
+    return { ...w, makings: () => w.sent.filter((x) => x.making !== undefined), saves: () => w.sent.filter((x) => x.save !== undefined) };
+  };
+
+  it("tells the client it is making what a press asked for, once, and is then held open for longer", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    making();
+    making();
+    expect(w.makings()).toEqual([{ nswp: "menu", making: "camera-picture" }]);
+    // Well past what a press is held open for unsaid, and still within the longer time: counted from the press.
+    await vi.advanceTimersByTimeAsync(MENU_MAKING_MS - 1);
+    expect(savesWait()).toBe(false);
+    expect(handUp(shot())).toBe(true);
+    expect(w.saves()).toHaveLength(1);
+  });
+
+  it("is not held open for ever: the longer time ends, counted from the press", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    await vi.advanceTimersByTimeAsync(MENU_SAVE_MS - 1);
+    making();
+    expect(w.makings()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(MENU_MAKING_MS - MENU_SAVE_MS + 2);
+    expect([handUp(shot()), savesWait()]).toEqual([false, true]);
+  });
+
+  it("says nothing with no press waiting: none yet, one too long ago, one already answered, or no client", async () => {
+    const w = world();
+    making();
+    w.say({ nswp: "menu", press: "camera-clip" });
+    await vi.advanceTimersByTimeAsync(MENU_SAVE_MS + 1);
+    making();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    expect(handUp(shot())).toBe(true);
+    making();
+    w.say({ nswp: "menu", press: "camera-picture" });
+    w.say({ nswp: "menu", has: false });
+    making();
+    expect(w.makings()).toEqual([]);
+  });
+
+  it("is a row's alone: a press that says nothing keeps the shorter time", async () => {
+    const w = world();
+    w.say({ nswp: "menu", press: "camera-clip" });
+    await vi.advanceTimersByTimeAsync(MENU_SAVE_MS + 1);
+    expect([handUp(shot()), savesWait()]).toEqual([false, true]);
+  });
+});
+
+describe("the visitor's own music, playing in the client's page", () => {
+  it("tells the world when it starts and stops, and only a change", () => {
+    const heard: boolean[] = [];
+    const w = make({ playing: (on) => void heard.push(on) });
+    w.say(HAS);
+    w.say({ nswp: "menu", playing: true });
+    w.say({ nswp: "menu", playing: true });
+    w.say({ nswp: "menu", playing: false });
+    w.say({ nswp: "menu", playing: false });
+    expect(heard).toEqual([true, false]);
+  });
+
+  it("is not taken from a page that hasn't said it has the menu, or said any other way", () => {
+    const heard: boolean[] = [];
+    const w = make({ playing: (on) => void heard.push(on) });
+    w.say({ nswp: "menu", playing: true });
+    w.say(HAS);
+    w.say({ nswp: "menu", playing: "yes" });
+    w.say({ nswp: "menu", playing: true, press: "home" });
+    expect([heard, w.pressed]).toEqual([[], []]);
+  });
+
+  it("brings the world's music up again when the client no longer has the menu, and when this is put away", () => {
+    const heard: boolean[] = [];
+    const w = make({ playing: (on) => void heard.push(on) });
+    w.say(HAS);
+    w.say({ nswp: "menu", playing: true });
+    w.say({ nswp: "menu", has: false });
+    expect(heard).toEqual([true, false]);
+    w.say(HAS);
+    w.say({ nswp: "menu", playing: true });
+    w.above.dispose();
+    expect(heard).toEqual([true, false, true, false]);
+    // Nothing more to undo.
+    w.above.dispose();
+    expect(heard).toHaveLength(4);
+  });
+
+  it("says nothing of it upward, whatever a world is told", () => {
+    const w = make({ playing: () => {} });
+    w.say(HAS);
+    w.sent.length = 0;
+    w.say({ nswp: "menu", playing: true });
+    expect(w.sent).toEqual([]);
   });
 });
 

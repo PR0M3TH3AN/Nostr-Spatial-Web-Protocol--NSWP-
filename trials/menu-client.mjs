@@ -523,9 +523,11 @@ try {
   // ---- The kit's own Bag, run in the client's page, which isn't a world; and what is taken up there reaching the
   // framed world (the orchestrator, 2026-11-23, to take the risk out of step 2). A fresh visit. The visitor is
   // someone made up whose bag holds one real item, the dart blaster, by its own signed description: the client's
-  // page has a stand-in bag (`?bag=1`), and so has the world (`__nswpTrial.has`, which a world takes only on this
-  // machine: so the world is served here under a name that is this machine's). No relay is asked: the script
-  // answers the request for the blaster's description with it. Its files are served from the Grove's own build.
+  // page has a stand-in bag (`?bag=` and the item's address), and so has the world (`__nswpTrial.has`, which a world takes only on this
+  // machine: so the world is served here under a name that is this machine's). No real relay is asked: this script
+  // is the stand-in relay, and answers the request for the blaster's description with it. Its files are served from
+  // the Grove's own build, as a stand-in file host. The client's page is told only the item's address: what it is,
+  // it looks up through the kit's own item store, taken from `nswp-sdk/bag`.
   {
     const WORLD3 = "https://gallery.localhost";
     const ITEMS = "https://grove.bitblocks.network";
@@ -549,13 +551,17 @@ try {
       refused3.add(url.origin);
       return route.abort();
     });
+    const askedOfRelay = new Map();
     await ctx3.routeWebSocket(/^wss?:\/\//, (ws) => {
       ws.onMessage((m) => {
         let msg;
         try { msg = JSON.parse(String(m)); } catch { return; }
         if (msg[0] !== "REQ") return;
         const [, sub, ...filters] = msg;
-        if (filters.some((f) => f.kinds?.includes(BLASTER.kind) && f.authors?.includes(BLASTER.pubkey))) ws.send(JSON.stringify(["EVENT", sub, BLASTER]));
+        if (filters.some((f) => f.kinds?.includes(BLASTER.kind) && f.authors?.includes(BLASTER.pubkey))) {
+          askedOfRelay.set(ws.url(), (askedOfRelay.get(ws.url()) ?? 0) + 1);
+          ws.send(JSON.stringify(["EVENT", sub, BLASTER]));
+        }
         ws.send(JSON.stringify(["EOSE", sub]));
       });
     });
@@ -568,7 +574,7 @@ try {
         await page3.waitForTimeout(150);
       }
     };
-    await page3.goto(`${CLIENT}/?bag=1`, { timeout: 60000 });
+    await page3.goto(`${CLIENT}/?bag=${encodeURIComponent(COORD)}`, { timeout: 60000 });
     const world3 = () => page3.frames().find((f) => f.url().startsWith(WORLD3));
     const hud3 = page3.locator("nswp-hud");
     await until3(() => world3()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
@@ -576,6 +582,11 @@ try {
     const bagTab = () => page3.evaluate(() => window.__client.below.port.view().sections.find((s) => s.id === "bag")?.items.map((i) => [i.id, i.label, i.from ?? null]) ?? null);
     const rows0 = await until3(async () => { const r = await bagTab(); return r && r.length ? r : null; });
     check("bag/the kit's own Bag runs in the client's page, with the visitor's item in it", !!rows0 && rows0.some(([, label]) => /blaster/i.test(label)) && rows0.every(([, , from]) => from === null), rows0);
+    // The client's page has only the item's address. Its name is in the row, so the item's description came through
+    // the kit's item store from the stand-in relay, and was really signed: the store keeps nothing that isn't.
+    results["bag/relays asked for the item's description, and how often"] = Object.fromEntries(askedOfRelay);
+    check("bag/the client's item store asked the stand-in relay it was given, which only the client's page knows of", (askedOfRelay.get("wss://relay.stand-in.test/") ?? 0) > 0, [...askedOfRelay.keys()]);
+    check("bag/the item's own name is in the row, from its signed description", rows0?.some(([, label]) => /Dart blaster/.test(label)) === true, rows0);
     check("bag/the world says nothing of the Bag: it is the client's alone", (await page3.evaluate(() => window.__client.below.world.sections.some((s) => s.id === "bag"))) === false);
     check("bag/nothing is in hand to begin with, by the world's word", (await page3.evaluate(() => window.__client.below.world.state.holding)) === "");
     // Chosen, then taken up, with a real mouse in the client's menu.
@@ -763,7 +774,13 @@ try {
       await press5("Play your music");
       check("music/and played by it", await until5(async () => (await juke()).playing === true, 10000), await juke());
       const told = await frameAt5(WORLD).evaluate(() => window.__told ?? []);
-      check("music/the world is told nothing of it", told.length > 0 && !told.some((w) => w.includes(title) || /song-|juke/.test(w)), told.filter((w) => w.includes(title) || /song-|juke/.test(w)).map((w) => w.slice(0, 200)));
+      // What a world is told: that the visitor's own music is playing, in a word that carries nothing else, so
+      // that its own music steps back and the two aren't heard on top of one another.
+      const playingTold = (where) => frameAt5(where).evaluate(() => (window.__told ?? []).filter((w) => w.includes('"playing"')));
+      const steppedBack = (where) => frameAt5(where).evaluate(() => window.__nswpTest.sounds.steppedBack);
+      check("playing/the world is told that their own music is playing, once, in a word carrying nothing else", JSON.stringify(await playingTold(WORLD)) === JSON.stringify(['{"playing":true,"nswp":"menu"}']), await playingTold(WORLD));
+      check("playing/and steps its own music back", await until5(() => steppedBack(WORLD), 5000), await steppedBack(WORLD));
+      check("music/the world is told nothing else of it", told.length > 0 && !told.some((w) => w.includes(title) || /song-|juke/.test(w)), told.filter((w) => w.includes(title) || /song-|juke/.test(w)).map((w) => w.slice(0, 200)));
       check("music/and keeps none of it", (await frameAt5(WORLD).evaluate(() => window.__nswpTest.sounds.jukebox.list().length)) === 0);
 
       // ---- Playback controls (docs/backlog/own-music-everywhere.md): the menu's own rows in Sound. What is playing
@@ -823,10 +840,14 @@ try {
       let k = await until5(key, 8000);
       await page5.mouse.click(k.x, k.y);
       check("controls/pressed on the bar, it pauses", await until5(async () => (await juke()).playing === false, 5000), await juke());
+      check("playing/paused, the world is told, and brings its own music up again", (await until5(async () => (await steppedBack(WORLD)) === false, 5000)) && (await playingTold(WORLD)).at(-1) === '{"playing":false,"nswp":"menu"}', [await steppedBack(WORLD), await playingTold(WORLD)]);
       await page5.waitForTimeout(300);
       k = await until5(key, 8000);
       await page5.mouse.click(k.x, k.y);
       check("controls/and pressed again, it plays on", await until5(async () => (await juke()).playing === true, 5000), await juke());
+      check("playing/playing again, the world steps its music back again", (await until5(() => steppedBack(WORLD), 5000)) && (await playingTold(WORLD)).at(-1) === '{"playing":true,"nswp":"menu"}', [await steppedBack(WORLD), await playingTold(WORLD)]);
+      // Every song before and after, every move within one, and it was said only as it started and stopped.
+      results["playing/every word of it the first world was told"] = await playingTold(WORLD);
       check("controls/none of it reached the world", !(await frameAt5(WORLD).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
 
       // The same rows in a world's own menu (the fallback: this Gallery opened as a page of its own, no client). Its
@@ -864,7 +885,13 @@ try {
       const after = await juke();
       // The songs are a minute long, so by now it may have gone on to the other one: what matters is that it never stopped.
       check("music/it doesn't stop at a door: the client's page is the same one, still playing", after.playing === true && after.songs.includes(after.current) && after.page === first, after);
-      check("music/and the next world is told nothing of it either", !(await frameAt5(NEXT).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
+      // The next world was never told it started: it is told once as it comes up, after the client says it has the menu.
+      const toldNext = await frameAt5(NEXT).evaluate(() => window.__told ?? []);
+      const hasAt = toldNext.findIndex((w) => w.includes('"has":true'));
+      const playingAt = toldNext.findIndex((w) => w.includes('"playing"'));
+      check("playing/the next world is told once as it comes up, after the client says it has the menu", hasAt >= 0 && playingAt > hasAt && toldNext.filter((w) => w.includes('"playing"')).join() === '{"playing":true,"nswp":"menu"}', toldNext.map((w) => w.slice(0, 60)));
+      check("playing/and steps its own music back too", await until5(() => steppedBack(NEXT), 8000), await steppedBack(NEXT));
+      check("music/and the next world is told nothing else of it either", !(await frameAt5(NEXT).evaluate(() => window.__told ?? [])).some((w) => w.includes(title) || /song-|juke/.test(w)));
       results["music/refused, as everything but these sites is"] = [...refused5];
     } catch (e) {
       // Said with everything else, so that what was seen before it is not lost.
@@ -907,6 +934,11 @@ try {
     await ctx6.addInitScript(() => {
       window.__choosers = 0;
       window.__saves = [];
+      // A slow device, when the trial says so: a picture's file takes this much longer to make (`__slowMs`).
+      const toBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (done, ...rest) { const wait = window.__slowMs || 0; return wait ? void setTimeout(() => toBlob.call(this, done, ...rest), wait) : toBlob.call(this, done, ...rest); };
+      // In the client's page: each word about something being made that reached it from the frame, and when.
+      if (window === window.top) { window.__making = []; addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.making !== undefined) window.__making.push(JSON.stringify(e.data)); }); }
       const open = HTMLInputElement.prototype.click;
       HTMLInputElement.prototype.click = function () { if (this.type === "file") window.__choosers++; return open.call(this); };
       const save = HTMLAnchorElement.prototype.click;
@@ -988,6 +1020,30 @@ try {
       const after = await said6();
       check("save/the client says what it saved and from which world, and the world doesn't claim to have saved it", after.includes("A picture from The Gallery was saved to this device.") && !after.some((t) => /Picture saved to this device/.test(t)), after);
       await page6.screenshot({ path: join(SHOTS, "menu-client-12-save.png") });
+      check("making/a picture made at once is said to be being made too, once: the world can't know how long it will take", JSON.stringify((await page6.evaluate(() => window.__making)).map((w) => Object.entries(JSON.parse(w)).sort())) === '[[["making","camera-picture"],["nswp","menu"]]]', await page6.evaluate(() => window.__making));
+
+      // ---- A slow device. The picture's file takes twelve seconds to make, which is longer than a press is held
+      // open for unsaid (ten). The world says at once that it is making it; the client holds that one press open
+      // for longer, tells the visitor, and saves the picture when it comes.
+      const SLOW = 12000;
+      await world6().evaluate((ms) => { window.__slowMs = ms; }, SLOW);
+      await page6.evaluate(() => { window.__said.length = 0; window.__making.length = 0; });
+      await press6("Take a picture");
+      const pressedAt = Date.now();
+      const MAKING = "The Gallery is making it. It will be saved when it is ready.";
+      check("making/the world says at once that it is making it, and the client tells the visitor", (await until6(async () => (await said6()).includes(MAKING), 5000)) && Date.now() - pressedAt < 6000, { said: await said6(), after: Date.now() - pressedAt });
+      await page6.screenshot({ path: join(SHOTS, "menu-client-15-making.png") });
+      // Looked at again just past the ten seconds: nothing has come yet, and nothing has been said to have failed.
+      await page6.waitForTimeout(Math.max(0, 10500 - (Date.now() - pressedAt)));
+      check("making/ten seconds on, nothing has come and nothing is said to have failed", saved6.length === 1 && (await said6()).join("|") === MAKING, { saved6, said: await said6() });
+      const came = await until6(() => saved6.length === 2, 30000);
+      const took = Date.now() - pressedAt;
+      check("making/the picture is saved when it comes, more than ten seconds after the press", came && took > 10000 && /^the-gallery-[0-9-]+\.jpg$/.test(saved6[1] ?? ""), { saved6, took });
+      results["making/how long after the press the slow picture was saved, in ms"] = took;
+      check("making/and the client says so", await until6(async () => (await said6()).includes("A picture from The Gallery was saved to this device."), 5000), await said6());
+      check("making/said once for the press, by the world", JSON.stringify((await page6.evaluate(() => window.__making)).map((w) => Object.entries(JSON.parse(w)).sort())) === '[[["making","camera-picture"],["nswp","menu"]]]', await page6.evaluate(() => window.__making));
+      check("making/the world's own page saved nothing", (await world6().evaluate(() => window.__saves)).length === 0);
+      await world6().evaluate(() => { window.__slowMs = 0; });
       results["file/refused, as everything but these sites is"] = [...refused6];
     } catch (e) {
       check("file/the visit ran to its end", false, String(e).slice(0, 300));

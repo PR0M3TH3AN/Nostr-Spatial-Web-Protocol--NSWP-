@@ -278,10 +278,17 @@ meetClient();
  * handed up, as the answer to the visitor's press on a row that saves, and the client's page saves it. Set by the
  * world's end of the menu's words (`menu-above.ts`); nothing, where no client has the menu.
  */
-let saver: { handUp(file: Blob): boolean; waits(): boolean } | null = null;
-export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean } | null): void {
+let saver: { handUp(file: Blob): boolean; waits(): boolean; making?(): void } | null = null;
+export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean; making?(): void } | null): void {
   saver = next;
 }
+/**
+ * This page has begun making what a press asked it to save, and it may take a while: a picture drawn afresh at its
+ * full size, on a slow device. Said once to the client, as the answer to that press, so that the press is held open
+ * for longer (`MENU_MAKING_MS`) and the visitor is told. Call it as the making starts, before anything is waited
+ * for. Nothing, where no press on the client's menu is waiting for something to save.
+ */
+export const making = (): void => saver?.making?.();
 /** Hand something to save up to the client. False where it isn't the client's to save just now: this page saves it. */
 export const handUp = (file: Blob): boolean => saver?.handUp(file) ?? false;
 /**

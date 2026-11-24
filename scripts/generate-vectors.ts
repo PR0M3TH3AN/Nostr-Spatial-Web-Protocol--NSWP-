@@ -17,7 +17,7 @@ import { readShares, splitPrice, type Share } from "../packages/core/src/shares.
 import { LEAST_PRICE_SATS, readListing, termWords } from "../packages/core/src/listing.js";
 import { changeOwnerList, listD, OWNER_LIST_LIMITS, ownerListTemplate, readOwnerList, resolveOwnerList, worldSubject, type ListScope, type OwnerListChange } from "../packages/core/src/owner-lists.js";
 import { createHash } from "node:crypto";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_SAVE_MS, MENU_SAVE_TYPES, MENU_SIGN_IN, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_MAKING_MS, MENU_SAVE_MS, MENU_SAVE_TYPES, MENU_SIGN_IN, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions } from "../packages/core/src/menu.js";
 import { accessFor } from "../packages/core/src/manifest.js";
 import { LOOK_BUDGET, LOOK_HEIGHT, lookHeight, readLookModel } from "../packages/core/src/look-model.js";
 import {
@@ -1768,6 +1768,11 @@ const files: Record<string, unknown> = {
     { name: "sign_out", word: { nswp: "menu", sign: "out" }, expect: { what: "sign", sign: "out" } },
     { name: "sign_in_is_no_word", word: { nswp: "menu", sign: "in" }, expect: null },
     { name: "sign_out_carries_nothing", word: { nswp: "menu", sign: "out", as: "npub1ana" }, expect: { what: "sign", sign: "out" } },
+    { name: "own_music_playing", word: { nswp: "menu", playing: true }, expect: { what: "playing", playing: true } },
+    { name: "own_music_stopped", word: { nswp: "menu", playing: false }, expect: { what: "playing", playing: false } },
+    { name: "own_music_carries_nothing_else", word: { nswp: "menu", playing: true, song: "Night drive", at: 31, volume: 0.4 }, expect: { what: "playing", playing: true } },
+    { name: "own_music_said_wrongly", word: { nswp: "menu", playing: "Night drive" }, expect: null },
+    { name: "a_word_with_making_in_it_is_a_worlds", word: { nswp: "menu", playing: true, making: "camera-picture" }, expect: null },
     { name: "another_topic", word: { nswp: "screen", holds: true, filled: false }, expect: null },
     { name: "not_a_word", word: "menu", expect: null },
     { name: "a_worlds_word", word: { nswp: "menu", settings: { turn: 90 }, say: "Hello" }, expect: null },
@@ -1794,6 +1799,11 @@ const files: Record<string, unknown> = {
     { name: "save_with_words_for_a_picture", word: { nswp: "menu", save: "a picture", id: "camera-picture" }, expect: null },
     { name: "save_with_a_description_of_a_picture", word: { nswp: "menu", save: { size: 2561, type: "image/jpeg" }, id: "camera-picture" }, expect: null },
     { name: "save_that_carries_a_file_down", word: { nswp: "menu", save: "a picture", id: "camera-picture", file: "a picture" }, expect: null },
+    { name: "a_world_that_says_playing", word: { nswp: "menu", playing: true }, expect: null },
+    { name: "a_world_that_says_playing_beside_its_own_words", word: { nswp: "menu", say: "Hello", playing: true }, expect: null },
+    { name: "making_what_was_pressed_for", word: { nswp: "menu", making: "camera-picture" }, expect: { what: "making", id: "camera-picture" } },
+    { name: "making_for_no_row", word: { nswp: "menu", making: "" }, expect: null },
+    { name: "making_with_a_row_that_is_no_id", word: { nswp: "menu", making: "a row" }, expect: null },
     { name: "a_clients_word", word: { nswp: "menu", has: true, v: 1, settings: {} }, expect: null },
   ];
   for (const c of up) expectEqual(`menu-words/up ${c.name}`, readMenuWordUp(c.word), c.expect);
@@ -1813,7 +1823,7 @@ const files: Record<string, unknown> = {
       "The client has the menu (protocol/02-doors.md, \"The client has the menu\"): the words between a world in a frame and the page above it that draws the visitor's console. `describing`: what a client keeps of each `world` a framed page sends as `{ nswp: \"menu\", world }` (`opts.own`: the page is of the client's own origin; `opts.also`: visitor's tabs this client still takes from a world), or null. `counting`: the limits on how much, with what was sent said in words and what was kept as counts. `down`: what a world makes of each word from the page above. `up`: what a client makes of each word from the page in its frame. `here`: the version spoken with a world, from its `here`: the lower of the two, or 0. The rules: a client's settings are cleaned as a link's are, so `filesAnywhere: true` is dropped from them (that switch is turned on only by the visitor's own press on the world's own row) and `false` is taken; one word says one thing, and a word with anything in it that only the other side says is not read; a client may tell a world to sign the visitor out (`sign: \"out\"`), which carries nothing and can only take away, and there is no word for signing in; `state.signIn` is one of `signIn`, a fact the client words its own row from; nothing is run and every word is text; what is unknown, over a limit or not the world's to say is left out, never cut to fit or mended; in a tab both fill (`tabs.world` has them all; Sound, Help and Moving among them) a client draws its own rows first and the world's below, under the world's name; a line has anything unseen made a space and its ends trimmed; text to copy and text typed are carried whole or not at all; characters are counted as code points, and bytes as the UTF-8 of the JSON without pictures. `cardPicture` is what comes before a tab's id where a picture is for the card at that tab's head, and no row's id may begin with it. No picture is in these examples: JSON has none, and a reader with no check for them keeps none. A press may carry a file the visitor chose (`file`), and a world may hand a picture or a clip up to be saved (`save`); a file is not something this page can hold, so only what is refused for not being one is here, and the rest is in the core's tests.",
     version: MENU_VERSION,
     limits: MENU_LIMITS,
-    waits: { MENU_WAIT_MS, LEAVE_MS, MENU_SAVE_MS },
+    waits: { MENU_WAIT_MS, LEAVE_MS, MENU_SAVE_MS, MENU_MAKING_MS },
     fileKinds: MENU_FILE_KINDS,
     saveTypes: MENU_SAVE_TYPES,
     tabs: { visitor: MENU_VISITOR_TABS, world: MENU_WORLD_TABS },
