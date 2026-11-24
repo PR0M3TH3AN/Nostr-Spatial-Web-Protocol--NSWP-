@@ -53405,10 +53405,11 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       // What the press asked for is being made, and may take a while: said once for a press, at once, and the press
       // is then held open for longer, counted from the press itself. Nothing is said for a press that isn't waiting.
       making() {
-        if (!has || !awaited() || saving.told || saving.left < MENU_LIMITS.saves) return;
+        if (!has || !awaited() || saving.told || saving.left < MENU_LIMITS.saves) return false;
         saving.told = true;
         saving.until = saving.at + MENU_MAKING_MS;
         above2.say({ making: saving.id });
+        return true;
       }
     });
     let leaving2 = null;

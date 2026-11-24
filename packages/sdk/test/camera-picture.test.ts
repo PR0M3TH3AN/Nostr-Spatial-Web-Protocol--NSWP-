@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { takePicture, takeSelfie } from "../src/camera.js";
+import { addCameraControls, takePicture, takeSelfie } from "../src/camera.js";
+import { resetClientFrame, setSaver } from "../src/client-frame.js";
+import { createControls } from "../src/ui/model.js";
 
 /**
  * Taking a picture holds the world only for the one drawing. Making the file from it can take a slow device
@@ -11,7 +13,7 @@ const renderer = () => {
   const r = {
     target: null as unknown,
     drawn: [] as { to: unknown; things: number }[],
-    xr: { enabled: true },
+    xr: { enabled: true, isPresenting: false },
     getRenderTarget: () => r.target,
     setRenderTarget: (t: unknown) => void (r.target = t),
     clear: () => {},
@@ -41,6 +43,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete (globalThis as { document?: unknown }).document;
+  resetClientFrame();
 });
 
 const world = () => {
@@ -132,5 +135,66 @@ describe("taking a selfie", () => {
     make();
     expect((await taking).type).toBe("image/jpeg");
     expect(count(w.scene)).toBe(before);
+  });
+});
+
+describe("a picture asked for from a client's menu above", () => {
+  /** A world's Camera, and a client above it that either is waiting on a press for something to save, or isn't. */
+  const camera = (waiting: boolean) => {
+    const r = renderer();
+    const w = world();
+    const controls = createControls({ title: "The Gallery" });
+    const order: string[] = [];
+    const draw = r.render;
+    r.render = (scene) => {
+      order.push("drawn");
+      draw(scene);
+    };
+    setSaver({
+      handUp: () => true,
+      waits: () => false,
+      making: () => {
+        if (waiting) order.push("said");
+        return waiting;
+      },
+    });
+    addCameraControls(controls, { renderer: r as unknown as THREE.WebGLRenderer, scene: w.scene, camera: w.camera });
+    return { controls, order };
+  };
+  const turn = () => new Promise<void>((done) => setTimeout(done, 0));
+  /** To the end of the script that took the press: a row's work is begun within it, though not in the very call. */
+  const scriptEnds = async () => {
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+  };
+
+  it("says it is making the picture and lets the word go before it draws: the drawing is one long piece of script", async () => {
+    const c = camera(true);
+    c.controls.run("camera-picture");
+    await scriptEnds();
+    // The script that took the press has ended, and nothing is drawn yet: the word is on its way first.
+    expect(c.order).toEqual(["said"]);
+    await turn();
+    await turn();
+    expect(c.order).toEqual(["said", "drawn"]);
+    make();
+  });
+
+  it("does the same for a selfie", async () => {
+    const c = camera(true);
+    c.controls.run("camera-selfie");
+    await scriptEnds();
+    expect(c.order).toEqual(["said"]);
+    await turn();
+    await turn();
+    expect(c.order).toEqual(["said", "drawn"]);
+    make();
+  });
+
+  it("draws at once where nobody above is waiting to be told: a world's own menu, a headset", async () => {
+    const c = camera(false);
+    c.controls.run("camera-picture");
+    await scriptEnds();
+    expect(c.order).toEqual(["drawn"]);
+    make();
   });
 });
