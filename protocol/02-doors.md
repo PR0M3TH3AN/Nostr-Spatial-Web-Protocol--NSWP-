@@ -541,8 +541,14 @@ pages, and a world takes them only from the page directly above it.
   The menu comes up on that tab; if it is up already, it goes to that
   tab. **It is never put away by it:** this is not the visitor's summons,
   which is their own key and toggles. A tab the client doesn't have, or a
-  `show` that is no id, brings the menu up on the tab it was last on. The
-  word carries the tab's id and nothing else. A client honours it so that
+  `show` that is no id, brings the menu up on the tab it was last on. **A
+  tab the client doesn't have yet is waited for, two seconds:** a world
+  may ask for a tab of its own before its description of that tab has
+  reached its client, so the menu comes up at once where it last was and
+  goes to the tab if it arrives within two seconds of the asking, unless
+  the visitor has chosen a tab or put the menu away meanwhile. A tab that
+  arrives later moves nothing. The word carries the tab's id and nothing
+  else. A client honours it so that
   no world can hold the menu up against the visitor or move them about in
   it. With the menu up, only in answer to a press: within a second of a
   press the client sent that world, and once for each press. With the

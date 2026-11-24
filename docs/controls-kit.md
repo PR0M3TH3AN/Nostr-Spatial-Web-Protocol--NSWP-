@@ -862,6 +862,10 @@ the room, the microphone, chat, jump. So the taskbar and its number keys are the
 same in every world. Your own controls follow in the order you added them.
 Sections have a standard order too, and "Sound" and "Display" are part of
 it. `hud.setOpen(true, "sound")` brings the menu up on a section by name.
+Named a section the menu doesn't have yet, it comes up where it last was,
+and goes to that section if you add it within two seconds
+(`MENU_SHOW_KEEP_MS`), unless the visitor has chosen another or put the
+menu away.
 
 ## Sharing the screen with a world's own interface
 

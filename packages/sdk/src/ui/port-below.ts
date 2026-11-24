@@ -399,7 +399,10 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   let usedSinceShow = false;
   const shown = (tab: string | undefined) => {
     if (!menu?.setOpen) return;
-    const at = tab && port.view().sections.some((s) => s.id === tab) ? tab : undefined;
+    // Handed on as it was asked for, whether or not this menu has that tab just now: a world may ask for a tab of
+    // its own before its description of it has arrived. The menu keeps the asking a short while, and a tab it
+    // never has is the same as no tab named (hud.ts, `MENU_SHOW_KEEP_MS`).
+    const at = tab;
     if (open) {
       if (clock() - pressedAt > SHOW_AFTER_PRESS_MS) return;
       pressedAt = -Infinity;

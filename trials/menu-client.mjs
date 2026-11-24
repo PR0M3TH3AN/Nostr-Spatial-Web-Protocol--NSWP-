@@ -1489,6 +1489,26 @@ VISITS.show = async () => {
   await page.waitForTimeout(4500);
   await sayShow("no-such-tab");
   check("show: a tab the client doesn't have brings the menu up where it last was", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("room")) ? m : null; }, 4000)), await menu());
+  // 7. A tab of the world's own, asked for a moment before the client has heard of it: the world asks, and adds the
+  // tab most of a second later. The client's menu comes up where it last was, before the tab is there, and goes to the tab as it arrives.
+  // The steps before this put away menus that `show` had brought up, and each such putting away makes a world wait
+  // longer before it may bring the menu up again. A menu the visitor brings up and puts away themselves sets that
+  // back to two seconds, which is then waited out.
+  await page.evaluate(() => window.__client.menu.setOpen(false));
+  await until(async () => !(await menu()).up, 3000);
+  await page.evaluate(() => window.__client.menu.setOpen(true, "room"));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.__client.menu.setOpen(false));
+  await until(async () => !(await menu()).up, 3000);
+  await page.waitForTimeout(2400);
+  await world().evaluate(() => {
+    window.__nswpTest.hud.setOpen(true, "trial-early");
+    setTimeout(() => { const c = window.__nswpTest.controls; c.addSection({ id: "trial-early", label: "Own early", icon: "save" }); c.add({ id: "trial-early-row", section: "trial-early", label: "A row of a tab the world added late", act: () => {} }); }, 800);
+  });
+  const cameUp = await until(async () => ((await menu()).up ? await menu() : null), 3000);
+  check("show: asked for a tab of its own that the client hasn't heard of yet, the menu comes up at once, where it last was", !!cameUp && cameUp.tab.toLowerCase() === "room", cameUp);
+  // The client says whose tab it is after the tab's own name ("Own early · The Gallery"), so the name is read from the start.
+  check("show: and goes to that tab as the world's description of it arrives", !!(await until(async () => { const m = await menu(); return m.up && m.tab.toLowerCase().startsWith("own early") ? m : null; }, 4000)), { menu: await menu(), worldSaid: await page.evaluate(() => window.__client.below.world?.sections.map((x) => x.id)) });
   await ctx.close();
 };
 

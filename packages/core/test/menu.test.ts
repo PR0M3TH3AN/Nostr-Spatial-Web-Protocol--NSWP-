@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_ROW_KINDS, MENU_SAVE_MS, MENU_SAVE_TYPES, menuFileKind, menuFileName, menuSaveType, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
+import { cleanMenuSettings, cleanMenuWorld, LEAVE_MS, MENU_CARD_PICTURE, MENU_FILE_KINDS, MENU_KEYS, MENU_ROW_KINDS, MENU_SAVE_MS, MENU_SHOW_KEEP_MS, MENU_SAVE_TYPES, menuFileKind, menuFileName, menuSaveType, MENU_LIMITS, MENU_REPORTED, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, MENU_WORLD_TABS, menuBytes, menuVersionOf, readMenuWordDown, readMenuWordUp, reportedSettings, type MenuReadOptions, type MenuWorld } from "../src/menu.js";
 
 /**
  * The client has the menu (protocol/02-doors.md): the words between a framed world and the page above it.
@@ -32,7 +32,7 @@ describe("the limits and the lists", () => {
   it("are the ones the plan and the protocol give", () => {
     expect(MENU_LIMITS).toEqual({ sections: 12, rows: 60, allRows: 200, label: 120, picture: 256, bytes: 65536, ownTabs: 2, say: 200, copy: 2000, field: 500, title: 80, note: 400, file: 67_108_864, fileName: 255, save: 67_108_864, saves: 12, covers: 8192 });
     expect(v.limits).toEqual(MENU_LIMITS);
-    expect([MENU_VERSION, MENU_WAIT_MS, LEAVE_MS]).toEqual([1, 300, 1000]);
+    expect([MENU_VERSION, MENU_WAIT_MS, LEAVE_MS, MENU_SHOW_KEEP_MS]).toEqual([1, 300, 1000, 2000]);
     expect(MENU_KEYS).toEqual(["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
   });
 
