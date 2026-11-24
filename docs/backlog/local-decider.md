@@ -97,8 +97,12 @@ Stop at the first step that fails, and say so.
   and be framed by. A shell that frames worlds may not be able to carry
   them: to be found out in the test, and it may decide where a device
   decider can live.
-- **Where it runs:** the shell, not the sign-in address (it holds no
-  secret), and not a world. A world opened by itself has rules only.
+- **Where it runs:** for the shell, and for every world it frames, but on
+  an origin of its own with nothing kept there, not in the shell's own
+  page: the library that runs a model is other people's code and reads
+  whatever its origin keeps (found in the test, 2026-11-24). Never at the
+  sign-in address, and never in a world. A world opened by itself has
+  rules only.
 - **The words between a world and the shell,** and any capability word,
   are given, not taken (fleet rule 11).
 - **What a device says of itself:** whether "can run it" tells a world
