@@ -821,6 +821,63 @@ not follow from this model.
   and larger model, which has no browser build; a small model that writes
   text, read by the scores of its next word.
 
+## A mystery in the house: the free half (D67, 2026-11-24)
+
+Built on the owner's word in the playground's session ("Start the
+mystery"). No model and no spend. The same house, with a tin on a shelf
+that one person, with a reason, takes when the kitchen is empty. The deed
+goes through the same choices as anything else, so it happens and the
+game's record has it.
+
+Three things kept apart: **what happened** (the record, and where each
+person was each minute, written only by the simulation); **what each
+saw** (what was in their own sight and no more); **what each says** (not
+built). What is in sight is fixed by the house: in a room, who is there and
+what they are doing; from the living room, every door, so a person is seen
+to go into a room and not what they do there; a sleeper sees nothing.
+
+| 56 days by the free rules | Named rightly | Not settled | Named wrongly |
+|---|---|---|---|
+| Careless (28) | 27 | 1 | 0 |
+| Careful, waits for the living room to be empty (18 where the chance came) | 9 | 9 | 0 |
+
+Every sighting agrees with where people really were, minute by minute.
+
+- **A world that wants witnesses needs two things of its engine** (shown:
+  D67): where each character was, kept by the world; and a rule for what
+  is in sight from where. The room format has neither: it has walls and
+  things, and no notion of what one place sees of another.
+- **"In sight" need not be a picture** (shown: D67). Rooms, and which
+  doors a place overlooks, were enough for a mystery that code can settle,
+  or fail to settle, honestly. *For a world:* "seen from here" could be
+  declared as walls are. This is the looking experiment's first answer: a
+  witness knows what the view showed and no more, and the view can be
+  words.
+- **True accounts never mislead** (shown: D67): none wrong in 46. So in
+  the costly half, anything that misleads is the speaking, and can be
+  counted as such. That is its measure.
+- **Showing only the newest memories makes a witness useless within a day**
+  (shown: D67): 0 of 46 with the newest five or ten, of 46 to 65 held;
+  27 of 28 and 9 of 18 with everything, or with what was seen in the
+  stretch asked about. With D64, twice measured: recency is the wrong rule
+  for which memories to show.
+- **Looking memories up by the time asked about loses nothing, but its
+  edges come from the question** (shown: D67). Asked by the bare stretch,
+  the one witness who walked in a minute after it was left out; asked with
+  a few minutes on, got back. *For memory kept as notes:* a lookup is told
+  what is being asked, with a margin.
+- **Evidence comes only from shared places** (shown: D67). Where sight
+  does not name, it does not narrow: everyone alone behind a door gives
+  nobody an alibi and nobody a witness. *For a world's maker:* a mystery
+  needs somewhere people overlap or overlook, which is a property of the
+  layout, not of the characters.
+- **One more field a thing needs: a function that can be done once**
+  (shown: D67). With amounts and time taken, three fields the house needed
+  that rooms don't have; "who can use it at once" is a fourth.
+- **The limits:** one house, one deed, one layout. "Careful" is one rule,
+  and its cases are few.
+- **Not done:** anyone speaking; the owner working a case out.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
@@ -1008,8 +1065,9 @@ measure it with memory kept in the tab.
     `docs/backlog/agent-skills-published.md`.
 - How often a rare failure happens: in the three runs above each order was
   tried once for each way of asking.
-- Whether looking can stand in for a declaration a world has not made (an
-  experiment set out and not run).
+- Whether looking can stand in for a declaration a world has not made. A
+  first answer for witnesses (D67): what a place sees, said in words, was
+  enough. Not tried with a picture.
 - More than one visitor; a real kit world; a world of hundreds of things in
   several areas.
 - Orders with no single right answer.

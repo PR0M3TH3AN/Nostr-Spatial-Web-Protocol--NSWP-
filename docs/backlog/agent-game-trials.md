@@ -14,8 +14,9 @@
   "Yes, try the fix" and "Topped up, run them": $0.0117). Asked everything, it tells people apart
   from their sheets and does not keep them well; with code choosing the
   need and JEV the thing, three clean days passed all three tests. The
-  lessons are in `docs/plans/agents-lessons.md`. The mystery and the settlement
-  are not started.
+  lessons are in `docs/plans/agents-lessons.md`. The mystery's free half is built and run (D67, on his
+  "Start the mystery": what each person saw, checked against what happened
+  with no model); nobody speaks yet. The settlement is not started.
   Trials, not games: nothing for the kit, BitPortal or any live world. Part of `ai-keys-and-agents`, which is last
   and not a priority.
 
