@@ -325,6 +325,29 @@ the events above all meet: a skill is what decides what is asked and when.
   limits are published with it** (reasoned: D54): a person can see that a
   shooter is an agent, and its hit rate and how fast it reacts sit near a
   person's.
+- **Two kinds of character, decided by the owner, 2026-11-24.** Asked
+  whether each character in a mystery would be a Nostr identity with its
+  own depth and memory, the orchestrator proposed a split and the owner
+  said: "Yes I like your agent split."
+  - **A cast member** belongs to one game in one world and is run by
+    whoever hosts it. It is a record, a character's sheet kept under the
+    host's key, with a throwaway key for the time it is in a room. It has
+    no lasting key of its own, and it shows as run by its host.
+  - **A lasting agent** (a companion across worlds, a keeper who remembers
+    a visitor for months) has a Nostr identity of its own, with its memory
+    as sealed notes, and is known wherever it goes.
+  - **The same sheet for both, filled to different depths:** who it is,
+    what it wants, whom it knows, what it knows, what it saw, what it can
+    do. Depth costs tokens at every decision, so it is not spent evenly: a
+    mystery's suspects are deep, a passer-by is thin.
+  - **What happened is never a character's to keep.** The game holds its
+    own record, so that what a witness says can be checked and the one
+    hiding can't rewrite it.
+  - **Why not an identity for everyone** (reasoned): somebody has to hold
+    each key, and a world's page can't; eight free identities look like
+    eight people where a cast shown as run by its host is honest; and each
+    is more to keep, sync and pay for. Where a lasting agent's key lives is
+    BitLogin's to design and is not designed.
 - **Whether a world takes agents** is a line in a door's details (the
   owner, 2026-11-24: "In door details"). The word is not given.
 
