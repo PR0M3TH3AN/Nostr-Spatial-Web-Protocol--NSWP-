@@ -944,7 +944,44 @@ whether a chat model names the right thing.
 - **The maker's switch for eyes belongs with the agent,** as learned
   skills do (reasoned: D68), and where it is recorded is open in the same
   way.
-- **Not run:** any of it with a real chat model or JEV.
+- **Not run:** all ten orders, each way twice.
+
+**The measuring set (D69, run the same day on the owner's "Yes, measure
+it"):** one order of each kind in four paid ways. 42 requests, $0.0038;
+JEV 0.23 s a reply, the chat model about 2.4 s. It measures cost and
+shows what happens; it ranks nothing.
+
+- **A chat model picked a thing out by where it is, from a small text
+  view whose marks carry ids, and handed it down by id** (measured once:
+  D69). "Bring me the box by the window" became "Bring [box-1] to
+  [player]." and JEV carried it out in four steps.
+- **JEV given the same view found the right box and then did not stop**
+  (measured once: D69): it went on to a second. Its weakness was the
+  stopping, not the seeing. The id in the task is what gave the other way
+  its stop: the choices below held one box only. Without eyes, JEV said
+  the order was unclear, which is the honest answer.
+- **If a view is needed, it belongs with whoever sets the task** (shown:
+  D69). Eyes for the upper level cost one view an order (1,700
+  characters); eyes for the lower level cost one at every decision (nine
+  views, 15,750 characters).
+- **An empty reply is a third outcome, beside an answer and a refusal**
+  (shown: D69). Two of the chat model's six replies were empty and were
+  first recorded as the task "cannot": D65's mistake again, in a second
+  runner. Now tried once more, then marked as no answer and counted apart.
+  *For the kit:* this goes in the runner's contract, not left to each
+  caller. An outcome is one of: answered, refused, faulted, empty.
+- **Looking as skills** (asked, not built). The owner: "can the eyes have
+  adjustable resolution if needed? Like a larger grid? Would that be
+  usful?" and "could 'look around' or 'search' be a skill 'enhance vision'
+  could be a skill as well that bumps up the resolution if JEV needs it.
+  does that make sense for our architecture here?" As the playground's
+  session answered him: seeing is a sense the maker allows; searching is
+  an action code carries out (turn, take a view, stop when the thing is in
+  the view's list); looking closer is offered or set off only when a first
+  look did not settle it, and "if JEV needs it" would be read from JEV's
+  own lean, where its top choice among like things is weak. A world could
+  allow eyes or cap their size (the allowed gate); the maker turns them on
+  (the learned gate). The eyes already come in six sizes.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
