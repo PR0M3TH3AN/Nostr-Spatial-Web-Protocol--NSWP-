@@ -55039,7 +55039,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       owed = false;
       setTimeout(draw, 0);
     };
-    const onSpace = (e) => void (e.key === " " && (e.type === "keydown" ? pressBegan(e) : pressOver()));
+    const onSpace = (e) => void (e.key === " " && (e.type === "keyup" ? pressOver() : e.repeat || pressBegan(e)));
     root.addEventListener("pointerdown", pressBegan, true);
     root.addEventListener("keydown", onSpace, true);
     root.addEventListener("keyup", onSpace, true);
