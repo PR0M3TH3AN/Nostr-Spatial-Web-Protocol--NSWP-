@@ -4,9 +4,11 @@
   Could we support worlds made with or entirely of these?
   https://sparkjs.dev/"
 - **Who:** a small trial first (the NSWP builder), then the kit and the world
-  template. Not briefed.
-- **State:** asked, as a question. Not a priority: the client's menu comes
-  first.
+  template. Briefed 2026-11-24, in the builder's queue after its menu work.
+- **State:** the trial is agreed. Asked whether the builder should make one
+  splat room as a trial after the menu work, the owner said: "Yes, after
+  the menu". Only the trial: nothing goes into the kit before the owner has
+  tried it on the Quest 3S.
 
 ## What a splat world is
 
