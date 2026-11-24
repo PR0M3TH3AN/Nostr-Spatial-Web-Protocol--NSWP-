@@ -54705,7 +54705,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement;
       return [...fields.values()].find((f) => f.input === at);
     };
+    let measuringOnly = false;
     const drawField = (item, whose) => {
+      if (measuringOnly) return el("form", { class: "field" }, el("input", { type: "text" }), el("button", { type: "submit" }, item.label), el("p", { class: "to" }, whose ? `What you type here goes to ${whose}.` : ""));
       let f = fields.get(item.id);
       if (!f) {
         const input = el("input", { type: "text", maxlength: String(MENU_LIMITS.field), autocomplete: "off", autocapitalize: "off", autocorrect: "off", spellcheck: "false", enterkeyhint: "done" });
@@ -54745,6 +54747,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       s.time.textContent = s.item.slider?.text?.() ?? "";
     };
     const drawSlider = (item) => {
+      if (measuringOnly) return el("label", { class: item.on === true ? "slide on" : "slide" }, icon(item.icon), el("span", { class: "name" }, item.label), el("input", { type: "range", min: "0", step: "1", value: "0" }), el("span", { class: "time mono" }, "0:00 of 0:00"));
       let s = sliders.get(item.id);
       if (!s) {
         const range = el("input", { type: "range", min: "0", step: "1", value: "0" });
@@ -54792,6 +54795,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const drawCard = (card, acts = [], onlyMeasured = false) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
       if (card.color) face.style.setProperty("--c", card.color);
+      onlyMeasured || (onlyMeasured = measuringOnly);
       const paint2 = onlyMeasured ? void 0 : card.draw;
       if (paint2) {
         const canvas = document.createElement("canvas");
@@ -55093,7 +55097,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const placeOf = (wide) => `${wide}|${host.style.getPropertyValue("--s")}|`;
     const keyOf = (at, s) => `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
     const measureTab = (s, layOut) => {
-      const r = el("div", { class: "rows" }, ...layOut(s));
+      let made2;
+      measuringOnly = true;
+      try {
+        made2 = layOut(s);
+      } finally {
+        measuringOnly = false;
+      }
+      const r = el("div", { class: "rows" }, ...made2);
       r.hidden = !s.items.length && !s.card;
       const n = el("p", { class: "note" }, s.note ?? "");
       const w = el("p", { class: "note said" }, ...s.said ? [el("b", {}, s.said.from), s.said.note] : []);
@@ -55356,7 +55367,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       };
       const drawTile = (item) => {
         const shown5 = el("span", { class: "shown", "aria-hidden": "true" }, [...item.short][0]?.toUpperCase() ?? "");
-        const picture2 = item.picture?.();
+        const picture2 = measuringOnly ? null : item.picture?.();
         if (picture2) {
           const canvas = document.createElement("canvas");
           canvas.width = canvas.height = 192;
