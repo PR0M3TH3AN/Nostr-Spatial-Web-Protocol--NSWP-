@@ -59,6 +59,20 @@ Not shown: full screen (the scripted browser would not enter it); the
 panel asked for with the menu closed; the shell's own menu on; a world in
 another engine.
 
+## A pointer given late (found 2026-11-24, after 0.88.0)
+
+The mend in 0.88.0 let the pointer go as the panel came up. It missed a
+pointer asked for and not yet given. Under a client that has the menu, the
+menu's going makes the world ask for the pointer; where the panel is said
+up before the browser has given it, there is nothing yet to let go, and
+the browser then gives it under the panel. `trials/panel-pointer.mjs`
+showed it on a loaded machine, one run in five. Mended in `fps.ts`: a
+pointer given while the panel or the menu is up is let go at once, and
+with the panel up the mouse turns nothing. The trial has a round that
+holds every asking for the pointer back 150 ms, so it fails every time
+without the mend. The same held for a world's own menu, put away and
+brought up again inside that moment.
+
 ## Why, as first read (not run)
 
 The kit lets the pointer go in one place (`fps.ts`), on four things: the
