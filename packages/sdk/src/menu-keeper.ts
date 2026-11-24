@@ -119,7 +119,7 @@ export function keepMenu(controls: Controls, above: MenuAbove, mount: (only?: "c
     },
     setOpen(open, at) {
       if (own) own.setOpen(open, at);
-      else above.menu.setOpen(open);
+      else above.menu.setOpen(open, at);
     },
     setHidden(next) {
       hidden = next;

@@ -40,7 +40,11 @@ export interface MenuAbove {
    */
   readonly menu: {
     readonly open: boolean;
-    setOpen(open: boolean): void;
+    /**
+     * Ask for the client's menu to come up or go. With a tab named (`at`), ask for it to come up on that tab
+     * (`show`): it comes up there, or goes to that tab if it is up, and is never put away by it.
+     */
+    setOpen(open: boolean, at?: string): void;
     /**
      * How much of this world's view the client's menu covers at each edge, for what is always there (its bar, its
      * marks): as the client last said (`covers`), in pixels of this page. Nothing where the client has no menu
@@ -228,7 +232,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
   };
   if (!above.framed()) {
     know();
-    return { ready, has: false, onChange: () => () => {}, menu: { open: false, setOpen: () => {}, cover: () => ({ top: 0, bottom: 0, left: 0, right: 0 }), bounds: () => [] }, dispose: () => {} };
+    return { ready, has: false, onChange: () => () => {}, menu: { open: false, setOpen: (_open: boolean, _at?: string) => {}, cover: () => ({ top: 0, bottom: 0, left: 0, right: 0 }), bounds: () => [] }, dispose: () => {} };
   }
 
   // Pictures. A description is text and is said again whenever a word of it changes; a picture is neither, so each
@@ -319,6 +323,13 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     reported = comfortNow();
   };
   const stopView = controls.subscribe(changed);
+  // Something in the world asks for the controls on one of their tabs (`show:<tab>`: a row of the world's own,
+  // someone's picture pressed). In a world's own page its menu comes up there. Where the client has the menu, the
+  // asking goes up as a word of its own, with the tab's id and nothing else. It is not the summons: the summons is
+  // the visitor's own key and toggles, and this must never put a menu away.
+  const stopAsking = controls.onSignal((name) => {
+    if (has && name.startsWith("show:")) above.say({ show: name.slice(5) });
+  });
   // Some of what is said is worked out afresh each time it is asked for, and nothing says when it changed: a row's
   // words that follow a headset session or a room, the state of the things only the world runs. So it is looked at
   // again on a slow tick, as the world's own menu does, and said only if it differs.
@@ -473,8 +484,11 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       get open() {
         return has && open;
       },
-      setOpen(next) {
-        if (has && next !== open) tell("summon");
+      setOpen(next, at) {
+        if (!has) return;
+        // On a tab: asked for by its id, which is not the visitor's summons and never puts the menu away.
+        if (next && at) return void above.say({ show: at });
+        if (next !== open) tell("summon");
       },
       cover() {
         const { w, h } = viewSize();
@@ -507,6 +521,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       clearInterval(tick);
       if (leaving) clearTimeout(leaving);
       stopView();
+      stopAsking();
       stopSay();
       above.hear(null);
       setSaver(null);

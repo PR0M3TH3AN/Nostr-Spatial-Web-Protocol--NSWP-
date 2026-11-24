@@ -7041,7 +7041,7 @@ ${roomName}`)));
     return { top, bottom, left, right, ...sheet.width > 0 && sheet.height > 0 ? { sheet: { x: sheet.x, y: sheet.y, width: sheet.width, height: sheet.height } } : {} };
   }
   var isMenu = (data) => isObject(data) && data.nswp === "menu";
-  var UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"];
+  var UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making", "show"];
   var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
   function readMenuWordDown(data) {
     if (!isMenu(data) || hasAny(data, UP_ONLY))
@@ -53196,7 +53196,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       },
       setOpen(open3, at) {
         if (own2) own2.setOpen(open3, at);
-        else above2.menu.setOpen(open3);
+        else above2.menu.setOpen(open3, at);
       },
       setHidden(next) {
         hidden2 = next;
@@ -53330,7 +53330,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     if (!above2.framed()) {
       know();
       return { ready: ready2, has: false, onChange: () => () => {
-      }, menu: { open: false, setOpen: () => {
+      }, menu: { open: false, setOpen: (_open, _at) => {
       }, cover: () => ({ top: 0, bottom: 0, left: 0, right: 0 }), bounds: () => [] }, dispose: () => {
       } };
     }
@@ -53408,6 +53408,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       reported = comfortNow();
     };
     const stopView = controls2.subscribe(changed);
+    const stopAsking = controls2.onSignal((name) => {
+      if (has && name.startsWith("show:")) above2.say({ show: name.slice(5) });
+    });
     const tick = setInterval(changed, 400);
     const stopSay = controls2.onSay((text2) => {
       if (has && text2) above2.say({ say: text2.slice(0, MENU_LIMITS.say) });
@@ -53535,8 +53538,10 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         get open() {
           return has && open3;
         },
-        setOpen(next) {
-          if (has && next !== open3) tell2("summon");
+        setOpen(next, at) {
+          if (!has) return;
+          if (next && at) return void above2.say({ show: at });
+          if (next !== open3) tell2("summon");
         },
         cover() {
           const { w, h } = viewSize();
@@ -53567,6 +53572,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         clearInterval(tick);
         if (leaving2) clearTimeout(leaving2);
         stopView();
+        stopAsking();
         stopSay();
         above2.hear(null);
         setSaver(null);

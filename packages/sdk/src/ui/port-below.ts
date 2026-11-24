@@ -234,7 +234,7 @@ export interface MenuBelow {
    * its view the menu covers (`covers`): worked out here from the menu's own `cover()`, where its sheet is, and
    * where the frame is in this page. Nothing for a client to say. A menu with no `cover()` says nothing of it.
    */
-  attach(menu: { pressKey(key: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null): void;
+  attach(menu: { pressKey(key: string): void; setOpen?(open: boolean, at?: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null): void;
   /** The visitor's own Home was pressed: the world is told, and they are taken home within `LEAVE_MS` whatever it does. */
   leave(): void;
   /**
@@ -306,7 +306,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   };
   /** The pictures a world sent, each alone, by the id of the row it is for, or `card:<tab>` for a tab's card. */
   const pictures = new Map<string, unknown>();
-  let menu: { pressKey(key: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null = null;
+  let menu: { pressKey(key: string): void; setOpen?(open: boolean, at?: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null = null;
   let open = false;
   let saidSettings = "";
   let leaving: ReturnType<typeof setTimeout> | null = null;
@@ -376,6 +376,54 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   if (typeof addEventListener === "function") addEventListener("resize", onResize);
   const watchFrame = typeof ResizeObserver === "function" && typeof frame.getBoundingClientRect === "function" ? new ResizeObserver(onResize) : null;
   watchFrame?.observe(frame);
+
+  // A world asks for the menu to come up on a tab (`show`): one of its own rows was pressed. It is honoured, and
+  // a world can never hold the menu up with it against the visitor, or move them about in it:
+  //
+  // - **It never puts the menu away.** Only the visitor does.
+  // - **With the menu up, only in answer to a press.** The one reason to change tab under a visitor is that they
+  //   pressed a row of the world's in this menu. So it is honoured only within a second of a press this page sent
+  //   that world, and once for each press.
+  // - **With the menu down, the visitor's closing wins.** For two seconds after they put the menu away, nothing a
+  //   world says brings it back. If what they put away was a menu that `show` had brought up, and they pressed
+  //   nothing in it, that rest doubles each time in a row, to a minute at the most; it goes back to two seconds
+  //   once they press something in the menu, or put away a menu they brought up themselves.
+  // - A tab this menu doesn't have is no tab named: the menu comes up where it last was.
+  const SHOW_AFTER_PRESS_MS = 1000;
+  const SHOW_REST_MS = 2000;
+  const SHOW_REST_MOST_MS = 60_000;
+  let pressedAt = -Infinity;
+  let showRestUntil = -Infinity;
+  let showStrikes = 0;
+  let broughtByShow = false;
+  let usedSinceShow = false;
+  const shown = (tab: string | undefined) => {
+    if (!menu?.setOpen) return;
+    const at = tab && port.view().sections.some((s) => s.id === tab) ? tab : undefined;
+    if (open) {
+      if (clock() - pressedAt > SHOW_AFTER_PRESS_MS) return;
+      pressedAt = -Infinity;
+      if (at) menu.setOpen(true, at);
+      return;
+    }
+    if (clock() < showRestUntil) return;
+    broughtByShow = true;
+    usedSinceShow = false;
+    menu.setOpen(true, at);
+  };
+  /** A press in this menu went to the world: the visitor is using the menu, and the world may answer with a tab. */
+  const pressed = () => {
+    pressedAt = clock();
+    usedSinceShow = true;
+    showStrikes = 0;
+  };
+  /** The menu came up or went: kept, for what the next `show` may do. */
+  const showKnows = (up: boolean) => {
+    if (up) return;
+    showStrikes = broughtByShow && !usedSinceShow ? Math.min(showStrikes + 1, 8) : 0;
+    showRestUntil = clock() + Math.min(SHOW_REST_MOST_MS, SHOW_REST_MS * 2 ** showStrikes);
+    broughtByShow = false;
+  };
 
   /** Only to the page that said `here`: never to whatever is in the frame now. */
   const say = (word: Record<string, unknown>) => {
@@ -455,6 +503,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       return changed();
     }
     if (word.what === "key") return void menu?.pressKey(word.key);
+    if (word.what === "show") return void shown(word.show);
     // Shown under the world's name: a world's words are never put in the client's mouth.
     if (word.what === "say") {
       const text = `${world?.title || new URL(origin).host}: ${word.say}`;
@@ -565,6 +614,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         if (!file || !kind || !row.accept?.includes(kind) || file.size < 1 || file.size > MENU_LIMITS.file) return false;
         controls.signal("press");
         const name = (file as { name?: unknown }).name;
+        pressed();
         say({ press: row.id, file: name === undefined || menuFileName(name) ? file : file.slice(0, file.size, file.type) });
         return true;
       }
@@ -575,6 +625,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         saving = { id: row.id, at, until: at + MENU_SAVE_MS, left: MENU_LIMITS.saves, making: false };
       }
       controls.signal("press");
+      pressed();
       say({ press: row.id, ...(row.kind === "field" && typed !== undefined ? { field: typed.slice(0, MENU_LIMITS.field) } : {}) });
       return true;
     },
@@ -591,6 +642,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       controls.signal(name);
       if (name !== "menuOpen" && name !== "menuClose") return;
       open = name === "menuOpen";
+      showKnows(open);
       say({ open });
       coversMayHaveChanged();
       // While the menu is up this page has the keys, so nothing typed in it reaches the world. As it goes, they go
