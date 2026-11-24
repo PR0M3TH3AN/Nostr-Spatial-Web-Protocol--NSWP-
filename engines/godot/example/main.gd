@@ -295,6 +295,56 @@ func _report() -> void:
 		_pretended = pretend
 		var hands: Variant = JSON.parse_string(pretend)
 		_visitor.pretend_hands(hands if typeof(hands) == TYPE_ARRAY else [])
+	_measure_pixels(window)
 
 
 var _pretended := "null"
+var _measured := "null"
+var _pixels_shown: ImageTexture = null
+
+
+## What it costs to bring a picture drawn by the page into the engine, for a test to read
+## (`trials/godot-pixels.mjs`; docs/plans/godot-headset-controls.md, "The console in a headset").
+## The page is asked for a picture of `w` by `h`, `times` over, by `window.nswpTrialPixels(i)`
+## (its pixels as they are) or `window.nswpTrialPng(i)` (packed as a PNG, in base64), and each
+## step is timed, in microseconds: getting it across, making an image of it, and putting the
+## image on a texture. Nothing a world needs: take it out of your own.
+func _measure_pixels(window: JavaScriptObject) -> void:
+	var ask := str(window.nswpMeasurePixels)
+	if ask == _measured:
+		return
+	_measured = ask
+	var want: Variant = JSON.parse_string(ask)
+	if typeof(want) != TYPE_DICTIONARY:
+		return
+	var w := int(want.get("w", 1024))
+	var h := int(want.get("h", 640))
+	var how := str(want.get("how", "raw"))
+	var rows: Array = []
+	for i in int(want.get("times", 20)):
+		var t0 := Time.get_ticks_usec()
+		var image: Image = null
+		var size := 0
+		var t1 := t0
+		if how == "png":
+			var packed := Marshalls.base64_to_raw(str(JavaScriptBridge.eval("window.nswpTrialPng(%d)" % i, true)))
+			t1 = Time.get_ticks_usec()
+			size = packed.size()
+			image = Image.new()
+			image.load_png_from_buffer(packed)
+		else:
+			var got: Variant = JavaScriptBridge.eval("window.nswpTrialPixels(%d)" % i, true)
+			t1 = Time.get_ticks_usec()
+			if typeof(got) != TYPE_PACKED_BYTE_ARRAY or (got as PackedByteArray).size() != w * h * 4:
+				window.nswpPixelsCost = JSON.stringify({"failed": "the page gave %s, not %d bytes" % [type_string(typeof(got)), w * h * 4]})
+				return
+			size = (got as PackedByteArray).size()
+			image = Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, got)
+		var t2 := Time.get_ticks_usec()
+		if _pixels_shown == null or _pixels_shown.get_width() != w or _pixels_shown.get_height() != h:
+			_pixels_shown = ImageTexture.create_from_image(image)
+		else:
+			_pixels_shown.update(image)
+		var t3 := Time.get_ticks_usec()
+		rows.append([t1 - t0, t2 - t1, t3 - t2, size])
+	window.nswpPixelsCost = JSON.stringify({"how": how, "w": w, "h": h, "rows": rows})
