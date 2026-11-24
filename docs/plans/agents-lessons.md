@@ -116,6 +116,11 @@ shut in.
 - What a press does is the item's script (read). For an agent to use an
   item sensibly, the item needs a sentence for each press and when it is
   possible (reasoned from 2 and 3 above).
+- **The two named presses were enough to offer "Reload" in words; they
+  were not enough to offer it sensibly** (shown: the range, D54). The
+  range's blaster also had to say how many shots it holds, how fast it
+  fires and how long a reload takes. None of those is in the kit's item
+  today (read).
 - `sittable`, `touchable`, `readable` and `wearable` are read from an item
   and nothing acts on them (read). They are the natural home for what an
   item is for.
@@ -188,8 +193,12 @@ shut in.
   the owner's own session, not a measurement made for it).
   Where a world can say it outright ("12 degrees right, 8 m, in view") that
   is cheaper (reasoned).
-- **Decide when something changes, not on a clock** (reasoned; to be
-  measured on the shooting range). In the boat house a question is about
+- **Decide when something changes, not on a clock** (shown with the free
+  rules deciding, D54: under 70% of a clock's questions for the same
+  shooting; not yet shown with JEV). Either way nothing is asked when there
+  is nothing to decide, one question is in flight at a time, the world runs
+  on meanwhile, and an answer that no longer fits is thrown away and
+  counted. In the boat house a question is about
   2,100 tokens with everything offered and about 850 to 880 cut down. At
   the one price reported ($0.042 a million input tokens, through
   OpenRouter), five a second would be about $1.59 an hour with everything
@@ -201,9 +210,24 @@ shut in.
   The orders ran in rooms with nothing drawn, as fast as the machine
   allowed: 19 to 25 orders three ways took about a minute. For the kit: a
   world's rules separable from its drawing, so agents can be tried.
-- **Aiming is the body's, with a person's limits** (reasoned; the range):
-  the decider chooses whom and when; code turns; a capped turn rate and
-  some error, so it is not an aimbot among visitors.
+- **Aiming is the body's, with a person's limits, and the limits are
+  stated** (built: the range, D54). The decider says whom to shoot, or
+  reload, or wait; code turns at no more than 300 degrees a second and
+  fires with a spread (over 95% of shots hit at 6 m, 20 to 75% at 20 m).
+  Without stated limits the same code is an aimbot.
+- **A world's loop must not depend on its tab being in view** (shown: D54).
+  In a pane that was not in view the browser woke the round about once a
+  second and the free rules hit 1 of 12; in view, 12 of 12. For an agent
+  among visitors: its client can't be a background tab. No timed test is
+  run in a pane that is not in view.
+- **To be asked on events, a world has to announce them** (reasoned: D54):
+  a target coming up, a target dropping, what a shot did, a clip emptying,
+  a reload ending. The range's own simulation hands them over; in a world
+  today nothing does.
+- **The same round for everyone** (built: D54). A round is made from a
+  seed, so the owner, the free rules and JEV shoot the very same targets at
+  the same times. Any trial that compares an agent with a person needs
+  this.
 - **Never cut the part of a message that holds the format or the visitor's
   words** (shown: D42). Cutting every message to 2,000 bytes removed both,
   and the model guessed. It bit only with the text view on; without the
@@ -217,6 +241,28 @@ shut in.
   asked only when an order waits on its next step, and the chat model
   checks in only while an order is being carried out.
 
+## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
+
+- **It plays from text that says the state, not from the screen.** Its
+  Doom demo makes about ten decisions a second, at about seven dollars an
+  hour of play by TypeSafe's own figure. TypeSafe says a scripted bot would
+  play better, and no score is published. No page gives the state's fields
+  or the list of actions.
+- **Its price** is $0.042 a million input tokens, which is what our own
+  runs worked out.
+- **One request can carry several questions,** answered at once and blind
+  to each other. Our contract asks one. Asking "whom" and "fire now?"
+  together is worth having before a port (reasoned).
+- **Kinds of question:** a choice, a score, a yes or no, and one that finds
+  a thing in a picture (new, marked early). The last is a second kind of
+  eyes, and bears on whether looking can stand in for a declaration.
+- **Over about 32,000 bytes of text, or with any picture, a request runs in
+  a slower and less accurate way.** The largest text view (128 by 128) with
+  a room's state comes near it: keep a question well under.
+- **Its Pong demo is built as the range is:** the world runs on, the latest
+  answer that fits steers for a short while, late answers are dropped, and
+  code works out the hard number and hands it over.
+
 ## What the protocol would have to settle
 
 - **Who decides a thing's state for everyone in a room** (read and
@@ -226,7 +272,10 @@ shut in.
 - **An agent is a visitor with a key and a client of its own** (read): it
   can already come in as a guest or by a pass it signs. A room holds eight.
 - **An agent is marked as one, by the kit** (reasoned), never passes for a
-  person, and never acts as the visitor who pays for it.
+  person, and never acts as the visitor who pays for it. **Its body's
+  limits are published with it** (reasoned: D54): a person can see that a
+  shooter is an agent, and its hit rate and how fast it reacts sit near a
+  person's.
 - **Whether a world takes agents** is a line in a door's details (the
   owner, 2026-11-24: "In door details"). The word is not given.
 
@@ -274,7 +323,10 @@ shut in.
 
 ## Not yet known
 
-- Play that needs quick choices (the shooting range, next).
+- Play that needs quick choices: the shooting range is built (D54) and has
+  not yet been shot by JEV or by the owner. With the free rules deciding,
+  in view: 12 of 12 hostile and no friendly hit, 22 shots, 417 ms from a
+  target coming up to the first shot.
 - **Whether a tree has another use than the one tried.** The owner,
   2026-11-24, after the third run: "Maybe there is another application for
   the tree method we don't quite understand yet?" What was tried is one
