@@ -46,7 +46,10 @@ Today a world says who is in it and nothing of what is in it (read:
 NSWP-06, NSWP-17; see `docs/backlog/worlds-declare-for-agents.md`).
 
 1. **Its things** (shown: D45): for each a name, a label, a general kind,
-   a place, and its state as plain values.
+   a place, and its state as plain values. **And words that single it out,
+   with a word for its kind** (shown: D53): cutting the choices down works
+   by matching an order's words to these. A thing with no words can't be
+   asked for, and things that share all their words can't be told apart.
 2. **What can be done with each** (shown: D45): a name, a label, one
    sentence saying what doing it achieves, and when it is available. Shaped
    like a row of the kit's menu (id, label, kind), which is the nearest
@@ -103,21 +106,57 @@ shut in.
   a second description of their world for agents. A button made with the
   kit's helper should be declared by being made, and people should gain
   from the same declaration (a "use" prompt, the menu, a screen reader).
-- **Hand the decider a short list, chosen by the order** (shown: D51, D53).
-  With every choice offered, a room of 54 things (about 150 choices) had 3
-  of 6 orders carried out. Cut down by what the order names: 5 of 6. As a
-  tree (which thing, then which action): 6 of 6, at a third of the tokens
-  and twice the waiting. In a room of 12 things the cut-down flat list was
-  best on every count. The rule to try: flat when the list is short, a
-  dozen or so; a tree above that.
-- **Every question carries what the order is about, what is in the way,
-  and what comes first** (shown: D53). The tree's first form hid a thing
-  behind a shut way by giving it no branch; JEV then never saw it.
-- **Cutting down has traps** (shown: D53). A thing that is blocked must
-  still take part in working out what the order names (asked for the black
-  case behind a gate, JEV fetched the black crate). A limit on how many
-  things are described must not drop the one the order is about. Where the
-  order can't tell two things apart, offer the nearest.
+- **Hand the decider a short list, chosen by the order** (shown: D51, D52,
+  D53; three runs, 428 requests, about three cents). This is a step in the
+  agent's own running, not something a world writes. The third run, the
+  one to go by, in a made-up warehouse of 54 things and the boat house of
+  12, six orders each:
+
+  | Room | Way of asking | Orders carried out | Tokens an order | Waiting on JEV an order |
+  |---|---|---|---|---|
+  | Warehouse | everything offered | 3 of 6 | 11,561 | 673 ms |
+  | | cut down by the order | 6 of 6 | 2,782 | 782 ms |
+  | | a tree (which thing, then which action) | 6 of 6 | 4,174 | 1,381 ms |
+  | Boat house | everything offered | 6 of 6 | 8,551 | 958 ms |
+  | | cut down by the order | 6 of 6 | 2,960 | 850 ms |
+  | | a tree | 6 of 6 | 4,535 | 1,443 ms |
+
+  **Everything offered does not survive a place of 54 things.** **The list
+  cut down by the order did as well as the tree on orders and better on
+  tokens, questions and waiting, in both rooms.**
+- **A tree was the owner's idea** ("i see JEVs options like a branching
+  tree of possibilities"), **tried, and not needed at this size** (shown:
+  D53). After the second run it looked like the answer for a long list (6
+  of 6 against 5 of 6 in the warehouse). Two mends to the cut-down list,
+  below, closed that. The tree stays in the playground's code, off the main
+  path. Where it might still win, none of it shown: an order that names
+  nothing in particular in a place of hundreds of things, where the cut-down
+  list is still long; and play that needs quick choices, where staying at a
+  leaf means not asking the wider question again.
+- **What made the difference was what each question carries** (shown: D53):
+  what the order is about, what is in the way, and what comes first. The
+  tree's first form hid a thing behind a shut way by giving it no branch,
+  and JEV then never saw it.
+- **Cutting down has traps, each met and mended** (shown: D53):
+  - A thing that is blocked must still take part in working out what the
+    order names. Asked for the black case behind a gate, JEV fetched the
+    black crate.
+  - Describe only the things the choices are about. A fixed limit on things
+    described (24) silently left out the very thing the order named.
+  - A hint is tied to the thing wanted. A general "this opens the way",
+    true whenever any door was shut, made JEV pull a lever that had nothing
+    to do with the order.
+  - Between things the order can't tell apart, the agent's own running
+    picks the nearest. Asked to choose between two equal buoys, JEV called
+    the order unclear.
+  - A thing's functions are offered only where the order names the thing
+    or needs it first. Every function on every step was a distraction.
+- **Cutting down works by matching words, and that has a limit** (reasoned:
+  D53). An order that describes a thing without naming it ("the thing that
+  makes noise") keeps everything. That case needs the chat model to name
+  the thing first, or the whole list.
+- **For sizing** (shown: D53): cut down, about 2,800 to 3,000 input tokens
+  an order and under 900 a question, one question a step.
 - **Looking is offered when it is needed** (shown: D47, D51): it adds seven
   choices and one for each thing to every decision.
 - **Eyes as text help where a world has not declared** (shown: D44). A
@@ -135,10 +174,14 @@ shut in.
 - **Never cut the part of a message that holds the format or the visitor's
   words** (shown: D42). Cutting every message to 2,000 bytes removed both,
   and the model guessed.
-- **Leave a thinking model room to answer** (shown: D44, D46): with too
-  small an allowance it spent it all thinking and said nothing.
-- **Nothing is asked while nobody is interacting** (shown): JEV is asked
-  only when an order waits on its next step.
+  The newest message now has 8,000 bytes of its own; older turns keep
+  2,000.
+- **Leave a thinking model room to answer** (shown: D44, the second eyes
+  run): with 512 tokens allowed it spent them all thinking and said
+  nothing. The default is now 1,500.
+- **Nothing is asked while nobody is interacting** (shown: D43): JEV is
+  asked only when an order waits on its next step, and the chat model
+  checks in only while an order is being carried out.
 
 ## What the protocol would have to settle
 
@@ -186,6 +229,8 @@ shut in.
 ## Not yet known
 
 - Play that needs quick choices (the shooting range, next).
+- How often a rare failure happens: in the three runs above each order was
+  tried once for each way of asking.
 - Whether looking can stand in for a declaration a world has not made (an
   experiment set out and not run).
 - More than one visitor; a real kit world; a world of hundreds of things in
