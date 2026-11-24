@@ -302,6 +302,40 @@ shut in.
   not to this machine.
 - **Show the cost as it runs** (built: D43, D50), by service and by use.
 
+## Memory kept as sealed Nostr notes
+
+The owner, 2026-11-24: "Have we proven our Nostr memory system works? That
+might be needed for longer more nuanced AI like that. With motivations and
+insensitives." What the playground's own record of checks says (read from
+its `docs/VALIDATION.md`, "history and memory from Nostr"):
+
+- **Keeping and bringing back: shown, on a stand-in relay with throwaway
+  keys.** A character's personality, its memories and its earlier turns are
+  sealed (NIP-44) and put on a relay as records nobody else can read, and
+  restored from it. Nothing readable is in the event; a missing record and
+  somebody else's record are both refused.
+- **The owner's hand on it: shown.** A memory is kept only once approved;
+  it can be corrected (its revision goes up) and removed; nothing is kept
+  by default; memories and earlier turns go to a model only with their
+  switches on, and the page shows exactly what was sent.
+- **Not shown:** a backup signed through the real BitLogin and restored; a
+  real relay taking the records. Both need the owner's word, since
+  publishing to relays is his each time and nothing made for a test goes to
+  a real relay.
+- **Not shown, and the part his question is about:** that memory steers a
+  model over a long time. Whether a reason given at the start still shapes
+  choices many decisions later; which memories are put in front of the
+  model when there are hundreds and the room for them is fixed; what
+  happens when two disagree; and memories an agent writes for itself. Today
+  each one waits for the owner's approval, which a house of eight people
+  cannot do by hand.
+
+**For the port** (reasoned): persistence across visits, worlds and devices
+is what Nostr is for, and that half is close. Whether memory makes an agent
+act with reasons of its own is a separate question that needs no relay to
+answer: the house and the mystery (`docs/backlog/agent-game-trials.md`) can
+measure it with memory kept in the tab.
+
 ## Talking by voice
 
 - The kit's own way (hold, speak, release; Whisper on the visitor's
