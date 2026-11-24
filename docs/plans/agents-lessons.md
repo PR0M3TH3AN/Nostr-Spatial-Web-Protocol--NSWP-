@@ -1184,6 +1184,43 @@ still hider and 5 of 30 against the sly one; rules 30 and 25).
 - **Not done:** any seeker with JEV or a chat model; memory between games;
   a person hiding; the game on the page; sight by the text view.
 
+## Hide and seek: seekers with models built, eyes closed off, and memory's free line (D73, 2026-11-24; not run with a model)
+
+Built on the owner's word in the playground's session ("Yes, build
+them"). Nothing sent or spent. The levels: JEV chooses where to look, with
+the chase kept by three lines of code; JEV chooses everything the skills
+offer, from one sentence and no code for seeking (the open arm the owner
+asks to keep in every test); a chat model sets the order to look in, as
+ids, which code cuts to ids the place told of and the rules carry out;
+the same with the seeker's eyes; the same with a memory of where the
+player was caught before. A chat model asked for every move is not built:
+the free waiting run answered it.
+
+- **Eyes have to be given their scene by the place** (shown, free: D73).
+  Tried with the eyes for the first time, hide and seek leaked: a view
+  reached 40 m where the game's light reaches 7, and a body is wider than
+  a point, so a view could show the edge of someone the place says is
+  hidden. Now the place leaves a player it says is unseen out of what the
+  eyes are given, and the view reaches no further and no wider than the
+  place's own rule; about 240 views from chance places show nobody the
+  place says is unseen. *For the kit:* a view cast over everything drawn
+  tells more than the sense declared. A view for an agent is made from
+  what the place says that agent may see.
+- **A slow planner is not waited for** (built: D73). The body sets off as
+  the rules would and takes the plan up when it comes. The plan is data,
+  an order of ids, cut by code. Three plans a game at most: at the start,
+  after the player is seen and lost, and when a plan is walked to its end.
+- **"Where they were found before" is one count for each thing, and as a
+  rule it already pays** (shown, free: D73). Against a hider with a habit
+  (the same place three times in four), rules that look there first halve
+  the time to first sight: 12.1 to 6.5 s, 14.3 to 7.7 s, 9.2 to 5.7 s in
+  the three rooms. It helps a little against hiders that move and costs a
+  little against one that hides somewhere new each game. That is the line
+  a chat model that remembers has to beat, at no cost. *For the protocol:*
+  where an agent's memory of a place is kept is still to settle; here it
+  lasts a run of games and is not stored.
+- **Not run:** any of the five with JEV or a chat model.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its

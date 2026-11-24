@@ -16,6 +16,28 @@
   last in the builder's queue, with a film for the owner before they go
   live.
 
+## And, once it was live: the sheet must not cover the row at the top (2026-11-24)
+
+One size went live in kit 0.88.0 the same day, and the owner sent a
+picture he had marked (kept in the sessions' notes folder,
+`menu/owner-sheet-covers-the-top-2026-11-24.webp`): "can we make sure the
+menu on flat screens dont cover the items at the top? Like the full
+screen or login badge or the world info or menu button."
+
+In a wide, short window the sheet, now as tall as its largest tab on
+every tab, reaches up over the row at the top: its strip of tabs lies
+across "Full screen", its left end over the world's card, its corner
+beside the Menu button. Before one size a short tab left that row alone.
+
+Wanted: the sheet never lies over anything in the top row (the world's
+card, the mark for who you are signed in as, "Full screen", the Menu
+button, and whatever else sits there). Its top stops below the lowest of
+them, measured from where they are and not from a share of the window. One
+size holds: the largest tab's size, or as tall as that room allows, and a
+longer tab scrolls inside. A check that fails today, at short windows
+too. In the builder's queue right after the Bag's pictures asked for too
+soon, for the same kit version.
+
 ## Three things
 
 ### 1. One size, on every tab
