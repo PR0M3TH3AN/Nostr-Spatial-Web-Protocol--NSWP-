@@ -9,12 +9,19 @@
 - **Who:** a test first, in the `nswp-agents` playground (step 1 briefed
   2026-11-24). Then a written design: BitPortal's shell (where it would
   run), the kit (the words a world asks in), the protocol.
-- **State:** the first step of the test is briefed to the `nswp-agents`
-  session (the owner, 2026-11-24: "Yes, brief the agents session on the
-  local model test"). Nothing downloaded, built or tried: the model and
-  the library to run it are each his own word in that session, by name,
-  size and source. Part
-  of `ai-keys-and-agents`, which is last and not a priority.
+- **State:** step 1 is run (2026-11-24, the playground's D66, on the
+  owner's "Yes, both" to the two named downloads) and **its line is not
+  met**. Kev 0.6B, the only model of its kind with a browser build, did
+  not start in the playground's browser (no graphics adapter, and no
+  processor route for it in a tab), and run outside a browser it carried
+  out 2 of 6 orders in each room where JEV carries out 6 of 6 and plain
+  rules 5 of 6. In the house's small question it does read character from
+  a sentence, but ran late a quarter of the time. So the later steps do
+  not follow from this model. The lessons are in
+  `docs/plans/agents-lessons.md`. Left open, and the owner's to ask for:
+  the graphics-card route in his own browser (a second download of 338
+  MB), and a better model if one gets a browser build. Part of
+  `ai-keys-and-agents`, which is last and not a priority.
 
 ## The idea
 

@@ -741,6 +741,72 @@ owner's alone to see to. None of D64's 1,885 failed.
 - **Not done:** a longer run; a bigger house; a person playing one of the
   people.
 
+## A decider on the visitor's own device: the first step, and its line not met (D66, 2026-11-24)
+
+Asked for by the owner (`docs/backlog/local-decider.md`). Run on his words
+in the playground's session, to the two things named with their sizes and
+sources: "Yes, both". Fetched and nothing else: the model Kev 0.6B in its
+browser build (388 MB with its tokenizer, every file checked against the
+hashes its host lists, Apache-2.0) and the library that runs it (about 450
+MB, install scripts off). No key, no spend.
+
+**In a browser: it did not start.** The playground's own browser has no
+graphics adapter. On the processor in a tab the files load and the model
+fails to start: the browser build of the runtime has no processor code
+for one operation this model uses. So in a browser this model needs the
+graphics card, and that route is untried by anyone here.
+
+**Outside a browser, on the processor, it runs** (said plainly: not what
+was asked for, done to answer whether a small model can choose as JEV
+does at all). Loaded in 2.4 s, about 770 MB of memory, a house question
+of 461 tokens in 2.3 to 2.9 s.
+
+| Task | Kev 0.6B on the device | JEV | Plain rules |
+|---|---|---|---|
+| Orders, the boat house | 2 of 6 | 6 of 6 | 5 of 6 |
+| Orders, the warehouse | 2 of 6 | 6 of 6 | |
+| The house, code choosing the need: days differ | 22.9% | about 20% | 12.7% with weights |
+| The house: most of anyone's time on one thing | 46.9% (over the line) | 35 to 37% | 40.1% |
+| The house: answers after a choice stays good | 22 and 28 of 102 | none | none |
+
+On the orders it said "done" or "cannot" at the first question on four of
+six, or repeated one step to the limit, and never opened a shut way to
+reach something. Twice, identical step for step. The line for going on
+was 6 of 6, so the later steps (a browser tab, the shell, the headset) do
+not follow from this model.
+
+- **The question needs nothing new for a device decider** (shown: D66). An
+  open model takes JEV's own typed questions and gives a lean for each
+  option. "Rules, device, service" can be three answers to one request,
+  whatever this model scores.
+- **This model is not good enough to stand in for the service on orders of
+  more than a step or two** (shown: D66). A fall-back that carries out a
+  third of what is asked is worse than falling back to rules.
+- **Where the question is small and the need already chosen, it does read
+  character from a sentence** (shown: D66): every choice the person's own
+  way. So if a device decider has a place, it is the place JEV has in the
+  house, and only there. Even there it put one person over the line where
+  JEV did not, and was late a quarter of the time on a laptop's processor.
+- **"Runs in a browser" has to be asked for each route** (shown: D66). On
+  the graphics card: said by the model's own page, untried here. On the
+  processor in a tab: does not start for this model. Outside a browser:
+  works. *For a world and the kit:* a fall-back on the device can't be
+  assumed to exist on a visitor's device.
+- **Threads on the processor need a page shut off from other sites, and
+  such a page can't hold a sign-in frame from another origin** (shown:
+  D66; the playground gave the trial a page of its own for this). *For
+  BitPortal's shell* that is a real choice: a device decider on threads,
+  or a frame from another site in the same page. A worker in its own shut
+  context, or the graphics card, would be the ways round; neither tried.
+- **The cost to a visitor** (shown: D66): 388 MB once before the first
+  decision, about 770 MB of memory while loaded, 2 to 4 s an answer on a
+  laptop's processor.
+- **A device decider gives the same answer every time** (shown: D66): two
+  runs agree exactly, which the service's do not. Worth having for trials.
+- **Not tried:** the graphics-card route on any device; the family's newer
+  and larger model, which has no browser build; a small model that writes
+  text, read by the scores of its next word.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
