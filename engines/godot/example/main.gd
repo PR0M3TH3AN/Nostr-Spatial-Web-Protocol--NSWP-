@@ -42,6 +42,15 @@ func _ready() -> void:
 	# The kit's menu and sounds. The way home, how to move, fullscreen and the volumes are in it.
 	Nswp.menu(TITLE, ACCENT, {"help": "A small world made in Godot with the NSWP addon. Drag to look around. Walk with W, A, S, D, or click the floor to step there: twice to run. Shift runs and Space jumps. Walk into the doorway to go to the Gallery: your own Airlock shows where it really leads, and asks, before you go."})
 
+	# Opened with `#pixels` in its address, this world measures what the console's picture costs
+	# to bring across on the device it is opened on, and says so (below, "for tests"). Nothing
+	# an ordinary visitor meets: the mark is not in any door or link.
+	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.hash", true)).contains("pixels"):
+		get_tree().create_timer(4.0).timeout.connect(_measure_console)
+		Nswp.menu_toggled.connect(func(open: bool) -> void:
+			if open and _console_cost != "":
+				_say(_console_cost))
+
 	_visitor = NswpVisitor.new()
 	_visitor.name = "Visitor"
 	_visitor.accent = ACCENT
@@ -348,3 +357,37 @@ func _measure_pixels(window: JavaScriptObject) -> void:
 		var t3 := Time.get_ticks_usec()
 		rows.append([t1 - t0, t2 - t1, t3 - t2, size])
 	window.nswpPixelsCost = JSON.stringify({"how": how, "w": w, "h": h, "rows": rows})
+
+
+var _console_cost := ""
+
+
+## What the console's own picture costs to bring into the engine on this device: the real
+## thing, twenty times over, each time read back by the page, brought across and put on a
+## texture, as it is whenever what the console shows changes in a headset. Said in the page's
+## menu, and again whenever the menu is opened, so that it can be read out. The first is left
+## out: it makes the canvas and the texture, which happens once.
+func _measure_console() -> void:
+	var now := Nswp.console({"open": true})
+	var w := int(now.get("w", 0))
+	var h := int(now.get("h", 0))
+	var took: Array[float] = []
+	var texture: ImageTexture = null
+	for i in 21:
+		var t0 := Time.get_ticks_usec()
+		var pixels := Nswp.console_pixels()
+		if w < 1 or pixels.size() != w * h * 4:
+			break
+		var image := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, pixels)
+		if texture == null:
+			texture = ImageTexture.create_from_image(image)
+		else:
+			texture.update(image)
+			took.append((Time.get_ticks_usec() - t0) / 1000.0)
+	Nswp.console({"open": false})
+	if took.is_empty():
+		_console_cost = "The console's picture couldn't be measured here."
+	else:
+		took.sort()
+		_console_cost = "The console's picture: %.1f ms to bring across, %.1f at most, %d times. Open the menu to read this again." % [took[took.size() / 2], took[-1], took.size()]
+	_say(_console_cost)

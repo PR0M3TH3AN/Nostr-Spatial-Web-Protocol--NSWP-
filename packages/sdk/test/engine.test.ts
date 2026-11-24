@@ -60,7 +60,7 @@ describe("what another engine takes from the kit", () => {
     // The script hands it on, and says it changed what its functions give.
     const engine = await import("../src/engine.js");
     expect(typeof engine.gate).toBe("function");
-    expect(engine.VERSION).toBe(18);
+    expect(engine.VERSION).toBe(19);
   });
 
   it("has the Godot addon take the gate from the kit's script, and open it outside a browser only in the editor", () => {
@@ -100,19 +100,33 @@ describe("what another engine takes from the kit", () => {
     }
   });
 
-  it("gives a visitor in a headset in Godot a way out: the button the console comes up on leaves the session, with the page's menu up", () => {
-    // Before this the visitor node turned every input off in a session and had no hands at all: the only way out
-    // of a headset in a Godot world was to take it off (docs/plans/godot-headset-controls.md).
+  it("gives a visitor in a headset in Godot the console: on the button every world's comes up on, drawn by the kit and lit as the kit says", () => {
+    // Before the console was here that button left the session, as the only way out; and before that there was no
+    // way out of a headset in a Godot world but to take it off (docs/plans/godot-headset-controls.md).
     const visitor = godot("nswp_visitor.gd");
     // Two hands, by the names Godot gives the trackers.
     expect(visitor).toMatch(/for tracker in \["left_hand", "right_hand"\]:\n\t\tvar hand := XRController3D\.new\(\)/);
-    expect(visitor).toMatch(/for hand in _hands:\n\t\thand\.button_pressed\.connect\(_on_hand_button\)/);
     // The kit's menu button is the upper one under the thumb, B or Y (`Intent.menu`, from `secondary`): Godot's name for it.
     expect(visitor).toContain('const MENU_BUTTON := "by_button"');
     expect(readFileSync(join(root, "packages", "sdk", "src", "actions.ts"), "utf8")).toMatch(/const menu = pads\.some\(\(p\) => p\.pad\.secondary\);/);
-    // Only that button, only in a session: it ends the session and brings the page's menu up.
-    expect(visitor).toMatch(/func _on_hand_button\(button: String\) -> void:\n\tif button != MENU_BUTTON or not _presenting:\n\t\treturn\n\t_on_vr_pressed\(false\)\n\tNswp\.open_console\(true\)\n\tNswp\.say\(/);
-    expect(godot("nswp.gd")).toMatch(/^func open_console\(open: bool = true\) -> void:/m);
+    // The kit says the button went down, and the console comes up or is put away. It no longer leaves the session.
+    expect(visitor).toMatch(/if bool\(meant\.get\("menu", false\)\):\n\t\t_console_set\(not _console_open\)/);
+    expect(visitor).not.toContain("_on_hand_button");
+    // The picture and the rows are the kit's: asked for, never made here.
+    const addon = godot("nswp.gd");
+    expect(addon).toMatch(/^func console\(ask: Dictionary = \{\}\) -> Dictionary:/m);
+    expect(addon).toMatch(/JSON\.parse_string\(str\(_js\.console\(JSON\.stringify\(ask\)\)\)\)/);
+    expect(addon).toMatch(/JavaScriptBridge\.eval\("NSWP\.consolePixels\(\)", true\)/);
+    // The pixels are taken only when the kit's stamp has changed: never each frame, and never for pointing.
+    expect(visitor).toMatch(/if stamp != _console_stamp or _console_picture == null:[\s\S]{0,260}var pixels := Nswp\.console_pixels\(\)/);
+    expect(visitor.match(/Nswp\.console_pixels\(\)/g)).toHaveLength(1);
+    // One list of rows decides what is lit and what a press lands on.
+    expect(visitor).toMatch(/var row := _console_row\(at as Vector2\)[\s\S]{0,120}lit = str\(row\.id\)[\s\S]{0,160}Nswp\.console\(\{"press": lit, "have": _console_stamp\}\)/);
+    // The box's look is what the kit said for that row, and a row the kit gives no light for is not lit.
+    expect(visitor).toMatch(/var look: Variant = row\.get\("lit"\)\n\t\tif typeof\(look\) != TYPE_DICTIONARY:\n\t\t\treturn/);
+    for (const part of ["fill", "fillAlpha", "stroke", "strokeAlpha", "line", "corners"]) expect(visitor, part).toContain(`look.get("${part}"`);
+    // The page's own menu can still be brought up by a world's own button.
+    expect(addon).toMatch(/^func open_console\(open: bool = true\) -> void:/m);
   });
 
   it("gives a jump the kit's own sound in Godot too: the visitor asks the script, and plays no cue of its own", () => {
@@ -179,7 +193,7 @@ describe("crossing into a world made in another engine", () => {
       engine.ready();
       engine.failed("no");
     }).not.toThrow();
-    expect(engine.VERSION).toBe(18);
+    expect(engine.VERSION).toBe(19);
   });
   it("says who the visitor is as plain fields, and a guest where nobody is signed in", async () => {
     const { who } = await import("../src/engine-menu.js");

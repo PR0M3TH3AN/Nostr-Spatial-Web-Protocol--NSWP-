@@ -33,10 +33,27 @@ let inSession = false;
  */
 export function meetHands(controls: Controls | undefined, arrivedIntense = false): void {
   keeper?.dispose();
+  starts.clear();
   // The one question ("casual or intense?") is asked in the headset's console, the first time they are in a headset.
-  // A world made with another engine has no console there yet, so nobody is told a session started and nobody is
-  // asked: they move the casual way unless they chose otherwise, here or where they came from.
-  keeper = keepComfort({ ...(controls ? { controls } : {}), ...(arrivedIntense ? { arrivedIntense: true } : {}), presenting: () => inSession });
+  // So it is asked once an engine shows that it draws the console (`askHowTheyMove`, called from engine-console.ts),
+  // and never by a world whose engine draws none: there it would be asked where nobody could answer. Such a
+  // visitor moves the casual way unless they chose otherwise, here or where they came from.
+  keeper = keepComfort({
+    ...(controls ? { controls } : {}),
+    ...(arrivedIntense ? { arrivedIntense: true } : {}),
+    presenting: () => inSession,
+    onSessionStart: (fn) => {
+      starts.add(fn);
+      return () => void starts.delete(fn);
+    },
+  });
+}
+
+/** What asks the one question, once a console is there to ask it in. */
+const starts = new Set<() => void>();
+/** The engine draws the console, and a headset session is running: ask how they would like to move, if never asked. */
+export function askHowTheyMove(): void {
+  for (const fn of [...starts]) fn();
 }
 
 /** The engine said whether a headset session is running (`NSWP.headset`). */

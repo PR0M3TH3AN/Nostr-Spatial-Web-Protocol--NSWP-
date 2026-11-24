@@ -133,8 +133,49 @@ var _step_ready: bool = true
 var _trigger_was: Array[bool] = [false, false]
 ## For tests, on a flat page: hands made up by the test, in place of controllers.
 var _pretend: Variant = null
+## The console in a headset: the kit's own picture of the controls, on a panel that floats
+## where it was opened. The kit draws it and says where each row is; this shows it, lights the
+## row a hand points at as the kit says to, and tells the kit of a press.
+var _console: MeshInstance3D
+var _console_paint: StandardMaterial3D
+var _console_picture: ImageTexture = null
+var _console_lit: MeshInstance3D
+var _console_lit_paint: ShaderMaterial
+var _console_open := false
+var _console_stamp := -1
+## Where each pressable row is, as the kit last said: the one list a ray and a press go by.
+var _console_rows: Array = []
+var _console_units := Vector2(1024.0, 640.0)
+var _console_place := {"wide": 0.84, "reach": 1.05, "drop": 0.18, "least": 0.4, "away": 2.6}
+var _console_since := 0.0
+var _console_aimed := ""
 ## What the kit last said the hands mean. For tests.
 var _meant: Dictionary = {}
+
+## The box over the row pointed at. Its place, its corners and its colours are the kit's: this
+## only draws what it is told (`lit`, with each row the kit lists).
+const LIT := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_test_disabled, shadows_disabled, blend_mix;
+uniform vec2 size = vec2(100.0, 60.0);
+uniform vec4 corners = vec4(0.0);
+uniform vec4 fill : source_color = vec4(0.0);
+uniform vec4 stroke : source_color = vec4(0.0);
+uniform float line = 0.0;
+float box(vec2 p, vec2 half, float r) {
+	vec2 q = abs(p) - half + r;
+	return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+}
+void fragment() {
+	vec2 p = (UV - 0.5) * size;
+	float r = p.x < 0.0 ? (p.y < 0.0 ? corners.x : corners.w) : (p.y < 0.0 ? corners.y : corners.z);
+	float d = box(p, size * 0.5, r);
+	float inside = 1.0 - smoothstep(-0.75, 0.75, d);
+	float edge = line > 0.0 ? smoothstep(-line - 0.75, -line + 0.75, d) : 0.0;
+	ALBEDO = mix(fill.rgb, stroke.rgb, edge);
+	ALPHA = mix(fill.a, stroke.a, edge) * inside;
+}
+"""
 
 const SHADE := """
 shader_type spatial;
@@ -195,6 +236,10 @@ func _ready() -> void:
 	flat_camera.position.y = eye_height
 	_make_marks()
 	_make_hands()
+	_make_console()
+	# The kit may bring the console up itself: its one-time question on how to move, asked the
+	# first time they are in a headset, is one of the console's sections.
+	Nswp.console_asked.connect(_on_console_asked)
 	_show_pointer()
 	Nswp.moving_changed.connect(_on_moving_changed)
 	Nswp.menu_toggled.connect(_on_menu_toggled)
@@ -516,6 +561,181 @@ func _make_hands() -> void:
 		_hand_lines.append(ray)
 
 
+## The console's panel, and the box that lights a row on it. Neither moves with the visitor:
+## the console stays where it was opened, so that it can be pointed at.
+func _make_console() -> void:
+	_console_paint = StandardMaterial3D.new()
+	_console_paint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_console_paint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_console_paint.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_console_paint.no_depth_test = true
+	_console_paint.render_priority = 20
+	_console = MeshInstance3D.new()
+	_console.mesh = QuadMesh.new()
+	_console.material_override = _console_paint
+	_console.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_console.top_level = true
+	_console.visible = false
+	add_child(_console)
+	var shader := Shader.new()
+	shader.code = LIT
+	_console_lit_paint = ShaderMaterial.new()
+	_console_lit_paint.shader = shader
+	_console_lit_paint.render_priority = 21
+	_console_lit = MeshInstance3D.new()
+	_console_lit.mesh = QuadMesh.new()
+	_console_lit.material_override = _console_lit_paint
+	_console_lit.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_console_lit.visible = false
+	_console.add_child(_console_lit)
+
+
+## Bring the console up in front of the visitor, or put it away.
+func _console_set(open: bool) -> void:
+	_console_take(Nswp.console({"open": open, "have": _console_stamp}), open and not _console_open)
+
+
+## What the kit says the console now is: shown as that. `place` puts it in front of them, as
+## it is opened.
+func _console_take(now: Dictionary, place: bool = false) -> void:
+	_console_open = bool(now.get("open", false))
+	_console_since = 0.0
+	if not _console_open:
+		_console.visible = false
+		_console_light("")
+		return
+	_console_units = Vector2(float(now.get("w", 1024.0)), float(now.get("h", 640.0)))
+	for key: String in _console_place.keys():
+		_console_place[key] = float(now.get(key, _console_place[key]))
+	var wide := float(_console_place.wide)
+	(_console.mesh as QuadMesh).size = Vector2(wide, wide * _console_units.y / _console_units.x)
+	if place:
+		var head := _head()
+		var at := head + _ahead() * float(_console_place.reach)
+		at.y = maxf(float(_console_place.least), head.y - float(_console_place.drop))
+		var away := Vector3(at.x - head.x, 0.0, at.z - head.z)
+		# Its face is turned to them: a flat panel's face is its +Z, and this points its -Z away.
+		_console.global_transform = Transform3D(Basis.looking_at(away.normalized() if away.length() > 0.001 else -_ahead(), Vector3.UP), at)
+	if now.has("rows") and typeof(now.rows) == TYPE_ARRAY:
+		_console_rows = now.rows
+	var stamp := int(now.get("stamp", -1))
+	if stamp != _console_stamp or _console_picture == null:
+		# The picture is being replaced: nothing is lit until a hand is seen to point at the new one.
+		_console_light("")
+		var pixels := Nswp.console_pixels()
+		var w := int(_console_units.x)
+		var h := int(_console_units.y)
+		if pixels.size() == w * h * 4:
+			var image := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, pixels)
+			if _console_picture == null or _console_picture.get_width() != w or _console_picture.get_height() != h:
+				_console_picture = ImageTexture.create_from_image(image)
+				_console_paint.albedo_texture = _console_picture
+			else:
+				_console_picture.update(image)
+			_console_stamp = stamp
+	_console.visible = _console_picture != null
+
+
+## Where on the console a hand points, in the console's own units, or null where it points
+## past it. The same place decides what is lit and what a press lands on.
+func _console_at(slot: int, pads: Array) -> Variant:
+	if not _console_open or not _console.visible:
+		return null
+	var ray := _hand_ray(slot, pads)
+	if ray.is_empty():
+		return null
+	var from: Vector3 = ray[0]
+	var towards: Vector3 = ray[1]
+	var face := _console.global_transform
+	var along := towards.dot(face.basis.z)
+	if absf(along) < 0.0001:
+		return null
+	var far := (face.origin - from).dot(face.basis.z) / along
+	if far <= 0.0:
+		return null
+	var on := face.affine_inverse() * (from + towards * far)
+	var size := (_console.mesh as QuadMesh).size
+	if absf(on.x) > size.x * 0.5 or absf(on.y) > size.y * 0.5:
+		return null
+	return Vector2((on.x / size.x + 0.5) * _console_units.x, (0.5 - on.y / size.y) * _console_units.y)
+
+
+## The row at a place on the console, or an empty one: a place in no row is the pane.
+func _console_row(at: Vector2) -> Dictionary:
+	for row: Variant in _console_rows:
+		if typeof(row) == TYPE_DICTIONARY and at.x >= float(row.x) and at.x <= float(row.x) + float(row.w) and at.y >= float(row.y) and at.y <= float(row.y) + float(row.h):
+			return row
+	return {}
+
+
+## Light this row, as the kit says to light it, or nothing (""): a row the kit gives no light
+## for is not lit.
+func _console_light(id: String) -> void:
+	_console_aimed = ""
+	_console_lit.visible = false
+	if id == "":
+		return
+	for row: Variant in _console_rows:
+		if typeof(row) != TYPE_DICTIONARY or str(row.get("id", "")) != id:
+			continue
+		_console_aimed = id
+		var look: Variant = row.get("lit")
+		if typeof(look) != TYPE_DICTIONARY:
+			return
+		var size := (_console.mesh as QuadMesh).size
+		var per := size.x / _console_units.x
+		(_console_lit.mesh as QuadMesh).size = Vector2(float(row.w), float(row.h)) * per
+		_console_lit.position = Vector3((float(row.x) + float(row.w) * 0.5) * per - size.x * 0.5, size.y * 0.5 - (float(row.y) + float(row.h) * 0.5) * per, 0.002)
+		var corners: Array = look.get("corners", [0, 0, 0, 0])
+		var fill := Color(str(look.get("fill", "#ffffff")))
+		fill.a = float(look.get("fillAlpha", 0.0))
+		var stroke := Color(str(look.get("stroke", "#ffffff")))
+		stroke.a = float(look.get("strokeAlpha", 0.0))
+		_console_lit_paint.set_shader_parameter("size", Vector2(float(row.w), float(row.h)))
+		_console_lit_paint.set_shader_parameter("corners", Vector4(float(corners[0]), float(corners[1]), float(corners[2]), float(corners[3])))
+		_console_lit_paint.set_shader_parameter("fill", fill)
+		_console_lit_paint.set_shader_parameter("stroke", stroke)
+		_console_lit_paint.set_shader_parameter("line", float(look.get("line", 0.0)))
+		_console_lit.visible = true
+		return
+
+
+## The console, each frame it is up: what the hands point at on it is lit and pressed, it is
+## looked at again a few times a second, and it is put away once they have walked off.
+## Returns the hands that are pointing at it: theirs is the console's, and nothing behind it.
+func _console_frame(delta: float, pads: Array) -> Array:
+	var on: Array = []
+	if not _console_open:
+		return on
+	var lit := ""
+	for pad: Variant in pads:
+		if typeof(pad) != TYPE_DICTIONARY:
+			continue
+		var slot := int(pad.get("index", 0))
+		var at: Variant = _console_at(slot, pads)
+		if at == null:
+			continue
+		on.append(slot)
+		var row := _console_row(at as Vector2)
+		if row.is_empty():
+			continue
+		lit = str(row.id)
+		if float(pad.get("trigger", 0.0)) > 0.5 and not _trigger_was[clampi(slot, 0, 1)]:
+			_console_take(Nswp.console({"press": lit, "have": _console_stamp}))
+			if not _console_open:
+				return on
+			lit = ""
+	if lit != _console_aimed:
+		_console_light(lit)
+	_console_since += delta
+	if _console_since > 0.3:
+		_console_take(Nswp.console({"have": _console_stamp}))
+	var head := _head()
+	if _console_open and Vector2(head.x - _console.global_position.x, head.z - _console.global_position.z).length() > float(_console_place.away):
+		_console_set(false)
+	return on
+
+
 func _mark(mesh: Mesh, paint: Material) -> MeshInstance3D:
 	var mark := MeshInstance3D.new()
 	mark.mesh = mesh
@@ -835,6 +1055,10 @@ func _hands_frame(delta: float) -> Vector3:
 	if meant.is_empty():
 		_tend_shade(delta)
 		return Vector3.ZERO
+	# The menu button brings the console up, and puts it away: the button every world's comes up on.
+	if bool(meant.get("menu", false)):
+		_console_set(not _console_open)
+	var on_console := _console_frame(delta, pads)
 	var fade := bool(meant.get("fade", true))
 	_step_ready = bool(meant.get("mayStep", true))
 	var turn := float(meant.get("turn", 0.0))
@@ -886,7 +1110,8 @@ func _hands_frame(delta: float) -> Vector3:
 		if typeof(pad) != TYPE_DICTIONARY:
 			continue
 		var slot := int(pad.get("index", 0))
-		var hit := _hand_hit(slot, pads)
+		# A hand pointing at the console points at nothing behind it.
+		var hit := {} if on_console.has(slot) else _hand_hit(slot, pads)
 		var what: Object = null if hit.is_empty() else hit.collider
 		if what is NswpPortal and _in_reach(what as Node3D):
 			pointed = what
@@ -911,7 +1136,26 @@ func pretend_hands(pads: Array) -> void:
 
 ## What the kit last said the hands mean, and what was done about it. For tests.
 func hands_report() -> Dictionary:
-	return {"meant": _meant, "spot": null if _step_spot == null else [snappedf((_step_spot as Vector3).x, 0.01), snappedf((_step_spot as Vector3).z, 0.01)], "ready": _step_ready, "dark": snappedf(_dark, 0.01), "narrow": snappedf(_narrow, 0.01), "shade": _shade.visible, "pretending": _pretend != null}
+	var face := _console.global_transform
+	var size := (_console.mesh as QuadMesh).size
+	var lit_at: Array = []
+	if _console_lit.visible:
+		var box := _console_lit.global_position
+		var lit_size := (_console_lit.mesh as QuadMesh).size
+		lit_at = [snappedf(box.x, 0.001), snappedf(box.y, 0.001), snappedf(box.z, 0.001), snappedf(lit_size.x, 0.001), snappedf(lit_size.y, 0.001)]
+	var console := {
+		"open": _console_open,
+		"shown": _console.visible,
+		"stamp": _console_stamp,
+		"rows": _console_rows.size(),
+		"aimed": _console_aimed,
+		"lit": lit_at,
+		"at": [snappedf(face.origin.x, 0.001), snappedf(face.origin.y, 0.001), snappedf(face.origin.z, 0.001)],
+		"right": [snappedf(face.basis.x.x, 0.001), snappedf(face.basis.x.y, 0.001), snappedf(face.basis.x.z, 0.001)],
+		"up": [snappedf(face.basis.y.x, 0.001), snappedf(face.basis.y.y, 0.001), snappedf(face.basis.y.z, 0.001)],
+		"size": [snappedf(size.x, 0.001), snappedf(size.y, 0.001)],
+	}
+	return {"meant": _meant, "spot": null if _step_spot == null else [snappedf((_step_spot as Vector3).x, 0.01), snappedf((_step_spot as Vector3).z, 0.01)], "ready": _step_ready, "dark": snappedf(_dark, 0.01), "narrow": snappedf(_narrow, 0.01), "shade": _shade.visible, "pretending": _pretend != null, "console": console}
 
 
 func _setup_headset() -> void:
@@ -923,21 +1167,12 @@ func _setup_headset() -> void:
 	_xr.session_ended.connect(_on_session_ended)
 	_xr.session_failed.connect(_on_session_failed)
 	Nswp.vr_pressed.connect(_on_vr_pressed)
-	for hand in _hands:
-		hand.button_pressed.connect(_on_hand_button)
 	_xr.is_session_supported("immersive-vr")
 
 
-## A button on either hand went down. The menu button leaves the session and brings the
-## page's menu up, with Home on it. In a session nothing of the page can be seen, and this
-## add-on draws no console there yet (docs/plans/godot-headset-controls.md): before this, the
-## only way out of a headset here was to take it off.
-func _on_hand_button(button: String) -> void:
-	if button != MENU_BUTTON or not _presenting:
-		return
-	_on_vr_pressed(false)
-	Nswp.open_console(true)
-	Nswp.say("You left VR. Home is in this menu.")
+## The kit brought the console up, or put it away, itself: shown as it now is, in front of them.
+func _on_console_asked(open: bool) -> void:
+	_console_take(Nswp.console({"have": _console_stamp}), open and not _console_open)
 
 
 func _on_session_supported(mode: String, supported: bool) -> void:
@@ -989,6 +1224,8 @@ func _on_session_ended() -> void:
 	get_viewport().use_xr = false
 	flat_camera.current = true
 	Nswp.headset(true, false)
+	# The kit has put the console away with the session: so has this.
+	_console_take({"open": false})
 
 
 func _on_session_failed(why: String) -> void:

@@ -1,7 +1,8 @@
-// The way out of a headset in a Godot world (docs/plans/godot-headset-controls.md, the stopgap): in a session the
-// button every world's console comes up on (B on the right hand, Y on the left) leaves it, and the page's menu is up
-// with Home on it. Before this a visitor in a headset in a Godot world could not move, open the console or go home:
-// the only way out was to take the headset off.
+// A headset session in a Godot world, and the button every world's console comes up on (B on the right hand, Y on
+// the left). It was written for the stopgap, when that button left the session to reach the page's menu
+// (docs/plans/godot-headset-controls.md). The console is drawn in a headset there now, so the button brings the
+// console up and the visitor stays in the session: the way out is a row of the console, as in every world. The
+// console itself is tried on a flat page with made-up hands (trials/godot-console.mjs).
 //
 // What is real: this checkout's export of the Godot example (engines/godot/dist, `npm run build:godot`), with this
 // checkout's add-on and engine script, in a real Chrome. What is a stand-in: the headset. It is a made-up one
@@ -13,7 +14,7 @@
 // refuses it by name. So here the trial shows that the example still comes up with its two hands added, that it
 // is offered the way in, and that it asks the headset for a session; and it says plainly that the button itself
 // was NOT shown. Where a session does start (a made-up headset that gains Layers), the rest runs as written: other
-// buttons leave the visitor where they are, and B and Y leave the session with the page's menu up. Until then the
+// buttons leave the visitor where they are, and B and Y bring the console up and put it away. Until then the
 // button is the owner's to press on a real headset (the list is in docs/plans/godot-headset-controls.md).
 //
 // Nothing leaves this machine: the page is served from the build, every other request is refused and listed, and
@@ -80,7 +81,7 @@ try {
   const started = await until(async () => { const now = await said(); return now.in_headset === true ? "in" : /couldn't start/.test(now.said ?? "") ? now.said : null; }, 30000);
   if (started !== "in") {
     // Said, not passed over: the rest of this trial did not run.
-    results["NOT SHOWN: the button leaving the session"] = `No session started in the made-up headset, so the button was never pressed in one. Godot said: ${String(started).slice(0, 260)}`;
+    results["NOT SHOWN: the button in a session"] = `No session started in the made-up headset, so the button was never pressed in one. Godot said: ${String(started).slice(0, 260)}`;
     check("where no session starts, it is because the made-up headset has no WebXR Layers, which Godot says by name", /WebXR Layers/.test(String(started)), started);
     check("and the visitor is told, on the page, with the menu still theirs", (await menu()).hidden === false && (await menu()).home === true, await menu());
   } else {
@@ -92,19 +93,16 @@ try {
     await page.waitForTimeout(1500);
     check("the trigger, the grip and the lower button under the thumb leave them where they are", (await said()).in_headset === true, (await said()).in_headset);
 
-    // Out, by the button the console comes up on in every world: B on the right hand.
+    // The button the console comes up on in every world: B on the right hand. They stay in the session.
+    const consoleNow = async () => (await said()).hands?.console ?? {};
     await tap("right", "b-button");
-    check("B on the right hand leaves the session", await until(async () => (await said()).in_headset === false, 15000), (await said()).in_headset);
-    const after = await until(async () => { const m = await menu(); return !m.hidden && m.open ? m : null; }, 10000);
-    check("and the page's menu is up, with Home on it", !!after && after.home === true, await menu());
-    check("and it says so", await until(async () => /You left VR/.test((await menu()).words) || String((await said()).said ?? "").includes("You left VR"), 5000), await menu());
-    await page.screenshot({ path: join(SHOTS, "godot-leave-vr-2-out.png") });
-
-    // And again from the other hand: Y on the left.
-    await page.evaluate(() => { window.NSWP.open(false); window.NSWP.run("vr"); });
-    check("in again", await until(async () => (await said()).in_headset === true, 30000), (await said()).in_headset);
+    check("B on the right hand brings the console up, and they are still in the session", (await until(async () => (await consoleNow()).open === true, 15000)) && (await said()).in_headset === true, [await consoleNow(), (await said()).in_headset]);
+    await page.screenshot({ path: join(SHOTS, "godot-leave-vr-2-console.png") });
+    await tap("right", "b-button");
+    check("and pressed again, puts it away", await until(async () => (await consoleNow()).open === false, 15000), await consoleNow());
+    // And from the other hand: Y on the left.
     await tap("left", "y-button");
-    check("Y on the left hand leaves it too", await until(async () => (await said()).in_headset === false, 15000), (await said()).in_headset);
+    check("Y on the left hand brings it up too", await until(async () => (await consoleNow()).open === true, 15000), await consoleNow());
   }
   results["refused, as everything but this site is"] = [...refused].sort();
   results["page errors"] = errors;

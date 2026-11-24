@@ -69,6 +69,9 @@ export const tellEngine = tell;
 /** The menu and the sounds, once the world has asked for them: for the rest of the engine's script to add to. */
 export const engineParts = (): { controls: Controls; sounds: Sounds; presenting: boolean } | null => (controls && sounds ? { controls, sounds, presenting: vr.presenting } : null);
 /** Told once, when the world asks for its menu: its name and colour, and whether it will open the crossing's doors itself. */
+/** Told when a headset session starts and ends (the console in a headset is put away as one ends). */
+const sessionWatchers = new Set<(presenting: boolean) => void>();
+export const onSession = (fn: (presenting: boolean) => void): void => void sessionWatchers.add(fn);
 const menuWatchers = new Set<(look: { title: string; accent?: string; hold: boolean }) => void>();
 export const onMenu = (fn: (look: { title: string; accent?: string; hold: boolean }) => void): void => void menuWatchers.add(fn);
 
@@ -615,6 +618,7 @@ export function headset(state: string): void {
   vr.supported = s.supported === true;
   vr.presenting = s.presenting === true;
   handsPresenting(vr.presenting);
+  for (const fn of sessionWatchers) fn(vr.presenting);
   hud?.setHidden(vr.presenting);
   controls?.setTarget("");
   const put = () => {

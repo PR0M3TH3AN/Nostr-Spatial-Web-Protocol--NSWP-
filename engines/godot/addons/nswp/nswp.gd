@@ -215,6 +215,10 @@ func _process(_delta: float) -> void:
 				menu_toggled.emit(menu_open)
 			"vr":
 				vr_pressed.emit(bool(event.get("enter", true)))
+			"console":
+				# The kit brought the console up itself, in a headset: its one-time question, or
+				# something pressed that opens the controls on one of their sections.
+				console_asked.emit(bool(event.get("open", true)))
 			"preview":
 				# Whoever makes this world asked for its 360° picture (`NSWP.capturePreview` on the page).
 				_take_preview(int(event.get("size", 1024)))
@@ -610,6 +614,32 @@ func run(id: String) -> bool:
 	return _menu and bool(_js.run(id))
 
 
+## The console in a headset, where the page's own menu can't be seen: what it is now, after
+## doing what is asked. `NswpVisitor` shows it on a panel and presses it with the hands, so a
+## world has no need to call this.
+##
+## `ask` may hold `open` (true or false), `press` (the id of a row, from `rows`) and `have`
+## (the `stamp` of the picture already held). The answer has `open`, `stamp` (take
+## `console_pixels()` again when it changes), `w` and `h` (the picture's size, in its own
+## units), where it floats in metres (`wide`, `reach`, `drop`, `least`, `away`), and `rows`:
+## each thing that can be pressed, `{id, x, y, w, h, lit}`, where `lit` is how the kit wants
+## it lit when pointed at, or null.
+func console(ask: Dictionary = {}) -> Dictionary:
+	if _js == null:
+		return {}
+	var said: Variant = JSON.parse_string(str(_js.console(JSON.stringify(ask))))
+	return said if typeof(said) == TYPE_DICTIONARY else {}
+
+
+## The console's picture as it now is: `w` by `h` pixels, four bytes each, from the top row
+## down. Empty while it is put away. It is 2.6 MB: taken only when `stamp` has changed.
+func console_pixels() -> PackedByteArray:
+	if _js == null or not OS.has_feature("web"):
+		return PackedByteArray()
+	var got: Variant = JavaScriptBridge.eval("NSWP.consolePixels()", true)
+	return got if typeof(got) == TYPE_PACKED_BYTE_ARRAY else PackedByteArray()
+
+
 ## Bring the visitor's console up, or put it away: for a button of your own that opens it.
 func open_console(open: bool = true) -> void:
 	if _menu:
@@ -677,6 +707,10 @@ const NOT_IN_PREVIEW_GROUP := "nswp_not_in_preview"
 ## Emitted before the six views are taken, and after: hide and show anything else that is about
 ## one visitor, or changes from moment to moment.
 signal preview_taking(taking: bool)
+
+## The kit brought the console in a headset up, or put it away, without being asked to by
+## this engine. `NswpVisitor` shows it: a world has no need to listen for this.
+signal console_asked(open: bool)
 
 var _taking_preview: bool = false
 
