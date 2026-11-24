@@ -269,26 +269,52 @@ shut in.
   asked only when an order waits on its next step, and the chat model
   checks in only while an order is being carried out.
 
-## Abilities as skills (the owner's idea, 2026-11-24; being built, nothing shown yet)
+## Abilities as skills (the owner's idea, 2026-11-24; built and shown in the playground, D-records to come)
 
-The owner asked the playground's session whether shooting is a skill that
-could carry to other shooting games, and whether every ability should be a
-skill an agent learns and uses "in the right situation if the right items
-are available. Like a gun." Then: "Yes all skills please". The shape the
-session is rebuilding every ability into, four parts:
+The owner asked whether every ability should be a skill an agent learns and
+uses "in the right situation if the right items are available. Like a gun."
+Then: "Yes all skills please". Built (31f6ac4, 4f0ea01), with no paid
+request: 66 runs and 328 states recorded before the change and compared
+after, and the range's choices over three rounds. What a decider is shown
+did not change by a byte.
 
-1. **What it needs:** an item held, a thing in reach, a state.
-2. **What it offers the decider:** the few choices that make sense while it
-   is in use.
-3. **How the body carries it out:** the code that turns, walks, fires, with
-   its stated limits.
-4. **What wakes the decider:** the events that end it or change it.
-
-For the port (reasoned, to be shown): this is the unit that could travel
-between worlds. An item brings a skill with it, as it brings its presses
-today; a world says which skills it allows; an agent's own list of skills
-it has is part of what it is. It is also where the narrowing, the leaf and
-the events above all meet: a skill is what decides what is asked and when.
+- **Four declared parts fit every ability, with no exceptions** (shown,
+  seven skills): what it needs; what it offers the decider now; the one
+  typed action each choice is carried out by, which the world checks; and
+  what wakes the decider.
+- **Learned, allowed, supplied: three gates, three parties** (shown). The
+  agent has learned it; the world allows it; what it needs is there. Kept
+  apart, one line can say why a skill is idle ("it needs a place that
+  allows shooting, and a held item that sends something out"). A door's
+  details could show the middle one.
+- **An item needs no field naming its skill** (shown). Shooting finds its
+  item by what the item already says: a first press, and something it
+  sends. The kit's item already says both (`does use`, and `sends` with
+  what the thing does when it lands; `effect … health -1`) (read). What it
+  doesn't say, and the skill needed: how many it holds, how fast it fires,
+  how long a reload takes.
+- **A published skill must be data, and data was enough** (shown). A file
+  that may name only actions the world already checks, can't speak for the
+  agent and can't move it freely carried all of shooting, staying with a
+  target included. A checker refuses any field it doesn't know.
+- **A skill is only as general as what places say of themselves** (shown).
+  The declared rooms got six skills for nothing because they already say
+  what can be carried, what holds things and what can be done. The names of
+  the values a place gives a skill are the real contract, and so far are
+  only what the range happened to need. That is the piece to design, not
+  the skill's file.
+- **Advice travels with the skill, and is a stranger's words** (shown, and
+  reasoned). The words that told JEV how to shoot well moved from the
+  range's code into the skill's file: part of a skill is know-how in words,
+  and that is what an agent "learns". It is also a way to steer an agent
+  with words; see `docs/backlog/agent-skills-published.md`.
+- **Order has to be kept on purpose** (shown). To give deciders the same
+  lists, an offer had to be able to say it goes last among a thing's
+  choices. Skills merged from several places need a stated order.
+- **Not done:** where an agent's learned skills are kept (ticks in the
+  tab); what wakes a room's skills is declared and read only on the range;
+  carrying, working things and walking are still code, since a file can't
+  name a place to stand: the world's own words need a "go to this thing".
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
