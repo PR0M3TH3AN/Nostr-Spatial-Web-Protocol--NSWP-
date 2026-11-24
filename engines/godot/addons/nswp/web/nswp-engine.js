@@ -55144,12 +55144,45 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (more) measureAhead();
       });
     };
+    const TOP_GAP = 10;
+    const SHEET_LEAST = 240;
+    const tucked = /* @__PURE__ */ new Set();
+    const untuck = () => {
+      for (const thing of tucked) thing.style.visibility = "";
+      tucked.clear();
+    };
+    const roomFor = (across) => {
+      untuck();
+      sheet.style.maxHeight = "";
+      const ruled = parseFloat(getComputedStyle(sheet).maxHeight);
+      const all = host.getBoundingClientRect();
+      const foot2 = all.bottom - parseFloat(getComputedStyle(sheet).bottom);
+      const left = all.left + all.width / 2 - across / 2;
+      const over = [];
+      let lowest = -Infinity;
+      for (const thing of [id2, menu2, quiet, asWho, full]) {
+        const r = thing.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0) || r.right + TOP_GAP <= left || r.left - TOP_GAP >= left + across || r.top >= foot2) continue;
+        over.push(thing);
+        lowest = Math.max(lowest, r.bottom);
+      }
+      if (!over.length) return ruled;
+      const room4 = foot2 - lowest - TOP_GAP;
+      if (room4 >= SHEET_LEAST) return Math.min(ruled, room4);
+      for (const thing of over) {
+        thing.style.visibility = "hidden";
+        tucked.add(thing);
+      }
+      return Math.min(ruled, Math.max(SHEET_LEAST, foot2 - all.top - TOP_GAP));
+    };
     const sizeSheet = (view2, layOut) => {
       lastView = view2;
       lastLayOut = layOut;
       sheet.style.height = "";
       says.classList.remove("one");
       if (sheet.hidden) {
+        untuck();
+        sheet.style.maxHeight = "";
         heldFor = "";
         heldTall = 0;
         measureAhead();
@@ -55157,8 +55190,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       const inSheet = says.parentElement === sheet;
       if (inSheet) says.classList.add("one");
-      sheet.style.maxHeight = "none";
       const across = sheet.getBoundingClientRect().width;
+      const tallest = roomFor(across);
+      sheet.style.maxHeight = "none";
       const wide = Math.round(across);
       measure.style.width = `${across}px`;
       const here = tallOf(rows, note, said2);
@@ -55182,7 +55216,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       }
       measure.replaceChildren();
       for (const key of [...measured.keys()]) if (!still.has(key)) measured.delete(key);
-      sheet.style.maxHeight = "";
+      sheet.style.maxHeight = `${tallest}px`;
       if (heldFor !== at) {
         heldFor = at;
         heldTall = 0;
@@ -55195,6 +55229,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const onWindowSize = () => {
       if (sheet.hidden) return;
       sheet.style.height = "";
+      sheet.style.maxHeight = "";
+      untuck();
       heldFor = "";
       heldTall = 0;
       if (resized) clearTimeout(resized);
