@@ -1063,6 +1063,61 @@ turned on, every room offers exactly the choices it did.
   thing's id and the other like things are no longer on offer.
 - **Not done:** any of it with JEV.
 
+## The hand-off and the skills of sight, paid for (D71, 2026-11-24)
+
+Run on the owner's word in the playground's session ("Yes, run both"),
+the line first and the skills second in one sitting, twice: 450 requests,
+$0.048. The two runs agree on all but two of the 81 pairs of order and
+way. No JEV request went unanswered (0 of 405); 5 of 45 chat replies were
+empty at the first asking and answered when asked once more.
+
+| Way | Plain (6) | By outcome (6) | By place (8) | Views |
+|---|---|---|---|---|
+| JEV alone | 4 | 6 | 0 | none |
+| JEV, told what each thing is by (relations by code) | 4 | 6 | 8 | none |
+| JEV, a view at each decision | | | 3 | 49 |
+| Chat model sets the task, JEV carries it out | 6 | 5 | 0 | none |
+| Chat model with eyes sets the task, JEV carries it out | 6 | 6 | 8 | 8 |
+
+JEV with seeing: by place 2 of 8, by side 8 of 8, 8 views; with looking
+closer the same, 12 views. JEV with searching, in the study that had told
+of nothing: 4 of 6.
+
+- **The shape that carried out everything: a chat model reads the view
+  and names ids, code cuts the task down, JEV carries it out** (shown,
+  paid: D71). All twenty orders, both times, with nothing written for the
+  room.
+- **Where a world declares places, relations by code plus JEV does the
+  by-place orders as well,** with no view and no chat model, at about an
+  eighth of the cost (shown, paid: D71). One chat request costs about
+  fifteen JEV decisions; JEV answers in 0.2 s, the chat model in 3.1 s.
+- **Do not hand JEV a view to choose between like things** (shown, paid:
+  D71). Given one, it chose wrongly six times of eight, the same way both
+  runs: "nearest the door" became nearest itself. It does not read a view
+  for which thing is by which. A view belongs with the chat model; JEV's
+  part is ids and words.
+- **Keeping what was settled by its id is what makes JEV stop** (shown,
+  paid: D71). In all 28 runs where a thing was kept by its id it took the
+  one thing and stopped; the older way fetched two or three. *For the
+  kit:* that belongs in the runner, whoever settled the thing, and needs
+  no chat model.
+- **A weak lean among like things is a sign to hand the question up, not
+  to take a sharper view** (reasoned from four cases: D71). Looking closer
+  was used four times, each on a weak lean, and JEV chose the same wrong
+  thing each time.
+- **Without eyes the chat model said "cannot" to every order by place. It
+  did not guess** (shown, paid: D71). And JEV will not take "a lamp" to
+  mean either of two (unclear in 12 of 12); the chat model names one.
+- **A task cut to "the words the place checks for that thing" can lose
+  where the thing is to go** (shown: D71). "Take [jug] to [player]" became
+  "take [jug]", and JEV picked it up and stopped. The cut keeps a
+  destination when it is an id the place knows.
+- **The chat model's allowance matters:** at 800 tokens two of six replies
+  came back empty, spent on thinking; at 2,500 with one more asking, none
+  was lost.
+- **Not run:** orders by side, and in a place that tells little, with the
+  chat model.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
