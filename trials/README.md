@@ -66,6 +66,32 @@ Node's own requests need this machine's certificate: run a trial with
 | `menu-rows.mjs` | The row typed into and the row that copies, and a press outside the sheet closing the menu and reaching nothing of the world's view, as the kit's own menu draws them: this checkout's own Gallery (`npm run build` first), two rows added through its test hook, a real keyboard. What is half typed stays while the menu is drawn again; nothing is given before the press; nothing is kept after. Needs nothing running Words said for a moment with the menu up are in a strip of the sheet's own, between its rows and its foot, at a desk's width and a phone's: always there, one line high, one line showing, over nothing that can be pressed, with every row where it was (checked by where things are, with one, two and three lines said). Words too long for one line are shown whole, on up to four, with the sheet kept its size and the room taken from the foot of the rows' own scrolling area: checked for three of the kit's long lines and for its longest, found from the code as the trial runs. With the menu down they are at the lower left, and a line moved with the menu doesn't come in a second time A press made while the menu is told to draw again is still a press; what changed is drawn once the press is over; a press that never ends, is cancelled, or loses the keys is not waited for; and a bar moved along meanwhile goes where it is put. The same with the space bar on a row that has the keys, from a real keyboard: the press is one press, what changed is drawn once the bar is up, and a bar never let up is not waited for, put down once or held as a keyboard holds a key (saying so again and again). Drawn with the graphics card (`--software` draws without) |
 | `presses-from-above.mjs` | Which things a framed world can do from a press on the page above it, and which need a press in its own page: a headset session, the pointer, the microphone, sound, copying and reading what was copied, filling the screen, a window (in a second Chrome with its window blocker on), and a pointer the world holds as the menu comes up and goes. Two made-up sites served by the script; needs nothing running. The result is `docs/plans/the-clients-menu-presses.md` |
 
+## Pages for a real device (`trials/pages/`)
+
+Some things can't be asked of a scripted browser on this machine: what a
+headset's own browser does, say. For those there is a page, for a person to
+open on the device and read out.
+
+- **Where they are:** `trials/pages/<name>/`, an `index.html` with its own
+  files beside it. No script is written into the page (a world's content
+  rules refuse one). It fetches nothing from another site, sends nothing and
+  keeps nothing.
+- **How one is reached:** the local service
+  (`node scripts/serve-local.mjs --lan --https`) answers it under the
+  Gallery's local copy, at `/trial-pages/<name>/`, with the Gallery's own
+  headers. So the page runs under the rules a world's page runs under. No
+  other site's local copy answers, and the service prints each page's
+  address as it starts.
+- **Never deployed.** A page is read from `trials/pages/` as it is asked for
+  and never copied into a `dist/`: a file in a served build could go out
+  with the next deploy. A test the gate runs
+  (`packages/core/test/trial-pages.test.ts`) fails if any site's build
+  carries one, or if what builds or deploys names the trials.
+
+| Page | What it asks |
+|---|---|
+| `quest-picture/` | Whether this browser can turn a page's own elements into a picture a headset's scene could show: makes one of a stand-in menu, checks the page may read it and the graphics card takes it, and says "Yes." or "No." with the step that failed and how long it took. For the owner's Quest (`docs/plans/headset-menu.md`). In Chrome on this machine: yes |
+
 ## Rules
 
 - **A trial routes every request and every WebSocket, and lists what was asked for.** Routing pages and files

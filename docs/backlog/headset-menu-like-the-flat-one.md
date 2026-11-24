@@ -16,9 +16,11 @@
   folder, `headset-menu/`. **The owner answered the same day, having looked
   at them: "B I think. But we need to make sure that the menu is not drawn
   above the hands in VR."** So the sheet is 1.0 m wide, and the hands rule
-  below is part of the ask. Two things are still his to say (the end of the
-  design's page): whether the headset shows the flat menu itself as a
-  picture, and the wrist. No code on those two until he has.
+  below is part of the ask. And of the wrist, the same day: "Yes, narrow
+  layout on the wrist with no bar." One thing is still his to say (the end
+  of the design's page): whether the headset shows the flat menu itself as
+  a picture, which waits on his five minutes with the Quest. No code on
+  that until he has.
 
 ## What is true today
 

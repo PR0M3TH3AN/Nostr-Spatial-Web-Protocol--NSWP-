@@ -25,8 +25,13 @@
 // refuses passkeys on a page whose certificate it was told to accept.
 //
 // What an Airlock checks is still the real site and its real announcement, however these copies are served.
+//
+// A trial's pages (trials/pages/, for a real device to open: a headset's browser) are answered under the Gallery's
+// local copy at /trial-pages/, with the Gallery's own headers, and under no other site. They are read from
+// trials/pages/ as they are asked for and never copied into a build (scripts/trial-pages.mjs).
 import { execFileSync } from "node:child_process";
 import { waitForLanAddress } from "./lan-address.mjs";
+import { TRIAL_PAGES_SITE, trialPage, trialPagesIn } from "./trial-pages.mjs";
 import { X509Certificate } from "node:crypto";
 import { createServer } from "node:http";
 import { createServer as createSecureServer } from "node:https";
@@ -40,6 +45,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lan = process.argv.includes("--lan");
 const wantHttps = process.argv.includes("--https");
 const first = Number(process.env.PORT ?? 4300);
+const trialPages = join(root, "trials", "pages");
 /** A world's real address, as its own settings give it, or "" if it has none worth following. */
 function realOrigin(file) {
   try {
@@ -207,11 +213,17 @@ for (const { name, dist, note, headers, port: here, built } of served) {
     if (path === "/.well-known/nswp-local.json") {
       return res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }).end(JSON.stringify(localMap(req.headers.host, !!req.socket.encrypted), null, 1));
     }
-    let file = join(dist, path);
-    // Nothing outside the built site is ever served.
-    if (file !== dist && !file.startsWith(dist + sep)) return res.writeHead(403).end("no");
-    if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
-    if (!existsSync(file)) return res.writeHead(404, { "content-type": "text/plain" }).end("Not found");
+    // A trial's page, under the one site that answers for them: from trials/pages/, and never from a build.
+    const trial = trialPage(name, path, trialPages);
+    if (trial?.status) return res.writeHead(trial.status, { "content-type": "text/plain", "cache-control": "no-store" }).end(trial.status === 403 ? "no" : "Not found");
+    if (trial?.redirect) return res.writeHead(308, { location: trial.redirect, "cache-control": "no-store" }).end();
+    let file = trial ? trial.file : join(dist, path);
+    if (!trial) {
+      // Nothing outside the built site is ever served.
+      if (file !== dist && !file.startsWith(dist + sep)) return res.writeHead(403).end("no");
+      if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
+      if (!existsSync(file)) return res.writeHead(404, { "content-type": "text/plain" }).end("Not found");
+    }
     const body = readFileSync(file);
     const head = { ...withLocal(extra(new URL(req.url, "http://x").pathname), localMap(req.headers.host, !!req.socket.encrypted)), "content-type": types[extname(file)] ?? "application/octet-stream", "accept-ranges": "bytes", "cache-control": "no-store" };
     const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? "");
@@ -242,6 +254,8 @@ for (const { name, dist, note, headers, port: here, built } of served) {
   } else plain.listen(here, listenOn);
   const elsewhere = address ? `   ${tls ? "https" : "http"}://${address}:${here}/` : "";
   console.log(only ? `  ${name.padEnd(20)} ${only}/${note ? `   (${note})` : ""}` : `  ${name.padEnd(20)} http://localhost:${here}/${elsewhere}${note ? `   (${note})` : ""}`);
+  // A trial's pages, under this site if it is the one that answers for them. Never deployed: they are not in its build.
+  if (name === TRIAL_PAGES_SITE) for (const at of trialPagesIn(trialPages)) console.log(`  ${"  a trial's page".padEnd(20)} ${only ?? `http://localhost:${here}`}${at}   (served here only, never deployed)`);
 }
 console.log(`\n${lan ? "Serving to this network." : "Serving to this machine only (add --lan for other devices)."} Links between these sites lead to the copies here; anything else leads to the real site.`);
 if (tls) {

@@ -132,6 +132,18 @@ Links between the sites lead to the `https` copies.
 Never use this certificate, or this server, for anything but your own
 network.
 
+### A page for a real device to try
+
+A few pages are for a person to open on a real device, a headset's browser
+say, and read out what they show. They are in `trials/pages/`, and this
+server answers them under the Gallery's local copy at `/trial-pages/`, with
+the Gallery's own headers: `https://192.168…:4301/trial-pages/quest-picture/`.
+The server prints each one's address under the Gallery's as it starts.
+
+No other site's local copy answers them, and they are never part of a site's
+build, so they are never deployed (`trials/README.md`, "Pages for a real
+device").
+
 A pass that says who you are is made for the place it is shown at, so on a
 development server it is made for the local copy. Beside a local copy of
 BitLogin, a local BitPortal may have passes and grants signed: the sign-in
