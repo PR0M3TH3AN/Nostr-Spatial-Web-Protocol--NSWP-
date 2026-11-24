@@ -1118,6 +1118,56 @@ of nothing: 4 of 6.
 - **Not run:** orders by side, and in a place that tells little, with the
   chat model.
 
+## Hide and seek: the free half (D72, 2026-11-24)
+
+Built on the owner's word in the playground's session ("Yes, start it").
+No model and no spend; no seeker with a model is built. Every seeker gives
+one typed action at a time, checked by the place. Every number is against
+a stand-in hider, not a person. Three rooms; 30 games of each.
+
+| Seeker | Lines written for it | Caught, of 60, room by room | Seconds to first sight | The chase |
+|---|---|---|---|---|
+| Scripted for the room | 32, and 19 more for two rooms' rounds | 60, 60, cannot play the third | 8.1 and 3.7 | 0.3 to 4.8 s |
+| Rules for no room | 34 | 60, 60, 57 | 6.6 to 16.6 | 0.3 to 4.8 s |
+| Random | none | 55, 56, 59 | | 3.7 to 15.6 s |
+
+A seeker with a model would be one sentence. The seeking skill, written
+for no game, is 41 lines.
+
+- **What an agent is told of another body is a declared sense, with a
+  range, a turn and what blocks it, enforced where choices are made and
+  orders checked** (shown, free: D72). Here: within 7 m, within 110
+  degrees of where its eyes point, nothing tall between; a step within 5 m
+  is heard, with its side. Out of sight the place tells no place for the
+  player, offers no walk to them, and refuses an order to go after them.
+  A test checks it at every answer of every seeker. Left out, a seeker is
+  simply told where the player is: that is a leak, not intelligence.
+- **"A thing that could hide someone" is one declared fact about a
+  thing** (shown, free: D72), here how tall it stands. From that one fact
+  a skill written for no game gives a seeker its search.
+- **A game's end can be a few declared words in the place** (shown, free:
+  D72): how near, seeing them, how long.
+- **An answer that takes time is checked against what was seen when it
+  was asked** (shown, free: D72). The place's own version number does it,
+  and the refusals are the count of answers too late.
+- **A chat model can't be asked for every move of a chase** (shown, free:
+  D72, by the same rules made to wait). At JEV's 0.2 s the seeker is no
+  worse, for about $0.001 to $0.002 a minute. At a chat model's 3.1 s,
+  first sight comes two to two and a half times later and the chase runs
+  up to 39 s, for about $0.008 to $0.009 a minute. Its place is the plan.
+- **Catching did not tell the seekers apart; searching did** (shown,
+  free: D72). The stand-in hiders are too easy to catch. What differs is
+  time to first sight and, for chance, the chase.
+- **A skill that offers only one way to do a thing leaves a hole no
+  decider can choose its way out of** (reasoned from D72): the rules never
+  saw a still hider in 3 of 30 cellar games, because the skill offers one
+  side of each thing to look behind. *For a skill's maker:* offer the
+  whole of what the body could do.
+- **Rules play the same games over** (shown, free: D72): over 30 games the
+  rules opened 2 or 3 ways and the scripted seeker 2 to 4; chance, 30.
+- **Not done:** any seeker with JEV or a chat model; memory between games;
+  a person hiding; the game on the page; sight by the text view.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
