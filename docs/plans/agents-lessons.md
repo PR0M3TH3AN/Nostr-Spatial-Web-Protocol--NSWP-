@@ -455,13 +455,14 @@ The blaster holds six here, the kit's holds five.
 
 Run on the owner's word in the playground's session ("Yeah spend up to
 10c."): 296 requests, $0.0128, each round said to him before it ran. One
-round of 29 hostile targets, with every pick counted.
+round of 29 hostile targets, with every pick counted. JEV's late answers
+are of 110, 97 and 89 asked.
 
 | Who | Hit | Shots | Behind the barrier | Down | Answers too late |
 |---|---|---|---|---|---|
-| Rules, never hiding (two runs) | 22 and 21 | 33 and 34 | 0 | 6 s | 0 or 1 |
+| Rules, never hiding (two runs) | 22 and 21 | 33 and 34 | 0 | 6 s | 1 and 0 |
 | JEV, both skills | 11 | 16 | 11.9 s | 6 s | 13 |
-| JEV, both skills, staying with a target | 9 | 18 | 12.3 s | 9 s | |
+| JEV, both skills, staying with a target | 9 | 18 | 12.3 s | 9 s | 9 |
 | JEV, cover unlearned | 16 (11 the run before) | 30 | 0 | 9 s | 11 |
 
 - **It is the hiding first, then late answers, and not how the choices are
