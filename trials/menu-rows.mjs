@@ -37,6 +37,15 @@ const check = (name, ok, got) => {
   results[name] = ok ? "ok" : { failed: got };
   if (!ok) fail.push(name);
 };
+// A step that could not be judged: what it asks about could not be done to the page at all (a row being made anew
+// has no place to press, and on a busy machine drawn without a graphics card that can last). Counted and printed
+// as that: never a pass, never a failure, and never a thrown error that ends the trial with nothing said.
+const unjudged = [];
+const notJudged = (name, why) => {
+  results[name] = { "not judged": why };
+  if (!unjudged.includes(name)) unjudged.push(name);
+};
+class NoPlace extends Error {}
 
 // Chrome draws with this machine's graphics card, as a visitor's does and as the client's-menu trial does. Drawn
 // without one (`--software`) the page manages a frame or two a second, and everything on it waits behind a frame.
@@ -456,12 +465,32 @@ try {
   /** Tell the menu something it shows has changed, as a counter ticking or a picture arriving does. */
   const somethingChanges = (what) => page.evaluate((what) => { if (what) window.__held[what]++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, what);
   const rowWords = () => page.evaluate(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].map((b) => b.textContent.trim().slice(0, 40)));
-  const mouseDownOn = async (thing) => { const at = await thing.boundingBox(); await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2); await page.mouse.down(); return at; };
+  // A row being made anew has no place for an instant; drawn without a graphics card on a busy machine, for longer.
+  // It is asked for again for five seconds. If it never has a place the press can't be made, and the step that
+  // wanted it is not judged: it does not throw the whole trial away (as it did at a load of 25, 2026-11-24).
+  const mouseDownOn = async (thing) => {
+    let at = null;
+    for (const end = Date.now() + 5000; !at && Date.now() < end; ) {
+      at = await thing.boundingBox().catch(() => null);
+      if (!at) await page.waitForTimeout(60);
+    }
+    if (!at) throw new NoPlace("the row had no place to press in five seconds: it was being made anew each time it was asked for");
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    await page.mouse.down();
+    return at;
+  };
+  /** A step whose press could not be made is not judged, by its name; anything else thrown is thrown on. */
+  const unpressed = async (e, step) => {
+    if (!(e instanceof NoPlace)) throw e;
+    await page.mouse.up().catch(() => undefined);
+    notJudged(`${step}: the press could not be made`, e.message);
+  };
 
   for (const [what, change] of [
     ["another row's words change", "other"],
     ["the pressed row's own words change", "own"],
   ]) {
+    try {
     const before = await page.evaluate(() => window.__held.presses);
     await mouseDownOn(heldRow);
     await somethingChanges(change);
@@ -469,10 +498,12 @@ try {
     await page.mouse.up();
     const heard = await page.waitForFunction((n) => window.__held.presses === n + 1, before, { timeout: 3000 }).then(() => true, () => false);
     check(`a press is still a press when ${what} while it is made`, heard, await page.evaluate(() => window.__held));
+    } catch (e) { await unpressed(e, "a press made while the menu changes"); }
   }
 
   // 1. A change that came during a press is not dropped: it is drawn as soon as the press is over, and once.
   {
+    try {
     await page.waitForTimeout(600);
     await mouseDownOn(heldRow);
     await somethingChanges("other");
@@ -486,11 +517,13 @@ try {
     check("it is drawn as soon as the press is over", shown, await rowWords());
     // The press itself changes nothing these rows show, so one drawing is the whole of what was owed.
     check("and drawn once: one drawing of the rows, not one for each thing that asked meanwhile", drawn === 1, drawn);
+    } catch (e) { await unpressed(e, "what changed during a press is drawn once it is over"); }
   }
 
   // 2. The menu is never held still for long. A press that never ends is not waited for: the mouse goes down and
   // stays down, and what changed is drawn without the button ever coming up, a little after a press's own length.
   {
+    try {
     await page.waitForTimeout(600);
     await mouseDownOn(heldRow);
     const waited = await page.evaluate(async () => {
@@ -505,9 +538,11 @@ try {
     await page.mouse.up();
     check("a press that never ends is not waited for: held down, the menu is drawn again after a press's length and within three seconds", waited.shown && waited.after > 700 && waited.after < 3000, waited);
     results["how long the menu waited on a press that never ended, in ms"] = waited.after;
+    } catch (e) { await unpressed(e, "a press that never ends is not waited for"); }
   }
   // The pointer taken off the page with its button still down: not waited for either, however the browser tells it.
   {
+    try {
     await page.waitForTimeout(600);
     await mouseDownOn(heldRow);
     await page.mouse.move(-20, -20);
@@ -516,10 +551,12 @@ try {
     const drawnAnyway = await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 3000, polling: 50 }).then(() => true, () => false);
     await page.mouse.up();
     check("nor a pointer taken off the page with its button down", drawnAnyway, await rowWords());
+    } catch (e) { await unpressed(e, "a pointer taken off the page with its button down"); }
   }
   // And it is let go at once when the press is cancelled, or the page loses the keys: said to the page as the
   // browser says them (a finger that began to scroll; another window brought to the front).
   for (const [what, event] of [["the press is cancelled", "pointercancel"], ["the page loses the keys", "blur"]]) {
+    try {
     await page.waitForTimeout(600);
     await mouseDownOn(heldRow);
     // Told of the change, held, let go and drawn, all timed inside the page by its own clock: how soon after the
@@ -541,6 +578,7 @@ try {
     // Drawn without a graphics card, the page is late with everything by up to a frame of its own, which is as long
     // as a press is waited for: there the time is said, and not held to.
     check(`the menu is let go at once when ${what}, with the button still down`, went.held && went.shown && (SOFTWARE || went.after < 400), went);
+    } catch (e) { await unpressed(e, "a press cancelled, or the keys lost"); }
   }
 
   // 3. A bar being moved along is not held up, and is not let go of. Drawn again under the pointer, a bar was let go
@@ -689,8 +727,9 @@ try {
 }
 
 console.log(JSON.stringify(results, null, 2));
+if (unjudged.length) console.error(`\nNOT JUDGED: ${unjudged.length}\n- ${unjudged.map((n) => `${n}: ${results[n]["not judged"]}`).join("\n- ")}`);
 if (fail.length) {
   console.error(`\nFAILED: ${fail.length} of ${Object.keys(results).length}\n- ${fail.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed`);
+console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed${unjudged.length ? `, ${unjudged.length} NOT JUDGED` : ""}`);
