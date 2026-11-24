@@ -13,7 +13,7 @@
  *
  * This file is not the menu and doesn't load it. It is small, and is what lets a framed world never fetch the menu.
  */
-import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuSaveType, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuKey, type MenuState } from "@nswp/core";
+import { LEAVE_MS, MENU_CARD_PICTURE, MENU_KEYS, reportedSettings, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuSaveType, MENU_VERSION, MENU_VISITOR_TABS, MENU_WAIT_MS, readMenuWordDown, type MenuCovers, type MenuKey, type MenuState } from "@nswp/core";
 import { framed, hearClientMenu, sayToClient, setSaver, sinceHere, speakMenu } from "./client-frame.js";
 import { loadPicture } from "./picture.js";
 import { changeSettings, currentSettings } from "./settings.js";
@@ -38,7 +38,18 @@ export interface MenuAbove {
    * or go, as the visitor's own summons does. For the part that looks round with the mouse: when the browser takes
    * the pointer back at Escape the world hears no key, and asks for the menu here.
    */
-  readonly menu: { readonly open: boolean; setOpen(open: boolean): void };
+  readonly menu: {
+    readonly open: boolean;
+    setOpen(open: boolean): void;
+    /**
+     * How much of this world's view the client's menu covers at each edge, for what is always there (its bar, its
+     * marks): as the client last said (`covers`), in pixels of this page. Nothing where the client has no menu
+     * or has said nothing. Never more of a side than the view has.
+     */
+    cover(): { top: number; bottom: number; left: number; right: number };
+    /** The box of each part of the client's menu over this world's view: what is at each edge, and the sheet while it is up. */
+    bounds(): { x: number; y: number; width: number; height: number }[];
+  };
   /** Stop: nothing more is said upward or taken from above. */
   dispose(): void;
 }
@@ -74,6 +85,8 @@ export interface MenuAboveOptions {
   playing?: (on: boolean) => void;
   /** For tests and other carriers: the page above. By default the one this page is framed by (client-frame.ts). */
   above?: { framed(): boolean; sinceHere(): number | null; say(word: Record<string, unknown>): void; hear(fn: ((word: unknown) => void) | null): void };
+  /** For tests: the size of this page's view, in pixels. By default the window's own. */
+  view?: () => { w: number; h: number };
   /** For tests: where the visitor's keys are heard. By default this page's window. */
   keys?: Pick<Window, "addEventListener" | "removeEventListener">;
   /**
@@ -215,7 +228,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
   };
   if (!above.framed()) {
     know();
-    return { ready, has: false, onChange: () => () => {}, menu: { open: false, setOpen: () => {} }, dispose: () => {} };
+    return { ready, has: false, onChange: () => () => {}, menu: { open: false, setOpen: () => {}, cover: () => ({ top: 0, bottom: 0, left: 0, right: 0 }), bounds: () => [] }, dispose: () => {} };
   }
 
   // Pictures. A description is text and is said again whenever a word of it changes; a picture is neither, so each
@@ -320,6 +333,7 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     has = next;
     last = "";
     open = false;
+    covers = null;
     if (has) describe();
     else {
       if (waiting) clearTimeout(waiting);
@@ -365,6 +379,9 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
 
   let leaving: ReturnType<typeof setTimeout> | null = null;
   let open = false;
+  // What the client last said its menu covers of this page. Forgotten whenever who has the menu changes.
+  let covers: MenuCovers | null = null;
+  const viewSize = (): { w: number; h: number } => opts.view?.() ?? { w: typeof innerWidth === "number" ? innerWidth : 0, h: typeof innerHeight === "number" ? innerHeight : 0 };
   above.hear((data) => {
     const word = readMenuWordDown(data);
     if (!word) return;
@@ -376,6 +393,8 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
     if (!has) return;
     if (word.what === "settings") return void takeSettings(word.settings);
     if (word.what === "playing") return void hearPlaying(word.playing);
+    // What of this page the client's menu covers. Kept, and answered when the world asks (`menu.cover`, `menu.bounds`).
+    if (word.what === "covers") return void (covers = word.covers);
     // Only for something this world last described: a press is by id, and nothing else can be pressed from above.
     if (word.what === "press") {
       const row = named.get(word.press);
@@ -456,6 +475,30 @@ export function portAbove(controls: Controls, opts: MenuAboveOptions = {}): Menu
       },
       setOpen(next) {
         if (has && next !== open) tell("summon");
+      },
+      cover() {
+        const { w, h } = viewSize();
+        if (!has || !covers) return { top: 0, bottom: 0, left: 0, right: 0 };
+        // A word that says more of a side than the view has is read as the whole side.
+        return { top: Math.min(covers.top, h), bottom: Math.min(covers.bottom, h), left: Math.min(covers.left, w), right: Math.min(covers.right, w) };
+      },
+      bounds() {
+        if (!has || !covers) return [];
+        const { w, h } = viewSize();
+        const c = this.cover();
+        const boxes = [
+          { x: 0, y: 0, width: w, height: c.top },
+          { x: 0, y: h - c.bottom, width: w, height: c.bottom },
+          { x: 0, y: 0, width: c.left, height: h },
+          { x: w - c.right, y: 0, width: c.right, height: h },
+        ];
+        if (covers.sheet) {
+          // The sheet, as much of it as is over this view.
+          const x = Math.min(covers.sheet.x, w);
+          const y = Math.min(covers.sheet.y, h);
+          boxes.push({ x, y, width: Math.min(covers.sheet.width, w - x), height: Math.min(covers.sheet.height, h - y) });
+        }
+        return boxes.filter((b) => b.width > 0 && b.height > 0);
       },
     },
     dispose() {

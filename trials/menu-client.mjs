@@ -56,6 +56,7 @@ const ABOUT = {
   question: [17, "the one-time question on moving at a desk, asked once by the client and never by the world"],
   music: [20, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
   file: [24, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
+  covers: [13, "the view clear of the menu: the world told what of its view the client's bar, marks and sheet cover, at a desk's width and a phone's"],
 };
 const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const unknown = asked.filter((n) => !ABOUT[n]);
@@ -1331,6 +1332,90 @@ VISITS.file = async () => {
       await ctx6.close();
     }
   }
+};
+
+// ---- The view clear of the menu (docs/plans/the-clients-menu.md, section 15; `covers`). The client's menu is over
+// the world's view, and the world is told what of it is covered: the edges for what is always there (the marks,
+// the bar), a box for the sheet while it is up. The world answers that through the two calls its own menu has.
+// Measured here on both pages: what the world says is covered, against where the client's bar, marks and sheet in
+// fact are over the frame. At a desk's width and at a phone's.
+VISITS.covers = async () => {
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+  await serve(ctx);
+  const page = await ctx.newPage();
+  const until = async (ask, ms = 15000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const got = await Promise.resolve().then(ask).catch(() => null);
+      if (got || Date.now() > end) return got;
+      await page.waitForTimeout(100);
+    }
+  };
+  await page.goto(`${CLIENT}/?home=${encodeURIComponent(`${CLIENT}/home.html`)}`, { timeout: 60000 });
+  const world = () => page.frames().find((f) => f.url().startsWith(WORLD));
+  await until(() => world()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+  await until(() => page.evaluate(() => window.__client.below.world?.sections.length > 0));
+  check("covers: there is one menu, and it is the client's", (await world().evaluate(() => document.querySelectorAll("nswp-hud").length)) === 0 && (await page.evaluate(() => document.querySelectorAll("nswp-hud").length)) === 1);
+  // Every word of it the world's page is sent from now on, kept there to be counted.
+  await world().evaluate(() => { window.__covers = []; addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.covers !== undefined) window.__covers.push(e.data.covers); }); });
+  /** Where the client's menu in fact is over the frame, measured on the client's page, in the frame's own pixels. */
+  const measured = () => page.evaluate(() => {
+    const root = document.querySelector("nswp-hud").shadowRoot;
+    const f = document.querySelector("iframe").getBoundingClientRect();
+    const box = (sel) => { const e = root.querySelector(sel); const r = e?.getBoundingClientRect(); return r && r.width > 0 && r.height > 0 && !e.hidden ? r : null; };
+    const [marks, bar, sheet] = [box(".id"), box(".bar"), box("section.sheet")];
+    const within = (n, most) => Math.round(Math.max(0, Math.min(n, most)));
+    return {
+      frame: [Math.round(f.width), Math.round(f.height)],
+      top: marks ? within(marks.bottom - f.top, f.height) : 0,
+      bottom: bar ? within(f.bottom - bar.top, f.height) : 0,
+      sheet: sheet ? { x: Math.round(Math.max(sheet.left, f.left) - f.left), y: Math.round(Math.max(sheet.top, f.top) - f.top), width: Math.round(Math.min(sheet.right, f.right) - Math.max(sheet.left, f.left)), height: Math.round(Math.min(sheet.bottom, f.bottom) - Math.max(sheet.top, f.top)) } : null,
+    };
+  });
+  const said = () => world().evaluate(() => ({ cover: window.__nswpTest.hud.cover(), bounds: window.__nswpTest.hud.bounds(), view: [innerWidth, innerHeight], words: window.__covers.length }));
+  const near = (a, b) => Math.abs(a - b) <= 1;
+  const sameBox = (a, b) => !!a && !!b && near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
+
+  for (const [at, width, height] of [["a desk's width", 1100, 700], ["a phone's width", 390, 760]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(900);
+    const is = await measured();
+    const told = await until(async () => { const t = await said(); return near(t.cover.top, is.top) && near(t.cover.bottom, is.bottom) ? t : null; }, 4000) ?? (await said());
+    check(`covers, at ${at}: the world's view is the frame, to the pixel`, told.view[0] === is.frame[0] && told.view[1] === is.frame[1], { world: told.view, frame: is.frame });
+    check(`covers, at ${at}: the client's bar is over the world's view, so there is something to say`, is.bottom > 20, is);
+    check(`covers, at ${at}: the world knows how much of its view the client's marks and bar cover`, near(told.cover.top, is.top) && near(told.cover.bottom, is.bottom) && told.cover.left === 0 && told.cover.right === 0, { told: told.cover, measured: is });
+    results[`covers, at ${at}: what the world says is covered, and its view`] = { cover: told.cover, view: told.view };
+
+    // The sheet comes up: the world is told of it as a box, and the edges don't move.
+    await page.evaluate(() => window.__client.menu.setOpen(true, "room"));
+    await page.waitForTimeout(1200);
+    const up = await measured();
+    const toldUp = await until(async () => { const t = await said(); return t.bounds.some((b) => sameBox(b, up.sheet)) ? t : null; }, 4000) ?? (await said());
+    check(`covers, at ${at}: with the sheet up the world is told where it is, as a box`, !!up.sheet && toldUp.bounds.some((b) => sameBox(b, up.sheet)), { told: toldUp.bounds, measured: up.sheet });
+    check(`covers, at ${at}: and the edges are as they were: a view moved clear of them stays still`, toldUp.cover.top === told.cover.top && toldUp.cover.bottom === told.cover.bottom, { before: told.cover, up: toldUp.cover });
+    // What a world keeps clear of: a caption standing just above the bar is clear of the bar, and it can tell
+    // whether it is under the sheet.
+    const caption = { x: Math.round(toldUp.view[0] / 2) - 60, y: toldUp.view[1] - toldUp.cover.bottom - 40, width: 120, height: 32 };
+    const over = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    const barBox = toldUp.bounds.find((b) => b.y + b.height === toldUp.view[1]);
+    check(`covers, at ${at}: a caption put just above what the world is told is covered is clear of the client's bar as measured`, !!barBox && !over(caption, barBox) && caption.y + caption.height <= toldUp.view[1] - up.bottom + 1, { caption, barBox, measuredBottom: up.bottom });
+    results[`covers, at ${at}: whether that caption is under the sheet, as the world can tell`] = toldUp.bounds.some((b) => sameBox(b, up.sheet) && over(caption, b));
+
+    await page.evaluate(() => window.__client.menu.setOpen(false));
+    await page.waitForTimeout(1200);
+    const down = await until(async () => { const t = await said(); return t.bounds.length < toldUp.bounds.length ? t : null; }, 4000) ?? (await said());
+    check(`covers, at ${at}: with the sheet down the world is told it has gone`, down.bounds.length === toldUp.bounds.length - 1 && down.cover.bottom === told.cover.bottom, { down: down.bounds, up: toldUp.bounds });
+  }
+
+  // Nothing crosses while nothing changes: three seconds of the world running under the client's menu.
+  const before = (await said()).words;
+  await page.waitForTimeout(3000);
+  const after = (await said()).words;
+  check("covers: nothing crosses while nothing changes, in three seconds", after === before, { before, after });
+  // And not much crossed at all: two widths, the sheet up and down at each.
+  results["covers: how many times the world was told, in the whole visit"] = after;
+  check("covers: the world was told a few times in all, and not at every frame", after >= 4 && after <= 16, after);
+  await ctx.close();
 };
 
 // ---- Which visits to run, and running them. With no name, all of them, in this order.
