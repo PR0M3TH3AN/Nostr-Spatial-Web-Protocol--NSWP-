@@ -55021,7 +55021,34 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       says.classList.remove("one");
       if (says.getBoundingClientRect().height > one + 0.5) sheet.style.height = `${size}px`;
     };
+    const PRESS_MS = 1200;
+    const DRAG_MS = 8e3;
+    let pressedAt = -Infinity;
+    let waitFor = PRESS_MS;
+    let owed = false;
+    const pressing = () => performance.now() - pressedAt < waitFor;
+    const pressBegan = (e) => {
+      const at = e.composedPath()[0];
+      waitFor = at instanceof HTMLInputElement && at.type === "range" ? DRAG_MS : PRESS_MS;
+      pressedAt = performance.now();
+    };
+    const pressOver = () => {
+      if (pressedAt === -Infinity) return;
+      pressedAt = -Infinity;
+      if (!owed) return;
+      owed = false;
+      setTimeout(draw, 0);
+    };
+    const onSpace = (e) => void (e.key === " " && (e.type === "keydown" ? pressBegan(e) : pressOver()));
+    root.addEventListener("pointerdown", pressBegan, true);
+    root.addEventListener("keydown", onSpace, true);
+    root.addEventListener("keyup", onSpace, true);
+    const PRESS_ENDS = ["pointerup", "pointercancel", "blur"];
+    for (const type of PRESS_ENDS) addEventListener(type, pressOver, true);
+    document.addEventListener("visibilitychange", pressOver);
     const draw = () => {
+      if (pressing()) return void (owed = true);
+      owed = false;
       const view2 = controls2.view();
       const t = view2.theme;
       host.style.setProperty("--accent", rgb(t.accent));
@@ -55467,6 +55494,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stop();
         stopAsking();
         removeEventListener("focus", onPageFocus);
+        for (const type of PRESS_ENDS) removeEventListener(type, pressOver, true);
+        document.removeEventListener("visibilitychange", pressOver);
         stopSay();
         removeEventListener("keydown", onKey);
         stopLeft();
