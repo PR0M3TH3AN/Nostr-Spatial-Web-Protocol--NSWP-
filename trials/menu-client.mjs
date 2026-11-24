@@ -16,10 +16,14 @@
 //
 // Six visits, each a fresh browser context that stands alone, so any of them can be run without the others:
 //
-//   npm run build && node trials/menu-client.mjs      every visit, in order: about three minutes
+//   npm run build && node trials/menu-client.mjs      every visit, in order: about two minutes
 //   node trials/menu-client.mjs music file            only those
 //   node trials/menu-client.mjs --list                the visits, what each is, and about how long each takes
-//   node trials/menu-client.mjs file --times          also says, as it goes, how long each check waited
+//   node trials/menu-client.mjs file --times          also says, as it goes, how long each check and step waited
+//   node trials/menu-client.mjs --software            Chrome draws without the graphics card: about three and a
+//                                                     half minutes (nine, once, on a busier machine), and a fair
+//                                                     stand-in for a slow device. Wanted before a kit version is
+//                                                     cut, beside the ordinary run
 //
 // The result is printed whole at the end. As it goes, each visit's beginning and end are said apart from it (on
 // stderr), with its count and its seconds, so a log that simply ends was cut off and shows where.
@@ -42,15 +46,16 @@ const DIST = join(NSWP, "sites", "gallery", "dist");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".glb": "model/gltf-binary", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".woff2": "font/woff2", ".txt": "text/plain" };
 
 // The visits, in the order they are run: about how long each takes, in seconds, and what it is. The times were
-// measured on a laptop of eight threads that was busy throughout (a load of 11 to 14), in a Chrome that draws
-// without a graphics card: a quiet machine is quicker, and one busier than that is slower.
+// measured on a laptop of eight threads that was busy throughout (a load of 17 to 22), with Chrome drawing on its
+// graphics card: 106 seconds in all. Drawn without one (`--software`) they were 52, 15, 8, 22, 71 and 46: about
+// three and a half minutes, at a load of 15 to 18.
 const ABOUT = {
-  main: [66, "one menu, the client's, over the Gallery: the keys, the rows, the tabs both fill, Home"],
-  launch: [16, "\"Enter VR\" above and \"Launch\" in the world, with a made-up headset; settings carried to the next world"],
-  bag: [9, "the kit's Bag in the client's page, over a stand-in relay and file host; a thing taken up and put away"],
-  question: [23, "the one-time question on moving at a desk, asked once by the client and never by the world"],
-  music: [57, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
-  file: [42, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
+  main: [34, "one menu, the client's, over the Gallery: the keys, the rows, the tabs both fill, Home"],
+  launch: [11, "\"Enter VR\" above and \"Launch\" in the world, with a made-up headset; settings carried to the next world"],
+  bag: [5, "the kit's Bag in the client's page, over a stand-in relay and file host; a thing taken up and put away"],
+  question: [17, "the one-time question on moving at a desk, asked once by the client and never by the world"],
+  music: [20, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
+  file: [24, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
 };
 const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const unknown = asked.filter((n) => !ABOUT[n]);
@@ -80,6 +85,12 @@ const note = (text) => process.stderr.write(`${text}\n`);
 /** With `--times`, each check is said as it is made, with how long it was since the one before: where the time goes. */
 const TIMES = process.argv.includes("--times");
 let lastCheck = Date.now();
+/** With `--times`, a step between two checks is said too, with how long it took: which press or wait the time is in. */
+let lastLap = Date.now();
+const lap = (what) => {
+  if (TIMES) note(`        ${String(((Date.now() - lastLap) / 1000).toFixed(1)).padStart(6)} s  ${what}`);
+  lastLap = Date.now();
+};
 const check = (name, ok, got) => {
   if (TIMES) note(`  ${String(((Date.now() - lastCheck) / 1000).toFixed(1)).padStart(6)} s  ${ok ? "ok" : "FAILED"}  ${name}`);
   lastCheck = Date.now();
@@ -90,7 +101,32 @@ const check = (name, ok, got) => {
   }
 };
 
-const browser = await pw.chromium.launch({ channel: "chrome", headless: true });
+// Chrome draws with this machine's graphics card, as a visitor's does. Left alone a scripted Chrome draws without
+// one, and a world then manages a frame or two a second: everything else on its page waits behind those frames, a
+// press by the scripting tool takes six seconds or more, and on a busy machine it can pass its limit and never be
+// made. `--software` draws that way, which is a fair stand-in for a slow device and how two faults in the kit were
+// first met; what they showed is now asked directly, in the `file` visit, however the pages are drawn.
+const SOFTWARE = process.argv.includes("--software");
+const browser = await pw.chromium.launch({ channel: "chrome", headless: true, args: SOFTWARE ? [] : ["--use-angle=gl", "--enable-gpu", "--ignore-gpu-blocklist"] });
+// What in fact drew the pages, asked of the browser: a machine with no card to use draws without one whatever is asked.
+{
+  const probe = await browser.newPage();
+  results["what drew the pages"] = await probe
+    .evaluate(() => {
+      const gl = document.createElement("canvas").getContext("webgl2");
+      const info = gl?.getExtension("WEBGL_debug_renderer_info");
+      return gl ? String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : "no WebGL at all";
+    })
+    .catch((e) => `not known: ${String(e).slice(0, 80)}`);
+  await probe.close();
+  // Chrome falls back to drawing without the card and doesn't say so. Said here, plainly, and not failed for: the
+  // run is then a slower one, as with `--software`, and its times are not the card's.
+  const without = /swiftshader|llvmpipe|software|softpipe/i.test(results["what drew the pages"]);
+  results["drawn without the graphics card"] = SOFTWARE ? "yes, as asked (--software)" : without ? "YES, THOUGH THE CARD WAS ASKED FOR: this machine gave Chrome none" : "no";
+  note(`drawn by: ${results["what drew the pages"]}`);
+  if (SOFTWARE) note("drawn without the graphics card, as asked (--software)");
+  else if (without) note("NOT DRAWN WITH THE GRAPHICS CARD, though it was asked for: this machine gave Chrome none. The run goes on, slower, as with --software.");
+}
 
 // What every visit is served by: these sites and no others, with every WebSocket answered here. What was asked for
 // is kept, to be listed.
@@ -146,11 +182,20 @@ VISITS.main = async () => {
   const world = () => page.frames().find((f) => f.url().startsWith(WORLD));
   const inFrame = () => page.frames().find((f) => f !== page.mainFrame());
   const hud = page.locator("nswp-hud");
-  // A real mouse at the middle of something, found by reading where it is.
+  // A real mouse at the middle of something, found by reading where it is, once it has stopped moving: its place is
+  // read, read again a moment later, and pressed when the two agree. The sheet slides up as it opens, and a press
+  // sent to where a row was a moment ago lands outside the sheet, which closes the menu and presses nothing. (That
+  // happened here, on a busy machine drawing without a graphics card, and three checks after it failed.)
+  // A thing that isn't there for a moment (the menu is drawn again as the world says something) is waited for.
   const press = async (locator) => {
-    const box = await locator.boundingBox();
-    if (!box) throw new Error("nothing there to press");
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    let box = null;
+    for (const end = Date.now() + 20000; Date.now() < end; ) {
+      const now = await locator.boundingBox({ timeout: 2000 }).catch(() => null);
+      if (now && box && now.x === box.x && now.y === box.y) return void (await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2));
+      box = now;
+      await page.waitForTimeout(120);
+    }
+    throw new Error(`nothing still enough to press in 20 s: ${String(locator).slice(0, 120)}`);
   };
   const client = (fn, arg) => page.evaluate(fn, arg);
 
@@ -467,7 +512,10 @@ VISITS.main = async () => {
   check("the row the world described opens the chat's pane in the world", await until(() => world().evaluate(() => document.querySelector("nswp-hud").shadowRoot.querySelector(".chat")?.getAttribute("data-state") === "open")));
   check("the client's menu goes as the chat comes up: one thing at a time", await until(() => client(() => window.__client.menu.open === false)));
   check("and the frame has the keys, to write with", await until(() => client(() => document.activeElement?.tagName === "IFRAME")));
-  await page.waitForTimeout(300);
+  // The world puts the keys in its box once its page is handed them, which is a moment later, and on a page that
+  // draws slowly a longer one. Waited for by asking the box, not by a fixed time: typed too soon, the words go to
+  // the world's view and not into the box. (That happened here, drawn without a graphics card, at a fixed 300 ms.)
+  check("and the world's box to write in has them", await until(() => world().evaluate(() => { const at = document.querySelector("nswp-hud").shadowRoot.activeElement; return !!at && (at.tagName === "INPUT" || at.tagName === "TEXTAREA"); }), 20000), await world().evaluate(() => { const at = document.querySelector("nswp-hud").shadowRoot.activeElement; return at ? `${at.tagName}.${at.className}` : "nothing in the menu has them"; }));
   await page.keyboard.type("hello room", { delay: 30 });
   await page.keyboard.press("Enter");
   check("what is written in the pane is said by the world, to its room", await until(() => world().evaluate(() => JSON.stringify(window.__chatSent) === JSON.stringify(["hello room"]))), await world().evaluate(() => window.__chatSent));
@@ -647,13 +695,22 @@ VISITS.bag = async () => {
     check("bag/nothing is in hand to begin with, by the world's word", (await page3.evaluate(() => window.__client.below.world.state.holding)) === "");
     // Chosen, then taken up, with a real mouse in the client's menu.
     await page3.evaluate(() => window.__client.menu.setOpen(true, "bag"));
-    // Pressed with a real mouse where the thing is, and pressed again if the menu was being laid out afresh at that
-    // moment and the press found nothing (the Bag's rows are drawn again whenever the world says anything).
+    // Pressed with a real mouse where the thing is, once it has stopped moving, and pressed again only if a good
+    // while passes with nothing to show for it (the Bag's rows are drawn again whenever the world says anything, and
+    // a press may find nothing). A good while, because choosing a thing is a press that un-chooses it when made
+    // twice: pressed again after six seconds, on a busy machine where the first press's doing took longer to show,
+    // the thing was chosen and un-chosen in turn and four checks failed.
     const pressUntil = async (target, shows) => {
-      for (let i = 0; i < 4; i++) {
-        const at = await target.boundingBox({ timeout: 8000 }).catch(() => null);
+      for (let i = 0; i < 3; i++) {
+        let at = null;
+        for (const end = Date.now() + 20000; Date.now() < end; ) {
+          const now = await target.boundingBox({ timeout: 2000 }).catch(() => null);
+          if (now && at && now.x === at.x && now.y === at.y) break;
+          at = now;
+          await page3.waitForTimeout(120);
+        }
         if (at) await page3.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
-        if (await until3(() => shows(), 6000)) return true;
+        if (await until3(() => shows(), 25000)) return true;
       }
       return false;
     };
@@ -913,25 +970,75 @@ VISITS.music = async () => {
       // The same rows in a world's own menu (the fallback: this Gallery opened as a page of its own, no client). Its
       // songs are its own site's: the file is chosen again there.
       {
+        lap("(before the world's own page)");
         const own = await ctx5.newPage();
         own.on("filechooser", (c) => void c.setFiles([tune, tune2]));
         await own.goto(`${WORLD}/`, { timeout: 60000 });
+        lap("the world's own page asked for");
         await until5(() => own.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+        lap("the world ready");
         const ownHud = own.locator("nswp-hud");
-        // Where a thing is, once it is in sight and has stopped moving (a tab may be along the strip, a row down the list).
-        // This page is only looked at, so the scripting tool's own press is used: it waits for a thing to be in sight
-        // and still, and presses it with the mouse where it is.
-        const pressOwn = (role, name) => ownHud.getByRole(role, { name }).first().click({ timeout: 15000 }).then(() => true, () => false);
-        await pressOwn("button", "Menu");
-        await pressOwn("tab", "Sound");
-        await pressOwn("button", "Add music from this device");
-        await until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.list().length === 2), 10000);
-        await pressOwn("button", "Play your music");
-        await until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.playing && window.__nswpTest.sounds.jukebox.duration > 0), 10000);
-        const ownRows = await own.evaluate(() => window.__nswpTest.controls.view().sections.find((x) => x.id === "sound").items.filter((i) => i.id.startsWith("juke-") || i.id.startsWith("song-")).map((i) => (i.id.startsWith("song-") ? "a song" : i.id)));
-        check("controls/a world's own menu has the same rows, where no client draws it", JSON.stringify(ownRows) === JSON.stringify(rowsNow), ownRows);
-        const ownBar = await until5(() => own.evaluate(() => { const bar = document.querySelector("nswp-hud").shadowRoot.querySelector(".slide"); return bar && /of 1:00$/.test(bar.querySelector(".time").textContent) ? bar.querySelector(".name").textContent : null; }), 8000);
-        check("controls/and draws the same bar", ownBar === `Your music: ${title}`, ownBar);
+        // A press with the mouse where the thing is, once it is there, has stopped moving, and is what the mouse would
+        // land on: its place is read, read again a moment later, and pressed when the two agree. A tab along the
+        // strip or a row down the list is brought into sight first, as a person would scroll to it, and again if the
+        // menu moved it back (it brings the chosen tab into sight once, a frame after it comes up).
+        // Not the scripting tool's own press, which waits for the page to draw several frames first: on a page that
+        // draws without a graphics card that took six to twelve seconds a press, and on a busy machine it passed its
+        // limit and the press was never made, with nothing said. Each press here says whether it was made.
+        const pressOwn = async (role, name) => {
+          const thing = ownHud.getByRole(role, { name }).first();
+          // One answer from such a page can itself take seconds: it waits its turn behind a frame. So each is given time.
+          const look = () =>
+            thing
+              .evaluate((el) => {
+                const r = el.getBoundingClientRect();
+                const x = r.left + r.width / 2;
+                const y = r.top + r.height / 2;
+                const top = r.width && r.height ? el.getRootNode().elementFromPoint(x, y) : null;
+                const hit = !!top && (top === el || el.contains(top));
+                if (!hit) el.scrollIntoView({ block: "nearest", inline: "center" });
+                return { x, y, hit };
+              }, null, { timeout: 10000 })
+              .catch(() => null);
+          let last = null;
+          for (const end = Date.now() + 60000; Date.now() < end; ) {
+            const now = await look();
+            if (now?.hit && last?.hit && now.x === last.x && now.y === last.y) {
+              await own.mouse.click(now.x, now.y);
+              return true;
+            }
+            last = now;
+            await own.waitForTimeout(150);
+          }
+          return false;
+        };
+        // Each press and each wait by its own name, in order, and the first that isn't so stops the rest: a press
+        // this script never made is said as that, and never shows up later as a row that isn't there.
+        let stoppedAt = "";
+        const step = async (name, does) => {
+          if (stoppedAt) return void (results[`controls/on the world's own page, ${name}`] = `not tried: ${stoppedAt}`);
+          const ok = !!(await does());
+          lap(`${name}: ${ok}`);
+          check(`controls/on the world's own page, ${name}`, ok);
+          if (!ok) stoppedAt = `${name} was not so`;
+        };
+        await step("the press on Menu was made", () => pressOwn("button", "Menu"));
+        await step("the press on the Sound tab was made", () => pressOwn("tab", "Sound"));
+        await step('the press on "Add music from this device" was made', () => pressOwn("button", "Add music from this device"));
+        // The files are read and kept by the page, behind whatever else it is doing: long enough for a busy one.
+        await step("the two songs chosen were kept", () => until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.list().length === 2), 30000));
+        await step('the press on "Play your music" was made', () => pressOwn("button", "Play your music"));
+        await step("the song played, with a length", () => until5(() => own.evaluate(() => window.__nswpTest.sounds.jukebox.playing && window.__nswpTest.sounds.jukebox.duration > 0), 20000));
+        if (stoppedAt) {
+          // Not the kit's to answer for: the rows are those of a page nothing was added to.
+          results["controls/a world's own menu has the same rows, where no client draws it"] = `not looked at: ${stoppedAt}`;
+          results["controls/and draws the same bar"] = `not looked at: ${stoppedAt}`;
+        } else {
+          const ownRows = await own.evaluate(() => window.__nswpTest.controls.view().sections.find((x) => x.id === "sound").items.filter((i) => i.id.startsWith("juke-") || i.id.startsWith("song-")).map((i) => (i.id.startsWith("song-") ? "a song" : i.id)));
+          check("controls/a world's own menu has the same rows, where no client draws it", JSON.stringify(ownRows) === JSON.stringify(rowsNow), ownRows);
+          const ownBar = await until5(() => own.evaluate(() => { const bar = document.querySelector("nswp-hud").shadowRoot.querySelector(".slide"); return bar && /of 1:00$/.test(bar.querySelector(".time").textContent) ? bar.querySelector(".name").textContent : null; }), 8000);
+          check("controls/and draws the same bar", ownBar === `Your music: ${title}`, ownBar);
+        }
         await own.waitForTimeout(600);
         await own.screenshot({ path: join(SHOTS, "menu-client-14-music-own-menu.png") });
         await own.evaluate(() => window.__nswpTest.sounds.jukebox.pause());
@@ -999,6 +1106,18 @@ VISITS.file = async () => {
       // A slow device, when the trial says so: a picture's file takes this much longer to make (`__slowMs`).
       const toBlob = HTMLCanvasElement.prototype.toBlob;
       HTMLCanvasElement.prototype.toBlob = function (done, ...rest) { const wait = window.__slowMs || 0; return wait ? void setTimeout(() => toBlob.call(this, done, ...rest), wait) : toBlob.call(this, done, ...rest); };
+      // Where the world's drawing goes, counted: to the screen, or to something of its own (a picture's target).
+      window.__drawn = { screen: 0, elsewhere: 0 };
+      for (const GL of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
+        if (!GL) continue;
+        const bind = GL.prototype.bindFramebuffer;
+        GL.prototype.bindFramebuffer = function (target, to) { if (target !== this.READ_FRAMEBUFFER) this.__to = to; return bind.call(this, target, to); };
+        for (const name of ["drawElements", "drawArrays", "drawElementsInstanced", "drawArraysInstanced", "drawRangeElements"]) {
+          const draw = GL.prototype[name];
+          if (!draw) continue;
+          GL.prototype[name] = function (...args) { window.__drawn[this.__to ? "elsewhere" : "screen"]++; return draw.apply(this, args); };
+        }
+      }
       // A slow device's drawing, when the trial says so: reading the picture back takes this much longer
       // (`__slowDrawMs`), with the page's script busy throughout, as it is while a picture is drawn. When the
       // drawing was done is kept, by the clock both pages share.
@@ -1113,9 +1232,17 @@ VISITS.file = async () => {
       // drawing and not against a clock: a busy machine is slow at everything, and that isn't the kit's.
       check("making/the world says at once that it is making it, and the client tells the visitor", await until6(async () => (await said6()).includes(MAKING), 9000), { said: await said6(), after: Date.now() - pressedAt });
       await page6.screenshot({ path: join(SHOTS, "menu-client-15-making.png") });
+      // While the file is being made the world goes on drawing its own frames, and they go to the screen. (They
+      // went into the picture, every one, until the file was made: the view stood still for as long.) Counted in
+      // the world's page, between now and the look at ten seconds, with the file still seconds from made.
+      const drawnThen = await world6().evaluate(() => ({ ...window.__drawn }));
       // Looked at again just past the ten seconds: nothing has come yet, and nothing has been said to have failed.
       await page6.waitForTimeout(Math.max(0, 10500 - (Date.now() - pressedAt)));
       check("making/ten seconds on, nothing has come and nothing is said to have failed", saved6.length === 1 && (await said6()).join("|") === MAKING, { saved6, said: await said6() });
+      const drawnNow = await world6().evaluate(() => ({ ...window.__drawn }));
+      const meanwhile = { toTheScreen: drawnNow.screen - drawnThen.screen, elsewhere: drawnNow.elsewhere - drawnThen.elsewhere };
+      results["making/what the world drew while the file was being made: draws to the screen, and elsewhere"] = meanwhile;
+      check("making/while the file is being made, the world's own frames still go to the screen", meanwhile.toTheScreen > 0, meanwhile);
       const came = await until6(() => saved6.length === 2, 30000);
       const took = Date.now() - pressedAt;
       check("making/the picture is saved when it comes, more than ten seconds after the press", came && took > 10000 && /^the-gallery-[0-9-]+\.jpg$/.test(saved6[1] ?? ""), { saved6, took });

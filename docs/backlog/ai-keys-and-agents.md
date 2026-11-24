@@ -166,46 +166,6 @@ in the backlog. The first, `agents-0-contracts`, was started the same day in
 The pack itself is committed there on the branch
 `docs/agent-platform-spec-v0.3` (c9d77eb).
 
-## Talking to an agent by voice (2026-11-23 and 24)
-
-The owner asked the orchestrator whether the kit's speech-to-text "is fast
-enough to voice chat with an agent that uses an open router LLM", and to
-have it measured ("Yes, measure it").
-
-**Measured in `nswp-agents`' playground (commit 0d6ab91), on this machine
-while it was very busy, with a made voice and not a person's:** the kit's
-way (hold, speak, release; then OpenAI's Whisper on the visitor's own
-computer, one pass) takes about 2 s for a two-second order and about 3 s
-for a sentence with `base.en`, which misheard some words of a long clip.
-`small` heard everything and took 8 to 18 s. The model's own time and the
-whole turn were not measured: they need the owner's key, and the playground
-now times them on screen.
-
-**The owner's direction, said to the `nswp-agents` session when asked to
-confirm a download of a faster Whisper:** "the thing is, we need to use
-tech that can be in the browser session. I am not sure that is the right
-fit." And: "we might need to use a remote API for our voice to text".
-Nothing was downloaded.
-
-**What that leaves for a design, none of it decided:**
-
-- A remote speech service the page calls: quickest and most accurate, paid
-  by the minute, and what the visitor says leaves their device.
-- Whisper run in the browser tab itself: in the browser session, and the
-  sound stays on the device; a model is fetched on first use and it is slow
-  on a phone or a headset. Not measured.
-- The browser's own recognition, which the kit already uses where no
-  computer of the visitor's is listening (`packages/sdk/src/speech.ts`).
-- Speaking the answer aloud is not built anywhere. It is the Voice key's
-  job.
-- In the playground a service may be called straight from the page with
-  the owner's own key. In BitPortal that is never the shape: a visitor's
-  key stays at the sign-in address (the first rule above), so the page asks
-  BitLogin, and BitLogin calls the service.
-- TypeSafe's own JEV address refuses calls from a browser, so in a browser
-  alone JEV goes by OpenRouter's route unless TypeSafe allows the page's
-  origin.
-
 ## Must not
 
 - Put a provider's key anywhere a world, a client, a relay or another
