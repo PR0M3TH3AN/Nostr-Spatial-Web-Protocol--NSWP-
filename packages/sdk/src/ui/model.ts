@@ -442,6 +442,15 @@ function savePins(pins: string[]): void {
 /** The most a world's words about what is loading may be: they share a line with how far along it is. */
 const LOADING_WORDS = 80;
 /** A world's word that it is still loading, as the console shows it: plain text, one line, a fraction or none. */
+/**
+ * How long words said for a moment stay up, in milliseconds. Four seconds and a little for a short line, as it has
+ * always been; and for a longer one, a little more for each letter past sixty, up to ten seconds: what most needs
+ * reading is often long (that others can see you are recording, that pressing Buy again charges nothing), and four
+ * seconds is not enough to read three lines of it.
+ */
+export const SAY_STAYS = { least: 4200, most: 10_000, easy: 60, each: 70 } as const;
+export const sayStays = (text: string): number => Math.min(SAY_STAYS.most, SAY_STAYS.least + Math.max(0, [...text].length - SAY_STAYS.easy) * SAY_STAYS.each);
+
 export function cleanLoading(state: { fraction?: unknown; words?: unknown } | null | undefined): UiLoading | null {
   if (!state || typeof state !== "object") return null;
   const raw = typeof state.words === "string" ? state.words : "";

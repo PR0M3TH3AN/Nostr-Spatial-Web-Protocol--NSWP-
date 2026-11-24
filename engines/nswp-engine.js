@@ -53667,6 +53667,375 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return new Date(at * 1e3).toISOString().slice(0, 10);
   }
 
+  // packages/sdk/src/ui/letters.ts
+  function createUiLetters(changed, now = () => Date.now()) {
+    let opts = null;
+    let waiting3 = [];
+    let said2 = "";
+    let version = 0;
+    let count3 = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    return {
+      attach(next) {
+        opts = next;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      touch: bump2,
+      seen() {
+        opts?.seen?.();
+      },
+      send(text2) {
+        const mine = opts;
+        if (!mine) return "There is nobody to write to: choose someone first.";
+        const words2 = cleanMessage(text2);
+        if (!words2) return null;
+        const line2 = { key: `new-${++count3}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        waiting3.push(line2);
+        said2 = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
+          else line2.state = "failed";
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
+        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
+        return {
+          ready: !!opts,
+          title: name ? `${name}, privately` : "Private messages",
+          with: name,
+          lines,
+          said: said2,
+          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
+          limit: MESSAGE_LIMITS.chars,
+          version
+        };
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/model.ts
+  var PRESENCES = ["full", "quiet", "hidden"];
+  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  function cleanKeys2(now, k) {
+    const out = { ...now };
+    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
+    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
+    return out;
+  }
+  var read3 = (t) => typeof t === "function" ? t() : t ?? "";
+  var STANDARD = [
+    { id: "travel", label: "Travel", icon: "door" },
+    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
+    { id: "you", label: "You", icon: "you" },
+    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+    { id: "figure", label: "Your look", icon: "look" },
+    { id: "room", label: "Room", icon: "room" },
+    { id: "people", label: "People", icon: "people" },
+    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
+    { id: "following", label: "Following", icon: "list" },
+    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
+    { id: "messages", label: "Messages", icon: "chat" },
+    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
+    { id: "scores", label: "Scores", icon: "list" },
+    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
+    { id: "achievements", label: "Achievements", icon: "check" },
+    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
+    { id: "bag", label: "Bag", icon: "save" },
+    { id: "camera", label: "Camera", icon: "camera" },
+    { id: "panels", label: "Panels", icon: "panel" },
+    { id: "view", label: "View", icon: "vr" },
+    { id: "moving", label: "Moving", icon: "step" },
+    { id: "sound", label: "Sound", icon: "sound" },
+    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
+    { id: "help", label: "Help", icon: "help" }
+  ];
+  var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
+  var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
+  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
+  var rank = (id2) => {
+    const i = STANDARD_ORDER.indexOf(id2);
+    return i === -1 ? STANDARD_ORDER.length : i;
+  };
+  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
+  var PINS_KEY = "nswp:ui:pins";
+  function loadPins() {
+    try {
+      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
+      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function savePins(pins) {
+    try {
+      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
+    } catch {
+    }
+  }
+  var LOADING_WORDS = 80;
+  var SAY_STAYS = { least: 4200, most: 1e4, easy: 60, each: 70 };
+  var sayStays = (text2) => Math.min(SAY_STAYS.most, SAY_STAYS.least + Math.max(0, [...text2].length - SAY_STAYS.easy) * SAY_STAYS.each);
+  function cleanLoading(state) {
+    if (!state || typeof state !== "object") return null;
+    const raw = typeof state.words === "string" ? state.words : "";
+    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
+    const f = state.fraction;
+    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
+    return { fraction, words: words2 };
+  }
+  function createControls(opts) {
+    const sections = STANDARD.map((s) => ({ ...s }));
+    for (const s of opts.sections ?? []) addSection(s);
+    const actions = [];
+    const listeners = /* @__PURE__ */ new Set();
+    const sayers = /* @__PURE__ */ new Set();
+    const signals = /* @__PURE__ */ new Set();
+    let visitor = loadVisitorTheme();
+    const came = arrivedSettings();
+    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
+    if (Object.keys(brought).length) {
+      visitor = { ...visitor, ...brought };
+      saveVisitorTheme(visitor);
+    }
+    reportSettings(
+      "look",
+      () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }),
+      // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
+      (now) => {
+        const patch = { ...now.text !== void 0 ? { scale: now.text } : {}, ...now.motion !== void 0 ? { motion: now.motion } : {}, ...now.wrist !== void 0 ? { wrist: now.wrist } : {} };
+        if (!Object.keys(patch).length) return;
+        visitor = { ...visitor, ...patch };
+        saveVisitorTheme(visitor);
+        theme = resolveTheme(opts.theme, visitor);
+        changed();
+      }
+    );
+    let pins = loadPins();
+    if (came.pins !== void 0) {
+      pins = [...came.pins];
+      savePins(pins);
+    }
+    reportSettings(
+      "pins",
+      () => pins ? { pins } : {},
+      (now) => {
+        if (now.pins === void 0) return;
+        pins = [...now.pins];
+        savePins(pins);
+        changed();
+      }
+    );
+    let theme = resolveTheme(opts.theme, visitor);
+    let target2 = "";
+    let detail = [];
+    let loading4 = null;
+    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
+    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
+    let claimed = false;
+    const changed = () => {
+      for (const fn of listeners) fn();
+    };
+    const chat = createUiChat(changed);
+    const feed = createUiFeed(changed);
+    const letters = createUiLetters(changed);
+    function addSection(s) {
+      const i = sections.findIndex((x) => x.id === s.id);
+      if (i === -1) sections.push({ ...s });
+      else sections[i] = { ...sections[i], ...s };
+    }
+    const controls2 = {
+      get theme() {
+        return theme;
+      },
+      add(...more) {
+        for (const a of more) {
+          const i = actions.findIndex((x) => x.id === a.id);
+          if (i === -1) actions.push(a);
+          else actions[i] = a;
+        }
+        changed();
+      },
+      has: (id2) => actions.some((x) => x.id === id2),
+      remove(id2) {
+        const i = actions.findIndex((x) => x.id === id2);
+        if (i !== -1) actions.splice(i, 1);
+        changed();
+      },
+      addSection(s) {
+        addSection(s);
+        changed();
+      },
+      get presence() {
+        return presence3;
+      },
+      setPresence(next) {
+        if (!PRESENCES.includes(next) || next === presence3) return;
+        presence3 = next;
+        changed();
+      },
+      setCorner(next) {
+        if (!CORNERS.includes(next) || next === corner) return;
+        corner = next;
+        changed();
+      },
+      setKeys(next) {
+        keys = cleanKeys2(keys, next);
+        changed();
+      },
+      claimInput(next) {
+        if (claimed === next) return;
+        claimed = next;
+        changed();
+      },
+      setLoading(state) {
+        const next = cleanLoading(state);
+        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
+        loading4 = next;
+        changed();
+      },
+      setTarget(text2, more = []) {
+        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
+        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
+        target2 = text2;
+        detail = next;
+        changed();
+      },
+      say(text2) {
+        for (const fn of sayers) fn(text2);
+      },
+      run(id2, typed, file) {
+        const a = actions.find((x) => x.id === id2);
+        if (!a || a.hidden?.() || a.kind === "line") return false;
+        for (const fn of signals) fn("press");
+        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : void 0)).catch(() => {
+        }).finally(changed);
+        return true;
+      },
+      setTheme(patch, keep7 = false) {
+        if (keep7) {
+          visitor = { ...visitor, ...patch };
+          saveVisitorTheme(visitor);
+        }
+        theme = resolveTheme({ ...opts.theme, ...keep7 ? {} : patch }, visitor);
+        changed();
+      },
+      get pins() {
+        return pins ?? [];
+      },
+      setPinned(section, pinned) {
+        const now = pins ?? [];
+        if (pinned === now.includes(section)) return true;
+        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
+        pins = pinned ? [...now, section] : now.filter((id2) => id2 !== section);
+        savePins(pins);
+        changed();
+        return true;
+      },
+      view() {
+        const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
+        const pressable = showing2.filter((a) => a.kind !== "line" && a.kind !== "slider");
+        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
+        const item = (a) => {
+          const slot = bar.indexOf(a);
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, ...a.kind === "slider" && a.slider ? { slider: a.slider } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+        };
+        const known = new Set(sections.map((s) => s.id));
+        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
+        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
+        return {
+          title: opts.title,
+          address: opts.address ?? "",
+          target: target2,
+          detail,
+          loading: loading4,
+          sections: shown4,
+          hotbar: bar.map(item),
+          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
+          pins: (pins ?? []).flatMap((id2, i) => {
+            const tab = shown4.find((x) => x.id === id2);
+            const n = bar.length + i + 1;
+            return tab ? [{ id: id2, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+          }),
+          pinsFull: (pins ?? []).length >= PINS_MOST,
+          theme,
+          presence: presence3,
+          corner,
+          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
+          chat: chat.view(),
+          feed: feed.view(),
+          letters: letters.view()
+        };
+      },
+      subscribe(fn) {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+      signal(name) {
+        for (const fn of signals) {
+          try {
+            fn(name);
+          } catch {
+          }
+        }
+      },
+      onSignal(fn) {
+        signals.add(fn);
+        return () => signals.delete(fn);
+      },
+      onSay(fn) {
+        sayers.add(fn);
+        return () => sayers.delete(fn);
+      },
+      chat,
+      feed,
+      letters
+    };
+    const keep6 = (patch) => controls2.setTheme(patch, true);
+    controls2.add(
+      ...UI_PRESETS.map(
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep6({ accent: p.accent }) })
+      ),
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep6({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep6({ motion: !theme.motion }) },
+      {
+        id: "look-wrist",
+        section: "look",
+        icon: "menu",
+        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
+        on: () => theme.wrist !== "off",
+        act: () => keep6({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+      },
+      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
+        visitor = {};
+        saveVisitorTheme({});
+        theme = resolveTheme(opts.theme, visitor);
+      } }
+    );
+    return controls2;
+  }
+
   // packages/sdk/src/ui/hud.ts
   var CSS2 = `
 :host { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; display: block;
@@ -53773,14 +54142,19 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 /* Only a line newly said comes in. One that is moved with the others (below) is simply there. */
 .say.coming { animation: say-in .22s ease-out both; }
 .say.going { opacity: 0; transition: opacity .5s; }
-/* While the menu is up they are in its sheet, just above its foot: the sheet lies over where they otherwise stand on
-   all but the widest screens, and a press in the menu is what most of them answer. They lie over what is there and
-   take no room, so that nothing in the sheet moves as a line comes or goes: a row a visitor is about to press is
-   where it was. A press where a line lies goes to what is under it. */
-.foot { position: relative; }
-.foot .says { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 6px); max-width: none; pointer-events: none; }
-/* Lying over rows and words, a line is solid enough that they don't show through it. */
-.foot .say { background: rgba(var(--glass), .96); }
+/* While the menu is up they are in a strip of the sheet's own, between its rows and its foot: the sheet lies over
+   where they otherwise stand on all but the widest screens, and a press in the menu is what most of them answer.
+   A said line never lies over anything that can be pressed: not a row, not a tab, not the foot's buttons. So the
+   strip is always there while the menu is up, one line high when nothing is said or what is said fits, and nothing
+   in the sheet moves as a line comes or goes. One line shows at a time, the newest.
+   Words too long for one line are shown whole, on up to four: what a visitor most needs to read is often long (that
+   others can see they are recording, that pressing Buy again charges nothing). The strip grows for them and the
+   sheet is kept the size it was (fitSays, below), so the room comes from the bottom of the rows' own scrolling
+   area: no row moves, and the last of them are out of sight while the words show. A press on a line puts it away. */
+.sheet > .says { position: static; display: block; flex: none; max-width: none; min-height: calc(1.35em + 18px); margin: 0 12px 8px; }
+.sheet > .says.one { height: calc(1.35em + 18px); overflow: hidden; }
+.sheet > .says .say { line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; pointer-events: auto; cursor: pointer; }
+.sheet > .says .say:not(:last-child) { display: none; }
 
 /* ---- what the room writes: at the right-hand side. Put away, the newest lines pass by; open, a list and a place to write. */
 .chat { position: absolute; right: max(12px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 54px);
@@ -53877,7 +54251,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .tab { display: flex; align-items: center; gap: 7px; padding: 9px 13px 8px; border-radius: 14px 14px 0 0; color: rgba(var(--ink), .72); border-bottom: 2px solid transparent; white-space: nowrap; }
 .tab:hover { color: rgb(var(--ink)); }
 .tab[aria-selected="true"] { color: rgb(var(--accent)); background: rgba(var(--accent), .1); border-bottom-color: rgb(var(--accent)); }
-.rows { display: grid; gap: 6px; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
+/* Each row keeps its own height whatever room the list is given: when long words take room from the list's foot,
+   the rows are scrolled out of sight there, and none is squeezed (a squeezed row moves every row under it). */
+.rows { display: grid; gap: 6px; grid-auto-rows: max-content; padding: 12px; overflow-y: auto; border-top: 1px solid rgba(var(--accent), .22);
   scrollbar-width: thin; scrollbar-color: rgba(var(--accent), .5) transparent; }
 /* A choice of colour is a row of small doorways, each lit in its own. */
 .swatches { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 4px 2px 8px; }
@@ -54636,6 +55012,15 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       clearTimeout(asTimer);
       asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
     };
+    const fitSays = () => {
+      sheet.style.height = "";
+      if (says.parentElement !== sheet || sheet.hidden) return void says.classList.remove("one");
+      says.classList.add("one");
+      const size = sheet.getBoundingClientRect().height;
+      const one = says.getBoundingClientRect().height;
+      says.classList.remove("one");
+      if (says.getBoundingClientRect().height > one + 0.5) sheet.style.height = `${size}px`;
+    };
     const draw = () => {
       const view2 = controls2.view();
       const t = view2.theme;
@@ -54840,11 +55225,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       said2.replaceChildren(...current?.said ? [el("b", {}, current.said.from), current.said.note] : []);
       sheet.hidden = !open3;
       outside.hidden = !open3;
-      if (open3 ? says.parentElement !== foot : says.parentElement === foot) {
+      if (open3 ? says.parentElement !== sheet : says.parentElement === sheet) {
         for (const line2 of says.children) line2.classList.remove("coming");
-        if (open3) foot.append(says);
+        if (open3) sheet.insertBefore(says, foot);
         else root.insertBefore(says, chat);
       }
+      fitSays();
       menu2.setAttribute("aria-expanded", String(open3));
       quiet.setAttribute("aria-expanded", String(open3));
     };
@@ -55005,10 +55391,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const stopSay = controls2.onSay((text2) => {
       const line2 = el("div", { class: "say glass coming" }, text2);
       line2.addEventListener("animationend", () => line2.classList.remove("coming"), { once: true });
+      line2.title = text2;
+      const away = () => {
+        line2.remove();
+        fitSays();
+      };
+      line2.addEventListener("click", (e) => {
+        e.stopPropagation();
+        away();
+      });
       says.append(line2);
       while (says.childElementCount > 3) says.firstElementChild?.remove();
-      setTimeout(() => line2.classList.add("going"), 3600);
-      setTimeout(() => line2.remove(), 4200);
+      fitSays();
+      const stays = sayStays(text2);
+      setTimeout(() => line2.classList.add("going"), stays - 600);
+      setTimeout(away, stays);
     });
     const stop = controls2.subscribe(draw);
     const onPageFocus = () => {
@@ -55082,373 +55479,6 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         host.remove();
       }
     };
-  }
-
-  // packages/sdk/src/ui/letters.ts
-  function createUiLetters(changed, now = () => Date.now()) {
-    let opts = null;
-    let waiting3 = [];
-    let said2 = "";
-    let version = 0;
-    let count3 = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    return {
-      attach(next) {
-        opts = next;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      detach() {
-        if (!opts) return;
-        opts = null;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      touch: bump2,
-      seen() {
-        opts?.seen?.();
-      },
-      send(text2) {
-        const mine = opts;
-        if (!mine) return "There is nobody to write to: choose someone first.";
-        const words2 = cleanMessage(text2);
-        if (!words2) return null;
-        const line2 = { key: `new-${++count3}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        waiting3.push(line2);
-        said2 = "";
-        bump2();
-        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
-          if (opts !== mine) return;
-          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
-          else line2.state = "failed";
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      view() {
-        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
-        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
-        return {
-          ready: !!opts,
-          title: name ? `${name}, privately` : "Private messages",
-          with: name,
-          lines,
-          said: said2,
-          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
-          limit: MESSAGE_LIMITS.chars,
-          version
-        };
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/model.ts
-  var PRESENCES = ["full", "quiet", "hidden"];
-  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
-  function cleanKeys2(now, k) {
-    const out = { ...now };
-    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
-    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
-    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
-    return out;
-  }
-  var read3 = (t) => typeof t === "function" ? t() : t ?? "";
-  var STANDARD = [
-    { id: "travel", label: "Travel", icon: "door" },
-    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
-    { id: "you", label: "You", icon: "you" },
-    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
-    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
-    { id: "figure", label: "Your look", icon: "look" },
-    { id: "room", label: "Room", icon: "room" },
-    { id: "people", label: "People", icon: "people" },
-    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
-    { id: "following", label: "Following", icon: "list" },
-    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
-    { id: "messages", label: "Messages", icon: "chat" },
-    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
-    { id: "scores", label: "Scores", icon: "list" },
-    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
-    { id: "achievements", label: "Achievements", icon: "check" },
-    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
-    { id: "bag", label: "Bag", icon: "save" },
-    { id: "camera", label: "Camera", icon: "camera" },
-    { id: "panels", label: "Panels", icon: "panel" },
-    { id: "view", label: "View", icon: "vr" },
-    { id: "moving", label: "Moving", icon: "step" },
-    { id: "sound", label: "Sound", icon: "sound" },
-    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
-    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
-    { id: "help", label: "Help", icon: "help" }
-  ];
-  var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
-  var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
-  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
-  var rank = (id2) => {
-    const i = STANDARD_ORDER.indexOf(id2);
-    return i === -1 ? STANDARD_ORDER.length : i;
-  };
-  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
-  var PINS_KEY = "nswp:ui:pins";
-  function loadPins() {
-    try {
-      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
-      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function savePins(pins) {
-    try {
-      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
-    } catch {
-    }
-  }
-  var LOADING_WORDS = 80;
-  function cleanLoading(state) {
-    if (!state || typeof state !== "object") return null;
-    const raw = typeof state.words === "string" ? state.words : "";
-    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
-    const f = state.fraction;
-    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
-    return { fraction, words: words2 };
-  }
-  function createControls(opts) {
-    const sections = STANDARD.map((s) => ({ ...s }));
-    for (const s of opts.sections ?? []) addSection(s);
-    const actions = [];
-    const listeners = /* @__PURE__ */ new Set();
-    const sayers = /* @__PURE__ */ new Set();
-    const signals = /* @__PURE__ */ new Set();
-    let visitor = loadVisitorTheme();
-    const came = arrivedSettings();
-    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
-    if (Object.keys(brought).length) {
-      visitor = { ...visitor, ...brought };
-      saveVisitorTheme(visitor);
-    }
-    reportSettings(
-      "look",
-      () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }),
-      // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
-      (now) => {
-        const patch = { ...now.text !== void 0 ? { scale: now.text } : {}, ...now.motion !== void 0 ? { motion: now.motion } : {}, ...now.wrist !== void 0 ? { wrist: now.wrist } : {} };
-        if (!Object.keys(patch).length) return;
-        visitor = { ...visitor, ...patch };
-        saveVisitorTheme(visitor);
-        theme = resolveTheme(opts.theme, visitor);
-        changed();
-      }
-    );
-    let pins = loadPins();
-    if (came.pins !== void 0) {
-      pins = [...came.pins];
-      savePins(pins);
-    }
-    reportSettings(
-      "pins",
-      () => pins ? { pins } : {},
-      (now) => {
-        if (now.pins === void 0) return;
-        pins = [...now.pins];
-        savePins(pins);
-        changed();
-      }
-    );
-    let theme = resolveTheme(opts.theme, visitor);
-    let target2 = "";
-    let detail = [];
-    let loading4 = null;
-    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
-    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
-    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
-    let claimed = false;
-    const changed = () => {
-      for (const fn of listeners) fn();
-    };
-    const chat = createUiChat(changed);
-    const feed = createUiFeed(changed);
-    const letters = createUiLetters(changed);
-    function addSection(s) {
-      const i = sections.findIndex((x) => x.id === s.id);
-      if (i === -1) sections.push({ ...s });
-      else sections[i] = { ...sections[i], ...s };
-    }
-    const controls2 = {
-      get theme() {
-        return theme;
-      },
-      add(...more) {
-        for (const a of more) {
-          const i = actions.findIndex((x) => x.id === a.id);
-          if (i === -1) actions.push(a);
-          else actions[i] = a;
-        }
-        changed();
-      },
-      has: (id2) => actions.some((x) => x.id === id2),
-      remove(id2) {
-        const i = actions.findIndex((x) => x.id === id2);
-        if (i !== -1) actions.splice(i, 1);
-        changed();
-      },
-      addSection(s) {
-        addSection(s);
-        changed();
-      },
-      get presence() {
-        return presence3;
-      },
-      setPresence(next) {
-        if (!PRESENCES.includes(next) || next === presence3) return;
-        presence3 = next;
-        changed();
-      },
-      setCorner(next) {
-        if (!CORNERS.includes(next) || next === corner) return;
-        corner = next;
-        changed();
-      },
-      setKeys(next) {
-        keys = cleanKeys2(keys, next);
-        changed();
-      },
-      claimInput(next) {
-        if (claimed === next) return;
-        claimed = next;
-        changed();
-      },
-      setLoading(state) {
-        const next = cleanLoading(state);
-        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
-        loading4 = next;
-        changed();
-      },
-      setTarget(text2, more = []) {
-        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
-        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
-        target2 = text2;
-        detail = next;
-        changed();
-      },
-      say(text2) {
-        for (const fn of sayers) fn(text2);
-      },
-      run(id2, typed, file) {
-        const a = actions.find((x) => x.id === id2);
-        if (!a || a.hidden?.() || a.kind === "line") return false;
-        for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : void 0)).catch(() => {
-        }).finally(changed);
-        return true;
-      },
-      setTheme(patch, keep7 = false) {
-        if (keep7) {
-          visitor = { ...visitor, ...patch };
-          saveVisitorTheme(visitor);
-        }
-        theme = resolveTheme({ ...opts.theme, ...keep7 ? {} : patch }, visitor);
-        changed();
-      },
-      get pins() {
-        return pins ?? [];
-      },
-      setPinned(section, pinned) {
-        const now = pins ?? [];
-        if (pinned === now.includes(section)) return true;
-        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
-        pins = pinned ? [...now, section] : now.filter((id2) => id2 !== section);
-        savePins(pins);
-        changed();
-        return true;
-      },
-      view() {
-        const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
-        const pressable = showing2.filter((a) => a.kind !== "line" && a.kind !== "slider");
-        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
-        const item = (a) => {
-          const slot = bar.indexOf(a);
-          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, ...a.kind === "slider" && a.slider ? { slider: a.slider } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
-        };
-        const known = new Set(sections.map((s) => s.id));
-        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
-        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
-        return {
-          title: opts.title,
-          address: opts.address ?? "",
-          target: target2,
-          detail,
-          loading: loading4,
-          sections: shown4,
-          hotbar: bar.map(item),
-          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
-          pins: (pins ?? []).flatMap((id2, i) => {
-            const tab = shown4.find((x) => x.id === id2);
-            const n = bar.length + i + 1;
-            return tab ? [{ id: id2, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
-          }),
-          pinsFull: (pins ?? []).length >= PINS_MOST,
-          theme,
-          presence: presence3,
-          corner,
-          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
-          chat: chat.view(),
-          feed: feed.view(),
-          letters: letters.view()
-        };
-      },
-      subscribe(fn) {
-        listeners.add(fn);
-        return () => listeners.delete(fn);
-      },
-      signal(name) {
-        for (const fn of signals) {
-          try {
-            fn(name);
-          } catch {
-          }
-        }
-      },
-      onSignal(fn) {
-        signals.add(fn);
-        return () => signals.delete(fn);
-      },
-      onSay(fn) {
-        sayers.add(fn);
-        return () => sayers.delete(fn);
-      },
-      chat,
-      feed,
-      letters
-    };
-    const keep6 = (patch) => controls2.setTheme(patch, true);
-    controls2.add(
-      ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep6({ accent: p.accent }) })
-      ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep6({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep6({ motion: !theme.motion }) },
-      {
-        id: "look-wrist",
-        section: "look",
-        icon: "menu",
-        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
-        on: () => theme.wrist !== "off",
-        act: () => keep6({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
-      },
-      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
-        visitor = {};
-        saveVisitorTheme({});
-        theme = resolveTheme(opts.theme, visitor);
-      } }
-    );
-    return controls2;
   }
 
   // packages/sdk/src/engine-menu.ts
