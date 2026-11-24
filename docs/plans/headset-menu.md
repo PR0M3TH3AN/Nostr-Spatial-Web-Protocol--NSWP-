@@ -171,7 +171,14 @@ world's own or the client's.
 ## The build, in order, when the owner has said yes
 
 1. **A page for the owner's Quest:** does its browser make the picture. One
-   line back: yes or no.
+   line back: yes or no. The page is written and tried in Chrome
+   (`headset-menu/quest-picture.html` in the sessions' notes folder). How it
+   reaches the headset is decided (the orchestrator, 2026-11-24) and built
+   when the owner says go: two files in `trials/pages/quest-picture/`, since
+   the Gallery's rules refuse a script written into a page; answered by the
+   local service at `/trial-pages/` under the Gallery's local copy only,
+   with the Gallery's own headers, never from a `dist/`; and a test in the
+   gate that no site's build carries a trial's page.
 2. **The picture in the scene,** behind an address flag, in the Gallery:
    the sheet and the bar, pointing and pressing. Today's console stays the
    default.
