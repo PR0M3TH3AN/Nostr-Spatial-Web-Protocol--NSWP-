@@ -11,8 +11,11 @@
 - **Who:** the NSWP builder (the kit's headset console,
   `packages/sdk/src/console.ts`, and the same for the Godot add-on). Not
   briefed.
-- **State:** asked. For the builder after `godot-headset-controls`, as a
-  design with pictures first.
+- **State:** **designed, 2026-11-24, with pictures; not built, and no code
+  until the owner has seen them.** The design is
+  `docs/plans/headset-menu.md`; the pictures are in the sessions' notes
+  folder, `headset-menu/`. Three things are the owner's to say (the end of
+  that page).
 
 ## What is true today
 
