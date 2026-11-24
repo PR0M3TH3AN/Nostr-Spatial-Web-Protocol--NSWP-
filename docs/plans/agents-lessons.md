@@ -511,6 +511,39 @@ earn here: hold the first two tests and win the third, from what the
 sheets say. Asked every quarter of an hour, the very same days took 410
 decisions against 180 when asked only as something moves a person.
 
+**A second free baseline, the same day:** the same rules with each
+person's want written in by hand as numbers (what they would rather do
+counts three times, what they would do otherwise a third: eight numbers
+for four people). Nothing sent or spent.
+
+| Who decides | Most of anyone's time on one thing | Least two days differ | Their own way, when both were on offer |
+|---|---|---|---|
+| Rules blind to the sheets, one day | 37.2% | 6.8% | 9 of 16 |
+| The same, two days | 36.8% | 7.0% | 18 of 31 |
+| Rules with wants as weights, one day | 40.1% | 12.7% | 20 of 20 |
+| The same, two days | 39.6% | 11.7% | 38 of 38 |
+| JEV from words | not run | | |
+
+No need reached nothing in any of them. So the mark for JEV is about 12
+to 13% with every choice the person's own way, and the floor is about 7%.
+
+- **A blind baseline is not enough to judge a decider that reads something
+  the baseline can't** (shown: D63). The fair comparison is the best free
+  thing that uses the same knowledge, written by hand.
+- **What a decider would save a maker can be counted** (shown: D63): here
+  eight weights, written by someone who knows which functions are
+  alternatives to which. It grows with the number of wants times the
+  things each touches. That is the price of not having a decider, to set
+  beside the price of a day with one.
+- **Check a test's line against the free baselines before any paid run**
+  (shown: D63). The 40% line sits at the edge for a reason that has nothing
+  to do with who decides: one person's sleep is 40% of a day in this
+  house. Over one day the weighted rules are a tenth of a point over it,
+  over two days under. A decider's days are read against a baseline of the
+  same length.
+- **Chances for a want to show in a choice are few** (shown: D63): 20 in a
+  day across four people. How the decider leans, counted wherever both are
+  on offer, will be the steadier number.
 - **A thing needs three more fields than the declared room has** (shown:
   D63): what a function gives back, what it costs, and how long it takes.
   With those, plain code keeps four people well with no word lists.
