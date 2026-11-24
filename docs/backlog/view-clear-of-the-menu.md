@@ -12,6 +12,14 @@
   two calls a world's own menu has, whoever draws. The plan says what its
   numbers are measured in and from, and that all four edges are said.
 
+## A known gap
+
+**A client that draws a menu of its own, not the kit's, has no way to say
+the word.** The kit's end of the port works `covers` out from the kit's
+own menu (`below.attach(menu)`). A client with another menu would need to
+be able to say what it covers itself. There is no such client today
+(noted by the orchestrator, 2026-11-24, with the merge of the word).
+
 ## What is missing
 
 Where its client draws the menu, a world doesn't know what of its view the

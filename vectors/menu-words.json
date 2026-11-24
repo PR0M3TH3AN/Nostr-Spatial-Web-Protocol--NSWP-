@@ -2383,6 +2383,15 @@
       "expect": null
     },
     {
+      "name": "a_word_with_show_in_it_is_a_worlds",
+      "word": {
+        "nswp": "menu",
+        "open": true,
+        "show": "figure"
+      },
+      "expect": null
+    },
+    {
       "name": "another_topic",
       "word": {
         "nswp": "screen",
@@ -2667,6 +2676,114 @@
         }
       },
       "expect": null
+    },
+    {
+      "name": "show_a_tab",
+      "word": {
+        "nswp": "menu",
+        "show": "figure"
+      },
+      "expect": {
+        "what": "show",
+        "show": "figure"
+      }
+    },
+    {
+      "name": "show_a_tab_of_the_worlds_own",
+      "word": {
+        "nswp": "menu",
+        "show": "shop"
+      },
+      "expect": {
+        "what": "show",
+        "show": "shop"
+      }
+    },
+    {
+      "name": "show_a_tab_no_client_has",
+      "word": {
+        "nswp": "menu",
+        "show": "no-such-tab"
+      },
+      "expect": {
+        "what": "show",
+        "show": "no-such-tab"
+      }
+    },
+    {
+      "name": "show_with_no_tab_named",
+      "word": {
+        "nswp": "menu",
+        "show": ""
+      },
+      "expect": {
+        "what": "show"
+      }
+    },
+    {
+      "name": "show_that_is_no_id",
+      "word": {
+        "nswp": "menu",
+        "show": "your look"
+      },
+      "expect": {
+        "what": "show"
+      }
+    },
+    {
+      "name": "show_that_is_not_words",
+      "word": {
+        "nswp": "menu",
+        "show": true
+      },
+      "expect": {
+        "what": "show"
+      }
+    },
+    {
+      "name": "show_with_something_unseen_in_it",
+      "word": {
+        "nswp": "menu",
+        "show": "fig\u200bure"
+      },
+      "expect": {
+        "what": "show"
+      }
+    },
+    {
+      "name": "a_show_with_open_in_it_is_a_clients",
+      "word": {
+        "nswp": "menu",
+        "show": "figure",
+        "open": true
+      },
+      "expect": null
+    },
+    {
+      "name": "show_carries_nothing_but_the_id",
+      "word": {
+        "nswp": "menu",
+        "show": "figure",
+        "row": "big",
+        "again": 5,
+        "hold": true
+      },
+      "expect": {
+        "what": "show",
+        "show": "figure"
+      }
+    },
+    {
+      "name": "show_is_not_the_summons",
+      "word": {
+        "nswp": "menu",
+        "key": "summon",
+        "show": "figure"
+      },
+      "expect": {
+        "what": "key",
+        "key": "summon"
+      }
     },
     {
       "name": "a_clients_word",

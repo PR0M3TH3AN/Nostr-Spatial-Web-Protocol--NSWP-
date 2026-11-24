@@ -527,6 +527,23 @@ pages, and a world takes them only from the page directly above it.
   and forgets what it heard when its client no longer has the menu. A
   world on an older kit ignores the word, and the version of the words
   stays 1. A world never says it: said upward, it is not read.
+- the world, asking for the menu on a tab: `{ nswp: "menu", show: "<tab
+  id>" }`. A row of a world's own that would have opened its menu on a
+  tab ("Change how you look", on Your look) asks its client for the same.
+  The menu comes up on that tab; if it is up already, it goes to that
+  tab. **It is never put away by it:** this is not the visitor's summons,
+  which is their own key and toggles. A tab the client doesn't have, or a
+  `show` that is no id, brings the menu up on the tab it was last on. The
+  word carries the tab's id and nothing else. A client honours it so that
+  no world can hold the menu up against the visitor or move them about in
+  it. With the menu up, only in answer to a press: within a second of a
+  press the client sent that world, and once for each press. With the
+  menu down, the visitor's closing wins: for two seconds after they put
+  the menu away nothing a world says brings it back, and where what they
+  put away was a menu `show` had brought up, with nothing pressed in it,
+  that rest doubles each time in a row, to a minute at the most. A client
+  that doesn't know the word does nothing, and the version of the words
+  stays 1. A client never says it: said downward, it is not read.
 - the world, with words to show for a moment: `{ nswp: "menu", say }`, at
   most 200 characters of plain text, shown under the world's name.
 - the client, with a file the visitor chose for a row that takes one:
