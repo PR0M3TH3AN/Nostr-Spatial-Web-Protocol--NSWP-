@@ -7,10 +7,14 @@
 - **Who:** the NSWP builder (the kit: the mend). BitPortal (making it
   happen in the real shell with BitLogin's real panel, and a check in its
   own trial).
-- **State:** a live fault, so it goes first. Read from the kit's code by
-  the builder, not yet made to happen on demand: a world never lets the
-  pointer go when it asks for the sign-in panel. The mend is being built
-  and goes into the next kit version.
+- **State:** mended in the kit and merged (NSWP PR 500, 2026-11-24), not
+  live: it goes out with the next kit version, on the owner's word for
+  the deploy. BitPortal's own trial in the real shell with BitLogin's real
+  panel (its PRs 218 and 219) failed 20 of 42 on kit 0.87.0 and passes 42
+  of 42, twice, against the mended kit on the orchestrator's own server.
+  Not tried by anyone: full screen, which no scripted browser enters. For
+  the owner by hand once it is live: full screen on, the row pressed, the
+  panel used with no Escape, full screen still on.
 
 ## What happens
 

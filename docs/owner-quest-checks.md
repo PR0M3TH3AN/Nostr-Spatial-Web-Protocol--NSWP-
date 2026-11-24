@@ -136,6 +136,17 @@ prompt accepted in the headset. Then say yes to installing **in the
 BitBrowser session**, not here. That session checks the headset shows up,
 and that no Wolvic is on it, before it installs anything.
 
+## Not the Quest, but also yours by hand: full screen and BitLogin's panel
+
+Once the kit version after 0.87.0 is live. On a desk, in BitPortal's room
+or any world through the portal: turn "Desk controls" to intense, go full
+screen, open the menu, press "Sign in, at bitlogin.network" (or Your
+account, Your files, Your purchases). **It should** let you use the panel
+with the mouse at once, with no Escape, the world still behind it, and
+full screen still on. Close the panel and press once in the world: the
+mouse looks around again. No scripted browser can go full screen, so
+nobody has seen this part.
+
 ## Kept current
 
 The orchestrator takes a check off this page when its answer is in, and
