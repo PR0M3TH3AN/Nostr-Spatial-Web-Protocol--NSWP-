@@ -4,6 +4,9 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **`nswp-sdk/three` hands on what makes an item's picture: `createItemPreviews`** (SDK `three.ts`; with its types `ItemPreviews` and `ItemPreviewsOptions`). Asked by the orchestrator for BitPortal, 2026-11-24: its shell draws the Bag's things in a small page of its own, and with the kit's own code a thing looks the same there as in a world's Bag. Until now no entry handed it on: `nswp-sdk/three` had `addBagControls` and `createItems`, and `nswp-sdk/bag` only the type.
+  - **Nothing about what it does is changed.** The names are the ones in the source. It stays out of `nswp-sdk/bag`, which names no renderer.
+  - **Tried:** a test that the entry hands it on, that it is the function the Bag's own pictures are made with, and that the Bag's entry still hands on only the type. **Not tried:** BitPortal's page using it.
 - **In a headset, the visitor's own hands are drawn last: the menu is never over them** (SDK `input.ts`, `console.ts`; the Godot add-on's `nswp_visitor.gd`; `trials/hands-over-menu.mjs`). The owner, 2026-11-24: "we need to make sure that the menu is not drawn above the hands in VR", then "ok lets draw the hands last".
   - **What was wrong, and is live in 0.87.0:** the console and the Menu button are drawn over the room whatever is nearer, so that a wall can't hide them. A hand was drawn first and the console over it. A visitor reaching for a row lost sight of the hand they were reaching with.
   - **Now what is drawn of a hand is drawn after the menu, and over it,** wherever the hand is held: nearer than the console, reached past it, over the wrist's console, over the Menu button. The menu is still drawn over the room. A wall still hides a hand put through it: a hand keeps its place in depth, and the menu has none.
