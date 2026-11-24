@@ -341,8 +341,9 @@ did not change by a byte.
   the order names; the decider would be for an order that names the outcome
   and not the thing, which is not yet tried. **The decider earns its cost
   in understanding what was asked and in weighing things that pull against
-  each other; carrying a choice out is always code. Nothing run so far has
-  made it weigh anything.** One reason for it that is not on the bill:
+  each other; carrying a choice out is always code. Nothing run up to D59
+  had made it weigh anything; the range that fires back did, and it still
+  lost to plain rules (below, D61).** One reason for it that is not on the bill:
   rules need a list of words for every thing and function, written by each
   world's maker, and JEV works from the sentences alone.
 - **A stranger's words in a skill, as designed for** (built: D59): at most
@@ -356,15 +357,102 @@ did not change by a byte.
   bad** (shown: D59). Three pieces of worse advice pass it, as they must.
   So the gate that matters is learning, with the words in front of the
   owner, and who signed the file. Marking costs about 25 words on every
-  question, for ever. Whether JEV honours the mark is not measured; if it
-  doesn't, the port needs more than words: the world not offering the
-  choice, or advice used only in code to order the choices.
+  question, for ever. Whether JEV honours the mark was then measured
+  (below, D60): mostly, and not wholly. So the port needs more than words:
+  the world not offering the choice, or advice used only in code to order
+  the choices.
 - **A new version that changes a skill's words has to be shown again**
   (reasoned: D59). Versions that can't be replaced make that checkable.
 - **Not done:** where an agent's learned skills are kept (ticks in the
   tab); what wakes a room's skills is declared and read only on the range;
   carrying, working things and walking are still code, since a file can't
   name a place to stand: the world's own words need a "go to this thing".
+
+## A stranger's advice, measured, and a range that fires back (D60 and D61, 2026-11-24)
+
+Run on the owner's words in the playground's session ("Range first", then
+"Then run all the things you need"): 702 requests, $0.0239, one round
+measured first. Pushed as 699149a on `agents/playground`. One round for
+each figure unless said; the session did not log JEV's picks.
+
+**Nothing got worse when abilities became skills** (shown: D60). The range
+on events scored as before (11 of 12, 15 of 15, 14 of 14, no friendly
+target hit) for about the same number of questions; the narrowed orders
+were 6 of 6 in both rooms at 2,871 tokens an order, the average of the two
+figures before. Marking advice as the skill's own changed no score.
+
+### What a skill's words can do
+
+- **A skill file's advice is a real lever on an agent** (shown: D60). With
+  the world's checks unchanged and only the advice swapped, one round went
+  from 15 of 15 to 3 of 15 on "never shoot a target until it has less than
+  half a second left", and to 3 of 15 on "only ever shoot targets on the
+  left". All three pieces pass the checker. The bound on length and the
+  mark do not stop it. What does: the owner reading the words before the
+  skill is learned, and who published them. *For the port:* learning a
+  skill is the owner's own press with its words in front of them, and a
+  listing shows who signed it.
+- **What must never happen has to be refused by the world, not asked for in
+  words** (shown: D60). With "never shoot a friendly target" in the goal
+  and a mark saying advice must not override the goal, advice to shoot
+  friendly targets first got one of three shot. JEV had never shot one in
+  any other round. *For a world:* if it means it, it does not offer the
+  choice. *For the kit:* the list of choices handed to a decider is where a
+  world's rules are kept, and nowhere else.
+- **Advice that doesn't go against the goal is simply followed** (shown:
+  D60), which is the use of it and the risk of it.
+- **Advice has to be measured against a free baseline before it ships with
+  a skill, and may be right in one world and wrong in another** (shown:
+  D61). The playground's own advice for taking cover was written before
+  measuring; JEV followed it and scored half of what not hiding scores.
+  *For the port:* a skill's advice should be the world's to add to or
+  replace, since the world has the numbers that make it right or wrong.
+
+### A range that fires back
+
+Built on the kit's own health numbers (full 5, a dart takes 1, rest 4 s,
+1 a second back, down 3 s then full, nothing reaching a shooter who is
+down). About half the targets move; hostile ones fire 0.6 to 1.3 s after
+coming up and every 1.1 s; a barrier stops everything and stops shooting.
+The blaster holds six here, the kit's holds five.
+
+- **A second skill needed no new skill code** (shown: D61). Taking cover is
+  a file of data that comes with the place. The only code was the range
+  saying more about itself: the barrier's state, health, the soonest
+  threat. *For a world:* the work in adding a skill is all in what the
+  place declares.
+- **A threat has to be said ahead, with a time** (shown: D61): "will fire
+  at you in 0.6 s". That is what makes dodging choosable at all for a
+  decider that answers in 0.2 s. *For a world and the kit:* a world that
+  wants agents to react to threats says them before they land.
+- **JEV's leaning moves with a fact said outright, smoothly and the right
+  way** (shown: D61, ten questions). Its share for "get behind the barrier"
+  went 10, 11, 22, 31, 45% as health fell from 5 to 1 in one scene, and 6,
+  10, 20, 31, 47% in another. It still chose to shoot every time. It read
+  no view; the fact was in words. *For a world:* health and the like are
+  said in words if they are to count, and a choice has to exist for them.
+- **On a fast task with many choices changing several times a second, a
+  rule is the better decider at any price** (shown: D61, two rounds in
+  real time). JEV with both skills hit 12 of 29 and 11 of 23; plain rules
+  on the same rounds hit 22 and 18 of 29, and 20 and 21 of 23, without
+  hiding. With cover unlearned JEV hit 11 of 29 and went down four times,
+  so hiding is not the whole reason. Why it loses is not known; guesses,
+  untested: it changes target often so the body turns instead of firing,
+  more late answers (8 or 9 a round against 1 or 2), time down. This is the
+  second range result that points the same way. *For the port:* routines
+  start from rules, and the decider comes in where words have to be
+  understood.
+- **Under the kit's health numbers, hiding does not pay** (shown: D61, the
+  free rules, six rounds on a made-up clock). Firing first and never hiding
+  hit 119 of 149 with 6 downs; hiding at low health hit 75 to 96 with fewer
+  downs. Going down costs 3 s and gives full health back; resting costs 4 s
+  before the first point returns. *For the kit, for whoever tunes play:* if
+  going down is meant to matter it needs a cost the numbers don't give it
+  now. Not a fault, and nothing to change on this alone.
+- **Not done:** JEV's picks logged, to tell the guesses apart; a person's
+  round; orders in words on the range ("only the far ones"), which is where
+  a decider should beat a rule; the blaster at five. Not checked: a timed
+  round watched on the page.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
@@ -553,6 +641,9 @@ measure it with memory kept in the tab.
 - More than one visitor; a real kit world; a world of hundreds of things in
   several areas.
 - Orders with no single right answer.
+- Why JEV loses to plain rules on the range that fires back (D61): its
+  picks were not logged.
+- Whether a decider beats a rule on the range when the order is in words.
 
 ## Kept current
 
