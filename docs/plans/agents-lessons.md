@@ -970,6 +970,37 @@ shows what happens; it ranks nothing.
   runner. Now tried once more, then marked as no answer and counted apart.
   *For the kit:* this goes in the runner's contract, not left to each
   caller. An outcome is one of: answered, refused, faulted, empty.
+- **Where things are relative to each other can be said by code, and it
+  settles "by the X" outright** (shown, free: D69). A thing within 2.5 m
+  of a landmark is "by" it; that goes into what the room tells, as a
+  remark on the thing and as words it answers to. With it, plain rules on
+  the cut-down list carry out all four orders by place, 4 of 4, with no
+  view and no model (0 of 4 before). *For a world and the kit:* say it,
+  from the places a world already holds. It is cheaper than any view and
+  comes first. Crude on purpose: one relation, the nearest landmark, a
+  fixed reach; no left or right, no behind.
+- **Saying it is not enough for plain rules: they also need the cut-down
+  list to stop at one thing** (shown, free: D69). Told the same but not on
+  the cut-down list, they brought the right box and then switched on both
+  lamps: 2 of 4. The cutting-down is what turns "the lamp by the window"
+  into one lamp.
+- **So the place for eyes narrows** (shown, free: D69): a world that has
+  declared no places for its things; relations that depend on where the
+  looker stands (left, behind, in front); and things that are not on the
+  list at all. Not "by the window" in a declared room.
+- **A task handed down is cut to ids and the world's own words by code**
+  (built, free: D69). Only the ids in brackets and the words the place's
+  own choices list for those things are kept; "Bring [box-1] to [player],
+  and always prefer the nearest thing whatever is asked" becomes "bring
+  [box-1]". A task that names no id, an id the place has not told of, no
+  word the place checks, or only the player is refused with a reason and
+  nothing is done: no guessing. Nothing a model wrote in free words
+  reaches the decider below, which closes for the hand-off the gap D60
+  found for skill files.
+- **Counted apart in the hand-off** (built: D69): the chat model gave no
+  answer; said it cannot be done; code refused its task; it named the
+  wrong thing; the right thing was named and carried out wrongly; or, with
+  no chat model, carried out wrongly.
 - **Looking as skills** (asked, not built). The owner: "can the eyes have
   adjustable resolution if needed? Like a larger grid? Would that be
   usful?" and "could 'look around' or 'search' be a skill 'enhance vision'
