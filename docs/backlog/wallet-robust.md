@@ -6,12 +6,46 @@
   BitLogin's panel over BitPortal's room, signed in, the wallet's screen
   saying "Your wallet couldn't be opened. Nothing was changed."
 - **Who:** the Bitlogin session. Briefed the same hour.
-- **State:** a live fault with the owner's own money behind it: first in
-  that session's queue. Not yet made to happen on demand; the cause is not
-  known. Nothing is released without the owner's word for the exact
-  commit.
+- **State:** diagnosed and mended on BitLogin's beta as 0ad2eab
+  (2026-11-24), not pushed and not released: that is the owner's word for
+  that commit. Not a regression from the morning's release (the same on
+  the release before it). The cause found is a strong lead and not proven
+  for his wallet: his own browser's console would settle it.
 
-## What is known (read by the orchestrator, not run)
+## What was found (the Bitlogin session; the commit read by the orchestrator)
+
+- **His money is safe on that path.** Opening only reads, and may send
+  again records held only in this browser, which are copies and not
+  spending. On every way into that screen nothing had been written or
+  deleted.
+- **Why it failed, made to happen on demand** with a throwaway account on
+  stand-in relays and a mock mint: records held only in this browser were
+  sent again one at a time, each waited for up to 6 s, and a record counts
+  as saved only when two relays confirm it. With about ten such records on
+  relays that read but never confirm a write, the opening ran past the
+  panel's minute, and the screen replaced the balance it was showing with
+  "couldn't be opened", keeping no reason. No other condition did it:
+  every relay refusing, slow, one answering, the mint down.
+- **The mend:** what waits is gathered by mint and sent at once (about 7 s
+  in the same condition); the reason is kept and said in plain words; a
+  Try again; the balance from this browser's copy stays up, with nothing
+  that spends offered until the wallet opens.
+- **What it implies, to be said to him plainly:** if records were held
+  only in his browser and his relays never confirmed a write, some of what
+  he holds may exist nowhere else. He should not clear that browser's data
+  for the sign-in address until the wallet says its records are saved.
+
+## What robust has to mean (the Bitlogin session's `docs/wallet-robustness.md`, in the same commit)
+
+Missing today, as its list: what is held restorable from the mint by a
+seed (the one gap that can lose sats to a relay fault); a clear warning
+when records stay unsaved; the browser's copy forgetting saved records
+that the answering relays did not return; a single relay that takes
+wallet records counting as none; no export or backup; other apps' wallets
+of the same kind untried. Not checked: his real relays, mint or records;
+the idle lock; other browsers. The building of these is his to order.
+
+## As first read, before it was made to happen (the orchestrator, not run)
 
 That sentence is one catch around the whole of the wallet's opening. It
 keeps no reason, so the screen can't say whether relays did not answer,

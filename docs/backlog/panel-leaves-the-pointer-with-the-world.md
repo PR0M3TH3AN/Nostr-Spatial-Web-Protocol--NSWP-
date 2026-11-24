@@ -20,7 +20,31 @@ question to sign) and the world goes on holding the pointer and reading
 the keys. Nothing in the panel can be pressed until Escape, and the
 browser's own Escape also ends full screen, which no page can prevent.
 
-## Why (read, not run)
+## Made to happen on demand (BitPortal, 2026-11-24)
+
+The world gives the pointer up for its menu, and takes it back as the
+panel comes up. In the Grove at kit 0.87.0, framed by the shell, with real
+presses: desk controls set to intense; the menu opened (the pointer is
+let go); the row "Sign in, at bitlogin.network" pressed. Then the panel is
+up, the world's menu is closed, and the world holds the pointer again. A
+press at the panel's middle is heard by the world and not by the panel,
+and W and the mouse walk and turn the visitor. The same for "Your
+account", "Your files" and "Your purchases". With desk controls casual it
+does not happen. A world opened by itself shows no panel at all.
+
+Why, from the kit's source: when the client says the panel is up, the
+menu steps aside; closing the menu makes the mouse-look ask for the
+pointer again, and the browser grants it, the visitor having just
+pressed. Nothing in the mouse-look knows the client's panel is up, though
+the kit already records it. So the mend needs no new word: the mouse-look
+takes no pointer while a panel is up, lets go and drops held keys as one
+comes up, and reads no movement until it is gone.
+
+Not shown: full screen (the scripted browser would not enter it); the
+panel asked for with the menu closed; the shell's own menu on; a world in
+another engine.
+
+## Why, as first read (not run)
 
 The kit lets the pointer go in one place (`fps.ts`), on four things: the
 visitor's Escape; the menu coming up, the kit's own or the client's
