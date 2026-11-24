@@ -66,9 +66,14 @@ a headset.
 **Say:** whether the menu is drawn over your hands; and whether hands held
 at rest are in the way of reading it.
 
-The mend is merged (NSWP PR 485, the kit and the Godot add-on) and not
-live. After it is live this is done once more, to see the hands in front,
-in the Gallery and in the Foundry. The orchestrator will say when. Then also: hold something large from your
+**The mend is live since kit 0.88.0** (deployed 2026-11-24), in the kit's
+worlds and in the Foundry. So on the live Gallery
+(`https://gallery.bitblocks.network/`) and the Foundry
+(`https://foundry.bitblocks.network/`) your hands should now be drawn in
+front of the menu wherever you hold them. The laptop's local copy at
+`:4301` is whatever was last built there and may still show the old way:
+use the live sites for this one. Say whether your hands are in front, in
+both. Then also: hold something large from your
 Bag in front of the menu, and say whether it hides too much.
 
 ## 3. The menu in a Godot world (five minutes; live since kit 0.87.0)
@@ -138,7 +143,7 @@ and that no Wolvic is on it, before it installs anything.
 
 ## Not the Quest, but also yours by hand: full screen and BitLogin's panel
 
-Once the kit version after 0.87.0 is live. On a desk, in BitPortal's room
+Live since kit 0.88.0 (deployed 2026-11-24). On a desk, in BitPortal's room
 or any world through the portal: turn "Desk controls" to intense, go full
 screen, open the menu, press "Sign in, at bitlogin.network" (or Your
 account, Your files, Your purchases). **It should** let you use the panel

@@ -7,9 +7,13 @@
 - **Who:** the NSWP builder (the kit: the mend). BitPortal (making it
   happen in the real shell with BitLogin's real panel, and a check in its
   own trial).
-- **State:** mended in the kit and merged (NSWP PR 500, 2026-11-24), not
-  live: it goes out with the next kit version, on the owner's word for
-  the deploy. BitPortal's own trial in the real shell with BitLogin's real
+- **State:** mended in the kit (NSWP PR 500) and **live since kit 0.88.0**,
+  deployed 2026-11-24 on the owner's word ("Yes deploy"). Run against the
+  live portal and the live Grove after the deploy, BitPortal's trial says
+  the world no longer holds the pointer under the panel and nobody moves;
+  its one check of a press landing inside the panel could not see into
+  the live panel at all (it fails the same with mouse-look off), so that
+  check is not judged on the live site. BitPortal's own trial in the real shell with BitLogin's real
   panel (its PRs 218 and 219) failed 20 of 42 on kit 0.87.0 and passes 42
   of 42, twice, against the mended kit on the orchestrator's own server.
   Not tried by anyone: full screen, which no scripted browser enters. For
