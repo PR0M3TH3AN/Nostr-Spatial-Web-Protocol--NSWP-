@@ -24,6 +24,7 @@ import { MENU_LIMITS, menuFileKind, type MenuFileKind } from "@nswp/core";
 import { onClientSignIn, setMenuPlace } from "../client-frame.js";
 import { ICONS, type IconName } from "./icons.js";
 import { portHere, type WorldPort } from "./port.js";
+import { keepSheet } from "./sheet-box.js";
 import { loadPicture } from "../picture.js";
 import { ago } from "./feed.js";
 import { sayStays, type Controls, type UiCard, type UiItemView, type UiView } from "./model.js";
@@ -47,8 +48,12 @@ export interface Hud {
    * signs for them. Left out, the side it was on.
    */
   setChatOpen(open: boolean, tab?: "room" | "feed" | "letters"): void;
-  /** How much of the top and bottom of the window the HUD covers, in pixels. For placing a scene's picture clear of it. Nothing when it is quiet or hidden. */
-  cover(): { top: number; bottom: number };
+  /**
+   * How much of each edge of the window the HUD covers, in pixels. For placing a scene's picture clear of it.
+   * Nothing when it is quiet or hidden. This menu has nothing at a side, so left and right are 0; they are said so
+   * that a world reads the same four whoever draws its menu (`KeptMenu.cover`).
+   */
+  cover(): { top: number; bottom: number; left: number; right: number };
   /** Where each visible part of the HUD is, so a world can lay its own interface out around it. */
   bounds(): { x: number; y: number; width: number; height: number }[];
   /** Hide it all (in a headset session, where the page can't be seen anyway) or show it again. */
@@ -1709,7 +1714,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   setTimeout(() => host.classList.remove("arriving"), 1200);
   draw();
 
-  return {
+  const hud: Hud = {
     element: host,
     get open() {
       return open;
@@ -1730,12 +1735,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
         .map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
     },
     cover() {
-      if (host.hidden || controls.presence !== "full") return { top: 0, bottom: 0 };
+      if (host.hidden || controls.presence !== "full") return { top: 0, bottom: 0, left: 0, right: 0 };
       const low = bar.getBoundingClientRect();
       const high = id.getBoundingClientRect();
       // The controls, and not the words about what is pointed at: those come and go as the pointer moves, and a
       // page that moves its picture clear of what is covered would move it every time something was pointed at.
-      return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
+      return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top), left: 0, right: 0 };
     },
     pressKey,
     setHidden(hidden) {
@@ -1773,6 +1778,14 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       host.remove();
     },
   };
+  // Where the sheet is, for the client's end of the port to tell a framed world what the menu covers (sheet-box.ts).
+  keepSheet(hud, () => {
+    if (host.hidden || !open) return { box: null, moving: false };
+    const r = sheet.getBoundingClientRect();
+    const moving = typeof sheet.getAnimations === "function" && sheet.getAnimations().some((a) => a.playState === "running");
+    return { box: r.width > 0 && r.height > 0 ? { x: r.x, y: r.y, width: r.width, height: r.height } : null, moving };
+  });
+  return hud;
 }
 
 /**

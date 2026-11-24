@@ -6968,7 +6968,9 @@ ${roomName}`)));
     /** Bytes in a picture or a clip a world hands up to be saved: 64 MB. */
     save: 64 * 1024 * 1024,
     /** How many a world may hand up in answer to one press. */
-    saves: 12
+    saves: 12,
+    /** Pixels, for any number in what a client says its menu covers of a world's view. */
+    covers: 8192
   };
   var MENU_WAIT_MS = 300;
   var LEAVE_MS = 1e3;
@@ -7025,6 +7027,19 @@ ${roomName}`)));
         out[name] = clean3[name];
     return out;
   }
+  var pixels = (n) => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= MENU_LIMITS.covers;
+  function cleanCovers(input) {
+    if (!isObject(input))
+      return null;
+    const { top, bottom, left, right, sheet } = input;
+    if (!pixels(top) || !pixels(bottom) || !pixels(left) || !pixels(right))
+      return null;
+    if (sheet === void 0)
+      return { top, bottom, left, right };
+    if (!isObject(sheet) || !pixels(sheet.x) || !pixels(sheet.y) || !pixels(sheet.width) || !pixels(sheet.height))
+      return null;
+    return { top, bottom, left, right, ...sheet.width > 0 && sheet.height > 0 ? { sheet: { x: sheet.x, y: sheet.y, width: sheet.width, height: sheet.height } } : {} };
+  }
   var isMenu = (data) => isObject(data) && data.nswp === "menu";
   var UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"];
   var hasAny = (data, names) => names.some((n) => data[n] !== void 0);
@@ -7067,6 +7082,10 @@ ${roomName}`)));
       return { what: "sign", sign: "out" };
     if (typeof data.playing === "boolean")
       return { what: "playing", playing: data.playing };
+    if (data.covers !== void 0) {
+      const covers = cleanCovers(data.covers);
+      return covers ? { what: "covers", covers } : null;
+    }
     return null;
   }
 
@@ -53184,6 +53203,14 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         own2?.setHidden(next);
         chatPane?.setHidden(next);
       },
+      cover() {
+        if (hidden2) return { top: 0, bottom: 0, left: 0, right: 0 };
+        return own2 ? own2.cover() : above2.menu.cover();
+      },
+      bounds() {
+        if (hidden2) return [];
+        return own2 ? own2.bounds() : [...above2.menu.bounds(), ...chatPane ? chatPane.bounds() : []];
+      },
       get own() {
         return own2;
       },
@@ -53304,7 +53331,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       know();
       return { ready: ready2, has: false, onChange: () => () => {
       }, menu: { open: false, setOpen: () => {
-      } }, dispose: () => {
+      }, cover: () => ({ top: 0, bottom: 0, left: 0, right: 0 }), bounds: () => [] }, dispose: () => {
       } };
     }
     let named2 = /* @__PURE__ */ new Map();
@@ -53390,6 +53417,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       has = next;
       last = "";
       open3 = false;
+      covers = null;
       if (has) describe();
       else {
         if (waiting3) clearTimeout(waiting3);
@@ -53429,6 +53457,8 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     });
     let leaving2 = null;
     let open3 = false;
+    let covers = null;
+    const viewSize = () => opts.view?.() ?? { w: typeof innerWidth === "number" ? innerWidth : 0, h: typeof innerHeight === "number" ? innerHeight : 0 };
     above2.hear((data) => {
       const word = readMenuWordDown(data);
       if (!word) return;
@@ -53439,6 +53469,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
       if (!has) return;
       if (word.what === "settings") return void takeSettings(word.settings);
       if (word.what === "playing") return void hearPlaying(word.playing);
+      if (word.what === "covers") return void (covers = word.covers);
       if (word.what === "press") {
         const row = named2.get(word.press);
         if (!row) return;
@@ -53506,6 +53537,28 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         },
         setOpen(next) {
           if (has && next !== open3) tell2("summon");
+        },
+        cover() {
+          const { w, h } = viewSize();
+          if (!has || !covers) return { top: 0, bottom: 0, left: 0, right: 0 };
+          return { top: Math.min(covers.top, h), bottom: Math.min(covers.bottom, h), left: Math.min(covers.left, w), right: Math.min(covers.right, w) };
+        },
+        bounds() {
+          if (!has || !covers) return [];
+          const { w, h } = viewSize();
+          const c = this.cover();
+          const boxes = [
+            { x: 0, y: 0, width: w, height: c.top },
+            { x: 0, y: h - c.bottom, width: w, height: c.bottom },
+            { x: 0, y: 0, width: c.left, height: h },
+            { x: w - c.right, y: 0, width: c.right, height: h }
+          ];
+          if (covers.sheet) {
+            const x = Math.min(covers.sheet.x, w);
+            const y = Math.min(covers.sheet.y, h);
+            boxes.push({ x, y, width: Math.min(covers.sheet.width, w - x), height: Math.min(covers.sheet.height, h - y) });
+          }
+          return boxes.filter((b) => b.width > 0 && b.height > 0);
         }
       },
       dispose() {
@@ -53553,6 +53606,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         return controls2.letters;
       }
     };
+  }
+
+  // packages/sdk/src/ui/sheet-box.ts
+  var sheets = /* @__PURE__ */ new WeakMap();
+  function keepSheet(menu2, now) {
+    sheets.set(menu2, now);
   }
 
   // packages/sdk/src/ui/feed.ts
@@ -55449,7 +55508,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     host.classList.add("arriving");
     setTimeout(() => host.classList.remove("arriving"), 1200);
     draw();
-    return {
+    const hud2 = {
       element: host,
       get open() {
         return open3;
@@ -55467,10 +55526,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         return [id2, menu2, quiet, bar, target2, loadingLine2, sheet, ...chatState === "open" ? [chat] : []].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) }));
       },
       cover() {
-        if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0 };
+        if (host.hidden || controls2.presence !== "full") return { top: 0, bottom: 0, left: 0, right: 0 };
         const low = bar.getBoundingClientRect();
         const high = id2.getBoundingClientRect();
-        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top) };
+        return { top: Math.round(high.bottom), bottom: Math.round(innerHeight - low.top), left: 0, right: 0 };
       },
       pressKey,
       setHidden(hidden2) {
@@ -55508,6 +55567,13 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         host.remove();
       }
     };
+    keepSheet(hud2, () => {
+      if (host.hidden || !open3) return { box: null, moving: false };
+      const r = sheet.getBoundingClientRect();
+      const moving2 = typeof sheet.getAnimations === "function" && sheet.getAnimations().some((a) => a.playState === "running");
+      return { box: r.width > 0 && r.height > 0 ? { x: r.x, y: r.y, width: r.width, height: r.height } : null, moving: moving2 };
+    });
+    return hud2;
   }
 
   // packages/sdk/src/engine-menu.ts
@@ -59220,14 +59286,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         renderer.render(quadScene, quadCamera);
       },
       async blob(quality = 0.82) {
-        const pixels = new Uint8Array(width * height * 4);
-        renderer.readRenderTargetPixels(flatTarget, 0, 0, width, height, pixels);
+        const pixels2 = new Uint8Array(width * height * 4);
+        renderer.readRenderTargetPixels(flatTarget, 0, 0, width, height, pixels2);
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
         const g = canvas.getContext("2d");
         const image = g.createImageData(width, height);
-        for (let y = 0; y < height; y++) image.data.set(pixels.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
+        for (let y = 0; y < height; y++) image.data.set(pixels2.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
         g.putImageData(image, 0, 0);
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
         if (!blob) throw new Error("nswp-sdk: this browser couldn't encode the preview");

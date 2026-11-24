@@ -888,8 +888,15 @@ controls.setPresence("hidden"); // a cutscene, or a world that draws these itsel
 
 - **Where it sits.** `controls.setCorner("bottom-right")` moves the quiet mark.
   `hud.bounds()` returns the rectangle of every visible part, to lay your own
-  interface out around; `hud.cover()` says how much of the top and bottom the
-  full HUD takes.
+  interface out around; `hud.cover()` says how much of each edge the full HUD
+  takes: `{ top, bottom, left, right }`, in pixels. **Both answer the same
+  whoever draws the menu.** Where a client above your world has the menu, the
+  kept menu (`keepMenu`) answers them from what the client says it covers of
+  your view (`covers`, NSWP-02), so a world's code is one code. `cover()`
+  leaves the sheet out, since it comes and goes and a view moved clear of the
+  menu shouldn't move each time; the sheet is in `bounds()` while it is up.
+  Neither tells you when it changes: read them as you lay out. In a headset
+  session nothing is covered.
 - **Keys.** `controls.setKeys({ menu: "p" })` moves the menu key,
   `{ menu: null }` removes it, `{ hotbar: false }` frees 1 to 6.
   `controls.claimInput(true)` takes every key for the world until you give

@@ -505,6 +505,28 @@ pages, and a world takes them only from the page directly above it.
   change, and once after the client says it has the menu if something is
   already playing; a world that has heard nothing takes it that nothing
   is. A world never says it: said upward, it is not read.
+- the client, with what of the world's view its menu covers:
+  `{ nswp: "menu", covers: { top, bottom, left, right, sheet? } }`. A
+  world whose client draws the menu can't see it, and so can't keep what
+  matters clear of it: a caption, a thing being looked at, an interface
+  of its own. The four edges are how far the menu reaches in from each
+  edge of the world's view, for what is always there (a bar, the marks);
+  all four are always said, 0 where nothing is covered. `sheet`, there
+  only while the sheet is up, is its box: `{ x, y, width, height }`, from
+  the view's top left. The sheet is said as a box and never as an edge,
+  so that a view moved clear of the edges stays still as the sheet comes
+  and goes. Every number is a whole number of CSS pixels of the world's
+  own page, from 0 to 8192; a client that shows the frame scaled divides
+  by the scale, so that a world never has to know of it. A word with a
+  number that is none of those, or with an edge left out, is not read at
+  all; a world reads more of a side than its view has as the whole side.
+  It is said with the client's answer that it has the menu, and after
+  that only when a number changes and no oftener than eight times a
+  second; a sheet on its way up or down is said once, where it comes to
+  rest. A world that has heard nothing takes it that nothing is covered,
+  and forgets what it heard when its client no longer has the menu. A
+  world on an older kit ignores the word, and the version of the words
+  stays 1. A world never says it: said upward, it is not read.
 - the world, with words to show for a moment: `{ nswp: "menu", say }`, at
   most 200 characters of plain text, shown under the world's name.
 - the client, with a file the visitor chose for a row that takes one:
