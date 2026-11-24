@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **The live trial reads BitPortal's kept panel as closed** (`trials/live.mjs`, `trials/README.md`). Not a fault in any site. After the deploy of 0.86.0 the trial exited 1 on three checks, "closed, and the menu is back".
+  - **Why:** BitPortal's shell now keeps BitLogin's panel between openings, so that the next one is up at once. Closed, its box stays, marked `data-kept`. The trial counted any box as an open panel, never saw it close, pressed outside to close it, and that press put the menu away (as a press outside has done since 0.85.0). So the menu it then looked for was gone.
+  - **Now a kept box is a closed panel,** and the trial checks what a kept box must be: unseen, and taking no press, read from what the browser says of it and from what is on top at its middle. It also counts how often the panel's own Close didn't close it and a press outside had to; that was never, in this run.
+  - **Run against the live sites, read-only** (nobody signs in, every WebSocket refused): exit 0, every check as wanted, at a desk's size and a phone's. The room's panel, a world's and "Your files" were each "kept, unseen, taking no press" once closed.
+
 - **A world's word that it is making a picture now reaches the client before the picture is drawn** (SDK `camera.ts`, `client-frame.ts`, `menu-above.ts`; the engine script; `packages/sdk/test/camera-picture.test.ts`; `trials/menu-client.mjs`; NSWP-02). A fault in 0.86.0's wait for a slow device's picture, found by the orchestrator when a check on a busy machine saw nothing said five seconds after the press.
   - **The word was said first and sent last.** The Camera said `making` and went straight on to draw. A page's word to the page above leaves only when the script that said it has finished, and drawing a picture (a full-size render and reading it back) is one long piece of script. So the client heard only once the drawing was done. On a slow device that is the opposite of "at once": nothing for as long as the drawing takes.
   - **Now the Camera lets the word go before it draws:** where a press above is waiting, it says the word, gives the page a turn, and then draws. Where nobody above is waiting (a world's own menu, a headset) it draws at once, as before.

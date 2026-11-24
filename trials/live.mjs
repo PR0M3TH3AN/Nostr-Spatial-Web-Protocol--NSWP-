@@ -24,6 +24,9 @@ for (const [name, opts, start] of [["desktop", { viewport: { width: 1440, height
   await ctx.routeWebSocket(/^wss:\/\//, (ws) => ws.close());
   const page = await ctx.newPage();
   const popups = []; const errors = [];
+  // How often the panel's own Close didn't close it, and a press outside had to. That press also puts the menu
+  // away, so a check after it that wants the menu back says more about the trial than about the site.
+  let closedOutside = 0;
   page.on("popup", (p) => popups.push(p.url()));
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)));
   await page.goto(`${PORTAL}${start}`, { timeout: 90000 });
@@ -33,10 +36,27 @@ for (const [name, opts, start] of [["desktop", { viewport: { width: 1440, height
   want(`${name} 1 the room is inside the page that keeps the screen`, [new URL(page.url()).pathname, frame() ? new URL(frame().url()).pathname : null], ["/shell/", "/walk/"]);
   const rowsOf = (t) => frame().evaluate((t) => window[t].controls.view().sections.find((s) => s.id === "you")?.items.map((i) => i.label) ?? null, t);
   const sheet = () => frame().evaluate(() => { const sh = document.querySelector("nswp-hud").shadowRoot; const s = sh.querySelector(".sheet"); return s.hidden ? null : (sh.querySelector('.tabs [aria-selected="true"]')?.textContent.trim() ?? "?"); });
-  const panel = () => page.evaluate(() => { const box = document.querySelector(".shell-panel"); if (!box) return null; const b = box.getBoundingClientRect(); return { src: box.querySelector("iframe").src, waiting: "waiting" in box.dataset, size: [Math.round(b.left), Math.round(b.width), Math.round(innerHeight - b.bottom), Math.round(b.height)] }; });
+  // The shell keeps BitLogin's panel between openings, so that the next one is up at once: closed, its box stays,
+  // marked `data-kept`. A kept box is a closed panel, and is read as one here. (It used to be read as open: the
+  // trial then never saw the panel close, pressed outside to close it, and that press put the menu away.)
+  const panel = () => page.evaluate(() => { const box = document.querySelector(".shell-panel"); if (!box || "kept" in box.dataset) return null; const b = box.getBoundingClientRect(); return { src: box.querySelector("iframe").src, waiting: "waiting" in box.dataset, size: [Math.round(b.left), Math.round(b.width), Math.round(innerHeight - b.bottom), Math.round(b.height)] }; });
+  // What is left of a closed panel: nothing at all, or a kept box that can't be seen and takes no press. Asked of
+  // the page as it is drawn: what the browser says of the box, and what is on top at the box's own middle.
+  const closedPanel = () => page.evaluate(() => {
+    const box = document.querySelector(".shell-panel");
+    if (!box) return "gone";
+    if (!("kept" in box.dataset)) return "still open";
+    const style = getComputedStyle(box);
+    const at = box.getBoundingClientRect();
+    const top = at.width && at.height ? document.elementFromPoint(at.left + at.width / 2, at.top + at.height / 2) : null;
+    const seen = style.visibility !== "hidden" && style.display !== "none";
+    const pressed = style.pointerEvents !== "none" || (!!top && box.contains(top));
+    return seen || pressed ? `kept, but ${[seen ? "it can be seen" : "", pressed ? "it takes presses" : ""].filter(Boolean).join(" and ")}` : "kept, unseen, taking no press";
+  });
+  const CLOSED = ["gone", "kept, unseen, taking no press"];
   const panelFrame = () => page.frames().find((f) => f.url().startsWith(`${SIGNIN}/connect/panel/`));
   const openRow = async (t, label) => { await frame().evaluate((t) => window[t].hud.setOpen(true, "you"), t); await page.waitForTimeout(700); await page.frameLocator("#view").locator("nswp-hud").getByRole("button", { name: label }).first().click(); const up = await until(async () => { const p = await panel(); return p && !p.waiting ? p : null; }, 12000); await page.waitForTimeout(3000); return up; };
-  const closePanel = async () => { const pf = panelFrame(); const x = pf?.getByRole("button", { name: /close|×/i }).first(); if (x && (await x.count())) await pf.evaluate(() => void setTimeout(() => [...document.querySelectorAll("button")].find((b) => /close|×/i.test(b.getAttribute("aria-label") ?? b.textContent))?.click(), 0)).catch(() => null); if (!(await until(async () => (await panel()) === null, 4000))) { await page.mouse.click(5, 5); await until(async () => (await panel()) === null, 4000); } await page.waitForTimeout(600); };
+  const closePanel = async () => { const pf = panelFrame(); const x = pf?.getByRole("button", { name: /close|×/i }).first(); if (x && (await x.count())) await pf.evaluate(() => void setTimeout(() => [...document.querySelectorAll("button")].find((b) => /close|×/i.test(b.getAttribute("aria-label") ?? b.textContent))?.click(), 0)).catch(() => null); if (!(await until(async () => (await panel()) === null, 4000))) { closedOutside++; await page.mouse.click(5, 5); await until(async () => (await panel()) === null, 4000); } await page.waitForTimeout(600); };
   const says = async () => (await panelFrame()?.evaluate(() => document.body.innerText.replace(/\s+/g, " ").trim().slice(0, 260)).catch(() => null)) ?? null;
   // ---- the room's own rows, and its Sign in: BitLogin's real panel, no window.
   await until(async () => (await rowsOf("__bitportalTest"))?.some((l) => /^Sign in, at bitlogin\.network$/.test(l)), 40000);
@@ -48,6 +68,8 @@ for (const [name, opts, start] of [["desktop", { viewport: { width: 1440, height
     await page.screenshot({ path: `${SHOTS}/live-068-room-panel.png` });
     await closePanel();
     want("desktop 2b closed, and the room's menu is back", [await panel(), await sheet()], [null, "You"]);
+    r["desktop room panel, once closed"] = await closedPanel();
+    want("desktop 2c and what is left of the panel can't be seen or pressed", CLOSED.includes(r["desktop room panel, once closed"]), true);
     await frame().evaluate(() => window.__bitportalTest.hud.setOpen(false));
   }
   // ---- through a door, into a world: the same there.
@@ -64,13 +86,18 @@ for (const [name, opts, start] of [["desktop", { viewport: { width: 1440, height
   await page.screenshot({ path: `${SHOTS}/live-068-world-panel-${name}.png` });
   await closePanel();
   want(`${name} 5 closed, and the world's menu is back`, [await panel(), await sheet()], [null, "You"]);
+  r[`${name} world panel, once closed`] = await closedPanel();
+  want(`${name} 5b and what is left of the panel can't be seen or pressed`, CLOSED.includes(r[`${name} world panel, once closed`]), true);
   if (name === "desktop") {
     const files = await openRow("__nswpTest", /^Your files, at /);
     want("desktop 6 Your files shows the panel too", [!!files, popups.length], [true, 0]);
     r["desktop files panel says"] = await says();
     await page.screenshot({ path: `${SHOTS}/live-068-files-panel.png` });
     await closePanel();
+    r["desktop files panel, once closed"] = await closedPanel();
+    want("desktop 6b closed, and what is left of it can't be seen or pressed", [await panel(), CLOSED.includes(r["desktop files panel, once closed"])], [null, true]);
   }
+  r[`${name} closed by a press outside, the panel's own Close having done nothing`] = closedOutside;
   r[`${name} errors`] = errors.slice(0, 5);
   await ctx.close();
 }
