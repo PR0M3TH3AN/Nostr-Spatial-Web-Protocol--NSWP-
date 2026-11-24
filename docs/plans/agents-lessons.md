@@ -1287,6 +1287,71 @@ cupboards.
 - **Not done:** any seeker with a model; a person hiding; the game on the
   page.
 
+## Hide and seek, the first paid run: the model seekers did worse than the rules (D76, 2026-11-24)
+
+Run on the owner's word in the playground's session ("Yes, run it"): 432
+requests, $0.151 (quoted about 10 cents, with 15 as the most; it reached
+that). A measuring run, twelve games a seeker (the hall and the manor, a
+hider inside something and one with a habit, three games each). Nothing is
+ranked from it. Each seeker is beside its own free line on the same
+twelve games.
+
+| Seeker | Caught in 90 s | Within 30 s | Within 15 s | Dollars a minute of play |
+|---|---|---|---|---|
+| Random (free) | 7 | 3 | 0 | 0 |
+| Rules (free; the same at JEV's waiting) | 12 | 9 | 7 | 0 |
+| Rules that remember (free) | 12 | 11 | 11 | 0 |
+| JEV chooses where to look | 6 | 4 | 4 | 0.0017 |
+| JEV chooses everything (the open arm) | 6 | 5 | 5 | 0.0022 |
+| Chat model sets the order | 12 | 6 | 4 | 0.0047 |
+| The same with eyes | 12 | 8 | 7 | 0.0094 |
+| The same remembering | 12 | 9 | 6 | 0.0115 |
+
+- **A decider told that a choice just found nothing takes it again**
+  (shown, paid, once: D76). JEV looked in a few places, then chose "look
+  all around" again and again until its answers ran out, in six games of
+  twelve each way. Its trouble was all in the finding: no answer came too
+  late (0.24 s), and every catch was at the opening of a cupboard. *For
+  the kit's runner:* stop offering, for a while, a choice that was just
+  tried and changed nothing. It is the same family as the cut-down list
+  and keeping a thing by its id.
+- **A planner can plan only on what it is told** (shown, paid, once: D76).
+  The chat model's order was worse than "the nearest first" in every game
+  where its plan was used (22 and 31 s against 11 in the hall; 61 to 79 s
+  against 11 to 31 in the manor). It was told how far each thing is from
+  the seeker, and not where things are from each other. The eyes did not
+  help: they reach 7 m. *For a world:* a list of things with their
+  distance from the agent is not enough to set an order; where things are
+  from each other has to be told, or the order left to the nearest first.
+- **An empty reply is a cost, not only an outcome** (shown, paid: D76). 43
+  of the chat model's 61 replies came back empty and each was paid for:
+  $0.111 of the run. Half the plans never came, and those games were
+  played by the rules alone, which is why a "plan" seeker looks as good as
+  the rules in them. *For the runner's contract:* the fourth outcome
+  (empty) carries its price; with a thinking model the allowance has to
+  fit the question.
+- **The open arm depends on the task** (shown, paid, twice now). For one
+  choice among things named in words it tied the best (D71). For a long
+  search, where what has been tried matters, it lost (D76).
+- **Remembering through the chat model did nothing against a habit**
+  (shown, paid, once: D76): 31 s in all three manor games, where the rules
+  that remember took 31, 9 and 9. Empty plans or unused memory: the run
+  does not tell them apart.
+- **The body did not wait for a plan, and lost nothing by that** (shown,
+  paid: D76).
+- **Not built:** dropping what has just failed from the list; telling the
+  planner the layout; a shorter answer or more room for the chat model.
+
+The playground now keeps its own standing summary, at the owner's ask in
+its session ("document this as our current understanding. And keep it
+updated when you learn new things"): `docs/UNDERSTANDING.md` in
+`nswp-agents`. What has held across all the tests, the three parts and
+what each is good at, and one stack with three settings (a rules-based
+character, a cast member, an agent between worlds), each line tied to its
+decision and marked measured, measured once or reasoned. This document
+stays the record of what each finding means for a world, an item, the kit
+and the protocol; that one is the summary of what is believed.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
