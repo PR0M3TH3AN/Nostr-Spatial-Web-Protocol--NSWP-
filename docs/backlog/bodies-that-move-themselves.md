@@ -125,7 +125,82 @@ inverse kinematics, a gait clock, a swing with the foot planted, landing
 from the body's velocity, pelvis height and sway: a few hundred lines),
 on a figure given two-segment legs made by code, following the body the
 place already moves. A model second, read against it, and only shipped if
-one is ever free to use. His answer is awaited.
+one is ever free to use. His answer, 2026-11-24: "yes".
+
+## The path chosen (the orchestrator, on the owner's word, 2026-11-24)
+
+Asked which open option was best for the model side, the orchestrator
+answered that none is ready to ship. The owner: "ok pick the best path.
+You know what im trying to achieve". So, chosen:
+
+1. **The walker made by rules,** ours and small, behind one seam that
+   every later body uses: each frame the place hands a body where it is,
+   how fast it is going, which way it faces and a manner word; nothing
+   above the typed action knows what moves the bones.
+2. **A private yardstick:** Meta's three.js port run on this machine
+   beside the walker, to learn what a model buys in the counts and what
+   it costs in frames. Non-commercial; a named download on the owner's
+   word; never committed, shipped or served beyond this machine. If the
+   walker is within sight of it, stop here and ship the walker.
+3. **Only if a model earns its place:** learned motion matching
+   (orangeduck/Motion-Matching: MIT code, small networks, a WebAssembly
+   build, no physics engine and no graphics adapter needed), trained again
+   on motion whose licence lets us ship. A training job; one page on what
+   it needs comes to the owner before any of it.
+4. **Not chosen:** physics-driven controllers (MimicKit), for the weight
+   of a physics engine at run time and a training project before the
+   first step; and anything whose weights could not be shipped.
+
+What it serves, as the orchestrator reads the owner's aim: one general
+agent that can be given a body and a world and behave specifically, with
+as little written for any one game as will do; open, and able to be
+shipped; and measured before believed.
+
+## A wider design the owner handed over, and what is taken from it (2026-11-24)
+
+The owner, with a third document from the other assistant, "BitPortal
+Generalized Agent Embodiment System": "Is this a better plan than the
+neural?" It proposes rules and inverse kinematics as the default body,
+with clips, motion matching and models as optional backends behind one
+action interface; bodies assembled from parts (legs, arms, wings, a
+tail); a body that declares what it can do; things that declare how they
+can be used and where; a manner made of dials (energy, confidence,
+tension); a compact state sent between visitors with the motion rebuilt
+on each device; and a standard for all of it in the protocol, last.
+
+**The orchestrator's answer: yes as the default, and it is the path
+already chosen, drawn much larger.** Its first step is the walker by
+rules; its optional model is the yardstick and what follows. Most of what
+it says of agents is what the playground has measured: an agent says what
+it wants and not which bones; the world checks every action; a refusal
+comes back with a reason; things say what they offer; the agent is told
+of the world in words and looks only when it must; and it decides when
+something changes, not on a clock.
+
+**Taken from it now, into the walker's trial:**
+
+- The seam is its action interface, kept as small as the typed actions
+  the playground already has, with an outcome and a reason for each.
+- A body declares what it can do, and that is one more of the things a
+  skill needs before it offers anything (beside learned, allowed and
+  supplied).
+- A manner is a few dials worked out from a word on the character's
+  sheet. A walker by rules has dials; the house showed that a sentence
+  has none.
+- After the two-legged walker, **one second body of another shape behind
+  the same seam** (four legs, or wheels), before any model. That is the
+  cheapest test of whether the seam is general, which is what the owner
+  is after.
+
+**Not taken yet, each for a reason:** the many kinds of body and part
+(none measured; the second body says whether the first abstraction
+holds); reaching and grasping by anchors on things (things here declare
+functions, not places for a hand); a physics engine and a path-finder
+fetched in (weight in every world, and the kit fetches nothing); rigged
+figures from elsewhere (their terms, and our figure has no bones); a
+package of files for an agent (an agent here is a sheet and notes, as
+`ai-keys-and-agents` has it); and anything for the protocol, which comes
+after something works and by names given (fleet rule 11).
 
 ## Must not
 
