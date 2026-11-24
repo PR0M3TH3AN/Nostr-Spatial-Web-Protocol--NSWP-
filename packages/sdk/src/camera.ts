@@ -30,11 +30,12 @@ export interface PictureOptions {
 }
 
 /**
- * Draw the scene once from `camera` and return it as a JPEG. The camera's
- * own shape is left alone: a copy is fitted to the picture. Works during an
- * immersive session too, since it never draws to the headset.
+ * Draw the scene once from `camera`, read the pixels back, and leave the renderer exactly as it was: all before
+ * this returns, with nothing waited for. Making the file from them (`toJpeg`) can take a slow device seconds, and
+ * the world goes on drawing its own frames meanwhile. With the picture's target still set, every one of those
+ * frames would go into the picture, with the hidden things hidden, and none to the screen.
  */
-export async function takePicture(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, opts: PictureOptions = {}): Promise<Blob> {
+function draw(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, opts: PictureOptions): { pixels: Uint8Array; width: number; height: number } {
   const width = Math.round(opts.width ?? 1920);
   const height = Math.round(opts.height ?? 1080);
   const hidden = (opts.hide ?? []).filter((o) => o.visible);
@@ -46,31 +47,47 @@ export async function takePicture(renderer: THREE.WebGLRenderer, scene: THREE.Sc
   camera.updateWorldMatrix(true, false);
   camera.matrixWorld.decompose(eye.position, eye.quaternion, eye.scale);
   eye.updateMatrixWorld(true);
+  const pixels = new Uint8Array(width * height * 4);
   try {
     for (const o of hidden) o.visible = false;
     renderer.xr.enabled = false; // a picture is never an XR frame
     renderer.setRenderTarget(target);
     renderer.clear();
     renderer.render(scene, eye);
-    const pixels = new Uint8Array(width * height * 4);
     renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const g = canvas.getContext("2d")!;
-    const image = g.createImageData(width, height);
-    // WebGL rows run bottom-up; images run top-down.
-    for (let y = 0; y < height; y++) image.data.set(pixels.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
-    g.putImageData(image, 0, 0);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", opts.quality ?? 0.92));
-    if (!blob) throw new Error("nswp-sdk: this browser couldn't encode the picture");
-    return blob;
   } finally {
     for (const o of hidden) o.visible = true;
     renderer.xr.enabled = xrWasEnabled;
     renderer.setRenderTarget(previousTarget);
     target.dispose();
   }
+  return { pixels, width, height };
+}
+
+/** The pixels as a JPEG. This is the part that takes a while, and nothing of the world is held for it. */
+async function toJpeg(drawn: { pixels: Uint8Array; width: number; height: number }, quality = 0.92): Promise<Blob> {
+  const { pixels, width, height } = drawn;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const g = canvas.getContext("2d")!;
+  const image = g.createImageData(width, height);
+  // WebGL rows run bottom-up; images run top-down.
+  for (let y = 0; y < height; y++) image.data.set(pixels.subarray((height - 1 - y) * width * 4, (height - y) * width * 4), y * width * 4);
+  g.putImageData(image, 0, 0);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  if (!blob) throw new Error("nswp-sdk: this browser couldn't encode the picture");
+  return blob;
+}
+
+/**
+ * Draw the scene once from `camera` and return it as a JPEG. The camera's
+ * own shape is left alone: a copy is fitted to the picture. Works during an
+ * immersive session too, since it never draws to the headset. The world is
+ * held only for the one drawing: its own frames go on as the file is made.
+ */
+export async function takePicture(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, opts: PictureOptions = {}): Promise<Blob> {
+  return toJpeg(draw(renderer, scene, camera, opts), opts.quality);
 }
 
 export interface SelfieOptions extends PictureOptions {
@@ -101,12 +118,16 @@ export async function takeSelfie(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   eye.position.copy(at).addScaledVector(ahead, opts.reach ?? 1.7);
   eye.position.y = at.y + 0.08;
   eye.lookAt(at.x, at.y - 0.22, at.z);
+  // Their figure stands in the world only for the one drawing: gone again before the file is made, so that it is
+  // in none of the world's own frames.
+  let drawn: ReturnType<typeof draw>;
   try {
-    return await takePicture(renderer, scene, eye, { width: 1600, height: 1200, ...opts });
+    drawn = draw(renderer, scene, eye, { width: 1600, height: 1200, ...opts });
   } finally {
     scene.remove(figure.group);
     figure.dispose();
   }
+  return toJpeg(drawn, opts.quality);
 }
 
 export interface Clip {

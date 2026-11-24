@@ -14,7 +14,20 @@
 // Presses and keys here are a mouse and a keyboard at places on the screen: where a thing is, is read from the page
 // (reading moves no keys), and then the mouse is sent there. Nothing is clicked by asking the page to click it.
 //
-//   npm run build && node trials/menu-client.mjs
+// Six visits, each a fresh browser context that stands alone, so any of them can be run without the others:
+//
+//   npm run build && node trials/menu-client.mjs      every visit, in order: about three minutes
+//   node trials/menu-client.mjs music file            only those
+//   node trials/menu-client.mjs --list                the visits, what each is, and about how long each takes
+//   node trials/menu-client.mjs file --times          also says, as it goes, how long each check waited
+//
+// The result is printed whole at the end. As it goes, each visit's beginning and end are said apart from it (on
+// stderr), with its count and its seconds, so a log that simply ends was cut off and shows where.
+//
+// A run that is stopped from outside (a time limit, Ctrl-C), or whose browser goes away, says STOPPED: which
+// visits ran to their end, which didn't, and the command that runs those alone. It reports no failed check for
+// the stop, and its exit code is the signal's (143 for a time limit's SIGTERM) or 3 for a browser that went away:
+// never 1, which is a failed check.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { ROOT as NSWP, SHOTS } from "./lib.mjs";
@@ -27,6 +40,25 @@ const STUCK = "https://stuck.test";
 const PLAIN = "https://plain.test";
 const DIST = join(NSWP, "sites", "gallery", "dist");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".glb": "model/gltf-binary", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".woff2": "font/woff2", ".txt": "text/plain" };
+
+// The visits, in the order they are run: about how long each takes, in seconds, and what it is. The times were
+// measured on a laptop of eight threads that was busy throughout (a load of 11 to 14), in a Chrome that draws
+// without a graphics card: a quiet machine is quicker, and one busier than that is slower.
+const ABOUT = {
+  main: [66, "one menu, the client's, over the Gallery: the keys, the rows, the tabs both fill, Home"],
+  launch: [16, "\"Enter VR\" above and \"Launch\" in the world, with a made-up headset; settings carried to the next world"],
+  bag: [9, "the kit's Bag in the client's page, over a stand-in relay and file host; a thing taken up and put away"],
+  question: [23, "the one-time question on moving at a desk, asked once by the client and never by the world"],
+  music: [57, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
+  file: [28, "a file handed down, a picture handed up and saved, and a slow device's picture waited for"],
+};
+const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const unknown = asked.filter((n) => !ABOUT[n]);
+if (process.argv.includes("--list") || unknown.length) {
+  if (unknown.length) console.error(`No visit is called ${unknown.map((n) => `"${n}"`).join(" or ")}. The visits:`);
+  console.log(Object.keys(ABOUT).map((n) => `${n.padEnd(9)} about ${String(ABOUT[n][0]).padStart(3)} s  ${ABOUT[n][1]}`).join("\n"));
+  process.exit(unknown.length ? 2 : 0);
+}
 if (!existsSync(join(DIST, "index.html"))) throw new Error("Build the sites first: npm run build");
 mkdirSync(SHOTS, { recursive: true });
 
@@ -41,45 +73,65 @@ const said = (words) => `<!doctype html><meta charset="utf-8"><body style="margi
 
 const results = {};
 const fail = [];
+/** When each failed check was recorded: one recorded in the moment a run was stopped is the stop, not the kit. */
+const failedAt = new Map();
+// Said as it goes, apart from the result (which is printed whole at the end): a log that simply ends was cut off.
+const note = (text) => process.stderr.write(`${text}\n`);
+/** With `--times`, each check is said as it is made, with how long it was since the one before: where the time goes. */
+const TIMES = process.argv.includes("--times");
+let lastCheck = Date.now();
 const check = (name, ok, got) => {
+  if (TIMES) note(`  ${String(((Date.now() - lastCheck) / 1000).toFixed(1)).padStart(6)} s  ${ok ? "ok" : "FAILED"}  ${name}`);
+  lastCheck = Date.now();
   results[name] = ok ? "ok" : { failed: got ?? null };
-  if (!ok) fail.push(name);
+  if (!ok) {
+    fail.push(name);
+    failedAt.set(name, Date.now());
+  }
 };
 
 const browser = await pw.chromium.launch({ channel: "chrome", headless: true });
-try {
+
+// What every visit is served by: these sites and no others, with every WebSocket answered here. What was asked for
+// is kept, to be listed.
+const fetched = [];
+const refused = new Set();
+const sockets = new Set();
+const serve = async (ctx) => {
+  await ctx.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+    if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : url.pathname === "/home.html" ? route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("home") }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
+    if (url.origin === STUCK) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a world that is stuck") });
+    if (url.origin === PLAIN) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a page that doesn't speak the words") });
+    // "The next world", where a visit needs one: the same build under another site's name.
+    if (url.origin === WORLD || url.origin === "https://grove.test") {
+      fetched.push(url.pathname);
+      const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
+      if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
+      return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
+    }
+    refused.add(url.origin);
+    return route.abort();
+  });
+  // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
+  await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
+    sockets.add(new URL(ws.url()).host);
+    ws.onMessage((m) => {
+      let msg;
+      try { msg = JSON.parse(String(m)); } catch { return; }
+      if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
+    });
+  });
+};
+
+// Each visit is a fresh browser context, and stands alone: it can be run without the others.
+const VISITS = {};
+
+// ---- main: one menu, the client's, over the Gallery; the keys, the rows, the tabs both fill, Home.
+VISITS.main = async () => {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: CLIENT });
-  const fetched = [];
-  const refused = new Set();
-  const sockets = new Set();
-  const serve = async (ctx) => {
-    await ctx.route("**/*", (route) => {
-      const url = new URL(route.request().url());
-      if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
-      if (url.origin === CLIENT) return url.pathname === "/app.js" ? route.fulfill({ status: 200, contentType: TYPES[".js"], body: clientJs }) : url.pathname === "/home.html" ? route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("home") }) : route.fulfill({ status: 200, contentType: TYPES[".html"], body: clientPage });
-      if (url.origin === STUCK) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a world that is stuck") });
-      if (url.origin === PLAIN) return route.fulfill({ status: 200, contentType: TYPES[".html"], body: said("a page that doesn't speak the words") });
-      // "The next world", where a visit needs one: the same build under another site's name.
-      if (url.origin === WORLD || url.origin === "https://grove.test") {
-        fetched.push(url.pathname);
-        const on = normalize(join(DIST, url.pathname.endsWith("/") ? `${url.pathname}index.html` : url.pathname));
-        if (!on.startsWith(DIST) || !existsSync(on)) return route.fulfill({ status: 404, contentType: "text/plain", body: "not here" });
-        return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
-      }
-      refused.add(url.origin);
-      return route.abort();
-    });
-    // No relay is reached: every WebSocket is answered here, with nothing, and its address kept to be listed.
-    await ctx.routeWebSocket(/^wss?:\/\//, (ws) => {
-      sockets.add(new URL(ws.url()).host);
-      ws.onMessage((m) => {
-        let msg;
-        try { msg = JSON.parse(String(m)); } catch { return; }
-        if (msg[0] === "REQ") ws.send(JSON.stringify(["EOSE", msg[1]]));
-      });
-    });
-  };
   await serve(ctx);
   const page = await ctx.newPage();
   const until = async (ask, ms = 15000) => {
@@ -445,12 +497,14 @@ try {
   check("and says what was in hand was left behind", (await client(() => window.__said)).some((t) => /left behind/.test(t)), await client(() => window.__said));
   void saidHome;
   await ctx.close();
+};
 
-  // ---- "Enter VR" in the client's menu, then "Launch" in the world (the owner, 2026-11-23: two presses, each with
-  // its own name). A fresh visit, with a made-up headset in the world's page (iwer): it starts a session whenever
-  // asked, so what is tried is the kit's own rule, which asks the browser whether the press was in this page.
-  // Nothing is run inside the world's page before the press on the client's menu: a scripted call into a page
-  // counts there as a press (trials/README.md), and this is about exactly that.
+// ---- "Enter VR" in the client's menu, then "Launch" in the world (the owner, 2026-11-23: two presses, each with
+// its own name). A fresh visit, with a made-up headset in the world's page (iwer): it starts a session whenever
+// asked, so what is tried is the kit's own rule, which asks the browser whether the press was in this page.
+// Nothing is run inside the world's page before the press on the client's menu: a scripted call into a page
+// counts there as a press (trials/README.md), and this is about exactly that.
+VISITS.launch = async () => {
   {
     const IWER = readFileSync(join(NSWP, "node_modules", "iwer", "build", "iwer.min.js"), "utf8");
     const ctx2 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
@@ -519,15 +573,17 @@ try {
     check("headset/and it reaches the next world, with the client's first word to it", !!told && told.fade === after?.fade && told.turn === 90 && told.filesAnywhere === undefined, told);
     await ctx2.close();
   }
+};
 
-  // ---- The kit's own Bag, run in the client's page, which isn't a world; and what is taken up there reaching the
-  // framed world (the orchestrator, 2026-11-23, to take the risk out of step 2). A fresh visit. The visitor is
-  // someone made up whose bag holds one real item, the dart blaster, by its own signed description: the client's
-  // page has a stand-in bag (`?bag=` and the item's address), and so has the world (`__nswpTrial.has`, which a world takes only on this
-  // machine: so the world is served here under a name that is this machine's). No real relay is asked: this script
-  // is the stand-in relay, and answers the request for the blaster's description with it. Its files are served from
-  // the Grove's own build, as a stand-in file host. The client's page is told only the item's address: what it is,
-  // it looks up through the kit's own item store, taken from `nswp-sdk/bag`.
+// ---- The kit's own Bag, run in the client's page, which isn't a world; and what is taken up there reaching the
+// framed world (the orchestrator, 2026-11-23, to take the risk out of step 2). A fresh visit. The visitor is
+// someone made up whose bag holds one real item, the dart blaster, by its own signed description: the client's
+// page has a stand-in bag (`?bag=` and the item's address), and so has the world (`__nswpTrial.has`, which a world takes only on this
+// machine: so the world is served here under a name that is this machine's). No real relay is asked: this script
+// is the stand-in relay, and answers the request for the blaster's description with it. Its files are served from
+// the Grove's own build, as a stand-in file host. The client's page is told only the item's address: what it is,
+// it looks up through the kit's own item store, taken from `nswp-sdk/bag`.
+VISITS.bag = async () => {
   {
     const WORLD3 = "https://gallery.localhost";
     const ITEMS = "https://grove.bitblocks.network";
@@ -627,12 +683,14 @@ try {
     results["bag/refused, as everything but these sites is"] = [...refused3];
     await ctx3.close();
   }
+};
 
-  // ---- The one-time question, "how you move at a desk" (the owner, 2026-11-21): asked by whoever draws the console,
-  // which here is the client. A fresh visit by someone who has never said. A scripted browser is never asked
-  // unless the page's address says so (`?ask=moving`), so the client's address does; and the worlds' addresses say
-  // so too, to show that a world whose client has the menu doesn't ask. "The next world" is the same build of the
-  // Gallery under another name: another site, as the next world is.
+// ---- The one-time question, "how you move at a desk" (the owner, 2026-11-21): asked by whoever draws the console,
+// which here is the client. A fresh visit by someone who has never said. A scripted browser is never asked
+// unless the page's address says so (`?ask=moving`), so the client's address does; and the worlds' addresses say
+// so too, to show that a world whose client has the menu doesn't ask. "The next world" is the same build of the
+// Gallery under another name: another site, as the next world is.
+VISITS.question = async () => {
   {
     const NEXT = "https://grove.test";
     const ctx4 = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
@@ -697,12 +755,14 @@ try {
     results["question/refused, as everything but these sites is"] = [...refused4];
     await ctx4.close();
   }
+};
 
-  // ---- The visitor's own music (section 15, "Four more presses"): Sound is a tab the client fills, so the client's
-  // page opens the chooser at the press on its own row, keeps the file on its own site, and plays it itself. The
-  // world is told nothing of it, and it doesn't stop at a door. The file is a minute of one note, made here and
-  // removed; this script chooses it at the browser's chooser, as a person would. Nobody listens: what is checked is
-  // that the client's page says it is playing.
+// ---- The visitor's own music (section 15, "Four more presses"): Sound is a tab the client fills, so the client's
+// page opens the chooser at the press on its own row, keeps the file on its own site, and plays it itself. The
+// world is told nothing of it, and it doesn't stop at a door. The file is a minute of one note, made here and
+// removed; this script chooses it at the browser's chooser, as a person would. Nobody listens: what is checked is
+// that the client's page says it is playing.
+VISITS.music = async () => {
   {
     const NEXT = "https://grove.test";
     const tune = join(SHOTS, "Night drive.wav");
@@ -902,13 +962,15 @@ try {
       await ctx5.close();
     }
   }
+};
 
-  // ---- A file handed down, and a picture handed up (section 15, "Four more presses"; protocol/02-doors.md, "A file
-  // going down, and something to save going up"). A press on the client's menu is no press in the world's page, and
-  // a browser shows its chooser, and may keep its save, for the page that was pressed. So the client's page opens
-  // the chooser and hands the chosen file down, and the world hands its picture up for the client's page to save.
-  // The files are a one-dot picture and a line of text, made here and removed; this script chooses them at the
-  // browser's chooser, as a person would. Every chooser and every save is counted in the page that made it.
+// ---- A file handed down, and a picture handed up (section 15, "Four more presses"; protocol/02-doors.md, "A file
+// going down, and something to save going up"). A press on the client's menu is no press in the world's page, and
+// a browser shows its chooser, and may keep its save, for the page that was pressed. So the client's page opens
+// the chooser and hands the chosen file down, and the world hands its picture up for the client's page to save.
+// The files are a one-dot picture and a line of text, made here and removed; this script chooses them at the
+// browser's chooser, as a person would. Every chooser and every save is counted in the page that made it.
+VISITS.file = async () => {
   {
     const dot = join(SHOTS, "menu-client-a-dot.png");
     const text = join(SHOTS, "menu-client-not-a-picture.txt");
@@ -1053,13 +1115,68 @@ try {
       await ctx6.close();
     }
   }
-} finally {
-  await browser.close();
-}
+};
 
+// ---- Which visits to run, and running them. With no name, all of them, in this order.
+const names = Object.keys(VISITS).filter((n) => !asked.length || asked.includes(n));
+const began = Date.now();
+const seconds = (from) => Math.round((Date.now() - from) / 1000);
+/** Each visit that ran to its end: how many checks passed and failed, and how long it took. */
+const ran = [];
+let at = "";
+let atBegan = 0;
+let closing = false;
+
+/**
+ * The run was stopped from outside (a time limit, Ctrl-C), or its browser went away. That is not a result, and is
+ * not said as one: no check is reported as failed for it. What was seen before the stop is printed, each visit that
+ * ran to its end with its own count, and the exit code is not the one a failed check gives (1).
+ */
+const stop = (why, code) => {
+  if (closing) return;
+  closing = true;
+  // A check that failed in the moment of the stop failed because of it: a page that had gone, a wait cut short.
+  for (const name of [...fail]) {
+    if (Date.now() - failedAt.get(name) > 5000) continue;
+    results[name] = "not seen: the run was stopped";
+    fail.splice(fail.indexOf(name), 1);
+  }
+  console.log(JSON.stringify(results, null, 2));
+  const done = ran.map((r) => `${r.name} (${r.failed ? `${r.failed} FAILED, ` : ""}${r.ok} ok, ${r.seconds} s)`);
+  console.error(`\nSTOPPED after ${seconds(began)} s${at ? `, ${seconds(atBegan)} s into the visit "${at}"` : ""}: ${why}.`);
+  console.error("This is not a result. Nothing here says the kit failed or passed in the visits that didn't run to their end.");
+  console.error(`Ran to their end: ${done.join(", ") || "none"}.`);
+  console.error(`Not run to their end: ${names.filter((n) => !ran.some((r) => r.name === n)).join(", ")}.`);
+  console.error(`To run those alone: node trials/menu-client.mjs ${names.filter((n) => !ran.some((r) => r.name === n)).join(" ")}`);
+  if (fail.length) console.error(`\nFailed before the stop, in a visit that ran to its end or well before it was cut: ${fail.length}\n- ${fail.join("\n- ")}`);
+  process.exit(code);
+};
+for (const [signal, code] of [["SIGTERM", 143], ["SIGINT", 130], ["SIGHUP", 129]]) process.on(signal, () => stop(`it was told to stop (${signal})`, code));
+browser.on("disconnected", () => stop("its browser went away", 3));
+
+for (const name of names) {
+  at = name;
+  atBegan = Date.now();
+  const before = { ok: Object.values(results).filter((r) => r === "ok").length, failed: fail.length };
+  note(`${name}: begun, ${seconds(began)} s in (about ${ABOUT[name][0]} s)`);
+  try {
+    await VISITS[name]();
+  } catch (e) {
+    // Said with everything else, so that what was seen before it is not lost.
+    check(`${name}/the visit ran to its end`, false, String(e).slice(0, 300));
+  }
+  const now = { name, ok: Object.values(results).filter((r) => r === "ok").length - before.ok, failed: fail.length - before.failed, seconds: seconds(atBegan) };
+  ran.push(now);
+  note(`${name}: ${now.failed ? `${now.failed} FAILED, ` : ""}${now.ok} ok, in ${now.seconds} s`);
+}
+at = "";
+closing = true;
+await browser.close();
+
+results["how long each visit took, in seconds"] = Object.fromEntries(ran.map((r) => [r.name, r.seconds]));
 console.log(JSON.stringify(results, null, 2));
 if (fail.length) {
   console.error(`\nFAILED: ${fail.length}\n- ${fail.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed`);
+console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed${names.length < Object.keys(VISITS).length ? ` (only ${names.join(", ")})` : ""}`);
