@@ -69,6 +69,30 @@ again. A reader asks six, perhaps not that one, and takes the first
 Finding better relays would not have mended that by itself. Three rules
 would have.
 
+## The builder's plan, and the names given (2026-11-24)
+
+The builder found two more things in the kit: a relay list is cut to its
+first 8 write relays, so with 23 the one holding a note may never be
+asked; and seven places read or send a person's own note as the bag
+does (follows, saves, scores and achievements, the room's notes, the
+front room, and a person's look, which asks only the usual four).
+
+Given by the orchestrator (in `docs/fleet.md` with the code):
+`RELAY_PICK.listed` 24, `wave` 4, `waveMs` 3000, `took` 3, `mend` 6,
+`usual` 1; `closed` on what is remembered of a relay; `askOwn`, answering
+found, none or unreached. With five rulings: a relay's asking for a
+sign-in is not a refusal by itself (three of the owner's relays ask and
+then answer); closed to reading and closed to writing are kept apart;
+waves, the put-back and the retries are for the visitor's own notes on
+their own device, and someone else's note gets one look; a person's own
+note always goes to at least one usual relay too; the visitor's own
+relay list is kept on their device once known and a miss is never kept.
+Two pull requests for kit 0.90.0: the helper with the bag first, then
+the other readers and senders.
+
+Approved the same hour for the Arcade's bar on a phone: where the
+device's main pointer is touch, the quiet form keeps the bar.
+
 ## Wanted
 
 First, small, and for the next kit version (they are faults in what is

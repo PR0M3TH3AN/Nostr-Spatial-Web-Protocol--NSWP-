@@ -20,7 +20,8 @@
   "yes": restoring what is held from the mint by a seed; its design is
   written (`docs/ecash-seed-counter.md` in BitLogin) and its tests on
   mock mints come first. **Open:** the wallet needing a refresh (below),
-  mended as local commit 4310d13 and not released. Still not known: whether the cause
+  mended as local commit 4310d13, which is held for a correction (below)
+  and not released. Still not known: whether the cause
   found is what happened to his wallet, and which line his wallet now
   shows (kept only in this browser, or kept with his account).
 
@@ -111,6 +112,25 @@ Wanted, the second before the first:
    person can act on ("BitLogin was updated. Reload to open your
    wallet."), with a button that does it, and never "couldn't be opened"
    for this.
+
+**Held the same evening: 4310d13 is not to be released as it is.** Read
+by the orchestrator against BitPortal's live shell, after BitPortal said
+how its wait works; not run. At every showing the panel now says nothing
+to its client until its check of `/build.json` has answered (up to 1.5
+s), where before it drew at once. BitPortal's shell gives a kept panel
+shown again 1.5 s to say a size; hearing none, it throws the frame away,
+loads a new one, and keeps no panel again on that page. So on a slow
+line, a phone, an ordinary second showing could lose the kept panel with
+no release involved, and after a release the reload would very likely
+do the same. Nothing would break; the commit would add a slowness to
+what is live. Asked of the Bitlogin session: say the size last said at
+once at a showing, before the check, in a commit on top, with a new id
+for the owner's word. The orchestrator's ask to him for 4310d13 is
+withdrawn.
+
+Also since: BitPortal's shell answers a `ready` from a kept frame it
+holds hidden with `hide` again (its PR 231, merged as 46745b8, not
+live), for a `hide` lost while the panel was reloading.
 
 Still to do: BitPortal's own trial of a kept panel that reloads itself,
 once a build with the mend can be put in front of it.
