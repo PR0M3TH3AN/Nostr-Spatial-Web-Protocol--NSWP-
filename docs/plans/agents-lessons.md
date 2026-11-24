@@ -34,8 +34,19 @@ the second.
   about it, it answered "cannot". It cannot reason about a thing that is
   absent from the question. Whatever it needs has to be in the question.
 - **A room written by someone who had not seen the engine worked** (shown:
-  the boat house, D48). Five of six orders with the engine untouched; the
-  sixth needed a general change, not one about that room.
+  the boat house, D46, D48). Five of six orders with the engine untouched;
+  the sixth needed a general change, not one about that room. **A written
+  page and a checker were enough for a stranger:** the room passed the check
+  as sent. Whatever format is chosen for the kit, a checker that names the
+  thing and the field at fault is part of it.
+- **A decider shown a list with no fitting choice says "cannot" at once**
+  (shown: D48, D53), in about one question. That is cheap and honest, and
+  it means a wrong "cannot" is almost always a piece missing from the
+  question.
+- **The chat model settles what matching words cannot** (shown: D48). With
+  it setting the goal, "bring me a buoy" became "pick up the red buoy and
+  hand it to the player", and one buoy was fetched. The free rules fetched
+  both.
 - **Judge by the room, not by the agent** (shown: D51). An order is carried
   out when the room's state afterwards says so, never when the decider says
   "done".
@@ -58,15 +69,27 @@ NSWP-06, NSWP-17; see `docs/backlog/worlds-declare-for-agents.md`).
    Leaving a choice out because its condition doesn't hold makes the order
    unintelligible ("Play the radio" with the power off). It has to be listed
    as waiting, with the first step.
-4. **What opens a shut way, said to the decider** (shown: D48). JEV alone
-   carried out 3 of 6 boat house orders; told what opens the way, 6 of 6.
+4. **What opens a shut way, said to the decider** (shown: D48, D53). JEV
+   alone carried out 3 of 6 boat house orders. Told what opens the way, the
+   three that had failed were run again and all succeeded; all six together
+   with the hint were then carried out in each of the tree test's three
+   runs.
+   - **Shut ways are opened one at a time** (shown: D48). The lifebelt
+     needed two, with what opens the second behind the first. The engine
+     never plans the chain: it says the next first step at each decision,
+     and that was enough.
+   - **A condition on the very state a function changes is a guard, not
+     something to do first** (shown: D48). "Silence" on a silent radio must
+     not start it playing first. A declaration has to let the two be told
+     apart.
 5. **Said about the thing wanted, not in general** (shown: D53). "A shut
    way can be opened by…" as a standing remark made JEV pull the gate's
    lever when asked to start the drill.
 6. **Where a body can go** (shown: D45): walls and doors with what opens
    them, or a map the world keeps current. In the kit today this is a
    function in each world's code and nothing is published (read).
-7. **The body's limits**: speed and reach (shown: D45).
+7. **The body's limits**: speed and reach (used by the engine, D45;
+   neither was varied or tested).
 8. **A name on each thing that can be seen**, so that eyes can say what
    they see (shown: D44, D45).
 
@@ -161,19 +184,30 @@ shut in.
   choices and one for each thing to every decision.
 - **Eyes as text help where a world has not declared** (shown: D44). A
   32 by 16 text view took "where is it" answers from 0 of 11 to 10 of 11
-  for JEV and 6 to 10 for the chat model, for about 450 tokens a decision.
+  for JEV and 6 to 10 for the chat model, for about 350 to 450 tokens a decision (the gap between two moments in
+  the owner's own session, not a measurement made for it).
   Where a world can say it outright ("12 degrees right, 8 m, in view") that
   is cheaper (reasoned).
 - **Decide when something changes, not on a clock** (reasoned; to be
-  measured on the shooting range). A decision is about 2,100 tokens in the
-  boat house; five a second would be over a dollar an hour at the one price
-  reported.
+  measured on the shooting range). In the boat house a question is about
+  2,100 tokens with everything offered and about 850 to 880 cut down. At
+  the one price reported ($0.042 a million input tokens, through
+  OpenRouter), five a second would be about $1.59 an hour with everything
+  offered and about $0.67 cut down.
+- **Leave the walk out where a use is on offer** (reasoned from D48, not
+  tried). JEV walks to a thing before using it, one decision more than
+  needed, though every "use" already includes the walking.
+- **A world's rules should run without its picture** (shown: D51 to D53).
+  The orders ran in rooms with nothing drawn, as fast as the machine
+  allowed: 19 to 25 orders three ways took about a minute. For the kit: a
+  world's rules separable from its drawing, so agents can be tried.
 - **Aiming is the body's, with a person's limits** (reasoned; the range):
   the decider chooses whom and when; code turns; a capped turn rate and
   some error, so it is not an aimbot among visitors.
 - **Never cut the part of a message that holds the format or the visitor's
   words** (shown: D42). Cutting every message to 2,000 bytes removed both,
-  and the model guessed.
+  and the model guessed. It bit only with the text view on; without the
+  view the report fitted.
   The newest message now has 8,000 bytes of its own; older turns keep
   2,000.
 - **Leave a thinking model room to answer** (shown: D44, the second eyes
@@ -206,10 +240,14 @@ shut in.
   subscription, BitUnlock) makes the call.
 - **JEV by OpenRouter's route gives the same decisions as TypeSafe's own**
   (shown: D41, 36 of 36), about 130 ms slower at the middle (282 ms against
-  152). TypeSafe's own address refuses calls from a browser.
+  152). TypeSafe's own address refuses calls from a browser (shown: D19),
+  so an agent in a browser alone reaches JEV by OpenRouter or by whatever
+  makes the call for it. The playground has since dropped TypeSafe's own
+  address at the owner's ask (D49).
 - **Consent to spend or to send speech out is the visitor's own line**; a
-  script never writes it on a reading of their words (a rule set
-  2026-11-24 after three such lines were written).
+  script never writes it on a reading of their words (a rule set on
+  the evening of 2026-11-23 local time, the 24th by UTC, after three such
+  lines were written).
 - **Tests must not be able to reach a real service** (shown: one did, with
   a made-up key). The playground's tests now refuse every request that is
   not to this machine.
@@ -219,8 +257,16 @@ shut in.
 
 - The kit's own way (hold, speak, release; Whisper on the visitor's
   computer) takes about 2 s for a short order on this machine when busy,
-  and misheard some words (shown: commit 0d6ab91). A remote service
-  (ElevenLabs) took 285 to 458 ms a phrase (shown: D42).
+  and `base.en` misheard some words of clips made from text ("malt door"
+  for "vault door"); `small` heard them right and took 8 to 18 s (shown:
+  commit 0d6ab91). A remote service (ElevenLabs) took 240 to 521 ms a
+  phrase over about nine phrases in the owner's first two sessions (from
+  his session logs, not a run made for it).
+- **A recording under 0.3 s is not sent** (shown: D42): a tap on the speak
+  control made an empty recording and an error from the service.
+- **When changing a setting switches a service off, say so** (shown: D42).
+  The owner ticked "share memories", which switched the chat model off
+  until it was applied again, and read it as the app breaking.
 - The owner's direction: tech that can live in the browser session, with a
   remote service for voice to text. In BitPortal the key for it stays at
   the sign-in address.
@@ -229,6 +275,22 @@ shut in.
 ## Not yet known
 
 - Play that needs quick choices (the shooting range, next).
+- **Whether a tree has another use than the one tried.** The owner,
+  2026-11-24, after the third run: "Maybe there is another application for
+  the tree method we don't quite understand yet?" What was tried is one
+  reading only: two questions for each decision, which thing and then which
+  action. Not tried:
+  - a tree as where the agent is, not how it is asked: it stays at a leaf
+    (fire, reload, move) and is asked the wider question only when
+    something changes (the shooting range);
+  - a tree of goals over time: an order broken into steps by the chat
+    model, each step carried out by JEV;
+  - a tree searched in code, not asked of JEV: since effects are data, the
+    engine could look several steps ahead where today it looks one, for
+    things that need two conditions or a key and a tool;
+  - an order that names nothing ("tidy up"), where there are no words to
+    cut the list down by;
+  - choosing among worlds and doors, which are a tree already.
 - How often a rare failure happens: in the three runs above each order was
   tried once for each way of asking.
 - Whether looking can stand in for a declaration a world has not made (an
