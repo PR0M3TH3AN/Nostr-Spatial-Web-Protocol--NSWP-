@@ -710,6 +710,13 @@ addBagControls(controls, {
   one thing; everyone in the room sees it.
 - Your world can't change a bag. Things are put in and taken out at the
   visitor's own client.
+- **A thing's picture, anywhere you draw one yourself:** `createItemPreviews`
+  from `nswp-sdk/three` is what the Bag's own pictures are made with. Give
+  it what gives an item's model (`{ model, size? }`), and it answers a
+  still or a turning picture of the item as a canvas. The same code as a
+  world's Bag, so a thing looks the same wherever it is drawn. It needs the
+  renderer, so it is in this entry and not in `nswp-sdk/bag`, which hands
+  on only its type.
 - Each person fetches what another holds for themselves, checks it against
   its hash, and counts it (`ITEM_BUDGET`). Where it fails, a plain marker of
   its size is drawn.

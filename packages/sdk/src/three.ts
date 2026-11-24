@@ -340,6 +340,9 @@ export { createBag, type Bag, type BagHand, type BagOptions, type BagResult } fr
 export { itemIn, type Bagging, type BaggingOptions } from "./bagging.js";
 // The Bag with each thing drawn as itself: this entry has the renderer. Without one, `nswp-sdk/bag`.
 export { addBagControls } from "./bag-pictures.js";
+// What makes those pictures, for a page that draws a thing somewhere of its own (a client's page, beside its menu):
+// the very code a world's Bag is drawn with, so a thing looks the same in both.
+export { createItemPreviews, type ItemPreviews, type ItemPreviewsOptions } from "./item-preview.js";
 export { allowScript, createPlay, mayHold, paintHealth, scriptAllowed, type Play, type PlayInfo, type PlayOptions, type PlayPerson, type PlaySnapshot } from "./play.js";
 export { runInBox, type BoxAsk, type BoxRun, type ItemBoxOptions } from "./item-box.js";
 export { addItemControls, TAP_MS, type ItemControls, type ItemControlsOptions } from "./item-controls.js";

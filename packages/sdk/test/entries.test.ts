@@ -59,6 +59,21 @@ describe("the kit's entries", () => {
     expect(readFileSync(join(sdk, "src", "library.ts"), "utf8")).toMatch(/export \{ fileStore \};/);
   });
 
+  it("hands on from nswp-sdk/three what makes an item's picture, under the names it has in the source", async () => {
+    // A client's page draws the Bag's things with the kit's own code, so a thing looks the same there as in a
+    // world's Bag (asked by the orchestrator for BitPortal, 2026-11-24). Until then no entry handed it on.
+    const three = readFileSync(join(sdk, "src", "three.ts"), "utf8");
+    expect(three).toMatch(/export \{ createItemPreviews, type ItemPreviews, type ItemPreviewsOptions \} from "\.\/item-preview\.js";/);
+    // And it is the one the Bag's own pictures are made with: the same function, not a copy.
+    const source = await import("../src/item-preview.js");
+    expect(typeof source.createItemPreviews).toBe("function");
+    expect(readFileSync(join(sdk, "src", "bag-pictures.ts"), "utf8")).toMatch(/import \{ createItemPreviews \} from "\.\/item-preview\.js";/);
+    // The entry without a renderer still hands on only the type: making a picture needs one.
+    const bag = readFileSync(join(sdk, "src", "bag-entry.ts"), "utf8");
+    expect(bag).toMatch(/export type \{ ItemPreviews \} from "\.\/item-preview\.js";/);
+    expect(bag).not.toMatch(/createItemPreviews/);
+  });
+
   it("hands on from nswp-sdk/menu what a client's page needs beside the menu", async () => {
     const menu = readFileSync(join(sdk, "src", "menu.ts"), "utf8");
     for (const name of ["arriveWith", "changeSettings", "currentSettings", "fullscreenAction", "watchEscape", "portBelow", "mountMenu", "addSoundControls", "createSounds"]) expect(menu, name).toMatch(new RegExp(`\\b${name}\\b`));
