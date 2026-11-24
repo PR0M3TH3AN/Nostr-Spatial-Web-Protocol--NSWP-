@@ -209,6 +209,25 @@ try {
   await pressOnView();
   check("the panel away again, one press on the view and the pointer is the world's", !!(await until(async () => (await now()).holdsPointer, 5000)), await now());
 
+  // The same slowness with the world's own menu, and no panel at all: the menu is put away, which asks for the
+  // pointer, and brought up again before the browser has given it. A pointer given with the menu up is let go at
+  // once. Every asking is held back 150 ms from here on; this is the last thing this page is asked.
+  await world().evaluate((ms) => {
+    const real = Element.prototype.requestPointerLock;
+    window.__lockGiven = 0;
+    window.addEventListener("pointerlockchange", () => { if (document.pointerLockElement) window.__lockGiven++; }, true);
+    Element.prototype.requestPointerLock = function (...a) { return new Promise((r) => setTimeout(r, ms)).then(() => real.apply(this, a)); };
+  }, 150);
+  await page.keyboard.press("m");
+  await until(async () => { const n = await now(); return n.menuUp && !n.holdsPointer; }, 5000);
+  await page.keyboard.press("m");
+  await page.waitForTimeout(40);
+  await page.keyboard.press("m");
+  await page.waitForTimeout(900);
+  const slowMenu = { ...(await now()), given: await world().evaluate(() => window.__lockGiven) };
+  check("the world's own menu put away and brought up again before a slow browser gave the pointer: the pointer was given with the menu up, so this tries it", slowMenu.menuUp === true && slowMenu.given >= 1, slowMenu);
+  check("and the world does not hold the pointer under its own menu", slowMenu.holdsPointer === false, slowMenu);
+
   } catch (e) {
     check("the trial ran to its end", false, { why: String(e).slice(0, 240), worldStillThere: !!world(), frames: page.frames().map((f) => f.url().slice(0, 60)) });
   }
@@ -242,7 +261,22 @@ try {
     check("under a client that has the menu, the world draws none of its own", (await here()).ownMenus === 0, await here());
     await w2().evaluate(() => window.__nswpTest.fps.setEnabled(true));
     await second.waitForTimeout(400);
-    for (const [order, first, then] of [["the menu's going said first, then the panel", "menu", "panel"], ["the panel said first, then the menu's going", "panel", "menu"]]) {
+    // The third time round the browser is made slow to give the pointer, on purpose (found 2026-11-24 on a loaded
+    // machine, one run in five). The menu's going makes the world ask for the pointer; the panel is said up before
+    // the browser has given it, when there is nothing yet to let go; the browser then gives it. A pointer given
+    // with the panel up must be let go at once. Here every asking for the pointer is held back 150 ms, and the
+    // panel is said 30 ms after the menu's going, so the pointer is always given with the panel already up.
+    for (const [order, first, then, slow] of [["the menu's going said first, then the panel", "menu", "panel", 0], ["the panel said first, then the menu's going", "panel", "menu", 0], ["the menu's going said first, then the panel, and the browser slow to give the pointer", "menu", "panel", 150]]) {
+      if (slow) {
+        await w2().evaluate((ms) => {
+          const real = Element.prototype.requestPointerLock;
+          window.__lockAsked = 0;
+          window.__lockGiven = 0;
+          // Counted on the way down to the document, before the kit's own listener: the mended kit lets the pointer go in that listener.
+          window.addEventListener("pointerlockchange", () => { if (document.pointerLockElement) window.__lockGiven++; }, true);
+          Element.prototype.requestPointerLock = function (...a) { window.__lockAsked++; return new Promise((r) => setTimeout(r, ms)).then(() => real.apply(this, a)); };
+        }, slow);
+      }
       // The world holds the pointer; the client's menu comes up, and the world lets go.
       await second.mouse.click(180, 330);
       const held = await wait2(async () => (await here()).holdsPointer, 5000);
@@ -253,6 +287,9 @@ try {
       await second.evaluate(([first, then]) => new Promise((done) => { const say = (what) => (what === "menu" ? window.__menu(false) : window.__show()); say(first); setTimeout(() => { say(then); done(); }, 30); }), [first, then]);
       await second.waitForTimeout(1200);
       const under2 = await here();
+      // The slow round shows nothing unless the pointer was in truth asked for at the menu's going and given after
+      // the panel came up: twice asked (the press, the menu's going) and twice given.
+      if (slow) { const n = await w2().evaluate(() => [window.__lockAsked, window.__lockGiven]); check(`a client's menu, ${order}: the pointer was asked for as the menu went and given after the panel was up, so this round tries it`, n[0] >= 2 && n[1] >= 2, n); }
       check(`a client's menu, ${order}: with the panel up the world does not hold the pointer`, under2.holdsPointer === false, under2);
       await move();
       check(`a client's menu, ${order}: and the visitor does not walk or turn`, sameHere(under2, await here()), { before: under2, after: await here() });

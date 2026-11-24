@@ -240,7 +240,8 @@ export function createFps(o: FpsOptions): Fps {
   // asked for either. So nobody is put back to the casual way by going through a door.
   const free = (e: MouseEvent) => !looking() && !o.hud?.open && !panelUp() && e.target === o.dom && e.buttons === 0;
   const onMove = (e: MouseEvent) => {
-    if (!active() || !(looking() || free(e))) return;
+    // With the panel up the mouse turns nothing, whoever has the pointer (see `onLock`).
+    if (!active() || panelUp() || !(looking() || free(e))) return;
     const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY, LOOK_SPEED * lookScale() * aimScale());
     o.rig.rotation.y = next.yaw;
     pitch = next.pitch;
@@ -254,7 +255,15 @@ export function createFps(o: FpsOptions): Fps {
     else look();
   };
   const onLock = () => {
-    if (looking()) return;
+    if (looking()) {
+      // The pointer has just been given. A browser takes a moment to give it, and the panel or the menu may have
+      // come up in that moment: asked for as the client's menu went, with the panel said up 30 ms later, there was
+      // nothing yet to let go when the panel came, and the pointer then arrived under it (found 2026-11-24 by
+      // `trials/panel-pointer.mjs` on a loaded machine, one run in five; a fault in 0.88.0). Given so, it is let
+      // go at once.
+      if (panelUp() || o.hud?.open) letGo();
+      return;
+    }
     for (const k of Object.keys(held) as (keyof Held)[]) held[k] = false;
     // The pointer came back without our asking: the visitor pressed Escape, and Escape is the menu.
     if (active() && !weLetGo && o.hud && !o.hud.open) o.hud.setOpen(true);
