@@ -436,12 +436,10 @@ The blaster holds six here, the kit's holds five.
   real time). JEV with both skills hit 12 of 29 and 11 of 23; plain rules
   on the same rounds hit 22 and 18 of 29, and 20 and 21 of 23, without
   hiding. With cover unlearned JEV hit 11 of 29 and went down four times,
-  so hiding is not the whole reason. Why it loses is not known; guesses,
-  untested: it changes target often so the body turns instead of firing,
-  more late answers (8 or 9 a round against 1 or 2), time down. This is the
-  second range result that points the same way. *For the port:* routines
-  start from rules, and the decider comes in where words have to be
-  understood.
+  so hiding is not the whole reason. Why it loses was then counted (D62,
+  below). This is the second range result that points the same way. *For
+  the port:* routines start from rules, and the decider comes in where
+  words have to be understood.
 - **Under the kit's health numbers, hiding does not pay** (shown: D61, the
   free rules, six rounds on a made-up clock). Firing first and never hiding
   hit 119 of 149 with 6 downs; hiding at low health hit 75 to 96 with fewer
@@ -449,10 +447,48 @@ The blaster holds six here, the kit's holds five.
   before the first point returns. *For the kit, for whoever tunes play:* if
   going down is meant to matter it needs a cost the numbers don't give it
   now. Not a fault, and nothing to change on this alone.
-- **Not done:** JEV's picks logged, to tell the guesses apart; a person's
-  round; orders in words on the range ("only the far ones"), which is where
-  a decider should beat a rule; the blaster at five. Not checked: a timed
-  round watched on the page.
+- **Not done:** a person's round; orders in words on the range ("only the
+  far ones"), which is where a decider should beat a rule; the blaster at
+  five. Not checked: a timed round watched on the page.
+
+### Why JEV loses there, counted (D62, 2026-11-24)
+
+Run on the owner's word in the playground's session ("Yeah spend up to
+10c."): 296 requests, $0.0128, each round said to him before it ran. One
+round of 29 hostile targets, with every pick counted.
+
+| Who | Hit | Shots | Behind the barrier | Down | Answers too late |
+|---|---|---|---|---|---|
+| Rules, never hiding (two runs) | 22 and 21 | 33 and 34 | 0 | 6 s | 0 or 1 |
+| JEV, both skills | 11 | 16 | 11.9 s | 6 s | 13 |
+| JEV, both skills, staying with a target | 9 | 18 | 12.3 s | 9 s | |
+| JEV, cover unlearned | 16 (11 the run before) | 30 | 0 | 9 s | 11 |
+
+- **It is the hiding first, then late answers, and not how the choices are
+  offered** (shown: D62). JEV did not change target and turn: none, none
+  and twice. Staying with a target did not help (9 against 11). So nothing
+  here is a fault a slower game would inherit. It is speed and steadiness,
+  and advice followed into a bad trade.
+- **Count a decider's picks, not only its score** (shown: D62). The score
+  said "half"; the counts said where. Before them there were three guesses
+  and the first was wrong. *For the kit:* a trial of an agent reports time
+  in each state, actions taken, answers too late and changes of target as
+  standard, and times the free baseline the same way with the same
+  counters.
+- **A decider's spread from run to run is large on a fast task** (shown:
+  D62): 11 and 16 of 29 on the same round with the same words. One run is
+  not a measurement there.
+- **Staying at a leaf is a saving, not a cure** (shown: D54 and D62): fewer
+  questions on a plain round, nothing for the score on a busy one.
+- **Late answers follow how fast the world changes, not the decider's
+  middle speed** (shown: D62). At the same 0.2 s middle answer time, 1 or 2
+  answers a round were late on the plain range and 9 to 13 on this one.
+  *For a world:* say how fast its choices go stale. *For the kit:* a runner
+  can then tell when a decider is too slow for a place and fall back to
+  rules.
+- **Not learned:** why JEV hits with fewer of its shots (53% against 62 to
+  67%). It would be in which target it picks; picks were counted but not
+  written out by target.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
@@ -641,8 +677,8 @@ measure it with memory kept in the tab.
 - More than one visitor; a real kit world; a world of hundreds of things in
   several areas.
 - Orders with no single right answer.
-- Why JEV loses to plain rules on the range that fires back (D61): its
-  picks were not logged.
+- Why JEV hits with fewer of its shots than plain rules on the range that
+  fires back (D62): its picks were counted, not written out by target.
 - Whether a decider beats a rule on the range when the order is in words.
 
 ## Kept current
