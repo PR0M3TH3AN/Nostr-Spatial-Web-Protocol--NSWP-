@@ -38,7 +38,10 @@ const check = (name, ok, got) => {
   if (!ok) fail.push(name);
 };
 
-const browser = await pw.chromium.launch({ channel: "chrome", headless: true });
+// Chrome draws with this machine's graphics card, as a visitor's does and as the client's-menu trial does. Drawn
+// without one (`--software`) the page manages a frame or two a second, and everything on it waits behind a frame.
+const SOFTWARE = process.argv.includes("--software");
+const browser = await pw.chromium.launch({ channel: "chrome", headless: true, args: SOFTWARE ? [] : ["--use-angle=gl", "--enable-gpu", "--ignore-gpu-blocklist"] });
 try {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: WORLD });
@@ -61,6 +64,15 @@ try {
     return route.fulfill({ status: 200, contentType: TYPES[extname(on)] ?? "application/octet-stream", body: readFileSync(on) });
   });
   const page = await ctx.newPage();
+  // What in fact drew the page, asked of the browser: a machine with no card to use draws without one whatever is asked.
+  {
+    const probe = await ctx.newPage();
+    results["what drew the page"] = await probe.evaluate(() => { const gl = document.createElement("canvas").getContext("webgl2"); const info = gl?.getExtension("WEBGL_debug_renderer_info"); return gl ? String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : "no WebGL at all"; }).catch((e) => `not known: ${String(e).slice(0, 80)}`);
+    await probe.close();
+    const without = /swiftshader|llvmpipe|software|softpipe/i.test(results["what drew the page"]);
+    results["drawn without the graphics card"] = SOFTWARE ? "yes, as asked (--software)" : without ? "YES, THOUGH THE CARD WAS ASKED FOR: this machine gave Chrome none" : "no";
+    process.stderr.write(`drawn by: ${results["what drew the page"]}${SOFTWARE ? " (--software)" : without ? " — NOT THE GRAPHICS CARD, though it was asked for" : ""}\n`);
+  }
   await page.goto(`${WORLD}/`, { timeout: 60000 });
   await page.waitForFunction(() => window.__nswpTest?.state?.ready === true && document.querySelector("nswp-hud"), null, { timeout: 60000 });
 
@@ -139,7 +151,10 @@ try {
       const sheet = root.querySelector("section.sheet");
       for (const w of words) t.controls.say(w);
       const newest = [...root.querySelectorAll(".say")].at(-1) ?? null;
-      const settle = () => Promise.race([Promise.all([...(newest?.getAnimations() ?? []), ...sheet.getAnimations()].map((a) => a.finished.catch(() => null))).then(() => true), new Promise((no) => setTimeout(() => no(false), 8000))]);
+      // To the end of what is running on the newest line and on the sheet, and then two frames on: the menu puts the
+      // chosen tab in sight a frame after it comes up, and a place read before that is not where the thing ends up.
+      const frames = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(true))));
+      const settle = () => Promise.race([Promise.all([...(newest?.getAnimations() ?? []), ...sheet.getAnimations()].map((a) => a.finished.catch(() => null))).then(frames), new Promise((no) => setTimeout(() => no(false), 8000))]);
       let settled = await settle();
       let runningOnceMoved = null;
       if (then) {
@@ -189,6 +204,9 @@ try {
     await page.setViewportSize({ width, height });
     await page.evaluate((w) => new Promise((done) => { const look = () => (innerWidth === w ? requestAnimationFrame(() => done()) : setTimeout(look, 50)); look(); }), width);
   };
+  // The Room tab gains a row a few seconds after the world comes up (its sign-in address is refused here, and it
+  // says so once it has given up waiting). Waited for, so that what is compared is the same rows throughout.
+  await page.waitForFunction(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows *")].some((e) => /didn't answer/.test(e.textContent ?? "")), null, { timeout: 30000, polling: 200 }).catch(() => {});
   for (const [at, width, height] of [["a desk's width", 1100, 700], ["a phone's width", 390, 760]]) {
     await widthOf(width, height);
     await page.evaluate(() => window.__nswpTest.hud.setOpen(true, "room"));
@@ -292,6 +310,155 @@ try {
   // A line lasts its moment and goes, wherever it stands.
   await noLines();
   check("and it goes after its moment", (await sayAndRead([])).said === 0, null);
+
+  // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
+  // coming up on the same thing; drawing the menu again makes every row anew; so a drawing between the two took the
+  // row from under the mouse, and the press was never delivered. It happened whenever anything the menu shows
+  // changed during a press: a counter, a picture arriving, a world saying what it is. Now the menu waits for the
+  // press to be over, and no longer than a press is.
+  await page.evaluate(() => {
+    window.__held = { presses: 0, other: 0, own: 0 };
+    window.__slide = { at: 20, runs: 0 };
+    const c = window.__nswpTest.controls;
+    c.add({ id: "trial-held", section: "room", label: () => `Pressed while it changes ${window.__held.own}`, act: () => void window.__held.presses++ });
+    c.add({ id: "trial-beside", section: "room", label: () => `A row beside it ${window.__held.other}`, act: () => {} });
+    c.add({ id: "trial-slide", section: "room", kind: "slider", icon: "music", label: "A bar to move along", slider: { value: () => window.__slide.at, max: () => 100, text: (v) => String(Math.round(v)) }, act: (to) => { window.__slide.at = Number(to); window.__slide.runs++; } });
+    window.__nswpTest.hud.setOpen(true, "room");
+    // Each time the list of rows is made anew, counted: what a drawing of the menu comes to.
+    window.__drawn = 0;
+    new MutationObserver((records) => { window.__drawn += records.some((r) => r.type === "childList") ? 1 : 0; }).observe(document.querySelector("nswp-hud").shadowRoot.querySelector(".rows"), { childList: true });
+  });
+  const heldRow = hud.getByRole("button", { name: /Pressed while it changes/ }).first();
+  await heldRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
+  await page.waitForTimeout(700);
+  /** Tell the menu something it shows has changed, as a counter ticking or a picture arriving does. */
+  const somethingChanges = (what) => page.evaluate((what) => { if (what) window.__held[what]++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, what);
+  const rowWords = () => page.evaluate(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].map((b) => b.textContent.trim().slice(0, 40)));
+  const mouseDownOn = async (thing) => { const at = await thing.boundingBox(); await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2); await page.mouse.down(); return at; };
+
+  for (const [what, change] of [
+    ["another row's words change", "other"],
+    ["the pressed row's own words change", "own"],
+  ]) {
+    const before = await page.evaluate(() => window.__held.presses);
+    await mouseDownOn(heldRow);
+    await somethingChanges(change);
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    const heard = await page.waitForFunction((n) => window.__held.presses === n + 1, before, { timeout: 3000 }).then(() => true, () => false);
+    check(`a press is still a press when ${what} while it is made`, heard, await page.evaluate(() => window.__held));
+  }
+
+  // 1. A change that came during a press is not dropped: it is drawn as soon as the press is over, and once.
+  {
+    await page.waitForTimeout(600);
+    await mouseDownOn(heldRow);
+    await somethingChanges("other");
+    await page.waitForTimeout(80);
+    const during = await page.evaluate(() => { window.__drawn = 0; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)); });
+    await page.mouse.up();
+    const shown = await page.waitForFunction(() => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => /A row beside it 2/.test(b.textContent)), null, { timeout: 2000 }).then(() => true, () => false);
+    await page.waitForTimeout(900);
+    const drawn = await page.evaluate(() => window.__drawn);
+    check("what changed during a press is not drawn while the press is being made", during === false, during);
+    check("it is drawn as soon as the press is over", shown, await rowWords());
+    // The press itself changes nothing these rows show, so one drawing is the whole of what was owed.
+    check("and drawn once: one drawing of the rows, not one for each thing that asked meanwhile", drawn === 1, drawn);
+  }
+
+  // 2. The menu is never held still for long. A press that never ends is not waited for: the mouse goes down and
+  // stays down, and what changed is drawn without the button ever coming up, a little after a press's own length.
+  {
+    await page.waitForTimeout(600);
+    await mouseDownOn(heldRow);
+    const waited = await page.evaluate(async () => {
+      const shows = (n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`));
+      const next = ++window.__held.other;
+      const c = window.__nswpTest.controls;
+      c.setTheme({ scale: c.theme.scale }, true);
+      const began = performance.now();
+      while (!shows(next) && performance.now() - began < 6000) await new Promise((done) => setTimeout(done, 20));
+      return { shown: shows(next), after: Math.round(performance.now() - began) };
+    });
+    await page.mouse.up();
+    check("a press that never ends is not waited for: held down, the menu is drawn again after a press's length and within three seconds", waited.shown && waited.after > 700 && waited.after < 3000, waited);
+    results["how long the menu waited on a press that never ended, in ms"] = waited.after;
+  }
+  // The pointer taken off the page with its button still down: not waited for either, however the browser tells it.
+  {
+    await page.waitForTimeout(600);
+    await mouseDownOn(heldRow);
+    await page.mouse.move(-20, -20);
+    const next = (await page.evaluate(() => window.__held.other)) + 1;
+    await somethingChanges("other");
+    const drawnAnyway = await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 3000, polling: 50 }).then(() => true, () => false);
+    await page.mouse.up();
+    check("nor a pointer taken off the page with its button down", drawnAnyway, await rowWords());
+  }
+  // And it is let go at once when the press is cancelled, or the page loses the keys: said to the page as the
+  // browser says them (a finger that began to scroll; another window brought to the front).
+  for (const [what, event] of [["the press is cancelled", "pointercancel"], ["the page loses the keys", "blur"]]) {
+    await page.waitForTimeout(600);
+    await mouseDownOn(heldRow);
+    // Told of the change, held, let go and drawn, all timed inside the page by its own clock: how soon after the
+    // word from the browser the change is on the page. Well inside the time a press is waited for at all.
+    const went = await page.evaluate(async (event) => {
+      const shows = (n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`));
+      const next = ++window.__held.other;
+      const c = window.__nswpTest.controls;
+      c.setTheme({ scale: c.theme.scale }, true);
+      await new Promise((done) => setTimeout(done, 60));
+      const held = !shows(next);
+      const began = performance.now();
+      window.dispatchEvent(event === "blur" ? new Event("blur") : new PointerEvent(event, { bubbles: true }));
+      while (!shows(next) && performance.now() - began < 1000) await new Promise((done) => setTimeout(done, 10));
+      return { held, shown: shows(next), after: Math.round(performance.now() - began) };
+    }, event);
+    await page.mouse.up();
+    // "At once" is well inside a press's own length (1.2 s): a page that draws slowly is a little late with everything.
+    // Drawn without a graphics card, the page is late with everything by up to a frame of its own, which is as long
+    // as a press is waited for: there the time is said, and not held to.
+    check(`the menu is let go at once when ${what}, with the button still down`, went.held && went.shown && (SOFTWARE || went.after < 400), went);
+  }
+
+  // 3. A bar being moved along is not held up, and is not let go of. Drawn again under the pointer, a bar was let go
+  // of by the browser and stayed where it had got to. So the menu waits for a bar as it waits for a press, for
+  // longer: the mouse takes hold of the bar, the menu is told something changed, the bar is moved along and let go.
+  {
+    await page.waitForTimeout(600);
+    const bar = hud.locator(".slide input").first();
+    // Brought into sight by the page itself (the list of rows scrolls), and found only once it is what the mouse
+    // would land on a fifth of the way along it.
+    let at = null;
+    for (const end = Date.now() + 10000; Date.now() < end && !at; ) {
+      at = await bar.evaluate((el) => { el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); const top = el.getRootNode().elementFromPoint(r.left + r.width * 0.2, r.top + r.height / 2); return top === el ? { x: r.left, y: r.top, width: r.width, height: r.height } : null; }).catch(() => null);
+      if (!at) await page.waitForTimeout(150);
+    }
+    check("the bar is in sight, where the mouse can take hold of it", !!at, at);
+    if (!at) throw new Error("the bar could not be brought into sight");
+    const next = (await page.evaluate(() => window.__held.other)) + 1;
+    await page.mouse.move(at.x + at.width * 0.2, at.y + at.height / 2);
+    await page.mouse.down();
+    // Told of the change and looked at a moment later, inside the page by its own clock: with the bar held, what
+    // changed has waited.
+    const heldBack = await page.evaluate(async (n) => {
+      window.__held.other++;
+      const c = window.__nswpTest.controls;
+      c.setTheme({ scale: c.theme.scale }, true);
+      await new Promise((done) => setTimeout(done, 300));
+      return ![...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`));
+    }, next);
+    await page.mouse.move(at.x + at.width * 0.5, at.y + at.height / 2, { steps: 4 });
+    await page.mouse.move(at.x + at.width * 0.8, at.y + at.height / 2, { steps: 4 });
+    const alongAt = await bar.evaluate((el) => Number(el.value));
+    await page.mouse.up();
+    const moved = await page.waitForFunction(() => window.__slide.runs > 0 && window.__slide.at > 60, null, { timeout: 3000, polling: 50 }).then(() => true, () => false);
+    check("a bar moved along while the menu is told something changed goes where it is put: it is not let go of", moved && alongAt > 60, { slide: await page.evaluate(() => window.__slide), alongAt });
+    check("its own movement is not held up: the bar is along with the mouse while the mouse is still down", alongAt > 60, alongAt);
+    check("and what changed meanwhile waited for the bar, and is drawn once it is let go", heldBack && (await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 2000, polling: 50 }).then(() => true, () => false)), { heldBack, rows: await rowWords() });
+  }
+  await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+  await page.waitForTimeout(400);
 
   // A press outside the sheet closes the menu, and is nothing else: in the world's own page, as in a client's. The
   // world's view is under where the press lands, and hears none of it.
