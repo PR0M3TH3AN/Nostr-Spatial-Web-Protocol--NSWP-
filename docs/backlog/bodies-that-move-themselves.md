@@ -125,7 +125,36 @@ inverse kinematics, a gait clock, a swing with the foot planted, landing
 from the body's velocity, pelvis height and sway: a few hundred lines),
 on a figure given two-segment legs made by code, following the body the
 place already moves. A model second, read against it, and only shipped if
-one is ever free to use. His answer is awaited.
+one is ever free to use. His answer, 2026-11-24: "yes".
+
+## The path chosen (the orchestrator, on the owner's word, 2026-11-24)
+
+Asked which open option was best for the model side, the orchestrator
+answered that none is ready to ship. The owner: "ok pick the best path.
+You know what im trying to achieve". So, chosen:
+
+1. **The walker made by rules,** ours and small, behind one seam that
+   every later body uses: each frame the place hands a body where it is,
+   how fast it is going, which way it faces and a manner word; nothing
+   above the typed action knows what moves the bones.
+2. **A private yardstick:** Meta's three.js port run on this machine
+   beside the walker, to learn what a model buys in the counts and what
+   it costs in frames. Non-commercial; a named download on the owner's
+   word; never committed, shipped or served beyond this machine. If the
+   walker is within sight of it, stop here and ship the walker.
+3. **Only if a model earns its place:** learned motion matching
+   (orangeduck/Motion-Matching: MIT code, small networks, a WebAssembly
+   build, no physics engine and no graphics adapter needed), trained again
+   on motion whose licence lets us ship. A training job; one page on what
+   it needs comes to the owner before any of it.
+4. **Not chosen:** physics-driven controllers (MimicKit), for the weight
+   of a physics engine at run time and a training project before the
+   first step; and anything whose weights could not be shipped.
+
+What it serves, as the orchestrator reads the owner's aim: one general
+agent that can be given a body and a world and behave specifically, with
+as little written for any one game as will do; open, and able to be
+shipped; and measured before believed.
 
 ## Must not
 
