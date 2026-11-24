@@ -335,6 +335,9 @@ place, above the world, and a world's drawing can never be above it.
   client answers `here` at once, as it already does for the screen.
 - **Framed, and nothing is said within about 300 ms:** the world loads its own menu.
   A client that doesn't know these words (or isn't one) changes nothing.
+  **But the world is that much late for every visitor,** measured by BitPortal
+  on 2026-11-24. Proposed that day and not yet decided: 50 ms, not 300, with
+  the times at each wait in `docs/backlog/own-menu-late-when-framed.md`.
 - **The client answers late:** the world's own menu is put away, and the client's
   stands. One menu at any moment, never two. This is not rare: on a development
   server the shell asks the network whether a place may be shown before it answers,
@@ -769,6 +772,45 @@ world's say-so would be the client vouching for what it hasn't checked. That is
 worse than today, where the world draws its own menu and the mark is plainly the
 world's. A world can still write what it likes in a card's `tag`, which is its own
 words. Step 3 brings the mark back, from a pass the client checks itself.
+
+**The view clear of the menu, a piece of step 3** (asked: the orchestrator,
+2026-11-24, from BitPortal's step 2; `docs/backlog/view-clear-of-the-menu.md`).
+**No code yet.** Where its client draws the menu, a world doesn't know what of its
+view the menu covers.
+
+- *What a world has today, drawing its own.* Two calls on its menu
+  (`docs/controls-kit.md`): `cover()`, how much of the top and of the bottom is
+  covered by what is always there (the marks and the bar), and `bounds()`, the box
+  of every part that shows, the sheet among them while it is up. `cover()` leaves
+  out what comes and goes, on purpose: a page that moves its picture clear of what
+  is covered would move it each time.
+- *Proposed: the same two answers, whoever draws.* The client says what its menu
+  covers, and the kept menu (`keepMenu`) answers `cover()` and `bounds()` from the
+  world's own menu or from the client's word. A world's code is the same either
+  way, and a world that asks neither is as it was.
+- *What is said: both, each for what it suits.* Two edges, top and bottom, for
+  what is always there. A box for the sheet while it is up, and for nothing else:
+  a sheet can float in the middle, where an edge can't say it.
+- *Whether a world is told of the sheet: yes, as a box and never as an edge.* So a
+  view shifted by the edges stays still as the sheet comes and goes, and a
+  caption or a form of the world's own can still keep out from under the sheet.
+  This is what the world's own menu does today.
+- *The word,* its name proposed and the orchestrator's to give: `{ nswp: "menu",
+  covers: { top, bottom, sheet? } }`, with `sheet` as `{ x, y, width, height }`.
+  Whole pixels of the frame's own box, as the world's page counts them (a client
+  that scales its frame divides by the scale). Each number from 0 to 8192; a
+  word that says more of a side than the frame has is read as the whole side.
+  The version of the words stays 1: a world on an older kit ignores the field.
+- *When.* With the client's answer that it has the menu, then only when a number
+  changes, and no oftener than eight times a second, as a description is. A
+  sheet that slides is said once, where it comes to rest. In a headset session
+  nothing covers the view and the world asks nothing.
+- *Another engine* is handed the same two answers by the engine script, under
+  names given with that pull request.
+- *Done looks like:* in the stand-in client, a world's caption stands above the
+  client's bar at a desk's width and at a phone's, and clear of the sheet while
+  it is up; nothing crosses while nothing changes; a vector for each shape of
+  the word, and for each number out of range.
 
 **Four more presses that must land in the page that asks,** found while listing
 these, and not in step 0b's trial. A browser refuses each without a press in the page

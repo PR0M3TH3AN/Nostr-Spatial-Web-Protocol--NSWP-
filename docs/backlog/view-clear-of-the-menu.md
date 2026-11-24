@@ -3,8 +3,10 @@
 - **Asked:** 2026-11-24, by the orchestrator, from BitPortal's step 2 (its
   PR 209). Not an ask of the owner's.
 - **Who:** the NSWP builder, with step 3 of `docs/plans/the-clients-menu.md`.
-- **State:** not built, and no code yet: to be written into the plan as a
-  piece of step 3 when the plan is next touched.
+- **State:** not built, and no code yet. Written into the plan as a piece of
+  step 3 (2026-11-24, section 15, "The view clear of the menu"), with an
+  answer proposed to each thing under "To settle" below. The word's name is
+  the orchestrator's to give.
 
 ## What is missing
 
