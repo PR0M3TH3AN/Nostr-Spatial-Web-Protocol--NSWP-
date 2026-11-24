@@ -522,7 +522,7 @@ for four people). Nothing sent or spent.
 | The same, two days | 36.8% | 7.0% | 18 of 31 |
 | Rules with wants as weights, one day | 40.1% | 12.7% | 20 of 20 |
 | The same, two days | 39.6% | 11.7% | 38 of 38 |
-| JEV from words | not run | | |
+| JEV from words | run the same day: below (D64) | | |
 
 No need reached nothing in any of them. So the mark for JEV is about 12
 to 13% with every choice the person's own way, and the floor is about 7%.
@@ -583,8 +583,163 @@ to 13% with every choice the person's own way, and the floor is about 7%.
 - **Which memories are shown is a setting, and it matters** (shown by a
   test: D63): with only the five newest shown, a want told once at the
   start is pushed out within ten hours. Pinned, it stays.
-- **Not done:** JEV in the house; a person playing one of the people;
-  anything the mystery needs.
+- **Not done here:** a person playing one of the people; anything the
+  mystery needs. JEV in the house: next.
+
+## JEV in the house (D64, 2026-11-24)
+
+Run on the owner's word in the playground's session ("All five, 9
+cents"): 1,885 requests, $0.0922, against about 1,950 and about 9 cents
+quoted; half a day measured first. No request failed. A day each, two runs
+of every JEV condition, read against the free baselines of the same
+length.
+
+| Who decides (one day) | A need ran out | Most of anyone's time on one thing | Least two days differ | Their own way |
+|---|---|---|---|---|
+| Rules blind to the sheets | never | 37.2% (sleep) | 6.8% | 9 of 16 |
+| Rules, wants as numbers | never | 40.1% (sleep) | 12.7% | 20 of 20 |
+| JEV, thin sheet | never, never | 43.8% and 47.9% (talk) | 8.2% and 12.0% | 23 of 32, 21 of 29 |
+| JEV, deep, want always shown | 1 and 5 times | 51.6% and 47.7% (talk) | 23.0% and 43.3% | 69 of 69, 56 of 56 |
+| JEV, deep, only the newest memories | 0 and 1 | 39.6% and 33.3% | 13.2% and 20.4% | 37 of 54, 32 of 47 |
+| JEV, deep, want shown, needs as scores too | 0 and 0 | 50.0% and 53.1% (talk) | 25.8% and 34.6% | all |
+
+**JEV tells people apart from the sentences better than hand-written
+numbers do, and it does not keep them well.** On the third test it is far
+past the mark (23 to 43% against 12.7%, every choice the person's own
+way). On the first two, which the rules pass, no JEV day passed all three;
+the nearest was 39.6% with no need run out, which is at the line's edge
+and not a pass, and its second run had a need run out.
+
+What went wrong is one thing: it takes a want at its word. A sheet that
+says someone loves the garden had her gardening while food, sleep and a
+wash ran out, in three runs of four. One that says someone likes company
+more than anything had him talking half of every day, and since talking
+takes two, the others talked a third of theirs. It is the range's lesson
+from another side: advice followed into a bad trade.
+
+- **A character can be made from sentences** (shown: D64). One line of
+  want moved 125 of 125 choices, with no numbers written by anyone. That is
+  the case for a decider in a house, and it is a real one.
+- **A sentence has no dial** (shown: D64). "Three times" and "a third" as
+  numbers gave 12.7% and kept everyone well; "more than anything" gave half
+  a day of talking. *For the port:* either a sheet can say how much, or the
+  runner holds a rule that a want only chooses among things that serve the
+  need of the moment. The second needs no new field.
+- **So the shape for a house: code chooses the need, the decider chooses
+  which thing serves it, as this person** (shown in part: D64). A need is a
+  number the simulation already has. The needs-as-scores runs are that
+  shape with JEV scoring the needs, and they stopped needs running out in
+  both runs; code would score them exactly and for nothing. Then run:
+  below (D65).
+- **The first data on categories** (shown: D64; the owner's idea, set out in
+  `docs/backlog/agent-skills-published.md`). With no order to cut the
+  choices by, asking the category (the need) and the choice in one request
+  earned its place: it changed 100 of 330 choices and removed the worst
+  failure, for about 310 more tokens a decision and no more waiting.
+- **Depth buys the difference between people, and costs about a fifth
+  more** (shown: D64): about 200 tokens a decision. With a thin sheet JEV
+  makes everyone alike (8 to 12%), like the blind rules, and its lean
+  between a person's way and the other was 46%, which is chance.
+- **What a character wants is pinned, not left to recency** (shown: D64).
+  Kept in view, a reason holds over a day (lean 98% then 96%). Told once
+  and pushed out of the five memories shown, it fades to about 72% and then
+  62%, and stays above the 46% of never being told, because the memories
+  that pushed it out are of the person acting on it. *For the sheet:* a
+  standing reason belongs in the sheet's own part; "remembers" is for what
+  happened. A person's own record of what they did carries a habit on
+  without the reason.
+- **Staying at a leaf is right for this kind of play** (shown: D64, half
+  days). Asked again every quarter of an hour cost two and a half times as
+  much, changed nothing in the outcome, and had the decider change its
+  mind a quarter of the time.
+- **Speed doesn't matter here: the first measured place a decider fits by
+  speed** (shown: D64). No answer of 1,885 came later than a choice stays
+  good (five real seconds); the middle answer took 215 to 265 ms. Answers
+  that found their choice gone: 4 to 14 a day with a deep sheet, 26 to 30
+  with a thin one, 5 for the rules.
+- **One person's want reaches the others when an action takes two** (shown:
+  D64). *For a world's maker:* a character run by a decider, with a strong
+  want and a shared action, sets the whole room's day.
+- **The limits of this:** one house, four people, a day a run, two runs
+  each, one model. The wants were written to be easy to see in choices. The
+  spread between runs is wide: 23% and 43% on the same settings.
+- **Not done:** two-day runs; a person playing one of the people; the
+  mystery. Code choosing the need with JEV choosing the thing: next.
+
+## Code chooses the need, JEV the thing (D65, 2026-11-24)
+
+Run on the owner's word in the playground's session ("Yes, try the fix"):
+146 requests, $0.0047, against about 330 and 1.6 cents quoted. The need is
+chosen exactly as the free rules choose it; JEV is asked only which of the
+things that serve it this person would take; where one thing serves it,
+nothing is asked. A test shows that with the rules inside it, it gives the
+rules' very days.
+
+| Who decides (one day) | A need ran out | Most of anyone's time on one thing | Least two days differ | Their own way | Cost |
+|---|---|---|---|---|---|
+| Rules, wants as numbers | never | 40.1% (sleep) | 12.7% | 20 of 20 | nothing |
+| JEV choosing everything (D64) | 1 and 5 times | 51.6% and 47.7% | 23.0% and 43.3% | all | $0.0075 |
+| Code the need, JEV the thing (three days) | never | 36.5%, 36.2%, 34.7% | 21.0%, 20.7%, 19.8% | 22 of 22 each | $0.0035 |
+
+All three days pass all three tests, the first with JEV in them to do so:
+past the mark on telling people apart, as well kept as the rules, at
+under half the cost of asking JEV everything. No answer was late; 7 and
+10 answers a day found their choice gone. (The first day had 4 requests
+refused; the second and third were run on the owner's "Topped up, run
+them", 168 requests, none failed, $0.0070.) **One other day is not a
+measurement:** 30 of its 62 requests failed, a failed
+request fell back to the first thing on offer, and so half its choices
+were not JEV's. The script did not keep the reason then. Run again with
+reasons kept (on the owner's "Yes, re-run"), all 122 requests were refused
+with HTTP 402, payment required: the account's credit, or the key's limit,
+had run out, most likely part-way through the earlier day (reasoned from
+the timing). Nothing was decided and nothing charged. The credit is the
+owner's alone to see to. None of D64's 1,885 failed.
+
+- **The shape that works in a house is rules for which need, a decider for
+  which thing** (shown: D65, three days). It kept everyone well, told
+  them apart by about 20% from sentences alone, and cost less than half of
+  asking the decider everything, because about 60% of a day's decisions
+  have one answer and never leave the code.
+- **A small question makes a decider steady** (shown: D65). Taking the
+  first level out of its hands took most of its spread from run to run
+  with it: 21.0, 20.7 and 19.8, where asking it everything gave 23 and 43
+  on the same settings. That is a second reason for categories in code,
+  beside cost.
+- **What the three tests don't catch** (shown: D65): for sleep it mostly
+  chooses a nap. People napped about 30% of the day and seldom slept a
+  night through; to the tests a nap and a night's sleep are the same need
+  served. A check of sensible days needs a line about how a need is met,
+  not only whether.
+- **The price of a character from sentences, in this shape:** $0.0035 a
+  day for four people, against eight hand-written weights that reach less
+  far.
+- **Where a category earns its place with no order to cut by: the first
+  level can be code** (shown: D65), when the world already holds the
+  number that decides it. The decider is then asked a small question with
+  three or four choices.
+- **A runner keeps why a request failed, and never lets a failed request
+  pass as a decision** (shown: D65). The fall-back was counted as a choice;
+  only the count of failures gave it away. *For the kit:* a failed request
+  is marked on the decision it stood in for, and a run with more than a
+  few refuses to report a result.
+- **A runner tells a refusal from a fault** (shown: D65). A refusal (no
+  key, no credit, not allowed: 401, 402, 403) repeats for every request, so
+  the run stops at the first, sends nothing more and reports nothing. A
+  passing fault (a timeout, a busy server) is counted with its reason. The
+  playground's runner sent 122 requests that were bound to be refused
+  before it was mended.
+- **Running out of credit arrives mid-run and looks at first like a few
+  stray failures** (shown: D65). A trial that spends reads the reason on
+  the first failure, not at the end.
+- **An agent whose decider is refused needs a stated behaviour a visitor
+  can see** (reasoned: D65), such as going to rules and saying so. *For the
+  kit and a world:* "its owner's credit ran out" must not look like the
+  agent choosing to do nothing.
+- **The limits:** one house, four people, a day a run, one model. The
+  wants were written to show in choices.
+- **Not done:** a longer run; a bigger house; a person playing one of the
+  people.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
@@ -780,6 +935,9 @@ measure it with memory kept in the tab.
 - Orders with no single right answer.
 - How many skills an agent can know before its choices get worse: seven is
   the most tried.
+- Whether the house's shape (code the need, the decider the thing) holds
+  in a bigger house or over more than a day at a time (D65: three single
+  days).
 - Why JEV hits with fewer of its shots than plain rules on the range that
   fires back (D62): its picks were counted, not written out by target.
 - Whether a decider beats a rule on the range when the order is in words.

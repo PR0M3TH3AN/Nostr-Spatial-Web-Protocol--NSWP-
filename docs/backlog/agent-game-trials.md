@@ -9,8 +9,13 @@
 - **Who:** the `nswp-agents` session, in its playground only. Briefed
   2026-11-24, after the shooting range.
 - **State:** the house is built and its free baseline run (2026-11-24, the
-  playground's D63, on the owner's "Start the house" in that session); JEV
-  has not been run in it. The mystery and the settlement are not started.
+  playground's D63, on the owner's "Start the house" in that session), and
+  JEV has run in it (D64, on his "All five, 9 cents": $0.0922; D65, on his
+  "Yes, try the fix" and "Topped up, run them": $0.0117). Asked everything, it tells people apart
+  from their sheets and does not keep them well; with code choosing the
+  need and JEV the thing, three clean days passed all three tests. The
+  lessons are in `docs/plans/agents-lessons.md`. The mystery and the settlement
+  are not started.
   Trials, not games: nothing for the kit, BitPortal or any live world. Part of `ai-keys-and-agents`, which is last
   and not a priority.
 
