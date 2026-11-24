@@ -202,6 +202,17 @@ package of files for an agent (an agent here is a sheet and notes, as
 `ai-keys-and-agents` has it); and anything for the protocol, which comes
 after something works and by names given (fleet rule 11).
 
+## The walker is built and counted (the playground's D77, 2026-11-24)
+
+About 300 lines of our own, behind one call each frame. A planted foot
+slides about a centimetre a metre walked, against 190 for legs swung by a
+clock; a hundred walkers' legs cost under a millisecond a frame, and 60
+frames a second holds with a hundred on this laptop's card. Drawing is
+the cost, not legs. The numbers and what they mean are in
+`docs/plans/agents-lessons.md`. Next: a second body of another shape
+behind the same seam, the body declaring what it can do, and a manner as
+dials; then the private yardstick, on the owner's word for that download.
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any
