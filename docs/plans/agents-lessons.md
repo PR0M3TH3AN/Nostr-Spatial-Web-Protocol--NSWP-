@@ -811,7 +811,15 @@ not follow from this model.
   the model could have read it. *For the port:* a device decider, and the
   library that runs it, go on an origin of their own with nothing kept
   there. The model's files are data and run nothing; the library is other
-  people's code, hundreds of megabytes of it.
+  people's code, hundreds of megabytes of it. Done in the playground the
+  same day: a server and port of its own, no key in reach, nothing kept,
+  and a content policy that names only that server (a second wall for one
+  line). What made it cheap: the decider needs only the question and gives
+  back only leans, narrow enough to cross origins by message. *For
+  BitPortal's shell* that is the shape: a frame or worker on its own
+  origin, asked by message, holding no storage. And it goes there from the
+  first line of code, not after a review. (The owner confirmed he had not
+  opened the page himself; the one browser that did held no key.)
 - **The cost to a visitor** (shown: D66): 388 MB once before the first
   decision, about 770 MB of memory while loaded, 2 to 4 s an answer on a
   laptop's processor.
@@ -877,6 +885,66 @@ Every sighting agrees with where people really were, minute by minute.
 - **The limits:** one house, one deed, one layout. "Careful" is one rule,
   and its cases are few.
 - **Not done:** anyone speaking; the owner working a case out.
+
+## Three layers, and eyes only when needed (D68 and D69, 2026-11-24; built, not yet run with a paid model)
+
+The owner, in the playground's session: "So we can combine JEV with Rules
+and LLM intel to make a more general agent or 'Cast member' of a world?
+Could the LLM give JEV a general task from the player? And open up its
+tree of options below that?" And: "And when might we use our ASKII vision?
+For a problem that JEV doesn't know how to solve? So it needs to look
+around or something? Id like to find where the tool would be applied."
+Then, to a test proposed: "Yes i agree with your rec. can we implement
+where it makes sense and keep it as an available fallback then? On all
+agents as an option that the creator of the agent can enable."
+
+**The three layers, as the playground's session put it to him:** the chat
+model understands and sets a task; JEV picks among a few choices; code
+carries out, keeps what is allowed, and stands behind. His tree is that:
+the upper level is the task, or a number code already has, and JEV
+decides the leaf. And the view is for facts nobody told the agent, not
+for problems JEV can't solve.
+
+**Eyes as a fall-back (D68, built).** The maker's choice, off unless
+turned on. Once allowed, a view is taken only when needed, and code
+decides that, never the decider: when the agent is asked what can be seen
+or where something is; when a thing is named by where it is; or when the
+words name nothing the place has told of. "With every decision" stays as
+the other setting. The record says when the eyes were last used and why.
+
+**The hand-off test (D69, built; free baseline run).** A room where three
+boxes and two lamps can be told apart only by where they are. Ten orders:
+plain, by outcome ("It's too dark in here."), and by place ("Bring me the
+box by the window"). Plain rules carry out 3 of 3 plain, 0 of 3 by
+outcome, 0 of 4 by place. With stand-ins for the models, a task that
+names the right thing is always carried out; what is left to measure is
+whether a chat model names the right thing.
+
+- **A task can be handed down by id** (built, not measured: D69). If the
+  upper level names things by the ids the world gave, code cuts the lower
+  level's choices to those things, with no understanding needed below.
+  The id is the join between a slow model that understands and a fast one
+  that picks.
+- **What a world tells has to carry ids for that join** (shown, free:
+  D69). The room's own digest for the chat model had labels and no ids.
+  *For a world and the kit:* whatever a world says of itself to an agent
+  names each thing by the id its choices use.
+- **A view is only useful to a chooser if its marks carry the world's
+  ids** (shown, free: D69). Without them it describes a scene and can't
+  point at a choice. *For the kit:* a requirement on whatever makes a view
+  for an agent.
+- **Where things are relative to each other is what worlds don't say**
+  (shown, free: D69). The room format has a place for each thing and no
+  "near" or "beside". Either a world declares such relations, which code
+  could work out from the places it already has, or an agent needs eyes
+  for them. The first may be the cheaper; the test will say how well the
+  second works.
+- **Whether to look can be decided by code** (shown, free: D68), from the
+  words and what they match. No model was needed to decide it.
+- **The maker's switch for eyes belongs with the agent,** as learned
+  skills do (reasoned: D68), and where it is recorded is open in the same
+  way.
+- **Not run:** any of it with a real chat model or JEV.
 
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
