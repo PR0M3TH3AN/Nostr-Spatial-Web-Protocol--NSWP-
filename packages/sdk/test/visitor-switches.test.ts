@@ -121,6 +121,81 @@ describe("Moving, which both fill", () => {
     expect([row.on?.(), currentSettings().intense]).toEqual([false, false]);
   });
 
+  it("the switch and the question keep the choice under the name a page gives, and nowhere else", async () => {
+    // A client whose own room keeps the choice under a name of its own gives that name, so the room and the
+    // client's menu hold one choice. (BitPortal's shell kept it under the kit's name and its room under its own:
+    // turned on in the shell's menu, it never reached the world. Found 2026-11-24.)
+    const c = createControls({ title: "A client" });
+    const row = deskMovingSwitch(c, { keep: "client:fps" });
+    c.add(row);
+    await row.act();
+    expect(kept.get("client:fps")).toBe("1");
+    expect(kept.has("nswp:fps")).toBe(false);
+    expect(currentSettings().intense).toBe(true);
+    await row.act();
+    expect(kept.get("client:fps")).toBe("0");
+    expect(kept.has("nswp:fps")).toBe(false);
+    // Said from elsewhere (a world reporting what they changed in its headset): kept under the same name.
+    changeSettings({ intense: true });
+    expect(kept.get("client:fps")).toBe("1");
+    expect(kept.has("nswp:fps")).toBe(false);
+  });
+
+  it("whether they have chosen is read from the name given, and the kit's own name is not read", () => {
+    // Chosen under the kit's name only: a page that keeps it under its own has no choice of theirs, and says none.
+    kept.set("nswp:fps", "1");
+    forgetDeskMoving();
+    deskMovingSwitch(createControls({ title: "A client" }), { keep: "client:fps" });
+    expect(currentSettings().intense).toBeUndefined();
+    // Chosen under the page's own name: that is a choice, and it is said to a world.
+    kept.set("client:fps", "0");
+    forgetAll();
+    kept.set("client:fps", "0");
+    deskMovingSwitch(createControls({ title: "A client" }), { keep: "client:fps" });
+    expect(typeof currentSettings().intense).toBe("boolean");
+    // A name given later than another is the one the page then keeps to, and the choice is read again from it.
+    forgetAll();
+    kept.clear();
+    kept.set("client:fps", "0");
+    const c = createControls({ title: "A client" });
+    deskMovingSwitch(c);
+    expect(currentSettings().intense).toBeUndefined();
+    askDeskMoving(c, { keep: "client:fps" })();
+    expect(typeof currentSettings().intense).toBe("boolean");
+  });
+
+  it("with no name given, it is kept under the kit's own name, as before", async () => {
+    const c = createControls({ title: "A client" });
+    const row = deskMovingSwitch(c);
+    await row.act();
+    expect(kept.get("nswp:fps")).toBe("1");
+    expect([...kept.keys()].filter((k) => k.endsWith(":fps"))).toEqual(["nswp:fps"]);
+  });
+
+  it("the question keeps its answer under the name given, and the switch beside it shows that answer", () => {
+    vi.useFakeTimers();
+    try {
+      const c = createControls({ title: "A client" });
+      const row = deskMovingSwitch(c, { keep: "client:fps" });
+      c.add(row);
+      const stop = askDeskMoving(c, { keep: "client:fps", after: 10 });
+      vi.advanceTimersByTime(50);
+      const intense = c.view().sections.flatMap((s) => s.items).find((i) => i.id === "desk-intense");
+      if (intense) {
+        c.run("desk-intense");
+        expect(kept.get("client:fps")).toBe("1");
+        expect(kept.has("nswp:fps")).toBe(false);
+        expect(row.on?.()).toBe(true);
+      } else {
+        // Not asked of a browser driven by a script: then nothing was kept, under either name.
+        expect([...kept.keys()].filter((k) => k.endsWith(":fps"))).toEqual([]);
+      }
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("the client's menu has its own switches first in Moving, and the world's jump below under the world's name", () => {
     const world = createControls({ title: "The Gallery" });
     world.add({ id: "fps", section: "moving", label: "Desk controls: casual", act: () => {} });

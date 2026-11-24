@@ -13,7 +13,7 @@
  * Nothing here draws a model or a picture, so a client's own page can carry it.
  */
 import { mayAskHowTheyMove } from "./ask-once.js";
-import { DESK_QUESTION, DESK_WORDS, hasMouse, keepIntense, keptIntense, startsIntense } from "./fps.js";
+import { DESK_KEY, DESK_QUESTION, DESK_WORDS, hasMouse, keepIntense, keptIntense, startsIntense } from "./fps.js";
 import { setShowsModels, showsModels } from "./models-switch.js";
 import { setShowsPictures, showsPictures } from "./picture.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
@@ -109,12 +109,29 @@ export const chatSwitch = (tell: (text: string) => void): UiAction => ({
     },
   });
 
-/** The visitor's choice of how they move at a desk, as this page holds it: one for the page, whoever asks or shows it. */
-let desk: { intense: boolean; chosen: boolean } | null = null;
-const deskChoice = () => {
-  if (desk) return desk;
+/**
+ * The visitor's choice of how they move at a desk, as this page holds it: one for the page, whoever asks or shows it.
+ *
+ * It is kept under a name (`keep`), as a world's own is (fps.ts): the kit's by default, or the one a page gives. A
+ * client whose own room keeps the choice under a name of its own gives that name here, so that the room and the
+ * client's menu hold one choice and not two. (BitPortal's room kept it as `bitportal:fps` and its shell's menu
+ * under the kit's name: turned on in the shell's menu, it never reached the world. Found 2026-11-24.) Whoever
+ * shows the switch and whoever asks the question give the same name; a name given later than another is the one
+ * the page then keeps to, and the choice is read again from it.
+ */
+let desk: { intense: boolean; chosen: boolean; key: string } | null = null;
+const deskChoice = (keep?: string) => {
+  if (desk) {
+    if (keep !== undefined && keep !== desk.key) {
+      desk.key = keep;
+      desk.intense = startsIntense(false, keep);
+      desk.chosen = typeof arrivedSettings().intense === "boolean" || keptIntense(keep);
+    }
+    return desk;
+  }
   // Whether they have said how they move at a desk: until they have, nothing is said of it to any world.
-  const now = (desk = { intense: startsIntense(false), chosen: typeof arrivedSettings().intense === "boolean" || keptIntense() });
+  const key = keep ?? DESK_KEY;
+  const now = (desk = { intense: startsIntense(false, key), chosen: typeof arrivedSettings().intense === "boolean" || keptIntense(key), key });
   reportSettings(
     "moving",
     () => (now.chosen ? { intense: now.intense } : {}),
@@ -122,7 +139,7 @@ const deskChoice = () => {
       if (typeof said.intense !== "boolean") return;
       now.intense = said.intense;
       now.chosen = true;
-      keepIntense(now.intense);
+      keepIntense(now.intense, now.key);
     },
   );
   return now;
@@ -138,8 +155,8 @@ export function forgetDeskMoving(): void {
  * settings; the world in the frame takes it at once and moves them that way (fps.ts). The same row, by the same
  * words, as a world draws for itself. Not offered where there is no mouse, or in a headset.
  */
-export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presenting?: () => boolean } = {}): UiAction {
-  const choice = deskChoice();
+export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presenting?: () => boolean; /** Keep the choice under this name, for this site (as `createFps` takes it). */ keep?: string } = {}): UiAction {
+  const choice = deskChoice(o.keep);
   return {
     id: "fps",
     section: "moving",
@@ -150,7 +167,7 @@ export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presentin
     act: () => {
       choice.intense = !choice.intense;
       choice.chosen = true;
-      keepIntense(choice.intense);
+      keepIntense(choice.intense, choice.key);
       controls.say(choice.intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
     },
   };
@@ -168,14 +185,14 @@ export function deskMovingSwitch(controls: Pick<Controls, "say">, o: { presentin
  * (the world draws the console there, and asks its own question), or of a browser driven by a script unless the
  * page's address says `?ask=moving`. Returns how to stop.
  */
-export function askDeskMoving(controls: Controls, o: { presenting?: () => boolean; after?: number } = {}): () => void {
-  const choice = deskChoice();
+export function askDeskMoving(controls: Controls, o: { presenting?: () => boolean; after?: number; /** Keep the answer under this name, for this site (as `createFps` takes it). */ keep?: string } = {}): () => void {
+  const choice = deskChoice(o.keep);
   let asking = false;
   const answer = (intense: boolean) => {
     asking = false;
     choice.intense = intense;
     choice.chosen = true;
-    keepIntense(intense);
+    keepIntense(intense, choice.key);
     controls.say(intense ? DESK_WORDS.nowIntense : DESK_WORDS.nowCasual);
     // Told as a change, so that whoever says the visitor's settings onward says this one now.
     controls.setTheme({});
