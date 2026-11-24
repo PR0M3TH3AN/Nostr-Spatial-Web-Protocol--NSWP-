@@ -90,6 +90,31 @@ protocol.
 - **Each trial is at least two runs,** with the cost of both said when the
   owner is asked: the tree test's answer changed on its third.
 
+## A fourth: hide and seek, and a hunter (asked 2026-11-24)
+
+The owner, in the `nswp-agents` session, as that session passed his words
+on: "im trying to see how far we can get specific behavior out of a
+general agent". He cited the Bitter Lesson, wants to "keep our options
+open to enable autonomy when its marginally as good", and says code and
+rules built into an agent are fine "so long as it can generalize as
+well", with rules written for one game as the fall-back. He asked for
+hide and seek, and a horror game's hunter, as a game to test agents on at
+"different levels of intelligence".
+
+As that session answered him, and nothing of it built: the same game and
+the same skills, played by five levels of decider, from a scripted hunter
+up to the chat model playing directly, so that what each level buys can
+be read off one table. Its free half first (the game, the rules-only
+hunter, what is in sight), as the mystery's was.
+
+For the orchestrator's part, to hold to: the rules-only hunter is the
+line every other level is read against, with the same counts; a hunter is
+a fast task with choices that go stale, which is where rules beat a
+decider twice on the ranges, so the levels are expected to differ most in
+searching and guessing where someone hid, not in the chase; and what a
+hidden player may be told about (sight, sound) is the world's to declare.
+Nothing here is for the kit or a live world.
+
 ## Must not
 
 - Spend on the owner's accounts without his word in that session, with the
