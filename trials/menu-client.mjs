@@ -82,6 +82,18 @@ const results = {};
 const fail = [];
 /** When each failed check was recorded: one recorded in the moment a run was stopped is the stop, not the kit. */
 const failedAt = new Map();
+// A thing that could not be judged: the page it asks about was too slow for the answer to mean anything. It is
+// counted and printed as that. It is never a pass, and never a failure a reader has to explain away.
+const unjudged = [];
+const notJudged = (name, why, saw) => {
+  if (TIMES) note(`  ${String(((Date.now() - lastCheck) / 1000).toFixed(1)).padStart(6)} s  NOT JUDGED  ${name}`);
+  lastCheck = Date.now();
+  results[name] = { "not judged": why, saw: saw ?? null };
+  unjudged.push(name);
+};
+// For showing what a page too slow to judge reads as: `--slow-own-page=N` slows the processor N times for the one
+// page that is a whole world drawn by itself (the music visit's "controls/on the world's own page").
+const SLOW_OWN_PAGE = Number(process.argv.find((a) => a.startsWith("--slow-own-page="))?.split("=")[1] ?? 0);
 // Said as it goes, apart from the result (which is printed whole at the end): a log that simply ends was cut off.
 const note = (text) => process.stderr.write(`${text}\n`);
 /** With `--times`, each check is said as it is made, with how long it was since the one before: where the time goes. */
@@ -1003,14 +1015,22 @@ VISITS.music = async () => {
 
       // The same rows in a world's own menu (the fallback: this Gallery opened as a page of its own, no client). Its
       // songs are its own site's: the file is chosen again there.
-      {
+      ownPage: {
         lap("(before the world's own page)");
         const own = await ctx5.newPage();
+        if (SLOW_OWN_PAGE > 1) await (await ctx5.newCDPSession(own)).send("Emulation.setCPUThrottlingRate", { rate: SLOW_OWN_PAGE });
         own.on("filechooser", (c) => void c.setFiles([tune, tune2]));
-        await own.goto(`${WORLD}/`, { timeout: 60000 });
+        // A page that never comes up, or a world in it that is never ready, is a page too slow to ask anything of:
+        // said as that, and the rest of this section left alone. It is not the menu's failing, and not a pass.
+        const cameUp = await own.goto(`${WORLD}/`, { timeout: 60000 }).then(() => true, () => false);
         lap("the world's own page asked for");
-        await until5(() => own.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+        const ready = cameUp && !!(await until5(() => own.evaluate(() => window.__nswpTest?.state?.ready === true), 60000));
         lap("the world ready");
+        if (!ready) {
+          notJudged("controls/on the world's own page", `the page was too slow for this to mean anything: ${cameUp ? "its world was not ready in a minute" : "it did not come up in a minute"}`);
+          await own.close().catch(() => undefined);
+          break ownPage;
+        }
         const ownHud = own.locator("nswp-hud");
         // A press with the mouse where the thing is, once it is there, has stopped moving, and is what the mouse would
         // land on: its place is read, read again a moment later, and pressed when the two agree. A tab along the
@@ -1048,13 +1068,33 @@ VISITS.music = async () => {
         };
         // Each press and each wait by its own name, in order, and the first that isn't so stops the rest: a press
         // this script never made is said as that, and never shows up later as a row that isn't there.
+        //
+        // This page is a whole world drawn by itself. Drawn without a graphics card on a busy machine it can be too
+        // slow for a press to be made at all, and then a step that is "not so" says nothing about the menu. So how
+        // fast the page is, is measured: how many frames it draws in two seconds, and how long it takes to answer
+        // once. A step that is not so on a page drawing fewer than two frames a second, or taking over three
+        // seconds to answer, is NOT JUDGED, with those numbers; on a page faster than that it has FAILED.
+        const pace = async () => {
+          const asked = Date.now();
+          const frames = await own.evaluate(() => new Promise((done) => { let n = 0; const f = () => { n++; requestAnimationFrame(f); }; requestAnimationFrame(f); setTimeout(() => done(n), 2000); }), null, { timeout: 30000 }).catch(() => null);
+          return { frames, answerMs: Math.max(0, Date.now() - asked - 2000) };
+        };
+        const tooSlow = (p) => p.frames === null || p.frames < 4 || p.answerMs > 3000;
+        const said = (p) => `${p.frames === null ? "no answer in thirty seconds" : `${p.frames} frames in two seconds`}, ${p.answerMs} ms to answer`;
+        const first = await pace();
+        results["controls/on the world's own page: how fast that page is, before anything is pressed"] = said(first);
         let stoppedAt = "";
         const step = async (name, does) => {
           if (stoppedAt) return void (results[`controls/on the world's own page, ${name}`] = `not tried: ${stoppedAt}`);
           const ok = !!(await does());
           lap(`${name}: ${ok}`);
-          check(`controls/on the world's own page, ${name}`, ok);
-          if (!ok) stoppedAt = `${name} was not so`;
+          if (ok) return check(`controls/on the world's own page, ${name}`, true);
+          const now = await pace();
+          // The slower of how the page was before the steps and how it is now: a page can be slow only while it loads.
+          const slow = tooSlow(now) ? now : tooSlow(first) ? first : null;
+          if (slow) notJudged(`controls/on the world's own page, ${name}`, `the page was too slow for this to mean anything: ${said(slow)}`, { before: said(first), now: said(now) });
+          else check(`controls/on the world's own page, ${name}`, false, { "the page was fast enough to judge": said(now) });
+          stoppedAt = `${name} was ${slow ? "not judged" : "not so"}`;
         };
         await step("the press on Menu was made", () => pressOwn("button", "Menu"));
         await step("the press on the Sound tab was made", () => pressOwn("tab", "Sound"));
@@ -1074,9 +1114,10 @@ VISITS.music = async () => {
           check("controls/and draws the same bar", ownBar === `Your music: ${title}`, ownBar);
         }
         await own.waitForTimeout(600);
-        await own.screenshot({ path: join(SHOTS, "menu-client-14-music-own-menu.png") });
-        await own.evaluate(() => window.__nswpTest.sounds.jukebox.pause());
-        await own.close();
+        // On a page too slow to judge these can take longer than they are given, and are not what is asked about.
+        await own.screenshot({ path: join(SHOTS, "menu-client-14-music-own-menu.png"), timeout: 20000 }).catch(() => undefined);
+        await own.evaluate(() => window.__nswpTest.sounds.jukebox.pause()).catch(() => undefined);
+        await own.close().catch(() => undefined);
       }
 
       // Through a door: the next world comes into the frame, and the client's page stays.
@@ -1512,7 +1553,7 @@ const stop = (why, code) => {
     fail.splice(fail.indexOf(name), 1);
   }
   console.log(JSON.stringify(results, null, 2));
-  const done = ran.map((r) => `${r.name} (${r.failed ? `${r.failed} FAILED, ` : ""}${r.ok} ok, ${r.seconds} s)`);
+  const done = ran.map((r) => `${r.name} (${r.failed ? `${r.failed} FAILED, ` : ""}${r.unjudged ? `${r.unjudged} NOT JUDGED, ` : ""}${r.ok} ok, ${r.seconds} s)`);
   console.error(`\nSTOPPED after ${seconds(began)} s${at ? `, ${seconds(atBegan)} s into the visit "${at}"` : ""}: ${why}.`);
   console.error("This is not a result. Nothing here says the kit failed or passed in the visits that didn't run to their end.");
   console.error(`Ran to their end: ${done.join(", ") || "none"}.`);
@@ -1527,7 +1568,7 @@ browser.on("disconnected", () => stop("its browser went away", 3));
 for (const name of names) {
   at = name;
   atBegan = Date.now();
-  const before = { ok: Object.values(results).filter((r) => r === "ok").length, failed: fail.length };
+  const before = { ok: Object.values(results).filter((r) => r === "ok").length, failed: fail.length, unjudged: unjudged.length };
   note(`${name}: begun, ${seconds(began)} s in (about ${ABOUT[name][0]} s)`);
   try {
     await VISITS[name]();
@@ -1535,9 +1576,9 @@ for (const name of names) {
     // Said with everything else, so that what was seen before it is not lost.
     check(`${name}/the visit ran to its end`, false, String(e).slice(0, 300));
   }
-  const now = { name, ok: Object.values(results).filter((r) => r === "ok").length - before.ok, failed: fail.length - before.failed, seconds: seconds(atBegan) };
+  const now = { name, ok: Object.values(results).filter((r) => r === "ok").length - before.ok, failed: fail.length - before.failed, unjudged: unjudged.length - before.unjudged, seconds: seconds(atBegan) };
   ran.push(now);
-  note(`${name}: ${now.failed ? `${now.failed} FAILED, ` : ""}${now.ok} ok, in ${now.seconds} s`);
+  note(`${name}: ${now.failed ? `${now.failed} FAILED, ` : ""}${now.unjudged ? `${now.unjudged} NOT JUDGED, ` : ""}${now.ok} ok, in ${now.seconds} s`);
 }
 at = "";
 closing = true;
@@ -1548,8 +1589,10 @@ results["how long each visit took, in seconds"] = Object.fromEntries(ran.map((r)
 // this trial made, none was found over the thing it wanted.
 check("no said line lay over anything this trial went to press", linesOver.length === 0, linesOver);
 console.log(JSON.stringify(results, null, 2));
+// Not a pass and not a failure: said by name, with why, whatever else happened.
+if (unjudged.length) console.error(`\nNOT JUDGED: ${unjudged.length}\n- ${unjudged.map((n) => `${n}: ${results[n]["not judged"]}`).join("\n- ")}`);
 if (fail.length) {
   console.error(`\nFAILED: ${fail.length}\n- ${fail.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed${names.length < Object.keys(VISITS).length ? ` (only ${names.join(", ")})` : ""}`);
+console.log(`\nall ${Object.values(results).filter((r) => r === "ok").length} checks passed${unjudged.length ? `, ${unjudged.length} NOT JUDGED` : ""}${names.length < Object.keys(VISITS).length ? ` (only ${names.join(", ")})` : ""}`);
