@@ -1255,13 +1255,40 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
    * kept, and coming up costs what it did before the sheet was one size. A tab not yet measured when the menu
    * comes up is measured then, as before; so is one that changed in the moment between.
    */
+  //
+  // It is never at the cost of the world's own frames, which are drawn by the same page where a world draws its
+  // own menu:
+  // - one tab in a moment, and only in a moment the browser says is idle with room left in it (never forced by a
+  //   time limit: a page that is never idle measures at the press, as it did);
+  // - not while the visitor is doing something: the pointer held by the world, a key or a button down, or within
+  //   half a second of a key, a press, a turn of the wheel or the mouse moving with a button down;
+  // - not while this is hidden, which it is in a headset session.
+  // Whatever makes the kept sizes stale is measured again the same way, ahead and not at the press: a world's tab
+  // arriving or changing and the size of text (each is a drawing, and each drawing with the menu down asks for it),
+  // and the window changing width (asked for below).
   let lastView: UiView | null = null;
   let lastLayOut: LayOut | null = null;
   let aheadWaiting = false;
+  let lastInput = -Infinity;
+  let downs = 0;
+  const AHEAD_ROOM_MS = 5;
+  const AHEAD_QUIET_MS = 500;
+  const onInput = (e: Event) => {
+    if (e.type === "pointermove" && !(e as PointerEvent).buttons) return;
+    lastInput = performance.now();
+    if (e.type === "keydown" && !(e as KeyboardEvent).repeat) downs++;
+    if (e.type === "keyup") downs = Math.max(0, downs - 1);
+  };
+  const INPUTS = ["keydown", "keyup", "pointerdown", "pointerup", "pointermove", "wheel"] as const;
+  for (const type of INPUTS) addEventListener(type, onInput, { capture: true, passive: true });
+  const onBlurKeys = () => void (downs = 0);
+  addEventListener("blur", onBlurKeys);
+  const doing = () => downs > 0 || document.pointerLockElement !== null || performance.now() - lastInput < AHEAD_QUIET_MS;
   const idle = (fn: (left: () => number) => void) => {
-    const ask = (globalThis as { requestIdleCallback?: (cb: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()), { timeout: 2000 });
-    else setTimeout(() => fn(() => 4), 250);
+    const ask = (globalThis as { requestIdleCallback?: (cb: (d: { timeRemaining(): number }) => void) => number }).requestIdleCallback;
+    if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()));
+    // A browser with no word for an idle moment: a tab every quarter of a second, which is little enough.
+    else setTimeout(() => fn(() => AHEAD_ROOM_MS + 1), 250);
   };
   const measureAhead = () => {
     if (aheadWaiting) return;
@@ -1272,21 +1299,14 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       if (!lastView || !lastLayOut || !sheet.hidden || host.hidden) return;
       measure.style.width = "";
       const at = placeOf(Math.round(measure.getBoundingClientRect().width));
-      let more = false;
-      let done = 0;
-      for (const s of lastView.sections) {
-        const key = keyOf(at, s);
-        if (measured.has(key)) continue;
-        // One at the least, and then as many as the moment has room for.
-        if (done > 0 && left() < 3) {
-          more = true;
-          break;
-        }
-        measured.set(key, measureTab(s, lastLayOut));
-        done++;
-      }
+      const next = lastView.sections.find((s) => !measured.has(keyOf(at, s)));
+      if (!next) return;
+      // The visitor is doing something, or this moment has no room in it: asked again a little later.
+      if (doing() || left() < AHEAD_ROOM_MS) return void setTimeout(measureAhead, doing() ? AHEAD_QUIET_MS : 50);
+      measured.set(keyOf(at, next), measureTab(next, lastLayOut));
       measure.replaceChildren();
-      if (more) measureAhead();
+      // The rest, each in a moment of its own.
+      if (lastView.sections.some((s) => !measured.has(keyOf(at, s)))) measureAhead();
     });
   };
   /**
@@ -1402,7 +1422,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   // the new width, and found again once the window has stopped changing.
   let resized: ReturnType<typeof setTimeout> | null = null;
   const onWindowSize = () => {
-    if (sheet.hidden) return;
+    // With the menu down, the sizes kept are for the width it was: measured again ahead, for the width it is.
+    if (sheet.hidden) return void measureAhead();
     sheet.style.height = "";
     sheet.style.maxHeight = "";
     untuck();
@@ -2020,6 +2041,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       stopAsking();
       removeEventListener("focus", onPageFocus);
       removeEventListener("resize", onWindowSize);
+      for (const type of INPUTS) removeEventListener(type, onInput, { capture: true });
+      removeEventListener("blur", onBlurKeys);
       if (resized) clearTimeout(resized);
       for (const type of PRESS_ENDS) removeEventListener(type, pressOver, true);
       document.removeEventListener("visibilitychange", pressOver);

@@ -55115,10 +55115,25 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     let lastView = null;
     let lastLayOut = null;
     let aheadWaiting = false;
+    let lastInput = -Infinity;
+    let downs = 0;
+    const AHEAD_ROOM_MS = 5;
+    const AHEAD_QUIET_MS = 500;
+    const onInput = (e) => {
+      if (e.type === "pointermove" && !e.buttons) return;
+      lastInput = performance.now();
+      if (e.type === "keydown" && !e.repeat) downs++;
+      if (e.type === "keyup") downs = Math.max(0, downs - 1);
+    };
+    const INPUTS2 = ["keydown", "keyup", "pointerdown", "pointerup", "pointermove", "wheel"];
+    for (const type of INPUTS2) addEventListener(type, onInput, { capture: true, passive: true });
+    const onBlurKeys = () => void (downs = 0);
+    addEventListener("blur", onBlurKeys);
+    const doing = () => downs > 0 || document.pointerLockElement !== null || performance.now() - lastInput < AHEAD_QUIET_MS;
     const idle = (fn) => {
       const ask = globalThis.requestIdleCallback;
-      if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()), { timeout: 2e3 });
-      else setTimeout(() => fn(() => 4), 250);
+      if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()));
+      else setTimeout(() => fn(() => AHEAD_ROOM_MS + 1), 250);
     };
     const measureAhead = () => {
       if (aheadWaiting) return;
@@ -55128,20 +55143,12 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (!lastView || !lastLayOut || !sheet.hidden || host.hidden) return;
         measure.style.width = "";
         const at = placeOf(Math.round(measure.getBoundingClientRect().width));
-        let more = false;
-        let done = 0;
-        for (const s of lastView.sections) {
-          const key = keyOf(at, s);
-          if (measured.has(key)) continue;
-          if (done > 0 && left() < 3) {
-            more = true;
-            break;
-          }
-          measured.set(key, measureTab(s, lastLayOut));
-          done++;
-        }
+        const next = lastView.sections.find((s) => !measured.has(keyOf(at, s)));
+        if (!next) return;
+        if (doing() || left() < AHEAD_ROOM_MS) return void setTimeout(measureAhead, doing() ? AHEAD_QUIET_MS : 50);
+        measured.set(keyOf(at, next), measureTab(next, lastLayOut));
         measure.replaceChildren();
-        if (more) measureAhead();
+        if (lastView.sections.some((s) => !measured.has(keyOf(at, s)))) measureAhead();
       });
     };
     const TOP_GAP = 10;
@@ -55227,7 +55234,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     };
     let resized = null;
     const onWindowSize = () => {
-      if (sheet.hidden) return;
+      if (sheet.hidden) return void measureAhead();
       sheet.style.height = "";
       sheet.style.maxHeight = "";
       untuck();
@@ -55727,6 +55734,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stopAsking();
         removeEventListener("focus", onPageFocus);
         removeEventListener("resize", onWindowSize);
+        for (const type of INPUTS2) removeEventListener(type, onInput, { capture: true });
+        removeEventListener("blur", onBlurKeys);
         if (resized) clearTimeout(resized);
         for (const type of PRESS_ENDS) removeEventListener(type, pressOver, true);
         document.removeEventListener("visibilitychange", pressOver);
