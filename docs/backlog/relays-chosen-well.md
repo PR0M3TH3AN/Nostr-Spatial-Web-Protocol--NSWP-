@@ -14,7 +14,13 @@
 - **Who:** the NSWP builder (the kit's relay code, which BitPortal and
   every world already carry); then BitLogin, BitUnlock and BitGate, each
   saying what it does with relays today.
-- **State:** asked. The orchestrator's answer is yes, with what follows.
+- **State:** the four small mends (with two more found by BitPortal's
+  runs) are ordered from the builder for kit 0.90.0, on the owner's word
+  after they were put to him, 2026-11-24: "Yes please do the fix so its
+  more consistent across all worlds and all users." The builder sends a
+  plan with its numbers first. The written design for one relay code in
+  every project comes after. The orchestrator's answer to "dont you
+  think?" is yes, with what follows.
 
 ## What the kit has today
 
