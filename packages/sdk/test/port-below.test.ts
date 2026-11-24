@@ -79,6 +79,36 @@ describe("meeting the page in the frame", () => {
     expect(c.below.world).toBeNull();
   });
 
+  it("draws nothing again for a world that says again what it said before", () => {
+    // A menu drawn again is every row made anew. A world that speaks ten times a second and changes nothing must not
+    // have the whole menu replaced ten times a second (found by BitPortal, 2026-11-24).
+    const c = make();
+    c.here();
+    let changes = 0;
+    let drawings = 0;
+    c.below.onChange(() => changes++);
+    c.below.port.subscribe(() => drawings++);
+    c.from({ nswp: "menu", world: described() });
+    expect([changes, drawings]).toEqual([1, 1]);
+    for (let i = 0; i < 10; i++) c.from({ nswp: "menu", world: described() });
+    expect([changes, drawings]).toEqual([1, 1]);
+    // One word of it changed: that is a change, once.
+    const later = described() as { sections: { rows: { label: string }[] }[] };
+    later.sections[0]!.rows[0]!.label = "Go home, the long way";
+    c.from({ nswp: "menu", world: later });
+    c.from({ nswp: "menu", world: later });
+    expect([changes, drawings]).toEqual([2, 2]);
+    // And back to what it was is a change too.
+    c.from({ nswp: "menu", world: described() });
+    expect([changes, drawings]).toEqual([3, 3]);
+    // A new page in the frame that says the very same thing is a new world, and is drawn.
+    const before = changes;
+    c.here();
+    c.from({ nswp: "menu", world: described() });
+    expect(c.below.world).not.toBeNull();
+    expect(changes).toBeGreaterThan(before + 1);
+  });
+
   it("takes words only from the frame's own page, and only from the origin that said here", () => {
     const c = make();
     c.here();
@@ -319,6 +349,20 @@ describe("a world's pictures", () => {
   };
   const A = { bitmap: "a" };
   const B = { bitmap: "b" };
+
+  it("inside a description said again with the same words are drawn each time: a picture is never taken as the same", () => {
+    // Two pictures that read the same as text, as two bitmaps do (`{}`): the second must still be drawn.
+    const pic = (n: string) => Object.defineProperty({}, "which", { value: n, enumerable: false });
+    const P1 = pic("one");
+    const P2 = pic("two");
+    expect(JSON.stringify(P1)).toBe(JSON.stringify(P2));
+    const c = up();
+    const said = (p: object) => ({ nswp: "menu", world: { title: "The Gallery", sections: [{ id: "people", rows: [{ id: "print", label: "A print", kind: "tile", picture: p }] }] } });
+    c.from(said(P1));
+    expect(c.drawn().rows["world:print"]).toBe(P1);
+    c.from(said(P2));
+    expect(c.drawn().rows["world:print"]).toBe(P2);
+  });
 
   it("come each alone, for a row by its id and a card by its tab, and are what the menu draws", () => {
     const c = up();

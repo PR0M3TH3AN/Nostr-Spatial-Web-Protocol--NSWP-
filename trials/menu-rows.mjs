@@ -759,6 +759,39 @@ try {
     check("its own movement is not held up: the bar is along with the mouse while the mouse is still down", alongAt > 60, alongAt);
     check("and what changed meanwhile waited for the bar, and is drawn once it is let go", heldBack && (await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 2000, polling: 50 }).then(() => true, () => false)), { heldBack, rows: await rowWords() });
   }
+  // 3b. A menu that changes again and again while it is used: something it shows changes four times a second, then
+  // ten (a counter, a world that speaks often). Twenty presses with a real mouse at each, held for as long as a
+  // quick press and a slow one. Every one is heard, and the menu was in fact drawn again all the while.
+  for (const [what, every] of [["four times a second", 250], ["ten times a second", 100]]) {
+    await page.waitForTimeout(600);
+    await heldRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+    const before = await page.evaluate((every) => {
+      window.__drawn = 0;
+      window.__often = setInterval(() => { window.__held.other++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, every);
+      return window.__held.presses;
+    }, every);
+    // Twenty presses made, counted as they are made: a row asked for in the instant it is being made anew has no
+    // place to press, and is asked for again. That is not a press, and is counted as neither made nor lost.
+    let made = 0;
+    let noPlace = 0;
+    for (let tries = 0; made < 20 && tries < 80; tries++) {
+      const at = await heldRow.boundingBox().catch(() => null);
+      if (!at) { noPlace++; await page.waitForTimeout(30); continue; }
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(40 + (made % 4) * 40);
+      await page.mouse.up();
+      made++;
+      await page.waitForTimeout(110);
+    }
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(() => { clearInterval(window.__often); return { presses: window.__held.presses, drawn: window.__drawn }; });
+    check(`with the menu changing ${what}, twenty presses with the mouse are twenty presses`, made === 20 && after.presses === before + 20, { made, heard: after.presses - before, noPlace });
+    check(`and the menu was drawn again all the while (${what})`, after.drawn >= 8, after.drawn);
+    results[`with the menu changing ${what}: presses heard of 20, and drawings of the rows meanwhile`] = { made, heard: after.presses - before, drawn: after.drawn, noPlace };
+  }
+
   // 4. The same with the space bar. A row that has the keys is pressed by the bar going down and coming up on it.
   // Drawn again between the two, the row that had the keys is gone, and the bar comes up on nothing. A real keyboard:
   // the row is given the keys, and the bar is put down and let up by the browser's own keyboard.

@@ -6978,10 +6978,19 @@ ${roomName}`)));
   var MENU_SAVE_MS = 1e4;
   var MENU_MAKING_MS = 6e4;
   var MENU_VISITOR_TABS = ["you", "figure", "bag", "wallet", "files", "following", "messages", "look"];
+  var MENU_WORLD_TABS = ["travel", "room", "people", "camera", "panels", "view", "scores", "achievements", "guests", "sound", "help", "moving"];
   var MENU_KEYS = ["summon", "escape", "menu", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
   var MENU_CARD_PICTURE = "card:";
+  var MENU_ROW_KINDS = ["button", "swatch", "tile", "line", "copy", "field", "file", "save"];
   var MENU_FILE_KINDS = ["image", "video"];
   var MENU_SAVE_TYPES = ["image/jpeg", "image/png", "image/webp", "video/webm", "video/mp4"];
+  var MENU_SIGN_IN = ["none", "ready", "asking", "unanswered"];
+  var TAB_NAME = /^[a-z][a-z0-9-]{0,11}$/;
+  var ICON_NAME = /^[a-z][a-z0-9-]{0,23}$/;
+  var COLOR = /^#[0-9a-f]{6}$/;
+  var LEVELS = ["full", "quiet", "hidden"];
+  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  var UNSEEN3 = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g;
   var UNSEEN_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
   var isObject = (v2) => !!v2 && typeof v2 === "object" && !Array.isArray(v2);
   var count = (s) => {
@@ -6990,6 +6999,12 @@ ${roomName}`)));
       n++;
     return n;
   };
+  function line2(v2, most) {
+    if (typeof v2 !== "string" || v2.length > most * 4)
+      return void 0;
+    const s = v2.replace(UNSEEN3, " ").replace(/ {2,}/g, " ").trim();
+    return s && count(s) <= most ? s : void 0;
+  }
   function whole(v2, most) {
     if (typeof v2 !== "string" || !v2 || v2.length > most * 4 || UNSEEN_BUT_LINES.test(v2))
       return void 0;
@@ -7015,6 +7030,201 @@ ${roomName}`)));
       return null;
     const plain = type.split(";")[0].trim().toLowerCase();
     return MENU_SAVE_TYPES.includes(plain) ? plain : null;
+  }
+  function readRow(raw, mayType, mayFile, o) {
+    if (!isObject(raw))
+      return null;
+    const rowId = id(raw.id);
+    const label = line2(raw.label, MENU_LIMITS.label);
+    if (!rowId || !label || rowId.startsWith(MENU_CARD_PICTURE))
+      return null;
+    const kind = raw.kind === void 0 ? "button" : MENU_ROW_KINDS.includes(raw.kind) ? raw.kind : null;
+    if (!kind)
+      return null;
+    if (kind === "field" && !mayType)
+      return null;
+    if (kind === "file" && !mayFile)
+      return null;
+    const row = { id: rowId, label, kind };
+    if (kind === "file") {
+      const asked2 = Array.isArray(raw.accept) ? raw.accept.slice(0, 8) : [];
+      const accept = MENU_FILE_KINDS.filter((k) => asked2.includes(k));
+      if (!accept.length)
+        return null;
+      row.accept = accept;
+    }
+    if (kind === "copy") {
+      const text2 = whole(raw.copy, MENU_LIMITS.copy);
+      if (!text2)
+        return null;
+      row.copy = text2;
+    }
+    const short = line2(raw.short, MENU_LIMITS.label);
+    if (short)
+      row.short = short;
+    if (typeof raw.icon === "string" && ICON_NAME.test(raw.icon))
+      row.icon = raw.icon;
+    if (typeof raw.on === "boolean")
+      row.on = raw.on;
+    if (raw.tone === "primary" || raw.tone === "warn")
+      row.tone = raw.tone;
+    if (typeof raw.color === "string" && COLOR.test(raw.color))
+      row.color = raw.color;
+    if (kind === "swatch" && !row.color)
+      return null;
+    if (typeof raw.mark === "string" && ICON_NAME.test(raw.mark))
+      row.mark = raw.mark;
+    if (raw.faint === true)
+      row.faint = true;
+    if (raw.bar === true && kind !== "line" && kind !== "field" && kind !== "file")
+      row.bar = true;
+    if (raw.picture !== void 0 && o.picture?.(raw.picture))
+      row.picture = raw.picture;
+    return row;
+  }
+  function readCard(raw, o) {
+    if (!isObject(raw))
+      return void 0;
+    const title = line2(raw.title, MENU_LIMITS.label);
+    if (!title)
+      return void 0;
+    const card = { title };
+    const tag2 = line2(raw.tag, MENU_LIMITS.label);
+    if (tag2)
+      card.tag = tag2;
+    if (raw.proven === true && o.own)
+      card.proven = true;
+    const sub = line2(raw.sub, MENU_LIMITS.label);
+    if (sub)
+      card.sub = sub;
+    const copy = whole(raw.copy, MENU_LIMITS.copy);
+    if (copy)
+      card.copy = copy;
+    const text2 = line2(raw.text, MENU_LIMITS.note);
+    if (text2)
+      card.text = text2;
+    if (typeof raw.color === "string" && COLOR.test(raw.color))
+      card.color = raw.color;
+    if (Array.isArray(raw.now)) {
+      const now = raw.now.slice(0, 8).flatMap((n) => line2(n, MENU_LIMITS.label) ?? []);
+      if (now.length)
+        card.now = now;
+    }
+    if (Array.isArray(raw.acts)) {
+      const acts = raw.acts.slice(0, 8).flatMap((a) => id(a) ?? []);
+      if (acts.length)
+        card.acts = acts;
+    }
+    if (raw.picture !== void 0 && o.picture?.(raw.picture))
+      card.picture = raw.picture;
+    return card;
+  }
+  function readState(raw) {
+    const s = isObject(raw) ? raw : {};
+    const room3 = isObject(s.room) ? s.room : {};
+    const headset2 = isObject(s.headset) ? s.headset : {};
+    const has = room3.has === true;
+    const n = typeof room3.count === "number" && Number.isFinite(room3.count) ? Math.min(9999, Math.max(0, Math.floor(room3.count))) : 0;
+    return {
+      room: { has, joined: has && room3.joined === true, mic: has && typeof room3.mic === "boolean" ? room3.mic : null, count: has ? n : 0 },
+      headset: { supported: headset2.supported === true, presenting: headset2.supported === true && headset2.presenting === true },
+      named: s.named === true,
+      signIn: MENU_SIGN_IN.includes(s.signIn) ? s.signIn : "none",
+      holding: id(s.holding) ?? "",
+      items: cleanItemsRule(s.items),
+      hum: s.hum === true
+    };
+  }
+  function tabOf(name, o) {
+    if (MENU_WORLD_TABS.includes(name))
+      return "world";
+    if (MENU_VISITOR_TABS.includes(name))
+      return o.own || o.also?.includes(name) ? "visitor" : null;
+    return "own";
+  }
+  function cleanMenuWorld(input, opts = {}) {
+    if (!isObject(input))
+      return null;
+    const world2 = {
+      title: line2(input.title, MENU_LIMITS.title) ?? "",
+      level: LEVELS.includes(input.level) ? input.level : "full",
+      keys: input.keys !== false,
+      state: readState(input.state),
+      target: [],
+      loading: null,
+      sections: []
+    };
+    if (CORNERS.includes(input.corner))
+      world2.corner = input.corner;
+    if (Array.isArray(input.target)) {
+      const lines = input.target.slice(0, 6).map((t) => line2(t, MENU_LIMITS.label));
+      if (lines[0])
+        world2.target = lines.filter((t) => !!t);
+    }
+    if (isObject(input.loading)) {
+      const f = input.loading.fraction;
+      world2.loading = { fraction: typeof f === "number" && Number.isFinite(f) ? Math.round(Math.min(1, Math.max(0, f)) * 100) / 100 : null, words: line2(input.loading.words, MENU_LIMITS.label) ?? "" };
+    }
+    const tabs = /* @__PURE__ */ new Set();
+    const rows = /* @__PURE__ */ new Set();
+    let own2 = 0;
+    let all = 0;
+    for (const raw of Array.isArray(input.sections) ? input.sections.slice(0, MENU_LIMITS.sections) : []) {
+      if (!isObject(raw) || typeof raw.id !== "string" || !TAB_NAME.test(raw.id) || tabs.has(raw.id))
+        continue;
+      const whose = tabOf(raw.id, opts);
+      if (!whose)
+        continue;
+      const section = { id: raw.id, rows: [] };
+      if (whose === "own") {
+        const label = line2(raw.label, MENU_LIMITS.label);
+        if (!label || !opts.own && own2 >= MENU_LIMITS.ownTabs)
+          continue;
+        own2++;
+        section.label = label;
+        if (typeof raw.icon === "string" && ICON_NAME.test(raw.icon))
+          section.icon = raw.icon;
+      }
+      tabs.add(raw.id);
+      const note = line2(raw.note, MENU_LIMITS.note);
+      if (note)
+        section.note = note;
+      const mayType = !!opts.own || whose === "own" || whose === "visitor" || raw.id === "guests";
+      const mayFile = !!opts.own || whose === "own" || raw.id === "panels";
+      for (const r of Array.isArray(raw.rows) ? raw.rows.slice(0, MENU_LIMITS.rows) : []) {
+        if (all >= MENU_LIMITS.allRows)
+          break;
+        const row = readRow(r, mayType, mayFile, opts);
+        if (!row || rows.has(row.id))
+          continue;
+        rows.add(row.id);
+        section.rows.push(row);
+        all++;
+      }
+      const card = readCard(raw.card, opts);
+      if (card) {
+        if (card.acts) {
+          const here = new Set(section.rows.map((r) => r.id));
+          const acts = card.acts.filter((a) => here.has(a));
+          if (acts.length)
+            card.acts = acts;
+          else
+            delete card.acts;
+        }
+        section.card = card;
+      }
+      world2.sections.push(section);
+    }
+    return menuBytes(world2) > MENU_LIMITS.bytes ? null : world2;
+  }
+  function menuBytes(world2) {
+    const text2 = JSON.stringify(world2, (key, value) => key === "picture" ? void 0 : value);
+    let n = 0;
+    for (let i = 0; i < text2.length; i++) {
+      const c = text2.charCodeAt(i);
+      n += c < 128 ? 1 : c < 2048 ? 2 : c >= 55296 && c <= 56319 ? (i++, 4) : 3;
+    }
+    return n;
   }
   function cleanMenuSettings(input) {
     return cleanSettings(input);
@@ -10576,9 +10786,9 @@ postMessage({ t: "started" });
           } else if (PLAY_WORD.test(e.data)) {
             if (peer.plays.take(Date.now())) this.emit("play", peer.member, e.data);
           } else if (e.data.startsWith("say:")) {
-            const line2 = parseSay(e.data);
+            const line3 = parseSay(e.data);
             const now = Date.now();
-            if (line2 && peer.words.take(line2.id, now)) this.emit("said", peer.member, { ...line2, at: now });
+            if (line3 && peer.words.take(line3.id, now)) this.emit("said", peer.member, { ...line3, at: now });
           }
           return;
         }
@@ -11003,13 +11213,13 @@ postMessage({ t: "started" });
      */
     say(text2) {
       const word = buildSay(text2);
-      const line2 = word ? parseSay(word) : null;
-      if (!word || !line2 || this.closed) return "nothing";
+      const line3 = word ? parseSay(word) : null;
+      if (!word || !line3 || this.closed) return "nothing";
       const now = Date.now();
-      if (!this.words.take(line2.id, now)) return "slow";
+      if (!this.words.take(line3.id, now)) return "slow";
       this.tellAll(word);
       for (let i = 1; i < CHAT_LIMITS.repeats; i++) setTimeout(() => !this.closed && this.tellAll(word), i * CHAT_LIMITS.repeatGapMs);
-      this.emit("said", this.self, { ...line2, at: now });
+      this.emit("said", this.self, { ...line3, at: now });
       return "said";
     }
     sendPose(pose) {
@@ -24912,20 +25122,20 @@ postMessage({ t: "started" });
      * @param {boolean} [clampToLine=true] - Whether to clamp the intersection to the line segment.
      * @return {?Vector3} The intersection point. Returns `null` if no intersection is detected.
      */
-    intersectLine(line2, target2, clampToLine = true) {
-      const direction = line2.delta(_vector1);
+    intersectLine(line3, target2, clampToLine = true) {
+      const direction = line3.delta(_vector1);
       const denominator = this.normal.dot(direction);
       if (denominator === 0) {
-        if (this.distanceToPoint(line2.start) === 0) {
-          return target2.copy(line2.start);
+        if (this.distanceToPoint(line3.start) === 0) {
+          return target2.copy(line3.start);
         }
         return null;
       }
-      const t = -(line2.start.dot(this.normal) + this.constant) / denominator;
+      const t = -(line3.start.dot(this.normal) + this.constant) / denominator;
       if (clampToLine === true && (t < 0 || t > 1)) {
         return null;
       }
-      return target2.copy(line2.start).addScaledVector(direction, t);
+      return target2.copy(line3.start).addScaledVector(direction, t);
     }
     /**
      * Returns `true` if the given line segment intersects with (passes through) the plane.
@@ -24933,9 +25143,9 @@ postMessage({ t: "started" });
      * @param {Line3} line - The line to test.
      * @return {boolean} Whether the given line segment intersects with the plane or not.
      */
-    intersectsLine(line2) {
-      const startSign = this.distanceToPoint(line2.start);
-      const endSign = this.distanceToPoint(line2.end);
+    intersectsLine(line3) {
+      const startSign = this.distanceToPoint(line3.start);
+      const endSign = this.distanceToPoint(line3.end);
       return startSign < 0 && endSign > 0 || endSign < 0 && startSign > 0;
     }
     /**
@@ -38320,8 +38530,8 @@ postMessage({ t: "started" });
     const from = Math.max(errorLine - 6, 0);
     const to = Math.min(errorLine + 6, lines.length);
     for (let i = from; i < to; i++) {
-      const line2 = i + 1;
-      lines2.push(`${line2 === errorLine ? ">" : " "} ${line2}: ${lines[i]}`);
+      const line3 = i + 1;
+      lines2.push(`${line3 === errorLine ? ">" : " "} ${line3}: ${lines[i]}`);
     }
     return lines2.join("\n");
   }
@@ -49690,13 +49900,13 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         unread = 0;
         bump2();
       },
-      add(line2) {
+      add(line3) {
         if (!send || !showsChat()) return;
-        const text2 = cleanChat(line2.text);
+        const text2 = cleanChat(line3.text);
         if (!text2) return;
-        lines.push({ key: `${line2.id ?? "n"}-${++count3}`, who: line2.note ? "" : cleanChat(line2.who ?? "").slice(0, 48), text: text2, mine: !!line2.mine, note: !!line2.note, color: line2.color ?? "", at: Date.now() });
+        lines.push({ key: `${line3.id ?? "n"}-${++count3}`, who: line3.note ? "" : cleanChat(line3.who ?? "").slice(0, 48), text: text2, mine: !!line3.mine, note: !!line3.note, color: line3.color ?? "", at: Date.now() });
         if (lines.length > CHAT_LIMITS.kept) lines = lines.slice(-CHAT_LIMITS.kept);
-        if (!line2.mine && !line2.note) unread++;
+        if (!line3.mine && !line3.note) unread++;
         bump2();
       },
       send(text2) {
@@ -51868,9 +52078,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     g.fill();
     g.fillStyle = color;
     g.textBaseline = "top";
-    lines.forEach((line2, i) => {
+    lines.forEach((line3, i) => {
       g.font = i === 0 ? "bold 56px system-ui, sans-serif" : "44px system-ui, sans-serif";
-      g.fillText(line2, 40, 32 + i * 72, canvas.width - 80);
+      g.fillText(line3, 40, 32 + i * 72, canvas.width - 80);
     });
     const tex = new CanvasTexture(canvas);
     tex.colorSpace = SRGBColorSpace;
@@ -52553,9 +52763,9 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
         pendingStreams.delete(m.pubkey);
         changed();
       });
-      s.on("said", (m, line2) => {
+      s.on("said", (m, line3) => {
         const a = avatars.get(m.pubkey);
-        if (a) showBubble(a, line2.text, bubbleSeconds(line2.text));
+        if (a) showBubble(a, line3.text, bubbleSeconds(line3.text));
       });
       s.on("pose", (m, pose) => {
         const a = avatars.get(m.pubkey);
@@ -53065,6 +53275,496 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     return JSON.stringify({ index, place: places[index] ?? null });
   }
 
+  // packages/sdk/src/ui/feed.ts
+  var FEED_LIMITS = { shown: 420, kept: 30 };
+  function createUiFeed(changed, now = () => Date.now()) {
+    let opts = null;
+    let posts = [];
+    let loading4 = false;
+    let said2 = "";
+    let version = 0;
+    let count3 = 0;
+    let asked2 = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    const sort = () => {
+      posts.sort((a, b) => b.at - a.at);
+      const kept2 = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
+      posts = kept2;
+    };
+    return {
+      attach(next) {
+        opts = next;
+        posts = [];
+        loading4 = false;
+        said2 = "";
+        asked2 = 0;
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        posts = [];
+        loading4 = false;
+        said2 = "";
+        bump2();
+      },
+      opened() {
+        const mine = opts;
+        if (!mine?.load || loading4 || asked2 && now() - asked2 < 6e4) return;
+        asked2 = now();
+        loading4 = true;
+        bump2();
+        void mine.load().catch(() => null).then((got) => {
+          if (opts !== mine) return;
+          loading4 = false;
+          if (!got) said2 = "Your earlier posts couldn't be fetched just now.";
+          else {
+            const seen = new Set(posts.map((p) => p.key));
+            for (const p of got) {
+              const text2 = cleanLine(p.text, FEED_LIMITS.shown);
+              if (!text2 || seen.has(p.id) || !Number.isFinite(p.at)) continue;
+              seen.add(p.id);
+              posts.push({ key: p.id, text: text2, at: p.at, state: "out", id: p.id });
+            }
+            sort();
+          }
+          bump2();
+        });
+      },
+      send(text2) {
+        const mine = opts;
+        if (!mine) return "There is nothing to post with: sign in first.";
+        const words2 = cleanChat(text2);
+        if (!words2) return null;
+        const post = { key: `new-${++count3}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        posts.unshift(post);
+        said2 = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          post.state = how.ok ? "out" : "failed";
+          if (how.ok && how.id) post.id = how.id;
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      remove(key) {
+        const mine = opts;
+        const post = posts.find((p) => p.key === key);
+        if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
+        const id2 = post.id;
+        post.state = "removing";
+        said2 = "";
+        bump2();
+        void mine.remove(id2).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) posts = posts.filter((p) => p !== post);
+          else post.state = "out";
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
+        const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
+        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
+        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
+      }
+    };
+  }
+  function ago(at, nowSec) {
+    const s = Math.max(0, nowSec - at);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+    const days = Math.floor(s / 86400);
+    if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
+    return new Date(at * 1e3).toISOString().slice(0, 10);
+  }
+
+  // packages/sdk/src/ui/letters.ts
+  function createUiLetters(changed, now = () => Date.now()) {
+    let opts = null;
+    let waiting3 = [];
+    let said2 = "";
+    let version = 0;
+    let count3 = 0;
+    const bump2 = () => {
+      version++;
+      changed();
+    };
+    return {
+      attach(next) {
+        opts = next;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      detach() {
+        if (!opts) return;
+        opts = null;
+        waiting3 = [];
+        said2 = "";
+        bump2();
+      },
+      touch: bump2,
+      seen() {
+        opts?.seen?.();
+      },
+      send(text2) {
+        const mine = opts;
+        if (!mine) return "There is nobody to write to: choose someone first.";
+        const words2 = cleanMessage(text2);
+        if (!words2) return null;
+        const line3 = { key: `new-${++count3}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
+        waiting3.push(line3);
+        said2 = "";
+        bump2();
+        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
+          if (opts !== mine) return;
+          if (how.ok) waiting3 = waiting3.filter((l) => l !== line3);
+          else line3.state = "failed";
+          said2 = how.said;
+          bump2();
+        });
+        return null;
+      },
+      view() {
+        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
+        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
+        return {
+          ready: !!opts,
+          title: name ? `${name}, privately` : "Private messages",
+          with: name,
+          lines,
+          said: said2,
+          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
+          limit: MESSAGE_LIMITS.chars,
+          version
+        };
+      }
+    };
+  }
+
+  // packages/sdk/src/ui/model.ts
+  var KIT_QUESTION_TABS = ["how-you-move-desk", "how-you-move"];
+  var PRESENCES = ["full", "quiet", "hidden"];
+  var CORNERS2 = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  function cleanKeys2(now, k) {
+    const out = { ...now };
+    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
+    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
+    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
+    return out;
+  }
+  var read3 = (t) => typeof t === "function" ? t() : t ?? "";
+  var STANDARD = [
+    { id: "travel", label: "Travel", icon: "door" },
+    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
+    { id: "you", label: "You", icon: "you" },
+    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
+    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
+    { id: "figure", label: "Your look", icon: "look" },
+    { id: "room", label: "Room", icon: "room" },
+    { id: "people", label: "People", icon: "people" },
+    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
+    { id: "following", label: "Following", icon: "list" },
+    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
+    { id: "messages", label: "Messages", icon: "chat" },
+    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
+    { id: "scores", label: "Scores", icon: "list" },
+    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
+    { id: "achievements", label: "Achievements", icon: "check" },
+    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
+    { id: "bag", label: "Bag", icon: "save" },
+    { id: "camera", label: "Camera", icon: "camera" },
+    { id: "panels", label: "Panels", icon: "panel" },
+    { id: "view", label: "View", icon: "vr" },
+    { id: "moving", label: "Moving", icon: "step" },
+    { id: "sound", label: "Sound", icon: "sound" },
+    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
+    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
+    { id: "help", label: "Help", icon: "help" }
+  ];
+  var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
+  var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
+  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
+  var rank = (id2) => {
+    const i = STANDARD_ORDER.indexOf(id2);
+    return i === -1 ? STANDARD_ORDER.length : i;
+  };
+  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
+  var PINS_KEY = "nswp:ui:pins";
+  function loadPins() {
+    try {
+      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
+      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function savePins(pins) {
+    try {
+      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
+    } catch {
+    }
+  }
+  var LOADING_WORDS = 80;
+  var SAY_STAYS = { least: 4200, most: 1e4, easy: 60, each: 70 };
+  var sayStays = (text2) => Math.min(SAY_STAYS.most, SAY_STAYS.least + Math.max(0, [...text2].length - SAY_STAYS.easy) * SAY_STAYS.each);
+  function cleanLoading(state) {
+    if (!state || typeof state !== "object") return null;
+    const raw = typeof state.words === "string" ? state.words : "";
+    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
+    const f = state.fraction;
+    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
+    return { fraction, words: words2 };
+  }
+  function createControls(opts) {
+    const sections = STANDARD.map((s) => ({ ...s }));
+    for (const s of opts.sections ?? []) addSection(s);
+    const actions = [];
+    const listeners = /* @__PURE__ */ new Set();
+    const sayers = /* @__PURE__ */ new Set();
+    const signals = /* @__PURE__ */ new Set();
+    let visitor = loadVisitorTheme();
+    const came = arrivedSettings();
+    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
+    if (Object.keys(brought).length) {
+      visitor = { ...visitor, ...brought };
+      saveVisitorTheme(visitor);
+    }
+    reportSettings(
+      "look",
+      () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }),
+      // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
+      (now) => {
+        const patch = { ...now.text !== void 0 ? { scale: now.text } : {}, ...now.motion !== void 0 ? { motion: now.motion } : {}, ...now.wrist !== void 0 ? { wrist: now.wrist } : {} };
+        if (!Object.keys(patch).length) return;
+        visitor = { ...visitor, ...patch };
+        saveVisitorTheme(visitor);
+        theme = resolveTheme(opts.theme, visitor);
+        changed();
+      }
+    );
+    let pins = loadPins();
+    if (came.pins !== void 0) {
+      pins = [...came.pins];
+      savePins(pins);
+    }
+    reportSettings(
+      "pins",
+      () => pins ? { pins } : {},
+      (now) => {
+        if (now.pins === void 0) return;
+        pins = [...now.pins];
+        savePins(pins);
+        changed();
+      }
+    );
+    let theme = resolveTheme(opts.theme, visitor);
+    let target2 = "";
+    let detail = [];
+    let loading4 = null;
+    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
+    let corner = CORNERS2.includes(opts.corner) ? opts.corner : "top-left";
+    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
+    let claimed = false;
+    const changed = () => {
+      for (const fn of listeners) fn();
+    };
+    const chat = createUiChat(changed);
+    const feed = createUiFeed(changed);
+    const letters = createUiLetters(changed);
+    const toldOfTabs = /* @__PURE__ */ new Set();
+    const tellOfTab = (id2) => {
+      if (toldOfTabs.has(id2) || KIT_QUESTION_TABS.includes(id2)) return;
+      toldOfTabs.add(id2);
+      if (cleanMenuWorld({ sections: [{ id: id2, label: "a tab", rows: [] }] }, { own: true })?.sections.length) return;
+      console.warn(`NSWP: the tab "${id2}" is in this world's own menu, but will not be in a client's (BitPortal's): a tab's id is a lowercase word of letters, digits and hyphens, beginning with a letter, twelve at most. Its rows go with it.`);
+    };
+    function addSection(s) {
+      tellOfTab(s.id);
+      const i = sections.findIndex((x) => x.id === s.id);
+      if (i === -1) sections.push({ ...s });
+      else sections[i] = { ...sections[i], ...s };
+    }
+    const controls2 = {
+      get theme() {
+        return theme;
+      },
+      add(...more) {
+        for (const a of more) {
+          const i = actions.findIndex((x) => x.id === a.id);
+          if (i === -1) actions.push(a);
+          else actions[i] = a;
+        }
+        changed();
+      },
+      has: (id2) => actions.some((x) => x.id === id2),
+      remove(id2) {
+        const i = actions.findIndex((x) => x.id === id2);
+        if (i !== -1) actions.splice(i, 1);
+        changed();
+      },
+      addSection(s) {
+        addSection(s);
+        changed();
+      },
+      get presence() {
+        return presence3;
+      },
+      setPresence(next) {
+        if (!PRESENCES.includes(next) || next === presence3) return;
+        presence3 = next;
+        changed();
+      },
+      setCorner(next) {
+        if (!CORNERS2.includes(next) || next === corner) return;
+        corner = next;
+        changed();
+      },
+      setKeys(next) {
+        keys = cleanKeys2(keys, next);
+        changed();
+      },
+      claimInput(next) {
+        if (claimed === next) return;
+        claimed = next;
+        changed();
+      },
+      setLoading(state) {
+        const next = cleanLoading(state);
+        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
+        loading4 = next;
+        changed();
+      },
+      setTarget(text2, more = []) {
+        const next = text2 ? more.filter((line3) => typeof line3 === "string" && line3.trim()).slice(0, 4) : [];
+        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
+        target2 = text2;
+        detail = next;
+        changed();
+      },
+      say(text2) {
+        for (const fn of sayers) fn(text2);
+      },
+      run(id2, typed, file) {
+        const a = actions.find((x) => x.id === id2);
+        if (!a || a.hidden?.() || a.kind === "line") return false;
+        for (const fn of signals) fn("press");
+        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : void 0)).catch(() => {
+        }).finally(changed);
+        return true;
+      },
+      setTheme(patch, keep7 = false) {
+        if (keep7) {
+          visitor = { ...visitor, ...patch };
+          saveVisitorTheme(visitor);
+        }
+        theme = resolveTheme({ ...opts.theme, ...keep7 ? {} : patch }, visitor);
+        changed();
+      },
+      get pins() {
+        return pins ?? [];
+      },
+      setPinned(section, pinned) {
+        const now = pins ?? [];
+        if (pinned === now.includes(section)) return true;
+        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
+        pins = pinned ? [...now, section] : now.filter((id2) => id2 !== section);
+        savePins(pins);
+        changed();
+        return true;
+      },
+      view() {
+        const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
+        const pressable = showing2.filter((a) => a.kind !== "line" && a.kind !== "slider");
+        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
+        const item = (a) => {
+          const slot = bar.indexOf(a);
+          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, ...a.kind === "slider" && a.slider ? { slider: a.slider } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
+        };
+        const known = new Set(sections.map((s) => s.id));
+        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
+        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
+        return {
+          title: opts.title,
+          address: opts.address ?? "",
+          target: target2,
+          detail,
+          loading: loading4,
+          sections: shown4,
+          hotbar: bar.map(item),
+          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
+          pins: (pins ?? []).flatMap((id2, i) => {
+            const tab = shown4.find((x) => x.id === id2);
+            const n = bar.length + i + 1;
+            return tab ? [{ id: id2, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
+          }),
+          pinsFull: (pins ?? []).length >= PINS_MOST,
+          theme,
+          presence: presence3,
+          corner,
+          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
+          chat: chat.view(),
+          feed: feed.view(),
+          letters: letters.view()
+        };
+      },
+      subscribe(fn) {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+      signal(name) {
+        for (const fn of signals) {
+          try {
+            fn(name);
+          } catch {
+          }
+        }
+      },
+      onSignal(fn) {
+        signals.add(fn);
+        return () => signals.delete(fn);
+      },
+      onSay(fn) {
+        sayers.add(fn);
+        return () => sayers.delete(fn);
+      },
+      chat,
+      feed,
+      letters
+    };
+    const keep6 = (patch) => controls2.setTheme(patch, true);
+    controls2.add(
+      ...UI_PRESETS.map(
+        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep6({ accent: p.accent }) })
+      ),
+      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep6({ scale: theme.scale > 1 ? 1 : 1.25 }) },
+      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep6({ motion: !theme.motion }) },
+      {
+        id: "look-wrist",
+        section: "look",
+        icon: "menu",
+        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
+        on: () => theme.wrist !== "off",
+        act: () => keep6({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
+      },
+      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
+        visitor = {};
+        saveVisitorTheme({});
+        theme = resolveTheme(opts.theme, visitor);
+      } }
+    );
+    return controls2;
+  }
+
   // packages/sdk/src/visitor-switches.ts
   var VISITOR_SWITCHES = [
     "people-pictures",
@@ -53252,13 +53952,12 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   }
   var CLIENTS = [
     ...MENU_VISITOR_TABS.filter((t) => t !== "following" && t !== "messages"),
-    // The kit's one-time questions on how a visitor moves (fps.ts, input.ts). At a desk it is asked by whoever draws
-    // the console, which above a world is the client; in a headset the world draws the console, and asks there.
-    "how-you-move-desk",
-    "how-you-move"
+    // The kit's one-time questions on how a visitor moves. At a desk each is asked by whoever draws the console,
+    // which above a world is the client; in a headset the world draws the console, and asks there.
+    ...KIT_QUESTION_TABS
   ];
   var VISITORS_ROWS = ["back", "home", "go-home", "doors", "list"];
-  var COLOR = /^#[0-9a-f]{6}$/;
+  var COLOR2 = /^#[0-9a-f]{6}$/;
   var EVERY_MS2 = 125;
   var rowOf = (item, onBar) => ({
     id: item.id,
@@ -53268,7 +53967,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     kind: item.kind,
     ...item.on === null ? {} : { on: item.on },
     ...item.tone === "normal" ? {} : { tone: item.tone },
-    ...COLOR.test(item.color) ? { color: item.color } : {},
+    ...COLOR2.test(item.color) ? { color: item.color } : {},
     ...item.mark ? { mark: item.mark } : {},
     ...item.faint ? { faint: true } : {},
     ...onBar ? { bar: true } : {},
@@ -53282,7 +53981,7 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
     ...card.sub ? { sub: card.sub } : {},
     ...card.copy ? { copy: card.copy } : {},
     ...card.text ? { text: card.text.slice(0, MENU_LIMITS.note) } : {},
-    ...COLOR.test(card.color) ? { color: card.color } : {},
+    ...COLOR2.test(card.color) ? { color: card.color } : {},
     ...card.now.length ? { now: card.now } : {},
     ...card.acts?.length ? { acts: card.acts } : {}
   });
@@ -53620,487 +54319,6 @@ vec3 skyGlow(vec3 d, vec3 accent, vec3 ground){
   var sheets = /* @__PURE__ */ new WeakMap();
   function keepSheet(menu2, now) {
     sheets.set(menu2, now);
-  }
-
-  // packages/sdk/src/ui/feed.ts
-  var FEED_LIMITS = { shown: 420, kept: 30 };
-  function createUiFeed(changed, now = () => Date.now()) {
-    let opts = null;
-    let posts = [];
-    let loading4 = false;
-    let said2 = "";
-    let version = 0;
-    let count3 = 0;
-    let asked2 = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    const sort = () => {
-      posts.sort((a, b) => b.at - a.at);
-      const kept2 = posts.filter((p, i) => p.state !== "out" || i < FEED_LIMITS.kept);
-      posts = kept2;
-    };
-    return {
-      attach(next) {
-        opts = next;
-        posts = [];
-        loading4 = false;
-        said2 = "";
-        asked2 = 0;
-        bump2();
-      },
-      detach() {
-        if (!opts) return;
-        opts = null;
-        posts = [];
-        loading4 = false;
-        said2 = "";
-        bump2();
-      },
-      opened() {
-        const mine = opts;
-        if (!mine?.load || loading4 || asked2 && now() - asked2 < 6e4) return;
-        asked2 = now();
-        loading4 = true;
-        bump2();
-        void mine.load().catch(() => null).then((got) => {
-          if (opts !== mine) return;
-          loading4 = false;
-          if (!got) said2 = "Your earlier posts couldn't be fetched just now.";
-          else {
-            const seen = new Set(posts.map((p) => p.key));
-            for (const p of got) {
-              const text2 = cleanLine(p.text, FEED_LIMITS.shown);
-              if (!text2 || seen.has(p.id) || !Number.isFinite(p.at)) continue;
-              seen.add(p.id);
-              posts.push({ key: p.id, text: text2, at: p.at, state: "out", id: p.id });
-            }
-            sort();
-          }
-          bump2();
-        });
-      },
-      send(text2) {
-        const mine = opts;
-        if (!mine) return "There is nothing to post with: sign in first.";
-        const words2 = cleanChat(text2);
-        if (!words2) return null;
-        const post = { key: `new-${++count3}`, text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        posts.unshift(post);
-        said2 = "";
-        bump2();
-        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
-          if (opts !== mine) return;
-          post.state = how.ok ? "out" : "failed";
-          if (how.ok && how.id) post.id = how.id;
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      remove(key) {
-        const mine = opts;
-        const post = posts.find((p) => p.key === key);
-        if (!mine?.remove || !post?.id || post.state !== "out") return "That post can't be deleted from here.";
-        const id2 = post.id;
-        post.state = "removing";
-        said2 = "";
-        bump2();
-        void mine.remove(id2).catch(() => ({ ok: false, said: "That wasn't deleted." })).then((how) => {
-          if (opts !== mine) return;
-          if (how.ok) posts = posts.filter((p) => p !== post);
-          else post.state = "out";
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      view() {
-        const who2 = typeof opts?.who === "function" ? opts.who() : opts?.who ?? "";
-        const back = opts?.remove ? "and deleting it later only asks relays to drop it: copies may remain" : "and it can't be taken back";
-        const lead = `Public, like a tweet: anyone can read what you send out here, as ${who2}, ${back}.${opts?.marked ? ` Each post is marked as sent from ${opts.marked}.` : ""}`;
-        return { ready: !!opts, title: "My public feed", who: who2, posts, loading: loading4, said: said2, lead, limit: CHAT_LIMITS.chars, removable: !!opts?.remove, version };
-      }
-    };
-  }
-  function ago(at, nowSec) {
-    const s = Math.max(0, nowSec - at);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-    const days = Math.floor(s / 86400);
-    if (days < 30) return days === 1 ? "1 day ago" : `${days} days ago`;
-    return new Date(at * 1e3).toISOString().slice(0, 10);
-  }
-
-  // packages/sdk/src/ui/letters.ts
-  function createUiLetters(changed, now = () => Date.now()) {
-    let opts = null;
-    let waiting3 = [];
-    let said2 = "";
-    let version = 0;
-    let count3 = 0;
-    const bump2 = () => {
-      version++;
-      changed();
-    };
-    return {
-      attach(next) {
-        opts = next;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      detach() {
-        if (!opts) return;
-        opts = null;
-        waiting3 = [];
-        said2 = "";
-        bump2();
-      },
-      touch: bump2,
-      seen() {
-        opts?.seen?.();
-      },
-      send(text2) {
-        const mine = opts;
-        if (!mine) return "There is nobody to write to: choose someone first.";
-        const words2 = cleanMessage(text2);
-        if (!words2) return null;
-        const line2 = { key: `new-${++count3}`, mine: true, who: "You", text: words2, at: Math.floor(now() / 1e3), state: "sending" };
-        waiting3.push(line2);
-        said2 = "";
-        bump2();
-        void mine.send(words2).catch(() => ({ ok: false, said: "That wasn't sent." })).then((how) => {
-          if (opts !== mine) return;
-          if (how.ok) waiting3 = waiting3.filter((l) => l !== line2);
-          else line2.state = "failed";
-          said2 = how.said;
-          bump2();
-        });
-        return null;
-      },
-      view() {
-        const name = typeof opts?.with === "function" ? opts.with() : opts?.with ?? "";
-        const lines = opts ? [...opts.lines().map((l) => ({ ...l, state: "out" })), ...waiting3].sort((a, b) => a.at - b.at) : [];
-        return {
-          ready: !!opts,
-          title: name ? `${name}, privately` : "Private messages",
-          with: name,
-          lines,
-          said: said2,
-          lead: name ? `Private: only you and ${name} can read what is written here. A relay is told who it is for, and nothing more.` : "",
-          limit: MESSAGE_LIMITS.chars,
-          version
-        };
-      }
-    };
-  }
-
-  // packages/sdk/src/ui/model.ts
-  var PRESENCES = ["full", "quiet", "hidden"];
-  var CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
-  function cleanKeys2(now, k) {
-    const out = { ...now };
-    if (k && (k.menu === null || typeof k.menu === "string" && k.menu.length === 1)) out.menu = k.menu === null ? null : k.menu.toLowerCase();
-    if (k && typeof k.hotbar === "boolean") out.hotbar = k.hotbar;
-    if (k && (k.chat === null || typeof k.chat === "string" && k.chat.length === 1)) out.chat = k.chat === null ? null : k.chat.toLowerCase();
-    return out;
-  }
-  var read3 = (t) => typeof t === "function" ? t() : t ?? "";
-  var STANDARD = [
-    { id: "travel", label: "Travel", icon: "door" },
-    // Who the visitor is here. It has something in it only for one who came through a client (ui/identity.ts).
-    { id: "you", label: "You", icon: "you" },
-    // How other people see them. A visitor's own client fills this in, in its own place: a look is changed there and
-    // nowhere else (ui/identity.ts, protocol/05-looks.md). In a world it is empty, and isn't shown.
-    { id: "figure", label: "Your look", icon: "look" },
-    { id: "room", label: "Room", icon: "room" },
-    { id: "people", label: "People", icon: "people" },
-    // Who the visitor follows (following.ts). Empty, and not shown, for a guest.
-    { id: "following", label: "Following", icon: "list" },
-    // Their private messages (messaging.ts). Empty, and not shown, for a guest.
-    { id: "messages", label: "Messages", icon: "chat" },
-    // A world's boards, where it keeps score (scoring.ts). Added by the world; empty, and not shown, otherwise.
-    { id: "scores", label: "Scores", icon: "list" },
-    // What a world marks, and which of it the visitor has earned (achieving.ts). Added by the world, like Scores.
-    { id: "achievements", label: "Achievements", icon: "check" },
-    // The items a visitor has, and the one in their hand (bagging.ts). Empty, and not shown, for a guest.
-    { id: "bag", label: "Bag", icon: "save" },
-    { id: "camera", label: "Camera", icon: "camera" },
-    { id: "panels", label: "Panels", icon: "panel" },
-    { id: "view", label: "View", icon: "vr" },
-    { id: "moving", label: "Moving", icon: "step" },
-    { id: "sound", label: "Sound", icon: "sound" },
-    // How the controls themselves look. Called "Display", since "your look" is how other people see you.
-    { id: "look", label: "Display", icon: "look", note: "How these controls look to you: their colour, the size of their text, whether things move. They go with you from world to world." },
-    { id: "help", label: "Help", icon: "help" }
-  ];
-  var KEEPERS = { id: "guests", label: "Who comes in", icon: "people" };
-  var STANDARD_TABS = STANDARD.flatMap((s) => s.id === "people" ? [s.id, KEEPERS.id] : [s.id]);
-  var STANDARD_ORDER = ["back", "home", "go-home", "doors", "list", "vr", "room-join", "room-mic", "room-chat", "jump"];
-  var rank = (id2) => {
-    const i = STANDARD_ORDER.indexOf(id2);
-    return i === -1 ? STANDARD_ORDER.length : i;
-  };
-  var inOrder = (list) => list.map((a, i) => [a, i]).sort((x, y) => rank(x[0].id) - rank(y[0].id) || x[1] - y[1]).map((x) => x[0]);
-  var PINS_KEY = "nswp:ui:pins";
-  function loadPins() {
-    try {
-      const kept2 = globalThis.localStorage?.getItem(PINS_KEY);
-      return kept2 === null || kept2 === void 0 ? null : cleanSettings({ pins: JSON.parse(kept2) }).pins ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function savePins(pins) {
-    try {
-      globalThis.localStorage?.setItem(PINS_KEY, JSON.stringify(pins));
-    } catch {
-    }
-  }
-  var LOADING_WORDS = 80;
-  var SAY_STAYS = { least: 4200, most: 1e4, easy: 60, each: 70 };
-  var sayStays = (text2) => Math.min(SAY_STAYS.most, SAY_STAYS.least + Math.max(0, [...text2].length - SAY_STAYS.easy) * SAY_STAYS.each);
-  function cleanLoading(state) {
-    if (!state || typeof state !== "object") return null;
-    const raw = typeof state.words === "string" ? state.words : "";
-    const words2 = [...raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim()].slice(0, LOADING_WORDS).join("").trim();
-    const f = state.fraction;
-    const fraction = typeof f === "number" && Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : null;
-    return { fraction, words: words2 };
-  }
-  function createControls(opts) {
-    const sections = STANDARD.map((s) => ({ ...s }));
-    for (const s of opts.sections ?? []) addSection(s);
-    const actions = [];
-    const listeners = /* @__PURE__ */ new Set();
-    const sayers = /* @__PURE__ */ new Set();
-    const signals = /* @__PURE__ */ new Set();
-    let visitor = loadVisitorTheme();
-    const came = arrivedSettings();
-    const brought = { ...came.text !== void 0 ? { scale: came.text } : {}, ...came.motion !== void 0 ? { motion: came.motion } : {}, ...came.wrist !== void 0 ? { wrist: came.wrist } : {} };
-    if (Object.keys(brought).length) {
-      visitor = { ...visitor, ...brought };
-      saveVisitorTheme(visitor);
-    }
-    reportSettings(
-      "look",
-      () => ({ ...visitor.scale !== void 0 ? { text: visitor.scale } : {}, ...visitor.motion !== void 0 ? { motion: visitor.motion } : {}, ...visitor.wrist !== void 0 ? { wrist: visitor.wrist } : {} }),
-      // Their client's menu changed one (settings.ts, `changeSettings`): as their own hand on it here would.
-      (now) => {
-        const patch = { ...now.text !== void 0 ? { scale: now.text } : {}, ...now.motion !== void 0 ? { motion: now.motion } : {}, ...now.wrist !== void 0 ? { wrist: now.wrist } : {} };
-        if (!Object.keys(patch).length) return;
-        visitor = { ...visitor, ...patch };
-        saveVisitorTheme(visitor);
-        theme = resolveTheme(opts.theme, visitor);
-        changed();
-      }
-    );
-    let pins = loadPins();
-    if (came.pins !== void 0) {
-      pins = [...came.pins];
-      savePins(pins);
-    }
-    reportSettings(
-      "pins",
-      () => pins ? { pins } : {},
-      (now) => {
-        if (now.pins === void 0) return;
-        pins = [...now.pins];
-        savePins(pins);
-        changed();
-      }
-    );
-    let theme = resolveTheme(opts.theme, visitor);
-    let target2 = "";
-    let detail = [];
-    let loading4 = null;
-    let presence3 = PRESENCES.includes(opts.presence) ? opts.presence : "full";
-    let corner = CORNERS.includes(opts.corner) ? opts.corner : "top-left";
-    let keys = cleanKeys2({ menu: "m", hotbar: true, chat: "t" }, opts.keys);
-    let claimed = false;
-    const changed = () => {
-      for (const fn of listeners) fn();
-    };
-    const chat = createUiChat(changed);
-    const feed = createUiFeed(changed);
-    const letters = createUiLetters(changed);
-    function addSection(s) {
-      const i = sections.findIndex((x) => x.id === s.id);
-      if (i === -1) sections.push({ ...s });
-      else sections[i] = { ...sections[i], ...s };
-    }
-    const controls2 = {
-      get theme() {
-        return theme;
-      },
-      add(...more) {
-        for (const a of more) {
-          const i = actions.findIndex((x) => x.id === a.id);
-          if (i === -1) actions.push(a);
-          else actions[i] = a;
-        }
-        changed();
-      },
-      has: (id2) => actions.some((x) => x.id === id2),
-      remove(id2) {
-        const i = actions.findIndex((x) => x.id === id2);
-        if (i !== -1) actions.splice(i, 1);
-        changed();
-      },
-      addSection(s) {
-        addSection(s);
-        changed();
-      },
-      get presence() {
-        return presence3;
-      },
-      setPresence(next) {
-        if (!PRESENCES.includes(next) || next === presence3) return;
-        presence3 = next;
-        changed();
-      },
-      setCorner(next) {
-        if (!CORNERS.includes(next) || next === corner) return;
-        corner = next;
-        changed();
-      },
-      setKeys(next) {
-        keys = cleanKeys2(keys, next);
-        changed();
-      },
-      claimInput(next) {
-        if (claimed === next) return;
-        claimed = next;
-        changed();
-      },
-      setLoading(state) {
-        const next = cleanLoading(state);
-        if (JSON.stringify(next) === JSON.stringify(loading4)) return;
-        loading4 = next;
-        changed();
-      },
-      setTarget(text2, more = []) {
-        const next = text2 ? more.filter((line2) => typeof line2 === "string" && line2.trim()).slice(0, 4) : [];
-        if (text2 === target2 && next.join("\n") === detail.join("\n")) return;
-        target2 = text2;
-        detail = next;
-        changed();
-      },
-      say(text2) {
-        for (const fn of sayers) fn(text2);
-      },
-      run(id2, typed, file) {
-        const a = actions.find((x) => x.id === id2);
-        if (!a || a.hidden?.() || a.kind === "line") return false;
-        for (const fn of signals) fn("press");
-        void Promise.resolve().then(() => a.kind === "file" ? a.act(void 0, file) : a.act(a.kind === "field" || a.kind === "slider" ? typed : void 0)).catch(() => {
-        }).finally(changed);
-        return true;
-      },
-      setTheme(patch, keep7 = false) {
-        if (keep7) {
-          visitor = { ...visitor, ...patch };
-          saveVisitorTheme(visitor);
-        }
-        theme = resolveTheme({ ...opts.theme, ...keep7 ? {} : patch }, visitor);
-        changed();
-      },
-      get pins() {
-        return pins ?? [];
-      },
-      setPinned(section, pinned) {
-        const now = pins ?? [];
-        if (pinned === now.includes(section)) return true;
-        if (pinned && (now.length >= PINS_MOST || cleanSettings({ pins: [section] }).pins?.length !== 1)) return false;
-        pins = pinned ? [...now, section] : now.filter((id2) => id2 !== section);
-        savePins(pins);
-        changed();
-        return true;
-      },
-      view() {
-        const showing2 = inOrder(actions.filter((a) => !a.hidden?.()));
-        const pressable = showing2.filter((a) => a.kind !== "line" && a.kind !== "slider");
-        const bar = [...pressable.filter((a) => a.hotbar && a.lead), ...pressable.filter((a) => a.hotbar && !a.lead)].slice(0, 6);
-        const item = (a) => {
-          const slot = bar.indexOf(a);
-          return { id: a.id, label: read3(a.label), icon: (typeof a.icon === "function" ? a.icon() : a.icon) ?? null, on: a.on ? a.on() : null, tone: a.tone ?? "normal", key: slot === -1 ? "" : String(slot + 1), short: read3(a.short) || read3(a.label), kind: a.kind ?? "button", ...a.kind === "copy" ? { copy: read3(a.copy) } : {}, ...a.kind === "file" ? { accept: a.accept ?? [] } : {}, ...a.kind === "slider" && a.slider ? { slider: a.slider } : {}, color: read3(a.color), ...a.picture ? { picture: a.picture } : {}, mark: (typeof a.mark === "function" ? a.mark() : a.mark) ?? null, faint: a.faint?.() === true };
-        };
-        const known = new Set(sections.map((s) => s.id));
-        const extra = [...new Set(showing2.map((a) => a.section ?? "travel").filter((id2) => !known.has(id2)))].map((id2) => ({ id: id2, label: id2 }));
-        const shown4 = [...sections, ...extra].map((s) => ({ id: s.id, label: s.label, icon: s.icon ?? null, note: read3(s.note), card: s.card?.() ?? null, items: showing2.filter((a) => (a.section ?? "travel") === s.id).map(item), pinned: (pins ?? []).includes(s.id) })).filter((s) => s.items.length > 0 || s.note || s.card);
-        return {
-          title: opts.title,
-          address: opts.address ?? "",
-          target: target2,
-          detail,
-          loading: loading4,
-          sections: shown4,
-          hotbar: bar.map(item),
-          // Only tabs this place has: a tab pinned in another world that isn't here is kept, and not shown.
-          pins: (pins ?? []).flatMap((id2, i) => {
-            const tab = shown4.find((x) => x.id === id2);
-            const n = bar.length + i + 1;
-            return tab ? [{ id: id2, label: tab.label, icon: tab.icon, key: n <= 9 ? String(n) : "" }] : [];
-          }),
-          pinsFull: (pins ?? []).length >= PINS_MOST,
-          theme,
-          presence: presence3,
-          corner,
-          keys: claimed ? { menu: null, hotbar: false, chat: null } : keys,
-          chat: chat.view(),
-          feed: feed.view(),
-          letters: letters.view()
-        };
-      },
-      subscribe(fn) {
-        listeners.add(fn);
-        return () => listeners.delete(fn);
-      },
-      signal(name) {
-        for (const fn of signals) {
-          try {
-            fn(name);
-          } catch {
-          }
-        }
-      },
-      onSignal(fn) {
-        signals.add(fn);
-        return () => signals.delete(fn);
-      },
-      onSay(fn) {
-        sayers.add(fn);
-        return () => sayers.delete(fn);
-      },
-      chat,
-      feed,
-      letters
-    };
-    const keep6 = (patch) => controls2.setTheme(patch, true);
-    controls2.add(
-      ...UI_PRESETS.map(
-        (p) => ({ id: `look-${p.id}`, section: "look", kind: "swatch", color: p.accent, label: p.label, on: () => theme.accent === p.accent, act: () => keep6({ accent: p.accent }) })
-      ),
-      { id: "look-size", section: "look", icon: "size", label: () => theme.scale > 1 ? "Text: larger" : "Text: normal", on: () => theme.scale > 1, act: () => keep6({ scale: theme.scale > 1 ? 1 : 1.25 }) },
-      { id: "look-motion", section: "look", icon: "motion", label: () => theme.motion ? "Motion: on" : "Motion: off", on: () => theme.motion, act: () => keep6({ motion: !theme.motion }) },
-      {
-        id: "look-wrist",
-        section: "look",
-        icon: "menu",
-        label: () => theme.wrist === "off" ? "Wrist console: off" : `Wrist console: ${theme.wrist} hand`,
-        on: () => theme.wrist !== "off",
-        act: () => keep6({ wrist: theme.wrist === "left" ? "right" : theme.wrist === "right" ? "off" : "left" })
-      },
-      { id: "look-reset", section: "look", icon: "turn", label: "Back to this world's look", hidden: () => Object.keys(visitor).length === 0, act: () => {
-        visitor = {};
-        saveVisitorTheme({});
-        theme = resolveTheme(opts.theme, visitor);
-      } }
-    );
-    return controls2;
   }
 
   // packages/sdk/src/ui/hud.ts
@@ -54959,7 +55177,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         const wasAtEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
         chatLines.replaceChildren(
           ...l.lines.map(
-            (line2) => el("li", { class: `letter ${line2.mine ? "mine" : ""} ${line2.state}` }, el("b", {}, line2.mine ? "You" : line2.who), " ", line2.text, el("small", {}, line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)))
+            (line3) => el("li", { class: `letter ${line3.mine ? "mine" : ""} ${line3.state}` }, el("b", {}, line3.mine ? "You" : line3.who), " ", line3.text, el("small", {}, line3.state === "sending" ? "Sending\u2026" : line3.state === "failed" ? "Not sent" : ago(line3.at, nowSec)))
           )
         );
         chatEmpty.textContent = `Nothing yet. What you write here is for ${l.with} alone.`;
@@ -54972,9 +55190,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const lines = chatState === "peek" ? c.lines.slice(-PEEK_LINES) : c.lines;
       const atEnd = chatLines.scrollHeight - chatLines.scrollTop - chatLines.clientHeight < 40;
       chatLines.replaceChildren(
-        ...lines.map((line2) => {
-          const li = el("li", { class: line2.note ? "aside" : line2.mine ? "mine" : "" }, !line2.note && el("b", {}, line2.mine ? "You" : line2.who), line2.note ? "" : " ", line2.text);
-          if (line2.color && !line2.mine) li.style.setProperty("--who", line2.color);
+        ...lines.map((line3) => {
+          const li = el("li", { class: line3.note ? "aside" : line3.mine ? "mine" : "" }, !line3.note && el("b", {}, line3.mine ? "You" : line3.who), line3.note ? "" : " ", line3.text);
+          if (line3.color && !line3.mine) li.style.setProperty("--who", line3.color);
           return li;
         })
       );
@@ -55316,7 +55534,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (target2.dataset.shown !== shown4) {
         target2.dataset.shown = shown4;
         target2.classList.toggle("card", view2.detail.length > 0);
-        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line2) => el("span", {}, line2)));
+        if (view2.detail.length) target2.replaceChildren(el("b", {}, view2.target), ...view2.detail.map((line3) => el("span", {}, line3)));
         else target2.textContent = view2.target;
       }
       drawChat(view2);
@@ -55499,7 +55717,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       sheet.hidden = !open3;
       outside.hidden = !open3;
       if (open3 ? says.parentElement !== sheet : says.parentElement === sheet) {
-        for (const line2 of says.children) line2.classList.remove("coming");
+        for (const line3 of says.children) line3.classList.remove("coming");
         if (open3) sheet.insertBefore(says, foot);
         else root.insertBefore(says, chat);
       }
@@ -55674,22 +55892,22 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     addEventListener("keyup", swallow, listening);
     for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) addEventListener(type, onTouch, watching3);
     const stopSay = controls2.onSay((text2) => {
-      const line2 = el("div", { class: "say glass coming" }, text2);
-      line2.addEventListener("animationend", () => line2.classList.remove("coming"), { once: true });
-      line2.title = text2;
+      const line3 = el("div", { class: "say glass coming" }, text2);
+      line3.addEventListener("animationend", () => line3.classList.remove("coming"), { once: true });
+      line3.title = text2;
       const away = () => {
-        line2.remove();
+        line3.remove();
         fitSays();
       };
-      line2.addEventListener("click", (e) => {
+      line3.addEventListener("click", (e) => {
         e.stopPropagation();
         away();
       });
-      says.append(line2);
+      says.append(line3);
       while (says.childElementCount > 3) says.firstElementChild?.remove();
       fitSays();
       const stays = sayStays(text2);
-      setTimeout(() => line2.classList.add("going"), stays - 600);
+      setTimeout(() => line3.classList.add("going"), stays - 600);
       setTimeout(away, stays);
     });
     const stop = controls2.subscribe(draw);
@@ -56266,21 +56484,21 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   }
   function wrap(g, text2, max, lines) {
     const out = [];
-    let line2 = "";
+    let line3 = "";
     for (const word of text2.split(/\s+/)) {
-      const next = line2 ? `${line2} ${word}` : word;
-      if (g.measureText(next).width <= max || !line2) line2 = next;
+      const next = line3 ? `${line3} ${word}` : word;
+      if (g.measureText(next).width <= max || !line3) line3 = next;
       else {
-        out.push(line2);
-        line2 = word;
+        out.push(line3);
+        line3 = word;
       }
     }
-    if (line2) out.push(line2);
+    if (line3) out.push(line3);
     if (out.length > lines) {
       out.length = lines;
       out[lines - 1] = fit(g, `${out[lines - 1]} \u2026`, max);
     }
-    return out.map((line3) => fit(g, line3, max));
+    return out.map((line4) => fit(g, line4, max));
   }
   var SANS = 'system-ui, "Segoe UI", Roboto, sans-serif';
   var MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
@@ -56474,7 +56692,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           g.fillRect(left + 20, y + 96, 3, 48);
           g.font = `400 ${Math.round(22 * k)}px ${SANS}`;
           g.fillStyle = `rgba(${I}, 0.9)`;
-          wrap(g, card.text, areaW - 60, 2).forEach((line2, i) => g.fillText(line2, left + 34, y + 114 + i * 26));
+          wrap(g, card.text, areaW - 60, 2).forEach((line3, i) => g.fillText(line3, left + 34, y + 114 + i * 26));
         }
       }
       const lineSize = Math.round(22 * k);
@@ -56562,7 +56780,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           g.font = `600 ${size}px ${SANS}`;
           g.textBaseline = "middle";
           const words2 = wrap(g, item.label, cellW - iconSize - 44, cellH >= size * 2 + 12 ? 2 : 1);
-          words2.forEach((line2, n) => g.fillText(line2, x + iconSize + 30, y + cellH / 2 - 2 + (n - (words2.length - 1) / 2) * (size + 3)));
+          words2.forEach((line3, n) => g.fillText(line3, x + iconSize + 30, y + cellH / 2 - 2 + (n - (words2.length - 1) / 2) * (size + 3)));
           g.textBaseline = "alphabetic";
         });
       });
@@ -56574,7 +56792,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           strokeIcon(g, item.icon, left + 4, y + 2, Math.min(28, lineSize + 6));
           g.fillStyle = item.on ? t.ink : `rgba(${I}, 0.6)`;
           g.font = `${item.on ? 500 : 400} ${lineSize}px ${SANS}`;
-          laid[i].forEach((line2, n) => g.fillText(line2, left + 40, y + lineSize + n * (lineSize + 4)));
+          laid[i].forEach((line3, n) => g.fillText(line3, left + 40, y + lineSize + n * (lineSize + 4)));
           y += lineHs[i];
         }
       }
@@ -56584,7 +56802,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         g.fillRect(left, y, 3, noteH - 8);
         g.font = `400 ${Math.round(24 * k)}px ${SANS}`;
         g.fillStyle = `rgba(${I}, 0.82)`;
-        noteLines.forEach((line2, i) => g.fillText(line2, left + 16, y + 24 + i * 32));
+        noteLines.forEach((line3, i) => g.fillText(line3, left + 16, y + 24 + i * 32));
       }
       opts.painted?.(t);
       return true;
@@ -58049,20 +58267,20 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         g.globalAlpha = 1;
       }
       for (let i = view2.lines.length - 1; i >= 0; i--) {
-        const line2 = view2.lines[i];
+        const line3 = view2.lines[i];
         g.font = "32px system-ui, sans-serif";
-        const rows = line2.text.split("\n").flatMap((part) => wrapWords(part, measure, W2 - 56, 6)).slice(0, 8);
+        const rows = line3.text.split("\n").flatMap((part) => wrapWords(part, measure, W2 - 56, 6)).slice(0, 8);
         const tall = (rows.length + 1) * ROW + 10;
         if (y - tall < LEAD) break;
         y -= tall;
         g.font = "600 26px system-ui, sans-serif";
-        g.fillStyle = line2.mine ? t.accent : t.ink;
-        g.globalAlpha = line2.state === "failed" ? 1 : 0.75;
-        if (line2.state === "failed") g.fillStyle = t.warn;
-        g.fillText(`${line2.mine ? "You" : line2.who}  \xB7  ${line2.state === "sending" ? "Sending\u2026" : line2.state === "failed" ? "Not sent" : ago(line2.at, nowSec)}`, 28, y + ROW * 0.5);
+        g.fillStyle = line3.mine ? t.accent : t.ink;
+        g.globalAlpha = line3.state === "failed" ? 1 : 0.75;
+        if (line3.state === "failed") g.fillStyle = t.warn;
+        g.fillText(`${line3.mine ? "You" : line3.who}  \xB7  ${line3.state === "sending" ? "Sending\u2026" : line3.state === "failed" ? "Not sent" : ago(line3.at, nowSec)}`, 28, y + ROW * 0.5);
         g.font = "32px system-ui, sans-serif";
         g.fillStyle = t.ink;
-        g.globalAlpha = line2.state === "sending" ? 0.6 : 1;
+        g.globalAlpha = line3.state === "sending" ? 0.6 : 1;
         rows.forEach((row, r) => g.fillText(row, 28, y + ROW * (r + 1.5)));
         g.globalAlpha = 1;
       }
@@ -58739,10 +58957,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       const measure = (text2) => g.measureText(text2).width;
       let y = CHAT_H - WRITE_H - 18;
       for (let i = view2.lines.length - 1; i >= 0; i--) {
-        const line2 = view2.lines[i];
-        const lead = line2.note ? "" : `${line2.mine ? "You" : line2.who}:`;
-        g.font = line2.note ? "italic 32px system-ui, sans-serif" : "34px system-ui, sans-serif";
-        const rows = wrapWords(lead ? `${lead} ${line2.text}` : line2.text, measure, CHAT_W - 56, 6);
+        const line3 = view2.lines[i];
+        const lead = line3.note ? "" : `${line3.mine ? "You" : line3.who}:`;
+        g.font = line3.note ? "italic 32px system-ui, sans-serif" : "34px system-ui, sans-serif";
+        const rows = wrapWords(lead ? `${lead} ${line3.text}` : line3.text, measure, CHAT_W - 56, 6);
         y -= rows.length * ROW;
         if (y < 12) break;
         rows.forEach((row, r) => {
@@ -58751,14 +58969,14 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
           let rest = row;
           if (r === 0 && lead && row.startsWith(lead)) {
             g.font = "600 34px system-ui, sans-serif";
-            g.fillStyle = line2.mine ? t.ink : line2.color || t.accent;
-            g.globalAlpha = line2.mine ? 0.62 : 1;
+            g.fillStyle = line3.mine ? t.ink : line3.color || t.accent;
+            g.globalAlpha = line3.mine ? 0.62 : 1;
             g.fillText(lead, x, at);
             x += measure(lead);
             rest = row.slice(lead.length);
             g.font = "34px system-ui, sans-serif";
           }
-          g.globalAlpha = line2.note ? 0.62 : 1;
+          g.globalAlpha = line3.note ? 0.62 : 1;
           g.fillStyle = t.ink;
           g.fillText(rest, x, at);
         });
@@ -58852,9 +59070,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         { title: presence3.roomName ? "Private room chat" : "Room chat" }
       );
       chatStops.push(
-        s.on("said", (m, line2) => {
+        s.on("said", (m, line3) => {
           const mine = m.pubkey === s.self.pubkey;
-          controls2.chat.add({ id: line2.id, who: m.name, text: line2.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
+          controls2.chat.add({ id: line3.id, who: m.name, text: line3.text, mine, color: `#${m.color.toString(16).padStart(6, "0")}` });
           if (mine || !showsChat()) return;
           controls2.signal("heard");
           const where = presence3.whereIs(m.pubkey);

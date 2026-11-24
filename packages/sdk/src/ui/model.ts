@@ -12,13 +12,20 @@
  * Adding a button, a section, or a whole new kind of control later means
  * adding to this list. Nothing about either renderer has to change.
  */
-import { cleanSettings, PINS_MOST, type MenuFileKind } from "@nswp/core";
+import { cleanMenuWorld, cleanSettings, PINS_MOST, type MenuFileKind } from "@nswp/core";
 import { arrivedSettings, reportSettings } from "../settings.js";
 import { createUiChat, type ChatView, type UiChat } from "./chat.js";
 import { createUiFeed, type FeedView, type UiFeed } from "./feed.js";
 import { createUiLetters, type LettersView, type UiLetters } from "./letters.js";
 import type { IconName } from "./icons.js";
 import { DEFAULT_THEME, resolveTheme, saveVisitorTheme, loadVisitorTheme, UI_PRESETS, type UiTheme } from "./theme.js";
+
+/**
+ * The kit's one-time questions on how a visitor moves (fps.ts, visitor-switches.ts, comfort-controls.ts). At a
+ * desk each is asked by whoever draws the menu, which above a world is the client; so a world never describes
+ * them to a client (menu-above.ts), and their ids need not be a client's. Not part of the package's entries.
+ */
+export const KIT_QUESTION_TABS: readonly string[] = ["how-you-move-desk", "how-you-move"];
 
 type Text = string | (() => string);
 
@@ -522,7 +529,20 @@ export function createControls(opts: ControlsOptions): Controls {
   const feed = createUiFeed(changed);
   const letters = createUiLetters(changed);
 
+  // A tab whose id a client's menu won't take is in this world's own menu and in no client's, with its rows, and
+  // nothing said so: a world's maker found out only by looking in a client (my own trial's first id was fourteen
+  // letters long, 2026-11-24). Asked of the client's own reading, so the rule is never written twice: said once
+  // for each id, in the console, where whoever is making the world will see it.
+  const toldOfTabs = new Set<string>();
+  const tellOfTab = (id: string) => {
+    if (toldOfTabs.has(id) || KIT_QUESTION_TABS.includes(id)) return;
+    toldOfTabs.add(id);
+    if (cleanMenuWorld({ sections: [{ id, label: "a tab", rows: [] }] }, { own: true })?.sections.length) return;
+    console.warn(`NSWP: the tab "${id}" is in this world's own menu, but will not be in a client's (BitPortal's): a tab's id is a lowercase word of letters, digits and hyphens, beginning with a letter, twelve at most. Its rows go with it.`);
+  };
+
   function addSection(s: UiSection): void {
+    tellOfTab(s.id);
     const i = sections.findIndex((x) => x.id === s.id);
     if (i === -1) sections.push({ ...s });
     else sections[i] = { ...sections[i], ...s };

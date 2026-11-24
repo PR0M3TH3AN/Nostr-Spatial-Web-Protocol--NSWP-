@@ -100,6 +100,29 @@ fill it.
 Rows and the like arrive with a short motion when a tab is chosen, in
 place of appearing at once.
 
+**Known, and waiting for this (the orchestrator, 2026-11-24): rows that
+have not changed are made anew when a description does change.** Under a
+client, a world's description that changes in one word has every row of
+the menu made again: each button taken out and a new one put in its
+place. Since 0.90.0 the same description said again draws nothing; a
+changed one still redraws all. It is not a press lost (`trials/menu-rows.mjs`
+and `trials/menu-client.mjs` press twenty times while the menu changes
+four and ten times a second, and every press arrives), but it is why rows
+can't yet come in with motion: each change would bring every row in
+again.
+- **What it would take:** the menu keeps each row's button by the row's
+  id and what it shows, and on a change puts in only what is new, takes
+  out what is gone and changes in place what changed. About 150 lines of
+  `ui/hud.ts`'s drawing, which today rebuilds each tab's rows whole.
+- **What it risks:** the keys' place in the sheet (now kept by rebuilding
+  only where something shown changed), a press held across a change, the
+  one size measured ahead, a row half typed into. Each has a check in the
+  two trials that would have to stay green.
+- **What it buys:** no row made anew that didn't change, which is what
+  motion on rows needs; a little less work on a slow phone when a world
+  speaks often.
+- Not now: built with this section, item 2, as its first half.
+
 ### 3. The menu opens and closes with motion
 
 Its outline first, as fine lines, then filled in with what it holds; and

@@ -86,3 +86,44 @@ describe("a tab of the menu, kept on the bar", () => {
     expect(currentSettings().pins).toEqual(["doors", "people"]);
   });
 });
+
+describe("a tab whose id a client's menu won't take", () => {
+  it("is said once, in the console, to whoever is making the world, and a good id or the kit's own questions never are", () => {
+    const warned: string[] = [];
+    const real = console.warn;
+    console.warn = (...a: unknown[]) => void warned.push(a.map(String).join(" "));
+    try {
+      const controls = createControls({ title: "A world" });
+      controls.addSection({ id: "trial-own-early", label: "Own early" });
+      controls.addSection({ id: "trial-own-early", label: "Own early, again" });
+      controls.addSection({ id: "Shop", label: "Shop" });
+      controls.addSection({ id: "shop", label: "Shop" });
+      controls.addSection({ id: "lantern-run", label: "Lantern run" });
+      controls.addSection({ id: "how-you-move-desk", label: "How you move" });
+      controls.addSection({ id: "how-you-move", label: "How you move" });
+      controls.addSection({ id: "bag", label: "Bag" });
+      expect(warned.length).toBe(2);
+      expect(warned[0]).toContain('"trial-own-early"');
+      expect(warned[0]).toContain("will not be in a client's");
+      expect(warned[0]).toContain("twelve at most");
+      expect(warned[1]).toContain('"Shop"');
+      // The tab is still in the world's own menu: only a client leaves it out.
+      controls.add({ id: "early-row", section: "trial-own-early", label: "A row", act: () => {} });
+      expect(controls.view().sections.find((s) => s.id === "trial-own-early")?.items.map((i) => i.id)).toEqual(["early-row"]);
+    } finally {
+      console.warn = real;
+    }
+  });
+});
+
+describe("the kit's own question tabs", () => {
+  it("are kept inside the kit: in none of the package's entries", async () => {
+    const pkg = (await import("../package.json", { with: { type: "json" } })).default as { exports: Record<string, string | { import?: string; default?: string }> };
+    const entries = Object.values(pkg.exports).map((e) => (typeof e === "string" ? e : (e.import ?? e.default ?? "")));
+    expect(entries.length).toBeGreaterThan(5);
+    for (const entry of entries) {
+      const mod = (await import(`../${entry.replace(/^\.\//, "")}`)) as Record<string, unknown>;
+      expect(Object.keys(mod), entry).not.toContain("KIT_QUESTION_TABS");
+    }
+  });
+});
