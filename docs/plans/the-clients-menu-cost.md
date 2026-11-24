@@ -34,7 +34,7 @@ Three worlds, each in a frame of a page on another site: this checkout's builds 
 the Gallery and the Grove, and of the Godot example (the Foundry). Each was visited
 two ways, on a freshly opened browser with nothing kept from before:
 
-- **The world draws it:** the page above says nothing. The world waits its 300 ms
+- **The world draws it:** the page above says nothing. The world waits its 300 ms (100 since 2026-11-24; the times on this page were taken at 300)
   and draws its own menu, as it does today.
 - **The client draws it:** the page above is the stand-in client
   (`trials/stand-in-client/`), which draws the menu. The world draws none.

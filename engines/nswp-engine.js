@@ -6972,7 +6972,7 @@ ${roomName}`)));
     /** Pixels, for any number in what a client says its menu covers of a world's view. */
     covers: 8192
   };
-  var MENU_WAIT_MS = 300;
+  var MENU_WAIT_MS = 100;
   var LEAVE_MS = 1e3;
   var MENU_SAVE_MS = 1e4;
   var MENU_MAKING_MS = 6e4;
