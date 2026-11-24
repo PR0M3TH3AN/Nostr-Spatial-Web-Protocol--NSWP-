@@ -416,6 +416,14 @@ world still reads how they arrived: all of it happens in the frame.
   these words: whether they said yes is asked of the world's own
   signer, as ever. A client shows the panel only at a press, only for
   the page in its frame, and one at a time.
+  **While the panel is up the world holds neither the pointer nor the
+  keys.** It is the visitor's to press. A world that takes the pointer to
+  look round with the mouse lets it go as the client says the panel is
+  up, takes no key and no movement of the mouse for moving the visitor,
+  and does not ask for the pointer again until the client says the panel
+  has gone; then the next press on its view takes it, as after its menu.
+  A visitor never has to press Escape to reach the panel, which in full
+  screen would end full screen too.
 - **A place that doesn't say it came up is gone to the ordinary way.**
   The client leaves its own page for it, so a world that has changed who
   may frame it, or can't be reached, is never a blank frame.

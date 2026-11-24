@@ -25,6 +25,7 @@
 import type * as THREE from "three";
 import { aimScale, lookScale } from "./desk.js";
 import { startingForm } from "./form.js";
+import { clientPanelOpen, onClientSignIn } from "./client-frame.js";
 import { arrivedSettings, reportSettings } from "./settings.js";
 import { mayAskHowTheyMove } from "./ask-once.js";
 import { RUN } from "./stroll.js";
@@ -210,8 +211,15 @@ export function createFps(o: FpsOptions): Fps {
   dot.style.cssText = "position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff;opacity:.75;box-shadow:0 0 0 1px rgba(0,0,0,.55);pointer-events:none;z-index:5;display:none";
   document.body.append(dot);
 
+  // The client above has a panel of the sign-in address's up over this world (client-frame.ts). It is drawn by the
+  // client's page, over the view, and is the visitor's to press: while it is up this takes no pointer, no key and no
+  // movement of the mouse. The owner, 2026-11-24, of 0.87.0: "the bitlogin panels force me to hit escape again to
+  // use. The game just playes behind them". The menu steps aside as the panel comes up; closing the menu asks for
+  // the pointer again, a moment after the visitor's own press, and the browser gave it: the panel came up over a
+  // world that held the pointer and the keys, and the only way out was Escape, which also ends full screen.
+  const panelUp = () => clientPanelOpen();
   const look = () => {
-    if (!active() || o.hud?.open || looking()) return;
+    if (!active() || o.hud?.open || looking() || panelUp()) return;
     try {
       const asked = o.dom.requestPointerLock() as unknown as Promise<void> | undefined;
       // A browser refuses for a moment after Escape; the next click asks again.
@@ -230,7 +238,7 @@ export function createFps(o: FpsOptions): Fps {
   // has pressed nothing here yet. They are still moving the intense way: the mouse looks round at once, over the
   // view, with the pointer hidden. The pointer itself is taken at their first key or click, without their being
   // asked for either. So nobody is put back to the casual way by going through a door.
-  const free = (e: MouseEvent) => !looking() && !o.hud?.open && e.target === o.dom && e.buttons === 0;
+  const free = (e: MouseEvent) => !looking() && !o.hud?.open && !panelUp() && e.target === o.dom && e.buttons === 0;
   const onMove = (e: MouseEvent) => {
     if (!active() || !(looking() || free(e))) return;
     const next = lookAfter(o.rig.rotation.y, pitch, e.movementX, e.movementY, LOOK_SPEED * lookScale() * aimScale());
@@ -239,7 +247,8 @@ export function createFps(o: FpsOptions): Fps {
     o.camera.rotation.x = pitch;
   };
   const onDown = (e: MouseEvent) => {
-    if (!active() || e.button !== 0) return;
+    // With the client's panel up, a press on what shows of the view beside it is not a press in the world.
+    if (!active() || e.button !== 0 || panelUp()) return;
     // The first click takes the pointer; from then on a click uses what is in the middle of the view.
     if (looking()) o.onUse();
     else look();
@@ -272,7 +281,7 @@ export function createFps(o: FpsOptions): Fps {
       } else if (o.hud && !o.hud.open && performance.now() - closedAt > 80) o.hud.setOpen(true);
       return;
     }
-    if (o.hud?.open) return;
+    if (o.hud?.open || panelUp()) return;
     // Any key is a press as far as a browser is concerned: the pointer is taken now, so nothing need be clicked.
     if (!looking() && !e.repeat) look();
     const which = heldKey(e.code);
@@ -299,6 +308,15 @@ export function createFps(o: FpsOptions): Fps {
   addEventListener("keydown", onKey);
   addEventListener("keyup", onKeyUp);
   addEventListener("blur", onBlur);
+  // The panel comes up: the pointer is let go, as for the menu, and whatever key was held is let go with it. This
+  // is also a panel asked for with the menu down and the pointer held (a world's own thing that needs the visitor
+  // signed in). When it goes there is nothing to do: a menu that stepped aside for it comes back by itself, and
+  // otherwise the next press on the view takes the pointer, as after the menu.
+  const stopPanel = onClientSignIn((up) => {
+    if (!up) return;
+    for (const k of Object.keys(held) as (keyof Held)[]) held[k] = false;
+    letGo();
+  });
   const stopSignals = o.controls.onSignal((name) => {
     // The menu is open: the pointer is needed for it. Closed: the next click on the view looks round again.
     if (name === "menuOpen") letGo();
@@ -416,6 +434,7 @@ export function createFps(o: FpsOptions): Fps {
       letGo();
       dot.remove();
       stopSignals();
+      stopPanel();
       o.controls.remove("fps");
       o.dom.removeEventListener("mousedown", onDown);
       document.removeEventListener("mousemove", onMove);
