@@ -110,6 +110,85 @@ a trigger presses it (`NSWP.run`, as now).
   controller leaves the session, which puts the visitor back at the page's own
   menu with Home on it. That closes the "can't get out" fault at once.
 
+## What the pixels crossing costs, measured (2026-11-23)
+
+Asked for before the console is settled (the orchestrator: "Measure what the
+pixels crossing costs before it's settled, and say the number").
+
+**The number: about 4 to 6 ms a change, on a laptop.** That is the console's
+own size, 1024 by 640, as its pixels, 2.6 MB each time. **It is not a Quest's
+number.** Nothing here was measured on a headset.
+
+**How it was measured** (`trials/godot-pixels.mjs`): this checkout's export of
+the Godot example, in Chrome drawing on the laptop's own graphics card (an
+Intel i5-1135G7 with Iris Xe, busy at a load of 12 to 14). A page's canvas of
+the console's size is drawn afresh with a dozen boxes of words, as a console
+is, and brought into Godot thirty times each way. Each step is timed where it
+happens: the page's by the page's clock, Godot's by Godot's. Four runs; each
+figure is the middle of a run, and the range is across the four.
+
+| The way | Bytes across | Middle, ms | Worst seen, ms |
+|---|---|---|---|
+| Its pixels as they are, 1024 by 640 | 2,621,440 | 6.3 to 7.6 | 46 |
+| The same, the canvas told it will be read back often | 2,621,440 | **4.1 to 5.9** | 23 |
+| Three quarters the size each way, 768 by 480 | 1,474,560 | 2.3 to 4.4 | 25 |
+| Half the size each way, 512 by 320 | 655,360 | 1.1 to 1.5 | 12 |
+| Packed as a PNG, 1024 by 640 | 80,263 | 28.5 to 32.6 | 76 |
+
+**Where the time goes,** for the second row:
+
+| Step | Middle, ms |
+|---|---|
+| The page draws the console's picture | 0.2 |
+| The page reads its own canvas back | 3.1 to 3.7 |
+| Across to Godot (a copy of 2.6 MB) | 0.3 to 0.4 |
+| Godot makes an image of it | under 0.1 |
+| Onto a texture | 0.3 to 0.4 |
+
+What follows from it:
+
+- **The crossing itself is small.** Three quarters of the time is the page
+  reading its own canvas back. Telling the canvas it will be read often
+  (`willReadFrequently`) takes a third off.
+- **Packing it is the wrong way:** a PNG is thirty times smaller and six times
+  slower, at both ends.
+- **A change costs about a third of a frame here.** A headset draws a frame
+  every 11 to 14 ms. A Quest's processor is slower than this laptop's, by how
+  much for this work I don't know: if it is two or three times, one change is
+  about one frame.
+- **So how often it changes is what matters, and pointing is what changes it
+  most.** The kit's console draws itself again whenever what is pointed at
+  changes, to light the row. A hand swept down six rows is twelve changes in
+  a second.
+
+### The question this leaves: who lights the row pointed at
+
+| | A. In the picture | B. By the add-on |
+|---|---|---|
+| What lights a row | The kit's own drawing, as in every other world | A box the add-on draws over the row, where and how the engine script says (its place, its colour, its corners) |
+| A crossing happens | Each time the row pointed at changes, and at every press, tab and page | Only when what the console shows changes: a press, a tab, a page. Never for pointing |
+| At a sweep across six rows | Twelve crossings in a second | None |
+| Drawn once | Wholly | All but the light on one row. Its look still comes from the kit, as numbers |
+| The risk | A hitch at every row, of a size not known until tried on a Quest | A lit row that could drift from the kit's, if the kit's changes and the numbers don't |
+
+**My recommendation: B.** It makes the cost of the crossing not matter: it
+then happens at a press, where a frame is not missed. And the engine script
+has to say what is under the pointer anyway, to take a press.
+
+**What would settle the real number:** the same measurement read on the Quest
+3S itself. It is a small addition to the example (open it with a mark in its
+address, and its menu says the figure). Not built; say if it is wanted before
+the console is.
+
+### Not measured
+
+- A headset, or a phone.
+- Handing Godot the picture with no copy at all (the page drawing straight
+  into Godot's own texture). Godot's web export gives a page no way to its
+  textures that I found.
+- A console of another size. Its size is the kit's (`console.ts`: 1024 by
+  640), and the headset menu's redesign may change it.
+
 ## The order
 
 1. **Moving** (one pull request): `NSWP.hands()`, the fade's numbers, the two

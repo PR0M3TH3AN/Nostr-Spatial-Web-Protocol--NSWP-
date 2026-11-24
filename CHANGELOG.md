@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **What it costs to bring the console's picture into a Godot world, measured before the console in a headset there is built** (`trials/godot-pixels.mjs`, new; the Godot example's `main.gd`; `docs/plans/godot-headset-controls.md`). No change to the kit, the add-on or the engine script.
+  - **About 4 to 6 ms a change, on a laptop,** for the console's own 1024 by 640 as its pixels (2.6 MB). Three quarters of it is the page reading its own canvas back; the crossing to Godot is 0.3 ms. Packed as a PNG it is thirty times smaller and six times slower. Not a Quest's number: nothing was measured on a headset.
+  - **The example has a hook for it,** inert unless a test asks (`window.nswpMeasurePixels`), beside the one for made-up hands.
+  - **The plan has the figures and the question they leave:** the kit's console draws itself again whenever the row pointed at changes, so who lights that row decides how often the pixels cross.
+
 - **The client's-menu trial draws with the graphics card, names every press on the world's own page, and asks the two faults of the Camera directly** (`trials/menu-client.mjs`, `trials/README.md`). No fault in the kit. Two checks in the `music` visit had failed in three of the orchestrator's full runs, and passed when run alone.
   - **Where the time went, and the press that was never made.** The world's own page is a world drawing itself, and without a graphics card it draws about two frames a second, with everything else on the page waiting behind each frame. The scripting tool's own click waits for several frames first, so each of four presses took 6 to 12 seconds; past its limit of 15 the press was never made, and the trial said nothing of it. Two checks later it read as a row that wasn't there.
   - **Chrome now draws with the graphics card,** as `menu-cost.mjs` does: all six visits in 111 seconds at a load of 17 to 22. The trial asks the browser what in fact drew the pages, says it at the top of the run and in the result, and says plainly, without failing, if the card was asked for and the machine gave none. `--software` draws without it, in about three and a half minutes: the stand-in for a slow device, and wanted beside the ordinary run before a kit version is cut.
