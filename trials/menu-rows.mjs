@@ -311,6 +311,77 @@ try {
   await noLines();
   check("and it goes after its moment", (await sayAndRead([])).said === 0, null);
 
+  // ---- One size on every tab (the owner, 2026-11-24: "The menus size should be the same across all tabs. So the
+  // tabs always stay at eye level"; docs/backlog/menu-one-size-and-motion.md). The sheet is the size it has on its
+  // largest tab, on every tab: going from tab to tab, neither the sheet nor its strip of tabs moves by a pixel.
+  // Every tab the menu has is gone to in turn, at a desk's width and at a phone's, and where each thing is is read.
+  {
+    const where = () => page.evaluate(async () => {
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      const sheet = root.querySelector("section.sheet");
+      await Promise.all(sheet.getAnimations().map((x) => x.finished.catch(() => null)));
+      const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10); };
+      const rows = sheet.querySelector(".rows");
+      return { sheet: box(sheet), strip: box(sheet.querySelector(".tabs")), foot: box(sheet.querySelector(".foot")), rowsScroll: rows.hidden ? false : rows.scrollHeight > rows.clientHeight + 1, most: parseFloat(getComputedStyle(sheet).maxHeight), tab: sheet.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() };
+    });
+    const goTo = (id) => page.evaluate((id) => window.__nswpTest.hud.setOpen(true, id), id);
+    const tabsNow = () => page.evaluate(() => window.__nswpTest.controls.view().sections.map((x) => x.id));
+    const same = (a, b) => a.every((n, i) => Math.abs(n - b[i]) < 0.6);
+    for (const [at, width, height] of [["a desk's width", 1100, 700], ["a phone's width", 390, 760]]) {
+      await widthOf(width, height);
+      await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+      await page.waitForTimeout(300);
+      const tabs = await tabsNow();
+      const seen = [];
+      for (const id of tabs) {
+        await goTo(id);
+        await page.waitForTimeout(120);
+        seen.push({ id, ...(await where()) });
+      }
+      const first = seen[0];
+      const moved = seen.filter((x) => !same(x.sheet, first.sheet) || !same(x.strip, first.strip) || !same(x.foot, first.foot));
+      check(`one size, at ${at}: on every one of its ${tabs.length} tabs the sheet, its strip of tabs and its foot are in the same place, to the pixel`, tabs.length >= 6 && moved.length === 0, { first: { sheet: first.sheet, strip: first.strip }, moved: moved.map((x) => ({ id: x.id, sheet: x.sheet, strip: x.strip })) });
+      results[`one size, at ${at}: the sheet, and how many tabs scroll inside it`] = { sheet: first.sheet, tabs: tabs.length, scrolling: seen.filter((x) => x.rowsScroll).map((x) => x.id) };
+      check(`one size, at ${at}: the sheet is never taller than it is let be`, first.sheet[3] <= first.most + 0.6, { tall: first.sheet[3], most: first.most });
+      // A world adds a tab of its own while the menu is up, longer than the screen: the sheet grows to all it is let
+      // be, once, and that tab scrolls inside it. Every tab is then that size.
+      await page.evaluate(() => {
+        const c = window.__nswpTest.controls;
+        if (!c.view().sections.some((x) => x.id === "trial-long")) {
+          c.addSection({ id: "trial-long", label: "Long", icon: "save" });
+          for (let i = 0; i < 40; i++) c.add({ id: `trial-long-${i}`, section: "trial-long", label: `A row of a long tab, ${i + 1} of 40`, act: () => {} });
+        }
+      });
+      await page.waitForTimeout(300);
+      const grown = await where();
+      await goTo("trial-long");
+      await page.waitForTimeout(150);
+      const long = await where();
+      check(`one size, at ${at}: a tab longer than the screen makes the sheet all it is let be, and scrolls inside it`, Math.abs(long.sheet[3] - long.most) < 0.6 && long.rowsScroll, { tall: long.sheet[3], most: long.most, scrolls: long.rowsScroll });
+      check(`one size, at ${at}: the sheet had grown to that as the tab was added, before it was gone to`, same(grown.sheet, long.sheet) && same(grown.strip, long.strip), { asAdded: grown.sheet, onIt: long.sheet });
+      const after = [];
+      for (const id of await tabsNow()) {
+        await goTo(id);
+        await page.waitForTimeout(120);
+        after.push({ id, ...(await where()) });
+      }
+      const movedAfter = after.filter((x) => !same(x.sheet, long.sheet) || !same(x.strip, long.strip) || !same(x.foot, long.foot));
+      check(`one size, at ${at}: and every tab is then that size, the strip where it is on the long one`, movedAfter.length === 0, movedAfter.map((x) => ({ id: x.id, sheet: x.sheet, strip: x.strip })));
+      // A short tab is not stretched: its rows are their own height, and the room left is above the foot.
+      await goTo("help");
+      await page.waitForTimeout(150);
+      const short = await page.evaluate(() => { const sheet = document.querySelector("nswp-hud").shadowRoot.querySelector("section.sheet"); const rows = sheet.querySelector(".rows"); const room = sheet.querySelector(".room"); return { rows: rows.hidden ? 0 : Math.round(rows.getBoundingClientRect().height), content: rows.hidden ? 0 : rows.scrollHeight, room: Math.round(room.getBoundingClientRect().height) }; });
+      results[`one size, at ${at}: on a short tab (Help), its rows and the room left over, in pixels`] = short;
+      check(`one size, at ${at}: a short tab's rows are not stretched to fill the sheet`, short.rows <= short.content + 2, short);
+      // Taken away again, for what comes after: the long tab goes, and the menu is put away.
+      await page.evaluate(() => { const c = window.__nswpTest.controls; for (let i = 0; i < 40; i++) c.remove?.(`trial-long-${i}`); c.removeSection?.("trial-long"); window.__nswpTest.hud.setOpen(false); });
+      await page.waitForTimeout(300);
+    }
+    await widthOf(1100, 700);
+    results["one size: the long tab was taken away again"] = !(await tabsNow()).includes("trial-long");
+  }
+
   // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
   // coming up on the same thing; drawing the menu again makes every row anew; so a drawing between the two took the
   // row from under the mouse, and the press was never delivered. It happened whenever anything the menu shows
