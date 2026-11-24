@@ -7,7 +7,8 @@
   template. Briefed 2026-11-24, in the builder's queue after its menu work.
 - **State:** the trial is agreed, and has its first finding (below: what a
   splat world's page has to allow). Its file and renderer are put to the
-  owner, and nothing is fetched until he says so. Asked whether the builder
+  owner, who answered on 2026-11-24: "Yes, download both for splats" (the
+  file and the renderer named below, and nothing else). Asked whether the builder
   should make one splat room as a trial after the menu work, the owner
   said: "Yes, after the menu". Only the trial: nothing goes into the kit before the owner has
   tried it on the Quest 3S.
@@ -131,7 +132,8 @@ what a Godot world has, by its own build, and no other world changes.**
 
 ## The trial's file and renderer, put to the owner (2026-11-24)
 
-Nothing is fetched until the owner says so.
+The owner's word for these two, 2026-11-24: "Yes, download both for
+splats". Anything else to fetch is asked for again.
 
 - **The file:** "Knock Community Hall" by scbenoit, 27.8 MB, one `.sog` file,
   about 1.9 million splats, CC BY 4.0. The note beside the file in

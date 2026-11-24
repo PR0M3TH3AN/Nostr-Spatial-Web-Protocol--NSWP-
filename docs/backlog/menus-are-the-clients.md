@@ -20,6 +20,18 @@
   Steps 0 (the seam) and 0b (the press trial) are being built by the NSWP
   builder. The owner's eight questions (its section 14) are open, and step
   1 waits for them.
+- **State, 2026-11-24:** BitPortal's own menu above a world is built behind
+  a switch that is off in every live build. Shown its seventeen pictures
+  and asked whether the switch may go on, the owner said: "Yes for menu
+  pictures". Read by the orchestrator as: the pictures are approved, and
+  BitPortal may build and merge the change that turns the switch on, in
+  its order (the Bag, the answer from the first file, the core carried
+  once, then the switch). Going live with it is a separate word. Three
+  things in the pictures are worse than the menu that is live, and are
+  named again when that word is asked for: the view isn't yet shifted
+  clear of the bar (`view-clear-of-the-menu`), "Change how you look" opens
+  on You (`menu-opens-on-a-tab`), and things in the Bag show by their
+  first letters.
 
 ## What is true today
 
