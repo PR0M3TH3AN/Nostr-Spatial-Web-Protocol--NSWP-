@@ -108,6 +108,49 @@ try {
   await page.waitForFunction(() => window.__got.some((g) => g[0] === "copy"), null, { timeout: 5000 }).catch(() => {});
   check("the row that copies writes its text, and the world is told of the press", (await page.evaluate(() => navigator.clipboard.readText())) === "npub1trialkey" && (await page.evaluate(() => window.__got.some((g) => g[0] === "copy"))), await page.evaluate(() => navigator.clipboard.readText().catch((e) => String(e))));
 
+  // Words said for a moment, with the menu up (as "Copied." was, just now): they are where they can be read. The
+  // sheet lies over where they stand with the menu down, on all but the widest screens, so they are in the sheet,
+  // above its foot. A line lasts four seconds, so it is said and looked at in one go, inside the page: where things
+  // are on the screen, and what is on top at the line's own middle.
+  const sayAndLook = (words, first) =>
+    page.evaluate(async ([words, first]) => {
+      const t = window.__nswpTest;
+      if (words) t.controls.say(words);
+      if (first === "close") t.hud.setOpen(false);
+      await new Promise((done) => setTimeout(done, 450));
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      const line = [...root.querySelectorAll(".say")].at(-1);
+      if (!line) return null;
+      const box = (e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+      const at = box(line);
+      const top = root.elementFromPoint((at.left + at.right) / 2, (at.top + at.bottom) / 2);
+      const onTop = top === line || line.contains(top);
+      return { words: line.textContent, line: at, sheet: box(root.querySelector("section.sheet")), foot: box(root.querySelector(".foot")), rows: box(root.querySelector(".rows")), onTop, over: onTop ? null : `${top?.tagName} ${top?.className}`, inSheet: !!line.closest("section.sheet") };
+    }, [words, first ?? ""]);
+  const up = await sayAndLook("Said with the menu up.");
+  results["a line said with the menu up, where it is"] = up;
+  check("with the menu up, what is said for a moment is in the sheet, above its foot and below its rows", !!up && up.words === "Said with the menu up." && up.inSheet && up.line.left >= up.sheet.left && up.line.right <= up.sheet.right && up.line.bottom <= up.foot.top + 1 && up.line.top >= up.rows.bottom - 1, up);
+  check("and nothing lies over it", up?.onTop === true, up);
+  await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet.png") });
+  // A phone's width, where the sheet is the whole width: the same.
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.waitForTimeout(400);
+  const narrow = await sayAndLook("Said on a narrow screen.");
+  check("the same on a narrow screen", !!narrow && narrow.words === "Said on a narrow screen." && narrow.inSheet && narrow.onTop && narrow.line.left >= 0 && narrow.line.right <= 390 && narrow.line.bottom <= narrow.foot.top + 1, narrow);
+  await page.screenshot({ path: join(SHOTS, "menu-rows-said-in-the-sheet-narrow.png") });
+  await page.setViewportSize({ width: 1100, height: 700 });
+  await page.waitForTimeout(400);
+  // With the menu down they are where they were: at the lower left, over the view. A line still up as the menu
+  // goes moves there with it. What is on top there can't be asked the same way: over the view a said line takes no
+  // presses, so the browser answers with the view under it. Its place is what is checked, against a line said with
+  // the menu down all along.
+  const down = await sayAndLook("Said as the menu goes.", "close");
+  const plain = await sayAndLook("Said with the menu down.");
+  check("with the menu down, it is at the lower left as before, and a line still up went there with it", !!down && down.words === "Said as the menu goes." && !down.inSheet && down.line.left < 40 && down.line.top > 350 && !!plain && !plain.inSheet && plain.line.left === down.line.left, { down, plain });
+  // A line lasts its moment and goes, wherever it stands.
+  await page.waitForTimeout(4800);
+  check("and it goes after its moment", (await sayAndLook("")) === null, await sayAndLook(""));
+
   // A press outside the sheet closes the menu, and is nothing else: in the world's own page, as in a client's. The
   // world's view is under where the press lands, and hears none of it.
   await page.evaluate(() => {

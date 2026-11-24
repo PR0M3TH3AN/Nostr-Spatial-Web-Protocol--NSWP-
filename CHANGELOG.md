@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **Words said for a moment can be read with the menu up** (SDK `ui/hud.ts`; `trials/menu-rows.mjs`). A fault: a line said for a moment ("Copied.", "A picture from The Gallery was saved to this device.") stands at the lower left, and on any screen narrower than about 1500 pixels the menu's sheet lay over half of it or more. Most such lines answer a press in the menu, so they were said where they couldn't be read.
+  - **While the menu is up the lines are in its sheet, above its foot,** under the tab's rows and its note. With the menu down they are at the lower left as before. A line still up as the menu comes or goes moves with it, and goes when its four seconds are over.
+  - The same in a world's own menu and in a client's above a world: it is the one menu.
+  - **Tried** in `trials/menu-rows.mjs` (21 checks, 16 before): with the menu up the line is inside the sheet, above its foot and below its rows, with nothing over it, at a desk's width and a phone's; with the menu down it is at the lower left, and a line still up as the menu went is there too; and it goes after its moment. Four of the five fail on the kit as it was. Not tried: a headset, whose console is drawn another way and is not changed.
+
 - **The live trial reads BitPortal's kept panel as closed** (`trials/live.mjs`, `trials/README.md`). Not a fault in any site. After the deploy of 0.86.0 the trial exited 1 on three checks, "closed, and the menu is back".
   - **Why:** BitPortal's shell now keeps BitLogin's panel between openings, so that the next one is up at once. Closed, its box stays, marked `data-kept`. The trial counted any box as an open panel, never saw it close, pressed outside to close it, and that press put the menu away (as a press outside has done since 0.85.0). So the menu it then looked for was gone.
   - **Now a kept box is a closed panel,** and the trial checks what a kept box must be: unseen, and taking no press, read from what the browser says of it and from what is on top at its middle. It also counts how often the panel's own Close didn't close it and a press outside had to; that was never, in this run.
