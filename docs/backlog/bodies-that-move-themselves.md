@@ -93,6 +93,40 @@ times; memory; each route that does not start, said plainly; feet sliding
 and time to answer a change of goal; and all of it beside the same figure
 moved by ordinary clips blended by rules.
 
+## A walker made by rules first (the orchestrator's recommendation, 2026-11-24)
+
+The owner, with a second list of projects: "which of these might be a
+better open source option? We dont have to use that meta one."
+
+Looked up on GitHub by the orchestrator (the licence each repository
+states, nothing more) and read on their public pages by the `nswp-agents`
+session (nothing saved or run):
+
+- **The walkers made by rules are free to ship** (MIT) and need no model,
+  no weights and no graphics adapter. `three-procedural-locomotion`: a
+  two-legged figure by exact two-bone inverse kinematics, feet planted in
+  the world, a gait clock; about 12,000 lines, a month old, one author. It
+  needs a figure with named leg bones, moves the root itself (where our
+  place moves the body), and begins to run at 1.7 m/s where our figures
+  walk at 2.4. `threejs-procedural-animals`: animals only, tied to bodies
+  it makes, with one idea to take: following a body something else moves.
+- **The models are for non-commercial use** (the three.js port and Meta's
+  framework, CC BY-NC 4.0 by their own licence files). The port is WebGPU
+  only, about 18 MB of weights for two legs, and needs a 23-bone skeleton
+  with a figure skinned to it. A training framework that is free to use
+  (MimicKit, Apache-2.0) has no runtime for a browser.
+- **This machine has a WebGPU adapter by one route** (Chrome with its
+  Vulkan settings: the laptop's built-in card), so a model can be
+  measured here.
+
+Recommended, and put to the owner: the first working thing with numbers
+is a small walker of our own, learned from the first project (two-bone
+inverse kinematics, a gait clock, a swing with the foot planted, landing
+from the body's velocity, pelvis height and sway: a few hundred lines),
+on a figure given two-segment legs made by code, following the body the
+place already moves. A model second, read against it, and only shipped if
+one is ever free to use. His answer is awaited.
+
 ## Must not
 
 - Ship anything under a licence that forbids commercial use, or fetch any

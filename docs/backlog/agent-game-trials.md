@@ -118,8 +118,12 @@ Nothing here is for the kit or a live world.
 **State, 2026-11-24:** its free half is built and run (the playground's
 D72, on his "Yes, start it"): three rooms, a scripted seeker, rules
 written for no room, and chance, against stand-in hiders, with sight and
-sound declared by the place and enforced. No seeker with a model yet. The
-lessons are in `docs/plans/agents-lessons.md`.
+sound declared by the place and enforced. Then, the same day: seekers
+with models built and not run (D73); cupboards, and a larger room, which
+make the game tell seekers apart (D74); and sight and hearing moved onto
+the agent, with the place holding the cap and doing the working out
+(D75). No seeker with a model has run. The lessons are in
+`docs/plans/agents-lessons.md`.
 
 ## Must not
 

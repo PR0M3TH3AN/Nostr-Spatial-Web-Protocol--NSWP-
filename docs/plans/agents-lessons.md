@@ -1221,6 +1221,72 @@ the free waiting run answered it.
   lasts a run of games and is not stored.
 - **Not run:** any of the five with JEV or a chat model.
 
+## Hide and seek with cupboards, and senses that belong to the agent (D74 and D75, 2026-11-24; free, no model run)
+
+The cupboard was built on the owner's "yes do as you recommend" as the
+orchestrator passed it on; the senses on his words in the playground's
+session ("should the 'sight' rule be tied to the agent rather than the
+room/game?", then "yes please"). Nothing sent or spent.
+
+**The cupboard.** A thing declares that someone can be inside it, and
+what must hold for them to be seen (its door open). Opening is the
+thing's own declared function, by the same typed "use" as a button. What
+is inside is told to nobody until it is opened: no entity, no walk
+offered, nothing of them in what the eyes are given. A fourth room, the
+manor, has 22 places to look, more than the game's 90 seconds allows;
+nothing was written for it.
+
+| Seeker (400 games; the scripted one 200) | Caught in 90 s | Within 30 s | Within 15 s | Lines written by hand |
+|---|---|---|---|---|
+| Scripted for the room | 200 of 200 | 197 | 160 | 36, and 29 more for two rooms |
+| Random | 304 | 144 | 61 | none |
+| Rules for no room | 400 | 353 | 251 | 63 |
+| Rules that remember | 400 | 366 | 282 | |
+| Rules at JEV's waiting (0.2 s) | 400 | 348 | 216 | |
+| Rules at a chat model's waiting (3.1 s) | 340 | 130 | 30 | |
+
+The seeking skill is 50 lines; JEV choosing where to look is 3 lines and
+a sentence; JEV choosing everything, a sentence. In the manor, within 30
+s of 20, against a hider with a habit: fixed rules 1, rules that remember
+18. Chance catches 34 of 100 there, where it caught 256 of 270 before the
+cupboards.
+
+- **"Someone can be inside this" is one declared fact about a thing, with
+  the condition for seeing in** (shown, free: D74). It needed no new
+  action: opening was already a declared function. With it the game tells
+  seekers apart.
+- **A habit beats fixed rules outright, and remembering beats a habit**
+  (shown, free: D74). Remembering costs a little against a hider
+  somewhere new each game (14 against 18).
+- **The scripted seeker had to be rewritten to open things; the rules
+  were not** (shown, free: D74). That is what lines written for one game
+  cost when the game changes.
+- **Senses are an agent's, like skills; the place holds a cap and does
+  the working out** (shown, free: D75). A body brings its own eyes and
+  ears (how far, how wide, how far off a step is heard). A room says only
+  the most anyone sees or hears in it. What is in effect is the least of
+  the body's own, the place's cap, and what any body may claim at all; a
+  body claiming 1,000 m is held to the room's 7, and nothing it says sees
+  through what is in the way. *For the protocol:* without the cap being
+  the place's, a dark room can't be made; without the working out being
+  the place's, a body's claim is taken on trust.
+- **Where a place says nothing of sight, an agent with eyes is still told
+  only what it sees** (shown, free: D75). That is the default a visiting
+  agent needs. A body that says nothing, in a place that says nothing, is
+  told as before.
+- **A sense with nothing to act on is worth nothing** (shown, free: D75).
+  Hearing gave a side and no use for it until seeking offered "a few steps
+  toward where a step was just heard", a spot worked out by the place and
+  not where the walker is.
+- **The same rules in other bodies** (shown, free: D75), caught within 30
+  s of 100 in the manor: ordinary 53; short-sighted with keen ears 29;
+  wide-eyed and deaf 66; narrow-eyed 36. (The deaf, wide-eyed body doing
+  better is two changes at once, not separated.)
+- **Where an agent's senses are kept is not settled** (reasoned): here
+  they are a value handed to the place.
+- **Not done:** any seeker with a model; a person hiding; the game on the
+  page.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
