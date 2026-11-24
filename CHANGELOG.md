@@ -4,6 +4,8 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+## 0.88.0
+
 - **The menu's tabs are measured ahead, so one size costs nothing as the menu comes up** (SDK `ui/hud.ts`). Asked by the orchestrator, who wanted what one size costs timed before a kit version carried it.
   - **What it cost as first built:** the thirteen tabs that aren't up were each laid out once, at the moment the menu first came up. Timed in the page's own clock on the Gallery's 14 tabs, the middle of three loads: with a graphics card 18 ms at a desk's width and 11 at a phone's, against 13 and 5 before one size. With the processor slowed six times, 80 ms and 79 (150 at the worst), against 23 and 23. A change of tab and coming up again were within a few ms of before.
   - **Now they are measured while the menu is down,** in the page's idle moments, a tab at a time, at the width the sheet will have. By the time a visitor first brings the menu up their sizes are kept. A tab not yet measured then, or one that changed in the moment between, is measured as the menu comes up, as before. Not "after the first paint": that would bring the menu up at one size and move the strip a frame later.
