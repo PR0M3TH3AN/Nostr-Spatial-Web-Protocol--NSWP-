@@ -32,6 +32,7 @@ import { arrival, portal } from "./index.js";
 import { addSoundControls, createSounds, CUES, type Cue, type Sounds, type SoundTheme } from "./sound.js";
 import { JUMP_GRAVITY, JUMP_HEIGHT } from "./jump.js";
 import { DOUBLE_TAP, DRAG_LOOK, FACE_RATE, LEVEL_RATE, PATH_MOST, TAP_REACH, TILT_LIMIT, TOP_SPEED, WALK_SPEED } from "./stroll.js";
+import { clientPanelOpen, onClientSignIn } from "./client-frame.js";
 import { freshAction } from "./ui/fresh.js";
 import { fullscreenAction } from "./ui/fullscreen.js";
 import { offerHeadset, type HeadsetOffer } from "./ui/headset.js";
@@ -424,22 +425,34 @@ export function menu(options?: string): string {
   });
   // The menu opening and closing: the engine stops moving the visitor, and lets the pointer go.
   let closedAt = -1;
-  c.onSignal((name) => {
-    if (name === "menuOpen") tell({ type: "menu", open: true });
-    if (name === "menuClose") {
+  //
+  // And the same while the client above has a panel of the sign-in address's up over this world: it is the
+  // visitor's to press, and the engine must hold neither the pointer nor the keys under it. The menu steps aside as
+  // that panel comes up, which used to tell the engine the menu had closed, and the engine took the pointer back
+  // under the panel. So the engine is told "open" while either is up, and "closed" only once neither is.
+  let toldOpen = false;
+  const tellMenu = () => {
+    const up = h.open || clientPanelOpen();
+    if (up === toldOpen) return;
+    toldOpen = up;
+    tell({ type: "menu", open: up });
+    if (!up) {
       closedAt = performance.now();
-      tell({ type: "menu", open: false });
       // The keys go back to the world.
       document.querySelector("canvas")?.focus();
     }
+  };
+  c.onSignal((name) => {
+    if (name === "menuOpen" || name === "menuClose") tellMenu();
   });
+  onClientSignIn(() => tellMenu());
   // Moving the intense way, the pointer is the view's. When the visitor takes it back with Escape, that is the menu.
   document.addEventListener("pointerlockchange", () => {
-    if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open) return;
+    if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open || clientPanelOpen()) return;
     if (performance.now() - closedAt > 80) h.setOpen(true);
   });
   addEventListener("keydown", (e) => {
-    if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement) return;
+    if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement || clientPanelOpen()) return;
     if (performance.now() - closedAt > 80) h.setOpen(true);
   });
   return JSON.stringify({ moving, mouse: hasMouse() });

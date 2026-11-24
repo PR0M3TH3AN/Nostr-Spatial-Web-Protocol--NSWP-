@@ -8313,6 +8313,7 @@ postMessage({ t: "started" });
     if (framed()) say({ nswp: "screen", fill });
   }
   var clientSignsInAt = () => signInAt;
+  var clientPanelOpen = () => panelOpen;
   function onClientSignIn(fn) {
     panelWatchers.add(fn);
     return () => void panelWatchers.delete(fn);
@@ -55929,20 +55930,27 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       tell({ type: "changed" });
     });
     let closedAt = -1;
-    c.onSignal((name) => {
-      if (name === "menuOpen") tell({ type: "menu", open: true });
-      if (name === "menuClose") {
+    let toldOpen = false;
+    const tellMenu = () => {
+      const up = h.open || clientPanelOpen();
+      if (up === toldOpen) return;
+      toldOpen = up;
+      tell({ type: "menu", open: up });
+      if (!up) {
         closedAt = performance.now();
-        tell({ type: "menu", open: false });
         document.querySelector("canvas")?.focus();
       }
+    };
+    c.onSignal((name) => {
+      if (name === "menuOpen" || name === "menuClose") tellMenu();
     });
+    onClientSignIn(() => tellMenu());
     document.addEventListener("pointerlockchange", () => {
-      if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open) return;
+      if (document.pointerLockElement || moving !== "intense" || vr.presenting || h.open || clientPanelOpen()) return;
       if (performance.now() - closedAt > 80) h.setOpen(true);
     });
     addEventListener("keydown", (e) => {
-      if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement) return;
+      if (e.code !== "Escape" || moving !== "intense" || vr.presenting || h.open || document.pointerLockElement || clientPanelOpen()) return;
       if (performance.now() - closedAt > 80) h.setOpen(true);
     });
     return JSON.stringify({ moving, mouse: hasMouse() });
