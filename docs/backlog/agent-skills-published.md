@@ -69,6 +69,38 @@ held items).
 - **Where an agent's learned skills are kept:** with its sheet. Not
   designed; in the playground they are ticks in the tab.
 
+## How many skills, and whether they need sorting (asked 2026-11-24)
+
+The owner, after the range that fires back: "it seems like JEV is somewhat
+generalizeable with these skill choices. It will be interesting to see how
+many skills we can add while keeping them all usful. Here is where that
+branching tree thing might become worth using. Skill catagories. and sub
+catagories"
+
+Not tried. What is known that bears on it (`docs/plans/agents-lessons.md`):
+
+- With seven skills and a room's worth of things, one list cut down in code
+  beat a tree of two questions: 2,782 tokens an order against 4,174, for
+  the same answers. The tree lost because it asks twice.
+- Most of the cutting down is free and needs no decider: a skill offers
+  nothing unless it is learned, allowed here and has what it needs (the
+  three gates). So the number that matters is not how many skills an agent
+  knows, but how many offer something at the same moment.
+- A second skill on the range needed no new code.
+
+So the trial is a count: add skills, real ones and near-misses that offer
+choices at the same moment, and find where one list stops giving right
+answers or costs more than asking by category first. Asked both ways each
+time, each at least twice. Where the two lines cross, if they do, is where
+categories earn their second question. A third way to compare: the
+category chosen in code from what the place says, and only the choice
+asked.
+
+If categories are used, what they are is a matter for a skill's own file
+(which category it says it is in, and who may say so: a stranger's skill
+filed under a trusted heading is the same risk as its advice) and for what
+a world allows ("any movement skill, no combat").
+
 ## Must not
 
 - Let a published skill carry code. Data only, naming only actions a world

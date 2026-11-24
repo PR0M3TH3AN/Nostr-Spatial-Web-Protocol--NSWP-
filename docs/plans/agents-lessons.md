@@ -670,7 +670,12 @@ measure it with memory kept in the tab.
     things that need two conditions or a key and a tool;
   - an order that names nothing ("tidy up"), where there are no words to
     cut the list down by;
-  - choosing among worlds and doors, which are a tree already.
+  - choosing among worlds and doors, which are a tree already;
+  - skills sorted into categories and sub-categories, asked category
+    first, once an agent knows many. The owner, 2026-11-24: "Here is where
+    that branching tree thing might become worth using. Skill catagories.
+    and sub catagories". Set out as a count to run in
+    `docs/backlog/agent-skills-published.md`.
 - How often a rare failure happens: in the three runs above each order was
   tried once for each way of asking.
 - Whether looking can stand in for a declaration a world has not made (an
@@ -678,6 +683,8 @@ measure it with memory kept in the tab.
 - More than one visitor; a real kit world; a world of hundreds of things in
   several areas.
 - Orders with no single right answer.
+- How many skills an agent can know before its choices get worse: seven is
+  the most tried.
 - Why JEV hits with fewer of its shots than plain rules on the range that
   fires back (D62): its picks were counted, not written out by target.
 - Whether a decider beats a rule on the range when the order is in words.
