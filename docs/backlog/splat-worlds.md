@@ -5,9 +5,11 @@
   https://sparkjs.dev/"
 - **Who:** a small trial first (the NSWP builder), then the kit and the world
   template. Briefed 2026-11-24, in the builder's queue after its menu work.
-- **State:** the trial is agreed. Asked whether the builder should make one
-  splat room as a trial after the menu work, the owner said: "Yes, after
-  the menu". Only the trial: nothing goes into the kit before the owner has
+- **State:** the trial is agreed, and has its first finding (below: what a
+  splat world's page has to allow). Its file and renderer are put to the
+  owner, and nothing is fetched until he says so. Asked whether the builder
+  should make one splat room as a trial after the menu work, the owner
+  said: "Yes, after the menu". Only the trial: nothing goes into the kit before the owner has
   tried it on the Quest 3S.
 
 ## What a splat world is
@@ -68,6 +70,82 @@ consistency.
   pictures in books and with a look's model.
 - **Godot worlds:** not looked into. Godot's web export is a different
   renderer and has no splats of its own.
+
+## What a splat world's page has to allow: the first finding (2026-11-24)
+
+Found before anything was downloaded, by reading Spark's source and then
+asking the browser. It decides whether a splat world can be an ordinary kit
+world at all, so it is the first thing the trial settles by running Spark.
+
+**What Spark does** (its source, version 2.4.0): its sorting and its reading
+of files are WebAssembly, carried inside its one script and compiled as the
+script loads; and it starts its workers from blob addresses, with a data
+address tried if that fails.
+
+**What a world's rules say to each,** tried in Chrome with no Spark: a page
+under the Gallery's own content rules, as its build wrote them
+(`script-src 'self'`, no `worker-src`), asked to do each thing.
+
+| Asked of the browser | As the worlds' rules are | With `'wasm-unsafe-eval'` in `script-src` | With `worker-src 'self' blob:` | With both |
+|---|---|---|---|---|
+| Compile any WebAssembly | refused | allowed | refused | allowed |
+| Start a worker from a blob address | refused | refused | allowed | allowed |
+| Start a worker from a data address | refused | refused | refused | refused |
+| Start a worker from a file of the world's own site | allowed | allowed | allowed | allowed |
+
+- **Spark as it ships can't run under the worlds' rules.** Two things it does
+  are refused, and its fallback is a third.
+- **The workers could be mended without a rule,** if Spark can be built so
+  that its workers are files of the world's own site. To be tried.
+- **The WebAssembly can't be built round.** Every way of running WebAssembly
+  is refused without that word in the rule. Whether Spark can run at all
+  without its WebAssembly is not known; expected not.
+
+**One world already has exactly these rules: the Foundry.** A world made in
+Godot is WebAssembly, so its build writes `script-src 'self'
+'wasm-unsafe-eval'; worker-src 'self' blob:` (`scripts/build-godot-example.mjs`).
+No other world has them.
+
+**Decided in principle (the orchestrator, 2026-11-24): a splat world may have
+what a Godot world has, by its own build, and no other world changes.**
+
+- `'wasm-unsafe-eval'` in that world's `script-src`, written by its build
+  only where the world uses splats. Never in the rules every world gets.
+- **Workers as files of the world's own site, not blobs,** if Spark can be
+  built that way: then `worker-src` needs no `blob:`. A rule that isn't
+  needed isn't added. If it can't, it is `worker-src 'self' blob:`, as the
+  Foundry has, with the reason written down.
+- `'unsafe-eval'` stays refused everywhere, as now. What `'wasm-unsafe-eval'`
+  allows is compiling WebAssembly from bytes the page already has; it does
+  not allow running text as script.
+
+**For the trial's first section to settle, by running it:**
+
+- Spark under those rules and no others, in Chrome and in Firefox.
+- Whether it has any way to run without its WebAssembly.
+- What the template's check says to a maker whose world asks for splats, so
+  that it is chosen knowingly: "this world's page will allow WebAssembly to
+  be compiled, as a Godot world's does".
+
+**Not tried:** Spark itself under any rules; Firefox; the Quest's browser.
+
+## The trial's file and renderer, put to the owner (2026-11-24)
+
+Nothing is fetched until the owner says so.
+
+- **The file:** "Knock Community Hall" by scbenoit, 27.8 MB, one `.sog` file,
+  about 1.9 million splats, CC BY 4.0. The note beside the file in
+  PlayCanvas's engine repository says "Author must be credited. Commercial
+  use is allowed.", and the scene's own page (`superspl.at/scene/0ff2e6dc`)
+  shows the same licence. Chosen because its licence is stated for the file
+  itself, in two places that agree.
+- **It is the outside of a hall, not a room.** The true rooms found either
+  need an account on their host to fetch, or have two licences that
+  disagree. So the trial leaves untried what a room has: walls close by, a
+  ceiling, a doorway.
+- **The renderer:** `@sparkjsdev/spark` 2.4.0, MIT, for three 0.180 or later.
+  About 3 MB as one script, about 1 MB as a host sends it. Into the trial's
+  own copy only.
 
 ## A first step that settles most of it
 
