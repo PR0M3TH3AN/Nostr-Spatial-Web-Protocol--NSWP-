@@ -380,6 +380,57 @@ try {
     }
     await widthOf(1100, 700);
     results["one size: the long tab was taken away again"] = !(await tabsNow()).includes("trial-long");
+
+    // The tabs are measured ahead, not at the press: with the menu down, in the page's idle moments, so that the
+    // menu comes up no later for being one size. Counted where they are laid out to be measured: a box of the
+    // menu's own that nobody sees, each time something is put in it.
+    await page.evaluate(() => {
+      window.__ahead = 0;
+      const box = document.querySelector("nswp-hud").shadowRoot.querySelector(".measure");
+      new MutationObserver((rs) => { if (rs.some((x) => x.addedNodes.length)) window.__ahead++; }).observe(box, { childList: true });
+    });
+    const measuredSoFar = () => page.evaluate(() => window.__ahead);
+    const settles = async (ms = 6000) => { let last = -1; for (const end = Date.now() + ms; Date.now() < end; ) { const n = await measuredSoFar(); if (n === last) return n; last = n; await page.waitForTimeout(700); } return last; };
+    // What the tabs hold changes with the menu down (a world adds a tab): measured again, ahead.
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await page.waitForTimeout(400);
+    const before = await settles();
+    await page.evaluate(() => { const c = window.__nswpTest.controls; c.addSection({ id: "trial-ahead", label: "Ahead", icon: "save" }); for (let i = 0; i < 6; i++) c.add({ id: `trial-ahead-${i}`, section: "trial-ahead", label: `A row of a tab added with the menu down, ${i + 1}`, act: () => {} }); });
+    const afterAdding = await settles();
+    check("one size: a tab added with the menu down is measured ahead, in an idle moment, with nothing pressed", afterAdding > before, { before, afterAdding });
+    // And the menu then comes up with nothing left to measure at the press.
+    const atPress = await page.evaluate(() => { const n = window.__ahead; window.__nswpTest.hud.setOpen(true, "travel"); return window.__ahead - n; });
+    check("one size: the menu then comes up with no tab left to measure at the press", atPress === 0, atPress);
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await page.waitForTimeout(400);
+    // The window changes width with the menu down, by enough that the sheet is another width (780 at a desk's, 480
+    // below it): the sizes kept are for the width it was, and are found again ahead.
+    const beforeWidth = await settles();
+    await widthOf(700, 700);
+    const afterWidth = await settles();
+    check("one size: a change of the window's width with the menu down has the tabs measured again, ahead", afterWidth - beforeWidth >= 10, { beforeWidth, afterWidth });
+    const atPressAgain = await page.evaluate(() => { const n = window.__ahead; window.__nswpTest.hud.setOpen(true, "travel"); return window.__ahead - n; });
+    check("one size: and at the new width too the menu comes up with nothing left to measure", atPressAgain === 0, atPressAgain);
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await page.waitForTimeout(400);
+    // Never while the visitor is doing something: a key held down, the width changed meanwhile. Nothing is
+    // measured until the key is up and half a second has passed.
+    const beforeKey = await settles();
+    await page.keyboard.down("w");
+    await widthOf(1100, 700);
+    await page.waitForTimeout(1500);
+    // (Back at a desk's width its sizes were kept from before; a tab is added too, so that something is stale.)
+    await page.evaluate(() => { const c = window.__nswpTest.controls; for (let i = 6; i < 12; i++) c.add({ id: `trial-ahead-${i}`, section: "trial-ahead", label: `Another row added while a key is held, ${i + 1}`, act: () => {} }); });
+    await page.waitForTimeout(1200);
+    const whileHeld = await measuredSoFar();
+    await page.keyboard.up("w");
+    // Half a second of nothing done, then an idle moment: looked at after two and a half seconds.
+    await page.waitForTimeout(2500);
+    const afterKey = await settles();
+    check("one size: nothing is measured ahead while a key is held, though the sizes kept are stale", whileHeld === beforeKey, { beforeKey, whileHeld });
+    check("one size: and it is measured once the key is up", afterKey > whileHeld, { whileHeld, afterKey });
+    await page.evaluate(() => { const c = window.__nswpTest.controls; for (let i = 0; i < 12; i++) c.remove?.(`trial-ahead-${i}`); c.removeSection?.("trial-ahead"); });
+    await page.waitForTimeout(300);
   }
 
   // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
