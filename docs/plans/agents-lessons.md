@@ -1014,6 +1014,55 @@ shows what happens; it ranks nothing.
   allow eyes or cap their size (the allowed gate); the maker turns them on
   (the learned gate). The eyes already come in six sizes.
 
+## Three skills of sight: seeing, searching, looking closer (D70, 2026-11-24; built, free ways run, none with JEV)
+
+Built on the owner's word in the playground's session ("Yes, build
+first"), as six new ways beside the seven earlier ones, which are left
+unchanged so there is a line to measure against. With none of the three
+turned on, every room offers exactly the choices it did.
+
+- **The decider is never asked whether to take a view** (built: D70).
+  Seeing and looking closer offer it nothing. Looking closer is code
+  reading the lean a decision carries: below 0.6, for one of several like
+  things, one sharper view and one more question. The only choice JEV
+  gets is the search, and a search sends no view to any model: the world
+  sweeps the head and code reads each turn.
+- **A ceiling on views, and what is held back is counted** (built: D70):
+  three views sent for one order, two searches, both the maker's to set.
+- **A view's list, read by code, settles orders that depend on where the
+  looker stands, with no model** (shown, free: D70). "The box on the
+  left": rules 0 of 4, nearness 0 of 4, with seeing 4 of 4, one view an
+  order. *For the kit:* a text view made for an agent always carries the
+  list with ids and sides, not only the grid.
+- **Searching earns its place in a world that tells little** (shown, free:
+  D70). In a study that tells only of what is within 3 m: 0 of 3 without
+  searching, 3 of 3 with it, four views in all and none sent. *For a
+  world:* "what the place tells an agent" needs to be a declared thing
+  with a limit. (A local sketch, `rules.tellsWithin`; no name is given or
+  taken by its being written here.)
+- **A search fits the shape that exists** (shown, free: D70): one typed
+  action the world carries out and ends, like a walk. The world keeps no
+  view; it is told which ids came into view and adds them to what it
+  tells of.
+- **Seeing by code does nothing for "by the window"** (shown, free: D70):
+  0 of 4. That stays nearness worked out by code, or a model reading the
+  view.
+- **Looking closer depends on the size looked at first** (shown, free:
+  D70). Not needed at 48 by 24. From 24 by 12 a first sweep finds 1 of 3
+  and a sharper second 3 of 3. At 16 by 8 one doubling is not enough.
+- **For words that name nothing the agent has been told of, a view sent to
+  the decider is wasted** (shown: D70): it can pick only what it is
+  offered. The new way sends none there, and offers a search if the place
+  holds more than it tells.
+- **Skills that cost something in use are off until their maker turns them
+  on,** even for an agent that has learned "everything" (built: D70).
+- **A decision should carry how strongly it leaned,** so code can act on
+  it (reasoned: D70). JEV gives it; rules don't.
+- **The stopping fault, without a chat model** (built, not measured: D70):
+  once a look settles which thing is meant, the order carries that
+  thing's id and the other like things are no longer on offer.
+- **Not done:** any of it with JEV.
+
 ## What is public about JEV (the playground's D55, from TypeSafe's own pages; not checked by the orchestrator)
 
 - **It plays from text that says the state, not from the screen.** Its
