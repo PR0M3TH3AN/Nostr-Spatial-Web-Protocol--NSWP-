@@ -792,12 +792,26 @@ not follow from this model.
   processor in a tab: does not start for this model. Outside a browser:
   works. *For a world and the kit:* a fall-back on the device can't be
   assumed to exist on a visitor's device.
-- **Threads on the processor need a page shut off from other sites, and
-  such a page can't hold a sign-in frame from another origin** (shown:
-  D66; the playground gave the trial a page of its own for this). *For
-  BitPortal's shell* that is a real choice: a device decider on threads,
-  or a frame from another site in the same page. A worker in its own shut
-  context, or the graphics card, would be the ways round; neither tried.
+- **Threads on the processor need a page shut off from other sites**
+  (shown: D66). The headers, on the trial's page only:
+  `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp`; and on each model and
+  runtime file, `Cross-Origin-Embedder-Policy: require-corp` and
+  `Cross-Origin-Resource-Policy: same-origin`. With them the page had 8
+  threads; without, one. They are a property of the page, so they decide
+  what that page may frame. **That such a page can't hold a sign-in frame
+  from another origin is reasoned, not seen:** the headers were never put
+  on a page with BitLogin's frame in it. *For BitPortal's shell:* a device
+  decider on the processor has to live somewhere that frames nothing, its
+  own origin or a worker context of its own. On the graphics card the
+  headers are not needed. Neither way round is tried.
+- **A device decider's page shares its origin's storage** (shown: D66). The
+  trial's page was on the playground's own origin, where the main page
+  keeps a provider's key if "remember" is ticked; the library that runs
+  the model could have read it. *For the port:* a device decider, and the
+  library that runs it, go on an origin of their own with nothing kept
+  there. The model's files are data and run nothing; the library is other
+  people's code, hundreds of megabytes of it.
 - **The cost to a visitor** (shown: D66): 388 MB once before the first
   decision, about 770 MB of memory while loaded, 2 to 4 s an answer on a
   laptop's processor.
