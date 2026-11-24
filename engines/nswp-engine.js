@@ -54290,6 +54290,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
   border-radius: 22px 22px 12px 12px; overflow: hidden; }
 .sheet[hidden] { display: none; }
+/* One size on every tab: what a short tab leaves is here, above the foot. A tab that isn't up is measured in a box nobody sees. */
+.sheet > .room { flex: 1 1 0; min-height: 0; }
+.sheet > .measure { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.sheet > .measure > .rows { overflow: visible; }
 /* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
 .outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
 .outside[hidden] { display: none; }
@@ -54629,7 +54633,9 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
     const pinWords = el("span");
     const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
     const foot = el("div", { class: "foot" }, pinIt, close);
-    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, foot);
+    const room3 = el("div", { class: "room", "aria-hidden": "true" });
+    const measure = el("div", { class: "measure", "aria-hidden": "true", inert: "" });
+    const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said2, room3, foot, measure);
     const chatTitle = el("b");
     const chatWhose = el("p", { class: "whose", hidden: "" });
     const tabRoom = el("button", { type: "button", class: "tab", role: "tab" }, "Room chat");
@@ -54780,10 +54786,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       if (open3 && section === id3) setOpen2(false);
       else setOpen2(true, id3);
     };
-    const drawCard = (card, acts = []) => {
+    const drawCard = (card, acts = [], onlyMeasured = false) => {
       const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
       if (card.color) face.style.setProperty("--c", card.color);
-      const paint2 = card.draw;
+      const paint2 = onlyMeasured ? void 0 : card.draw;
       if (paint2) {
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 256;
@@ -54807,7 +54813,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         };
         requestAnimationFrame(begin);
       }
-      if (card.face && !paint2) {
+      if (card.face && !card.draw && !onlyMeasured) {
         const from = card.face;
         const copy = document.createElement("canvas");
         copy.width = Math.max(1, Math.min(256, Math.round(from.width ?? 128)));
@@ -54818,7 +54824,7 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         } catch {
         }
       }
-      if (card.picture) {
+      if (card.picture && !onlyMeasured) {
         void loadPicture(card.picture).then((drawn3) => {
           if (!drawn3 || !face.isConnected) return;
           const copy = document.createElement("canvas");
@@ -55077,7 +55083,73 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
       clearTimeout(asTimer);
       asTimer = setTimeout(() => asWho.classList.remove("shown"), AS_SHOWN_MS);
     };
+    const measured = /* @__PURE__ */ new Map();
+    let heldFor = "";
+    let heldTall = 0;
+    const sizeSheet = (view2, layOut) => {
+      sheet.style.height = "";
+      says.classList.remove("one");
+      if (sheet.hidden) {
+        heldFor = "";
+        heldTall = 0;
+        return;
+      }
+      const inSheet = says.parentElement === sheet;
+      if (inSheet) says.classList.add("one");
+      sheet.style.maxHeight = "none";
+      const wide = Math.round(sheet.getBoundingClientRect().width);
+      const tallOf = (r, n, w) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+      const here = tallOf(rows, note, said2);
+      const around = sheet.getBoundingClientRect().height - here;
+      const at = `${wide}|${host.style.getPropertyValue("--s")}|`;
+      let most = here;
+      const still = /* @__PURE__ */ new Set();
+      for (const s of view2.sections) {
+        const key = `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+        still.add(key);
+        if (s.id === section) {
+          measured.set(key, here);
+          continue;
+        }
+        let tall = measured.get(key);
+        if (tall === void 0) {
+          const r = el("div", { class: "rows" }, ...layOut(s));
+          r.hidden = !s.items.length && !s.card;
+          const n = el("p", { class: "note" }, s.note ?? "");
+          const w = el("p", { class: "note said" }, ...s.said ? [el("b", {}, s.said.from), s.said.note] : []);
+          w.hidden = !s.said;
+          measure.replaceChildren(r, n, w);
+          tall = tallOf(r, n, w);
+          measured.set(key, tall);
+        }
+        most = Math.max(most, tall);
+      }
+      measure.replaceChildren();
+      for (const key of [...measured.keys()]) if (!still.has(key)) measured.delete(key);
+      sheet.style.maxHeight = "";
+      if (heldFor !== at) {
+        heldFor = at;
+        heldTall = 0;
+      }
+      heldTall = Math.max(heldTall, Math.ceil(around + most));
+      sheet.style.height = `${heldTall}px`;
+      if (inSheet) says.classList.remove("one");
+    };
+    let resized = null;
+    const onWindowSize = () => {
+      if (sheet.hidden) return;
+      sheet.style.height = "";
+      heldFor = "";
+      heldTall = 0;
+      if (resized) clearTimeout(resized);
+      resized = setTimeout(() => {
+        resized = null;
+        if (open3) draw();
+      }, 120);
+    };
+    addEventListener("resize", onWindowSize);
     const fitSays = () => {
+      if (!sheet.hidden && heldTall > 0) return;
       sheet.style.height = "";
       if (says.parentElement !== sheet || sheet.hidden) return void says.classList.remove("one");
       says.classList.add("one");
@@ -55322,7 +55394,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         if (open3) sheet.insertBefore(says, foot);
         else root.insertBefore(says, chat);
       }
-      fitSays();
+      sizeSheet(view2, (s) => {
+        const within2 = new Set(s.card?.draw ? s.card.acts ?? [] : []);
+        return [s.card ? drawCard(s.card, lay(s.items.filter((i) => within2.has(i.id))), true) : "", ...lay(s.items.filter((i) => !within2.has(i.id)))];
+      });
       menu2.setAttribute("aria-expanded", String(open3));
       quiet.setAttribute("aria-expanded", String(open3));
     };
@@ -55559,6 +55634,8 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
         stop();
         stopAsking();
         removeEventListener("focus", onPageFocus);
+        removeEventListener("resize", onWindowSize);
+        if (resized) clearTimeout(resized);
         for (const type of PRESS_ENDS) removeEventListener(type, pressOver, true);
         document.removeEventListener("visibilitychange", pressOver);
         stopSay();

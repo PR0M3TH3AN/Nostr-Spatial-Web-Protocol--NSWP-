@@ -255,6 +255,10 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
   width: min(480px, calc(100vw - 20px)); max-height: min(70vh, 640px); display: flex; flex-direction: column; pointer-events: auto;
   border-radius: 22px 22px 12px 12px; overflow: hidden; }
 .sheet[hidden] { display: none; }
+/* One size on every tab: what a short tab leaves is here, above the foot. A tab that isn't up is measured in a box nobody sees. */
+.sheet > .room { flex: 1 1 0; min-height: 0; }
+.sheet > .measure { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.sheet > .measure > .rows { overflow: visible; }
 /* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
 .outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
 .outside[hidden] { display: none; }
@@ -635,7 +639,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const pinWords = el("span");
   const pinIt = el("button", { class: "pin-it", type: "button", "aria-pressed": "false" }, icon("pin"), pinWords);
   const foot = el("div", { class: "foot" }, pinIt, close);
-  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, foot);
+  // The room left over on a tab shorter than the largest: the sheet is one size on every tab (`sizeSheet`), and a
+  // short tab is not stretched to fill it. It is above the strip of said lines and the foot, which stay where they are.
+  const room = el("div", { class: "room", "aria-hidden": "true" });
+  // Where a tab that isn't up is laid out to be measured, at the sheet's own width: never seen, never pressed.
+  const measure = el("div", { class: "measure", "aria-hidden": "true", inert: "" });
+  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, room, foot, measure);
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
@@ -831,10 +840,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   };
 
   /** The card at the head of a section. Every word is set as text; the picture is fetched the kit's way and drawn. */
-  const drawCard = (card: UiCard, acts: (HTMLElement | string)[] = []): HTMLElement => {
+  const drawCard = (card: UiCard, acts: (HTMLElement | string)[] = [], onlyMeasured = false): HTMLElement => {
     const face = el("span", { class: "face", "aria-hidden": "true" }, [...card.title][0]?.toUpperCase() ?? "");
     if (card.color) face.style.setProperty("--c", card.color);
-    const paint = card.draw;
+    // A card laid out only to be measured (`sizeSheet`) is the same shape with nothing in its picture's place: a
+    // tab that isn't up paints nothing, and fetches nobody's picture.
+    const paint = onlyMeasured ? undefined : card.draw;
     if (paint) {
       // A thing, not a person: drawn large, and again many times a second while it is on show, so it may turn.
       const canvas = document.createElement("canvas");
@@ -861,7 +872,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       };
       requestAnimationFrame(begin);
     }
-    if (card.face && !paint) {
+    if (card.face && !card.draw && !onlyMeasured) {
       // Their picture, already in hand (a framed world's card): drawn as it is, with nothing fetched.
       const from = card.face as { width?: number; height?: number };
       const copy = document.createElement("canvas");
@@ -874,7 +885,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
         /* a picture that can't be drawn leaves the letter in its place */
       }
     }
-    if (card.picture) {
+    if (card.picture && !onlyMeasured) {
       void loadPicture(card.picture).then((drawn) => {
         if (!drawn || !face.isConnected) return;
         // A copy of its own: a canvas can be in one place only, and the same picture is over their head too.
@@ -1170,7 +1181,101 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
    * held at that size, and the rows' own scrolling area gives up the difference from its bottom. Done in one go,
    * with nothing drawn between, whenever a line comes or goes, the menu comes or goes, or the menu is drawn.
    */
+  /**
+   * One size on every tab (the owner, 2026-11-24: "The menus size should be the same across all tabs. So the tabs
+   * always stay at eye level"). The sheet is the height it has on its largest tab, on every tab, so the strip of
+   * tabs stays where it is. A short tab has room left over (`room`); it is not stretched.
+   *
+   * The largest is found, not guessed: every tab the visitor has just now, a world's own among them, is laid out at
+   * the sheet's own width and measured. The tab that is up is measured where it is; each other one in a box nobody
+   * sees, with nothing painted or fetched for it, and only when what it holds has changed. The sheet is never
+   * taller than the screen allows (its `max-height`): a tab longer than that scrolls inside it, as before.
+   *
+   * While the menu is up the sheet only grows. A tab that arrives while it is up (a world adding one) and is larger
+   * than any before makes the sheet grow once, then; a tab that goes or shrinks doesn't make it smaller until the
+   * menu next comes up, or the width changes. So the strip moves at most upward, and never on changing tab.
+   *
+   * Words said for a moment are in a strip of the sheet's own, above its foot. One line of it is part of every
+   * tab's size. Longer words take their extra lines from the room left over, and then from the foot of the rows'
+   * own scrolling area: the sheet is held its size.
+   */
+  const measured = new Map<string, number>();
+  let heldFor = "";
+  let heldTall = 0;
+  const sizeSheet = (view: UiView, layOut: (s: UiView["sections"][number]) => (HTMLElement | string)[]) => {
+    sheet.style.height = "";
+    says.classList.remove("one");
+    if (sheet.hidden) {
+      heldFor = "";
+      heldTall = 0;
+      return;
+    }
+    // As tall as this tab makes it with nothing holding it down, and one line said.
+    const inSheet = says.parentElement === sheet;
+    if (inSheet) says.classList.add("one");
+    sheet.style.maxHeight = "none";
+    const wide = Math.round(sheet.getBoundingClientRect().width);
+    // Each as it is laid out, whatever it is marked: a list with nothing in it still has its own edges, and takes
+    // their room (the first writing of this counted it as nothing, and the sheet grew by them on such a tab).
+    const tallOf = (r: HTMLElement, n: HTMLElement, w: HTMLElement) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+    const here = tallOf(rows, note, said);
+    const around = sheet.getBoundingClientRect().height - here;
+    // Each tab by what it holds: laid out again only when that, the width or the size of text has changed.
+    const at = `${wide}|${host.style.getPropertyValue("--s")}|`;
+    let most = here;
+    const still = new Set<string>();
+    for (const s of view.sections) {
+      const key = `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+      still.add(key);
+      if (s.id === section) {
+        measured.set(key, here);
+        continue;
+      }
+      let tall = measured.get(key);
+      if (tall === undefined) {
+        const r = el("div", { class: "rows" }, ...layOut(s));
+        r.hidden = !s.items.length && !s.card;
+        const n = el("p", { class: "note" }, s.note ?? "");
+        const w = el("p", { class: "note said" }, ...(s.said ? [el("b", {}, s.said.from), s.said.note] : []));
+        w.hidden = !s.said;
+        measure.replaceChildren(r, n, w);
+        tall = tallOf(r, n, w);
+        measured.set(key, tall);
+      }
+      most = Math.max(most, tall);
+    }
+    measure.replaceChildren();
+    for (const key of [...measured.keys()]) if (!still.has(key)) measured.delete(key);
+    sheet.style.maxHeight = "";
+    if (heldFor !== at) {
+      heldFor = at;
+      heldTall = 0;
+    }
+    heldTall = Math.max(heldTall, Math.ceil(around + most));
+    // Its own rule for how tall it may be still holds: a sheet told to be taller than that is that tall.
+    sheet.style.height = `${heldTall}px`;
+    if (inSheet) says.classList.remove("one");
+  };
+  // The window changed size with the menu up: what fits has changed, and no drawing follows a window's change by
+  // itself. The size held is let go at once, so the sheet is never left taller or shorter than its tab needs at
+  // the new width, and found again once the window has stopped changing.
+  let resized: ReturnType<typeof setTimeout> | null = null;
+  const onWindowSize = () => {
+    if (sheet.hidden) return;
+    sheet.style.height = "";
+    heldFor = "";
+    heldTall = 0;
+    if (resized) clearTimeout(resized);
+    resized = setTimeout(() => {
+      resized = null;
+      if (open) draw();
+    }, 120);
+  };
+  addEventListener("resize", onWindowSize);
   const fitSays = () => {
+    // The sheet is held one size by `sizeSheet`, at each drawing: a line that comes or goes between drawings takes
+    // its room from inside the sheet, and the sheet's size is not touched.
+    if (!sheet.hidden && heldTall > 0) return;
     sheet.style.height = "";
     if (says.parentElement !== sheet || sheet.hidden) return void says.classList.remove("one");
     says.classList.add("one");
@@ -1474,8 +1579,12 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       if (open) sheet.insertBefore(says, foot);
       else root.insertBefore(says, chat);
     }
-    // Whatever the sheet now holds, it is the size it would be with nothing said, while long words show in it.
-    fitSays();
+    // The sheet is one size on every tab: the size it has on its largest, so the strip of tabs never moves as the
+    // visitor goes from tab to tab. And it is that size whatever is said in it for a moment.
+    sizeSheet(view, (s) => {
+      const within = new Set(s.card?.draw ? (s.card.acts ?? []) : []);
+      return [s.card ? drawCard(s.card, lay(s.items.filter((i) => within.has(i.id))), true) : "", ...lay(s.items.filter((i) => !within.has(i.id)))];
+    });
     menu.setAttribute("aria-expanded", String(open));
     quiet.setAttribute("aria-expanded", String(open));
   };
@@ -1766,6 +1875,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       stop();
       stopAsking();
       removeEventListener("focus", onPageFocus);
+      removeEventListener("resize", onWindowSize);
+      if (resized) clearTimeout(resized);
       for (const type of PRESS_ENDS) removeEventListener(type, pressOver, true);
       document.removeEventListener("visibilitychange", pressOver);
       stopSay();
