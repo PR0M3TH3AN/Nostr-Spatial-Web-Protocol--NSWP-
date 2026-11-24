@@ -1309,12 +1309,67 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       if (lastView.sections.some((s) => !measured.has(keyOf(at, s)))) measureAhead();
     });
   };
+  /**
+   * The sheet never lies over the row at the top (the owner, 2026-11-24, of kit 0.88.0, with a picture: "can we
+   * make sure the menu on flat screens dont cover the items at the top? Like the full screen or login badge or the
+   * world info or menu button."). One size made every tab as tall as the largest, so on a wide, short window the
+   * sheet reached up over the world's card, "Full screen" and the Menu button on every tab.
+   *
+   * So the sheet is no taller than the room under those things: its top stops a gap below the lowest of the ones
+   * it would lie over. Measured from where they are, not from a share of the window: a card that grows with a long
+   * name, or a row that wraps, moves the limit with it. A thing clear to one side of the sheet doesn't limit it.
+   * One size holds: the sheet is the size of its largest tab or as tall as that room allows, whichever is less, and
+   * a tab longer than that scrolls inside it.
+   *
+   * Where the window is too short for both (a phone on its side), the sheet gives way first, down to the least it
+   * can be used at: its tabs, a row or two, the strip of said lines and its foot. Under that, the top row gives way:
+   * the things the sheet would lie over are put out of sight while the sheet is up, and come back as it goes. The
+   * sheet has its own Close, and nothing that can be pressed is ever under something else.
+   */
+  const TOP_GAP = 10;
+  const SHEET_LEAST = 240;
+  const tucked = new Set<HTMLElement>();
+  const untuck = () => {
+    for (const thing of tucked) thing.style.visibility = "";
+    tucked.clear();
+  };
+  /** How tall the sheet may be, as wide as it is: the room under the top row, or its own rule where that is less. */
+  const roomFor = (across: number): number => {
+    untuck();
+    sheet.style.maxHeight = "";
+    const ruled = parseFloat(getComputedStyle(sheet).maxHeight);
+    const all = host.getBoundingClientRect();
+    const foot = all.bottom - parseFloat(getComputedStyle(sheet).bottom);
+    const left = all.left + all.width / 2 - across / 2;
+    const over: HTMLElement[] = [];
+    let lowest = -Infinity;
+    for (const thing of [id, menu, quiet, asWho, full]) {
+      const r = thing.getBoundingClientRect();
+      // Not there, clear to one side of the sheet, or below where the sheet ends (the quiet mark, in a lower corner).
+      // The mark for who you are signed in as counts whether or not it is showing: it shows for a moment, and a
+      // sheet that left it no room would either lie over it then or move as it came.
+      if (!(r.width > 0 && r.height > 0) || r.right + TOP_GAP <= left || r.left - TOP_GAP >= left + across || r.top >= foot) continue;
+      over.push(thing);
+      lowest = Math.max(lowest, r.bottom);
+    }
+    if (!over.length) return ruled;
+    const room = foot - lowest - TOP_GAP;
+    if (room >= SHEET_LEAST) return Math.min(ruled, room);
+    // Too short for both: the sheet is the least it can be used at, and what it lies over is out of sight meanwhile.
+    for (const thing of over) {
+      thing.style.visibility = "hidden";
+      tucked.add(thing);
+    }
+    return Math.min(ruled, Math.max(SHEET_LEAST, foot - all.top - TOP_GAP));
+  };
   const sizeSheet = (view: UiView, layOut: LayOut) => {
     lastView = view;
     lastLayOut = layOut;
     sheet.style.height = "";
     says.classList.remove("one");
     if (sheet.hidden) {
+      untuck();
+      sheet.style.maxHeight = "";
       heldFor = "";
       heldTall = 0;
       // Down: what the tabs hold may have changed, and is measured again in an idle moment.
@@ -1324,8 +1379,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     // As tall as this tab makes it with nothing holding it down, and one line said.
     const inSheet = says.parentElement === sheet;
     if (inSheet) says.classList.add("one");
-    sheet.style.maxHeight = "none";
     const across = sheet.getBoundingClientRect().width;
+    const tallest = roomFor(across);
+    sheet.style.maxHeight = "none";
     const wide = Math.round(across);
     // The measuring box is as wide as the sheet by its own rule; while the sheet is up it is made exactly so.
     measure.style.width = `${across}px`;
@@ -1350,13 +1406,14 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     }
     measure.replaceChildren();
     for (const key of [...measured.keys()]) if (!still.has(key)) measured.delete(key);
-    sheet.style.maxHeight = "";
+    // As tall as the room under the top row lets it be, and never taller than its own rule.
+    sheet.style.maxHeight = `${tallest}px`;
     if (heldFor !== at) {
       heldFor = at;
       heldTall = 0;
     }
     heldTall = Math.max(heldTall, Math.ceil(around + most));
-    // Its own rule for how tall it may be still holds: a sheet told to be taller than that is that tall.
+    // How tall it may be still holds: a sheet told to be taller than that is that tall.
     sheet.style.height = `${heldTall}px`;
     if (inSheet) says.classList.remove("one");
   };
@@ -1368,6 +1425,8 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     // With the menu down, the sizes kept are for the width it was: measured again ahead, for the width it is.
     if (sheet.hidden) return void measureAhead();
     sheet.style.height = "";
+    sheet.style.maxHeight = "";
+    untuck();
     heldFor = "";
     heldTall = 0;
     if (resized) clearTimeout(resized);

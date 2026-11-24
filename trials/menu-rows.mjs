@@ -442,6 +442,87 @@ try {
     await page.waitForTimeout(300);
   }
 
+  // ---- The sheet never lies over the row at the top (the owner, 2026-11-24, of kit 0.88.0, with a picture of a
+  // wide, short window: "can we make sure the menu on flat screens dont cover the items at the top? Like the full
+  // screen or login badge or the world info or menu button."). One size made every tab as tall as the largest, so
+  // on a short window the sheet reached up over the world's card and the Menu button on every tab. At several sizes
+  // of window, short ones among them, every tab is gone to and the sheet's box and each top thing's box are read:
+  // they must not meet. And one size must still hold at each: the strip in the same place on every tab.
+  {
+    const read = () => page.evaluate(async () => {
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+      const root = document.querySelector("nswp-hud").shadowRoot;
+      const sheet = root.querySelector("section.sheet");
+      await Promise.all(sheet.getAnimations().map((x) => x.finished.catch(() => null)));
+      const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map((n) => Math.round(n * 10) / 10); };
+      const things = [["the world's card", ".id"], ["the Menu button", ".menu"], ["Full screen", ".full"], ["who you are signed in as", ".as"], ["the quiet mark", ".quiet"]].map(([name, sel]) => {
+        const e = root.querySelector(sel);
+        const r = e?.getBoundingClientRect();
+        const there = !!e && r.width > 0 && r.height > 0;
+        const seen = there && getComputedStyle(e).visibility !== "hidden";
+        // What a press at its middle would land on, where it is there at all.
+        const onTop = there ? root.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2) : null;
+        return { name, there, seen, box: there ? box(e) : null, pressable: there && !!onTop && (onTop === e || e.contains(onTop)) };
+      });
+      const rows = sheet.querySelector(".rows");
+      return { sheet: box(sheet), strip: box(sheet.querySelector(".tabs")), things, scrolls: rows.scrollHeight > rows.clientHeight + 1, view: [innerWidth, innerHeight] };
+    });
+    const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+    const goTo = (id) => page.evaluate((id) => window.__nswpTest.hud.setOpen(true, id), id);
+    const near = (a, b) => a.every((n, i) => Math.abs(n - b[i]) < 0.6);
+    // The owner's own was wide and short; then a desk, shorter desks, a wide strip, a phone on its side, a phone.
+    for (const [width, height] of [[1333, 729], [1100, 700], [1300, 600], [1000, 560], [1600, 480], [760, 390], [390, 760]]) {
+      const at = `${width} by ${height}`;
+      await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+      await widthOf(width, height);
+      await page.waitForTimeout(350);
+      const closed = await read();
+      const tabs = await page.evaluate(() => window.__nswpTest.controls.view().sections.map((x) => x.id));
+      const seen = [];
+      for (const id of tabs) {
+        await goTo(id);
+        await page.waitForTimeout(110);
+        seen.push({ id, ...(await read()) });
+      }
+      const over = seen.flatMap((x) => x.things.filter((t) => t.seen && meets(x.sheet, t.box)).map((t) => `${t.name}, on ${x.id}: the sheet's top at ${x.sheet[1]}, its foot at ${t.box[3]}`));
+      check(`the top row, at ${at}: on every one of ${tabs.length} tabs the sheet lies over nothing in the row at the top`, over.length === 0, [...new Set(over)].slice(0, 6));
+      const moved = seen.filter((x) => !near(x.sheet, seen[0].sheet) || !near(x.strip, seen[0].strip));
+      check(`the top row, at ${at}: and the sheet is still one size, its strip in the same place on every tab`, moved.length === 0, moved.map((x) => ({ id: x.id, sheet: x.sheet })).slice(0, 4));
+      // Where the window is too short for both, the top things the sheet would lie over are out of sight while it
+      // is up: then none of them is what a press at its place lands on, and the sheet is tall enough to use.
+      // Out of sight because the sheet is up: seen with the menu away, and not seen with it up. (The mark for who
+      // you are signed in as is there all along and shows only for a moment; its place is kept clear either way.)
+      const tucked = seen[0].things.filter((t) => t.there && !t.seen && closed.things.find((c) => c.name === t.name)?.seen).map((t) => t.name);
+      const pressableUnder = seen.flatMap((x) => x.things.filter((t) => t.there && meets(x.sheet, t.box) && t.pressable).map((t) => `${t.name} on ${x.id}`));
+      check(`the top row, at ${at}: nothing of the top row can be pressed where the sheet is`, pressableUnder.length === 0, [...new Set(pressableUnder)].slice(0, 6));
+      const tall = seen[0].sheet[3] - seen[0].sheet[1];
+      check(`the top row, at ${at}: the sheet is tall enough to use (240 at the least)`, tall >= 239.5, tall);
+      // Where something of the top row is out of sight while the sheet is up (the Menu button may be among it), the
+      // menu is still put away by its own Close, pressed with the mouse, and by its key.
+      if (tucked.length) {
+        const close = hud.getByRole("button", { name: "Close", exact: true }).first();
+        const box = await close.boundingBox().catch(() => null);
+        if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        const byClose = await page.waitForFunction(() => window.__nswpTest.hud.open === false, null, { timeout: 3000 }).then(() => true, () => false);
+        check(`the top row, at ${at}: with ${tucked.join(" and ")} out of sight, the sheet's own Close puts the menu away`, !!box && byClose, { closeAt: box, open: await page.evaluate(() => window.__nswpTest.hud.open) });
+        await goTo(tabs[0]);
+        await page.waitForTimeout(400);
+        await page.keyboard.press("m");
+        const byKey = await page.waitForFunction(() => window.__nswpTest.hud.open === false, null, { timeout: 3000 }).then(() => true, () => false);
+        check(`the top row, at ${at}: and so does the menu's key`, byKey, await page.evaluate(() => window.__nswpTest.hud.open));
+      }
+      // And with the menu away, everything of the top row that was there before is there again.
+      await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+      await page.waitForTimeout(350);
+      const after = await read();
+      check(`the top row, at ${at}: with the menu away the top row is as it was`, JSON.stringify(after.things.map((t) => [t.name, t.seen])) === JSON.stringify(closed.things.map((t) => [t.name, t.seen])), { before: closed.things.map((t) => [t.name, t.seen]), after: after.things.map((t) => [t.name, t.seen]) });
+      results[`the top row, at ${at}: the sheet, how tall, what of the top row is in its way, and what gives way`] = { sheet: seen[0].sheet, tall: Math.round(tall), topRow: closed.things.filter((t) => t.seen).map((t) => `${t.name} to ${t.box[3]}`), outOfSightWhileItIsUp: tucked, tabsThatScroll: seen.filter((x) => x.scrolls).length };
+    }
+    await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
+    await widthOf(1100, 700);
+    await page.waitForTimeout(300);
+  }
+
   // ---- A press, with the menu drawn again while it is being made. A press is the mouse going down on a thing and
   // coming up on the same thing; drawing the menu again makes every row anew; so a drawing between the two took the
   // row from under the mouse, and the press was never delivered. It happened whenever anything the menu shows
