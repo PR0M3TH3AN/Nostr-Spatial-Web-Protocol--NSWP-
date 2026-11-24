@@ -115,6 +115,12 @@ searching and guessing where someone hid, not in the chase; and what a
 hidden player may be told about (sight, sound) is the world's to declare.
 Nothing here is for the kit or a live world.
 
+**State, 2026-11-24:** its free half is built and run (the playground's
+D72, on his "Yes, start it"): three rooms, a scripted seeker, rules
+written for no room, and chance, against stand-in hiders, with sight and
+sound declared by the place and enforced. No seeker with a model yet. The
+lessons are in `docs/plans/agents-lessons.md`.
+
 ## Must not
 
 - Spend on the owner's accounts without his word in that session, with the
