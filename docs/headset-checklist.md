@@ -11,6 +11,9 @@ the useful answer. Record the result in spec §21.2.
 
 Open each address in the headset's own browser. No account is needed.
 
+The checks waiting for the owner's own Quest 3S, newest first, are kept
+apart: [`owner-quest-checks.md`](owner-quest-checks.md).
+
 ## 1. The room: `https://portal.bitblocks.network/walk/`
 
 | # | Do this | It should |
