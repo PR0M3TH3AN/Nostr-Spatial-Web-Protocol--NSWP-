@@ -1,7 +1,11 @@
 # In a headset, the flat screen's menu: a design, with pictures
 
-**State:** a design for the owner to look at, 2026-11-24. **No code, and none
-until the owner has seen the pictures.** The ask is in
+**State:** a design, 2026-11-24. **The owner has seen the pictures and
+answered two things the same day: it is B, the sheet 1.0 m wide; and the
+menu is never drawn over the hands** (his words are below, under "Hands are
+never under the menu"). **Two things are still his to say,** at the end of
+this page: whether the headset shows the flat menu itself as a picture, and
+the wrist. **No code on those two until he has.** The ask is in
 `docs/backlog/headset-menu-like-the-flat-one.md`, in the owner's words: the
 exact same menu as on a flat screen, larger, floating in front, the bar
 below it tilted a little to the player, and whatever is pointed at coming
@@ -22,13 +26,17 @@ look at them.
 |---|---|
 | `1-flat-menu-at-a-desk.png` | The flat menu today, on Sound, at a desk's width. What the headset is to match |
 | `2-headset-today.png` | A headset today: the kit's console, on the same tab. Sections down the side, no tab strip, no bar |
-| `3-proposed-a-1m20-wide.png` | **Proposed.** The same sheet, 1.2 m wide, a little over a metre away. The bar under it, leaning back. "Effects: medium" is pointed at, and has come forward |
+| `3-proposed-a-1m20-wide.png` | Proposed, and not chosen. The same sheet, 1.2 m wide, a little over a metre away. The bar under it, leaning back. "Effects: medium" is pointed at, and has come forward |
 | `3-proposed-a-from-the-side.png` | The same from a step to the left: the bar's lean |
 | `3-proposed-a-the-you-tab.png` | The same on You |
-| `4-proposed-b-1m00-wide.png` | The same sheet at 1.0 m wide: less to turn the head for, smaller words. The key on the bar is pointed at |
+| `4-proposed-b-1m00-wide.png` | **Chosen by the owner.** The same sheet at 1.0 m wide: less to turn the head for, smaller words. The key on the bar is pointed at |
 | `5-proposed-c-one-column-0m80-wide.png` | The flat menu's narrow layout, as a phone has it: one column, 0.8 m wide, and tall |
 | `…-as-sharp-as-a-quest.png` | The middle of pictures 2 to 5 at about 20 pixels to a degree, which is what a Quest 3S shows. **Judge the size of words from these,** not from the others, which are three times coarser than the headset |
 | `6-flat-menu-made-into-a-picture.png` | The flat menu's own elements, turned into a picture by the browser (below). Beside it, `6-flat-menu-as-the-browser-shows-it.png` |
+
+**The pictures are wrong in one thing.** In pictures 3 to 5 the edges of the
+sheet are drawn over the rings of both controllers. That is what the owner
+has said must not be: "Hands are never under the menu", below.
 
 ## What is proposed
 
@@ -41,9 +49,10 @@ the summons from a controller.
 
 - **The flat menu's sheet, as it is at a desk:** the tab strip, the rows in
   two columns, cards and tiles, the foot with its pin and Close. The
-  visitor's own order of tabs and their pins. Picture 3.
-- **1.2 m wide, 1.05 m away,** where today's console opens. Its middle is a
-  little below the eyes. It takes up 60 degrees across and 32 down.
+  visitor's own order of tabs and their pins. Picture 4.
+- **1.0 m wide, 1.05 m away,** where today's console opens. Its middle is a
+  little below the eyes. It takes up 51 degrees across and 27 down. **The
+  owner's choice, 2026-11-24: "B I think."**
 - **The bar floats under it,** 5 cm below, leaning back 28 degrees so that
   it faces the eyes. Everything pinned is on it, as on a flat screen.
 - **It stays where it opened,** as today's does, so it can be aimed at; it
@@ -52,22 +61,69 @@ the summons from a controller.
   behind it. In a headset that would be drawn for both eyes each frame, so
   the sheet is dark glass that nothing shows through sharply.
 
-**How big the words are.** A row's words are 20 mm tall at 1.05 m: just over
-one degree, about 22 of a Quest 3S's pixels. Today's console has its row
-words at 1.4 degrees and its small words at 1.0. So the proposed menu's
-words are the size of today's small words, and there is more on it. **The
+**How big the words are.** A row's words are 17 mm tall at 1.05 m: nine
+tenths of a degree, about 18 of a Quest 3S's pixels. Today's console has its
+row words at 1.4 degrees and its small words at 1.0. So the menu's words are
+a little smaller than today's small words, and there is more on it. **The
 visitor's own text size (Display) makes them larger,** as on a flat screen.
+Reading a row without leaning in is the first thing for the owner's Quest to
+say (Done looks like).
 
 | | Across | Down | A row's words |
 |---|---|---|---|
 | Today's console | 44° | 28° | 1.4° |
-| **A: two columns, 1.2 m** | 60° | 32°, 41° with the bar | 1.1° |
-| B: two columns, 1.0 m | 51° | 27° | 0.9° |
+| A: two columns, 1.2 m | 60° | 32°, 41° with the bar | 1.1° |
+| **B: two columns, 1.0 m. Chosen** | 51° | 27°, about 35° with the bar (worked out, not measured) | 0.9° |
 | C: one column, 0.8 m | 42° | 52° | 1.2° |
 
-**I'd build A.** B's words are smaller than anything on today's console. C
-is taller than is comfortable to look up and down, and is not what a desk
-shows. The headset decides between A and B: the owner looks at both.
+**It is B.** I had proposed A, since B's words are smaller than anything on
+today's console; the owner looked at pictures 3, 4 and 5 and their sharp
+ones and chose B. C is taller than is comfortable to look up and down, and
+is not what a desk shows.
+
+### Hands are never under the menu
+
+**The owner, 2026-11-24:** "B I think. But we need to make sure that the
+menu is not drawn above the hands in VR."
+
+**How that is read** (the orchestrator's reading, and mine is the same): a
+visitor's hands and controllers are always seen in front of the menu. Never
+hidden by the sheet, the bar, the wrist's panel or the Menu button, wherever
+the hands are held.
+
+**What is true today, by how the console is made** (`console.ts`; not looked
+at in a headset by me): the panel and the Menu button are drawn last and
+over everything, with no regard to what is nearer. I take that to have been
+so that a wall couldn't hide the menu. It also means **today's console is
+drawn over the hands, wherever they are held.** The mocks were made the same
+way, which is
+why the sheet's edges cover the controllers in pictures 3 to 5. So the rule
+is broken by today's console too, and not only by this design.
+
+**The rule, for the build:**
+
+- **Hands, controllers and tracked hands' joints are drawn after the menu,
+  and over it.** The menu is still drawn over the room, so a wall still
+  can't hide it. Nothing of the menu is ever drawn over a hand: the sheet,
+  the bar, a thing that has come forward, the wrist's panel, the Menu
+  button.
+- **That holds wherever the hand is,** nearer than the menu or reached past
+  it. A hand reached past the sheet is still seen whole.
+- **No ray is drawn from a hand today:** what is pointed at is lit on the
+  menu itself. If a ray is ever drawn, it is drawn over the menu as the
+  hand is.
+- **Where the menu is put helps, and is not relied on.** At 1.05 m the sheet
+  and the bar are beyond an arm's reach, so a hand held up to point is
+  nearer than they are. The wrist's panel sits above the wrist that carries
+  it and not over that hand.
+- **The same for a world made with another engine:** the add-on draws its
+  hands over the console's picture.
+
+**Whether the sheet should also be moved** (lower, higher or further, so that
+hands held at rest don't overlap it in view at all) is for the headset to
+say, and is asked of the owner there. Worked out and not measured: hands
+held at rest are below the bar's lower edge in view; hands raised to point
+are in front of the sheet, which is where they must be to point at it.
 
 ### Pointed at
 
@@ -181,7 +237,9 @@ world's own or the client's.
    gate that no site's build carries a trial's page.
 2. **The picture in the scene,** behind an address flag, in the Gallery:
    the sheet and the bar, pointing and pressing. Today's console stays the
-   default.
+   default. **Hands drawn over the menu come with this step, and their
+   check with them:** nothing of the new menu is shown, even behind a flag,
+   that covers a hand.
 3. **What the picture loses** (the table above), each with a check.
 4. **Coming forward,** and still for `motion: reduced`.
 5. **The wrist,** and hands with no controllers.
@@ -197,6 +255,24 @@ Each is a pull request. Names for anything new are proposed with each.
 - **The owner's Quest 3S:** open; read a row without leaning in; change tab;
   press a row; press a pinned thing on the bar; see each come forward under
   the pointer; scroll a long tab; close. The same on the wrist.
+- **Hands, on the owner's Quest 3S,** since a made-up headset can't settle
+  it. With the menu open, hold each hand up in front of it: at the left
+  edge, the middle and the right edge, near the face and at arm's length,
+  and over the bar. Then reach past the sheet. With controllers, and again
+  with bare hands. **Each time the whole hand or controller is seen, and the
+  menu covers none of it.** The same over the wrist's panel with the other
+  hand, and over the Menu button when the menu is closed. And say whether
+  hands held at rest are in the way of reading it.
+- **A check that can fail,** in the made-up headset, run by the gate. Each
+  hand in turn, as a controller and as a tracked hand, is held at nine
+  places across the sheet and three across the bar, at 0.3 m, 0.5 m and
+  0.7 m from the eyes, and once reached 0.2 m past the sheet; and over the
+  wrist's panel, and over the Menu button with the menu closed. At each
+  place the view is drawn twice: once with the menu, once with the menu
+  taken out. **Every pixel that is a hand's or a controller's in the second
+  is the same in the first.** One pixel that differs fails it. It is tried
+  first against today's way of drawing, where it must fail, so that it is
+  known to be able to.
 - A check, in the made-up headset, that every tab and every row the flat
   menu has is in the headset's, in the same order, and nothing else.
 
@@ -205,12 +281,19 @@ Each is a pull request. Names for anything new are proposed with each.
 - Lose the floating Menu button, or the summons from a controller.
 - Put anything in the headset's menu that the flat one doesn't have, or the
   other way round. With one menu this holds by how it is made.
+- **Draw any part of the menu over a hand or a controller.** The owner,
+  2026-11-24: "we need to make sure that the menu is not drawn above the
+  hands in VR."
 
 ## Not checked
 
 - **Any headset.** Every picture here is from a made-up one, with one eye
-  and no lenses. Size, distance, the bar's lean and how far a thing comes
-  forward are proposals to be looked at in the Quest.
+  and no lenses. Distance, the bar's lean and how far a thing comes forward
+  are proposals to be looked at in the Quest. So is the size, though the
+  owner has chosen it from the pictures.
+- **Hands over the menu, drawn that way.** It is a rule here and nothing is
+  built. That today's console covers the hands is read from its code, and
+  seen at the sheet's edges in the mocks.
 - **The Quest's browser making the picture.** Chrome on a laptop does.
 - A tab with people's pictures or tiles in it: the Gallery's menu, as a
   guest alone in the room, has none.
@@ -218,8 +301,11 @@ Each is a pull request. Names for anything new are proposed with each.
 
 ## For the owner
 
-1. **A, B or C** (pictures 3, 4 and 5, and their sharp ones)? I'd build A.
+1. **A, B or C** (pictures 3, 4 and 5, and their sharp ones)? **Answered,
+   2026-11-24: "B I think. But we need to make sure that the menu is not
+   drawn above the hands in VR."** So B, and the hands rule above.
 2. **Is the headset showing the flat menu itself, as a picture, the right
    way to keep the two the same?** It needs five minutes on your Quest
-   first.
-3. **The wrist:** the narrow layout there, with no bar. Yes?
+   first. **Not answered yet.**
+3. **The wrist:** the narrow layout there, with no bar. Yes? **Not answered
+   yet.**

@@ -11,11 +11,14 @@
 - **Who:** the NSWP builder (the kit's headset console,
   `packages/sdk/src/console.ts`, and the same for the Godot add-on). Not
   briefed.
-- **State:** **designed, 2026-11-24, with pictures; not built, and no code
-  until the owner has seen them.** The design is
-  `docs/plans/headset-menu.md`; the pictures are in the sessions' notes
-  folder, `headset-menu/`. Three things are the owner's to say (the end of
-  that page).
+- **State:** **designed, 2026-11-24, with pictures; not built.** The design
+  is `docs/plans/headset-menu.md`; the pictures are in the sessions' notes
+  folder, `headset-menu/`. **The owner answered the same day, having looked
+  at them: "B I think. But we need to make sure that the menu is not drawn
+  above the hands in VR."** So the sheet is 1.0 m wide, and the hands rule
+  below is part of the ask. Two things are still his to say (the end of the
+  design's page): whether the headset shows the flat menu itself as a
+  picture, and the wrist. No code on those two until he has.
 
 ## What is true today
 
@@ -35,6 +38,11 @@ pinned things, no cards as the flat sheet has them.
   tilted a little towards the visitor.
 - **Hovering:** a button, a tab or a thing on the bar under the pointer
   comes forward a little, so it reads as an object and not a picture.
+- **Hands are never under the menu** (added 2026-11-24, in the owner's words
+  above). A visitor's hands and controllers are always seen in front of the
+  sheet, the bar, the wrist's panel and the Menu button, wherever they are
+  held. Today's console breaks this: it is drawn over everything, hands
+  included.
 
 ## For the design to settle
 
@@ -61,13 +69,19 @@ pinned things, no cards as the flat sheet has them.
 
 ## Done looks like
 
-To be written with the design: pictures of the open menu and the bar from
-the made-up headset beside the flat menu, for the owner before it is
-merged; then the owner's Quest 3S: open, change tab, press a row, press a
-pinned thing on the bar, see each come forward under the pointer, close.
+Written in full in the design (`docs/plans/headset-menu.md`, "Done looks
+like"). In short: pictures of the open menu and the bar from the made-up
+headset beside the flat menu, for the owner before each merge that changes
+what is seen; then the owner's Quest 3S: open, change tab, press a row,
+press a pinned thing on the bar, see each come forward under the pointer,
+close. **And for hands:** a check in the made-up headset that fails if one
+pixel of a hand or a controller is covered by the menu, with the hands held
+at many places; and the owner holding his own hands in front of the menu in
+the Quest, since a made-up headset can't settle it.
 
 ## Must not
 
 - Lose the floating Menu button, or the summons from a controller.
 - Put anything in the headset's menu that the flat one doesn't have, or the
   other way round.
+- Draw any part of the menu over a hand or a controller.
