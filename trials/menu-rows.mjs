@@ -457,6 +457,84 @@ try {
     check("its own movement is not held up: the bar is along with the mouse while the mouse is still down", alongAt > 60, alongAt);
     check("and what changed meanwhile waited for the bar, and is drawn once it is let go", heldBack && (await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 2000, polling: 50 }).then(() => true, () => false)), { heldBack, rows: await rowWords() });
   }
+  // 4. The same with the space bar. A row that has the keys is pressed by the bar going down and coming up on it.
+  // Drawn again between the two, the row that had the keys is gone, and the bar comes up on nothing. A real keyboard:
+  // the row is given the keys, and the bar is put down and let up by the browser's own keyboard.
+  const hasTheKeys = () => page.evaluate(() => { let at = document.activeElement; while (at?.shadowRoot?.activeElement) at = at.shadowRoot.activeElement; return (at?.textContent ?? "").trim().slice(0, 40) || at?.tagName || null; });
+  const spaceDownOn = async (thing) => { await thing.focus(); const on = await hasTheKeys(); await page.keyboard.down(" "); return on; };
+  for (const [what, change] of [
+    ["another row's words change", "other"],
+    ["the pressed row's own words change", "own"],
+  ]) {
+    await page.waitForTimeout(600);
+    const before = await page.evaluate(() => window.__held.presses);
+    const on = await spaceDownOn(heldRow);
+    await somethingChanges(change);
+    await page.waitForTimeout(80);
+    await page.keyboard.up(" ");
+    const heard = await page.waitForFunction((n) => window.__held.presses >= n + 1, before, { timeout: 3000 }).then(() => true, () => false);
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => window.__held.presses);
+    check(`the space bar: the row has the keys before the bar goes down (${what})`, /Pressed while it changes/.test(String(on)), on);
+    check(`the space bar: a press is still a press when ${what} while it is made, and is one press`, heard && after === before + 1, { before, after, on });
+  }
+  // What changed while the bar was down is not dropped: drawn as soon as the bar is up, and once.
+  {
+    await page.waitForTimeout(600);
+    const next = (await page.evaluate(() => window.__held.other)) + 1;
+    await spaceDownOn(heldRow);
+    await somethingChanges("other");
+    await page.waitForTimeout(80);
+    const during = await page.evaluate((n) => { window.__drawn = 0; return [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)); }, next);
+    await page.keyboard.up(" ");
+    const shown = await page.waitForFunction((n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`)), next, { timeout: 2000 }).then(() => true, () => false);
+    await page.waitForTimeout(900);
+    const drawn = await page.evaluate(() => window.__drawn);
+    check("the space bar: what changed while the bar was down is not drawn while it is down", during === false, during);
+    check("the space bar: it is drawn as soon as the bar is up", shown, await rowWords());
+    check("the space bar: and drawn once", drawn === 1, drawn);
+  }
+  // A bar that never comes up is not waited for. Tried twice: put down once and left, as this script's keyboard
+  // does it; and held as a person's keyboard holds a key, which says "down" again and again for as long as it is
+  // held. Timed by the page's own clock from the moment the page hears the bar go down: a page drawn slowly hears
+  // a key late, and what is asked is how long the menu waits once it has.
+  await page.evaluate(() => {
+    window.__space = { downs: 0, repeats: 0, at: 0 };
+    addEventListener("keydown", (e) => { if (e.key !== " ") return; if (e.repeat) window.__space.repeats++; else { window.__space.downs++; window.__space.at = performance.now(); } }, true);
+  });
+  for (const [what, again] of [["put down once and never let up", false], ["held down, the keyboard saying so again and again", true]]) {
+    await page.waitForTimeout(600);
+    const before = await page.evaluate(() => { window.__space.repeats = 0; return window.__space.downs; });
+    await spaceDownOn(heldRow);
+    const heardDown = await page.waitForFunction((n) => window.__space.downs === n + 1, before, { timeout: 10000, polling: 20 }).then(() => true, () => false);
+    // The menu is told something changed, and the page itself notes when that is first on it.
+    await page.evaluate(() => {
+      const shows = (n) => [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].some((b) => b.textContent.includes(`A row beside it ${n}`));
+      const next = ++window.__held.other;
+      window.__shownAt = 0;
+      const c = window.__nswpTest.controls;
+      c.setTheme({ scale: c.theme.scale }, true);
+      const began = performance.now();
+      const look = setInterval(() => { if (shows(next)) window.__shownAt = performance.now(); if (window.__shownAt || performance.now() - began > 8000) clearInterval(look); }, 20);
+    });
+    // Held: a key already down, put down again, is told to the page as a held key's repeat. One at a time, and the
+    // page asked between each whether the change has been drawn yet.
+    let shownAt = 0;
+    for (const end = Date.now() + 9000; Date.now() < end && !shownAt; ) {
+      if (again) await page.keyboard.down(" ");
+      await page.waitForTimeout(40);
+      shownAt = await page.evaluate(() => window.__shownAt);
+    }
+    const heard = await page.evaluate(() => ({ ...window.__space }));
+    await page.keyboard.up(" ");
+    const waited = shownAt ? Math.round(shownAt - heard.at) : null;
+    // Never sooner than a press's own length (1.2 s) after the bar went down, and not long after it. Drawn without a
+    // graphics card the page is late with everything by a frame of its own: there the time is said, and not held to.
+    check(`the space bar ${what}, is not waited for: the menu is drawn again a press's length after the bar went down, and within three seconds`, heardDown && waited !== null && waited > 1100 && (SOFTWARE || waited < 3000) && (!again || heard.repeats > 0), { waited, heardDown, repeatsHeard: heard.repeats });
+    results[`how long the menu waited on a space bar ${what}, in ms`] = waited;
+    if (again) results["how many times the page was told the held bar was down again, before the menu was drawn"] = heard.repeats;
+  }
+
   await page.evaluate(() => window.__nswpTest.hud.setOpen(false));
   await page.waitForTimeout(400);
 

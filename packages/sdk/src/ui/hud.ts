@@ -1208,7 +1208,9 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
     // After the press itself has been delivered, which comes just after the pointer does.
     setTimeout(draw, 0);
   };
-  const onSpace = (e: KeyboardEvent) => void (e.key === " " && (e.type === "keydown" ? pressBegan(e) : pressOver()));
+  // A key that is held down is told to the page again and again. Only its going down begins a press: begun anew
+  // each time, a held space bar held the menu still for as long as it was held.
+  const onSpace = (e: KeyboardEvent) => void (e.key === " " && (e.type === "keyup" ? pressOver() : e.repeat || pressBegan(e)));
   root.addEventListener("pointerdown", pressBegan, true);
   root.addEventListener("keydown", onSpace as EventListener, true);
   root.addEventListener("keyup", onSpace as EventListener, true);
