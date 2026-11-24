@@ -3,10 +3,15 @@
 - **Asked:** 2026-11-24, by the orchestrator, from a measurement BitPortal
   made. Not an ask of the owner's. **A fault that is live.**
 - **Who:** the NSWP builder.
-- **State:** **proposed, 2026-11-24, and measured; not built.** The proposal
-  is one number: a framed world waits 50 ms for a client's answer, not 300.
-  The number is the orchestrator's to give. Built in its turn, once kit code
-  may merge again.
+- **State:** **decided, 2026-11-24: 100 ms, not 300; not built.** Proposed
+  below as 50. The orchestrator gave 100, on BitPortal's timing of its own
+  shell that day: with the processor slowed six times a client's "has" took
+  26 to 37 ms at the middle and 66 to 197 at the worst, so 50 would lose now
+  and then. The table and the reasons are in the plan
+  (`docs/plans/the-clients-menu.md`, section 6), with a rule that came of it:
+  a client says it has the menu from its first script. Built after the press
+  lost while the menu is drawn again (#463), as its own pull request, with
+  the three cases as a trial that says the medians.
 
 ## What was measured first
 
