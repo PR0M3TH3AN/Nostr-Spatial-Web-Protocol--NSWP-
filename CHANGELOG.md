@@ -4,6 +4,11 @@ Newest first. Version numbers are the spec's. Section numbers (§) are `spec.md`
 
 ## Next
 
+- **A client's switch for how a visitor moves at a desk keeps the choice under a name the client gives** (SDK `visitor-switches.ts`: `deskMovingSwitch`, `askDeskMoving`, each taking `keep`). Found by BitPortal behind its switch, 2026-11-24: mouse-look turned on in its shell's own menu never reached the world. Its room keeps the choice as `bitportal:fps`, which is where its one reader of settings reads it; the kit's two functions kept it under the kit's own name and took none.
+  - **Now both take `keep`,** the option `createFps` already takes for a world: the name the choice is kept under, for this site. A client gives its room's name, and the room and the client's menu hold one choice. Left out, the kit's own name, as before.
+  - **One choice for the page.** Whoever shows the switch and whoever asks the question give the same name. A name given later than another is the one the page then keeps to, and the choice is read again from it.
+  - **Tried:** four tests. With a name given, the switch and the question keep the choice under it and never under the kit's; said from elsewhere, it is kept under the same name; whether they have chosen is read from the name given; with none given, nothing has changed. **Not tried:** BitPortal's shell passing its name.
+
 ## 0.89.0
 
 - **A pointer the browser gives late is let go, where the panel or the menu has come up meanwhile** (SDK `fps.ts`; `trials/panel-pointer.mjs`). **A fault in kit 0.88.0, which is live, and in its panel mend.** Found 2026-11-24 by `trials/panel-pointer.mjs` on a loaded machine, in one run of five.
