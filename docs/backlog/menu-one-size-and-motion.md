@@ -11,8 +11,10 @@
 - **Who:** the NSWP builder (the kit's menu, `packages/sdk/src/ui/hud.ts`,
   which is the menu a world draws and the one BitPortal's shell draws; then
   the headset's). BitPortal follows by vendoring.
-- **State:** asked. In the builder's queue after the kit's halves of the
-  three mends that hold BitPortal's menu from going live. Not designed.
+- **State:** **the first of the three, one size, is built in the kit,
+  2026-11-24; not live.** The other two (motion) are not designed, and come
+  last in the builder's queue, with a film for the owner before they go
+  live.
 
 ## Three things
 
@@ -26,6 +28,40 @@ liked and stays. A short tab has room left over; it is not stretched to
 fill it.
 
 "In all modes": on a desk, at a phone's width, and in a headset.
+
+**As built (2026-11-24):**
+
+- **The sheet is the height it has on its largest tab, on every tab.**
+  Found, not guessed: every tab the visitor has, a world's own among them,
+  is laid out at the sheet's own width and measured. The tab that is up is
+  measured where it is; each other one in a box nobody sees, with nothing
+  painted or fetched for it, and again only when what it holds, the width
+  or the size of text has changed.
+- **Never taller than the screen allows.** A tab longer than that scrolls
+  inside the sheet, as before. At a phone's width that is every tab's size:
+  the Gallery's longest tabs are longer than the sheet may be.
+- **A short tab is not stretched.** Its rows are their own height, and the
+  room left over is above the strip of said lines and the foot.
+- **A world adds a tab while the menu is up:** if it is larger than any
+  before, the sheet grows to it once, then, and the strip moves up that
+  once. While the menu is up the sheet only grows; a tab that goes or
+  shrinks doesn't make it smaller until the menu next comes up, or the
+  window changes width.
+- **A said line's strip:** one line of it is part of every tab's size.
+  Longer words take their extra lines from the room left over, and then
+  from the foot of the rows' own scrolling area. The sheet is held its
+  size, as it was before for a tab with long words.
+- **The window changes size with the menu up:** the size held is let go at
+  once, and found again when the window has been still for a moment.
+- **In a headset** the console is one picture on one panel, and was
+  already one size on every section. A check now holds it there.
+- **The same in a world's own menu and in a client's:** it is the one menu.
+- **Tried,** `trials/menu-rows.mjs`: at a desk's width and a phone's, on
+  every one of the Gallery's 14 tabs the sheet, its strip of tabs and its
+  foot are in the same place, to the pixel (780 by 435, and 370 by 532).
+  `trials/xr-console.mjs`: 14 sections, one picture size, one panel.
+- **Not tried:** BitPortal's own menu, which has other tabs; a real phone;
+  a headset.
 
 ### 2. What is in the menu comes in, and doesn't pop
 

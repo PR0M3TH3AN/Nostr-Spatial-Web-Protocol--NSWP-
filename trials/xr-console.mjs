@@ -81,6 +81,23 @@ try {
   await page.waitForTimeout(500);
   const second = await picture();
   check("and the picture is drawn again for it", second.png !== first.png, null);
+  // One size on every tab (the owner, 2026-11-24: "The menus size should be the same across all tabs", "in all
+  // modes"). In a headset the console is one picture on one panel: every section is drawn on the same canvas, and
+  // the panel is where it was and as large. Gone through section by section, and held to.
+  {
+    const placed = () => page.evaluate(() => { const g = window.__nswpTest.console.group; const panel = g.children.find((c) => c.material?.uniforms?.map); const canvas = panel.material.uniforms.map.value.image; return { picture: [canvas.width, canvas.height], scale: panel.scale.toArray().map((n) => Math.round(n * 1000) / 1000), at: g.position.toArray().map((n) => Math.round(n * 100) / 100) }; });
+    const sections = (await said()).sections;
+    const seen = [];
+    for (const name of sections) {
+      if (!(await page.evaluate((name) => window.__nswpTest.console.pressLabelled(name), name))) continue;
+      await page.waitForTimeout(350);
+      seen.push({ name, ...(await placed()) });
+    }
+    const differs = seen.filter((x) => JSON.stringify([x.picture, x.scale, x.at]) !== JSON.stringify([seen[0].picture, seen[0].scale, seen[0].at]));
+    check(`one size in a headset: on every one of the console's ${seen.length} sections the picture is the same size, on a panel as large and where it was`, seen.length >= 6 && differs.length === 0, { first: seen[0], differs });
+    await page.evaluate(() => window.__nswpTest.console.pressLabelled("Sound"));
+    await page.waitForTimeout(350);
+  }
   keep("xr-console-2-sound.png", second);
   // Pointed at, a row is lit in the picture itself here: the picture changes, and changes back. Aimed and read in
   // one go, inside the page: the world aims the console afresh every frame from where its hands point, and this
