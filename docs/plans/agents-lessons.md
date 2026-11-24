@@ -269,7 +269,7 @@ shut in.
   asked only when an order waits on its next step, and the chat model
   checks in only while an order is being carried out.
 
-## Abilities as skills (the owner's idea, 2026-11-24; built and shown in the playground, D-records to come)
+## Abilities as skills (the owner's idea, 2026-11-24; built and shown in the playground, D57 to D59)
 
 The owner asked whether every ability should be a skill an agent learns and
 uses "in the right situation if the right items are available. Like a gun."
@@ -311,6 +311,56 @@ did not change by a byte.
 - **Order has to be kept on purpose** (shown). To give deciders the same
   lists, an offer had to be able to say it goes last among a thing's
   choices. Skills merged from several places need a stated order.
+- **A second shooting item, as a file alone, worked with no new code**
+  (shown: D58, the free rules on a made-up clock, three rounds). A disc
+  launcher ("Launch", "Wind up", three a clip): 10 of 12, 15 of 15, 14 of
+  14, where the dart blaster had 12, 15 and 14; no friendly target hit by
+  either. Its choices came out in the item's own words. So the skill
+  carries to another item by a run. It carries to another game only by
+  tests with made-up scenes: there is one shooting simulation, not two.
+- **What an item's maker has to say for a skill to find it with no code**
+  (shown: D58): its presses in its own words, what it sends, and the
+  numbers that bound a press. The kit's item has the first two (read). The
+  choice's words are made from the declaration's own: nothing outside the
+  file said "Reload" or "blaster".
+- **An item's numbers change what a good choice is** (shown: D58). The
+  weaker item scored lower in the busy round with the same rule, so a rule
+  written for one item is not right for another, and the numbers have to
+  reach the decider.
+- **Where a skill comes from sorts who declares what** (shown: D58). With
+  the agent (walking, looking, greeting, reporting): nothing declared. With
+  the world (carrying, working things): the world's maker declares its
+  things. With an item (shooting): the item's maker. For the kit: the
+  item's format and the world's each carry their own, and our code carries
+  only the agent's.
+- **What a rule carries out as well, and what a decider is for** (shown
+  where run, D58). Walking, greeting, looking so far, and shooting as the
+  range stands: a rule does all of it for nothing. Carrying: a rule does a
+  plain fetch; the decider is for reading the order ("a buoy" means one)
+  and choosing among many like things. Working things: a rule presses what
+  the order names; the decider would be for an order that names the outcome
+  and not the thing, which is not yet tried. **The decider earns its cost
+  in understanding what was asked and in weighing things that pull against
+  each other; carrying a choice out is always code. Nothing run so far has
+  made it weigh anything.** One reason for it that is not on the bill:
+  rules need a list of words for every thing and function, written by each
+  world's maker, and JEV works from the sentences alone.
+- **A stranger's words in a skill, as designed for** (built: D59): at most
+  300 characters; no key, address, name at a host or handle anywhere in the
+  file, refused by the checker; given to the decider marked as advice that
+  came with the skill, about its own choices, to be weighed and never to
+  override the goal; never given to the chat model (the field that fed it
+  is gone, and a file carrying it is refused); shown whole to the agent's
+  owner.
+- **A checker can bound a stranger's words; it can't tell good advice from
+  bad** (shown: D59). Three pieces of worse advice pass it, as they must.
+  So the gate that matters is learning, with the words in front of the
+  owner, and who signed the file. Marking costs about 25 words on every
+  question, for ever. Whether JEV honours the mark is not measured; if it
+  doesn't, the port needs more than words: the world not offering the
+  choice, or advice used only in code to order the choices.
+- **A new version that changes a skill's words has to be shown again**
+  (reasoned: D59). Versions that can't be replaced make that checkable.
 - **Not done:** where an agent's learned skills are kept (ticks in the
   tab); what wakes a room's skills is declared and read only on the range;
   carrying, working things and walking are still code, since a file can't
