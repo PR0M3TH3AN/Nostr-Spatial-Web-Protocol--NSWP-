@@ -57,6 +57,7 @@ const ABOUT = {
   music: [20, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
   file: [24, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
   show: [20, "the menu brought up on a tab at a world's asking: from the view, from a row pressed in the menu, never against the visitor"],
+  often: [25, "a world that speaks often: a press in the client's menu is still a press, and a world saying the same thing again has nothing drawn again"],
   covers: [13, "the view clear of the menu: the world told what of its view the client's bar, marks and sheet cover, at a desk's width and a phone's"],
 };
 const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
@@ -1484,6 +1485,98 @@ VISITS.show = async () => {
   await page.waitForTimeout(4500);
   await sayShow("no-such-tab");
   check("show: a tab the client doesn't have brings the menu up where it last was", !!(await until(async () => { const m = await menu(); return m.up && (await tabOf("room")) ? m : null; }, 4000)), await menu());
+  await ctx.close();
+};
+
+// ---- A world that speaks often (asked by the orchestrator, 2026-11-24, from BitPortal's finding: "the menu replaces
+// its buttons whenever the world speaks, changed or not. A world speaking often could take a button from under a
+// press."). Two things. A world whose description changes several times a second: a press in the client's menu
+// with a real mouse is still a press, every time. And a world that says again what it said before: nothing in the
+// client's menu is made anew for it.
+VISITS.often = async () => {
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1100, height: 700 } });
+  await serve(ctx);
+  const page = await ctx.newPage();
+  const until = async (ask, ms = 15000) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const got = await Promise.resolve().then(ask).catch(() => null);
+      if (got || Date.now() > end) return got;
+      await page.waitForTimeout(100);
+    }
+  };
+  // Every description the world says, kept on the client's page as it arrives: to count them, and to say one again.
+  await page.addInitScript(() => { window.__worlds = []; addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.world) window.__worlds.push(e.data); }); });
+  await page.goto(`${CLIENT}/?home=${encodeURIComponent(`${CLIENT}/home.html`)}`, { timeout: 60000 });
+  const world = () => page.frames().find((f) => f.url().startsWith(WORLD));
+  const hud = page.locator("nswp-hud");
+  await until(() => world()?.evaluate(() => window.__nswpTest?.state?.ready === true), 60000);
+  await until(() => page.evaluate(() => window.__client.below.world?.sections.length > 0));
+  // Two rows of the world's own in Room: one to press, counted by the world; one whose words the world changes.
+  await world().evaluate(() => {
+    window.__often = { presses: 0, ticks: 0 };
+    const c = window.__nswpTest.controls;
+    c.add({ id: "trial-press", section: "room", label: "Press me while the world speaks", act: () => void window.__often.presses++ });
+    c.add({ id: "trial-ticks", section: "room", label: () => `The world has spoken ${window.__often.ticks} times`, act: () => {} });
+  });
+  await page.evaluate(() => window.__client.menu.setOpen(true, "room"));
+  const row = hud.getByRole("button", { name: /Press me while the world speaks/ }).first();
+  await until(() => row.isVisible(), 8000);
+  await row.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
+  await page.waitForTimeout(900);
+  const drawings = () => page.evaluate(() => { window.__rowsMade = 0; window.__watch?.disconnect(); window.__watch = new MutationObserver((rs) => { window.__rowsMade += rs.some((r) => r.type === "childList") ? 1 : 0; }); window.__watch.observe(document.querySelector("nswp-hud").shadowRoot.querySelector(".rows"), { childList: true }); });
+
+  // 1. The world's description changes four times a second, then ten. Twenty presses with a real mouse at each.
+  for (const [what, every] of [["four times a second", 250], ["ten times a second", 100]]) {
+    await page.waitForTimeout(500);
+    await drawings();
+    const said0 = await page.evaluate(() => window.__worlds.length);
+    const before = await world().evaluate((every) => { window.__often.timer = setInterval(() => { window.__often.ticks++; const c = window.__nswpTest.controls; c.setTheme({ scale: c.theme.scale }, true); }, every); return window.__often.presses; }, every);
+    const began = Date.now();
+    // Twenty presses made, counted as they are made: a row asked for in the instant it is being made anew has no
+    // place to press, and that is asked again. It is not a press, and is not counted as one made or one lost.
+    let made = 0;
+    let noPlace = 0;
+    // Where the mouse went down and came up, as the client's page saw it: on the row both times, or not.
+    await page.evaluate(() => { window.__mouse = []; if (window.__mouseWatched) return; window.__mouseWatched = true; const root = document.querySelector("nswp-hud").shadowRoot; for (const type of ["pointerdown", "pointerup", "click"]) root.addEventListener(type, (e) => { const on = e.composedPath()[0]; window.__mouse.push([type, (on?.closest?.("button")?.textContent ?? on?.className ?? "").toString().trim().slice(0, 24)]); }, true); });
+    for (let tries = 0; made < 20 && tries < 80; tries++) {
+      const at = await row.boundingBox().catch(() => null);
+      if (!at) { noPlace++; await page.waitForTimeout(30); continue; }
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(40 + (made % 4) * 40);
+      await page.mouse.up();
+      made++;
+      await page.waitForTimeout(110);
+    }
+    const took = (Date.now() - began) / 1000;
+    await page.waitForTimeout(500);
+    const heard = (await world().evaluate(() => { clearInterval(window.__often.timer); return window.__often.presses; })) - before;
+    const spoke = (await page.evaluate(() => window.__worlds.length)) - said0;
+    const drawn = await page.evaluate(() => window.__rowsMade);
+    const mouse = await page.evaluate(() => { const m = window.__mouse; const count = (t, on) => m.filter(([type, where]) => type === t && (on === undefined || on.test(where))).length; return { down: count("pointerdown"), downOnTheRow: count("pointerdown", /Press me/), up: count("pointerup"), upOnTheRow: count("pointerup", /Press me/), clicksOnTheRow: count("click", /Press me/), elsewhere: [...new Set(m.filter(([, where]) => !/Press me/.test(where)).map(([type, where]) => `${type} on ${where || "nothing"}`))].slice(0, 6) }; });
+    check(`often: with the world's description changing ${what}, twenty presses in the client's menu are twenty presses, heard by the world`, made === 20 && heard === 20, { made, heard, noPlace, mouse });
+    check(`often: and the world did speak, and the client's rows were made anew, all the while (${what})`, spoke >= 8 && drawn >= 8, { spoke, drawn, seconds: took });
+    results[`often, ${what}: descriptions said, drawings of the client's rows, presses made and heard, in seconds`] = { spoke, drawn, made, heard, noPlace, mouse, seconds: Math.round(took * 10) / 10 };
+  }
+
+  // 2. A world that says again what it said before, ten times a second for two seconds: nothing is made anew. The
+  // very description it last said, said again from its own page, by hand: the kit's own world never repeats itself.
+  await page.waitForTimeout(800);
+  const last = await page.evaluate(() => window.__worlds.at(-1));
+  await drawings();
+  await page.evaluate(() => { const r = [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].find((b) => /Press me while the world speaks/.test(b.textContent)); r.__sameOne = true; });
+  const saidBefore = await page.evaluate(() => window.__worlds.length);
+  await world().evaluate((last) => new Promise((done) => { let n = 0; const t = setInterval(() => { parent.postMessage(last, "*"); if (++n >= 20) { clearInterval(t); setTimeout(done, 300); } }, 100); }), last);
+  const same = await page.evaluate(() => ({ heardAgain: window.__worlds.length, made: window.__rowsMade, stillTheSameRow: [...document.querySelector("nswp-hud").shadowRoot.querySelectorAll(".rows button")].find((b) => /Press me while the world speaks/.test(b.textContent))?.__sameOne === true }));
+  check("often: the world said the same description twenty more times, and the client heard each", same.heardAgain - saidBefore === 20, { heard: same.heardAgain - saidBefore });
+  check("often: and nothing in the client's menu was made anew for it: the row is the very one that was there", same.made === 0 && same.stillTheSameRow, same);
+  // And a press through it all is a press.
+  {
+    const before = await world().evaluate(() => window.__often.presses);
+    await pressWhenOnTop(page, row);
+    check("often: a press after that is a press", !!(await until(() => world().evaluate((n) => window.__often.presses === n + 1, before), 3000)));
+  }
   await ctx.close();
 };
 
