@@ -274,6 +274,77 @@ push it:** say which. The first is one number in the add-on
 (`STICK_FORWARD`); the second means the Quest's browser names the stick to
 Godot otherwise than its web export does.
 
+## The console, built third (2026-11-23)
+
+**What is built.** The orchestrator's answer to who lights the row pointed
+at was B: the add-on, from the kit's numbers.
+
+- **The kit draws the console once.** Its 2D drawing is moved, word for word,
+  out of the file that puts it on a Three.js panel (`console.ts`) into one
+  with no Three.js in it (`console-drawing.ts`). A Three.js world's panel and
+  the engine script both draw with it.
+- **The engine script hands it over** (version 19): `NSWP.console(json)`
+  says what the console is and where each row is, and takes a press by a
+  row's id; `NSWP.consolePixels()` gives the picture, to be taken only when
+  it changed.
+- **The picture never carries a lit row.** With each row the kit gives how
+  to light it: a fill, an edge, its width and its four corners, in the
+  console's own units. The add-on draws that box over the row's own
+  rectangle and chooses nothing. A row the kit gives no light for (the tab
+  that is up) is not lit.
+- **One list of rows** decides what is lit and what a press lands on.
+- **In the add-on's visitor:** the menu button (B or Y) brings the console up
+  about a metre in front of them and puts it away; it stays where it opened;
+  a hand pointed at it lights the row and that hand's trigger presses it; a
+  hand pointing at the console points at nothing behind it; walking 2.6 m
+  off puts it away, as in every world. The button no longer leaves the
+  session: the way out is a row of the console.
+- **The one-time question, casual or intense,** is asked in the console the
+  first time they are in a headset, now that there is a console to ask it
+  in.
+
+**How it was tried, since no scripted browser can be in a headset in a Godot
+world:** on the flat page, with hands the trial makes up
+(`trials/godot-console.mjs`, 23 checks). Shown: the menu button brings it up
+a metre ahead, 0.84 m wide, with the kit's picture on it; Godot holds as many
+rows as the kit lists; a hand pointed at a row lights a box at the row's own
+place and size; a sweep over every row and back leaves the picture the same
+one, with nothing brought across; the tab that is up is pointed at and not
+lit; a place that is no row lights nothing; a trigger on a tab changes the
+picture, which then crosses once; a trigger on a row does what the page's
+menu would; Close, and the button again. The picture's crossings are counted
+in the page: one to bring it up, none for pointing, one for each press that
+changes it.
+
+**The Three.js worlds' own console** was looked at too, since its drawing
+moved (`trials/xr-console.mjs`, new, 8 checks, the Gallery in a made-up
+headset): it comes up, draws at its size, changes section, lights a row in
+its own picture, and closes.
+
+**Not shown, and the owner's to try:** a real controller's name for its menu
+button, how the panel looks and reads in a headset, whether a real hand's ray
+lands where it looks to, the one-time question (asked only in a session), and
+how a tab change feels on a Quest.
+
+**For the owner, on the Quest 3S, once The Foundry with this add-on is where
+the headset can open it.** After the eight steps for moving, above:
+
+| Do this | It should |
+|---|---|
+| In VR, press **B** (the upper round button on the right controller) | Bring a panel up about a metre in front of you: The Foundry's name at its head, tabs down its left, buttons beside them. You stay in VR. The first time ever in a headset, it comes up by itself, asking "casual or intense?" |
+| Point either hand at a tab, then at another | Light the one you point at, faintly, and unlight it as you leave. Nothing else flickers or hitches |
+| Sweep a hand down all the tabs, quickly | Light each in turn. Say if the view stutters as you do: it shouldn't, since pointing brings nothing across |
+| Pull the trigger on a tab | Show that tab's buttons. Say if there is a hitch at that moment, and how bad |
+| Pull the trigger on Travel, then on "Go home" | Take you home |
+| Point at the panel with the door behind it, and pull the trigger | Press the panel, and not go through the door |
+| Press **B** again, or pull the trigger on the cross at its top right | Put the panel away |
+| Bring it up, then walk three steps away from it | Put it away by itself |
+| On the flat page, before "Enter VR", open The Foundry with `#pixels` on the end of its address and wait five seconds | Say, in the page's menu, "The console's picture: … ms to bring across, … at most, 20 times." Read me the two numbers. Open the menu again to see them again |
+
+**The last row is the Quest's real number** for what a tab change costs.
+With the row lit by the add-on it no longer decides whether the design
+works, only how a tab change feels.
+
 ## How it will be checked, and what can't be
 
 - **By me:** unit tests of `NSWP.hands()` against the kit's own `Locomotion`, so

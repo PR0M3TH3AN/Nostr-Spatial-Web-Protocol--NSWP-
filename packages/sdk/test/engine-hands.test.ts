@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BACK_STEP, deadzone, DEFAULT_COMFORT, FADE_S, INTENSE_COMFORT, Locomotion, STEP_REACH, type HeldPad, type PadState } from "../src/actions.js";
-import { hands, handsPresenting, meetHands, resetHands } from "../src/engine-hands.js";
+import { askHowTheyMove, hands, handsPresenting, meetHands, resetHands } from "../src/engine-hands.js";
 import { resetSettings } from "../src/settings.js";
 import { createControls } from "../src/ui/model.js";
 
@@ -157,8 +157,35 @@ describe("the numbers a headset needs, beside the others", () => {
     expect(readFileSync(join(root, "packages", "sdk", "src", "input.ts"), "utf8")).toMatch(/dark \+ dt \/ FADE_S/);
   });
 
+  it("ask which way they would like to move only once an engine shows it draws the console, and once", () => {
+    const controls = createControls({ title: "The Foundry" });
+    const shown: string[] = [];
+    controls.onSignal((name) => void (name.startsWith("show:") && shown.push(name)));
+    meetHands(controls);
+    // A session starts in a world whose engine draws no console: nobody is asked where nobody could answer.
+    handsPresenting(true);
+    expect(shown).toEqual([]);
+    // The engine draws the console (engine-console.ts calls this as it is first asked for it in a session).
+    askHowTheyMove();
+    expect(shown).toEqual(["show:how-you-move"]);
+    askHowTheyMove();
+    expect(shown).toHaveLength(1);
+    // Answered, it is kept, and never asked again: not in the next session, nor by the next world's controls.
+    controls.run("how-intense");
+    return Promise.resolve().then(() => Promise.resolve()).then(() => {
+      handsPresenting(false);
+      handsPresenting(true);
+      askHowTheyMove();
+      const next = createControls({ title: "The next world" });
+      next.onSignal((name) => void (name.startsWith("show:") && shown.push(name)));
+      meetHands(next);
+      askHowTheyMove();
+      expect(shown).toHaveLength(1);
+    });
+  });
+
   it("come with a new version of the script, since an engine can see them", async () => {
     const engine = await import("../src/engine.js");
-    expect([engine.VERSION, typeof engine.hands]).toEqual([18, "function"]);
+    expect([engine.VERSION, typeof engine.hands]).toEqual([19, "function"]);
   });
 });

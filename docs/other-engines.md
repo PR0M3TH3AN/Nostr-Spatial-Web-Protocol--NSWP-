@@ -216,6 +216,8 @@ draws its own) sees the early console go as they open. A page with no room
 | `NSWP.claim(on)` | Take every key for the game, or give them back. |
 | `NSWP.kit()` | The numbers every world shares: walking pace, how far a tap takes a visitor, how a mouse turns the view, the size of the standard doorway; and for a headset, how long a fade takes each way (`fadeSeconds`), how far one step reaches (`stepReach`) and how far a step back goes (`backStep`). |
 | `NSWP.hands(input)` | What the visitor's hands mean in a headset this frame, as JSON, from JSON. The engine reads its controllers and hands them over: `dt` (seconds), `pads` (each as `{ index, hand, stick: [x, y], trigger, squeeze, primary, secondary, press }`, the stick with x to the right and y forward) and `stepped` (metres, where a step was just made). The kit answers by the visitor's own settings, as for every world: `turn` (degrees, positive to the left), `walk` (`[right, ahead]` in metres, as the head faces), `aiming` and `stepFrom` (which hands are choosing where to step, and which let go), `menu`, `summon`, `jump`, `narrow` (0 to 1), and `fade`, `mayStep`, `stepping`, `intense`. An engine decides none of it. The rows that change those settings are in the menu's Moving tab already. Since version 18. |
+| `NSWP.console(input)` | The console in a headset, where the page's menu can't be seen: what it is now, after doing what is asked, as JSON, from JSON. Ask with `open` (`true` to bring it up, `false` to put it away: the menu button on a controller), `press` (the `id` of a row a press landed on) and `have` (the `stamp` of the picture already held). It answers `open`, `stamp` (which goes up when the picture changed), `w` and `h` (the picture's size, in its own units), where it floats in metres as in every world (`wide`, `reach`, `drop`, `least`, `away`), and `rows`: each thing that can be pressed, `{ id, x, y, w, h, lit }`, left out while the picture is still the one held. **Pointing never changes the picture:** it is drawn plain, and the engine lights the row pointed at itself, with a box over the row's own rectangle whose look the kit gives in `lit` (`{ fill, fillAlpha, stroke, strokeAlpha, line, corners }`, the corners clockwise from the top left), or `null` where nothing lights it. The same `rows` say what a ray points at and what a press lands on. An engine that calls this draws the console, so the one-time question on how to move in a headset is asked here, in it. |
+| `NSWP.consolePixels()` | The console's picture as it now is: `w` by `h` pixels, four bytes each (red, green, blue, how solid), from the top row down, or `null` while it is put away. It is 2.6 MB: take it only when `stamp` has changed, which is at a press, a tab or a page and never for pointing. |
 | `NSWP.check(url)` | How a door's address should be read on its sign. |
 | `NSWP.offers(world)` | What a world offers, for the tiles beside its door: thirteen lines in a set order, each lit or dark with a sentence for it, and a drawing for the eight a door shows. From what the place's announcement says (`modes`, `capabilities`, `items`, `access`), and nothing else. Draw them in that order beside the door, and say the sentence when one is pointed at. |
 | `NSWP.gate(options)` | A paid world's gate: what the visitor holds, what is for sale, and `gate-buy` in the menu. Returns JSON (`state`, `open`, `reason`, `why`, `offers`, `until`); a `gate` event with the same fields comes when it changes. `{"paid":false}` makes nothing. See "A paid world's gate" |
@@ -223,9 +225,12 @@ draws its own) sees the early console go as they open. A page with no room
 The events are `moving` (they chose casual or intense), `menu` (it opened or
 closed: stop moving them, and let the pointer go), `vr` (they pressed Enter
 VR or Leave VR), `jump` (they pressed Jump, which is how it is asked for
-where there is no keyboard), `home`, `doors`, `door`, and `changed`
+where there is no keyboard), `home`, `doors`, `door`, `changed`
 (something in the console changed: an engine drawing its own reads
-`NSWP.view()` again).
+`NSWP.view()` again), and `console` (in a headset, the kit brought the
+console up itself, for its one-time question or because something pressed
+opens the controls on one of their sections: show it, as `NSWP.console`
+now says it is).
 
 **The visitor can always bring the menu up,** whatever level the engine has
 set and whatever it has done with the keys: the key left of 1 at a desk, or
@@ -523,8 +528,13 @@ moving in one, the same as in every world (steps with the fade, a step back,
 notch turns, or walking and turning smoothly). Tried on a flat page with
 made-up hands (`trials/godot-hands.mjs`).
 
-**Not in the Godot addon:** the console in a headset (a controller's menu
-button leaves the session to reach the page's), the view through a door,
+**In the Godot addon since version 19, and not yet tried in a headset:** the
+console in one. The kit draws it and says where each row is; the add-on's
+visitor shows it on a panel in front of them at a controller's menu button,
+lights the row a hand points at as the kit says to, and tells the kit of a
+press. Tried on a flat page with made-up hands (`trials/godot-console.mjs`).
+
+**Not in the Godot addon:** the view through a door,
 posting from a world, and a screen someone shares. The crossing's room is the page's picture of it:
 it can't be looked round in, as a Three.js world's can.
 

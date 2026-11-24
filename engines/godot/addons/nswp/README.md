@@ -145,19 +145,24 @@ func _ready() -> void:
   Pointing a hand at a door within reach lights it, and the trigger goes
   through.
 
-  **The way out is the menu button:** B on the right hand or Y on the left,
-  the button every world's console comes up on. It ends the session and
-  brings the page's menu up, with Home on it. Until the console is drawn in a
-  headset here, that is how a visitor reaches it without taking the headset
-  off.
+  **The console comes up on the menu button:** B on the right hand or Y on
+  the left, the button every world's comes up on. It is the kit's own
+  console, the same controls as the page's menu, on a panel that floats
+  about a metre in front of them and stays there. A hand pointed at a row
+  lights it, and that hand's trigger presses it. The button again, or its
+  Close, puts it away, and so does walking off from it. Home is in it, under
+  Travel, and so is the way out of the headset.
 
-  **The one-time question is not asked here.** In every other world, a
-  visitor's first headset session asks them once which way they would like
-  to move, casual or intense. It is asked in the console, and no console is
-  drawn in a headset here yet, so here it isn't asked: a visitor who was
-  never asked anywhere moves the casual way, and changes it in the page's
-  menu, in Moving ("In a headset: casual"), before they enter or after the
-  menu button. The question comes with the console.
+  The kit draws the console's picture and says where each row is and how it
+  is lit (`Nswp.console`, `Nswp.console_pixels`): the visitor node shows what
+  it is told and chooses nothing, so when the kit's console changes, yours
+  does. The picture is brought across only when what it shows changes (a
+  press, a tab, a page), never for pointing: the row pointed at is lit by a
+  box the node draws over it, in the colours and corners the kit gives.
+
+  **The one-time question is asked in it.** A visitor's first headset
+  session asks them once which way they would like to move, casual or
+  intense, as in every other world: the console comes up with the question.
 
   **Not tried in a real headset.** It is tried on a flat page with made-up
   hands, which shows everything but a real controller: its names for its
@@ -401,11 +406,9 @@ screen, a real purchase.
 
 - **A screen someone shares** in a room: it is watched on one of the kit's
   panels, and there are none of those here yet.
-- **The menu in a headset.** The page's menu can't be seen in a session, so
-  the menu button (B or Y) leaves the session to reach it. With it comes
-  the one-time question on how they move, casual or intense, which is not
-  asked in a headset here until then. And what is in a visitor's hand
-  (`NswpItems`) is not held or used in a headset yet.
+- **In a headset:** what is in a visitor's hand (`NswpItems`) is not held or
+  used there yet, and the console doesn't sit on a raised wrist as it can in
+  a Three.js world: it floats in front of them.
 - **The view through a door** of where it leads: a doorway here shows its
   field of light.
 - **A room of its own shape to cross in.** The crossing's room is there, at
