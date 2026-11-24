@@ -592,8 +592,8 @@ describe("a picture that takes a while to make", () => {
   it("tells the client it is making what a press asked for, once, and is then held open for longer", async () => {
     const w = world();
     w.say({ nswp: "menu", press: "camera-picture" });
-    making();
-    making();
+    // It says whether the word was said: a world then lets it go before it begins anything long.
+    expect([making(), making()]).toEqual([true, false]);
     expect(w.makings()).toEqual([{ nswp: "menu", making: "camera-picture" }]);
     // Well past what a press is held open for unsaid, and still within the longer time: counted from the press.
     await vi.advanceTimersByTimeAsync(MENU_MAKING_MS - 1);
@@ -614,7 +614,7 @@ describe("a picture that takes a while to make", () => {
 
   it("says nothing with no press waiting: none yet, one too long ago, one already answered, or no client", async () => {
     const w = world();
-    making();
+    expect(making()).toBe(false);
     w.say({ nswp: "menu", press: "camera-clip" });
     await vi.advanceTimersByTimeAsync(MENU_SAVE_MS + 1);
     making();

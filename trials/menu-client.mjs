@@ -50,7 +50,7 @@ const ABOUT = {
   bag: [9, "the kit's Bag in the client's page, over a stand-in relay and file host; a thing taken up and put away"],
   question: [23, "the one-time question on moving at a desk, asked once by the client and never by the world"],
   music: [57, "the visitor's own music in the client's page: its controls, the world stepping back, through a door"],
-  file: [28, "a file handed down, a picture handed up and saved, and a slow device's picture waited for"],
+  file: [42, "a file handed down, a picture handed up and saved, a slow device's picture waited for, and the word for it going before the drawing"],
 };
 const asked = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const unknown = asked.filter((n) => !ABOUT[n]);
@@ -999,8 +999,24 @@ VISITS.file = async () => {
       // A slow device, when the trial says so: a picture's file takes this much longer to make (`__slowMs`).
       const toBlob = HTMLCanvasElement.prototype.toBlob;
       HTMLCanvasElement.prototype.toBlob = function (done, ...rest) { const wait = window.__slowMs || 0; return wait ? void setTimeout(() => toBlob.call(this, done, ...rest), wait) : toBlob.call(this, done, ...rest); };
+      // A slow device's drawing, when the trial says so: reading the picture back takes this much longer
+      // (`__slowDrawMs`), with the page's script busy throughout, as it is while a picture is drawn. When the
+      // drawing was done is kept, by the clock both pages share.
+      for (const GL of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
+        if (!GL) continue;
+        const read = GL.prototype.readPixels;
+        GL.prototype.readPixels = function (...args) {
+          const got = read.apply(this, args);
+          if (window.__slowDrawMs) {
+            const until = Date.now() + window.__slowDrawMs;
+            while (Date.now() < until);
+            window.__drewAt = Date.now();
+          }
+          return got;
+        };
+      }
       // In the client's page: each word about something being made that reached it from the frame, and when.
-      if (window === window.top) { window.__making = []; addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.making !== undefined) window.__making.push(JSON.stringify(e.data)); }); }
+      if (window === window.top) { window.__making = []; addEventListener("message", (e) => { if (e.data && e.data.nswp === "menu" && e.data.making !== undefined) { window.__making.push(JSON.stringify(e.data)); window.__makingAt = Date.now(); } }); }
       const open = HTMLInputElement.prototype.click;
       HTMLInputElement.prototype.click = function () { if (this.type === "file") window.__choosers++; return open.call(this); };
       const save = HTMLAnchorElement.prototype.click;
@@ -1093,7 +1109,9 @@ VISITS.file = async () => {
       await press6("Take a picture");
       const pressedAt = Date.now();
       const MAKING = "The Gallery is making it. It will be saved when it is ready.";
-      check("making/the world says at once that it is making it, and the client tells the visitor", (await until6(async () => (await said6()).includes(MAKING), 5000)) && Date.now() - pressedAt < 6000, { said: await said6(), after: Date.now() - pressedAt });
+      // Told well within the ten seconds. How soon the word itself goes is timed further down, against the
+      // drawing and not against a clock: a busy machine is slow at everything, and that isn't the kit's.
+      check("making/the world says at once that it is making it, and the client tells the visitor", await until6(async () => (await said6()).includes(MAKING), 9000), { said: await said6(), after: Date.now() - pressedAt });
       await page6.screenshot({ path: join(SHOTS, "menu-client-15-making.png") });
       // Looked at again just past the ten seconds: nothing has come yet, and nothing has been said to have failed.
       await page6.waitForTimeout(Math.max(0, 10500 - (Date.now() - pressedAt)));
@@ -1106,6 +1124,24 @@ VISITS.file = async () => {
       check("making/said once for the press, by the world", JSON.stringify((await page6.evaluate(() => window.__making)).map((w) => Object.entries(JSON.parse(w)).sort())) === '[[["making","camera-picture"],["nswp","menu"]]]', await page6.evaluate(() => window.__making));
       check("making/the world's own page saved nothing", (await world6().evaluate(() => window.__saves)).length === 0);
       await world6().evaluate(() => { window.__slowMs = 0; });
+
+      // ---- The word goes before the drawing, not after it. Drawing a picture is one long piece of the world's
+      // script, and a page's word to the page above leaves only when the script that said it has finished. So a
+      // world that said "making" and went straight on to draw would be heard only once the drawing was done: on a
+      // slow device, nothing for seconds after the press. Here the drawing is made to take three seconds, and the
+      // word is timed against the drawing's end by the clock the two pages share.
+      await until6(async () => saved6.length === 2 && (await said6()).length > 0, 5000);
+      await page6.waitForTimeout(4500);
+      await world6().evaluate(() => { window.__slowDrawMs = 3000; window.__drewAt = 0; });
+      await page6.evaluate(() => { window.__said.length = 0; window.__making.length = 0; window.__makingAt = 0; });
+      await press6("Take a picture");
+      const pressed2 = Date.now();
+      await until6(() => saved6.length === 3, 30000);
+      const order = { making: (await page6.evaluate(() => window.__makingAt)) - pressed2, drawn: (await world6().evaluate(() => window.__drewAt)) - pressed2 };
+      results["making/after the press, in ms: when the word reached the client, and when the drawing was done"] = order;
+      check("making/the word reaches the client before the picture is drawn, not after", order.making > -1000 && order.drawn > 2500 && order.making < order.drawn - 2000, order);
+      check("making/and the visitor is told while it is still being drawn, a moment after the press", (await said6()).includes(MAKING), await said6());
+      await world6().evaluate(() => { window.__slowDrawMs = 0; });
       results["file/refused, as everything but these sites is"] = [...refused6];
     } catch (e) {
       check("file/the visit ran to its end", false, String(e).slice(0, 300));

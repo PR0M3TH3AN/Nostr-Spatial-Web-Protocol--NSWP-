@@ -698,7 +698,11 @@ and the result is handed across. Each stays one press.
     once: said again it changes nothing, so no world holds a press open
     by repeating it. A world says it only when it has begun the making,
     not for a press that starts something to be saved later ("Record a
-    clip");
+    clip"). And it lets the word go before it begins anything long: a
+    page's word to the page above leaves only when the script that said
+    it has finished, and drawing a picture is one long piece of script.
+    Said and then drawn straight away, the word arrives after the
+    drawing;
   - up to 12 for one press. More wait for the next;
   - 64 megabytes at most, and of one of five types: `image/jpeg`,
     `image/png`, `image/webp`, `video/webm`, `video/mp4`. What follows a

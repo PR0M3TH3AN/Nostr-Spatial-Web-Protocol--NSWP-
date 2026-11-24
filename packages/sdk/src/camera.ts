@@ -14,7 +14,7 @@ import * as THREE from "three";
 import type { Look } from "@nswp/core";
 import { createFigure } from "./figure.js";
 import type { Controls } from "./ui/model.js";
-import { making, savesWait } from "./client-frame.js";
+import { making, savesWait, sent } from "./client-frame.js";
 import { saveFile } from "./save-file.js";
 
 export { saveFile };
@@ -258,8 +258,11 @@ export function addCameraControls(controls: Controls, d: CameraOptions): Camera 
   };
   const shoot = async (kind: "picture" | "selfie") => {
     // Where the press was on a client's menu above, the client is told at once that the picture is being made: a
-    // slow device may take longer over it than a press is otherwise held open for.
-    making();
+    // slow device may take longer over it than a press is otherwise held open for. And the word is let go before
+    // the drawing begins. The drawing is one long piece of script, and a word to the page above leaves only when
+    // the script that said it has finished: said and then drawn straight away, it would arrive after the drawing,
+    // and a slow device's visitor would be told nothing until then.
+    if (making()) await sent();
     try {
       const hide = d.hide?.() ?? [];
       const blob = kind === "selfie" ? await takeSelfie(d.renderer, d.scene, d.camera, d.look?.() ?? plain, { hide }) : await takePicture(d.renderer, d.scene, d.camera, { hide });

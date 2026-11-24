@@ -278,8 +278,8 @@ meetClient();
  * handed up, as the answer to the visitor's press on a row that saves, and the client's page saves it. Set by the
  * world's end of the menu's words (`menu-above.ts`); nothing, where no client has the menu.
  */
-let saver: { handUp(file: Blob): boolean; waits(): boolean; making?(): void } | null = null;
-export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean; making?(): void } | null): void {
+let saver: { handUp(file: Blob): boolean; waits(): boolean; making?(): boolean } | null = null;
+export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean; making?(): boolean } | null): void {
   saver = next;
 }
 /**
@@ -287,8 +287,15 @@ export function setSaver(next: { handUp(file: Blob): boolean; waits(): boolean; 
  * full size, on a slow device. Said once to the client, as the answer to that press, so that the press is held open
  * for longer (`MENU_MAKING_MS`) and the visitor is told. Call it as the making starts, before anything is waited
  * for. Nothing, where no press on the client's menu is waiting for something to save.
+ *
+ * True where the word was said. **It has then only been said, not sent:** a page's word to the page above leaves
+ * once the script that said it has finished. A world that goes straight on to something long (drawing a picture is
+ * one long piece of script) is heard only when that is done. So where this is true, let the script end first
+ * (`await sent()`), and then begin.
  */
-export const making = (): void => saver?.making?.();
+export const making = (): boolean => saver?.making?.() ?? false;
+/** A turn of the page's own, after which a word just said to the page above has gone. */
+export const sent = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 /** Hand something to save up to the client. False where it isn't the client's to save just now: this page saves it. */
 export const handUp = (file: Blob): boolean => saver?.handUp(file) ?? false;
 /**
