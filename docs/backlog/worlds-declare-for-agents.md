@@ -136,6 +136,12 @@ that decides which choices are offered, a decision asked for when something
 changes and not on a clock, and aiming done by the body with a person's
 limits so it is not an aimbot.
 
+## What has been learned, kept in one place
+
+`docs/plans/agents-lessons.md`: each lesson from the playground, said as
+what would have to change in a world, an item, the kit or the protocol.
+Asked for by the owner on 2026-11-24 and kept current by the orchestrator.
+
 ## Must not
 
 - Take a kind, a tag, a capability word or a door icon before the owner
