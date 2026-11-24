@@ -257,14 +257,16 @@ kbd { font: inherit; font-size: .82em; min-width: 1.6em; padding: 1px 5px; text-
 .sheet[hidden] { display: none; }
 /* One size on every tab: what a short tab leaves is here, above the foot. A tab that isn't up is measured in a box nobody sees. */
 .sheet > .room { flex: 1 1 0; min-height: 0; }
-.sheet > .measure { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
-.sheet > .measure > .rows { overflow: visible; }
+/* It stands beside the sheet and not in it, as wide as the sheet is, so that tabs can be measured while the sheet is down. */
+.measure { position: absolute; left: 0; top: 0; width: min(480px, calc(100vw - 20px)); border: 1px solid transparent; visibility: hidden; pointer-events: none; }
+.measure > .rows { overflow: visible; }
 /* Everything outside the sheet while it is up: a press there closes the menu, and is nothing else. */
 .outside { position: absolute; inset: 0; pointer-events: auto; background: none; }
 .outside[hidden] { display: none; }
 /* Where there is room, at a desk, the menu is larger: more of a list at once, and rows side by side. */
 @media (min-width: 900px) and (min-height: 560px) {
   .sheet { width: min(780px, calc(100vw - 40px)); max-height: min(74vh, 780px); }
+  .measure { width: min(780px, calc(100vw - 40px)); }
   .rows { grid-template-columns: 1fr 1fr; align-content: start; }
   .rows > .person, .rows > .swatches, .rows > .tiles, .rows > .row.primary { grid-column: 1 / -1; }
   .rows > .person.thing { grid-template-columns: 200px 1fr; grid-template-areas: "face about" "face acts"; grid-template-rows: auto 1fr; }
@@ -644,7 +646,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const room = el("div", { class: "room", "aria-hidden": "true" });
   // Where a tab that isn't up is laid out to be measured, at the sheet's own width: never seen, never pressed.
   const measure = el("div", { class: "measure", "aria-hidden": "true", inert: "" });
-  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, room, foot, measure);
+  const sheet = el("section", { class: "sheet glass", role: "dialog", "aria-label": "Menu", hidden: "" }, tabbar, rows, note, said, room, foot);
   // What the room writes. The lines are plain text in a list; the place to write is a real field, so a phone's
   // keyboard, a screen reader and a password manager all know what it is (and that it is not a password).
   const chatTitle = el("b");
@@ -670,7 +672,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   // Everything outside the sheet, while the sheet is up. It lies over the page and under the rest of the menu, so
   // the bar, the marks and the sheet are pressed as before, and a press anywhere else lands here.
   const outside = el("div", { class: "outside", "aria-hidden": "true", hidden: "" });
-  root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, el("div", { class: "low" }, loadingLine, target, bar));
+  root.append(style, outside, el("i", { class: "corner a", "aria-hidden": "true" }), el("i", { class: "corner b", "aria-hidden": "true" }), id, menu, quiet, asWho, full, says, chat, sheet, measure, el("div", { class: "low" }, loadingLine, target, bar));
   (opts.parent ?? document.body).append(host);
 
   let open = false;
@@ -1202,30 +1204,94 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
   const measured = new Map<string, number>();
   let heldFor = "";
   let heldTall = 0;
-  const sizeSheet = (view: UiView, layOut: (s: UiView["sections"][number]) => (HTMLElement | string)[]) => {
+  type Section = UiView["sections"][number];
+  type LayOut = (s: Section) => (HTMLElement | string)[];
+  // Each as it is laid out, whatever it is marked: a list with nothing in it still has its own edges, and takes
+  // their room (the first writing of this counted it as nothing, and the sheet grew by them on such a tab).
+  const tallOf = (r: HTMLElement, n: HTMLElement, w: HTMLElement) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+  // Each tab by what it holds: laid out again only when that, the width or the size of text has changed.
+  const placeOf = (wide: number) => `${wide}|${host.style.getPropertyValue("--s")}|`;
+  const keyOf = (at: string, s: Section) =>
+    `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+  /** One tab that isn't up, laid out in the box nobody sees and measured. */
+  const measureTab = (s: Section, layOut: LayOut): number => {
+    const r = el("div", { class: "rows" }, ...layOut(s));
+    r.hidden = !s.items.length && !s.card;
+    const n = el("p", { class: "note" }, s.note ?? "");
+    const w = el("p", { class: "note said" }, ...(s.said ? [el("b", {}, s.said.from), s.said.note] : []));
+    w.hidden = !s.said;
+    measure.replaceChildren(r, n, w);
+    return tallOf(r, n, w);
+  };
+  /**
+   * Measured ahead, not at the press. Laying out every tab that isn't up is the whole cost of one size, and it fell
+   * on the moment the menu first comes up: about 5 ms on a desk's processor, about 55 ms on one six times slower
+   * (timed 2026-11-24). So while the menu is down, the tabs are measured in the page's idle moments, a tab at a
+   * time, at the width the sheet will have. By the time a visitor first brings the menu up their sizes are already
+   * kept, and coming up costs what it did before the sheet was one size. A tab not yet measured when the menu
+   * comes up is measured then, as before; so is one that changed in the moment between.
+   */
+  let lastView: UiView | null = null;
+  let lastLayOut: LayOut | null = null;
+  let aheadWaiting = false;
+  const idle = (fn: (left: () => number) => void) => {
+    const ask = (globalThis as { requestIdleCallback?: (cb: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (typeof ask === "function") ask((d) => fn(() => d.timeRemaining()), { timeout: 2000 });
+    else setTimeout(() => fn(() => 4), 250);
+  };
+  const measureAhead = () => {
+    if (aheadWaiting) return;
+    aheadWaiting = true;
+    idle((left) => {
+      aheadWaiting = false;
+      // Only while the menu is down and this page is seen: with it up, the sizing at each drawing does the same.
+      if (!lastView || !lastLayOut || !sheet.hidden || host.hidden) return;
+      measure.style.width = "";
+      const at = placeOf(Math.round(measure.getBoundingClientRect().width));
+      let more = false;
+      let done = 0;
+      for (const s of lastView.sections) {
+        const key = keyOf(at, s);
+        if (measured.has(key)) continue;
+        // One at the least, and then as many as the moment has room for.
+        if (done > 0 && left() < 3) {
+          more = true;
+          break;
+        }
+        measured.set(key, measureTab(s, lastLayOut));
+        done++;
+      }
+      measure.replaceChildren();
+      if (more) measureAhead();
+    });
+  };
+  const sizeSheet = (view: UiView, layOut: LayOut) => {
+    lastView = view;
+    lastLayOut = layOut;
     sheet.style.height = "";
     says.classList.remove("one");
     if (sheet.hidden) {
       heldFor = "";
       heldTall = 0;
+      // Down: what the tabs hold may have changed, and is measured again in an idle moment.
+      measureAhead();
       return;
     }
     // As tall as this tab makes it with nothing holding it down, and one line said.
     const inSheet = says.parentElement === sheet;
     if (inSheet) says.classList.add("one");
     sheet.style.maxHeight = "none";
-    const wide = Math.round(sheet.getBoundingClientRect().width);
-    // Each as it is laid out, whatever it is marked: a list with nothing in it still has its own edges, and takes
-    // their room (the first writing of this counted it as nothing, and the sheet grew by them on such a tab).
-    const tallOf = (r: HTMLElement, n: HTMLElement, w: HTMLElement) => r.scrollHeight + (r.offsetHeight - r.clientHeight) + n.getBoundingClientRect().height + w.getBoundingClientRect().height;
+    const across = sheet.getBoundingClientRect().width;
+    const wide = Math.round(across);
+    // The measuring box is as wide as the sheet by its own rule; while the sheet is up it is made exactly so.
+    measure.style.width = `${across}px`;
     const here = tallOf(rows, note, said);
     const around = sheet.getBoundingClientRect().height - here;
-    // Each tab by what it holds: laid out again only when that, the width or the size of text has changed.
-    const at = `${wide}|${host.style.getPropertyValue("--s")}|`;
+    const at = placeOf(wide);
     let most = here;
     const still = new Set<string>();
     for (const s of view.sections) {
-      const key = `${at}${s.id}|${JSON.stringify([s.note ?? "", s.said ?? null, s.card ? [s.card.title, s.card.sub, s.card.text, s.card.now, !!s.card.draw, s.card.acts ?? []] : null, s.items.map((i) => [i.id, i.kind, i.label, i.short, i.on, i.from ?? "", i.tone])])}`;
+      const key = keyOf(at, s);
       still.add(key);
       if (s.id === section) {
         measured.set(key, here);
@@ -1233,13 +1299,7 @@ export function mountMenu(port: WorldPort, opts: MenuMountOptions = {}): Hud {
       }
       let tall = measured.get(key);
       if (tall === undefined) {
-        const r = el("div", { class: "rows" }, ...layOut(s));
-        r.hidden = !s.items.length && !s.card;
-        const n = el("p", { class: "note" }, s.note ?? "");
-        const w = el("p", { class: "note said" }, ...(s.said ? [el("b", {}, s.said.from), s.said.note] : []));
-        w.hidden = !s.said;
-        measure.replaceChildren(r, n, w);
-        tall = tallOf(r, n, w);
+        tall = measureTab(s, layOut);
         measured.set(key, tall);
       }
       most = Math.max(most, tall);
