@@ -6,11 +6,16 @@
   BitLogin's panel over BitPortal's room, signed in, the wallet's screen
   saying "Your wallet couldn't be opened. Nothing was changed."
 - **Who:** the Bitlogin session. Briefed the same hour.
-- **State:** diagnosed and mended on BitLogin's beta as 0ad2eab
-  (2026-11-24), not pushed and not released: that is the owner's word for
-  that commit. Not a regression from the morning's release (the same on
-  the release before it). The cause found is a strong lead and not proven
-  for his wallet: his own browser's console would settle it.
+- **State:** mended and **live**: BitLogin's beta 16c0da2 was released on
+  the owner's word ("Yes, release it") as main 6258a73 on 2026-11-24, and
+  the orchestrator found its wallet screen's file in what the site
+  serves. The owner, an hour later: "I was able to load in the 20 sats
+  again. =)". A follow-up, beta ad4b4aa (the wallet reads the account's
+  relay list again each time it opens), is with BitLogin's session to
+  release on his "yes do as you recommend". Not a regression from the
+  morning's release. Still not known: whether the cause found is what
+  happened to his wallet, and which line his wallet now shows (kept only
+  in this browser, or kept with his account).
 
 ## What was found (the Bitlogin session; the commit read by the orchestrator)
 

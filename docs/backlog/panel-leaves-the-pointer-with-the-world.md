@@ -11,9 +11,16 @@
   deployed 2026-11-24 on the owner's word ("Yes deploy"). Run against the
   live portal and the live Grove after the deploy, BitPortal's trial says
   the world no longer holds the pointer under the panel and nobody moves;
-  its one check of a press landing inside the panel could not see into
-  the live panel at all (it fails the same with mouse-look off), so that
-  check is not judged on the live site. BitPortal's own trial in the real shell with BitLogin's real
+  and with the trial made to wait until the panel is still, BitPortal's
+  own run against the live sites is 42 of 42 (the orchestrator's, 41 of 41
+  with one not judged). The orchestrator's first reading, that the trial
+  could not hear inside the live panel, was wrong: it pressed too soon.
+  Found beside it, BitPortal's and not tried by a person: a press in the
+  panel within a second or so of it appearing or growing is handed to the
+  page above as a press on the panel's frame, and is lost. The panel grows
+  just after it appears (305 to 566 px for signing in), which lengthens
+  that moment. Whether the frame can come up at its final size is asked
+  of BitPortal. BitPortal's own trial in the real shell with BitLogin's real
   panel (its PRs 218 and 219) failed 20 of 42 on kit 0.87.0 and passes 42
   of 42, twice, against the mended kit on the orchestrator's own server.
   Not tried by anyone: full screen, which no scripted browser enters. For
