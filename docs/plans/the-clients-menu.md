@@ -807,7 +807,12 @@ words. Step 3 brings the mark back, from a pass the client checks itself.
 
 **The view clear of the menu, a piece of step 3** (asked: the orchestrator,
 2026-11-24, from BitPortal's step 2; `docs/backlog/view-clear-of-the-menu.md`).
-**No code yet.** Where its client draws the menu, a world doesn't know what of its
+**Built in the kit, 2026-11-24, as proposed below,** with one thing the
+proposal left open settled in the building: **a client says nothing itself.**
+The kit's end of the port in the client's page (`portBelow`) works the word
+out from the menu it was handed (`below.attach(menu)`), where that menu's
+sheet is, and where the frame is in the page, and says it. Not built: the
+hand-over to a world made with another engine. Where its client draws the menu, a world doesn't know what of its
 view the menu covers.
 
 - *What a world has today, drawing its own.* Two calls on its menu

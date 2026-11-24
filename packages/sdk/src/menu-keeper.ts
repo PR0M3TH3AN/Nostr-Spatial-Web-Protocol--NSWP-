@@ -29,6 +29,15 @@ export interface KeptMenu {
   setOpen(open: boolean, at?: string): void;
   /** Hide whatever this page draws (in a headset session, where the page can't be seen), or show it again. */
   setHidden(hidden: boolean): void;
+  /**
+   * How much of this page's view the menu covers at each edge, for what is always there (the bar, the marks),
+   * whoever draws it: the world's own menu, or the client's as it last said (`covers`). In pixels of this page.
+   * For keeping a view clear of it. Left out of it is what comes and goes (the sheet: `bounds`), so that a view
+   * moved clear of the menu stays still. Nothing while hidden, as in a headset session.
+   */
+  cover(): { top: number; bottom: number; left: number; right: number };
+  /** The box of each part of the menu that shows over this page, the sheet among them while it is up, whoever draws it. */
+  bounds(): { x: number; y: number; width: number; height: number }[];
   /** The world's own menu, where that is what is drawn. Null where the client has the menu, or none is up yet. */
   readonly own: Hud | null;
   /** Whether this page is drawing the chat's pane by itself, its client having the rest of the menu. */
@@ -116,6 +125,15 @@ export function keepMenu(controls: Controls, above: MenuAbove, mount: (only?: "c
       hidden = next;
       own?.setHidden(next);
       chatPane?.setHidden(next);
+    },
+    cover() {
+      if (hidden) return { top: 0, bottom: 0, left: 0, right: 0 };
+      return own ? own.cover() : above.menu.cover();
+    },
+    bounds() {
+      if (hidden) return [];
+      // The chat's pane is this page's own, over a menu the client draws: its box is with the client's.
+      return own ? own.bounds() : [...above.menu.bounds(), ...(chatPane ? chatPane.bounds() : [])];
     },
     get own() {
       return own;

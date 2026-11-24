@@ -17,7 +17,8 @@
     "file": 67108864,
     "fileName": 255,
     "save": 67108864,
-    "saves": 12
+    "saves": 12,
+    "covers": 8192
   },
   "waits": {
     "MENU_WAIT_MS": 300,
@@ -2085,6 +2086,303 @@
       "expect": null
     },
     {
+      "name": "covers_a_bar_and_the_marks",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0
+        }
+      }
+    },
+    {
+      "name": "covers_nothing",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      }
+    },
+    {
+      "name": "covers_a_bar_at_a_side",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 72,
+          "right": 0
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 72,
+          "right": 0
+        }
+      }
+    },
+    {
+      "name": "covers_with_the_sheet_up",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0,
+          "sheet": {
+            "x": 160,
+            "y": 120,
+            "width": 780,
+            "height": 440
+          }
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0,
+          "sheet": {
+            "x": 160,
+            "y": 120,
+            "width": 780,
+            "height": 440
+          }
+        }
+      }
+    },
+    {
+      "name": "covers_with_a_sheet_of_no_size",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0,
+          "sheet": {
+            "x": 160,
+            "y": 120,
+            "width": 0,
+            "height": 440
+          }
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0
+        }
+      }
+    },
+    {
+      "name": "covers_carries_nothing_else",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0,
+          "scale": 2,
+          "sheet": {
+            "x": 0,
+            "y": 0,
+            "width": 10,
+            "height": 10,
+            "tab": "bag"
+          }
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 48,
+          "bottom": 64,
+          "left": 0,
+          "right": 0,
+          "sheet": {
+            "x": 0,
+            "y": 0,
+            "width": 10,
+            "height": 10
+          }
+        }
+      }
+    },
+    {
+      "name": "covers_at_the_limit",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 8192,
+          "bottom": 0,
+          "left": 0,
+          "right": 8192
+        }
+      },
+      "expect": {
+        "what": "covers",
+        "covers": {
+          "top": 8192,
+          "bottom": 0,
+          "left": 0,
+          "right": 8192
+        }
+      }
+    },
+    {
+      "name": "covers_over_the_limit",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 8193,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_less_than_nothing",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": -1,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_part_of_a_pixel",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48.5,
+          "bottom": 64,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_with_an_edge_left_out",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 48,
+          "bottom": 64
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_said_in_words",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": "48px",
+          "bottom": 64,
+          "left": 0,
+          "right": 0
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_with_a_sheet_over_the_limit",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "sheet": {
+            "x": 0,
+            "y": 0,
+            "width": 8193,
+            "height": 10
+          }
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_with_a_sheet_that_is_no_box",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "sheet": true
+        }
+      },
+      "expect": null
+    },
+    {
+      "name": "covers_said_wrongly",
+      "word": {
+        "nswp": "menu",
+        "covers": 64
+      },
+      "expect": null
+    },
+    {
+      "name": "a_word_with_covers_in_it_is_a_clients",
+      "word": {
+        "nswp": "menu",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        },
+        "say": "Hello"
+      },
+      "expect": null
+    },
+    {
       "name": "another_topic",
       "word": {
         "nswp": "screen",
@@ -2353,6 +2651,20 @@
       "word": {
         "nswp": "menu",
         "making": "a row"
+      },
+      "expect": null
+    },
+    {
+      "name": "a_key_with_covers_in_it_is_a_clients",
+      "word": {
+        "nswp": "menu",
+        "key": "summon",
+        "covers": {
+          "top": 0,
+          "bottom": 0,
+          "left": 0,
+          "right": 0
+        }
       },
       "expect": null
     },

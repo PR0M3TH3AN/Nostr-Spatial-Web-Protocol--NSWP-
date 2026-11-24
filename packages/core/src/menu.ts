@@ -53,6 +53,8 @@ export const MENU_LIMITS = {
   save: 64 * 1024 * 1024,
   /** How many a world may hand up in answer to one press. */
   saves: 12,
+  /** Pixels, for any number in what a client says its menu covers of a world's view. */
+  covers: 8192,
 } as const;
 
 /** How long a framed world waits for a client to say it has the menu, before drawing its own. */
@@ -507,6 +509,37 @@ export function reportedSettings(input: unknown): TravelSettings {
   return out as TravelSettings;
 }
 
+/**
+ * What of a world's view its client's menu covers (`covers`). In whole CSS pixels of the world's own view, which is
+ * the world's page as its own script measures it. Each edge is how far the menu reaches in from that edge, for what
+ * is always there (a bar, the marks); all four are always said, 0 where nothing is covered. `sheet` is the box of
+ * the sheet while it is up, from the view's top left: said as a box and never as an edge, so that a view moved clear
+ * of the edges stays still as the sheet comes and goes.
+ */
+export interface MenuCovers {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  sheet?: { x: number; y: number; width: number; height: number };
+}
+
+const pixels = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= MENU_LIMITS.covers;
+/**
+ * What a client said its menu covers, or null if it is not that: carried whole or not at all. Every edge a whole
+ * number of pixels within the limit, and all four there; a sheet, if one is said, a box of such numbers. A sheet
+ * with no width or no height is no sheet. Whether a side is more than the view has, only the world knows: it reads
+ * that as the whole side.
+ */
+function cleanCovers(input: unknown): MenuCovers | null {
+  if (!isObject(input)) return null;
+  const { top, bottom, left, right, sheet } = input;
+  if (!pixels(top) || !pixels(bottom) || !pixels(left) || !pixels(right)) return null;
+  if (sheet === undefined) return { top, bottom, left, right };
+  if (!isObject(sheet) || !pixels(sheet.x) || !pixels(sheet.y) || !pixels(sheet.width) || !pixels(sheet.height)) return null;
+  return { top, bottom, left, right, ...(sheet.width > 0 && sheet.height > 0 ? { sheet: { x: sheet.x, y: sheet.y, width: sheet.width, height: sheet.height } } : {}) };
+}
+
 /** What a client may say to a world. */
 export type MenuWordDown =
   | { what: "has"; has: true; v: number; settings: MenuSettings }
@@ -517,7 +550,8 @@ export type MenuWordDown =
   | { what: "open"; open: boolean }
   | { what: "go"; go: "home" }
   | { what: "sign"; sign: "out" }
-  | { what: "playing"; playing: boolean };
+  | { what: "playing"; playing: boolean }
+  | { what: "covers"; covers: MenuCovers };
 
 /** What a world may say to a client. */
 export type MenuWordUp =
@@ -531,13 +565,13 @@ export type MenuWordUp =
 
 const isMenu = (data: unknown): data is Record<string, unknown> => isObject(data) && data.nswp === "menu";
 /** Only `settings` is said both ways. A word with anything of the other side's in it is not this side's to read. */
-const DOWN_ONLY = ["has", "v", "press", "field", "file", "open", "go", "sign", "playing"] as const;
+const DOWN_ONLY = ["has", "v", "press", "field", "file", "open", "go", "sign", "playing", "covers"] as const;
 const UP_ONLY = ["world", "key", "say", "picture", "save", "id", "making"] as const;
 const hasAny = (data: Record<string, unknown>, names: readonly string[]): boolean => names.some((n) => data[n] !== undefined);
 
 /**
  * A word from the page above, as a world reads it, or null if it is none of these words. One word says one thing:
- * the first of `has`, `settings`, `press`, `open`, `go`, `sign`, `playing` that is there. A word with anything in it that only a world
+ * the first of `has`, `settings`, `press`, `open`, `go`, `sign`, `playing`, `covers` that is there. A word with anything in it that only a world
  * says is not read at all. Never throws.
  *
  * A `press` is given whatever its id: only the world knows what it last described, and it checks. A press may
@@ -577,6 +611,11 @@ export function readMenuWordDown(data: unknown): MenuWordDown | null {
   // The visitor's own music is playing in the client's page, or has stopped: so that a world can be quiet under
   // it. One bit, and nothing else of it: not what is playing, how loud, or where in it. It only goes down.
   if (typeof data.playing === "boolean") return { what: "playing", playing: data.playing };
+  // What of this world's view the client's menu covers: so that a world can keep what matters clear of it.
+  if (data.covers !== undefined) {
+    const covers = cleanCovers(data.covers);
+    return covers ? { what: "covers", covers } : null;
+  }
   return null;
 }
 

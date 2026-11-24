@@ -15,12 +15,13 @@
  *
  * Nothing of the visitor's own tabs is ever said down: only their settings, and their presses on the world's rows.
  */
-import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, menuFileKind, menuFileName, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuSaveType, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
+import { cleanMenuSettings, LEAVE_MS, MENU_CARD_PICTURE, menuFileKind, menuFileName, MENU_LIMITS, MENU_MAKING_MS, MENU_SAVE_MS, menuVersionOf, readMenuWordUp, type MenuCard, type MenuRow, type MenuCovers, type MenuSaveType, type MenuSettings, type MenuWorld, type TravelSettings } from "@nswp/core";
 import { download } from "../save-file.js";
 import { changeSettings, currentSettings } from "../settings.js";
 import { ICONS, type IconName } from "./icons.js";
 import { STANDARD_TABS, standardTab, type Controls, type UiAction, type UiCard, type UiItemView, type UiSectionView, type UiView } from "./model.js";
 import type { WorldPort } from "./port.js";
+import { sheetOf } from "./sheet-box.js";
 
 /** Before the id of everything that is the world's, in what the menu draws: so a world's id can never be one of the client's own. */
 export const WORLDS = "world:";
@@ -190,6 +191,8 @@ export interface MenuBelowOptions {
   hear?: { addEventListener(type: "message", fn: (e: MessageEvent) => void): void; removeEventListener(type: "message", fn: (e: MessageEvent) => void): void };
   /** For tests: this page's own origin. */
   origin?: string;
+  /** For tests: the size of this page's window, in pixels. By default the window's own. */
+  view?: () => { w: number; h: number };
   /** For tests: the time, in milliseconds. */
   now?: () => number;
 }
@@ -226,8 +229,12 @@ export interface MenuBelow {
   readonly world: MenuWorld | null;
   /** Be told when any of those change. Returns how to stop. */
   onChange(fn: () => void): () => void;
-  /** The menu that was mounted, so that the keys a world forwards act on it. */
-  attach(menu: { pressKey(key: string): void } | null): void;
+  /**
+   * The menu that was mounted, so that the keys a world forwards act on it, and so that the world is told what of
+   * its view the menu covers (`covers`): worked out here from the menu's own `cover()`, where its sheet is, and
+   * where the frame is in this page. Nothing for a client to say. A menu with no `cover()` says nothing of it.
+   */
+  attach(menu: { pressKey(key: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null): void;
   /** The visitor's own Home was pressed: the world is told, and they are taken home within `LEAVE_MS` whatever it does. */
   leave(): void;
   /**
@@ -299,7 +306,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   };
   /** The pictures a world sent, each alone, by the id of the row it is for, or `card:<tab>` for a tab's card. */
   const pictures = new Map<string, unknown>();
-  let menu: { pressKey(key: string): void } | null = null;
+  let menu: { pressKey(key: string): void; cover?(): { top: number; bottom: number; left?: number; right?: number } } | null = null;
   let open = false;
   let saidSettings = "";
   let leaving: ReturnType<typeof setTimeout> | null = null;
@@ -307,7 +314,69 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
   const changed = () => {
     for (const fn of [...viewers]) fn();
     for (const fn of [...watchers]) fn();
+    // What a world says of itself is drawn in this page's menu (its name and address, in the marks), and can change
+    // how much of the frame the menu covers. Found by the trial: the marks grew by a line as the name arrived.
+    coversMayHaveChanged();
   };
+  // What this page's menu covers of the world's view, said to the world so that it can keep what matters clear of
+  // it (`covers`). The world's view is the frame. Each edge is how far the menu reaches into the frame from that
+  // edge, for what is always there (the marks, the bar); the sheet, while it is up, is said as its box in the frame.
+  // In pixels of the world's own page: a frame this page has scaled is measured as the world measures itself.
+  // Said with the answer that this page has the menu, and after that only when a number changes, no oftener than
+  // eight times a second. A sheet on its way up or down is not said until it has come to rest.
+  const COVERS_MS = 125;
+  const clock = opts.now ?? (() => performance.now());
+  let saidCovers = "";
+  let coversAt = -Infinity;
+  let coversTimer: ReturnType<typeof setTimeout> | null = null;
+  const coversNow = (): MenuCovers | "moving" | null => {
+    if (!menu?.cover || typeof frame.getBoundingClientRect !== "function") return null;
+    const f = frame.getBoundingClientRect();
+    if (!(f.width > 0 && f.height > 0)) return null;
+    const win = opts.view?.() ?? { w: innerWidth, h: innerHeight };
+    const scale = frame.offsetWidth > 0 ? f.width / frame.offsetWidth : 1;
+    const px = (n: number, most: number) => Math.min(MENU_LIMITS.covers, Math.round(Math.max(0, Math.min(n, most)) / scale));
+    const c = menu.cover();
+    const covers: MenuCovers = {
+      top: px(c.top - f.top, f.height),
+      bottom: px(f.bottom - (win.h - c.bottom), f.height),
+      left: px((c.left ?? 0) - f.left, f.width),
+      right: px(f.right - (win.w - (c.right ?? 0)), f.width),
+    };
+    const sheet = sheetOf(menu);
+    if (sheet.moving) return "moving";
+    if (sheet.box) {
+      // As much of the sheet as is over the frame.
+      const x0 = Math.max(sheet.box.x, f.left);
+      const y0 = Math.max(sheet.box.y, f.top);
+      const x1 = Math.min(sheet.box.x + sheet.box.width, f.right);
+      const y1 = Math.min(sheet.box.y + sheet.box.height, f.bottom);
+      if (x1 > x0 && y1 > y0) covers.sheet = { x: px(x0 - f.left, f.width), y: px(y0 - f.top, f.height), width: px(x1 - x0, f.width), height: px(y1 - y0, f.height) };
+    }
+    return covers;
+  };
+  const sayCovers = () => {
+    coversTimer = null;
+    if (!speaks) return;
+    const covers = coversNow();
+    if (covers === "moving") return void (coversTimer = setTimeout(sayCovers, COVERS_MS));
+    if (!covers) return;
+    const text = JSON.stringify(covers);
+    if (text === saidCovers) return;
+    saidCovers = text;
+    coversAt = clock();
+    say({ covers });
+  };
+  /** Something that may have changed what the menu covers: looked at once the page has drawn it, and not too often. */
+  const coversMayHaveChanged = () => {
+    if (coversTimer || !speaks) return;
+    coversTimer = setTimeout(sayCovers, Math.max(50, coversAt + COVERS_MS - clock()));
+  };
+  const onResize = () => coversMayHaveChanged();
+  if (typeof addEventListener === "function") addEventListener("resize", onResize);
+  const watchFrame = typeof ResizeObserver === "function" && typeof frame.getBoundingClientRect === "function" ? new ResizeObserver(onResize) : null;
+  watchFrame?.observe(frame);
+
   /** Only to the page that said `here`: never to whatever is in the frame now. */
   const say = (word: Record<string, unknown>) => {
     if (!speaks || !origin) return;
@@ -326,6 +395,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     saidPlaying = false;
     pictures.clear();
     saidSettings = "";
+    saidCovers = "";
     if (had) changed();
   };
   // A page says `here` as its script starts, which is usually before the frame's own load is told, and sometimes
@@ -364,6 +434,10 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
         const settings = settingsNow();
         saidSettings = JSON.stringify(settings);
         say({ has: true, v: menuVersionOf(data), settings });
+        // What the menu covers of this world's view, with the answer: a new page has been told nothing of it.
+        saidCovers = "";
+        if (coversTimer) clearTimeout(coversTimer);
+        sayCovers();
         if (open) say({ open: true });
         // Their own music, if it is playing as this world comes up: said once, after the rest.
         sayPlaying();
@@ -451,6 +525,8 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       }
     }
     for (const fn of [...viewers]) fn();
+    // A setting can change the size of the bar and the marks (the size of text), or take them away (quiet).
+    coversMayHaveChanged();
   });
 
   const rowOf = (id: string): MenuRow | null => {
@@ -516,6 +592,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       if (name !== "menuOpen" && name !== "menuClose") return;
       open = name === "menuOpen";
       say({ open });
+      coversMayHaveChanged();
       // While the menu is up this page has the keys, so nothing typed in it reaches the world. As it goes, they go
       // back to the frame: a page above a frame hears no key the frame doesn't forward, and the frame none while this
       // page has them.
@@ -557,6 +634,7 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
     },
     attach(next) {
       menu = next;
+      coversMayHaveChanged();
     },
     leave() {
       if (leaving) return;
@@ -595,6 +673,9 @@ export function portBelow(frame: HTMLIFrameElement, opts: MenuBelowOptions): Men
       frame.removeEventListener("load", onLoad);
       hear.removeEventListener("message", onMessage);
       stopControls();
+      if (coversTimer) clearTimeout(coversTimer);
+      if (typeof removeEventListener === "function") removeEventListener("resize", onResize);
+      watchFrame?.disconnect();
       watchers.clear();
       viewers.clear();
       sayers.clear();
